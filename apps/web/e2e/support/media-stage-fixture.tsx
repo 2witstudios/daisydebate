@@ -1,4 +1,4 @@
-import { isJudgeSeat } from '@daisy/protocol';
+import { isJudgeSeat } from '@daisy/protocol/seats';
 import { createRoot } from 'react-dom/client';
 import { flushSync } from 'react-dom';
 import { MediaStage } from '../../src/ui/round-media/media-stage';

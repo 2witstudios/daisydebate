@@ -10,7 +10,7 @@ import {
   type RoleRow,
   type TabStore,
 } from '@daisy/db/tab';
-import { idSchema } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
 import {
   lobbyPeopleViewSchema,
   type LobbyPeopleView,

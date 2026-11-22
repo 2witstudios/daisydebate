@@ -1,5 +1,6 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import type { RoomAssemblyState, RoomCapture } from '@daisy/protocol';
+import type { RoomAssemblyState } from '@daisy/protocol/room-contract';
+import type { RoomCapture } from '@daisy/protocol/room-capture';
 import { executeRoomCommand } from './room-assembly';
 import { plannedBroadcast, plannedRecording } from './room-capture';
 import { consent, edges, state } from './room-assembly.test-support';

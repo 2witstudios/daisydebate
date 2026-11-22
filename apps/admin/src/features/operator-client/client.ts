@@ -4,7 +4,7 @@ import {
   signOperatorRequest,
   type OperatorCrypto,
 } from '@daisy/auth/operator-signature';
-import { betaAccessCommandResultSchema } from '@daisy/protocol';
+import { betaAccessCommandResultSchema } from '@daisy/protocol/beta-access';
 import {
   moderationLiftResultSchema,
   operatorAccountsPageSchema,

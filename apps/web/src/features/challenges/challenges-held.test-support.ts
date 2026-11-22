@@ -1,4 +1,4 @@
-import type { ChallengeList } from '@daisy/protocol';
+import type { ChallengeList } from '@daisy/protocol/challenges';
 import {
   challengesHeld,
   holdChallenges,

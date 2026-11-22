@@ -7,19 +7,17 @@ import {
   seededWalk,
   type Draw,
 } from '@daisy/seeded-random/testing';
+import { attendanceTimingPolicy } from '@daisy/protocol/attendance';
+import { isJudgeSeat, sameSeat, sideOfSeat } from '@daisy/protocol/seats';
+import { isRoundOver } from '@daisy/protocol/round';
+import { leadSeatOf } from '@daisy/protocol/format-seating';
 import {
-  attendanceTimingPolicy,
-  isJudgeSeat,
-  isRoundOver,
-  leadSeatOf,
-  sameSeat,
-  sideOfSeat,
   type RoundCommand,
   type RoundParticipantSeat,
   type RoundPosition,
   type RoundProjection,
-  type RoundRules,
-} from '@daisy/protocol';
+} from '@daisy/protocol/runtime';
+import { type RoundRules } from '@daisy/protocol/format';
 import {
   castOf,
   floorHolderOf,

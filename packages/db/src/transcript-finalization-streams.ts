@@ -1,5 +1,5 @@
 import { asc, eq, sql } from 'drizzle-orm';
-import type { CaptureRule } from '@daisy/protocol';
+import type { CaptureRule } from '@daisy/protocol/capture-verdict';
 import { readSeatGrants } from './capture-history';
 import { transcriptSegments } from './schema/transcript-segments';
 import type { Tx } from './tx';

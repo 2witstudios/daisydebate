@@ -2,12 +2,8 @@ import { instantMs } from '@daisy/clock';
 import { credentialHash } from '../src/features/stage-capture/stage-access';
 import { requireTestServices } from '@daisy/config';
 import { plannedRecording } from '@daisy/debate-engine';
-import {
-  isJudgeSeat,
-  isModeratorSeat,
-  judgeSeat,
-  type RecordingPolicy,
-} from '@daisy/protocol';
+import { isJudgeSeat, isModeratorSeat, judgeSeat } from '@daisy/protocol/seats';
+import { type RecordingPolicy } from '@daisy/protocol/room-capture';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import {

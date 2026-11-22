@@ -1,7 +1,7 @@
 import { sql } from 'drizzle-orm';
 import { z } from 'zod';
 import { createAppError } from '@daisy/errors';
-import { idSchema } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
 import { readAuthorizationActors } from '../authorization';
 import { actorIdsOf } from './authority-frame';
 import { readMessagingChannelFacts, type MessagingChannelFact } from './social';

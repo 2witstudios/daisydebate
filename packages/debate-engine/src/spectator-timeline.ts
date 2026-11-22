@@ -1,15 +1,12 @@
+import { isJudgeSeat, type SeatRef, type Side } from '@daisy/protocol/seats';
+import { leadSeatOf, type SpeakRights } from '@daisy/protocol/format-seating';
+import { recordingPreparationOf } from '@daisy/protocol/recording-processing';
 import {
-  isJudgeSeat,
-  leadSeatOf,
-  recordingPreparationOf,
   type BroadcastStanding,
-  type RoundOutcome,
-  type SeatRef,
-  type Side,
-  type SpeakRights,
   type SpectatorTimeline,
-} from '@daisy/protocol';
-import { SPECTATOR_MARGIN_MS } from '@daisy/protocol';
+} from '@daisy/protocol/spectator-timeline';
+import { type RoundOutcome } from '@daisy/protocol/round-outcome';
+import { SPECTATOR_MARGIN_MS } from '@daisy/protocol/broadcast';
 
 type FloorStage = Extract<SpectatorTimeline['stage'], { kind: 'floor' }>;
 

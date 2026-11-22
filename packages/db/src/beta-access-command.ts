@@ -7,7 +7,7 @@ import {
   type BetaAccessCommandState,
   type BetaAccessDecision,
   type BetaAccessState,
-} from '@daisy/protocol';
+} from '@daisy/protocol/beta-access';
 import {
   operatorCommandReceiptSchema,
   operatorLimits,

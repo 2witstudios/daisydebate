@@ -2,7 +2,7 @@ import { SQL } from 'bun';
 import { drizzle } from 'drizzle-orm/bun-sql';
 import { createId } from '@paralleldrive/cuid2';
 import { requireTestServices } from '@daisy/config';
-import { buildChannelTopic } from '@daisy/protocol';
+import { buildChannelTopic } from '@daisy/protocol/topics';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { appendOutboxEvent } from '../src/outbox';
 

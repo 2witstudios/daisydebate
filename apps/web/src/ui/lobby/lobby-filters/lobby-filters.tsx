@@ -1,4 +1,7 @@
-import { roomListDefaultPageSize, type RoomListQuery } from '@daisy/protocol';
+import {
+  roomListDefaultPageSize,
+  type RoomListQuery,
+} from '@daisy/protocol/room-contract';
 import {
   filterCount,
   isFiltered,

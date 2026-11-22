@@ -21,8 +21,9 @@ import {
 } from './social-composition';
 import type { SocialContactPolicy } from '@daisy/auth/social-policy';
 import { createAppError } from '@daisy/errors';
-import { channelMessageView, messagingTypingSchemas } from '@daisy/protocol';
-import type { MessagingCoreBounds } from '@daisy/protocol';
+import { channelMessageView } from '@daisy/protocol/messaging/channel-messages';
+import { messagingTypingSchemas } from '@daisy/protocol/messaging/typing';
+import type { MessagingCoreBounds } from '@daisy/protocol/messaging/core';
 import type { App } from '../../server/app';
 import { identify } from '../../lib/identity';
 import { consumeWindowsOrThrow, type RateRule } from '../../server/rate-limit';
@@ -37,9 +38,9 @@ import { mutateMessagingMessage } from './mutate';
 
 /** Explicit approved edge inputs; tests never supply production policy authority. */
 export type MessagingRuntimePolicy = {
-  readonly reactions: import('@daisy/protocol').MessagingReactionPolicy;
+  readonly reactions: import('@daisy/protocol/messaging/reactions').MessagingReactionPolicy;
   readonly typing: ReturnType<
-    typeof import('@daisy/protocol').messagingTypingSchemas.policy.parse
+    typeof import('@daisy/protocol/messaging/typing').messagingTypingSchemas.policy.parse
   >;
   readonly social: MessagingSocialRuntimePolicy;
   readonly bounds: MessagingCoreBounds;

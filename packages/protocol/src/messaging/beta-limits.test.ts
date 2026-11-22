@@ -1,5 +1,5 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { createMessagingCoreSchemas, messagingBetaLimits } from '../index';
+import { createMessagingCoreSchemas, messagingBetaLimits } from './core';
 
 setupRitewayBun();
 

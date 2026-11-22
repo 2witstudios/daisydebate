@@ -1,9 +1,7 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import {
-  buildRoomTopic,
-  ENVELOPE_VERSION,
-  type RoomView,
-} from '@daisy/protocol';
+import { buildRoomTopic } from '@daisy/protocol/topics';
+import { ENVELOPE_VERSION } from '@daisy/protocol/realtime';
+import { type RoomView } from '@daisy/protocol/room-contract';
 import { sequentialId } from '@daisy/clock';
 import { driverEdges } from '../resource-sync/driver.test-support';
 import { assemblySnapshot } from './assembly.test-support';

@@ -8,15 +8,14 @@ import { createId } from '@paralleldrive/cuid2';
 import {
   affirmativeSide,
   isJudgeSeat,
-  isNamedSeat,
   judgeSeat,
   negativeSide,
-  roomViewSchema,
-  roundViewSchema,
   sideOfSeat,
   sideSeat,
-  type RoomView,
-} from '@daisy/protocol';
+} from '@daisy/protocol/seats';
+import { isNamedSeat, roundViewSchema } from '@daisy/protocol/round-view';
+import { roomViewSchema } from '@daisy/protocol/room-read';
+import { type RoomView } from '@daisy/protocol/room-contract';
 import { expect, test, openPage } from './support/fixtures';
 import { origin } from './support/accounts';
 import {
@@ -45,7 +44,10 @@ import {
   settledLaunchAuth,
 } from './support/room-launch-settled';
 
-const seated = (view: import('@daisy/protocol').RoomView, actorId: string) =>
+const seated = (
+  view: import('@daisy/protocol/room-contract').RoomView,
+  actorId: string,
+) =>
   view.participants.find(
     (participant) =>
       isNamedSeat(participant) && participant.actorId === actorId,

@@ -1,4 +1,5 @@
-import { SPECTATOR_MARGIN_MS, type NotificationKind } from '@daisy/protocol';
+import { SPECTATOR_MARGIN_MS } from '@daisy/protocol/broadcast';
+import { type NotificationKind } from '@daisy/protocol/notifications';
 import { isDebatingSeatSql } from '../seat-columns';
 import { sql } from 'drizzle-orm';
 import { blockedBetween } from '../debater-follows';

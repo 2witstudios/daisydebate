@@ -1,4 +1,4 @@
-import { ratingDivisionForAgeRule } from '@daisy/protocol';
+import { ratingDivisionForAgeRule } from '@daisy/protocol/ladder';
 import { systemClock } from '@daisy/clock';
 import type { Metadata } from 'next';
 import type { SearchParams } from '../../../../features/access/decision';

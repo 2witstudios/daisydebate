@@ -5,9 +5,9 @@ import { flagCommandActions } from '@daisy/protocol/flags';
 import {
   betaAccessCommandAction,
   betaAccessStates,
-  idSchema,
   type BetaAccessState,
-} from '@daisy/protocol';
+} from '@daisy/protocol/beta-access';
+import { idSchema } from '@daisy/protocol/primitives';
 import { sql } from 'drizzle-orm';
 import { z } from 'zod';
 import {

@@ -1,6 +1,6 @@
 import { and, eq, gt, isNull, ne, sql } from 'drizzle-orm';
 import { createAppError } from '@daisy/errors';
-import { messagingPreferenceSchemas } from '@daisy/protocol';
+import { messagingPreferenceSchemas } from '@daisy/protocol/messaging/preferences';
 import { messagingActorStates } from '../schema/messaging-channels';
 import { messagingMessages } from '../schema/messaging-messages';
 import type { Tx } from '../tx';

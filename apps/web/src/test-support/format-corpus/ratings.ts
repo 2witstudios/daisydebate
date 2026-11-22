@@ -5,13 +5,15 @@ import {
   ratingAwaited,
   ratingEligibility,
 } from '@daisy/debate-engine';
+import { sideSeat } from '@daisy/protocol/seats';
 import {
-  sideSeat,
   winnerOutcome,
+  type WinnerOutcome,
+} from '@daisy/protocol/round-outcome';
+import {
   type DebaterStanding,
   type RatingEligibilityFacts,
-  type WinnerOutcome,
-} from '@daisy/protocol';
+} from '@daisy/protocol/ratings';
 import { attempt } from './refusal';
 
 const completedAt = '2026-10-06T10:00:00.000Z';

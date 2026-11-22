@@ -1,4 +1,7 @@
-import { reportCommandSchema, reportResultSchema } from '@daisy/protocol';
+import {
+  reportCommandSchema,
+  reportResultSchema,
+} from '@daisy/protocol/reports';
 import { appDiscoverActor } from '../account/username-discovery';
 import { contactPairFence } from '../contacts/authorization';
 import type { App } from '../../server/app';

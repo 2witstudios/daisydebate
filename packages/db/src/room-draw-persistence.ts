@@ -1,4 +1,4 @@
-import { isRoundOver, type RoundStatus } from '@daisy/protocol';
+import { isRoundOver, type RoundStatus } from '@daisy/protocol/round';
 import { and, asc, eq } from 'drizzle-orm';
 import { createAppError } from '@daisy/errors';
 import {

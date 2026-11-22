@@ -1,4 +1,7 @@
-import { betaAccessProvenances, betaAccessStates } from '@daisy/protocol';
+import {
+  betaAccessProvenances,
+  betaAccessStates,
+} from '@daisy/protocol/beta-access';
 import { sql } from 'drizzle-orm';
 import { check, index, integer, pgTable, text } from 'drizzle-orm/pg-core';
 import { createdAtColumn, oneOf, timestampColumn } from './columns';

@@ -1,4 +1,4 @@
-import { ballotCategories } from '@daisy/protocol';
+import { ballotCategories } from '@daisy/protocol/ballot';
 export { sampleBallotPlan as ballotFormPlan } from '../judge/ballot-plan.test-support';
 export const ballotFormFixture = () => {
   const form = new FormData();

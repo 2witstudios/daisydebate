@@ -1,9 +1,9 @@
 import {
   ballotDefinitionSchema,
-  formatDefinitionSchema,
   freezeBallotJudging,
-  scoreUnitFor,
-} from '@daisy/protocol';
+} from '@daisy/protocol/ballot-definition';
+import { formatDefinitionSchema } from '@daisy/protocol/format';
+import { scoreUnitFor } from '@daisy/protocol/score-unit';
 import type { LoadedResultCommand } from '@daisy/db/tab';
 import { createAppError } from '@daisy/errors';
 import { createDecidedResultRecord } from './result-record-factory';

@@ -2,20 +2,22 @@ import { Button } from '../../components/button/button';
 import type { ReactNode } from 'react';
 import {
   affirmativeSide,
-  aiRoleFits,
-  freeSeatsOf,
   isDebatingSeat,
   isJudgeSeat,
   isModeratorSeat,
-  isNamedSeat,
   negativeSide,
   sameSeat,
   seatKey,
   seatKinds,
+  type SeatRef,
+} from '@daisy/protocol/seats';
+import { aiRoleFits } from '@daisy/protocol/ai-roles';
+import {
+  freeSeatsOf,
   type RoomCastChoice,
   type RoomView,
-  type SeatRef,
-} from '@daisy/protocol';
+} from '@daisy/protocol/room-contract';
+import { isNamedSeat } from '@daisy/protocol/round-view';
 import type { RoomFormState } from '../../../features/rooms/command-answer';
 import type { RoomCommandIds } from '../../../features/rooms/room-command-ids';
 import type { FormAction } from '../../form-action/form-action';

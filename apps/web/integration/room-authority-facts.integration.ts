@@ -1,8 +1,8 @@
 import { authorize } from '@daisy/auth/authorization';
 import { requireTestServices } from '@daisy/config';
-import { buildRoundTopic } from '@daisy/protocol';
+import { buildRoundTopic } from '@daisy/protocol/topics';
 import { withRoomRuntime } from './room-runtime.test-support';
-import type { RoomView } from '@daisy/protocol';
+import type { RoomView } from '@daisy/protocol/room-contract';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 
 requireTestServices(process.env);

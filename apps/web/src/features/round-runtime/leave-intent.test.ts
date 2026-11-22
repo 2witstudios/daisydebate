@@ -1,12 +1,8 @@
 import { instantMs } from '@daisy/clock';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import {
-  emptyRuntimeCheckpointFor,
-  fourTeams,
-  twoSides,
-  type RoundView,
-  type SeatRef,
-} from '@daisy/protocol';
+import { emptyRuntimeCheckpointFor } from '@daisy/protocol/round';
+import { fourTeams, twoSides, type SeatRef } from '@daisy/protocol/seats';
+import { type RoundView } from '@daisy/protocol/round-view';
 import { leaveIntent } from './leave-intent';
 import {
   view,

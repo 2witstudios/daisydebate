@@ -5,7 +5,7 @@ import { createAppError } from '@daisy/errors';
 import {
   contactBlockSchema,
   contactBlockUsernameSchema,
-} from '@daisy/protocol';
+} from '@daisy/protocol/contacts';
 import { parseValidated } from '../../server/http';
 import { requireMemberActor } from '../access/actor';
 import { contactCommandDigest } from './digest';

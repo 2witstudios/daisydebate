@@ -2,24 +2,26 @@ import { lifecycleSql, lifecycleSqlList } from '../lifecycle-sql';
 import {
   competitionTypes,
   type CompetitionType,
-  roundRulesSchema,
-  frozenRoomConfigSchema,
-  roomCaptureSchema,
   roundStageSchema,
   roundStatuses,
   roundStatus,
   runningRoundStatuses,
   runtimeCheckpointSchema,
-  roundJudgingSchema,
-  daisyBallotDefinitionIds,
   type RoundPlatformEnding,
-  type SideKey,
   roundDecisionReleases,
   type RoundDecisionRelease,
   type RoundStage,
   type RoundStatus,
-  seatDrawSchema,
-} from '@daisy/protocol';
+} from '@daisy/protocol/round';
+import { roundRulesSchema } from '@daisy/protocol/format';
+import { frozenRoomConfigSchema } from '@daisy/protocol/room';
+import { roomCaptureSchema } from '@daisy/protocol/room-capture';
+import {
+  roundJudgingSchema,
+  daisyBallotDefinitionIds,
+} from '@daisy/protocol/ballot-definition';
+import { type SideKey } from '@daisy/protocol/seats';
+import { seatDrawSchema } from '@daisy/protocol/seat-draw';
 import { sql } from 'drizzle-orm';
 import { z } from 'zod';
 import {

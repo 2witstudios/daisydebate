@@ -2,7 +2,7 @@ import { instantMs } from '@daisy/clock';
 import {
   attendanceTimingPolicy as policy,
   type AttendanceLedgerFacts,
-} from '@daisy/protocol';
+} from '@daisy/protocol/attendance';
 
 type RuleSegment = { readonly key: string; readonly type: string };
 type OrderedSegment = {

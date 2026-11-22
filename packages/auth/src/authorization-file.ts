@@ -1,4 +1,4 @@
-import { idSchema } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
 import type { PendingFileAuthorizationFact } from './authorization-facts';
 const positive = (value: number) => Number.isSafeInteger(value) && value > 0;
 /** Cleanup changes only the caller's still-pending generation; it grants no file/content read. */

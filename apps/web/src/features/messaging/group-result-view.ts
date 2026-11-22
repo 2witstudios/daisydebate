@@ -1,4 +1,4 @@
-import { messagingGroupCreationResultSchema } from '@daisy/protocol';
+import { messagingGroupCreationResultSchema } from '@daisy/protocol/messaging/social';
 import { createAppError } from '@daisy/errors';
 export function messagingGroupResultView(result: unknown, channelId: string) {
   const parsed = messagingGroupCreationResultSchema.safeParse(result);

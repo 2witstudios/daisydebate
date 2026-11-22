@@ -2,7 +2,7 @@ import type { Identity } from '@daisy/auth';
 import type { Logger } from '@daisy/logger';
 import type { ErrorReporter } from '@daisy/observability';
 import { createAppError } from '@daisy/errors';
-import { idSchema } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
 import { handleOperation, requireSameOrigin } from '../../server/http';
 import { consumeOrThrow, type RateLimiter } from '../../server/rate-limit';
 import { liveHref } from '../watch/routes';

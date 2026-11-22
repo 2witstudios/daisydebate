@@ -4,7 +4,8 @@ import { browserFetch } from '../edge/browser-request';
 import { startTick, stopTick } from '../edge/browser-time';
 import { useRef, useState } from 'react';
 import { systemId } from '@daisy/clock';
-import { isDebatingSeat, type RoundView } from '@daisy/protocol';
+import { isDebatingSeat } from '@daisy/protocol/seats';
+import { type RoundView } from '@daisy/protocol/round-view';
 import { createAttendanceHttpClient } from '../../features/attendance/http-client';
 import {
   ATTENDANCE_HEARTBEAT_MS,

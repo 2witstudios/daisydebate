@@ -1,18 +1,16 @@
 import { instantMs } from '@daisy/clock';
 import { createInvariantError } from '@daisy/errors';
-import type {
-  AttendanceAdjudicationFact,
-  HydratedSegment,
-  RoundRules,
-  SideKey,
-} from '@daisy/protocol';
+import type { AttendanceAdjudicationFact } from '@daisy/protocol/attendance';
+import type { HydratedSegment } from '@daisy/protocol/runtime';
+import type { RoundRules } from '@daisy/protocol/format';
+import type { SideKey } from '@daisy/protocol/seats';
 import {
   effectiveAttendanceDeadline,
   type SettledAvailability,
 } from './availability';
 
-export { attendanceTimingPolicy as attendancePolicy } from '@daisy/protocol';
-import { attendanceTimingPolicy as attendancePolicy } from '@daisy/protocol';
+export { attendanceTimingPolicy as attendancePolicy } from '@daisy/protocol/attendance';
+import { attendanceTimingPolicy as attendancePolicy } from '@daisy/protocol/attendance';
 
 /** Derived from an actual speech row and its frozen rules speaker slot, never a media floor. */
 export type AttendanceWindow = {

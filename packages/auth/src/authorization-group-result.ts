@@ -1,4 +1,5 @@
-import { idSchema, messagingPrivateGroupPolicySchema } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
+import { messagingPrivateGroupPolicySchema } from '@daisy/protocol/messaging/social';
 import type { GroupCommandResultAuthorizationFact } from './authorization-facts';
 const positive = (value: number) => Number.isSafeInteger(value) && value > 0;
 const completedKinds = [

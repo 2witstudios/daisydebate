@@ -1,5 +1,5 @@
 import { createAppError } from '@daisy/errors';
-import { idSchema } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
 import { exactField } from '../../forms/form-state';
 /** Bound scope and the idempotency field both round-trip through an untrusted form. */
 export function parseMessagingFormScope(channel: unknown, input: unknown) {

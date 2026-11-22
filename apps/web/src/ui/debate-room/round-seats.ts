@@ -1,10 +1,5 @@
-import {
-  isJudgeSeat,
-  isNamedSeat,
-  sideOfSeat,
-  type RoundView,
-  type SeatRef,
-} from '@daisy/protocol';
+import { isJudgeSeat, sideOfSeat, type SeatRef } from '@daisy/protocol/seats';
+import { isNamedSeat, type RoundView } from '@daisy/protocol/round-view';
 import {
   seatName,
   sideName,

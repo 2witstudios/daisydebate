@@ -2,8 +2,8 @@ import type {
   RecordingClass,
   RecordingEligibility,
   RecordingLifecycle,
-  RecordingTransition,
-} from '@daisy/protocol';
+} from '@daisy/protocol/recording';
+import type { RecordingTransition } from '@daisy/protocol/recording-lifecycle';
 import type { BroadcastRelease, RecordingRound } from './audience';
 import type { RoundCoverageFacts } from './coverage-statement';
 import type { FloorInterval } from './speech-timeline';

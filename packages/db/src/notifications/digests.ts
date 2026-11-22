@@ -1,5 +1,5 @@
 import { createAppError } from '@daisy/errors';
-import type { EmailedNotificationKind } from '@daisy/protocol';
+import type { EmailedNotificationKind } from '@daisy/protocol/notifications';
 import { sql } from 'drizzle-orm';
 import { z } from 'zod';
 import { instrumented, type DatabaseEventSink } from '../instrumented';

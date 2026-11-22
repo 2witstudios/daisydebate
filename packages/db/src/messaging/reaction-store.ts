@@ -1,4 +1,4 @@
-import type { MessagingReactionPolicy } from '@daisy/protocol';
+import type { MessagingReactionPolicy } from '@daisy/protocol/messaging/reactions';
 import { readMessagingChannel, withMessagingContent } from './channel-frame';
 import { channelReactionFrame } from './reaction-frame';
 import type {

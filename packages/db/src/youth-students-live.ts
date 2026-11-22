@@ -1,4 +1,4 @@
-import { runningRoundStatuses } from '@daisy/protocol';
+import { runningRoundStatuses } from '@daisy/protocol/round';
 import { sql } from 'drizzle-orm';
 import { query } from './raw-rows';
 import { currentTenantScope, scopeTransaction } from './tenant-scope';

@@ -1,4 +1,4 @@
-import { idSchema } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { listenIdentity } from './listen-identity';
 

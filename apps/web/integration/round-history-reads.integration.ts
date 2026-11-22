@@ -8,7 +8,7 @@ import { requireTestServices } from '@daisy/config';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';
-import { isJudgeSeat, sideOfSeat } from '@daisy/protocol';
+import { isJudgeSeat, sideOfSeat } from '@daisy/protocol/seats';
 import {
   launchRuntimeRound,
   withRoomRuntime,

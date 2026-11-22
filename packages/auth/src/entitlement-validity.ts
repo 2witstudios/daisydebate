@@ -1,5 +1,5 @@
 import { tryInstantMs } from '@daisy/clock';
-import type { EntitlementGrant } from '@daisy/protocol';
+import type { EntitlementGrant } from '@daisy/protocol/entitlements';
 
 export type EntitlementEvaluation = {
   readonly now: string;

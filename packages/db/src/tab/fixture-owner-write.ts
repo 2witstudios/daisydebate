@@ -6,7 +6,7 @@ import { assembleRoom } from '../room-assembly';
 import { persistRoomOutsideCommands } from '../room-mutation-persistence';
 import type { ParticipantAdmission } from '../participant-admission';
 import type { JudgeRoomMembers } from '../room-judge-assignment-write';
-import type { RoomAssemblyState } from '@daisy/protocol';
+import type { RoomAssemblyState } from '@daisy/protocol/room-contract';
 import type {
   LoadedFixtureCommand,
   FixtureCommandInput,

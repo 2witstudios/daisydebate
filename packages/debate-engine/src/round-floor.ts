@@ -1,10 +1,7 @@
-import {
-  leadSeatOf,
-  prepConsumedOf,
-  sameSeat,
-  segmentDueAtMs,
-  sideOfSeat,
-} from '@daisy/protocol';
+import { leadSeatOf } from '@daisy/protocol/format-seating';
+import { prepConsumedOf } from '@daisy/protocol/round';
+import { sameSeat, sideOfSeat } from '@daisy/protocol/seats';
+import { segmentDueAtMs } from '@daisy/protocol/segment-end';
 import type { CommandContext } from './round-commands';
 import { debateInvariantIds } from './invariant-ids';
 import { invariant, refuse } from './round-refusals';

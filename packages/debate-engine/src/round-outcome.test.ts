@@ -1,12 +1,12 @@
-import { daisyBallotSource } from '@daisy/protocol';
+import { daisyBallotSource } from '@daisy/protocol/ballot-definition';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';
 import {
   daisyBallotDefinitions,
   daisyWinnerBallot,
-  judgeSeat,
-  winnerOutcome,
-} from '@daisy/protocol';
+} from '@daisy/protocol/ballot-definition';
+import { judgeSeat } from '@daisy/protocol/seats';
+import { winnerOutcome } from '@daisy/protocol/round-outcome';
 import { deriveRoundOutcome } from './round-outcome';
 setupRitewayBun();
 const judging = {

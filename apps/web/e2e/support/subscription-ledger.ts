@@ -1,5 +1,8 @@
 import type { Page } from '@playwright/test';
-import { serverMessageSchema, type ServerMessage } from '@daisy/protocol';
+import {
+  serverMessageSchema,
+  type ServerMessage,
+} from '@daisy/protocol/realtime-server';
 
 /** A received frame the realtime server's schema accepts, else null. */
 export function serverFrame(payload: string | Buffer): ServerMessage | null {

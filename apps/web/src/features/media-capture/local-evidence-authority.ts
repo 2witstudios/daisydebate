@@ -7,16 +7,17 @@ import {
 import {
   encodeEvidencePrivacyScope,
   type EvidencePrivacyScope,
-} from '@daisy/protocol';
+} from '@daisy/protocol/evidence-privacy';
 import { createAppError } from '@daisy/errors';
 import { chmodSync, closeSync, openSync } from 'node:fs';
 import { Database } from 'bun:sqlite';
-import { idSchema, necessaryEvidencePolicy } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
+import { necessaryEvidencePolicy } from '@daisy/protocol/necessary-evidence';
 import type {
   EvidenceIdentity,
   EvidenceCustodyReceipt,
   EvidenceRefusal,
-} from '@daisy/protocol';
+} from '@daisy/protocol/necessary-evidence';
 
 export type EvidenceAuthorityRecord = {
   readonly kind: 'current';

@@ -1,5 +1,5 @@
 import { requireTestServices } from '@daisy/config';
-import { roomViewSchema } from '@daisy/protocol';
+import { roomViewSchema } from '@daisy/protocol/room-read';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createRoomHttpFixture } from './room-http.test-support';

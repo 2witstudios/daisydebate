@@ -1,10 +1,10 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {
   formatDefinitionSchema,
-  formatSettingsSchema,
-  twoSides,
   type FormatDefinition,
-} from '@daisy/protocol';
+} from '@daisy/protocol/format';
+import { formatSettingsSchema } from '@daisy/protocol/format-settings';
+import { twoSides } from '@daisy/protocol/seats';
 import { oneOnOneSettingsFixture } from '@daisy/protocol/testing';
 import {
   oneOnOneSettings,

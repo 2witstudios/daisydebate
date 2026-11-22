@@ -1,13 +1,15 @@
 import { releasedThrough, segmentDue } from '@daisy/debate-engine';
 import {
   parseHoldPlaylist,
+  type HoldEntry,
+} from '@daisy/protocol/egress-hold-playlist';
+import {
   publicClips,
   settledByHeartbeat,
-  type BroadcastReleasePolicy,
-  type HoldEntry,
   type PublicClip,
   type StageInterval,
-} from '@daisy/protocol';
+} from '@daisy/protocol/public-interval';
+import { type BroadcastReleasePolicy } from '@daisy/protocol/broadcast';
 import {
   mediaPlaylist,
   RENDITIONS,

@@ -1,5 +1,5 @@
 import { and, eq, inArray, sql } from 'drizzle-orm';
-import { openRoomStatuses } from '@daisy/protocol';
+import { openRoomStatuses } from '@daisy/protocol/room-contract';
 import { lockActiveLobbySeason } from './ladder-season';
 import { instrumented, type DatabaseEventSink } from './instrumented';
 import type { PrivacyAdopter } from './privacy/contracts';

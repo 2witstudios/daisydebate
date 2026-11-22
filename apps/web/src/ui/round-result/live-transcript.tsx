@@ -4,7 +4,7 @@ import { currentBrowserFetch } from '../edge/browser-request';
 import { StatusRegion } from '../components/status-region/status-region';
 import { Button } from '../components/button/button';
 import { useCallback, useState, type ReactNode } from 'react';
-import type { LiveTranscriptRead } from '@daisy/protocol';
+import type { LiveTranscriptRead } from '@daisy/protocol/round-transcript';
 import { browserSyncEdges } from '../resource-sync/browser';
 import { readTranscript } from '../../features/round-runtime/read-transcript';
 import { createTranscriptHolder } from '../../features/round-runtime/transcript-sync';

@@ -3,7 +3,7 @@ import type {
   experienceChoices,
   interestCategoryChoices,
   wantChoices,
-} from '@daisy/protocol';
+} from '@daisy/protocol/onboarding';
 
 /** The words on each onboarding choice, keyed by its stored value. */
 export const wantLabels: Record<(typeof wantChoices)[number], string> = {

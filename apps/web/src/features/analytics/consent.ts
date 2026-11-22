@@ -1,4 +1,7 @@
-import { analyticsConsentSchema, type AnalyticsConsent } from '@daisy/protocol';
+import {
+  analyticsConsentSchema,
+  type AnalyticsConsent,
+} from '@daisy/protocol/analytics-consent';
 
 export const CONSENT_COOKIE = 'daisy_consent';
 const consentSchema = analyticsConsentSchema;

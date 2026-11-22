@@ -1,4 +1,4 @@
-import { idSchema } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
 import { createAppError } from '@daisy/errors';
 import { notFound } from 'next/navigation';
 import type { SearchParams } from '../../../../features/access/decision';

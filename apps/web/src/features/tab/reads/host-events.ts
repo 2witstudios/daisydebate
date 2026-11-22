@@ -4,7 +4,7 @@ import type {
   AuthorizationDecision,
 } from '@daisy/auth/authorization';
 import type { TabStore } from '@daisy/db/tab';
-import { idSchema } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
 import {
   hostEventsViewSchema,
   type HostEventsView,

@@ -18,7 +18,7 @@ import {
 import type { lockAuthorizationActors } from './authorization';
 import { readEntitlementGrants } from './entitlement-grants';
 import { readBillingEvidence } from './billing-subscription-facts';
-import { idSchema } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
 import { readDatabaseTime } from './database-clock';
 import { usageReservations } from './schema/usage-reservations';
 import type { Tx } from './tx';

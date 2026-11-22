@@ -1,4 +1,4 @@
-import type { MemberStatus as Presence } from '@daisy/protocol';
+import type { MemberStatus as Presence } from '@daisy/protocol/presence-setting';
 
 const base = 'inline-block size-presence-dot rounded-round border-2';
 

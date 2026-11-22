@@ -1,9 +1,7 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import {
-  buildRoundTopic,
-  ENVELOPE_VERSION,
-  type RoundView,
-} from '@daisy/protocol';
+import { buildRoundTopic } from '@daisy/protocol/topics';
+import { ENVELOPE_VERSION } from '@daisy/protocol/realtime';
+import { type RoundView } from '@daisy/protocol/round-view';
 import { driverEdges } from '../resource-sync/driver.test-support';
 import { inLifecycle, round } from './round.test-support';
 import type { RoundRead } from './read-round';

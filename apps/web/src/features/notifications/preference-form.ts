@@ -4,7 +4,7 @@ import {
   type NotificationChoices,
   type NotificationKind,
   type NotificationPresentation,
-} from '@daisy/protocol';
+} from '@daisy/protocol/notifications';
 
 /** The form field of one kind's channel: `room_invitation.email`. */
 export const choiceField = (

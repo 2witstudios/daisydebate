@@ -1,11 +1,10 @@
 import { and, asc, desc, eq, sql } from 'drizzle-orm';
+import { maxHostedRooms, type HostedRoom } from '@daisy/protocol/hosted-rooms';
+import { type ActiveRoomFacts } from '@daisy/protocol/active-room';
 import {
-  maxHostedRooms,
-  type ActiveRoomFacts,
-  type HostedRoom,
   type RoomAssemblyState,
   type RoomMutationOutcome,
-} from '@daisy/protocol';
+} from '@daisy/protocol/room-contract';
 import { createAppError } from '@daisy/errors';
 import { instrumented, type DatabaseEventSink } from './instrumented';
 import { roomParticipants, rooms } from './schema/rooms';

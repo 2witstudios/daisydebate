@@ -1,4 +1,4 @@
-import { leadSeatOf } from '@daisy/protocol';
+import { leadSeatOf } from '@daisy/protocol/format-seating';
 import { catalogFormats, type CatalogFormat } from './catalog-formats';
 
 export const format = (id: string): CatalogFormat => {

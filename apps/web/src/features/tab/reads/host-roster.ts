@@ -4,7 +4,8 @@ import type {
   AuthorizationInput,
   AuthorizationDecision,
 } from '@daisy/auth/authorization';
-import { isRoundOver, isRoundRunning, idSchema } from '@daisy/protocol';
+import { isRoundOver, isRoundRunning } from '@daisy/protocol/round';
+import { idSchema } from '@daisy/protocol/primitives';
 import {
   hostRosterViewSchema,
   type HostRosterView,

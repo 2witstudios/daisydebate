@@ -1,6 +1,7 @@
 import { createId } from '@paralleldrive/cuid2';
 import { requireTestServices } from '@daisy/config';
-import { judgingPolicy, type JudgingAttemptDiagnostic } from '@daisy/protocol';
+import { judgingPolicy } from '@daisy/protocol/judging-policy';
+import { type JudgingAttemptDiagnostic } from '@daisy/protocol/round-judging-attempt';
 import { drizzle } from 'drizzle-orm/bun-sql';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';

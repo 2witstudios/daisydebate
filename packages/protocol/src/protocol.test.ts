@@ -2,10 +2,10 @@ import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {
   competitionTypes,
   emptyRuntimeCheckpointFor,
-  formatDefinitionSchema,
   roundStatuses,
   runtimeCheckpointSchema,
-} from './index';
+} from './round';
+import { formatDefinitionSchema } from './format';
 import { errorSchema, ratingStyles } from './primitives';
 import { parseOutcome } from './parse-outcome.test-support';
 import { oneOnOneFormatFixture } from './format-fixtures.test-support';

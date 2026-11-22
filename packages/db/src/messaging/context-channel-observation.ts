@@ -1,4 +1,4 @@
-import { idSchema } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
 import { createAppError } from '@daisy/errors';
 import { readAuthorizationActors } from '../authorization';
 import type { ContextChannelFact } from './context-channel-contracts';

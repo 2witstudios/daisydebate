@@ -1,12 +1,14 @@
+import { type BroadcastReleasePolicy } from '@daisy/protocol/broadcast';
 import {
-  type BroadcastReleasePolicy,
   type RoomAssemblyState,
-  type RoomCapture,
   type RoomCommand,
   type RoomConsent,
   type RoomMutationOutcome,
+} from '@daisy/protocol/room-contract';
+import {
+  type RoomCapture,
   type RecordingPolicy,
-} from '@daisy/protocol';
+} from '@daisy/protocol/room-capture';
 import { acceptedRoomMutation, type Edges } from './room-assembly-facts';
 import { debatersReadChat, resolveReleasePolicy } from './broadcast-release';
 

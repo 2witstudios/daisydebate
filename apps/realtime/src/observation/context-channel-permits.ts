@@ -6,7 +6,7 @@ import type { PermitDecision } from './permits';
 import { decideRoomCommunityPermit } from './room-community-viewer';
 import { decideRoundFloorPermit } from './round-floor-viewer';
 import { linkedAdultsFor } from '@daisy/db/youth-live';
-import type { YouthLiveFact } from '@daisy/protocol';
+import type { YouthLiveFact } from '@daisy/protocol/youth-live';
 
 type Evaluation = {
   readonly reads: RealtimeAuthorityReads;

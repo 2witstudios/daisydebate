@@ -1,7 +1,7 @@
 import {
   canonicalCaptureEvidenceBody,
   type CaptureEvidenceBody,
-} from '@daisy/protocol';
+} from '@daisy/protocol/capture-evidence-body';
 import { verifyFrameClockEvidence } from '@daisy/media/observation';
 import { encodePcmWave } from '@daisy/media/pcm';
 const runOf = (body: CaptureEvidenceBody) =>

@@ -1,10 +1,10 @@
 import { instantMs } from '@daisy/clock';
-import { isRoundRunning } from '@daisy/protocol';
+import { isRoundRunning } from '@daisy/protocol/round';
 import type {
   PlatformIncidentCause,
   RoundIncident,
-  RoundRules,
-} from '@daisy/protocol';
+} from '@daisy/protocol/round';
+import type { RoundRules } from '@daisy/protocol/format';
 import {
   abandonedLifecycle,
   debateHasEnded,

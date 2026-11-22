@@ -5,16 +5,18 @@ import {
   type StageEgressFact,
   type StagePhaseFact,
 } from '@daisy/debate-engine';
+import { isRoundOver } from '@daisy/protocol/round';
 import {
-  isRoundOver,
   holdAttemptPrefix,
-  publicIntervals,
-  recordingBuildDelayed,
   recordingHoldPrefix,
-  type BuiltRecordingMedia,
-  type EntitlementGrant,
   type RecordingSource,
-} from '@daisy/protocol';
+} from '@daisy/protocol/recording';
+import { publicIntervals } from '@daisy/protocol/public-interval';
+import {
+  recordingBuildDelayed,
+  type BuiltRecordingMedia,
+} from '@daisy/protocol/recording-processing';
+import { type EntitlementGrant } from '@daisy/protocol/entitlements';
 import type { createDatabase } from '@daisy/db';
 import {
   answerRecordingJob,

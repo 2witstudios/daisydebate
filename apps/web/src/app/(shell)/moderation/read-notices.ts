@@ -1,4 +1,4 @@
-import { moderationNoticesSchema } from '@daisy/protocol';
+import { moderationNoticesSchema } from '@daisy/protocol/moderation';
 import { GET as readNoticesRoute } from '../../api/moderation/notices/route';
 import { readOwnRoute } from '../friends/read-route';
 

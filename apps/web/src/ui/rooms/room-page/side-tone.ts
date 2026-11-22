@@ -1,4 +1,4 @@
-import type { SideKey } from '@daisy/protocol';
+import type { SideKey } from '@daisy/protocol/seats';
 
 /** Side tones in declared order, so a two-sided Room keeps sky then clay. */
 const sideTones = [

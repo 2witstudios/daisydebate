@@ -1,4 +1,5 @@
-import { type Person, type RatingDivision } from '@daisy/protocol';
+import { type Person } from '@daisy/protocol/people-list';
+import { type RatingDivision } from '@daisy/protocol/ladder';
 import { styleLabels } from '../../features/ratings/ladder-labels';
 import { markedRating } from '../../features/ratings/provisional-mark';
 import { statusLabels } from '../components/presence-dot/status-labels';

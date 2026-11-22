@@ -1,4 +1,4 @@
-import { roundBallotEnvelopeSchema } from '@daisy/protocol';
+import { roundBallotEnvelopeSchema } from '@daisy/protocol/round-ballot';
 import { ballotFieldNames, parseBallot } from '../judge/ballot';
 import type { BallotPlan } from '../judge/ballot-plan';
 import {

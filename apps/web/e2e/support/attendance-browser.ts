@@ -11,7 +11,7 @@ import {
   attendanceReceiptSchema,
   attendanceTimingPolicy,
   type AttendanceReceipt,
-} from '@daisy/protocol';
+} from '@daisy/protocol/attendance';
 import { MAINTENANCE_PULSE_MS } from '../../src/features/round-finalization/service';
 import { expect, openPage } from './fixtures';
 import { currentRoundForfeit, readBallotRound } from './human-ballot-round';

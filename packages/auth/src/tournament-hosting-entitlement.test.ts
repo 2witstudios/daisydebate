@@ -2,7 +2,7 @@ import { assert, setupRitewayBun, test } from 'riteway/bun';
 import {
   tournamentHostingGrantSchema,
   type TournamentHostingGrant,
-} from '@daisy/protocol';
+} from '@daisy/protocol/tournament-hosting';
 import { currentEntitlementGrants } from './entitlement-validity';
 import { accountEntitlements } from './account-entitlements';
 import { subscriptionGrants } from './subscription-policy';

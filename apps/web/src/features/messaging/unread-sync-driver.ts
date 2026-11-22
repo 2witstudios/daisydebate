@@ -1,4 +1,4 @@
-import type { MessagingUnread } from '@daisy/protocol';
+import type { MessagingUnread } from '@daisy/protocol/messaging/inbox';
 import type { Scheduler } from '../realtime/connection-store';
 import {
   createResourceSyncDriver,

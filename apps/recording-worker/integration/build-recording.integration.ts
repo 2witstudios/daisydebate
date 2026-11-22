@@ -1,5 +1,5 @@
 import { instantMs } from '@daisy/clock';
-import type { RecordingBuildProgress } from '@daisy/protocol';
+import type { RecordingBuildProgress } from '@daisy/protocol/recording-processing';
 import { afterAll } from 'bun:test';
 import { mkdir, mkdtemp, readdir, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';

@@ -1,4 +1,4 @@
-import type { AgeBand } from '@daisy/protocol';
+import type { AgeBand } from '@daisy/protocol/ladder';
 import { ADMITTED_AGE_BANDS } from '@daisy/protocol/age-floor';
 import { ageBand } from './age-band';
 

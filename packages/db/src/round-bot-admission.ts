@@ -1,4 +1,4 @@
-import { runningRoundStatuses } from '@daisy/protocol';
+import { runningRoundStatuses } from '@daisy/protocol/round';
 import { lifecycleSqlList } from './lifecycle-sql';
 import { z } from 'zod';
 import { query } from './raw-rows';

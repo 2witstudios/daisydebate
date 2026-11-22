@@ -1,6 +1,6 @@
 import { sql } from 'drizzle-orm';
 import { createAppError } from '@daisy/errors';
-import { idSchema } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
 import type { MessagingChannelFact } from './social';
 import type { FileReservation } from '../messaging-files';
 import { lockAuthorizationActors } from '../authorization';

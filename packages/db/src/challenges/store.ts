@@ -1,10 +1,6 @@
 import { sql } from 'drizzle-orm';
-import {
-  type CompetitionType,
-  type RatingStyle,
-  competitionTypes,
-  idSchema,
-} from '@daisy/protocol';
+import { type CompetitionType, competitionTypes } from '@daisy/protocol/round';
+import { type RatingStyle, idSchema } from '@daisy/protocol/primitives';
 import {
   readOwnCollection,
   requireOwnScope,

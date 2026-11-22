@@ -1,13 +1,11 @@
+import { isDebatingSeat, isJudgeSeat, sameSeat } from '@daisy/protocol/seats';
+import { speakingSeatsOf } from '@daisy/protocol/format-seating';
 import {
-  isDebatingSeat,
-  isJudgeSeat,
-  sameSeat,
-  speakingSeatsOf,
   type RoundParticipantSeat,
-  type RoundRules,
   type RoundSpeakingChange,
   type RoundProjection,
-} from '@daisy/protocol';
+} from '@daisy/protocol/runtime';
+import { type RoundRules } from '@daisy/protocol/format';
 import type { ClockChange } from './round-clock-transition';
 
 /** Open questioning grants speaking permission without transferring the scheduled floor. */

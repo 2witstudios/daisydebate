@@ -1,4 +1,4 @@
-import type { RatingDivision } from '@daisy/protocol';
+import type { RatingDivision } from '@daisy/protocol/ladder';
 import type { MemberStanding } from '../../../features/ratings/read-member';
 
 /** Who the shell is showing: derived on the server from the durable session. */

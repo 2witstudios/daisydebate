@@ -3,7 +3,7 @@ import {
   type BroadcastFacts,
   type PhasePosition,
 } from '@daisy/debate-engine';
-import type { BroadcastReleasePolicy } from '@daisy/protocol';
+import type { BroadcastReleasePolicy } from '@daisy/protocol/broadcast';
 
 type StoredBroadcast = {
   readonly egressId: string | null;

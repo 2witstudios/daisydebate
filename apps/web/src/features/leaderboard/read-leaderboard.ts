@@ -1,5 +1,5 @@
 import type { Database } from '@daisy/db';
-import type { Ladder } from '@daisy/protocol';
+import type { Ladder } from '@daisy/protocol/ladder';
 import { readRatingStandings } from '../ratings/read';
 import type { RatingPoint } from './history';
 import type { LadderData, LadderViewer } from './ladder-view';

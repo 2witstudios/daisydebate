@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { idSchema } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
 import { sql } from 'drizzle-orm';
 import { createAppError } from '@daisy/errors';
 import type { Tx } from './tx';

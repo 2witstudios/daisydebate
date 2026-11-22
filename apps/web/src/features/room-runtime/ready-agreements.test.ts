@@ -3,7 +3,7 @@ import {
   YOUTH_CONTENT_WAIVER_VERSION,
   casualCaptureNotice,
 } from '../legal/agreements';
-import { judgeSeat, sideSeat } from '@daisy/protocol';
+import { judgeSeat, sideSeat } from '@daisy/protocol/seats';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {
   captureNoticeRefusal,

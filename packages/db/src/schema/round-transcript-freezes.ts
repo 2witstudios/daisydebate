@@ -1,4 +1,4 @@
-import { frozenCaptureGapsSchema } from '@daisy/protocol';
+import { frozenCaptureGapsSchema } from '@daisy/protocol/capture-gap';
 import { sql } from 'drizzle-orm';
 import {
   check,

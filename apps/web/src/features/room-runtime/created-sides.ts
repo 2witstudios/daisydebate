@@ -1,8 +1,6 @@
-import {
-  affirmativeSide,
-  sidesSwappable,
-  type FormatSeating,
-} from '@daisy/protocol';
+import { affirmativeSide } from '@daisy/protocol/seats';
+import { sidesSwappable } from '@daisy/protocol/seat-draw';
+import { type FormatSeating } from '@daisy/protocol/format-seating';
 
 /**
  * A new Room's side rule (ADR 0145): a ranked Room always flips. A Tab event

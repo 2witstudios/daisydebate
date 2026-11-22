@@ -12,11 +12,9 @@ import {
   oneOnOneSettings,
 } from '@daisy/db/reference-formats';
 import { resolveRoomConfiguration } from '@daisy/debate-engine';
-import {
-  attendanceTimingPolicy,
-  emptyRuntimeCheckpointFor,
-  twoSides,
-} from '@daisy/protocol';
+import { attendanceTimingPolicy } from '@daisy/protocol/attendance';
+import { emptyRuntimeCheckpointFor } from '@daisy/protocol/round';
+import { twoSides } from '@daisy/protocol/seats';
 import { createAttendanceFeature } from './operations';
 setupRitewayBun();
 

@@ -1,9 +1,7 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';
-import {
-  evidenceIngressReplySchema,
-  necessaryEvidencePolicy,
-} from '@daisy/protocol';
+import { evidenceIngressReplySchema } from '@daisy/protocol/evidence-ingress-reply';
+import { necessaryEvidencePolicy } from '@daisy/protocol/necessary-evidence';
 import { createFrameClock } from './frame-clock';
 import { localClient } from './worker-client.test-support';
 setupRitewayBun();

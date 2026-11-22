@@ -1,11 +1,9 @@
 import { instantMs } from '@daisy/clock';
 import { eq } from 'drizzle-orm';
 import { isRefusal } from '@daisy/errors';
-import {
-  isAbsentSeat,
-  isJudgeSeat,
-  type RoundCommandAuthority,
-} from '@daisy/protocol';
+import { isAbsentSeat } from '@daisy/protocol/round';
+import { isJudgeSeat } from '@daisy/protocol/seats';
+import { type RoundCommandAuthority } from '@daisy/protocol/round-command';
 import type { RoundHydration } from './round-hydration';
 import { roundBotPublications } from './schema/round-bot-publications';
 import { verifyBotWorkerPrincipalLocked } from './bot-worker-authority';

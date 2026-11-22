@@ -3,7 +3,7 @@ import { createAppError } from '@daisy/errors';
 import {
   createMessagingSocialSchemas,
   type MessagingSocialBounds,
-} from '@daisy/protocol';
+} from '@daisy/protocol/messaging/social';
 import { parseValidated } from '../../server/http';
 import { requireMemberActor } from '../access/actor';
 import {

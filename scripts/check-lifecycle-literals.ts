@@ -6,7 +6,8 @@ import {
   writtenStatuses,
   type ReadModule,
 } from './lifecycle-write-values';
-import { roomStatuses, roundStatuses } from '@daisy/protocol';
+import { roomStatuses } from '@daisy/protocol/room-contract';
+import { roundStatuses } from '@daisy/protocol/round';
 
 const tables = {
   rooms: new Set<string>(roomStatuses),

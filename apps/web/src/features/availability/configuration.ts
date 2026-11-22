@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { idSchema } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
 import { createAppError } from '@daisy/errors';
 import type { PublicCheckInProbeConfiguration } from './public-probe';
 const probeConfiguration = z.strictObject({

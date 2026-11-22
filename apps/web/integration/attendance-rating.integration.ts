@@ -6,7 +6,8 @@ import { settleAttendanceFixture } from './attendance-evaluator.test-support';
 import { createRatingSweep } from '../src/features/ratings/sweep';
 import { withAttendanceRound } from './attendance.test-support';
 import { rateDebate, ratingAwaited, ratingPolicy } from '@daisy/debate-engine';
-import { winnerOutcome, negativeSide } from '@daisy/protocol';
+import { winnerOutcome } from '@daisy/protocol/round-outcome';
+import { negativeSide } from '@daisy/protocol/seats';
 setupRitewayBun();
 requireTestServices(process.env);
 

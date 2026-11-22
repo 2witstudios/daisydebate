@@ -1,5 +1,5 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import type { RoundBallotRead } from '@daisy/protocol';
+import type { RoundBallotRead } from '@daisy/protocol/round-ballot-read';
 import { ballotDraftKey } from '../../../features/judge/ballot-draft';
 import { sampleBallotPlan } from '../../mock/judge.test-support';
 import { judge, view } from '../../debate-room/live-round.test-support';

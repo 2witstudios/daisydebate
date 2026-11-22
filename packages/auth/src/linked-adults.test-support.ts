@@ -1,4 +1,4 @@
-import type { AgeBand, RatingDivision } from '@daisy/protocol';
+import type { AgeBand, RatingDivision } from '@daisy/protocol/ladder';
 import type { LinkedAdultFacts } from './linked-adults';
 
 /**

@@ -5,7 +5,7 @@ import {
   recordingTakedownReasons,
   type ContentModerationSubject,
 } from '@daisy/protocol/content-moderation';
-import { idSchema } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
 import { isProfilePhotoTerminal } from '@daisy/protocol/public-profile';
 import type { ReactNode } from 'react';
 import {

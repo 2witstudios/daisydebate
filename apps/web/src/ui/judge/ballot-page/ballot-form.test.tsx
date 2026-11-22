@@ -1,6 +1,6 @@
 import { ballotPlanFor } from '../../../features/judge/ballot-plan';
 import { sampleBallotRound } from '../../../features/judge/ballot-plan.test-support';
-import { ballotCategories } from '@daisy/protocol';
+import { ballotCategories } from '@daisy/protocol/ballot';
 import { createElement as h } from 'react';
 import { renderToString } from 'react-dom/server';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';

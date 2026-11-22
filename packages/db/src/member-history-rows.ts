@@ -1,11 +1,7 @@
 import { createAppError } from '@daisy/errors';
-import {
-  isDebatingSeat,
-  ratingDivisionForAgeRule,
-  type Ladder,
-  type RoundOutcome,
-  type SeatRef,
-} from '@daisy/protocol';
+import { isDebatingSeat, type SeatRef } from '@daisy/protocol/seats';
+import { ratingDivisionForAgeRule, type Ladder } from '@daisy/protocol/ladder';
+import { type RoundOutcome } from '@daisy/protocol/round-outcome';
 import type { LobbyAgeRule } from '@daisy/protocol/lobby/eligibility';
 import { and, eq, inArray, sql } from 'drizzle-orm';
 import { actors } from './schema/actors';

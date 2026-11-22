@@ -1,9 +1,9 @@
 import { instantMs } from '@daisy/clock';
+import { roundIncidentPolicy } from '@daisy/protocol/round-incident-policy';
 import {
-  roundIncidentPolicy,
   type PlatformIncidentCause,
   type RoundIncident,
-} from '@daisy/protocol';
+} from '@daisy/protocol/round';
 
 /**
  * What the server read from the vendor in one recovery pass. A browser cannot

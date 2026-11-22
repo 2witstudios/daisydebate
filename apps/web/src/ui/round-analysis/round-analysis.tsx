@@ -1,7 +1,7 @@
 import { StatusRegion } from '../components/status-region/status-region';
 import { Button } from '../components/button/button';
 import { UpgradePanel } from '../components/upgrade-panel/upgrade-panel';
-import type { RoundAnalysisView } from '@daisy/protocol';
+import type { RoundAnalysisView } from '@daisy/protocol/round-analysis';
 import {
   roundAnalysisPanel,
   type CitedLine,

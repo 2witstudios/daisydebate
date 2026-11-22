@@ -1,6 +1,6 @@
 import { publicLobbyId } from '../src/daisy-reference';
 import { requireTestServices } from '@daisy/config';
-import { emptyRuntimeCheckpointFor } from '@daisy/protocol';
+import { emptyRuntimeCheckpointFor } from '@daisy/protocol/round';
 import { assert, test } from 'riteway/bun';
 import { createId } from '@paralleldrive/cuid2';
 import { drizzle } from 'drizzle-orm/bun-sql';

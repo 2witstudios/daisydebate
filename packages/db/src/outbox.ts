@@ -1,10 +1,10 @@
 import { sql } from 'drizzle-orm';
 import { z } from 'zod';
+import { cursorSchema } from '@daisy/protocol/realtime';
 import {
-  cursorSchema,
   isPayloadStorableOnTopic,
   outboxPayloadSchema,
-} from '@daisy/protocol';
+} from '@daisy/protocol/realtime-payloads';
 import { outbox } from './schema/outbox';
 import { instrumented, type DatabaseEventSink } from './instrumented';
 import type { RetentionBatch } from './retention';

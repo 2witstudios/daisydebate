@@ -1,5 +1,6 @@
 import type { Identity } from '@daisy/auth';
-import { idSchema, type AgeBand } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
+import { type AgeBand } from '@daisy/protocol/ladder';
 import { createAppError, createRefusal } from '@daisy/errors';
 import type { Logger } from '@daisy/logger';
 import type { ErrorReporter } from '@daisy/observability';

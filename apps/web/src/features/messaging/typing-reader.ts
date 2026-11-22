@@ -1,4 +1,5 @@
-import { buildChannelTopic, messagingTypingSchemas } from '@daisy/protocol';
+import { buildChannelTopic } from '@daisy/protocol/topics';
+import { messagingTypingSchemas } from '@daisy/protocol/messaging/typing';
 import { readTypingResponse } from './typing-response';
 import type { ConnectionStore } from '../realtime/connection-store';
 type Timers = {

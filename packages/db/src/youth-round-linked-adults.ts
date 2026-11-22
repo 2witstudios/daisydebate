@@ -1,4 +1,4 @@
-import type { YouthLiveFact } from '@daisy/protocol';
+import type { YouthLiveFact } from '@daisy/protocol/youth-live';
 import type { YouthRoundPeople } from './youth-people-cache';
 
 /** Bounded: a full map drops its oldest Round first. */

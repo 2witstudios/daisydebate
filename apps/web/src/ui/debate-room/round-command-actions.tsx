@@ -5,7 +5,7 @@ import { useId, useMemo, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import { isLiveDebater } from './live-round';
 import { UnacknowledgedCommand } from './unacknowledged-command';
-import type { RoundView } from '@daisy/protocol';
+import type { RoundView } from '@daisy/protocol/round-view';
 import {
   roundControlIntents,
   type RoundControlIntent,

@@ -4,12 +4,16 @@ import {
   analysisRequest,
   analysisWorkBounds,
   analysisWorkSchema,
-  advanceAnalysisWork,
-  roundAnalysisReportSchema,
   type AnalysisCall,
+} from '@daisy/protocol/round-analysis-work';
+import {
+  advanceAnalysisWork,
   type AnalysisWorkEvent,
+} from '@daisy/protocol/round-analysis-lifecycle';
+import {
+  roundAnalysisReportSchema,
   type RoundAnalysisReport,
-} from '@daisy/protocol';
+} from '@daisy/protocol/round-analysis';
 import { eq, sql } from 'drizzle-orm';
 import type { BoundedTransaction } from './bounded-transaction';
 import { agentLeaseDigest } from './round-agent-lease';

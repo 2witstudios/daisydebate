@@ -1,12 +1,10 @@
 import { createAppError } from '@daisy/errors';
 import { and, eq, sql } from 'drizzle-orm';
 import type { CaptureStream } from './media-capture-context';
-import {
-  leadSeatOf,
-  speakingEndMs,
-  type SeatGrantFacts,
-  seatKindSchema,
-} from '@daisy/protocol';
+import { leadSeatOf } from '@daisy/protocol/format-seating';
+import { speakingEndMs } from '@daisy/protocol/segment-end';
+import { type SeatGrantFacts } from '@daisy/protocol/capture-verdict';
+import { seatKindSchema } from '@daisy/protocol/seats';
 import { seatOfColumns } from './seat-columns';
 import { rounds } from './schema/rounds';
 import { roundSpeakingIntervals } from './schema/round-speaking-intervals';

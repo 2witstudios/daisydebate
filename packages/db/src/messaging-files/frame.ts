@@ -1,7 +1,7 @@
 import { tryInstantMs, instantMs, addMs } from '@daisy/clock';
 import { and, eq, gt, ne, sql } from 'drizzle-orm';
 import { createAppError } from '@daisy/errors';
-import { idSchema } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
 import { messagingChannels } from '../schema/messaging-channels';
 import { appendStream } from '../messaging/stream';
 import { messagingMessages } from '../schema/messaging-messages';

@@ -1,4 +1,4 @@
-import type { RecordingLifecycle } from '@daisy/protocol';
+import type { RecordingLifecycle } from '@daisy/protocol/recording';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {
   answerRecordingJob,

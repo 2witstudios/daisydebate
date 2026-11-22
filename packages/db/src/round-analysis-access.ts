@@ -3,7 +3,7 @@ import { z } from 'zod';
 import type { Account } from './room-command-facts';
 import { createAppError } from '@daisy/errors';
 import { loadAuthorizationAccount } from './authorization';
-import { seatKinds, type SeatRef, type SideKey } from '@daisy/protocol';
+import { seatKinds, type SeatRef, type SideKey } from '@daisy/protocol/seats';
 import { seatOfColumns } from './seat-columns';
 import type { Tx } from './tx';
 import { query } from './raw-rows';

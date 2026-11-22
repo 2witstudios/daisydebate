@@ -9,14 +9,11 @@ import {
   roundWaitingOn,
   tallyRecord,
 } from '@daisy/debate-engine';
-import {
-  SPECTATOR_MARGIN_MS,
-  sideSeat,
-  spectatorTimelineSchema,
-  winnerOutcome,
-  winningSideOf,
-  type RoundStatus,
-} from '@daisy/protocol';
+import { SPECTATOR_MARGIN_MS } from '@daisy/protocol/broadcast';
+import { sideSeat } from '@daisy/protocol/seats';
+import { spectatorTimelineSchema } from '@daisy/protocol/spectator-timeline';
+import { winnerOutcome, winningSideOf } from '@daisy/protocol/round-outcome';
+import { type RoundStatus } from '@daisy/protocol/round';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { readLadder } from '../src/features/leaderboard/read-leaderboard';

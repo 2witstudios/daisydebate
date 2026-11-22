@@ -2,7 +2,7 @@
 import { useBrowserEffect } from '../../edge/browser-sync';
 import { scheduleTick } from '../../edge/browser-time';
 import { StatusRegion } from '../../components/status-region/status-region';
-import type { RoundView } from '@daisy/protocol';
+import type { RoundView } from '@daisy/protocol/round-view';
 import { nowMs, systemClock } from '@daisy/clock';
 import { useRef, useState } from 'react';
 import { formatCountdown } from '../../../lib/clock-display';

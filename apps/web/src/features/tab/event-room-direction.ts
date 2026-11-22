@@ -5,7 +5,7 @@ import {
   type RoomOwnerFact,
 } from '@daisy/auth/authorization';
 import type { RoomDirectionInput } from '@daisy/db/tab';
-import type { RoomAssemblyState } from '@daisy/protocol';
+import type { RoomAssemblyState } from '@daisy/protocol/room-contract';
 import { eventSettingResolution } from './operations/event-setting-resolution';
 
 /** Relationships belong to the addressed fixture, including school authority. */

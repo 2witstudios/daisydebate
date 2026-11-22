@@ -1,6 +1,7 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { hostIdentityHidden, projectRoom } from './room-projection';
-import { judgeSeat, roomViewSchema } from '@daisy/protocol';
+import { judgeSeat } from '@daisy/protocol/seats';
+import { roomViewSchema } from '@daisy/protocol/room-read';
 import { plainFormatSettings } from '@daisy/protocol/testing';
 import { state } from './room-assembly.test-support';
 

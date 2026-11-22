@@ -1,17 +1,15 @@
 import { instantMs, tryInstantMs } from '@daisy/clock';
+import type { RoundCommandAuthority } from '@daisy/protocol/round-command';
 import type {
-  RoundCommandAuthority,
   RoundParticipantSeat,
   RoundPosition,
-  RoundRules,
-} from '@daisy/protocol';
-import {
-  conversational,
-  isJudgeSeat,
-  isRoundRunning,
-  noPostRoundCall,
-  roundStartPolicy,
-} from '@daisy/protocol';
+} from '@daisy/protocol/runtime';
+import type { RoundRules } from '@daisy/protocol/format';
+import { conversational } from '@daisy/protocol/runtime';
+import { isJudgeSeat } from '@daisy/protocol/seats';
+import { isRoundRunning } from '@daisy/protocol/round';
+import { noPostRoundCall } from '@daisy/protocol/post-round-call';
+import { roundStartPolicy } from '@daisy/protocol/round-start-policy';
 import { broadcastPhase } from './broadcast-phase';
 import { mediaWindowClosed } from './media-window';
 import { speakingParticipants } from './round-speaking';

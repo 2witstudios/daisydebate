@@ -3,13 +3,12 @@ import { promisify } from 'node:util';
 import { createId } from '@paralleldrive/cuid2';
 import { readRealtimeTransportConfig } from '@daisy/config';
 import type { Browser, BrowserContext, Page } from '@playwright/test';
+import { buildRoomTopic } from '@daisy/protocol/topics';
 import {
-  buildRoomTopic,
   roomCatalogChoiceSchema,
   roomViewSchema,
-  roomCreateSchema,
-  type RoomView,
-} from '@daisy/protocol';
+} from '@daisy/protocol/room-read';
+import { roomCreateSchema, type RoomView } from '@daisy/protocol/room-contract';
 import { test, expect, openPage } from './support/fixtures';
 import { createLaunchContexts } from './support/room-launch-contexts';
 import { requireLaunchSlot } from './support/room-launch-slot';

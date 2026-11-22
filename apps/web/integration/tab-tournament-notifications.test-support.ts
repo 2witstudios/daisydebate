@@ -2,7 +2,7 @@ import { createDatabase, type Database } from '@daisy/db';
 import {
   notificationPreferencesSchema,
   notificationShellSchema,
-} from '@daisy/protocol';
+} from '@daisy/protocol/notifications';
 import { createId } from '@paralleldrive/cuid2';
 import { SQL } from 'bun';
 import { assert } from 'riteway/bun';

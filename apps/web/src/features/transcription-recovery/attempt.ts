@@ -3,7 +3,7 @@ import type { OpenRouter } from '@daisy/ai-voice';
 import type {
   NecessaryEvidenceRestore,
   NecessaryEvidenceRestoreReply,
-} from '@daisy/protocol';
+} from '@daisy/protocol/necessary-evidence';
 import { createAppError } from '@daisy/errors';
 import { assembleOriginalAudio } from './audio';
 import { canStartTranscription } from './start-window';

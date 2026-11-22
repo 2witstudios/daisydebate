@@ -1,4 +1,6 @@
-import { leadSeatOf, sideOfSeat, type RoomView } from '@daisy/protocol';
+import { leadSeatOf } from '@daisy/protocol/format-seating';
+import { sideOfSeat } from '@daisy/protocol/seats';
+import { type RoomView } from '@daisy/protocol/room-contract';
 import { clockDuration } from '../../../features/rooms/duration-input';
 import { speechName } from '../../../features/debate-room/vocabulary';
 import { segmentSeatLabel } from './assembly-controls';

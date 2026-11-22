@@ -1,5 +1,5 @@
 import { createAppError } from '@daisy/errors';
-import { idSchema } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
 import { readMessagingChannel, withMessagingContent } from './channel-frame';
 import { channelReadFrame } from './read-frame';
 import {

@@ -7,13 +7,15 @@ import {
   affirmativeSide,
   judgeSeat,
   negativeSide,
+  sideSeat,
+} from '@daisy/protocol/seats';
+import {
   roomCastChoiceSchema,
   roomViewSchema,
-  roundViewSchema,
-  roundBallotReadSchema,
-  sideSeat,
-  type RoomCastChoice,
-} from '@daisy/protocol';
+} from '@daisy/protocol/room-read';
+import { roundViewSchema } from '@daisy/protocol/round-view';
+import { roundBallotReadSchema } from '@daisy/protocol/round-ballot-read';
+import { type RoomCastChoice } from '@daisy/protocol/room-contract';
 import { STAGING_TRANSCRIPT_ORIGIN as origin } from './staging-transcript-contract';
 const createId = () => systemId.next();
 type Cast = Pick<RoomCastChoice, 'actorId' | 'seatKind'>;

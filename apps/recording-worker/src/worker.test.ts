@@ -1,4 +1,4 @@
-import type { RecordingJobState } from '@daisy/protocol';
+import type { RecordingJobState } from '@daisy/protocol/recording-processing';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { RecordingVerificationError } from './build-recording';
 import {

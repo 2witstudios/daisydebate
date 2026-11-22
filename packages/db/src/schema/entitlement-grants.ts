@@ -1,5 +1,8 @@
 import { sql } from 'drizzle-orm';
-import { accountEntitlementKinds, entitlementSources } from '@daisy/protocol';
+import {
+  accountEntitlementKinds,
+  entitlementSources,
+} from '@daisy/protocol/entitlements';
 import {
   check,
   foreignKey,

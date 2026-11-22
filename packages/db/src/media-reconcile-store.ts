@@ -6,8 +6,8 @@ import { revokedBoundSeats, rotateMediaRoom } from './media-session-rotation';
 import type {
   MediaRoomFacts,
   MediaRoomFate,
-  MediaWindowFacts,
-} from '@daisy/protocol';
+} from '@daisy/protocol/media-room-fate';
+import type { MediaWindowFacts } from '@daisy/protocol/post-round-call';
 import {
   readMediaBotLeases,
   mediaHearingSeats,
@@ -28,7 +28,7 @@ import {
   type LockedRoundTickInput,
 } from './round-clock-transaction';
 import { hydrateRoundRows, type RoundHydration } from './round-hydration';
-import type { RoundCommandAuthority } from '@daisy/protocol';
+import type { RoundCommandAuthority } from '@daisy/protocol/round-command';
 import {
   withdrawnSeats,
   type ParticipantAdmission,

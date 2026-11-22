@@ -1,15 +1,16 @@
-import type { AgeBand, RatingDivision, CompetitionType } from '@daisy/protocol';
-import { ageBands, divisionOfAgeBand } from '@daisy/protocol';
+import type { AgeBand, RatingDivision } from '@daisy/protocol/ladder';
+import type { CompetitionType } from '@daisy/protocol/round';
+import { ageBands, divisionOfAgeBand } from '@daisy/protocol/ladder';
 import { challengeModes, readChallengeDebaters } from '../challenges/lobby';
 import { readOfficialStandingLobbies } from '../official-standing-lobbies';
 import { divisionAgeBand } from '../ladder-division-band';
 import { sql } from 'drizzle-orm';
+import { idSchema } from '@daisy/protocol/primitives';
 import {
-  idSchema,
   type ChosenStatus,
   type MemberPlacement,
-  type PeopleFilter,
-} from '@daisy/protocol';
+} from '@daisy/protocol/presence-setting';
+import { type PeopleFilter } from '@daisy/protocol/people-list';
 import {
   readOwnCollection,
   requireOwnScope,

@@ -1,6 +1,7 @@
 import { addMs } from '@daisy/clock';
 import { requireTestServices } from '@daisy/config';
-import { emptyRuntimeCheckpointFor, twoSides } from '@daisy/protocol';
+import { emptyRuntimeCheckpointFor } from '@daisy/protocol/round';
+import { twoSides } from '@daisy/protocol/seats';
 import { SQL } from 'bun';
 import { drizzle } from 'drizzle-orm/bun-sql';
 import { assert, setupRitewayBun, test } from 'riteway/bun';

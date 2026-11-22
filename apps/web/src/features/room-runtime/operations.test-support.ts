@@ -3,7 +3,7 @@ import type { AiSeatAvailability } from '../../server/round-worker-policy';
 import { fixedIds } from '@daisy/clock';
 import type { AccountAuthorizationFact } from '@daisy/auth/authorization';
 import { createAppError } from '@daisy/errors';
-import { type RoomAssemblyState } from '@daisy/protocol';
+import { type RoomAssemblyState } from '@daisy/protocol/room-contract';
 import {
   oneOnOneDefinition,
   oneOnOneRankedSettings,

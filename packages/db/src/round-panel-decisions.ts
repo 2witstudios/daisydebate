@@ -1,12 +1,12 @@
 import { commandDigest } from '@daisy/digest';
 import { createAppError, createRefusal } from '@daisy/errors';
+import { idSchema } from '@daisy/protocol/primitives';
 import {
-  idSchema,
   roundPanelReceiptSchema,
-  type RoundOutcome,
-  type RoundProjection,
   type RoundPanelReceipt,
-} from '@daisy/protocol';
+} from '@daisy/protocol/round-panel-completion';
+import { type RoundOutcome } from '@daisy/protocol/round-outcome';
+import { type RoundProjection } from '@daisy/protocol/runtime';
 import type { roundCommands } from './schema/round-commands';
 
 /** The identity of one internal panel completion request. */

@@ -1,4 +1,4 @@
-import { messageRequestSettingSchema } from '@daisy/protocol';
+import { messageRequestSettingSchema } from '@daisy/protocol/messaging/social';
 import { createAppError } from '@daisy/errors';
 import { sql } from 'drizzle-orm';
 import { z } from 'zod';

@@ -1,4 +1,5 @@
-import type { RatingState, RoomView } from '@daisy/protocol';
+import type { RatingState } from '@daisy/protocol/ratings';
+import type { RoomView } from '@daisy/protocol/room-contract';
 import { isTemporaryRefusal } from '@daisy/db/capacity';
 import { ratingStanding } from './standing';
 

@@ -1,5 +1,5 @@
 import { createInvariantError } from '@daisy/errors';
-import type { PlatformIncidentCause } from '@daisy/protocol';
+import type { PlatformIncidentCause } from '@daisy/protocol/round';
 import { debateInvariantIds } from './invariant-ids';
 import type { ClockSegment, ClockState } from './round-clock-state';
 

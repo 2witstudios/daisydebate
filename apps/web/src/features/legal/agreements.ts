@@ -1,4 +1,4 @@
-import type { AgeBand } from '@daisy/protocol';
+import type { AgeBand } from '@daisy/protocol/ladder';
 import type { LegalDocument } from './documents';
 
 /**

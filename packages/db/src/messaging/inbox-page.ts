@@ -3,11 +3,11 @@ import { createAppError, isAppError } from '@daisy/errors';
 import {
   decodeMessagingInboxCursor,
   encodeMessagingInboxCursor,
-  idSchema,
-  messagingBetaLimits,
   messagingInboxSearchLine,
   messagingInboxPreviewMax,
-} from '@daisy/protocol';
+} from '@daisy/protocol/messaging/inbox';
+import { idSchema } from '@daisy/protocol/primitives';
+import { messagingBetaLimits } from '@daisy/protocol/messaging/core';
 import { loadAuthorizationAccount } from '../authorization';
 import type { authorizationAccountFact } from '../authorization-account';
 import {

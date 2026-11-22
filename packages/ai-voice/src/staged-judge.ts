@@ -1,9 +1,7 @@
-import type {
-  BallotDefinition,
-  CaseMap,
-  JudgingStageInput,
-  Side,
-} from '@daisy/protocol';
+import type { BallotDefinition } from '@daisy/protocol/ballot-definition';
+import type { CaseMap } from '@daisy/protocol/case-map';
+import type { JudgingStageInput } from '@daisy/protocol/round-judging-attempt';
+import type { Side } from '@daisy/protocol/seats';
 import type { ChatMessage } from './openrouter';
 import { ballotInstructions, scoringAnchors } from './judge-instructions';
 import { roundJudgeMessages } from './round-judge';

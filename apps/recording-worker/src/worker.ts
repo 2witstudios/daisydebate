@@ -1,9 +1,9 @@
 import type { createRecordingWorkerStore } from '@daisy/db/recording-worker';
+import type { PublicInterval } from '@daisy/protocol/public-interval';
 import type {
-  PublicInterval,
   RecordingBuildProgress,
   RecordingJobState,
-} from '@daisy/protocol';
+} from '@daisy/protocol/recording-processing';
 import { RecordingVerificationError } from './build-recording';
 
 const LEASE_MS = 60_000;

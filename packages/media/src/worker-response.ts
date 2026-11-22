@@ -1,5 +1,8 @@
 import { createAppError, isAppError } from '@daisy/errors';
-import { captureRefusalSchema, type CaptureRefusal } from '@daisy/protocol';
+import {
+  captureRefusalSchema,
+  type CaptureRefusal,
+} from '@daisy/protocol/capture-refusal';
 import { z } from 'zod';
 
 const namedRefusalReply = z.object({ refusal: captureRefusalSchema });

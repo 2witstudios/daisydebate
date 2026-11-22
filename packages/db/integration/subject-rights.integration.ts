@@ -2,7 +2,7 @@ import { judgedRound as createJudgedRound } from './judged-round.test-support';
 import { createId } from '@paralleldrive/cuid2';
 import { drizzle } from 'drizzle-orm/bun-sql';
 import { requireTestServices } from '@daisy/config';
-import { ratingStyles } from '@daisy/protocol';
+import { ratingStyles } from '@daisy/protocol/primitives';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { erasePrivacySubject, exportPrivacySubject } from '../src/privacy';
 import { withRolledBackDatabase } from '../src/testing-rolled-back';

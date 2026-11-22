@@ -3,7 +3,7 @@ import {
   queueOfReason,
   type ContentReportCreate,
 } from '@daisy/protocol/content-moderation';
-import { idSchema } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
 import { sql } from 'drizzle-orm';
 import type { Tx } from './tx';
 import { run } from './raw-rows';

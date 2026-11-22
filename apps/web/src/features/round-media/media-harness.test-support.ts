@@ -1,4 +1,7 @@
-import type { RoundMediaAdmission, RoundMediaState } from '@daisy/protocol';
+import type {
+  RoundMediaAdmission,
+  RoundMediaState,
+} from '@daisy/protocol/round-media';
 import {
   createLiveKitRoom,
   type MediaRoom,

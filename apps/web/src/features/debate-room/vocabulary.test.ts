@@ -7,7 +7,7 @@ import {
   yieldLabel,
 } from './vocabulary';
 import { shapeLabel } from './seat-names';
-import { twoSides } from '@daisy/protocol';
+import { twoSides } from '@daisy/protocol/seats';
 
 setupRitewayBun();
 

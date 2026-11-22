@@ -3,7 +3,10 @@
 import { useBrowserEffect } from '../edge/browser-sync';
 import { scheduleDelay } from '../edge/browser-time';
 import { Button } from '../components/button/button';
-import type { NotificationKind, NotificationShell } from '@daisy/protocol';
+import type {
+  NotificationKind,
+  NotificationShell,
+} from '@daisy/protocol/notifications';
 import Link from 'next/link';
 import { useRef, useState } from 'react';
 import {

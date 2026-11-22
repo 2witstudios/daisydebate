@@ -1,4 +1,4 @@
-import { reportReasonLabels } from '@daisy/protocol';
+import { reportReasonLabels } from '@daisy/protocol/reports';
 import { requireOperator } from '../../server/operator-gate';
 import { adminRuntime } from '../../server/runtime';
 import { NotPermitted, OperatorNav } from '../operator-nav';

@@ -1,6 +1,6 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { conversational } from '@daisy/protocol';
+import { conversational } from '@daisy/protocol/runtime';
 import { ConversationHeldNotice } from './conversation-held-notice';
 import { view } from './live-round.test-support';
 

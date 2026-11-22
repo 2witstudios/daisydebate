@@ -4,7 +4,9 @@ import { passAttendanceCutoff } from './round-attendance-fixture.test-support';
 import { createRoundJudgingOperations } from '../src/features/round-judging/operations';
 import { createId } from '@paralleldrive/cuid2';
 import { seedRatingSeason } from '@daisy/db/testing';
-import { buildRoundTopic, winnerOutcome, negativeSide } from '@daisy/protocol';
+import { buildRoundTopic } from '@daisy/protocol/topics';
+import { winnerOutcome } from '@daisy/protocol/round-outcome';
+import { negativeSide } from '@daisy/protocol/seats';
 import { recoverRankedResults } from './ranked-room.test-support';
 import {
   readRoundOpening,

@@ -1,5 +1,6 @@
 import { instantMs } from '@daisy/clock';
-import type { RoundBallotRead, RoundWaitingOn } from '@daisy/protocol';
+import type { RoundBallotRead } from '@daisy/protocol/round-ballot-read';
+import type { RoundWaitingOn } from '@daisy/protocol/round-view';
 
 /** How soon the ballot page asks the server for the Round again while a change is due. */
 export const ballotRefreshEveryMs = 5_000;

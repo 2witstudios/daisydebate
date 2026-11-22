@@ -1,6 +1,6 @@
 import { mapTabCommandAnswer } from '../tab/command-form-answer';
 import { z } from 'zod';
-import { idSchema } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
 import { lobbySetupCommandEnvelopeSchema } from '@daisy/protocol/lobby/lobby-setup-command';
 import {
   lobbyAgeRules,

@@ -1,4 +1,4 @@
-import { emailDeliveryStatusRank } from '@daisy/protocol';
+import { emailDeliveryStatusRank } from '@daisy/protocol/email-delivery';
 import { createId } from '@paralleldrive/cuid2';
 import { requireTestServices } from '@daisy/config';
 import { assert, setupRitewayBun, test } from 'riteway/bun';

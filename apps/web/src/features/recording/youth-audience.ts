@@ -1,4 +1,4 @@
-import type { RecordingStatus } from '@daisy/protocol';
+import type { RecordingStatus } from '@daisy/protocol/recording';
 import type { RecordingRound, RecordingViewer } from './audience';
 
 /**

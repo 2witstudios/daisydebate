@@ -2,7 +2,7 @@ import {
   foundationDefinition,
   foundationSettings,
 } from '@daisy/db/reference-formats';
-import { sideSeat, twoSideKeys } from '@daisy/protocol';
+import { sideSeat, twoSideKeys } from '@daisy/protocol/seats';
 
 /** A format may have no more (DEC-131), and one Round gives one deadline fewer. */
 const MAX_SPEECHES = 64;

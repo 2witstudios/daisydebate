@@ -1,4 +1,4 @@
-import { twoSideKeys } from '@daisy/protocol';
+import { twoSideKeys } from '@daisy/protocol/seats';
 
 export const STAGING_TRANSCRIPT_ORIGIN = 'https://beta.daisydebate.com';
 

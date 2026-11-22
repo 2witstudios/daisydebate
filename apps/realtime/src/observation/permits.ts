@@ -1,4 +1,4 @@
-import { observationPermitMs } from '@daisy/protocol';
+import { observationPermitMs } from '@daisy/protocol/observation';
 
 /**
  * Server-internal subscription evidence (ADR 0089, DEC-130). A permit binds

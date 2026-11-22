@@ -4,7 +4,8 @@ import { createAppError, isAppError } from '@daisy/errors';
 import type { Principal } from '@daisy/auth';
 import { authorize } from '@daisy/auth/authorization';
 import { resolveRoomConfiguration as resolveRoom } from '@daisy/debate-engine';
-import type { RoundStatus, RoundRules } from '@daisy/protocol';
+import type { RoundStatus } from '@daisy/protocol/round';
+import type { RoundRules } from '@daisy/protocol/format';
 import { parseValidated } from '../../server/http';
 import { proofDebateIdSchema, proofDebateInputSchema } from './schemas';
 

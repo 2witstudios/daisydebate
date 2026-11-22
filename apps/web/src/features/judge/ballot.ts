@@ -1,14 +1,15 @@
 import { createAppError } from '@daisy/errors';
 import {
   ballotDefinitionIdentity,
-  isScoreOnScale,
-  scoreScaleFor,
+  type BallotDefinition,
+} from '@daisy/protocol/ballot-definition';
+import { isScoreOnScale, scoreScaleFor } from '@daisy/protocol/score-unit';
+import {
   ballotSchemaFor,
   isLowPointWin,
   pointsTotal,
   type Ballot,
-  type BallotDefinition,
-} from '@daisy/protocol';
+} from '@daisy/protocol/ballot-schema';
 import { accept, field, refuse, type Parsed } from '../forms/form-state';
 import { subjectChoices, type BallotPlan } from './ballot-plan';
 

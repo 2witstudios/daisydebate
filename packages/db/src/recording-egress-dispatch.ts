@@ -1,6 +1,7 @@
 import { instantMs } from '@daisy/clock';
 import { and, eq, isNull } from 'drizzle-orm';
-import { isRoundRunning, idSchema } from '@daisy/protocol';
+import { isRoundRunning } from '@daisy/protocol/round';
+import { idSchema } from '@daisy/protocol/primitives';
 import { recordingCaptures as captures } from './schema/recording-captures';
 import { recordings } from './schema/recordings';
 import { rounds } from './schema/rounds';

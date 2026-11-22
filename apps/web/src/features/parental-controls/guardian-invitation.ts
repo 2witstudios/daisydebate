@@ -1,5 +1,5 @@
 import { addMs, isInstantBefore, tryInstantMs } from '@daisy/clock';
-import type { AgeBand } from '@daisy/protocol';
+import type { AgeBand } from '@daisy/protocol/ladder';
 import type { GuardianRefusal } from '@daisy/protocol/guardians';
 import { ageBand } from '@daisy/auth';
 

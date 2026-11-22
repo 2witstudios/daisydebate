@@ -1,4 +1,4 @@
-import { idSchema } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
 import { z } from 'zod';
 import type { SearchParams } from '../access/decision';
 import { MAX_SEARCH_LENGTH } from '../watch/live-query';

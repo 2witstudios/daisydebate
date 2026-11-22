@@ -1,6 +1,9 @@
 import { instantMs } from '@daisy/clock';
 import type { SQL } from 'bun';
-import type { Ballot, BallotWrittenRecord } from '@daisy/protocol';
+import type {
+  Ballot,
+  BallotWrittenRecord,
+} from '@daisy/protocol/ballot-schema';
 import { createId } from '@paralleldrive/cuid2';
 import { withRoomRuntime } from './room-runtime.test-support';
 import { playTournamentRound } from './tab-tournament-round.test-support';

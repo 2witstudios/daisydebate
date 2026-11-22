@@ -1,6 +1,6 @@
 import { hostBallotBoard } from '../../../../../../features/tab/host-ballot-board';
 import { systemId } from '@daisy/clock';
-import { roundBallotReadSchema } from '@daisy/protocol';
+import { roundBallotReadSchema } from '@daisy/protocol/round-ballot-read';
 import { hostBallotsViewSchema } from '@daisy/protocol/lobby/host-ballots-read';
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';

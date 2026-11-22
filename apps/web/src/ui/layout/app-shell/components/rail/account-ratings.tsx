@@ -1,6 +1,6 @@
-import type { Ladder, RatingDivision } from '@daisy/protocol';
+import type { Ladder, RatingDivision } from '@daisy/protocol/ladder';
 import { noLadderReason } from '../../../../../features/play/ladder-division-words';
-import { ladderKey } from '@daisy/protocol';
+import { ladderKey } from '@daisy/protocol/ladder';
 import type { MemberStanding } from '../../../../../features/ratings/read-member';
 import {
   markedRating,

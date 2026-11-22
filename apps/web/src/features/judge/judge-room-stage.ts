@@ -1,4 +1,5 @@
-import type { RoundWaitingOn, SeatRef } from '@daisy/protocol';
+import type { RoundWaitingOn } from '@daisy/protocol/round-view';
+import type { SeatRef } from '@daisy/protocol/seats';
 import { formatCountdown } from '../../lib/clock-display';
 import type {
   ObservedRound,

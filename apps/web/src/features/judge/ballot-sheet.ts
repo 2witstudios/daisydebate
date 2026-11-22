@@ -1,10 +1,9 @@
+import { isLowPointWin, pointsTotal } from '@daisy/protocol/ballot-schema';
 import {
-  isLowPointWin,
-  pointsTotal,
   scoreLatticeSize,
   scoreValueAt,
   sumScoreValues,
-} from '@daisy/protocol';
+} from '@daisy/protocol/score-unit';
 import {
   lowPointKey,
   pointsField,

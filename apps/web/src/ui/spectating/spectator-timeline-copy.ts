@@ -1,8 +1,5 @@
-import {
-  sideOfSeat,
-  type SeatRef,
-  type SpectatorTimeline,
-} from '@daisy/protocol';
+import { sideOfSeat, type SeatRef } from '@daisy/protocol/seats';
+import { type SpectatorTimeline } from '@daisy/protocol/spectator-timeline';
 import { sideName } from '../../features/debate-room/seat-names';
 
 type Sides = SpectatorTimeline['sides'];

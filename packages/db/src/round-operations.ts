@@ -1,9 +1,5 @@
-import {
-  roundStatus,
-  emptyRuntimeCheckpointFor,
-  roundRulesSchema,
-  type RoundRules,
-} from '@daisy/protocol';
+import { roundStatus, emptyRuntimeCheckpointFor } from '@daisy/protocol/round';
+import { roundRulesSchema, type RoundRules } from '@daisy/protocol/format';
 import { frozenJudgingFor } from './round-judging-freeze';
 import { readDatabaseTime } from './database-clock';
 import { createAppError } from '@daisy/errors';

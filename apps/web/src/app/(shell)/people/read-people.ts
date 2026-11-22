@@ -1,4 +1,5 @@
-import { peopleListSchema, presenceSettingResultSchema } from '@daisy/protocol';
+import { peopleListSchema } from '@daisy/protocol/people-list';
+import { presenceSettingResultSchema } from '@daisy/protocol/presence-setting';
 import { GET as readPeopleRoute } from '../../api/people/route';
 import { GET as readPresenceRoute } from '../../api/presence/route';
 import { readOwnRoute } from '../friends/read-route';

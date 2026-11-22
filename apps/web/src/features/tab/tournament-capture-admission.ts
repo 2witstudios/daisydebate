@@ -7,9 +7,9 @@ import type { RoomDirectionInput } from '@daisy/db/tab';
 import {
   tournamentCaptureAdmissionSchema,
   tournamentCaptureExecutionBudgetMs,
-  type RoomAssemblyState,
   type TournamentOfficialAuthority,
-} from '@daisy/protocol';
+} from '@daisy/protocol/tournament-capture-admission';
+import { type RoomAssemblyState } from '@daisy/protocol/room-contract';
 import { eventRoomDirectionDecision } from './event-room-direction';
 import { hostingCaptureConcurrency } from '@daisy/protocol/lobby/hosting-tier';
 

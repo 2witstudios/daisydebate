@@ -1,6 +1,6 @@
 import { and, eq, sql, type SQL } from 'drizzle-orm';
 import { createAppError, createRefusal } from '@daisy/errors';
-import { isJudgeSeat } from '@daisy/protocol';
+import { isJudgeSeat } from '@daisy/protocol/seats';
 import { lockRoundAgentContext } from './round-agent-runs';
 import { readDatabaseTime } from './database-clock';
 import { requireAgentLeaseToken } from './round-agent-lease';

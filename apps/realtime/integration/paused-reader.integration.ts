@@ -1,10 +1,7 @@
 import { requireTestServices } from '@daisy/config';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import {
-  ENVELOPE_VERSION,
-  PROTOCOL_VERSION,
-  type ServerMessage,
-} from '@daisy/protocol';
+import { ENVELOPE_VERSION, PROTOCOL_VERSION } from '@daisy/protocol/realtime';
+import { type ServerMessage } from '@daisy/protocol/realtime-server';
 import { encodeOutboxCursor } from '@daisy/db/outbox';
 import type { SocketData } from '../src/socket';
 import {

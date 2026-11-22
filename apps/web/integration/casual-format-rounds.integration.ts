@@ -3,10 +3,10 @@ import {
   fourTeams,
   judgeSeat,
   sideSeat,
-  type Ballot,
-  type RoomView,
   type SeatRef,
-} from '@daisy/protocol';
+} from '@daisy/protocol/seats';
+import { type Ballot } from '@daisy/protocol/ballot-schema';
+import { type RoomView } from '@daisy/protocol/room-contract';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { roundTickProjection } from '../src/features/round-finalization/operations';

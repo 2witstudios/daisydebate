@@ -1,5 +1,8 @@
 import { createRefusal } from '@daisy/errors';
-import { roundRatingScopeSchema, type RoundRatingScope } from '@daisy/protocol';
+import {
+  roundRatingScopeSchema,
+  type RoundRatingScope,
+} from '@daisy/protocol/rating-ladder';
 import { and, asc, eq } from 'drizzle-orm';
 import { ladders } from './schema/ladders';
 import { lobbies } from './schema/lobbies';

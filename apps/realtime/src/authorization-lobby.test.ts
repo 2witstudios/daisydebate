@@ -5,7 +5,7 @@ import {
   buildLobbyHostTopic,
   buildLobbyTopic,
   buildOrganizationHostTopic,
-} from '@daisy/protocol';
+} from '@daisy/protocol/topics';
 import { createRealtimeAuthorization } from './authorization';
 import { refuseAllReading } from './authorization.test-support';
 

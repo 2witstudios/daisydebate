@@ -1,5 +1,5 @@
 import { sql } from 'drizzle-orm';
-import { idSchema } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
 import type { PrivacyAdopter, PrivacyExport } from '../privacy/contracts';
 import { scopeTransaction } from '../tenant-scope';
 import { guardianWaitingLabel } from './guardian-approval-standing';

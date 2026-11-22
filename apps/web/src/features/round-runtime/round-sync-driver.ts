@@ -1,4 +1,5 @@
-import { buildRoundTopic, type RoundView } from '@daisy/protocol';
+import { buildRoundTopic } from '@daisy/protocol/topics';
+import { type RoundView } from '@daisy/protocol/round-view';
 import type { Scheduler } from '../realtime/connection-store';
 import {
   createResourceSyncDriver,

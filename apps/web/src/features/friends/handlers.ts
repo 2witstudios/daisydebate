@@ -10,7 +10,7 @@ import {
   type FriendCommandResult,
   type FriendList,
   type OnlineCounts,
-} from '@daisy/protocol';
+} from '@daisy/protocol/friends';
 import type { FriendshipCommand } from './friendship';
 import { parseValidated, readJson } from '../../server/http';
 import { runEvaluatedRoute } from '../../server/member-boundary';

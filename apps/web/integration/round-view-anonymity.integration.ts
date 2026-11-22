@@ -1,12 +1,8 @@
 import { assertRejects } from '@daisy/errors/testing';
 import { requireTestServices } from '@daisy/config';
-import {
-  isJudgeSeat,
-  isNamedSeat,
-  judgeSeat,
-  sideSeat,
-  type RoomView,
-} from '@daisy/protocol';
+import { isJudgeSeat, judgeSeat, sideSeat } from '@daisy/protocol/seats';
+import { isNamedSeat } from '@daisy/protocol/round-view';
+import { type RoomView } from '@daisy/protocol/room-contract';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { withRoomRuntime } from './room-runtime.test-support';
 

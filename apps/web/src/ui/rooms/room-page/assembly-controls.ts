@@ -1,16 +1,18 @@
 import {
   everySeatOf,
-  formatSeatsSchema,
-  isJudgeSeat,
-  isNamedSeat,
   leadSeatOf,
-  seatLabel as protocolSeatLabel,
   type FormatSeating,
-  type RoomView,
+  type SpeakRights,
+} from '@daisy/protocol/format-seating';
+import { formatSeatsSchema } from '@daisy/protocol/format';
+import {
+  isJudgeSeat,
+  seatLabel as protocolSeatLabel,
   type SeatRef,
   type Side,
-  type SpeakRights,
-} from '@daisy/protocol';
+} from '@daisy/protocol/seats';
+import { isNamedSeat } from '@daisy/protocol/round-view';
+import { type RoomView } from '@daisy/protocol/room-contract';
 
 /** Every seat the format declares, in seat order: sides as declared, speakers, moderator, judges. */
 export function declaredSeats(seating: FormatSeating): readonly SeatRef[] {

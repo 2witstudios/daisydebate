@@ -1,5 +1,8 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { maxUnheardShare, type FrozenCapture } from '@daisy/protocol';
+import {
+  maxUnheardShare,
+  type FrozenCapture,
+} from '@daisy/protocol/capture-judging-limit';
 import { freezeJudgingPlan } from './round-panel-completion';
 setupRitewayBun();
 

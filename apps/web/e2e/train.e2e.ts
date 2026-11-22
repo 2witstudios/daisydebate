@@ -4,14 +4,14 @@ import { fileURLToPath } from 'node:url';
 import {
   affirmativeSide,
   isJudgeSeat,
-  isNamedSeat,
   judgeSeat,
   negativeSide,
   seatKey,
   sideOfSeat,
   sideSeat,
-  type RoomView,
-} from '@daisy/protocol';
+} from '@daisy/protocol/seats';
+import { isNamedSeat } from '@daisy/protocol/round-view';
+import { type RoomView } from '@daisy/protocol/room-contract';
 import type { Response } from '@playwright/test';
 import { expect, test, openPage } from './support/fixtures';
 import { holdScripts } from './support/hydration';

@@ -22,12 +22,10 @@ import {
   operatorCommandReceiptSchema,
   operatorLimits,
 } from '@daisy/protocol/operator';
-import {
-  feedbackSubjectOf,
-  roundJudgingSchema,
-  type BroadcastFeedEndReason,
-  type ContentReportCreate,
-} from '@daisy/protocol';
+import { feedbackSubjectOf } from '@daisy/protocol/ballot-schema';
+import { roundJudgingSchema } from '@daisy/protocol/ballot-definition';
+import { type BroadcastFeedEndReason } from '@daisy/protocol/broadcast';
+import { type ContentReportCreate } from '@daisy/protocol/content-moderation';
 import { seatOfColumns } from './seat-columns';
 import { sql } from 'drizzle-orm';
 import { z } from 'zod';

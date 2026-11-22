@@ -1,6 +1,6 @@
 import { sha3Hex } from '@daisy/digest';
 import { assertRejects } from '@daisy/errors/testing';
-import type { RoundCommandEnvelope } from '@daisy/protocol';
+import type { RoundCommandEnvelope } from '@daisy/protocol/round-command';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import type { AppError } from '@daisy/errors';
 import { caller, now } from '../room-runtime/operations.test-support';

@@ -1,10 +1,6 @@
 import { instantMs } from '@daisy/clock';
-import {
-  isNamedSeat,
-  sideOfSeat,
-  type RoundView,
-  type SideKey,
-} from '@daisy/protocol';
+import { isNamedSeat, type RoundView } from '@daisy/protocol/round-view';
+import { sideOfSeat, type SideKey } from '@daisy/protocol/seats';
 import { sideName } from '../../features/debate-room/seat-names';
 import { countdownClock } from '../../features/rooms/duration-input';
 import {

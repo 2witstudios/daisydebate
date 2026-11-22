@@ -1,13 +1,13 @@
 import { instantMs } from '@daisy/clock';
 import { createAppError } from '@daisy/errors';
+import type { BuiltRecordingMedia } from '@daisy/protocol/recording-processing';
+import type { CompetitionType } from '@daisy/protocol/round';
 import type {
-  BuiltRecordingMedia,
-  CompetitionType,
   RecordingLifecycle,
   RecordingSource,
-  RecordingEvent,
-} from '@daisy/protocol';
-import { transitionRecording } from '@daisy/protocol';
+} from '@daisy/protocol/recording';
+import type { RecordingEvent } from '@daisy/protocol/recording-lifecycle';
+import { transitionRecording } from '@daisy/protocol/recording-lifecycle';
 import { coverageStatement } from './coverage-statement';
 import { captureEligibility } from './eligibility';
 import type { RecordingInputs, RecordingRecord, RecordingStore } from './ports';

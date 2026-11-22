@@ -1,10 +1,10 @@
 import { lifecycleSql } from './lifecycle-sql';
 import { createAppError } from '@daisy/errors';
+import { roundStatus } from '@daisy/protocol/round';
 import {
-  roundStatus,
   judgingWorkKinds,
   type JudgingWorkKind,
-} from '@daisy/protocol';
+} from '@daisy/protocol/judging-policy';
 import { sql } from 'drizzle-orm';
 import type { Tx } from './tx';
 import { query } from './raw-rows';

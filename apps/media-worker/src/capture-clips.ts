@@ -1,7 +1,8 @@
 import { sha3Hex } from '@daisy/digest';
 import { createAppError } from '@daisy/errors';
 import { encodePcmWave } from '@daisy/media/pcm';
-import { idSchema, segmentDueAtMs, speakingEndMs } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
+import { segmentDueAtMs, speakingEndMs } from '@daisy/protocol/segment-end';
 
 type Segment = {
   readonly id: string;

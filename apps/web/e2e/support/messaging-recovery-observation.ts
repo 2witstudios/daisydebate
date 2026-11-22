@@ -1,5 +1,5 @@
 import type { Page, WebSocket } from '@playwright/test';
-import { clientMessageSchema } from '@daisy/protocol';
+import { clientMessageSchema } from '@daisy/protocol/realtime';
 import { nowMs, systemClock } from '@daisy/clock';
 import { expect } from './fixtures';
 import { STEP_LIMIT_MS } from './bounded-step';

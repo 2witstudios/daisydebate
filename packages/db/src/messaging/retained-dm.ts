@@ -1,6 +1,6 @@
 import { sql } from 'drizzle-orm';
 import { createAppError } from '@daisy/errors';
-import { idSchema } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
 import { eraseSubjectFiles } from '../messaging-files';
 import type { Tx } from '../tx';
 import { query, run } from '../raw-rows';

@@ -24,7 +24,8 @@ import {
   or,
   sql,
 } from 'drizzle-orm';
-import { runningRoundStatuses, recordingHoldPrefix } from '@daisy/protocol';
+import { runningRoundStatuses } from '@daisy/protocol/round';
+import { recordingHoldPrefix } from '@daisy/protocol/recording';
 import { readBroadcastRoom } from './broadcast-operations';
 import { controlHeartbeat, heartbeatStale } from './control-heartbeat';
 import { readEntitlementGrants } from './entitlement-grants';

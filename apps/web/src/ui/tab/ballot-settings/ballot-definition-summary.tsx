@@ -1,4 +1,4 @@
-import type { BallotDefinition } from '@daisy/protocol';
+import type { BallotDefinition } from '@daisy/protocol/ballot-definition';
 
 const scoreSubjects = {
   side: 'Each side',

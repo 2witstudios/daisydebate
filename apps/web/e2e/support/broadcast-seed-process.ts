@@ -4,10 +4,10 @@ import { oneOnOneSettings } from '@daisy/db/reference-formats';
 import { oneOnOneFormatFixture } from '@daisy/protocol/testing';
 import {
   affirmativeSide,
-  emptyRuntimeCheckpointFor,
   negativeSide,
   type SideKey,
-} from '@daisy/protocol';
+} from '@daisy/protocol/seats';
+import { emptyRuntimeCheckpointFor } from '@daisy/protocol/round';
 import { mediaReleaseWording } from '@daisy/protocol/media-release';
 import { createId } from '@paralleldrive/cuid2';
 import { SQL, type TransactionSQL } from 'bun';

@@ -5,7 +5,7 @@ import type { ErrorReporter } from '@daisy/observability';
 import {
   createMessagingSocialSchemas,
   type MessagingSocialBounds,
-} from '@daisy/protocol';
+} from '@daisy/protocol/messaging/social';
 import { readJson } from '../../server/http';
 import { runEvaluatedRoute } from '../../server/member-boundary';
 

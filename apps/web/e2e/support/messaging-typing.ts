@@ -1,5 +1,5 @@
 import { expect, type Page } from '@playwright/test';
-import type { ServerMessage } from '@daisy/protocol';
+import type { ServerMessage } from '@daisy/protocol/realtime-server';
 import { messagingBrowserPolicy } from './messaging-policy';
 /** Real composer -> canonical HTTP -> Redis lease -> PG hint -> WS -> aggregate refetch. */
 export async function proveNativeTyping(

@@ -1,6 +1,6 @@
 import { instantMs } from '@daisy/clock';
 import { createAppError } from '@daisy/errors';
-import { idSchema } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
 import {
   subscriptionEvidenceSchema,
   type SubscriptionEvidence,

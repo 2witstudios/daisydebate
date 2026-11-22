@@ -1,9 +1,6 @@
 import { z } from 'zod';
-import {
-  idSchema,
-  ratingDivisions,
-  type RatingDivision,
-} from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
+import { ratingDivisions, type RatingDivision } from '@daisy/protocol/ladder';
 import type { SearchParams } from '../access/decision';
 
 const scopes = ['top', 'around'] as const;

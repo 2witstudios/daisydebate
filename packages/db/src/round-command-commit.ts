@@ -1,4 +1,5 @@
-import type { RoundCommandReceipt, RoundProjection } from '@daisy/protocol';
+import type { RoundCommandReceipt } from '@daisy/protocol/round-command';
+import type { RoundProjection } from '@daisy/protocol/runtime';
 import {
   insertCommandRow,
   lockedRoundVersion,

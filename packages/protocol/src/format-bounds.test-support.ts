@@ -1,4 +1,4 @@
-import type { FormatDefinition } from './index';
+import type { FormatDefinition } from './format';
 import { oneOnOneFormatFixture } from './format-fixtures.test-support';
 import { sideSeat } from './seats';
 

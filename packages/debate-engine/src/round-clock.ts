@@ -1,12 +1,9 @@
 import { instantMs } from '@daisy/clock';
 import { createInvariantError } from '@daisy/errors';
-import {
-  clockStopsOf,
-  prepConsumedOf,
-  dueAfterStops,
-  segmentDueAtMs,
-  type RoundRules,
-} from '@daisy/protocol';
+import { clockStopsOf, prepConsumedOf } from '@daisy/protocol/round';
+import { dueAfterStops } from '@daisy/protocol/clock-stops';
+import { segmentDueAtMs } from '@daisy/protocol/segment-end';
+import { type RoundRules } from '@daisy/protocol/format';
 import { resumeIfDue } from './round-incident';
 import {
   closeClockSegment,

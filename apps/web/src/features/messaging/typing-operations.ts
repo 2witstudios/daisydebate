@@ -3,7 +3,7 @@ import type { Database } from '@daisy/db';
 import type { createRedis } from '@daisy/redis';
 import type { Clock } from '@daisy/clock';
 import type { AuthorizationPrincipal } from '@daisy/auth/authorization';
-import { messagingTypingSchemas } from '@daisy/protocol';
+import { messagingTypingSchemas } from '@daisy/protocol/messaging/typing';
 import { createAppError } from '@daisy/errors';
 import type { loadAccountPolicyFacts } from '../authorization/account-policy-facts';
 

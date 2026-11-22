@@ -1,4 +1,4 @@
-import type { RoundMediaAdmission } from '@daisy/protocol';
+import type { RoundMediaAdmission } from '@daisy/protocol/round-media';
 import type { Source } from './media-state';
 
 export type MediaTimer =

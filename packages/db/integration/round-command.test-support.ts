@@ -1,5 +1,5 @@
 import { createId } from '@paralleldrive/cuid2';
-import type { RoundCommandEnvelope } from '@daisy/protocol';
+import type { RoundCommandEnvelope } from '@daisy/protocol/round-command';
 import { createDatabase } from '../src';
 import { createAuthorizationSubject } from './authorization.test-support';
 import { withFixture, type Fixture } from './constraint-helpers';

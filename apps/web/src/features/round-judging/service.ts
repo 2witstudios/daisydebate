@@ -3,8 +3,8 @@ import {
   judgingPolicy,
   judgingWorkKinds,
   type JudgingWorkKind,
-  type JudgingTerminalReason,
-} from '@daisy/protocol';
+} from '@daisy/protocol/judging-policy';
+import { type JudgingTerminalReason } from '@daisy/protocol/round-judging-attempt';
 import type { WorkerTimers } from '../../lib/worker-timers';
 import type { LoopPass } from '../../lib/idle-backoff';
 import {

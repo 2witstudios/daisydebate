@@ -1,6 +1,6 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createAppError, createRefusal } from '@daisy/errors';
-import { roundRefusalSchema } from '@daisy/protocol';
+import { roundRefusalSchema } from '@daisy/protocol/round-command';
 import { refusalResponse } from './http';
 
 setupRitewayBun();

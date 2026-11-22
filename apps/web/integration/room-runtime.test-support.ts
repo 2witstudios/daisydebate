@@ -9,15 +9,13 @@ import { youthRoundLinkedAdults } from '@daisy/db/youth-live';
 import { createRedis, redisKey } from '@daisy/redis';
 import { createBoundedTestClient, testNamespace } from '@daisy/redis/testing';
 import { deleteNamespace } from '@daisy/redis/namespaces';
+import { affirmativeSide, negativeSide, sideSeat } from '@daisy/protocol/seats';
+import { isNamedSeat } from '@daisy/protocol/round-view';
 import {
-  affirmativeSide,
-  isNamedSeat,
-  negativeSide,
-  sideSeat,
   type RoomCommand,
   type RoomCreate,
   type RoomView,
-} from '@daisy/protocol';
+} from '@daisy/protocol/room-contract';
 import { roundViewReader } from '../src/features/round-runtime/reads';
 import { createRoomRuntimeOperations } from '../src/features/room-runtime/operations';
 import { foundationSelection } from './foundation-selection.test-support';

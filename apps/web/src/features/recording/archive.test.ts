@@ -1,5 +1,5 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { twoSides } from '@daisy/protocol';
+import { twoSides } from '@daisy/protocol/seats';
 import { archiveEntries, type ArchiveRound } from './archive';
 import { account, nowMs, visitor } from './fixture.test-support';
 

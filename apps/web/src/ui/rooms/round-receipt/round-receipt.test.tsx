@@ -1,6 +1,6 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { isJudgeSeat, twoSides } from '@daisy/protocol';
+import { isJudgeSeat, twoSides } from '@daisy/protocol/seats';
 import { RoundReceipt, type RoundReceiptView } from './round-receipt';
 
 setupRitewayBun();

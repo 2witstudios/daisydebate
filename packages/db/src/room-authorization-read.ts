@@ -1,6 +1,7 @@
 import { currentRoundParticipant } from './round-current-participant';
 import { and, eq } from 'drizzle-orm';
-import { idSchema, type SeatKind } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
+import { type SeatKind } from '@daisy/protocol/seats';
 import { seatOfColumns } from './seat-columns';
 import { createAppError } from '@daisy/errors';
 import { rooms, roomParticipants } from './schema/rooms';

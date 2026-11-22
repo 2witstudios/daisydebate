@@ -3,7 +3,7 @@ import {
   affirmativeSide,
   judgeSeat,
   sideSeat,
-} from '@daisy/protocol';
+} from '@daisy/protocol/seats';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { accountEntitlements, authorize } from './authorization';
 import { input } from './channel.test-support';

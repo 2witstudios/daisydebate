@@ -6,11 +6,9 @@ import { randomBytes } from 'node:crypto';
 import { createId } from '@paralleldrive/cuid2';
 import { captureRule } from '@daisy/debate-engine';
 import { createFrameClock } from '@daisy/media/observation';
-import {
-  canonicalCaptureEvidenceBody,
-  CAPTURE_STT_LAG_MS,
-  buildRoundTopic,
-} from '@daisy/protocol';
+import { canonicalCaptureEvidenceBody } from '@daisy/protocol/capture-evidence-body';
+import { CAPTURE_STT_LAG_MS } from '@daisy/protocol/capture-timing';
+import { buildRoundTopic } from '@daisy/protocol/topics';
 import { withRoomRuntime } from './room-runtime.test-support';
 import {
   initializeLocalEvidenceAuthority,

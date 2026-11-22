@@ -1,9 +1,9 @@
 import {
   attendanceRefusalSchema,
-  idSchema,
   type AttendanceEnvelope,
   type AttendanceReceipt,
-} from '@daisy/protocol';
+} from '@daisy/protocol/attendance';
+import { idSchema } from '@daisy/protocol/primitives';
 import { parseValidated, refusalResponse } from '../../server/http';
 import {
   runMemberRoute,

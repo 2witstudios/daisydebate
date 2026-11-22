@@ -3,7 +3,7 @@ import {
   ENVELOPE_VERSION,
   PROTOCOL_VERSION,
   heartbeatMs,
-} from '@daisy/protocol';
+} from '@daisy/protocol/realtime';
 import {
   harness,
   flush,

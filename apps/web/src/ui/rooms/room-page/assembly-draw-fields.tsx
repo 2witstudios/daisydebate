@@ -1,4 +1,4 @@
-import type { RoomView } from '@daisy/protocol';
+import type { RoomView } from '@daisy/protocol/room-contract';
 import type { FormFields } from '../../../features/forms/form-state';
 import { sideName } from '../../../features/debate-room/seat-names';
 import { controlClass } from '../../components/form-field/form-field-class';

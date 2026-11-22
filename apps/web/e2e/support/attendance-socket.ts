@@ -1,5 +1,6 @@
 import type { Page } from '@playwright/test';
-import { buildRoundTopic, serverMessageSchema } from '@daisy/protocol';
+import { buildRoundTopic } from '@daisy/protocol/topics';
+import { serverMessageSchema } from '@daisy/protocol/realtime-server';
 import { expect } from './fixtures';
 
 /**

@@ -1,12 +1,14 @@
 import {
   isDebatingSeat,
   sideOfSeat,
-  type DebateRecord,
-  type RoundOutcome,
-  type RecordResult,
-  type RoundStatus,
   type SeatRef,
-} from '@daisy/protocol';
+} from '@daisy/protocol/seats';
+import {
+  type DebateRecord,
+  type RecordResult,
+} from '@daisy/protocol/member-profile';
+import { type RoundOutcome } from '@daisy/protocol/round-outcome';
+import { type RoundStatus } from '@daisy/protocol/round';
 
 /** A Round as a debater's record reads it: its state and canonical outcome. */
 type RecordedRound = {

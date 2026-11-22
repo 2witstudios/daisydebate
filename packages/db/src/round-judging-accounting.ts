@@ -1,6 +1,6 @@
 import { eq, sql } from 'drizzle-orm';
 import { createAppError } from '@daisy/errors';
-import { idSchema } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
 import type { BoundedTransaction } from './bounded-transaction';
 import type { JudgingScope } from './round-judging-context';
 import { lockAgentAccounting, validAgentCounter } from './agent-accounting';

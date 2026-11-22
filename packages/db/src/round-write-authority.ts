@@ -7,7 +7,7 @@ import { createAppError } from '@daisy/errors';
 import type {
   RoundCommandPrincipal,
   RoundCommandAuthority,
-} from '@daisy/protocol';
+} from '@daisy/protocol/round-command';
 import { and, eq } from 'drizzle-orm';
 import { lockAuthorizationActors } from './authorization';
 import { hydrateRoundRows } from './round-hydration';

@@ -6,19 +6,18 @@ import type {
   RoomConsent,
   RoomMutationOutcome,
   RoomRefusal,
-  SeatKind,
-  SeatRef,
-} from '@daisy/protocol';
+} from '@daisy/protocol/room-contract';
+import type { SeatKind, SeatRef } from '@daisy/protocol/seats';
 import {
   affirmativeSide,
-  sidesSwappable,
-  aiRoleFits,
-  freeSeatsOf,
   isDebatingSeat,
   isJudgeSeat,
   sameSeat,
-  seatExists,
-} from '@daisy/protocol';
+} from '@daisy/protocol/seats';
+import { sidesSwappable } from '@daisy/protocol/seat-draw';
+import { aiRoleFits } from '@daisy/protocol/ai-roles';
+import { freeSeatsOf } from '@daisy/protocol/room-contract';
+import { seatExists } from '@daisy/protocol/format-seating';
 
 import { resolveRoomConfiguration } from './resolve-room-configuration';
 import { decideFormatSelection } from './format-selection';

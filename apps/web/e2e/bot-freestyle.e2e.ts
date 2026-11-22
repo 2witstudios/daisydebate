@@ -9,7 +9,7 @@ import {
   sameSeat,
   sideSeat,
   type SeatRef,
-} from '@daisy/protocol';
+} from '@daisy/protocol/seats';
 import { OPENROUTER_E2E_PLACEHOLDER } from '@daisy/ai-voice/testing';
 import type { Page } from '@playwright/test';
 import { aiCast } from './support/ai-cast';

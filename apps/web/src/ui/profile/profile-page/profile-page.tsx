@@ -5,8 +5,8 @@ import type {
   MatchHistoryEntry,
   MemberProfile,
   RecordResult,
-} from '@daisy/protocol';
-import { twoSides } from '@daisy/protocol';
+} from '@daisy/protocol/member-profile';
+import { twoSides } from '@daisy/protocol/seats';
 import { sideName } from '../../../features/debate-room/seat-names';
 import type { ProfileView } from '../../../features/profile/read-profile';
 import { Avatar } from '../../components/avatar/avatar';

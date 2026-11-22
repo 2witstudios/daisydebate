@@ -1,6 +1,7 @@
 import { mapTabCommandAnswer } from './command-form-answer';
 import { z } from 'zod';
-import { idSchema, roomConfigSchema } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
+import { roomConfigSchema } from '@daisy/protocol/room';
 import { lobbySetupCommandEnvelopeSchema } from '@daisy/protocol/lobby/lobby-setup-command';
 import { createAppError } from '@daisy/errors';
 import {

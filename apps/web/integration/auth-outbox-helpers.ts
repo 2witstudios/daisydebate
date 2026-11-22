@@ -1,5 +1,5 @@
 import { createId } from '@paralleldrive/cuid2';
-import { buildUserInboxTopic } from '@daisy/protocol';
+import { buildUserInboxTopic } from '@daisy/protocol/topics';
 import { SQL } from 'bun';
 import { linkFrom, testDatabaseUrl, tokenOf, withSql } from './fixtures';
 import {

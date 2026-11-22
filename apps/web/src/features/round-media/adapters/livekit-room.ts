@@ -12,7 +12,7 @@ import {
   setLogLevel,
   type LocalTrack,
 } from 'livekit-client';
-import type { RoundMediaAdmission } from '@daisy/protocol';
+import type { RoundMediaAdmission } from '@daisy/protocol/round-media';
 import type { CheckedDeviceRead } from '../../video/device-selection';
 import type { RoomEvent as MediaRoomEvent } from '../model/media-events';
 import type { ObservedTrack, Source } from '../model/media-state';

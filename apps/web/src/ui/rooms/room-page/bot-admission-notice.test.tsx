@@ -1,6 +1,6 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { renderToStaticMarkup } from 'react-dom/server';
-import type { RoomView } from '@daisy/protocol';
+import type { RoomView } from '@daisy/protocol/room-contract';
 import { BotAdmissionNotice } from './bot-admission-notice';
 setupRitewayBun();
 

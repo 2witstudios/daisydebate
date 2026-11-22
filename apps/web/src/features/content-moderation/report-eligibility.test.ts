@@ -1,5 +1,5 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import type { ContentReportCreate } from '@daisy/protocol';
+import type { ContentReportCreate } from '@daisy/protocol/content-moderation';
 import { reportRefusal } from './report-eligibility';
 
 setupRitewayBun();

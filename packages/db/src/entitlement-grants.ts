@@ -1,4 +1,7 @@
-import { entitlementGrantSchema, type EntitlementGrant } from '@daisy/protocol';
+import {
+  entitlementGrantSchema,
+  type EntitlementGrant,
+} from '@daisy/protocol/entitlements';
 import { sql } from 'drizzle-orm';
 import type { Tx } from './tx';
 import { run, query } from './raw-rows';

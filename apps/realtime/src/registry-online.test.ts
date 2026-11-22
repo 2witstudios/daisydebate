@@ -1,4 +1,4 @@
-import { ONLINE_TOPIC } from '@daisy/protocol';
+import { ONLINE_TOPIC } from '@daisy/protocol/topics';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { fixture } from './registry.test-support';
 

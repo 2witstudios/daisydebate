@@ -1,4 +1,4 @@
-import { seatKinds, type SeatKind, type SideKey } from '@daisy/protocol';
+import { seatKinds, type SeatKind, type SideKey } from '@daisy/protocol/seats';
 import { sql } from 'drizzle-orm';
 import { check, integer, text, type PgColumn } from 'drizzle-orm/pg-core';
 import { actors } from './actors';

@@ -1,5 +1,5 @@
 import { resolve } from 'node:path';
-import type { SideKey } from '@daisy/protocol';
+import type { SideKey } from '@daisy/protocol/seats';
 import type { HttpSession } from './http-session';
 
 /**

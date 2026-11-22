@@ -1,5 +1,6 @@
 import type { RoundAnalysisFacts } from '@daisy/db/rounds';
-import { advanceAnalysisWork, type AnalysisWork } from '@daisy/protocol';
+import { advanceAnalysisWork } from '@daisy/protocol/round-analysis-lifecycle';
+import { type AnalysisWork } from '@daisy/protocol/round-analysis-work';
 import { sampleRoundAnalysisReport as report } from '@daisy/protocol/round-analysis-testing';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { roundAnalysisView } from './policy';

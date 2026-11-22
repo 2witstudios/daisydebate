@@ -1,13 +1,11 @@
 import { eq } from 'drizzle-orm';
 import { z } from 'zod';
 import { createAppError } from '@daisy/errors';
-import {
-  canonicalCaptureEvidenceBody,
-  captureEvidenceSpeakerSchema,
-  evidenceEnvelopeSchema,
-  idSchema,
-} from '@daisy/protocol';
-import type { EvidencePrivacyScope } from '@daisy/protocol';
+import { canonicalCaptureEvidenceBody } from '@daisy/protocol/capture-evidence-body';
+import { captureEvidenceSpeakerSchema } from '@daisy/protocol/capture-evidence-speaker';
+import { evidenceEnvelopeSchema } from '@daisy/protocol/evidence-envelope';
+import { idSchema } from '@daisy/protocol/primitives';
+import type { EvidencePrivacyScope } from '@daisy/protocol/evidence-privacy';
 import { lockOriginalEvidenceBody } from './necessary-evidence-body';
 import { lockOriginalNecessaryEvidence } from './necessary-evidence-subjects';
 import { requireRoundEvidenceOpen } from './necessary-evidence-rounds';

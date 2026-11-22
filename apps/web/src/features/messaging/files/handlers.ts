@@ -1,7 +1,8 @@
 import { requireFilePolicy } from '@daisy/db/messaging-files';
 
 import type { AuthorizationPrincipal } from '@daisy/auth/authorization';
-import { createMessagingFileSchemas, idSchema } from '@daisy/protocol';
+import { createMessagingFileSchemas } from '@daisy/protocol/messaging/files';
+import { idSchema } from '@daisy/protocol/primitives';
 import { createAppError } from '@daisy/errors';
 import { readBytes, readJson, parseValidated } from '../../../server/http';
 

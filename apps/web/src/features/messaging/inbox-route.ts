@@ -3,9 +3,9 @@ import type { App } from '../../server/app';
 import type { AuthorizationPrincipal } from '@daisy/auth/authorization';
 import {
   createMessagingInboxSchemas,
-  idSchema,
   messagingUnreadSchema,
-} from '@daisy/protocol';
+} from '@daisy/protocol/messaging/inbox';
+import { idSchema } from '@daisy/protocol/primitives';
 import { createAppError } from '@daisy/errors';
 import { parseValidated } from '../../server/http';
 

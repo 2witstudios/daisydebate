@@ -1,5 +1,5 @@
 import { createId } from '@paralleldrive/cuid2';
-import type { RoomView } from '@daisy/protocol';
+import type { RoomView } from '@daisy/protocol/room-contract';
 import type { withRoomRuntime } from './room-runtime.test-support';
 import { createRoundRuntimeOperations } from '../src/features/round-runtime/operations';
 

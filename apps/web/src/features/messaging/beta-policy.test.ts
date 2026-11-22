@@ -1,7 +1,7 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';
 import type { MessagingPolicyOverride } from '@daisy/config';
-import { messagingBetaLimits } from '@daisy/protocol';
+import { messagingBetaLimits } from '@daisy/protocol/messaging/core';
 import {
   betaMessagingPolicy,
   dec251MessagingValues,

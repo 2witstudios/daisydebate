@@ -1,10 +1,9 @@
 import { instantMs } from '@daisy/clock';
+import { affirmativeSide, sideOfSeat } from '@daisy/protocol/seats';
 import {
-  affirmativeSide,
   roundMediaAdmissionSchema,
   roundMediaStateSchema,
-  sideOfSeat,
-} from '@daisy/protocol';
+} from '@daisy/protocol/round-media';
 import { createMediaService } from '@daisy/media';
 import { test, expect, openPage } from './support/fixtures';
 import { launchLiveKit } from './support/launch-livekit';

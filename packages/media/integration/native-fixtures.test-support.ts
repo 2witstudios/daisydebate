@@ -9,7 +9,7 @@ export async function withHistoricalSeat(
   work: (input: {
     readonly binding: { roomName: string; identity: string };
     readonly calibrate: () => Promise<
-      import('@daisy/protocol').ClockCalibration
+      import('@daisy/protocol/frame-clock-evidence').ClockCalibration
     >;
     readonly authorizeWindow: (window: {
       before: string;

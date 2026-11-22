@@ -1,6 +1,6 @@
 import { instantMs } from '@daisy/clock';
 import type { SQL } from 'bun';
-import { attendanceTimingPolicy } from '@daisy/protocol';
+import { attendanceTimingPolicy } from '@daisy/protocol/attendance';
 import { createId } from '@paralleldrive/cuid2';
 import type { withRoomRuntime } from './room-runtime.test-support';
 

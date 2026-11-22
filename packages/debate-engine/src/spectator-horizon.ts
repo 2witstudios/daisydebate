@@ -1,7 +1,7 @@
 import {
   SPECTATOR_MARGIN_MS,
   type BroadcastReleasePolicy,
-} from '@daisy/protocol';
+} from '@daisy/protocol/broadcast';
 import { RANKED_DELAY_SECONDS } from './broadcast-release';
 
 export type SpectatorHorizonFacts = {

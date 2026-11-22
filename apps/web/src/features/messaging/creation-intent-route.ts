@@ -2,7 +2,7 @@ import { requirePrivateGroups } from './private-groups';
 import type { App } from '../../server/app';
 import { readJson } from '../../server/http';
 import { appDiscoverActor } from '../account/username-discovery';
-import { createMessagingSocialSchemas } from '@daisy/protocol';
+import { createMessagingSocialSchemas } from '@daisy/protocol/messaging/social';
 
 import { resolveMessagingCreationIntent } from './creation-intent';
 import { composeMessagingCreationOperation } from './creation-operation';

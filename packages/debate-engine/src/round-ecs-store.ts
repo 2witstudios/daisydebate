@@ -2,9 +2,9 @@ import { Database } from '@adobe/data/ecs';
 import {
   runtimeCheckpointSchema,
   type RuntimeCheckpoint,
-  type SegmentType,
-  type SideKey,
-} from '@daisy/protocol';
+} from '@daisy/protocol/round';
+import { type SegmentType } from '@daisy/protocol/format';
+import { type SideKey } from '@daisy/protocol/seats';
 import { plugin } from './round-ecs-plugin';
 import type { Lifecycle, ClockSegment } from './round-clock-state';
 

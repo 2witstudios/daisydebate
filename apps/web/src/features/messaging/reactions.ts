@@ -5,7 +5,7 @@ import type { MessagingReactionStore } from '@daisy/db/messaging';
 import {
   createMessagingReactionSchemas,
   type MessagingReactionPolicy,
-} from '@daisy/protocol';
+} from '@daisy/protocol/messaging/reactions';
 import { parseValidated } from '../../server/http';
 import { requireMemberActor } from '../access/actor';
 

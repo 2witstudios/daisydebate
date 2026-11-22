@@ -1,7 +1,7 @@
 import { addMs } from '@daisy/clock';
 import { assertRejects } from '@daisy/errors/testing';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { winnerOutcome } from '@daisy/protocol';
+import { winnerOutcome } from '@daisy/protocol/round-outcome';
 import { rateDebate, ratingPolicy, type DebaterRating } from './rating';
 
 setupRitewayBun();

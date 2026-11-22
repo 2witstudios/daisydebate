@@ -1,5 +1,5 @@
 import { instantMs } from '@daisy/clock';
-import type { FrameClockEvidence } from '@daisy/protocol';
+import type { FrameClockEvidence } from '@daisy/protocol/frame-clock-evidence';
 import { createTrackClocks } from '@daisy/media/observation';
 import type { createAudioSubscription } from '@daisy/media/subscription';
 import type { cutCaptureClips } from './capture-clips';

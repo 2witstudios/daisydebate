@@ -5,7 +5,7 @@ import type {
 import type {
   BetaAccessCommandResult,
   BetaAccessCommandState,
-} from '@daisy/protocol';
+} from '@daisy/protocol/beta-access';
 import type { AuditDetail } from '../../audit/chain';
 import type { OperatorCall } from '../operator-client/client';
 

@@ -1,5 +1,5 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { buildRoundTopic, buildUserInboxTopic } from '@daisy/protocol';
+import { buildRoundTopic, buildUserInboxTopic } from '@daisy/protocol/topics';
 import { fixture, row } from './registry.test-support';
 setupRitewayBun();
 for (const mode of ['round', 'inbox'] as const)

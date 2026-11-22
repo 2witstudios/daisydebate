@@ -1,4 +1,7 @@
-import type { RoomCatalogChoice, RoomCreate } from '@daisy/protocol';
+import type {
+  RoomCatalogChoice,
+  RoomCreate,
+} from '@daisy/protocol/room-contract';
 import { resolveRoomConfiguration } from '@daisy/debate-engine';
 import { formValues } from '../forms/form-state';
 import { draftFormValues, readRoomDraft } from './create-room-fields';

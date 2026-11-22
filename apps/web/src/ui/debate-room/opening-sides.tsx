@@ -1,10 +1,9 @@
 import {
   affirmativeSide,
-  isNamedSeat,
   twoSideKeys,
-  type RoundView,
   type TwoSideKey,
-} from '@daisy/protocol';
+} from '@daisy/protocol/seats';
+import { isNamedSeat, type RoundView } from '@daisy/protocol/round-view';
 import { sideName } from '../../features/debate-room/seat-names';
 
 type Sides = NonNullable<NonNullable<RoundView['opening']>['sides']>;

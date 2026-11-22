@@ -5,7 +5,7 @@ import {
   waitingFloors,
   type RecoverySession,
 } from './recovery-due';
-import { noPostRoundCall } from '@daisy/protocol';
+import { noPostRoundCall } from '@daisy/protocol/post-round-call';
 
 setupRitewayBun();
 

@@ -11,7 +11,7 @@ import type {
   JudgingAttemptCategory,
   JudgingAttemptDiagnostic,
   JudgingRecoveryReason,
-} from '@daisy/protocol';
+} from '@daisy/protocol/round-judging-attempt';
 import type { Database } from '@daisy/db';
 import { createAppError } from '@daisy/errors';
 import { prepareRoundBallotSubmission } from '../round-ballots/operations';

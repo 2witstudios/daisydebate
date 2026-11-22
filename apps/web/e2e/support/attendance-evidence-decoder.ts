@@ -1,11 +1,9 @@
 import { instantMs } from '@daisy/clock';
 import { z } from 'zod';
-import {
-  attendanceTimingPolicy,
-  idSchema,
-  roundStatusSchema,
-  segmentTypes,
-} from '@daisy/protocol';
+import { attendanceTimingPolicy } from '@daisy/protocol/attendance';
+import { idSchema } from '@daisy/protocol/primitives';
+import { roundStatusSchema } from '@daisy/protocol/round';
+import { segmentTypes } from '@daisy/protocol/format';
 
 const instant = z.iso.datetime({ precision: 6 });
 const viewOrNativeInstant = z.union([

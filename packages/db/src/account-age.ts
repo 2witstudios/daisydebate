@@ -1,5 +1,5 @@
 import { sql } from 'drizzle-orm';
-import { idSchema } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
 import { createAppError } from '@daisy/errors';
 import type { PrivacyAdopter } from './privacy/contracts';
 import { accountAge } from './schema/account-age';

@@ -1,5 +1,5 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { emptyRuntimeCheckpointFor } from '@daisy/protocol';
+import { emptyRuntimeCheckpointFor } from '@daisy/protocol/round';
 import { rules } from '../round-media/media-world-seats.test-support';
 import { credentialHash } from './stage-access';
 import { createStageRoute } from './stage-route';

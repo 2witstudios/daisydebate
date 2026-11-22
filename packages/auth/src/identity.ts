@@ -1,8 +1,8 @@
 import { tryInstantMs } from '@daisy/clock';
-import type { BetaAccessState } from '@daisy/protocol';
+import type { BetaAccessState } from '@daisy/protocol/beta-access';
 import type { Principal } from './index';
 import { ageAdmitted, participantAccess } from './authorization';
-import type { AgeBand } from '@daisy/protocol';
+import type { AgeBand } from '@daisy/protocol/ladder';
 
 /** Facts about a durable session, verified by the injected reader. */
 export type VerifiedSession = {

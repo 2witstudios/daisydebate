@@ -4,7 +4,7 @@ import { useBrowserEffect } from '../edge/browser-sync';
 import { navigateDocument } from '../edge/browser-navigation';
 import { StatusRegion } from '../components/status-region/status-region';
 import { Button } from '../components/button/button';
-import type { ChallengeList } from '@daisy/protocol';
+import type { ChallengeList } from '@daisy/protocol/challenges';
 import { useRef } from 'react';
 import type { EndedOffer } from '../../features/challenges/challenges-held';
 import {

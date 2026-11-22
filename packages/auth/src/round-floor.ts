@@ -1,5 +1,5 @@
 import { tryInstantMs } from '@daisy/clock';
-import { isRoundOver } from '@daisy/protocol';
+import { isRoundOver } from '@daisy/protocol/round';
 import {
   roundFloorPolicySchema,
   roundFloorRetentionMs,

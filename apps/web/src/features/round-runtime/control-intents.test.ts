@@ -1,6 +1,6 @@
 import { instantMs } from '@daisy/clock';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import type { RoundView } from '@daisy/protocol';
+import type { RoundView } from '@daisy/protocol/round-view';
 import { roundControlIntents } from './control-intents';
 import {
   view,

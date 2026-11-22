@@ -1,10 +1,8 @@
 import { addMs } from '@daisy/clock';
 import { createAppError } from '@daisy/errors';
 import { mayRequestRemoval, type RecordingViewer } from './audience';
-import {
-  RECORDING_EVIDENCE_HOLD_MS,
-  transitionRecording,
-} from '@daisy/protocol';
+import { RECORDING_EVIDENCE_HOLD_MS } from '@daisy/protocol/recording';
+import { transitionRecording } from '@daisy/protocol/recording-lifecycle';
 import type { RecordingInputs, RecordingRecord, RecordingStore } from './ports';
 
 /**

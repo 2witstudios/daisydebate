@@ -5,7 +5,7 @@
  * reply, a transcript, three seconds of silent speech and a fixed ballot. Test-only:
  * each e2e composition injects it as the `fetch` it already passes on.
  */
-import { ballotCategories, ballotRubricVersion } from '@daisy/protocol';
+import { ballotCategories, ballotRubricVersion } from '@daisy/protocol/ballot';
 
 const OPENROUTER = 'https://openrouter.ai/api/v1/';
 

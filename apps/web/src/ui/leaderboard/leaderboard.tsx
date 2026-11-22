@@ -1,4 +1,4 @@
-import type { Ladder } from '@daisy/protocol';
+import type { Ladder } from '@daisy/protocol/ladder';
 import Link from 'next/link';
 import { leaderboardDestinations } from '../../features/leaderboard/actions';
 import { seasonsHref } from '../../features/leaderboard/seasons';

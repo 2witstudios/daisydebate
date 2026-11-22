@@ -1,11 +1,13 @@
 import { resolveRoomConfiguration } from '@daisy/debate-engine';
+import { twoSides } from '@daisy/protocol/seats';
 import {
-  twoSides,
   freezeRoomConfig,
   freezeRoomExecutionPlan,
+} from '@daisy/protocol/room';
+import {
   type RoomListEntry,
   type RoomView,
-} from '@daisy/protocol';
+} from '@daisy/protocol/room-contract';
 import { catalogFormats } from '@daisy/db/catalog-formats';
 import type { RoomTemplate } from './read-catalog';
 

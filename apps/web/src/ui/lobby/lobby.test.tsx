@@ -2,7 +2,10 @@ import { instantMs } from '@daisy/clock';
 import { ladderCopyIn } from '../test-support/ladder-copy.test-support';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import type { RoomListEntry, RoomListQuery } from '@daisy/protocol';
+import type {
+  RoomListEntry,
+  RoomListQuery,
+} from '@daisy/protocol/room-contract';
 import { Lobby, type LobbyProps } from './lobby';
 setupRitewayBun();
 

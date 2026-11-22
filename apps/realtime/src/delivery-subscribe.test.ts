@@ -1,6 +1,6 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { refuseCapacity } from '@daisy/db/testing';
-import { buildRoundTopic } from '@daisy/protocol';
+import { buildRoundTopic } from '@daisy/protocol/topics';
 import type { RealtimeApp } from './app';
 import { createRealtimeDelivery } from './delivery';
 import { bothLanes, testTransport } from './delivery.test-support';

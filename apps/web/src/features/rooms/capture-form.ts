@@ -1,8 +1,8 @@
+import type { BroadcastReleasePolicy } from '@daisy/protocol/broadcast';
 import type {
-  BroadcastReleasePolicy,
   RecordingPolicy,
   RoomCapture,
-} from '@daisy/protocol';
+} from '@daisy/protocol/room-capture';
 
 /** The host's recording release choices. */
 export const releaseChoices = [

@@ -21,7 +21,7 @@ import type { MediaOperationInput } from './operation-context';
 import { observeFloor } from './floor-telemetry';
 import { createRoundMediaOperations } from './operations';
 import { MEDIA_RECOVERY_HEARTBEAT_MS } from './recovery-due';
-import { CAPTURE_STT_LAG_MS } from '@daisy/protocol';
+import { CAPTURE_STT_LAG_MS } from '@daisy/protocol/capture-timing';
 
 /** How soon a dead node stops being offered to a new join. */
 const MEDIA_NODE_PROBE_MS = 1_000;

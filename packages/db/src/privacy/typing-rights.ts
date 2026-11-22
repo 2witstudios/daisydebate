@@ -1,5 +1,6 @@
 import { createAppError } from '@daisy/errors';
-import { idSchema, messagingTypingSchemas } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
+import { messagingTypingSchemas } from '@daisy/protocol/messaging/typing';
 import { loadAuthorizationAccount } from '../authorization';
 import type { PrivacySubject } from './contracts';
 import type { Tx } from '../tx';

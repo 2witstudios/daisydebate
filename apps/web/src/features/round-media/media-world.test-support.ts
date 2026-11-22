@@ -1,11 +1,12 @@
+import { isRoundOver, type RoundStatus } from '@daisy/protocol/round';
 import {
-  isRoundOver,
   type MediaPhase,
-  type MediaRoomFacts,
   type MediaWindowFacts,
+} from '@daisy/protocol/post-round-call';
+import {
+  type MediaRoomFacts,
   type MediaRoomFate,
-  type RoundStatus,
-} from '@daisy/protocol';
+} from '@daisy/protocol/media-room-fate';
 import { createAppError } from '@daisy/errors';
 import type { MediaSnapshot } from './projection';
 import {

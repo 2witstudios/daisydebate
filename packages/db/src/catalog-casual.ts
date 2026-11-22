@@ -4,10 +4,10 @@ import {
   negativeSide,
   sideSeat,
   twoSides,
-  type FormatDefinition,
-  type FormatSettings,
   type SeatRef,
-} from '@daisy/protocol';
+} from '@daisy/protocol/seats';
+import { type FormatDefinition } from '@daisy/protocol/format';
+import { type FormatSettings } from '@daisy/protocol/format-settings';
 import type { CatalogFormat } from './catalog-formats';
 
 /**

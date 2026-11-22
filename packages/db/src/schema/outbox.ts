@@ -1,6 +1,6 @@
 import { sql } from 'drizzle-orm';
 import { bigserial, index, integer, pgTable, text } from 'drizzle-orm/pg-core';
-import { outboxPayloadSchema } from '@daisy/protocol';
+import { outboxPayloadSchema } from '@daisy/protocol/realtime-payloads';
 import {
   jsonbColumn,
   jsonbIsObject,

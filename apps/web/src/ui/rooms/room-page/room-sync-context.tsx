@@ -2,7 +2,7 @@
 
 import { useBrowserEffect } from '../../edge/browser-sync';
 import { createContext, useContext } from 'react';
-import type { RoomView } from '@daisy/protocol';
+import type { RoomView } from '@daisy/protocol/room-contract';
 import type { RoomFormState } from '../../../features/rooms/command-answer';
 
 /** What a room form tells room sync about its answer (ADR 0066). */

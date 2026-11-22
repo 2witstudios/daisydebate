@@ -1,5 +1,5 @@
 import { assertRejects } from '@daisy/errors/testing';
-import type { RatingPlan } from '@daisy/protocol';
+import type { RatingPlan } from '@daisy/protocol/ratings';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import {
   assertRoundRatingIntegrity,

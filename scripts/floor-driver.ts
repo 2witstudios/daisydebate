@@ -1,7 +1,7 @@
 import { readFileSync, statSync } from 'node:fs';
 import { SQL } from 'bun';
 import { approveBetaAccess } from '@daisy/db/testing';
-import { affirmativeSide, negativeSide } from '@daisy/protocol';
+import { affirmativeSide, negativeSide } from '@daisy/protocol/seats';
 import { speechesFor } from './floor-driver/format';
 import { createHttpSession, signUpMember } from './floor-driver/http-session';
 import {

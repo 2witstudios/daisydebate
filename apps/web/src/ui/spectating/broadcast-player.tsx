@@ -3,7 +3,10 @@ import { useBrowserEffect } from '../edge/browser-sync';
 import { cancelDelay, delay } from '../edge/browser-time';
 import { StatusRegion } from '../components/status-region/status-region';
 import { Button } from '../components/button/button';
-import type { BroadcastStream, SpectatorTimeline } from '@daisy/protocol';
+import type {
+  BroadcastStream,
+  SpectatorTimeline,
+} from '@daisy/protocol/spectator-timeline';
 import { useRef, useState, type RefObject } from 'react';
 import { broadcastDocumentStale } from '../../features/spectating/browser-policy';
 import { seatLabelIn } from './spectator-timeline-copy';

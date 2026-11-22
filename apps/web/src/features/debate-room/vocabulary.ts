@@ -1,4 +1,5 @@
-import type { RoomView, Side, SideKey } from '@daisy/protocol';
+import type { RoomView } from '@daisy/protocol/room-contract';
+import type { Side, SideKey } from '@daisy/protocol/seats';
 import { clockDuration } from '../rooms/duration-input';
 import { sideName } from './seat-names';
 

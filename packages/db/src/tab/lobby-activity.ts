@@ -3,7 +3,7 @@ import { rooms } from '../schema/rooms';
 import { rounds } from '../schema/rounds';
 import { fixtures } from '../schema/fixtures';
 import { results } from '../schema/results';
-import { isRoundRunning } from '@daisy/protocol';
+import { isRoundRunning } from '@daisy/protocol/round';
 import type { Tx } from '../tx';
 export const loadLobbyActivity = async (tx: Tx, lobbyId: string | null) => {
   if (lobbyId === null)

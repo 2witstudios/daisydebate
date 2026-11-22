@@ -1,6 +1,6 @@
 'use server';
 
-import { reportResultSchema } from '@daisy/protocol';
+import { reportResultSchema } from '@daisy/protocol/reports';
 import {
   reported,
   reportFormUnavailable,

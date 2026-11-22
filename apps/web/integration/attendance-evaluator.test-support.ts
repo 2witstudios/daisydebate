@@ -1,5 +1,5 @@
 import { daisyOrganizationId, publicLobbyId } from '@daisy/db/testing';
-import { buildRoundTopic } from '@daisy/protocol';
+import { buildRoundTopic } from '@daisy/protocol/topics';
 import { createId } from '@paralleldrive/cuid2';
 import type { withAttendanceRound } from './attendance.test-support';
 import { deleteOrphanNotificationSignals } from './notification-signals.test-support';

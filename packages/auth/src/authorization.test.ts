@@ -1,4 +1,4 @@
-import { type SeatRef, affirmativeSide, sideSeat } from '@daisy/protocol';
+import { type SeatRef, affirmativeSide, sideSeat } from '@daisy/protocol/seats';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { authorize, type AuthorizationInput } from './authorization';
 setupRitewayBun();

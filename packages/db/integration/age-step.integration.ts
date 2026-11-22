@@ -4,7 +4,7 @@ import { drizzle } from 'drizzle-orm/bun-sql';
 import {
   emailDeliveryStatusRank,
   emailDeliveryStatuses,
-} from '@daisy/protocol';
+} from '@daisy/protocol/email-delivery';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { withFixture } from './constraint-helpers';
 import { createDatabase } from '../src';

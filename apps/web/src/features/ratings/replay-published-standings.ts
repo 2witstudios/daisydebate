@@ -1,5 +1,6 @@
 import type { StandingsRead } from '@daisy/db/ratings';
-import { affirmativeSide, negativeSide, winnerOutcome } from '@daisy/protocol';
+import { affirmativeSide, negativeSide } from '@daisy/protocol/seats';
+import { winnerOutcome } from '@daisy/protocol/round-outcome';
 import { foldLeagueRatings } from './league-fold';
 import {
   hasRateableTournament,

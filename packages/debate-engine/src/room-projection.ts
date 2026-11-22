@@ -5,13 +5,13 @@ import type {
   RoomConsent,
   RoomRoundLink,
   RoomView,
-} from '@daisy/protocol';
+} from '@daisy/protocol/room-contract';
 import {
   freezeRoomConfig,
   freezeRoomExecutionPlan,
-  isJudgeSeat,
-  isOpenRoomStatus,
-} from '@daisy/protocol';
+} from '@daisy/protocol/room';
+import { isJudgeSeat } from '@daisy/protocol/seats';
+import { isOpenRoomStatus } from '@daisy/protocol/room-contract';
 import { namesHumanJudge, startBlocker } from './room-assembly-facts';
 const participantReady = (
   p: Pick<

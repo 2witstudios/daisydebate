@@ -1,6 +1,7 @@
 import { and, asc, eq, isNull, sql } from 'drizzle-orm';
 import { createAppError } from '@daisy/errors';
-import { isJudgeSeat, judgingPolicy } from '@daisy/protocol';
+import { isJudgeSeat } from '@daisy/protocol/seats';
+import { judgingPolicy } from '@daisy/protocol/judging-policy';
 import { agentRuns } from './schema/agent-runs';
 import {
   roundJudgingAttempts,

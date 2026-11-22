@@ -1,6 +1,6 @@
 import { headers } from 'next/headers';
 import { notFound } from 'next/navigation';
-import { idSchema } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
 import type { MessagingChannelPageProps } from '../../../../features/messaging/channel-page';
 /** Attachment and reaction pages share route-selected message scope and incoming participant headers. */
 export async function messagePageContext({

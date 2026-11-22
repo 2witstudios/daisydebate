@@ -4,7 +4,7 @@ import type { Identity } from '@daisy/auth';
 import { createAppError, isAppError } from '@daisy/errors';
 import type { Logger } from '@daisy/logger';
 import type { ErrorReporter } from '@daisy/observability';
-import { idSchema } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
 import { readBoundedBody } from '../../server/bounded-body';
 import { handleOperation, requireSameOrigin } from '../../server/http';
 import { presentedLinkHash } from '../audience-link/audience-link';

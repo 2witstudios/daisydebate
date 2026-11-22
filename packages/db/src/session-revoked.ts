@@ -1,4 +1,4 @@
-import { buildUserInboxTopic } from '@daisy/protocol';
+import { buildUserInboxTopic } from '@daisy/protocol/topics';
 import { appendOutboxEvent } from './outbox';
 import { queryActorByUserId } from './actor-operations';
 import type { DatabaseEventSink } from './instrumented';

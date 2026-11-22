@@ -1,6 +1,6 @@
 import { assertRejects } from '@daisy/errors/testing';
 import { createId } from '@paralleldrive/cuid2';
-import { judgeSeat } from '@daisy/protocol';
+import { judgeSeat } from '@daisy/protocol/seats';
 import { canUseRoundAnalysis } from '../src/features/round-analysis/authorization';
 import {
   withRoomRuntime,

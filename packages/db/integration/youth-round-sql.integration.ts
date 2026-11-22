@@ -1,6 +1,7 @@
 import { requireTestServices } from '@daisy/config';
 import { SQL } from 'bun';
-import { isYouthRound, type RatingDivision } from '@daisy/protocol';
+import { isYouthRound } from '@daisy/protocol/youth-round';
+import { type RatingDivision } from '@daisy/protocol/ladder';
 import { createId } from '@paralleldrive/cuid2';
 import { sql } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/bun-sql';

@@ -1,13 +1,11 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
+import { everySeatOf, speakingSeatsOf } from './format-seating';
 import {
-  everySeatOf,
   formatDefinitionSchema,
-  fourTeams,
   roundRulesSchema,
-  speakingSeatsOf,
   type FormatDefinition,
-  type SeatRef,
-} from './index';
+} from './format';
+import { fourTeams, type SeatRef } from './seats';
 import {
   fixtureRules,
   oneOnOneFormatFixture,

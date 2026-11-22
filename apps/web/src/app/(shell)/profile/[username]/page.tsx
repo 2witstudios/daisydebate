@@ -11,10 +11,10 @@ import {
 } from '../../../../lib/request-session';
 import { MemberStandings } from '../../../../ui/ranked/member-standings';
 import { profileLadders } from '../../../../features/profile/profile-ladders';
-import type { RatingDivision } from '@daisy/protocol';
+import type { RatingDivision } from '@daisy/protocol/ladder';
 import { parseUsername } from '@daisy/auth';
 import { systemId } from '@daisy/clock';
-import { matchHistoryQuerySchema } from '@daisy/protocol';
+import { matchHistoryQuerySchema } from '@daisy/protocol/member-profile';
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import type { SearchParams } from '../../../../features/access/decision';

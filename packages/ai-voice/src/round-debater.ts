@@ -1,4 +1,4 @@
-import type { SideKey } from '@daisy/protocol';
+import type { SideKey } from '@daisy/protocol/seats';
 import type { ChatMessage } from './openrouter';
 import { wordBudget } from './speech';
 

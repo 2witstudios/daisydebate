@@ -4,7 +4,7 @@ import {
   tournamentSponsorshipVersionSchema,
   type TournamentSponsorshipVersion,
   type TournamentSponsorshipChange,
-} from '@daisy/protocol';
+} from '@daisy/protocol/tournament-sponsorship';
 import type { TournamentSponsorshipCommand } from '@daisy/protocol/lobby/sponsorship-command';
 import type {
   ActionHistoryEntry,

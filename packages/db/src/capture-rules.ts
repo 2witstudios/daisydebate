@@ -1,12 +1,9 @@
 import { instantMs } from '@daisy/clock';
 import { createAppError, createRefusal } from '@daisy/errors';
 import { captureDigest } from './capture-input';
-import {
-  isRoundOver,
-  type RoundStatus,
-  speakingEndMs,
-  type CaptureInterval,
-} from '@daisy/protocol';
+import { isRoundOver, type RoundStatus } from '@daisy/protocol/round';
+import { speakingEndMs } from '@daisy/protocol/segment-end';
+import { type CaptureInterval } from '@daisy/protocol/capture-verdict';
 
 type SegmentTiming = {
   readonly startedAt: Date;

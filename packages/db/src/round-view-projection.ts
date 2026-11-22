@@ -1,9 +1,11 @@
 import {
   runtimeCheckpointSchema,
+  type RuntimeCheckpoint,
+} from '@daisy/protocol/round';
+import {
   type LaunchedRound,
   type RoundRecord,
-  type RuntimeCheckpoint,
-} from '@daisy/protocol';
+} from '@daisy/protocol/round-view';
 
 /**
  * The stored checkpoint, or null when it no longer reads as one: the Round

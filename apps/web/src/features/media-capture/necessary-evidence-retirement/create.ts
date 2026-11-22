@@ -1,6 +1,7 @@
 import type { Database } from '@daisy/db';
 import { createAppError } from '@daisy/errors';
-import { idSchema, type NecessaryEvidenceCustody } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
+import { type NecessaryEvidenceCustody } from '@daisy/protocol/necessary-evidence';
 type Store = ReturnType<Database['createNecessaryEvidenceRetirement']>;
 type Lane = 'attached' | 'detached';
 type Outcome = 'idle' | 'retired' | 'pending' | 'blocked';

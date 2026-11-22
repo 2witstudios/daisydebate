@@ -1,10 +1,7 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import {
-  caseMapSchema,
-  daisyWinnerBallot,
-  sideSeat,
-  twoSides,
-} from '@daisy/protocol';
+import { caseMapSchema } from '@daisy/protocol/case-map';
+import { daisyWinnerBallot } from '@daisy/protocol/ballot-definition';
+import { sideSeat, twoSides } from '@daisy/protocol/seats';
 import { caseMapAnswer } from './judge';
 import { caseMapWireSchema } from './judge-contract';
 import { judgingStageMessages } from './staged-judge';

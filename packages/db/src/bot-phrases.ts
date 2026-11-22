@@ -1,7 +1,8 @@
 import { tryInstantMs } from '@daisy/clock';
 import { and, eq, sql, type SQL } from 'drizzle-orm';
 import { createAppError } from '@daisy/errors';
-import { idSchema, isSpokenPrefix, spokenPrefix } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
+import { isSpokenPrefix, spokenPrefix } from '@daisy/protocol/authored-speech';
 import { advanceTranscriptRevision } from './capture-history';
 import { appendTranscriptChanged } from './transcript-signal';
 import { lockRoundAgentContext } from './round-agent-runs';

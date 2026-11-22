@@ -1,11 +1,11 @@
 import { assertRejects } from '@daisy/errors/testing';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
+import { ballotCategories } from '@daisy/protocol/ballot';
 import {
-  ballotCategories,
   daisyWinnerBallot,
   daisyBallotSource,
   panelRuleFor,
-} from '@daisy/protocol';
+} from '@daisy/protocol/ballot-definition';
 import {
   ballotReceipt,
   requireBallotAdmission,

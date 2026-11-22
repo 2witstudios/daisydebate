@@ -1,5 +1,7 @@
 import { z } from 'zod';
-import { idSchema, roomConfigSchema, roomCreateSchema } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
+import { roomConfigSchema } from '@daisy/protocol/room';
+import { roomCreateSchema } from '@daisy/protocol/room-contract';
 export const standingRoomSelectionSchema = z.strictObject({
   kind: z.literal('catalog'),
   formatId: z.string().min(1),

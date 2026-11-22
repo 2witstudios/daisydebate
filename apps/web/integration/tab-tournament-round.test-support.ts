@@ -1,7 +1,8 @@
 import { finalSpeechKey } from '@daisy/debate-engine';
 import { createId } from '@paralleldrive/cuid2';
 import { assert } from 'riteway/bun';
-import { leadSeatOf, sameSeat } from '@daisy/protocol';
+import { leadSeatOf } from '@daisy/protocol/format-seating';
+import { sameSeat } from '@daisy/protocol/seats';
 import { createRoundRuntimeOperations } from '../src/features/round-runtime/operations';
 import { createAttendanceFeature } from '../src/features/attendance/operations';
 import { finalizeAsWeb } from './round-maintenance.test-support';

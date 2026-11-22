@@ -1,5 +1,5 @@
 import { sql } from 'drizzle-orm';
-import { captureEvidenceSpeakerSchema } from '@daisy/protocol';
+import { captureEvidenceSpeakerSchema } from '@daisy/protocol/capture-evidence-speaker';
 import {
   check,
   customType,

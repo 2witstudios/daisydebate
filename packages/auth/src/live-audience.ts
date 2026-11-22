@@ -7,12 +7,9 @@
  * nothing. A seat always comes first: anyone seated keeps their own seat's view.
  */
 
-import {
-  isRoundRunning,
-  roundStatusSchema,
-  type LiveStanding,
-  type YouthLiveFact,
-} from '@daisy/protocol';
+import { isRoundRunning, roundStatusSchema } from '@daisy/protocol/round';
+import { type LiveStanding } from '@daisy/protocol/youth-round';
+import { type YouthLiveFact } from '@daisy/protocol/youth-live';
 
 export type { YouthLiveFact };
 

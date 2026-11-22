@@ -1,4 +1,4 @@
-import { daisyBallotSource } from '@daisy/protocol';
+import { daisyBallotSource } from '@daisy/protocol/ballot-definition';
 import {
   decidePanelCompletion,
   deriveRoundOutcome,
@@ -6,12 +6,13 @@ import {
 } from '@daisy/debate-engine';
 import {
   daisyWinnerBallot,
-  judgeSeat,
+  type RoundJudging,
+} from '@daisy/protocol/ballot-definition';
+import { judgeSeat, type SeatRef } from '@daisy/protocol/seats';
+import {
   type JudgeRuling,
   type JudgingPanel,
-  type RoundJudging,
-  type SeatRef,
-} from '@daisy/protocol';
+} from '@daisy/protocol/round-panel-completion';
 import { attempt } from './refusal';
 import { corpusAt, corpusStartMs } from './corpus-seats';
 

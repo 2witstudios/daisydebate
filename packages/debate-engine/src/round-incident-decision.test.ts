@@ -1,6 +1,7 @@
 import { instantMs } from '@daisy/clock';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { roundIncidentPolicy, type RoundIncident } from '@daisy/protocol';
+import { roundIncidentPolicy } from '@daisy/protocol/round-incident-policy';
+import { type RoundIncident } from '@daisy/protocol/round';
 import {
   incidentDecision,
   observationMatters,

@@ -3,15 +3,15 @@ import {
   roundPositionAt,
   type RoundPosition,
 } from '@daisy/debate-engine/position';
+import { leadSeatOf } from '@daisy/protocol/format-seating';
 import {
-  leadSeatOf,
   seatKey,
   sideOfSeat,
-  type RoundView,
   type SeatRef,
-  type SegmentType,
   type SideKey,
-} from '@daisy/protocol';
+} from '@daisy/protocol/seats';
+import { type RoundView } from '@daisy/protocol/round-view';
+import { type SegmentType } from '@daisy/protocol/format';
 import { seatName, sideName } from '../debate-room/seat-names';
 import { sideToneOf, type SideTone } from '../debate-room/speeches';
 import { judgingClockOf } from './judging-window';

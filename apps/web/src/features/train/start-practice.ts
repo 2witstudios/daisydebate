@@ -1,10 +1,9 @@
+import { judgeSeat, sideSeat } from '@daisy/protocol/seats';
 import {
-  judgeSeat,
-  sideSeat,
   type RoomCatalogChoice,
   type RoomCastChoice,
   type RoomCreate,
-} from '@daisy/protocol';
+} from '@daisy/protocol/room-contract';
 import {
   field,
   moved,

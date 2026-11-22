@@ -1,10 +1,8 @@
 import { createAppError } from '@daisy/errors';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createTrackClocks } from '@daisy/media/observation';
-import {
-  canonicalCaptureEvidenceBody,
-  captureStateReply,
-} from '@daisy/protocol';
+import { canonicalCaptureEvidenceBody } from '@daisy/protocol/capture-evidence-body';
+import { captureStateReply } from '@daisy/protocol/capture-worker-replies';
 import type { StagedFrame } from './capture-staging';
 import { OriginalFrameBatches } from './original-frame-batches/original-frame-batches';
 setupRitewayBun();

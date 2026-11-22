@@ -2,7 +2,7 @@ import { expect, test } from 'bun:test';
 import type { SavepointSQL, TransactionSQL } from 'bun';
 import { requireTestServices } from '@daisy/config';
 import { createId } from '@paralleldrive/cuid2';
-import { buildUserInboxTopic } from '@daisy/protocol';
+import { buildUserInboxTopic } from '@daisy/protocol/topics';
 import { holdForGuardian } from '../src/friends/hold-for-guardian';
 import { notificationDigestOperations } from '../src/notifications/digests';
 import { notificationInboxOperations } from '../src/notifications/inbox';

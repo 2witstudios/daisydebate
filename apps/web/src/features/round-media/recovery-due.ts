@@ -1,6 +1,7 @@
 import { instantMs } from '@daisy/clock';
 import { mediaPhase } from '@daisy/debate-engine/media-window';
-import type { PostRoundCallFacts, RoundStatus } from '@daisy/protocol';
+import type { PostRoundCallFacts } from '@daisy/protocol/post-round-call';
+import type { RoundStatus } from '@daisy/protocol/round';
 import { dueAt, floorBoundaries, type FloorClock } from './floor-clock';
 
 /**

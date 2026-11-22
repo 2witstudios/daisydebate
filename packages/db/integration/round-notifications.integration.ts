@@ -1,10 +1,8 @@
 import { requireTestServices } from '@daisy/config';
-import {
-  buildRoomTopic,
-  emptyRuntimeCheckpointFor,
-  type RoundProjection,
-  type RoundRules,
-} from '@daisy/protocol';
+import { buildRoomTopic } from '@daisy/protocol/topics';
+import { emptyRuntimeCheckpointFor } from '@daisy/protocol/round';
+import { type RoundProjection } from '@daisy/protocol/runtime';
+import { type RoundRules } from '@daisy/protocol/format';
 import { createId } from '@paralleldrive/cuid2';
 import { drizzle } from 'drizzle-orm/bun-sql';
 import { assert, setupRitewayBun, test } from 'riteway/bun';

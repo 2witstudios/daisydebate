@@ -1,5 +1,5 @@
 import { createRoundRuntime } from '@daisy/debate-engine';
-import { roundRulesSchema } from '@daisy/protocol';
+import { roundRulesSchema } from '@daisy/protocol/format';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { agentSeedRound, agentSeedUsers, agentSeedVersion } from './agent-seed';
 

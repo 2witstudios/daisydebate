@@ -20,20 +20,25 @@ import {
   isMinorAgeBand,
   readGuardianLobbyIds,
 } from './guardians/lobby-permissions';
-import { roomListQuerySchema, type RoomListQuery } from '@daisy/protocol';
+import {
+  roomListQuerySchema,
+  type RoomListQuery,
+} from '@daisy/protocol/room-contract';
 import { and, eq, isNotNull, or } from 'drizzle-orm';
 import { readWaitingOn } from './round-waiting-read';
 import type {
   LaunchedRound,
   RoundView,
-  RoomAssemblyState,
-  RoomCommandReceipt,
   RoundWaitingFacts,
   RoundWaitingOn,
-} from '@daisy/protocol';
+} from '@daisy/protocol/round-view';
+import type {
+  RoomAssemblyState,
+  RoomCommandReceipt,
+} from '@daisy/protocol/room-contract';
 
 import { createAppError } from '@daisy/errors';
-import { botDifficulties } from '@daisy/protocol';
+import { botDifficulties } from '@daisy/protocol/room-read';
 
 import { instrumented, type DatabaseEventSink } from './instrumented';
 import { actors } from './schema/actors';

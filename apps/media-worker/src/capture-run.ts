@@ -2,7 +2,7 @@ import type { CaptureSummary } from './capture-summary';
 import {
   CAPTURE_CALL_DEADLINE_MS,
   CAPTURE_STT_TIMEOUT_MS,
-} from '@daisy/protocol';
+} from '@daisy/protocol/capture-timing';
 import {
   createAudioSubscription,
   disposeAudioRuntime,
@@ -11,7 +11,7 @@ import { consumeCaptureClips } from './capture-consumer';
 import { createOpenRouter } from '@daisy/ai-voice';
 import { createMediaWorkerClient } from '@daisy/media/worker';
 import { createMediaWorkerAuthentication } from '@daisy/media/internal';
-import { idSchema } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
 import { createAppError } from '@daisy/errors';
 import { runCaptureSession } from './capture-session';
 import { waitUntilPerformanceMs } from './capture-history';

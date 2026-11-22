@@ -1,6 +1,7 @@
-import type { MessagingChannelLifecycle } from '@daisy/protocol';
+import type { MessagingChannelLifecycle } from '@daisy/protocol/messaging/social';
 import type { AuthorizationCapability } from '@daisy/protocol/authorization';
-import type { BetaAccessState, SeatRef } from '@daisy/protocol';
+import type { BetaAccessState } from '@daisy/protocol/beta-access';
+import type { SeatRef } from '@daisy/protocol/seats';
 import type { CounterpartFact } from './authorization-lobby-facts';
 /** Current producer facts only. Neither preferences nor client claims grant access. */
 export type AuthorizationPrincipal =
@@ -49,7 +50,7 @@ export type AccountAuthorizationFact = {
    * The account's age band now, from its durable age record (WAIT-4.6);
    * null when it has none. Participant access needs a band at the floor.
    */
-  readonly ageBand: import('@daisy/protocol').AgeBand | null;
+  readonly ageBand: import('@daisy/protocol/ladder').AgeBand | null;
   /** A suspension or ban is in force (ADR 0103); it withdraws participant access. */
   readonly restricted: boolean;
   /**
@@ -368,7 +369,7 @@ export type SocialContactFact = {
     readonly action: import('@daisy/protocol/dm-policy').DmRequestAction;
   };
   /** Who may send this account a new message request. */
-  readonly requestSetting: import('@daisy/protocol').MessageRequestSetting;
+  readonly requestSetting: import('@daisy/protocol/messaging/social').MessageRequestSetting;
   readonly protectedMessageRequests?: import('@daisy/protocol/protection-level').ProtectionLimits['messageRequests'];
   /** The other accounts in the cast it holds an accepted friendship with. */
   readonly friendActorIds: readonly string[];

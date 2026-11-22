@@ -1,6 +1,6 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { roomCreateSchema } from '@daisy/protocol';
+import { roomCreateSchema } from '@daisy/protocol/room-contract';
 import { unequalTemplate } from '../../../features/rooms/assembly.test-support';
 import { FormatTemplatePicker } from './format-template-picker';
 

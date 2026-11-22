@@ -3,7 +3,7 @@ import { useBrowserEffect } from '../edge/browser-sync';
 import { browserFetch } from '../edge/browser-request';
 import { scheduleTick } from '../edge/browser-time';
 import { createId } from '@paralleldrive/cuid2';
-import { tabPulses, VIEWER_PULSE_MS } from '@daisy/protocol';
+import { tabPulses, VIEWER_PULSE_MS } from '@daisy/protocol/audience-state';
 import { useRef } from 'react';
 import { usePublishedAudience } from '../spectating/published-state';
 

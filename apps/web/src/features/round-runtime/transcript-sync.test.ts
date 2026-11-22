@@ -1,9 +1,7 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import {
-  ENVELOPE_VERSION,
-  buildRoundTopic,
-  type LiveTranscriptRead,
-} from '@daisy/protocol';
+import { ENVELOPE_VERSION } from '@daisy/protocol/realtime';
+import { buildRoundTopic } from '@daisy/protocol/topics';
+import { type LiveTranscriptRead } from '@daisy/protocol/round-transcript';
 import { driverEdges } from '../resource-sync/driver.test-support';
 import type { ResourceRead } from '../resource-sync/driver';
 import { round } from './round.test-support';

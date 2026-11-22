@@ -1,6 +1,6 @@
 import { tryInstantMs } from '@daisy/clock';
 import { sql } from 'drizzle-orm';
-import { idSchema } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
 import { createAppError } from '@daisy/errors';
 import {
   loadAuthorizationAccount,

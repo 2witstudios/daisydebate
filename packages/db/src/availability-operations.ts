@@ -2,7 +2,8 @@ import { tryInstantMs } from '@daisy/clock';
 import { SERVICE_LEASE_WINDOW_MS } from './service-lease-lapse';
 import type { SQL, ReservedSQL } from 'bun';
 import { createAppError } from '@daisy/errors';
-import { availabilityRecoveryPolicy, idSchema } from '@daisy/protocol';
+import { availabilityRecoveryPolicy } from '@daisy/protocol/attendance';
+import { idSchema } from '@daisy/protocol/primitives';
 import {
   decodeOutboxCursor,
   encodeOutboxCursor,

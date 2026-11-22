@@ -3,7 +3,8 @@ import {
   withLinkedAdultAudience,
   type RoundFloorFact,
 } from '@daisy/protocol/round-floor';
-import { type YouthLiveFact, roundStatusSchema } from '@daisy/protocol';
+import { type YouthLiveFact } from '@daisy/protocol/youth-live';
+import { roundStatusSchema } from '@daisy/protocol/round';
 import { postgresInt8, query } from '../raw-rows';
 import type { Tx } from '../tx';
 import { z } from 'zod';

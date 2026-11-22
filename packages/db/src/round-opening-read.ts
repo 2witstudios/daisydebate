@@ -1,11 +1,7 @@
 import { eq } from 'drizzle-orm';
-import {
-  clockStopsOf,
-  type LaunchedRound,
-  type RoundView,
-  type RuntimeCheckpoint,
-  type SeatDraw,
-} from '@daisy/protocol';
+import { clockStopsOf, type RuntimeCheckpoint } from '@daisy/protocol/round';
+import { type LaunchedRound, type RoundView } from '@daisy/protocol/round-view';
+import { type SeatDraw } from '@daisy/protocol/seat-draw';
 import type { RoundOpening } from '@daisy/protocol/resolution-draw';
 import { transactionNow, type Account } from './room-command-facts';
 import { humanSeatEligible } from './seat-eligibility';

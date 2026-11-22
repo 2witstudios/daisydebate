@@ -1,8 +1,6 @@
-import {
-  ballotCategories,
-  twoSides,
-  type SpectatorTimeline,
-} from '@daisy/protocol';
+import { ballotCategories } from '@daisy/protocol/ballot';
+import { twoSides } from '@daisy/protocol/seats';
+import { type SpectatorTimeline } from '@daisy/protocol/spectator-timeline';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { SpectatorFacts } from './spectator-timeline';

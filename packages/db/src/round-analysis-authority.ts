@@ -1,5 +1,6 @@
 import { createAppError } from '@daisy/errors';
-import { idSchema, MAX_FORMAT_SEATS } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
+import { MAX_FORMAT_SEATS } from '@daisy/protocol/format-seating';
 import { eq, sql } from 'drizzle-orm';
 import { lockAuthorizationActors, requireOwnScope } from './authorization';
 import type { Caller } from './room-command-facts';

@@ -1,7 +1,7 @@
 'use server';
 
 import { preapprovalCommandSchema } from '@daisy/protocol/beta-preapproval';
-import { idSchema } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
 import { redirect } from 'next/navigation';
 import { z } from 'zod';
 import {

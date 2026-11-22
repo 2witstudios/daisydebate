@@ -1,7 +1,9 @@
 import { seedSettledAttendanceLedger } from './round-attendance-fixture.test-support';
 import { requireTestServices } from '@daisy/config';
 import { assertRejects } from '@daisy/errors/testing';
-import { sideOfSeat, winnerOutcome, type Ballot } from '@daisy/protocol';
+import { sideOfSeat } from '@daisy/protocol/seats';
+import { winnerOutcome } from '@daisy/protocol/round-outcome';
+import { type Ballot } from '@daisy/protocol/ballot-schema';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createRoundBallotOperations } from '../src/features/round-ballots/operations';

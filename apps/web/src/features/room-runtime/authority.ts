@@ -7,7 +7,10 @@ import {
   type AuthorizationCapability,
   type RoomAuthorizationFact,
 } from '@daisy/auth/authorization';
-import type { RoomCommand, RoomAssemblyState } from '@daisy/protocol';
+import type {
+  RoomCommand,
+  RoomAssemblyState,
+} from '@daisy/protocol/room-contract';
 import type { Caller } from './operations';
 type RoomFactSource = Pick<
   RoomAssemblyState,

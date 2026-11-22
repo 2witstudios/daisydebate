@@ -1,6 +1,7 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import type { ServerMessage } from '@daisy/protocol';
-import { buildUserInboxTopic, ENVELOPE_VERSION } from '@daisy/protocol';
+import type { ServerMessage } from '@daisy/protocol/realtime-server';
+import { buildUserInboxTopic } from '@daisy/protocol/topics';
+import { ENVELOPE_VERSION } from '@daisy/protocol/realtime';
 import { attachMessagingInboxDoorbells } from './doorbells';
 setupRitewayBun();
 test('owner inbox bell never interprets a foreign owner or a notification delta as messaging content', () => {

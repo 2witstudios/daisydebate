@@ -1,6 +1,6 @@
 import { requireTestServices } from '@daisy/config';
 import { RANKED_DELAY_SECONDS } from '@daisy/debate-engine';
-import { SPECTATOR_MARGIN_MS } from '@daisy/protocol';
+import { SPECTATOR_MARGIN_MS } from '@daisy/protocol/broadcast';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { spectatorClockAt } from '../src/features/spectating/spectator-clock';

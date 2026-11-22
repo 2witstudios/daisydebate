@@ -1,9 +1,9 @@
 import type { createBroadcastWorkerStore } from '@daisy/db/broadcast-worker';
+import { broadcastHoldPrefix } from '@daisy/protocol/broadcast-hold';
 import {
-  broadcastHoldPrefix,
   broadcastLivePrefix,
   officialFeedPath,
-} from '@daisy/protocol';
+} from '@daisy/protocol/official-feed';
 import { RENDITIONS } from './hold-manifest';
 import type { createObjects } from './objects';
 

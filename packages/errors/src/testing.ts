@@ -1,5 +1,5 @@
 import { assert } from 'riteway/bun';
-import type { RefusalReason } from '@daisy/protocol';
+import type { RefusalReason } from '@daisy/protocol/refusal-reason';
 import { isAppError, type ErrorCode } from './index';
 
 /**

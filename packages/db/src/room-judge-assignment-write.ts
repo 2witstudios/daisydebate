@@ -1,6 +1,6 @@
 import { and, eq, sql } from 'drizzle-orm';
 import { createAppError } from '@daisy/errors';
-import type { RoomAssemblyState } from '@daisy/protocol';
+import type { RoomAssemblyState } from '@daisy/protocol/room-contract';
 import { rooms, roomParticipants } from './schema/rooms';
 import { rounds } from './schema/rounds';
 import { persistRoomOutsideCommands } from './room-mutation-persistence';

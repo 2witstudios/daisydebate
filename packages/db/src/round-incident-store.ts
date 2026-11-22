@@ -1,10 +1,8 @@
 import { instantMs } from '@daisy/clock';
 import { createAppError } from '@daisy/errors';
-import {
-  isRoundRunning,
-  idSchema,
-  type RoundProjection,
-} from '@daisy/protocol';
+import { isRoundRunning } from '@daisy/protocol/round';
+import { idSchema } from '@daisy/protocol/primitives';
+import { type RoundProjection } from '@daisy/protocol/runtime';
 import { and, desc, eq, ne, sql } from 'drizzle-orm';
 import type { BoundedTransaction } from './bounded-transaction';
 import { hydrateRoundRows, type RoundHydration } from './round-hydration';

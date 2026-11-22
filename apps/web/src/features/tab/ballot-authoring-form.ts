@@ -10,7 +10,7 @@ import {
 } from '../forms/form-state';
 import { z } from 'zod';
 import { createAppError } from '@daisy/errors';
-import { idSchema } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
 import { lobbySetupCommandEnvelopeSchema } from '@daisy/protocol/lobby/lobby-setup-command';
 import { settingCommandEnvelopeSchema } from '@daisy/protocol/lobby/setting-command';
 import { singleFormField } from '../forms/form-state';

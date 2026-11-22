@@ -1,15 +1,13 @@
 import { createAppError } from '@daisy/errors';
+import { buildUserInboxTopic } from '@daisy/protocol/topics';
+import { type CompetitionType, competitionTypes } from '@daisy/protocol/round';
 import {
-  buildUserInboxTopic,
-  type CompetitionType,
   type NotificationKind,
-  type RatingStyle,
-  type SeatKind,
   type TournamentNotificationKind,
-  seatKindSchema,
-  competitionTypes,
   notificationKinds,
-} from '@daisy/protocol';
+} from '@daisy/protocol/notifications';
+import { type RatingStyle } from '@daisy/protocol/primitives';
+import { type SeatKind, seatKindSchema } from '@daisy/protocol/seats';
 import { maskEmail } from '@daisy/protocol/media-release';
 import { sql, type SQL } from 'drizzle-orm';
 import { instrumented, type DatabaseEventSink } from '../instrumented';

@@ -2,11 +2,11 @@ import { addMs } from '@daisy/clock';
 import {
   type HydratedRound,
   type HydratedSegment,
-  type RoundLifecycle,
   type RoundParticipantSeat,
-  type RoundRules,
-  type RoundStatus,
-} from '@daisy/protocol';
+} from '@daisy/protocol/runtime';
+import { type RoundLifecycle } from '@daisy/protocol/round-lifecycle';
+import { type RoundRules } from '@daisy/protocol/format';
+import { type RoundStatus } from '@daisy/protocol/round';
 import {
   oneOnOneFormatFixture,
   oneOnOneSettingsFixture,

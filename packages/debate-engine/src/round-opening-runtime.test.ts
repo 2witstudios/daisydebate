@@ -1,6 +1,6 @@
 import { addMs } from '@daisy/clock';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { winnerOutcome } from '@daisy/protocol';
+import { winnerOutcome } from '@daisy/protocol/round-outcome';
 import { edges } from './room-assembly.test-support';
 import {
   advanceOpening,

@@ -1,4 +1,4 @@
-import { winnerOutcome } from '@daisy/protocol';
+import { winnerOutcome } from '@daisy/protocol/round-outcome';
 import { requireTestServices } from '@daisy/config';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';

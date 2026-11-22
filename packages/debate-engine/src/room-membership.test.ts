@@ -1,9 +1,9 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {
   isRoomRoundLink,
-  judgeSeat,
   type RoomAssemblyState,
-} from '@daisy/protocol';
+} from '@daisy/protocol/room-contract';
+import { judgeSeat } from '@daisy/protocol/seats';
 import { executeRoomCommand, projectRoom } from './room-assembly';
 import { activeRoomMembers, projectActiveRoom } from './room-membership';
 import { consent, edges, started, state } from './room-assembly.test-support';

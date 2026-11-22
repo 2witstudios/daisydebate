@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { and, eq, inArray } from 'drizzle-orm';
 import { createAppError } from '@daisy/errors';
-import { idSchema } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
 import { ownedInvoiceObservationSchema } from '@daisy/protocol/billing';
 import type { BoundedTransaction } from './bounded-transaction';
 import {

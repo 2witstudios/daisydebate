@@ -1,7 +1,7 @@
 import {
   messageRequestSettingSchema,
   type MessageRequestSetting,
-} from '@daisy/protocol';
+} from '@daisy/protocol/messaging/social';
 import { createAppError } from '@daisy/errors';
 import { messageRequestsFriendsOnly } from '../guardians/protection-level';
 import { sql } from 'drizzle-orm';

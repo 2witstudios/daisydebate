@@ -1,8 +1,5 @@
-import type {
-  FormatDefinition,
-  RoomConfig,
-  RoomExecutionPlan,
-} from '@daisy/protocol';
+import type { FormatDefinition } from '@daisy/protocol/format';
+import type { RoomConfig, RoomExecutionPlan } from '@daisy/protocol/room';
 import { stepRefused, within, type Step } from './resolve-steps';
 
 /** Resolves the Room-executed pre-round prep, or refuses. */

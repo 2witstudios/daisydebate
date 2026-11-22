@@ -1,5 +1,6 @@
 import { SQL } from 'bun';
-import { idSchema, buildUserInboxTopic } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
+import { buildUserInboxTopic } from '@daisy/protocol/topics';
 import { execFile } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { z } from 'zod';

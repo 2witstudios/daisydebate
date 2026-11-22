@@ -1,4 +1,4 @@
-import type { CompetitionType } from '@daisy/protocol';
+import type { CompetitionType } from '@daisy/protocol/round';
 import {
   mayDebate,
   type DebaterEligibility,

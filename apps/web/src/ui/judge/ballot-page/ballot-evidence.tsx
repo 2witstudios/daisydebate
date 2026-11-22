@@ -1,4 +1,4 @@
-import type { RoundBallotRead } from '@daisy/protocol';
+import type { RoundBallotRead } from '@daisy/protocol/round-ballot-read';
 export function BallotEvidence({ view }: { readonly view: RoundBallotRead }) {
   if (!view.freeze) return null;
   return (

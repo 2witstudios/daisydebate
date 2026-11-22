@@ -1,6 +1,6 @@
 import { addMs } from '@daisy/clock';
 import { createAppError } from '@daisy/errors';
-import { isRoundOver } from '@daisy/protocol';
+import { isRoundOver } from '@daisy/protocol/round';
 import { isDebatingSeatSql } from '../seat-columns';
 import {
   roundFloorRetentionMs,

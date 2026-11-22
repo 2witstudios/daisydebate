@@ -2,7 +2,7 @@ import { instantMs } from '@daisy/clock';
 import { readRoundOpening, roundWaitingOn } from '@daisy/debate-engine';
 import { requireTestServices } from '@daisy/config';
 import { roundPositionAt } from '@daisy/debate-engine/position';
-import { roundViewSchema } from '@daisy/protocol';
+import { roundViewSchema } from '@daisy/protocol/round-view';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { withRoomRuntime } from './round-runtime.test-support';
 import { opponentSpeech, botControlOptions } from './bot-control.test-support';

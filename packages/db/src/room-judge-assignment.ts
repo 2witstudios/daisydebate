@@ -1,9 +1,9 @@
 import { createAppError, createRefusal } from '@daisy/errors';
+import { idSchema } from '@daisy/protocol/primitives';
 import {
-  idSchema,
   isOpenRoomStatus,
   type RoomAssemblyState,
-} from '@daisy/protocol';
+} from '@daisy/protocol/room-contract';
 import { eq } from 'drizzle-orm';
 import { rooms } from './schema/rooms';
 import { roomFacts } from './room-command-facts';

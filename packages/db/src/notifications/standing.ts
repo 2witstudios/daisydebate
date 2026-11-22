@@ -1,4 +1,7 @@
-import { notificationKinds, type NotificationKind } from '@daisy/protocol';
+import {
+  notificationKinds,
+  type NotificationKind,
+} from '@daisy/protocol/notifications';
 import { sql, type SQL } from 'drizzle-orm';
 import { challengeAccepted, challengeOpen } from '../challenges/open';
 import {

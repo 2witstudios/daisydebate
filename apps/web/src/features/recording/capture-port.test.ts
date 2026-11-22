@@ -1,6 +1,6 @@
 import { instantMs } from '@daisy/clock';
 import type { RoundCoverageFacts } from './coverage-statement';
-import type { BuiltRecordingMedia } from '@daisy/protocol';
+import type { BuiltRecordingMedia } from '@daisy/protocol/recording-processing';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createRecordingCapturePort } from './capture-port';
 import { fakeRecordingStore } from './fake-store.test-support';

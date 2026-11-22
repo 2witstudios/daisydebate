@@ -1,4 +1,4 @@
-import { judgingPolicy } from '@daisy/protocol';
+import { judgingPolicy } from '@daisy/protocol/judging-policy';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import {
   aiSeatStanding,

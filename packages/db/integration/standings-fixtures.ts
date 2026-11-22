@@ -1,4 +1,4 @@
-import { emptyRuntimeCheckpointFor } from '@daisy/protocol';
+import { emptyRuntimeCheckpointFor } from '@daisy/protocol/round';
 import { frozenJudgingFor } from '../src/round-judging-freeze';
 import { createId } from '@paralleldrive/cuid2';
 import type { Fixture } from './constraint-helpers';

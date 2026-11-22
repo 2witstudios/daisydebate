@@ -1,4 +1,4 @@
-import { formatSettingsSchema } from '@daisy/protocol';
+import { formatSettingsSchema } from '@daisy/protocol/format-settings';
 import { sql } from 'drizzle-orm';
 import {
   boolean,

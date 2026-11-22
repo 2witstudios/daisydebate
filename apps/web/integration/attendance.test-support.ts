@@ -1,4 +1,4 @@
-import { buildRoundTopic } from '@daisy/protocol';
+import { buildRoundTopic } from '@daisy/protocol/topics';
 import { createId } from '@paralleldrive/cuid2';
 import { createRoundRuntime } from '@daisy/debate-engine';
 import { withRoomRuntime } from './round-runtime.test-support';

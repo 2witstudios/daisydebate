@@ -1,4 +1,4 @@
-import { sideSeat } from '@daisy/protocol';
+import { sideSeat } from '@daisy/protocol/seats';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import {
   transcriptLines,

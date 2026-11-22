@@ -1,5 +1,6 @@
 import type { Browser } from '@playwright/test';
-import { isJudgeSeat, roundBallotReadSchema } from '@daisy/protocol';
+import { isJudgeSeat } from '@daisy/protocol/seats';
+import { roundBallotReadSchema } from '@daisy/protocol/round-ballot-read';
 import { expect, openPage } from './fixtures';
 import { createRoomLaunchAccounts } from './room-launch-accounts';
 import { readBallotRound } from './human-ballot-round';

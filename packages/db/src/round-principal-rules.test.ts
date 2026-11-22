@@ -14,8 +14,8 @@ import {
   noPostRoundCall,
   type MediaPhase,
   type MediaWindowFacts,
-  type RoundStatus,
-} from '@daisy/protocol';
+} from '@daisy/protocol/post-round-call';
+import { type RoundStatus } from '@daisy/protocol/round';
 
 setupRitewayBun();
 

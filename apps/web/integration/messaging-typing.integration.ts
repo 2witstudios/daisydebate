@@ -2,11 +2,9 @@ import { createId } from '@paralleldrive/cuid2';
 import { requireTestServices } from '@daisy/config';
 import { betaDmPolicy } from '@daisy/auth/social-policy';
 import { socialMemberReading } from '@daisy/auth/social-reading';
-import {
-  buildChannelTopic,
-  ENVELOPE_VERSION,
-  type ServerMessage,
-} from '@daisy/protocol';
+import { buildChannelTopic } from '@daisy/protocol/topics';
+import { ENVELOPE_VERSION } from '@daisy/protocol/realtime';
+import { type ServerMessage } from '@daisy/protocol/realtime-server';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { origin } from './fixtures';
 import * as mountedMessaging from './messaging-route.test-support';

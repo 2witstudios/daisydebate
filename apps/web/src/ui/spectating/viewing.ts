@@ -1,4 +1,4 @@
-import type { BroadcastStream } from '@daisy/protocol';
+import type { BroadcastStream } from '@daisy/protocol/spectator-timeline';
 
 /** One mounted player: a stream on one attempt. A report from any other is stale. */
 type ViewingPlayer = {

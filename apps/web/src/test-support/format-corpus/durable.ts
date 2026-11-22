@@ -1,14 +1,16 @@
 import { createRoundRuntime } from '@daisy/debate-engine';
 import {
   emptyRuntimeCheckpointFor,
-  twoSides,
-  type HydratedSegment,
-  type RoundLifecycle,
-  type RoundProjection,
-  type RoundRules,
   type RoundStage,
   type RuntimeCheckpoint,
-} from '@daisy/protocol';
+} from '@daisy/protocol/round';
+import { twoSides } from '@daisy/protocol/seats';
+import {
+  type HydratedSegment,
+  type RoundProjection,
+} from '@daisy/protocol/runtime';
+import { type RoundLifecycle } from '@daisy/protocol/round-lifecycle';
+import { type RoundRules } from '@daisy/protocol/format';
 import type { CorpusSeat } from './corpus-seats';
 
 /** What the persistence adapter holds after applying every projection so far. */

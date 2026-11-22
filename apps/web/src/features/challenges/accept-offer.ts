@@ -1,4 +1,4 @@
-import type { ChallengeList } from '@daisy/protocol';
+import type { ChallengeList } from '@daisy/protocol/challenges';
 import type { RoomTemplate } from '../rooms/read-catalog';
 import type { Moved, Refused } from '../forms/form-state';
 import {

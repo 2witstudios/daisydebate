@@ -1,9 +1,9 @@
 import { createAppError } from '@daisy/errors';
+import { runningRoundStatuses } from '@daisy/protocol/round';
 import {
-  runningRoundStatuses,
   type BroadcastFeedEndReason,
   type BroadcastReleasePolicy,
-} from '@daisy/protocol';
+} from '@daisy/protocol/broadcast';
 import {
   and,
   asc,

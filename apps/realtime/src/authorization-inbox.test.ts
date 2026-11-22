@@ -1,7 +1,7 @@
 import { instantMs } from '@daisy/clock';
 import type { AuthorityResources } from './authorization';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { buildUserInboxTopic } from '@daisy/protocol';
+import { buildUserInboxTopic } from '@daisy/protocol/topics';
 import { createRealtimeAuthorization } from './authorization';
 import { refuseAllReading } from './authorization.test-support';
 

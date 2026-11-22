@@ -1,4 +1,4 @@
-import type { ChallengeList } from '@daisy/protocol';
+import type { ChallengeList } from '@daisy/protocol/challenges';
 
 type Offer = ChallengeList['outgoing'][number];
 

@@ -1,5 +1,5 @@
 import { caseMapWireSchema, type AiJudge } from '@daisy/ai-voice';
-import type { JudgingStageInput } from '@daisy/protocol';
+import type { JudgingStageInput } from '@daisy/protocol/round-judging-attempt';
 import { transcriptEvidenceInput } from '../round-runtime/transcript-evidence';
 
 type Frozen = Parameters<typeof transcriptEvidenceInput>[0];

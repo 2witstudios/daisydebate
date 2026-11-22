@@ -3,7 +3,7 @@ import {
   experienceChoices,
   interestCategoryChoices,
   wantChoices,
-} from '@daisy/protocol';
+} from '@daisy/protocol/onboarding';
 import { sql } from 'drizzle-orm';
 import { check, pgTable, primaryKey, text } from 'drizzle-orm/pg-core';
 import {

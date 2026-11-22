@@ -1,5 +1,6 @@
 import { sql } from 'drizzle-orm';
-import { buildChannelTopic, serverMessageSchema } from '@daisy/protocol';
+import { buildChannelTopic } from '@daisy/protocol/topics';
+import { serverMessageSchema } from '@daisy/protocol/realtime-server';
 import { createAppError } from '@daisy/errors';
 import {
   restartingRead,

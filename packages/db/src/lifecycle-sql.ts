@@ -1,5 +1,6 @@
 import { sql } from 'drizzle-orm';
-import type { roomStatuses, RoundStatus } from '@daisy/protocol';
+import type { roomStatuses } from '@daisy/protocol/room-contract';
+import type { RoundStatus } from '@daisy/protocol/round';
 
 type LifecycleStatus = (typeof roomStatuses)[number] | RoundStatus;
 

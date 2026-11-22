@@ -1,14 +1,12 @@
 import { instantMs } from '@daisy/clock';
 import { mediaWindowEndsAt } from '@daisy/debate-engine/media-window';
+import { dueAfterStops, type ClockStop } from '@daisy/protocol/clock-stops';
 import {
-  dueAfterStops,
   roundStartPolicy,
-  segmentDueAtMs,
   startGateInstant,
-  type ClockStop,
-  type RoundIncident,
-  type RoundStartGate,
-} from '@daisy/protocol';
+} from '@daisy/protocol/round-start-policy';
+import { segmentDueAtMs } from '@daisy/protocol/segment-end';
+import { type RoundIncident, type RoundStartGate } from '@daisy/protocol/round';
 
 /** What a Round's clock boundaries are read from, in the browser's view or a server row. */
 export type FloorClock = {

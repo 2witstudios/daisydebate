@@ -1,5 +1,5 @@
 import type { RedisTransport } from './transport';
-import { idSchema } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
 import { redisKey } from './redis-key';
 
 /**

@@ -1,6 +1,6 @@
 import { nowMs, instantMs } from '@daisy/clock';
 import { knownDeliveryRejection } from '../mail/resend-sender';
-import { operatorConsoleOrigin } from '@daisy/protocol';
+import { operatorConsoleOrigin } from '@daisy/protocol/beta-access';
 import type { Database } from '@daisy/db';
 import type { EmailMessage } from '../mail/types';
 import { renderBetaEmail } from './templates';

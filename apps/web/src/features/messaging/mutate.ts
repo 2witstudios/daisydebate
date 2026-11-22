@@ -13,7 +13,7 @@ import { createAppError } from '@daisy/errors';
 import {
   createMessagingCoreSchemas,
   type MessagingCoreBounds,
-} from '@daisy/protocol';
+} from '@daisy/protocol/messaging/core';
 import { parseValidated } from '../../server/http';
 
 import { planMessageMutation } from './mutation-plan';

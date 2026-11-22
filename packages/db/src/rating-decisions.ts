@@ -1,5 +1,5 @@
 import { createInvariantError } from '@daisy/errors';
-import type { RatingPlan } from '@daisy/protocol';
+import type { RatingPlan } from '@daisy/protocol/ratings';
 import type { RateDebateResult } from './rating-facts';
 
 /** Validate the frozen pool before calculating a posting. */

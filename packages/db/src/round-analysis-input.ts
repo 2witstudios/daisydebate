@@ -1,5 +1,8 @@
 import { createAppError } from '@daisy/errors';
-import { roundAnalysisLimits, type RoundAnalysisSkill } from '@daisy/protocol';
+import {
+  roundAnalysisLimits,
+  type RoundAnalysisSkill,
+} from '@daisy/protocol/round-analysis';
 import { and, asc, desc, eq, sql } from 'drizzle-orm';
 import type { RoundAnalysisAccess } from './round-analysis-access';
 import type { AnalysisSeat } from './round-analysis-authority';

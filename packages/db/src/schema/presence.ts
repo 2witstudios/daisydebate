@@ -1,4 +1,4 @@
-import { chosenStatuses } from '@daisy/protocol';
+import { chosenStatuses } from '@daisy/protocol/presence-setting';
 import { check, pgTable, text } from 'drizzle-orm/pg-core';
 import { oneOf, timestampColumn } from './columns';
 import { contactActorColumn } from './contacts';

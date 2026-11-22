@@ -1,6 +1,7 @@
 import { and, eq, isNull, sql } from 'drizzle-orm';
 import { createAppError } from '@daisy/errors';
-import { idSchema, parseUsername } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
+import { parseUsername } from '@daisy/protocol/username';
 import { actors } from './schema/actors';
 import { users } from './schema/users';
 import { instrumented, type DatabaseEventSink } from './instrumented';

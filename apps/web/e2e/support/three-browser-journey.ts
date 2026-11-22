@@ -3,20 +3,22 @@ import type { Browser, BrowserContext, Page } from '@playwright/test';
 import { createId } from '@paralleldrive/cuid2';
 import {
   affirmativeSide,
-  attendanceTimingPolicy,
-  isNamedSeat,
   judgeSeat,
   negativeSide,
-  roundViewSchema,
   sameSeat,
   seatKey,
   sideSeat,
   twoSideKeys,
-  winnerOutcome,
-  type RoomView,
-  type RoundView,
   type TwoSideKey,
-} from '@daisy/protocol';
+} from '@daisy/protocol/seats';
+import { attendanceTimingPolicy } from '@daisy/protocol/attendance';
+import {
+  isNamedSeat,
+  roundViewSchema,
+  type RoundView,
+} from '@daisy/protocol/round-view';
+import { winnerOutcome } from '@daisy/protocol/round-outcome';
+import { type RoomView } from '@daisy/protocol/room-contract';
 import { expectRoundResult } from './round-result-proof';
 import { expect, openPage } from './fixtures';
 import { origin } from './accounts';

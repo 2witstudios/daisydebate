@@ -1,9 +1,7 @@
 import { instantMs } from '@daisy/clock';
-import {
-  isRoundCompleted,
-  postRoundCallPolicy,
-  type RoundView,
-} from '@daisy/protocol';
+import { isRoundCompleted } from '@daisy/protocol/round';
+import { postRoundCallPolicy } from '@daisy/protocol/post-round-call';
+import { type RoundView } from '@daisy/protocol/round-view';
 
 type CallView = Pick<RoundView, 'status' | 'postRoundCall' | 'completedAt'>;
 

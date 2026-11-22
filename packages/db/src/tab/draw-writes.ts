@@ -3,7 +3,7 @@ import type { TournamentRatingSnapshot } from '@daisy/protocol/lobby/rating-snap
 import { tournamentRatingSnapshots } from '../schema/tournament-rating-snapshots';
 import { and, eq } from 'drizzle-orm';
 import { createAppError } from '@daisy/errors';
-import type { RoomAssemblyState } from '@daisy/protocol';
+import type { RoomAssemblyState } from '@daisy/protocol/room-contract';
 import { assembleRoom } from '../room-assembly';
 import { roomFacts } from '../room-command-facts';
 import { persistRoomOutsideCommands } from '../room-mutation-persistence';

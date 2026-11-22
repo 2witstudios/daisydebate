@@ -1,4 +1,4 @@
-import { attendanceEnvelopeSchema } from '@daisy/protocol';
+import { attendanceEnvelopeSchema } from '@daisy/protocol/attendance';
 import { parseValidated, readJson } from '../../server/http';
 
 /** The check-in command: a JSON envelope, never a body principal. */

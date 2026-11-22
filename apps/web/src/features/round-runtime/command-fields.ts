@@ -1,4 +1,4 @@
-import { roundCommandEnvelopeSchema } from '@daisy/protocol';
+import { roundCommandEnvelopeSchema } from '@daisy/protocol/round-command';
 import { collectRoundFormFields, positiveFormInteger } from './posted-fields';
 /** A posted strike ordinal or position; anything else fails the envelope parse. */
 const formIndex = (value: string | undefined) =>

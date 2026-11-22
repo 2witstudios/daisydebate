@@ -1,13 +1,13 @@
 import { sha3Hex } from '@daisy/digest';
 import { verifyFrameClockEvidence } from '@daisy/media/observation';
+import { canonicalCaptureEvidenceBody } from '@daisy/protocol/capture-evidence-body';
 import {
-  canonicalCaptureEvidenceBody,
   type EvidenceCustodyReceipt,
-  type EvidencePrivacyScope,
   type EvidenceRefusal,
   type NecessaryEvidenceCustody,
   type SealedEvidence,
-} from '@daisy/protocol';
+} from '@daisy/protocol/necessary-evidence';
+import { type EvidencePrivacyScope } from '@daisy/protocol/evidence-privacy';
 export type PreparedEvidenceBody = Extract<
   ReturnType<typeof canonicalCaptureEvidenceBody>,
   { kind: 'encoded' }

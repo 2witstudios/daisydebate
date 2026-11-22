@@ -1,9 +1,7 @@
 import { instantMs } from '@daisy/clock';
 import type { RoundAnalysisFacts } from '@daisy/db/rounds';
-import {
-  remainingAnalysisCalls,
-  type RoundAnalysisView,
-} from '@daisy/protocol';
+import { remainingAnalysisCalls } from '@daisy/protocol/round-analysis-lifecycle';
+import { type RoundAnalysisView } from '@daisy/protocol/round-analysis';
 
 /** Authorized stored content survives lapse; only a fresh request uses present allowance. */
 export function roundAnalysisView(input: {

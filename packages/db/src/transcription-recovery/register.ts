@@ -1,10 +1,8 @@
 import { sha3Hex } from '@daisy/digest';
 import { and, desc, eq, sql } from 'drizzle-orm';
 import { createAppError } from '@daisy/errors';
-import type {
-  CaptureEvidenceBody,
-  CaptureEvidenceSpeaker,
-} from '@daisy/protocol';
+import type { CaptureEvidenceBody } from '@daisy/protocol/capture-evidence-body';
+import type { CaptureEvidenceSpeaker } from '@daisy/protocol/capture-evidence-speaker';
 import {
   transcriptionRecoveryContexts as contexts,
   transcriptionRecoverySources as sources,

@@ -1,5 +1,5 @@
 import { botGrantUnused } from '@daisy/debate-engine';
-import { judgingPolicy } from '@daisy/protocol';
+import { judgingPolicy } from '@daisy/protocol/judging-policy';
 import { captureRule } from '@daisy/debate-engine';
 import { createCaptureProofDiagnostics } from './media-worker-diagnostics';
 import { randomBytes } from 'node:crypto';
@@ -17,7 +17,7 @@ import { createCaptureHeardRelay } from '../apps/web/src/features/media-capture/
 import { mediaDependencies } from '../apps/web/integration/round-media.test-support';
 import { mediaWorkerRole } from './test-logins';
 import type { withRoomRuntime } from '../apps/web/integration/room-runtime.test-support';
-import { CAPTURE_STT_LAG_MS } from '@daisy/protocol';
+import { CAPTURE_STT_LAG_MS } from '@daisy/protocol/capture-timing';
 
 type Fixture = Parameters<Parameters<typeof withRoomRuntime>[0]>[0];
 const nextId = () => systemId.next();

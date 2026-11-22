@@ -1,4 +1,4 @@
-import type { HoldEntry } from '@daisy/protocol';
+import type { HoldEntry } from '@daisy/protocol/egress-hold-playlist';
 
 /**
  * Which held media of one attempt to build from. The whole file is written only

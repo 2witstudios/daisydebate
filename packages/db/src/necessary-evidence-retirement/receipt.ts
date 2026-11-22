@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { idSchema } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
 /** Private cleanup claim, never a bearer/public worker discovery DTO. NULL route remains blocked debt. */
 export const receipt = z.strictObject({
   kind: z.literal('claimed'),

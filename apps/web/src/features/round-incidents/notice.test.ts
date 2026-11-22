@@ -1,6 +1,7 @@
 import { instantMs } from '@daisy/clock';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { emptyRuntimeCheckpointFor, twoSides } from '@daisy/protocol';
+import { emptyRuntimeCheckpointFor } from '@daisy/protocol/round';
+import { twoSides } from '@daisy/protocol/seats';
 import { roundIncidentNotice } from './notice';
 setupRitewayBun();
 

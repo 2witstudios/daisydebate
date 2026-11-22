@@ -1,10 +1,6 @@
-import {
-  leadSeatOf,
-  sameSeat,
-  type FormatDefinition,
-  type SeatRef,
-  type SpeakRights,
-} from '@daisy/protocol';
+import { leadSeatOf, type SpeakRights } from '@daisy/protocol/format-seating';
+import { sameSeat, type SeatRef } from '@daisy/protocol/seats';
+import { type FormatDefinition } from '@daisy/protocol/format';
 
 /**
  * The create-room editor's seat fields (TAB-6.17): one count per declared

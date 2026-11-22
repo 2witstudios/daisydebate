@@ -1,12 +1,8 @@
 import { requireTestServices } from '@daisy/config';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import {
-  isJudgeSeat,
-  isNamedSeat,
-  roundViewSchema,
-  sideOfSeat,
-} from '@daisy/protocol';
+import { isJudgeSeat, sideOfSeat } from '@daisy/protocol/seats';
+import { isNamedSeat, roundViewSchema } from '@daisy/protocol/round-view';
 import { submitRoundForm } from '../src/features/round-runtime/command-form';
 import {
   createRoomHttpFixture,

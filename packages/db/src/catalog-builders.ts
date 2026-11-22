@@ -1,11 +1,9 @@
+import { affirmativeSide, negativeSide, twoSides } from '@daisy/protocol/seats';
 import {
-  affirmativeSide,
-  negativeSide,
-  twoSides,
   type FormatDefinition,
-  type FormatSettings,
   type SegmentType,
-} from '@daisy/protocol';
+} from '@daisy/protocol/format';
+import { type FormatSettings } from '@daisy/protocol/format-settings';
 import { oneOnOneSettings } from './reference-formats';
 import type { SegmentRow } from './catalog-segments';
 

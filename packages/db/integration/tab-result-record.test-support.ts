@@ -1,4 +1,7 @@
-import { daisyWinnerBallot, daisyBallotSource } from '@daisy/protocol';
+import {
+  daisyWinnerBallot,
+  daisyBallotSource,
+} from '@daisy/protocol/ballot-definition';
 import {
   resultCompetitionRecordSchema,
   type ResultCompetitionRecord,

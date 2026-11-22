@@ -13,22 +13,23 @@ import { isAppError } from '@daisy/errors';
 import {
   daisyBallotSource,
   daisyWinnerBallot,
+} from '@daisy/protocol/ballot-definition';
+import {
   emptyRuntimeCheckpointFor,
-  everySeatOf,
-  isJudgeSeat,
-  leadSeatOf,
-  sameSeat,
-  type FormatDefinition,
-  type FormatSettings,
+  type RoundStage,
+  type RuntimeCheckpoint,
+} from '@daisy/protocol/round';
+import { everySeatOf, leadSeatOf } from '@daisy/protocol/format-seating';
+import { isJudgeSeat, sameSeat } from '@daisy/protocol/seats';
+import { type FormatDefinition, type RoundRules } from '@daisy/protocol/format';
+import { type FormatSettings } from '@daisy/protocol/format-settings';
+import {
   type HydratedSegment,
-  type RoundLifecycle,
   type RoundParticipantSeat,
   type RoundPosition,
   type RoundProjection,
-  type RoundRules,
-  type RoundStage,
-  type RuntimeCheckpoint,
-} from '@daisy/protocol';
+} from '@daisy/protocol/runtime';
+import { type RoundLifecycle } from '@daisy/protocol/round-lifecycle';
 import { invariantIdOf } from './invariant-error';
 
 /**

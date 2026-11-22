@@ -1,5 +1,6 @@
 import { currentRoundParticipant } from './round-current-participant';
-import { roundStatus, isJudgeSeat } from '@daisy/protocol';
+import { roundStatus } from '@daisy/protocol/round';
+import { isJudgeSeat } from '@daisy/protocol/seats';
 import { and, desc, eq, isNotNull, or, sql, type SQL } from 'drizzle-orm';
 import { broadcastStopOf } from './broadcast-operations';
 import { namedSeats } from './member-history-rows';

@@ -3,7 +3,7 @@ import { headers } from 'next/headers';
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 import { systemId } from '@daisy/clock';
-import { idSchema } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
 import { processRoute } from '../../../../server/process-app';
 import { inProcessFetch } from '../../../../server/in-process-fetch';
 import { submitMessagingForm } from '../../../../server/messaging-form-submit';

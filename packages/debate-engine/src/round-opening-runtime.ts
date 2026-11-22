@@ -1,5 +1,5 @@
 import { createRefusal } from '@daisy/errors';
-import type { RoundProjection } from '@daisy/protocol';
+import type { RoundProjection } from '@daisy/protocol/runtime';
 import { bytesOf } from './draw-random';
 import { createRoundRuntime } from './round-runtime';
 import {

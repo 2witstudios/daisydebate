@@ -1,4 +1,4 @@
-import type { RoundBallotRead } from '@daisy/protocol';
+import type { RoundBallotRead } from '@daisy/protocol/round-ballot-read';
 import { ballotPlanOf } from '../../features/round-ballots/presentation';
 import { ballotEyebrowClass } from '../ballot/ballot-class';
 import { ReportForm } from '../content-moderation/report-form';

@@ -1,6 +1,6 @@
 import { createId } from '@paralleldrive/cuid2';
 import { and, eq, isNull } from 'drizzle-orm';
-import type { RoundProjection } from '@daisy/protocol';
+import type { RoundProjection } from '@daisy/protocol/runtime';
 import { roundSpeakingIntervals } from './schema/round-speaking-intervals';
 import type { Tx } from './tx';
 

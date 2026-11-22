@@ -3,7 +3,7 @@ import { createAppError } from '@daisy/errors';
 import {
   ballotDefinitionBodySchema,
   type BallotDefinitionBody,
-} from '@daisy/protocol';
+} from '@daisy/protocol/ballot-definition';
 import { singleFormField } from '../forms/form-state';
 
 /*

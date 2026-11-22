@@ -33,7 +33,7 @@ import { assert } from 'riteway/bun';
 import { authorize } from '@daisy/auth/authorization';
 import { createTabStore } from '@daisy/db/tab';
 import { rateDebate, ratingPolicy } from '@daisy/debate-engine';
-import { winnerOutcome } from '@daisy/protocol';
+import { winnerOutcome } from '@daisy/protocol/round-outcome';
 import { lobbyAdministrationCommand } from '../src/features/tab/operations/lobby-administration';
 import { as } from './tab-tournament-organization-wiring.test-support';
 import { withRoomRuntime } from './room-runtime.test-support';

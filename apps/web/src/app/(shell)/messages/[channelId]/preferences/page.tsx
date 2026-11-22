@@ -3,7 +3,8 @@ import { ConversationPane } from '../../../../../ui/messaging/conversation-pane'
 import { headers } from 'next/headers';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { idSchema, messagingPreferenceSchemas } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
+import { messagingPreferenceSchemas } from '@daisy/protocol/messaging/preferences';
 import { requireAccess } from '../../../../../lib/access';
 import type { MessagingChannelPageProps } from '../../../../../features/messaging/channel-page';
 import { PreferenceForm } from '../../../../../ui/messaging/preference-form';

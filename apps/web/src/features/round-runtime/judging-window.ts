@@ -1,5 +1,5 @@
 import { instantMs } from '@daisy/clock';
-import type { RoundWaitingOn } from '@daisy/protocol';
+import type { RoundWaitingOn } from '@daisy/protocol/round-view';
 
 /**
  * The judging window's clock: only a human judge's window, counted to the

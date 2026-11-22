@@ -1,13 +1,15 @@
 import type { OutboxRow } from '@daisy/db/outbox';
+import { ENVELOPE_VERSION } from '@daisy/protocol/realtime';
 import {
-  ENVELOPE_VERSION,
   isPayloadDeliverableOnTopic,
-  ONLINE_TOPIC,
   isPayloadStorableOnTopic,
   outboxPayloadSchema,
+} from '@daisy/protocol/realtime-payloads';
+import { ONLINE_TOPIC } from '@daisy/protocol/topics';
+import {
   serverMessageSchema,
   type ServerMessage,
-} from '@daisy/protocol';
+} from '@daisy/protocol/realtime-server';
 import {
   compare,
   ownsSubscription,

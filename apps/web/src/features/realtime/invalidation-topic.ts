@@ -1,4 +1,4 @@
-import type { ServerMessage } from '@daisy/protocol';
+import type { ServerMessage } from '@daisy/protocol/realtime-server';
 import type { ConnectionStore } from './connection-store';
 
 /** Transient refusals in a row retried before the topic waits for a reconnect. */

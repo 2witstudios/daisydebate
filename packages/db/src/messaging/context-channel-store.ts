@@ -1,6 +1,6 @@
 import { insertContentReport } from '../content-report-write';
 import { createAppError } from '@daisy/errors';
-import { idSchema } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
 import { sql } from 'drizzle-orm';
 import { readAuthorizationActors } from '../authorization';
 import { channelReadFrame } from './read-frame';

@@ -1,5 +1,6 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { judgeSeat, type RoomCommand } from '@daisy/protocol';
+import { judgeSeat } from '@daisy/protocol/seats';
+import { type RoomCommand } from '@daisy/protocol/room-contract';
 import { executeRoomCommand } from './room-assembly';
 import { consent, edges, state } from './room-assembly.test-support';
 

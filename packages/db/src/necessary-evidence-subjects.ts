@@ -1,10 +1,8 @@
 import { createAppError } from '@daisy/errors';
 import { seatOfColumns } from './seat-columns';
-import {
-  idSchema,
-  MAX_FORMAT_SEATS,
-  captureEvidenceSpeakerSchema,
-} from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
+import { MAX_FORMAT_SEATS } from '@daisy/protocol/format-seating';
+import { captureEvidenceSpeakerSchema } from '@daisy/protocol/capture-evidence-speaker';
 import { eq } from 'drizzle-orm';
 import { readAuthorizationActors } from './authorization';
 import { actors } from './schema/actors';

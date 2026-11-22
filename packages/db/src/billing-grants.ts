@@ -1,5 +1,8 @@
 import { instantMs } from '@daisy/clock';
-import { entitlementKinds, type EntitlementGrant } from '@daisy/protocol';
+import {
+  entitlementKinds,
+  type EntitlementGrant,
+} from '@daisy/protocol/entitlements';
 import { createAppError } from '@daisy/errors';
 import { sql } from 'drizzle-orm';
 import { z } from 'zod';

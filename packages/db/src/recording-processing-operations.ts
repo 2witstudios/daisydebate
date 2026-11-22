@@ -1,14 +1,16 @@
 import { instantMs } from '@daisy/clock';
 import { createAppError } from '@daisy/errors';
+import { broadcastHoldPrefix } from '@daisy/protocol/broadcast-hold';
 import {
-  broadcastHoldPrefix,
   publicIntervals,
-  recordingEligibilitySchema,
-  recordingJobStateSchema,
   type PublicInterval,
+} from '@daisy/protocol/public-interval';
+import { recordingEligibilitySchema } from '@daisy/protocol/recording';
+import {
+  recordingJobStateSchema,
   type RecordingBuildProgress,
   type RecordingJobState,
-} from '@daisy/protocol';
+} from '@daisy/protocol/recording-processing';
 import {
   and,
   asc,

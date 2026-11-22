@@ -1,6 +1,6 @@
 import { requireTestServices } from '@daisy/config';
 import { createId } from '@paralleldrive/cuid2';
-import { frozenCaptureColumns } from '@daisy/protocol';
+import { frozenCaptureColumns } from '@daisy/protocol/capture-judging-limit';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { captureRule, freezeJudgingPlan } from '@daisy/debate-engine';
 import { readCaptureShortfall } from '../src/capture-shortfall';

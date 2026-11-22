@@ -15,7 +15,7 @@ import {
   spectatorChatOperations,
   type SpectatorPostPlanner,
 } from '../src/messaging/spectator-chat';
-import { defaultNotificationChoices } from '@daisy/protocol';
+import { defaultNotificationChoices } from '@daisy/protocol/notifications';
 import { notificationOperations } from '../src/notifications';
 import { watchHistoryOperations } from '../src/watch-history';
 import { replaceJudge } from './judged-round.test-support';

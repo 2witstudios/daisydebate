@@ -1,14 +1,13 @@
 import { canonicalJson } from '@daisy/seeded-random';
 import type {
   FormatChange,
-  FormatDefinition,
-  FormatSettings,
   FormatStanding,
-  RoomConfig,
-  RoomExecutionPlan,
-  RoundRules,
-} from '@daisy/protocol';
-import { freezeRoomExecutionPlan, sideKeysOf } from '@daisy/protocol';
+} from '@daisy/protocol/format-standing';
+import type { FormatDefinition, RoundRules } from '@daisy/protocol/format';
+import type { FormatSettings } from '@daisy/protocol/format-settings';
+import type { RoomConfig, RoomExecutionPlan } from '@daisy/protocol/room';
+import { freezeRoomExecutionPlan } from '@daisy/protocol/room';
+import { sideKeysOf } from '@daisy/protocol/format-seating';
 import { resolveRoomConfiguration } from './resolve-room-configuration';
 
 type ActiveFormat = {

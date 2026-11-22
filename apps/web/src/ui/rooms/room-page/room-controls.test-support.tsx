@@ -1,4 +1,4 @@
-import type { RoomView } from '@daisy/protocol';
+import type { RoomView } from '@daisy/protocol/room-contract';
 import { idle } from '../../../features/forms/form-state';
 import { assemblySnapshot } from '../../../features/rooms/assembly.test-support';
 import { RoomControls } from './room-controls';

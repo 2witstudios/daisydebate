@@ -1,7 +1,7 @@
 'use client';
 import { StatusRegion } from '../components/status-region/status-region';
 import { Button } from '../components/button/button';
-import { idSchema } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
 import type { ChatContext } from '../../features/messaging/context-chat/chat-context';
 import type { ContextChatLabels } from './chat-labels';
 import { ContextChatComposer } from './composer';

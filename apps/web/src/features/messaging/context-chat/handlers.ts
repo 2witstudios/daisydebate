@@ -1,9 +1,7 @@
 import { createAppError } from '@daisy/errors';
-import {
-  contentReportCreateSchema,
-  createMessagingCoreSchemas,
-  idSchema,
-} from '@daisy/protocol';
+import { contentReportCreateSchema } from '@daisy/protocol/content-moderation';
+import { createMessagingCoreSchemas } from '@daisy/protocol/messaging/core';
+import { idSchema } from '@daisy/protocol/primitives';
 import type { z } from 'zod';
 import type { OperationName } from '../../ops/operation-names';
 import { contextChatReportSchema } from './report-command';

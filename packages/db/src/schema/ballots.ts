@@ -1,8 +1,6 @@
-import {
-  ballotScoresRecordSchema,
-  daisyBallotDefinitionIds,
-  type SideKey,
-} from '@daisy/protocol';
+import { ballotScoresRecordSchema } from '@daisy/protocol/ballot-schema';
+import { daisyBallotDefinitionIds } from '@daisy/protocol/ballot-definition';
+import { type SideKey } from '@daisy/protocol/seats';
 import { z } from 'zod';
 import { sql } from 'drizzle-orm';
 import {

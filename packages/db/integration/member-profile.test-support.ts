@@ -1,7 +1,8 @@
 import { resolveRoomConfiguration } from '@daisy/debate-engine';
 import { oneOnOneDefinition, oneOnOneSettings } from '../src/reference-formats';
 import { createId } from '@paralleldrive/cuid2';
-import { sideOfSeat, type RoundOutcome, type SeatRef } from '@daisy/protocol';
+import { sideOfSeat, type SeatRef } from '@daisy/protocol/seats';
+import { type RoundOutcome } from '@daisy/protocol/round-outcome';
 import { requireTestServices } from '@daisy/config';
 import { createDatabase, type Database } from '../src';
 import { createAuthorizationSubject } from './authorization.test-support';

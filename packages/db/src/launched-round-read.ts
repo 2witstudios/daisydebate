@@ -1,7 +1,8 @@
 import { roundSourceVoided } from './round-source-state';
 import { and, eq } from 'drizzle-orm';
 import { createAppError } from '@daisy/errors';
-import { roundRatingScopeSchema, type LaunchedRound } from '@daisy/protocol';
+import { roundRatingScopeSchema } from '@daisy/protocol/rating-ladder';
+import { type LaunchedRound } from '@daisy/protocol/round-view';
 import { roundLadderOf } from './member-history-rows';
 import { currentRoundParticipant } from './round-current-participant';
 import { roundLifecycleOfRow, segmentRows } from './round-hydration';

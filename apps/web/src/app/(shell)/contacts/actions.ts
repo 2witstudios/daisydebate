@@ -1,7 +1,7 @@
 'use server';
 
 import { systemId } from '@daisy/clock';
-import { contactBlockResultSchema } from '@daisy/protocol';
+import { contactBlockResultSchema } from '@daisy/protocol/contacts';
 import {
   personBlocked,
   personBlockUnavailable,

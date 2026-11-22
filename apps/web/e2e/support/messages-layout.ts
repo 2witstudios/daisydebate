@@ -1,7 +1,8 @@
 import { createId } from '@paralleldrive/cuid2';
 import { THEME_COOKIE } from '../../src/features/theme/theme-preference';
 import { closeRoom } from './room-launch-flow';
-import { affirmativeSide, roomViewSchema } from '@daisy/protocol';
+import { affirmativeSide } from '@daisy/protocol/seats';
+import { roomViewSchema } from '@daisy/protocol/room-read';
 import { expect, test } from './fixtures';
 import { foundationChoice, humanRoundSelection } from './human-round-selection';
 import {

@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { sql } from 'drizzle-orm';
-import { parseTopic } from '@daisy/protocol';
+import { parseTopic } from '@daisy/protocol/topics';
 import {
   decodeOutboxCursor,
   encodeOutboxCursor,

@@ -1,7 +1,7 @@
 import { isAppError } from '@daisy/errors';
 import { isTemporaryRefusal } from '@daisy/db/capacity';
 import { liveRoomHref } from '../watch/routes';
-import type { RoundView } from '@daisy/protocol';
+import type { RoundView } from '@daisy/protocol/round-view';
 import {
   observedRoundOf,
   type ObservedStage,

@@ -1,6 +1,7 @@
 import { and, eq } from 'drizzle-orm';
 import { createAppError } from '@daisy/errors';
-import { idSchema, type EntitlementGrant } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
+import { type EntitlementGrant } from '@daisy/protocol/entitlements';
 import {
   advanceBillingSync,
   billingOwnerSchema,

@@ -2,7 +2,7 @@ import { instantMs } from '@daisy/clock';
 import type { Clock, IdGenerator } from '@daisy/clock';
 import type { Database } from '@daisy/db';
 import { createAppError, createRefusal } from '@daisy/errors';
-import { audienceReactionPostSchema } from '@daisy/protocol';
+import { audienceReactionPostSchema } from '@daisy/protocol/audience';
 import {
   audienceRoute,
   roundIdOf,

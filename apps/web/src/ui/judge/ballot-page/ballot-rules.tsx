@@ -1,5 +1,6 @@
 'use client';
-import { judgingPolicy, type RoundWaitingOn } from '@daisy/protocol';
+import { judgingPolicy } from '@daisy/protocol/judging-policy';
+import { type RoundWaitingOn } from '@daisy/protocol/round-view';
 import { ballotRuleLines } from '../../../features/judge/ballot-rules';
 import type { BallotPlan } from '../../../features/judge/ballot-plan';
 import { judgingClockOf } from '../../../features/round-runtime/judging-window';

@@ -1,5 +1,6 @@
 import { createId } from '@paralleldrive/cuid2';
-import { isNamedSeat, type RoomCreate } from '@daisy/protocol';
+import { isNamedSeat } from '@daisy/protocol/round-view';
+import { type RoomCreate } from '@daisy/protocol/room-contract';
 import { createRoundRuntimeOperations } from '../src/features/round-runtime/operations';
 import { drawCapableBounds } from '@daisy/protocol/testing';
 import type { withRoomRuntime } from './room-runtime.test-support';

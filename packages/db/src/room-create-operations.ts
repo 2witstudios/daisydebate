@@ -11,11 +11,11 @@ import { recordCaptureNotice } from './agreement-signatures';
 import type {
   RoomAssemblyState,
   RoomCommandReceipt,
-  FormatDefinition,
-  FormatSelectionFacts,
-  EntitlementGrant,
-  RecordingPolicy,
-} from '@daisy/protocol';
+} from '@daisy/protocol/room-contract';
+import type { FormatDefinition } from '@daisy/protocol/format';
+import type { FormatSelectionFacts } from '@daisy/protocol/format-standing';
+import type { EntitlementGrant } from '@daisy/protocol/entitlements';
+import type { RecordingPolicy } from '@daisy/protocol/room-capture';
 import { defaultStandingLobby } from '@daisy/protocol/lobby/eligibility';
 import { readOfficialStandingLobbies } from './official-standing-lobbies';
 import { lockLadderSeason } from './ladder-season';

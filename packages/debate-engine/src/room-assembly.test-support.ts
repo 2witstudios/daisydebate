@@ -1,10 +1,10 @@
 import type {
   OpenRoomStatus,
   RoomAssemblyState,
-  RoundStatus,
-} from '@daisy/protocol';
+} from '@daisy/protocol/room-contract';
+import type { RoundStatus } from '@daisy/protocol/round';
 import { plainRoomConfig } from '@daisy/protocol/testing';
-import { sideSeat, twoSides } from '@daisy/protocol';
+import { sideSeat, twoSides } from '@daisy/protocol/seats';
 const rules = {
   version: 3 as const,
   sides: [...twoSides],

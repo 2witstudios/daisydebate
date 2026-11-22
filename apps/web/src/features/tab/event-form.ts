@@ -1,7 +1,8 @@
 import { mapTabCommandAnswer } from './command-form-answer';
 import { z } from 'zod';
 import { createAppError } from '@daisy/errors';
-import { idSchema, ballotDefinitionPinSchema } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
+import { ballotDefinitionPinSchema } from '@daisy/protocol/ballot-definition';
 import {
   lobbySetupCommandEnvelopeSchema,
   entryShapeSchema,

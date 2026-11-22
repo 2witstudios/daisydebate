@@ -1,6 +1,6 @@
 import { mapTabCommandAnswer } from './command-form-answer';
 import { z } from 'zod';
-import { idSchema } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
 import { settingCommandEnvelopeSchema } from '@daisy/protocol/lobby/setting-command';
 import { singleFormField } from '../forms/form-state';
 import { presetLabels } from './setup-values';

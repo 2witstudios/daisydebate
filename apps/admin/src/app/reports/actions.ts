@@ -1,6 +1,7 @@
 'use server';
 
-import { idSchema, reportOutcomes } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
+import { reportOutcomes } from '@daisy/protocol/reports';
 import { moderationSuspensionMaxDays } from '@daisy/protocol/operator';
 import { redirect } from 'next/navigation';
 import { z } from 'zod';

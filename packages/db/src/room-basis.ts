@@ -1,5 +1,5 @@
 import { and, eq } from 'drizzle-orm';
-import type { RoomAssemblyState } from '@daisy/protocol';
+import type { RoomAssemblyState } from '@daisy/protocol/room-contract';
 import { createAppError } from '@daisy/errors';
 import { formats } from './schema/formats';
 import { formatPresets } from './schema/format-presets';

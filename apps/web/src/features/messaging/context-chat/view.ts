@@ -1,9 +1,9 @@
 import { z } from 'zod';
 import {
   createMessagingCoreSchemas,
-  idSchema,
   messagingBetaLimits,
-} from '@daisy/protocol';
+} from '@daisy/protocol/messaging/core';
+import { idSchema } from '@daisy/protocol/primitives';
 import type { ChatContext } from './chat-context';
 
 const metadataFields = {

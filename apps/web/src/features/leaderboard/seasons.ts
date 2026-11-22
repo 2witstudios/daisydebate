@@ -1,6 +1,6 @@
 import type { SearchParams } from '../access/decision';
 import { rankRatingEntries } from '../ratings/rank';
-import type { Ladder, RatingDivision } from '@daisy/protocol';
+import type { Ladder, RatingDivision } from '@daisy/protocol/ladder';
 import { toRow } from './ladder-rows';
 import type { LadderData, LadderRow, LadderViewer } from './ladder-view';
 import { defaultQuery, ladderHref } from './query';

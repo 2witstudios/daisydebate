@@ -1,7 +1,7 @@
 import { addMs } from '@daisy/clock';
 import type { Database } from '@daisy/db';
 import type { StandingsRead } from '@daisy/db/ratings';
-import { ratingDivisionForAgeRule, type Ladder } from '@daisy/protocol';
+import { ratingDivisionForAgeRule, type Ladder } from '@daisy/protocol/ladder';
 import { createAppError } from '@daisy/errors';
 import { spectatorClockAt } from '../spectating/spectator-clock';
 import { rankRatingEntries } from './rank';

@@ -4,7 +4,7 @@
 import '../../lib/zod-jitless';
 import { browserFetch } from '../edge/browser-request';
 import { startTick, stopTick } from '../edge/browser-time';
-import { onlineCountsSchema } from '@daisy/protocol';
+import { onlineCountsSchema } from '@daisy/protocol/friends';
 import {
   browserTabPresence,
   createBrowserConnectionStore,

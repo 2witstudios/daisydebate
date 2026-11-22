@@ -12,13 +12,13 @@ import {
 import { createAppError, createRefusal } from '@daisy/errors';
 import {
   roundCommandEnvelopeSchema,
-  idSchema,
   type RoundCommandEnvelope,
   type RoundCommandPrincipal,
   type RoundCommandReceipt,
   type RoundCommandAuthority,
-  type RoundProjection,
-} from '@daisy/protocol';
+} from '@daisy/protocol/round-command';
+import { idSchema } from '@daisy/protocol/primitives';
+import { type RoundProjection } from '@daisy/protocol/runtime';
 import { eq } from 'drizzle-orm';
 import type { RoundHydration } from './round-hydration';
 import { commitRoundCommand } from './round-command-commit';

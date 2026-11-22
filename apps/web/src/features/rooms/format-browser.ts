@@ -1,4 +1,4 @@
-import type { RoomCatalogChoice } from '@daisy/protocol';
+import type { RoomCatalogChoice } from '@daisy/protocol/room-contract';
 import { roundLength } from '../debate-room/vocabulary';
 import { shapeLabel } from '../debate-room/seat-names';
 

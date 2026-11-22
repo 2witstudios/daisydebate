@@ -6,7 +6,7 @@ import {
   type NotificationChannel,
   type NotificationChoices,
   type NotificationKind,
-} from '@daisy/protocol';
+} from '@daisy/protocol/notifications';
 import {
   choiceField,
   chosen,

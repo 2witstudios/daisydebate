@@ -1,15 +1,12 @@
 import { oneOnOneRankedSettings } from '@daisy/db/reference-formats';
-import {
-  emptyRuntimeCheckpointFor,
-  twoSides,
-  freezeRoomConfig,
-} from '@daisy/protocol';
+import { emptyRuntimeCheckpointFor } from '@daisy/protocol/round';
+import { twoSides } from '@daisy/protocol/seats';
+import { freezeRoomConfig } from '@daisy/protocol/room';
+import type { LaunchedRound, RoundView } from '@daisy/protocol/round-view';
 import type {
-  LaunchedRound,
   RoundLifecycle,
   RoundLifecycleColumns,
-  RoundView,
-} from '@daisy/protocol';
+} from '@daisy/protocol/round-lifecycle';
 import { caller, state } from '../room-runtime/operations.test-support';
 
 /** The stored Round its host reads; `round` is what a viewer receives. */

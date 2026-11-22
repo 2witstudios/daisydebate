@@ -171,7 +171,7 @@ export const listedSeats = async (
 export async function deliverAnalysis(
   jobs: ReturnType<typeof createRoundAnalysisJobs>,
   seat: { roundId: string; roundParticipantId: string },
-  report: import('@daisy/protocol').RoundAnalysisReport,
+  report: import('@daisy/protocol/round-analysis').RoundAnalysisReport,
 ) {
   const claim = await jobs.claim(seat);
   if (!claim) throw Error('Expected requested analysis claim');

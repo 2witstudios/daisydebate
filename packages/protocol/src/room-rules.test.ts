@@ -1,15 +1,12 @@
 import type { z } from 'zod';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import {
-  ballotCategories,
-  ballotSchemaFor,
-  daisyWinnerBallot,
-  roomConfigSchema,
-  roundRulesSchema,
-  runtimeCheckpointSchema,
-  emptyRuntimeCheckpointFor,
-  twoSides,
-} from './index';
+import { ballotCategories } from './ballot';
+import { ballotSchemaFor } from './ballot-schema';
+import { daisyWinnerBallot } from './ballot-definition';
+import { roomConfigSchema } from './room';
+import { roundRulesSchema } from './format';
+import { runtimeCheckpointSchema, emptyRuntimeCheckpointFor } from './round';
+import { twoSides } from './seats';
 import { parseOutcome } from './parse-outcome.test-support';
 
 setupRitewayBun();

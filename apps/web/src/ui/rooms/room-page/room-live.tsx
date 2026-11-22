@@ -12,12 +12,12 @@ import { useRouter } from 'next/navigation';
 import { browserDocument } from '../../round-media/browser-document';
 import { replaceRoute } from '../../round-media/replace-route';
 import { systemId } from '@daisy/clock';
-import { isOpenRoomStatus } from '@daisy/protocol';
+import { isOpenRoomStatus } from '@daisy/protocol/room-contract';
 import type {
   RoomCastChoice,
   RoomCatalogChoice,
   RoomView,
-} from '@daisy/protocol';
+} from '@daisy/protocol/room-contract';
 import { systemScheduler } from '../../edge/realtime-browser';
 import { browserSyncEdges } from '../../resource-sync/browser';
 import {

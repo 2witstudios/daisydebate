@@ -1,5 +1,5 @@
 import { audienceStateKey } from '@daisy/db/audience-state-key';
-import { audienceStatePath } from '@daisy/protocol';
+import { audienceStatePath } from '@daisy/protocol/audience-state';
 
 /**
  * Where an admitted reader polls a Round's published state. Handed out only past

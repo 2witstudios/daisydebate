@@ -1,12 +1,11 @@
 import { z } from 'zod';
+import { idSchema } from '@daisy/protocol/primitives';
 import {
-  idSchema,
   roomCommandSchema,
-  roomRefusalSchema,
-  roomViewSchema,
   type RoomView,
   type RoomRefusal,
-} from '@daisy/protocol';
+} from '@daisy/protocol/room-contract';
+import { roomRefusalSchema, roomViewSchema } from '@daisy/protocol/room-read';
 
 import { captureFromFields } from './capture-form';
 

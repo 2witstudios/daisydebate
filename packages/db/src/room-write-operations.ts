@@ -35,18 +35,18 @@ import {
   type ContentWaiverStanding,
 } from './agreement-signatures';
 import { readEntitlementGrants } from './entitlement-grants';
+import type { EntitlementGrant } from '@daisy/protocol/entitlements';
+import type { AgeBand } from '@daisy/protocol/ladder';
 import type {
-  EntitlementGrant,
-  AgeBand,
   RoomAssemblyState,
   RoomCommandReceipt,
   RoomMutationOutcome,
   RoomRefusal,
-  TournamentCaptureAdmission,
-} from '@daisy/protocol';
+} from '@daisy/protocol/room-contract';
+import type { TournamentCaptureAdmission } from '@daisy/protocol/tournament-capture-admission';
 
 import { createAppError, createRefusal } from '@daisy/errors';
-import { isDebatingSeat, isJudgeSeat, sameSeat } from '@daisy/protocol';
+import { isDebatingSeat, isJudgeSeat, sameSeat } from '@daisy/protocol/seats';
 
 /**
  * The host a Room's admission or capture charges. A Room no person hosts

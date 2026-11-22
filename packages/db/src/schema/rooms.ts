@@ -2,19 +2,22 @@ import { lifecycleSqlList } from '../lifecycle-sql';
 import { ladders } from './ladders';
 import {
   openRoomStatuses,
-  competitionTypes,
-  twoSideKeys,
-  type TwoSideKey,
-  roomCaptureSchema,
-  roomConfigSchema,
-  seatKinds,
   roomStatuses,
   type RoomView,
-  roomExecutionPlanSchema,
-  roundRulesSchema,
-  type CompetitionType,
+} from '@daisy/protocol/room-contract';
+import { competitionTypes, type CompetitionType } from '@daisy/protocol/round';
+import {
+  twoSideKeys,
+  type TwoSideKey,
+  seatKinds,
   type SeatKind,
-} from '@daisy/protocol';
+} from '@daisy/protocol/seats';
+import { roomCaptureSchema } from '@daisy/protocol/room-capture';
+import {
+  roomConfigSchema,
+  roomExecutionPlanSchema,
+} from '@daisy/protocol/room';
+import { roundRulesSchema } from '@daisy/protocol/format';
 import type { lobbyKinds } from '@daisy/protocol/lobby';
 import { sql } from 'drizzle-orm';
 import {

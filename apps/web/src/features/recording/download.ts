@@ -1,5 +1,5 @@
 import { createAppError } from '@daisy/errors';
-import { CONTENT_MODERATION_DELIVERY_BOUND_MS } from '@daisy/protocol';
+import { CONTENT_MODERATION_DELIVERY_BOUND_MS } from '@daisy/protocol/content-moderation';
 import {
   mayDownload,
   roundEvidencePermissions,

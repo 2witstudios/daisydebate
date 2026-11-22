@@ -2,7 +2,7 @@ import {
   isUrgentNotificationKind,
   type NotificationKind,
   type NotificationShell,
-} from '@daisy/protocol';
+} from '@daisy/protocol/notifications';
 
 type Recent = NotificationShell['recent'][number];
 

@@ -1,4 +1,5 @@
-import type { CompetitionType, RatingStyle } from '@daisy/protocol';
+import type { CompetitionType } from '@daisy/protocol/round';
+import type { RatingStyle } from '@daisy/protocol/primitives';
 import { casualSelection } from '../rooms/format-browser';
 import type { RoomTemplate } from '../rooms/read-catalog';
 import { defaultRoomVisibility } from '../rooms/room-visibility';

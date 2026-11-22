@@ -5,7 +5,7 @@ import { readOutboxCatchup } from '../src/outbox-catchup';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createId } from '@paralleldrive/cuid2';
 import { requireTestServices } from '@daisy/config';
-import { buildRoomTopic, buildUserInboxTopic } from '@daisy/protocol';
+import { buildRoomTopic, buildUserInboxTopic } from '@daisy/protocol/topics';
 import { expect } from 'bun:test';
 import { createDatabase } from '../src';
 import { encodeOutboxCursor, type OutboxPosition } from '@daisy/db/outbox';

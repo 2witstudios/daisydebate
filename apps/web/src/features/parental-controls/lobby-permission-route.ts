@@ -1,6 +1,6 @@
 import { sha3Hex } from '@daisy/digest';
 import { createAppError } from '@daisy/errors';
-import { idSchema } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
 import { z } from 'zod';
 import { agreementWords, contentWaiverDocument } from '../legal/agreements';
 import type { App } from '../../server/app';

@@ -1,5 +1,6 @@
 import { and, eq, inArray, notInArray, sql } from 'drizzle-orm';
-import { roomRoundLinkOf, type ActiveRoomFacts } from '@daisy/protocol';
+import { roomRoundLinkOf } from '@daisy/protocol/room-contract';
+import { type ActiveRoomFacts } from '@daisy/protocol/active-room';
 import { createRefusal } from '@daisy/errors';
 import { activeSeats, roomParticipants, rooms } from './schema/rooms';
 import { hostPersonOf } from './room-host';

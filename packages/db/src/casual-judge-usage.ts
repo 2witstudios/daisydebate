@@ -1,4 +1,4 @@
-import { isRoundOver } from '@daisy/protocol';
+import { isRoundOver } from '@daisy/protocol/round';
 import { and, eq, sql } from 'drizzle-orm';
 import { createAppError } from '@daisy/errors';
 import { usageStateSchema } from '@daisy/protocol/billing';

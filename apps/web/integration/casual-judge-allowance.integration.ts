@@ -3,7 +3,7 @@ import {
   judgeSeat,
   negativeSide,
   sideSeat,
-} from '@daisy/protocol';
+} from '@daisy/protocol/seats';
 import { requireTestServices } from '@daisy/config';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { withRoomRuntime } from './room-runtime.test-support';

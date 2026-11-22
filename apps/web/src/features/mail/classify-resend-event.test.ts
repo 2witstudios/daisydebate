@@ -2,7 +2,7 @@ import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {
   emailDeliveryStatusRank,
   emailDeliveryStatuses,
-} from '@daisy/protocol';
+} from '@daisy/protocol/email-delivery';
 import { classifyResendEvent } from './webhook';
 
 setupRitewayBun();

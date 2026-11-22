@@ -6,8 +6,8 @@ import { browserFetch } from '../edge/browser-request';
 import {
   challengeListSchema,
   type ChallengeList,
-  type RatingDivision,
-} from '@daisy/protocol';
+} from '@daisy/protocol/challenges';
+import { type RatingDivision } from '@daisy/protocol/ladder';
 import {
   createContext,
   useCallback,

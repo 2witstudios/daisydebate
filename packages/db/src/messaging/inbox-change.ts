@@ -1,5 +1,6 @@
 import { sql } from 'drizzle-orm';
-import { buildUserInboxTopic, idSchema } from '@daisy/protocol';
+import { buildUserInboxTopic } from '@daisy/protocol/topics';
+import { idSchema } from '@daisy/protocol/primitives';
 import { appendOutboxEvent } from '../outbox';
 import type { Tx } from '../tx';
 import { query } from '../raw-rows';

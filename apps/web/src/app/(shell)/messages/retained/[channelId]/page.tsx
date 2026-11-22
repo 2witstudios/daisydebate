@@ -1,7 +1,8 @@
 import { ConversationPane } from '../../../../../ui/messaging/conversation-pane';
 import { headers } from 'next/headers';
 import { notFound } from 'next/navigation';
-import { idSchema, messagingRetainedSchemas } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
+import { messagingRetainedSchemas } from '@daisy/protocol/messaging/retained';
 import { requireAccess } from '../../../../../lib/access';
 import type { MessagingChannelPageProps } from '../../../../../features/messaging/channel-page';
 import { RetainedDeleteForm } from '../../../../../ui/messaging/retained-delete-form';

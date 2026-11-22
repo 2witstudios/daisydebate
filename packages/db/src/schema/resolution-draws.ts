@@ -1,4 +1,4 @@
-import { twoSideKeys, type TwoSideKey } from '@daisy/protocol';
+import { twoSideKeys, type TwoSideKey } from '@daisy/protocol/seats';
 import { sql } from 'drizzle-orm';
 import {
   check,

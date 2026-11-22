@@ -1,4 +1,5 @@
-import type { RatingDivision, RatingStyle } from '@daisy/protocol';
+import type { RatingDivision } from '@daisy/protocol/ladder';
+import type { RatingStyle } from '@daisy/protocol/primitives';
 
 /** The name each rating style shows (ADR 0142). */
 export const styleLabels: Readonly<Record<RatingStyle, string>> = {

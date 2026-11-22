@@ -7,7 +7,7 @@ import {
   createRoundRuntime,
   plannedRecording,
 } from '@daisy/debate-engine';
-import { isJudgeSeat, isModeratorSeat } from '@daisy/protocol';
+import { isJudgeSeat, isModeratorSeat } from '@daisy/protocol/seats';
 import { identify } from '../../lib/identity';
 import type { App } from '../../server/app';
 import type { WorkerTimers } from '../../lib/worker-timers';

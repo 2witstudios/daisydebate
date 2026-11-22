@@ -3,7 +3,10 @@
 import { headers } from 'next/headers';
 import { z } from 'zod';
 import { systemId } from '@daisy/clock';
-import { challengeListSchema, challengeResultSchema } from '@daisy/protocol';
+import {
+  challengeListSchema,
+  challengeResultSchema,
+} from '@daisy/protocol/challenges';
 import { acceptOffer } from '../../../features/challenges/accept-offer';
 import {
   challengeEnded,

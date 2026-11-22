@@ -1,6 +1,7 @@
 import { systemId } from '@daisy/clock';
 import { createAppError } from '@daisy/errors';
-import { idSchema, roomRefusalSchema } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
+import { roomRefusalSchema } from '@daisy/protocol/room-read';
 import type { Metadata } from 'next';
 import { notFound, redirect } from 'next/navigation';
 import type { SearchParams } from '../../../../features/access/decision';

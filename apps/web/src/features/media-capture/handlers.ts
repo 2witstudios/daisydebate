@@ -7,16 +7,18 @@ import { createAppError, isAppError, toPublicError } from '@daisy/errors';
 import {
   acknowledgedReply,
   captureMutationReply,
-  captureRefusalSchema,
   captureStateReply,
-  idSchema,
   leaseReply,
   sealReply,
   tokenReply,
+} from '@daisy/protocol/capture-worker-replies';
+import {
+  captureRefusalSchema,
   type CaptureRefusal,
-  evidenceIngressReplySchema,
-  type NecessaryEvidenceIngressReply,
-} from '@daisy/protocol';
+} from '@daisy/protocol/capture-refusal';
+import { idSchema } from '@daisy/protocol/primitives';
+import { evidenceIngressReplySchema } from '@daisy/protocol/evidence-ingress-reply';
+import { type NecessaryEvidenceIngressReply } from '@daisy/protocol/necessary-evidence';
 import { z } from 'zod';
 import { handleOperation, parseValidated, readBytes } from '../../server/http';
 import type { createMediaWorkerTokenBroker } from '../round-media/worker-token';

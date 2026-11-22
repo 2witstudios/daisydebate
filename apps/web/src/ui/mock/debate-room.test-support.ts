@@ -1,4 +1,5 @@
-import type { CompetitionType, SeatRef } from '@daisy/protocol';
+import type { CompetitionType } from '@daisy/protocol/round';
+import type { SeatRef } from '@daisy/protocol/seats';
 import type { ChatMessage } from '../../features/debate-room/chat';
 import type { SpeechSlot } from '../../features/debate-room/speeches';
 import { judgingClockOf } from '../../features/round-runtime/judging-window';

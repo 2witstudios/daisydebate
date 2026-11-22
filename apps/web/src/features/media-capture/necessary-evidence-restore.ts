@@ -1,12 +1,12 @@
 import type { Database } from '@daisy/db';
 import { isAppError } from '@daisy/errors';
 import { z } from 'zod';
+import { idSchema } from '@daisy/protocol/primitives';
 import {
-  idSchema,
   type EvidenceRefusal,
   type NecessaryEvidenceCustody,
   type NecessaryEvidenceRestoreReply,
-} from '@daisy/protocol';
+} from '@daisy/protocol/necessary-evidence';
 import {
   createEvidenceAuthentication,
   prepareEvidenceBody,

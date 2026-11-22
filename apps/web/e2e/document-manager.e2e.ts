@@ -1,4 +1,4 @@
-import { affirmativeSide, sameSeat, sideSeat } from '@daisy/protocol';
+import { affirmativeSide, sameSeat, sideSeat } from '@daisy/protocol/seats';
 import { createId } from '@paralleldrive/cuid2';
 import type { Page } from '@playwright/test';
 import { origin } from './support/accounts';

@@ -1,4 +1,4 @@
-import { negativeSide } from '@daisy/protocol';
+import { negativeSide } from '@daisy/protocol/seats';
 import type { DebateScenario, ScenarioAction } from '../scripts/scenario';
 
 /** Advances the clock to `atMs`, then acts as the 1-based seat `actor`. */

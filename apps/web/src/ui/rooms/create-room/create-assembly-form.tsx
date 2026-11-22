@@ -5,7 +5,7 @@ import { StatusRegion } from '../../components/status-region/status-region';
 import { Button } from '../../components/button/button';
 import type { CreateLobbyChoice } from '../../../features/rooms/create-lobby-choice';
 
-import type { RatingDivision } from '@daisy/protocol';
+import type { RatingDivision } from '@daisy/protocol/ladder';
 import { useState, useTransition } from 'react';
 import {
   destinationOf,

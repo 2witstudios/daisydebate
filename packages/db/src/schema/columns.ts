@@ -9,7 +9,7 @@ import {
 import type { PgColumn } from 'drizzle-orm/pg-core';
 import { createAppError } from '@daisy/errors';
 import { z } from 'zod';
-import { seatKinds } from '@daisy/protocol';
+import { seatKinds } from '@daisy/protocol/seats';
 
 /**
  * Column recipes every table uses (ADR 0029, ADR 0038). Builders are

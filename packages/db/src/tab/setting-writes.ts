@@ -2,7 +2,7 @@ import {
   ballotDefinitions,
   ballotDefinitionVersions,
 } from '../schema/ballot-definitions';
-import type { BallotDefinition } from '@daisy/protocol';
+import type { BallotDefinition } from '@daisy/protocol/ballot-definition';
 import type { SettingKey } from '@daisy/protocol/setting-values';
 import { and, eq, isNull } from 'drizzle-orm';
 import { createAppError } from '@daisy/errors';

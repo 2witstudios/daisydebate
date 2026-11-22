@@ -1,6 +1,6 @@
 import { and, eq, sql } from 'drizzle-orm';
 import { createAppError } from '@daisy/errors';
-import { idSchema } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
 import { refundActionSchema } from '@daisy/protocol/billing';
 import { lockAuthorizationActors } from './authorization';
 import { billingRefundActions } from './schema/billing-refund-actions';

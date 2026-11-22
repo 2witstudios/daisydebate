@@ -1,6 +1,6 @@
 import { systemId } from '@daisy/clock';
 import { createAppError } from '@daisy/errors';
-import { idSchema } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
 import { notFound, redirect } from 'next/navigation';
 import type { SearchParams } from '../../../../../features/access/decision';
 import { canOfferFreshRoom } from '../../../../../features/room-runtime/fresh-room';

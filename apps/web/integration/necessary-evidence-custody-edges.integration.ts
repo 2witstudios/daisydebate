@@ -15,7 +15,7 @@ import {
   openLocalEvidenceAuthority,
 } from '../src/features/media-capture/local-evidence-authority';
 import { openLocalEvidenceCustody } from '../src/features/media-capture/local-evidence-custody';
-import { necessaryEvidencePolicy } from '@daisy/protocol';
+import { necessaryEvidencePolicy } from '@daisy/protocol/necessary-evidence';
 setupRitewayBun();
 requireTestServices(process.env);
 

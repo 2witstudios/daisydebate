@@ -1,8 +1,6 @@
-import type {
-  FormatDefinition,
-  FormatSelectionFacts,
-  FormatSettings,
-} from '@daisy/protocol';
+import type { FormatDefinition } from '@daisy/protocol/format';
+import type { FormatSelectionFacts } from '@daisy/protocol/format-standing';
+import type { FormatSettings } from '@daisy/protocol/format-settings';
 import { and, eq, isNull } from 'drizzle-orm';
 import { createAppError } from '@daisy/errors';
 import { formatPresets } from './schema/format-presets';

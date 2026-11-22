@@ -3,9 +3,9 @@ import { pending as transcriptionRecoveryPending } from './transcription-recover
 import { readCaptureShortfall } from './capture-shortfall';
 import {
   frozenCaptureColumns,
-  type CaptureRule,
   type FrozenCapture,
-} from '@daisy/protocol';
+} from '@daisy/protocol/capture-judging-limit';
+import { type CaptureRule } from '@daisy/protocol/capture-verdict';
 import {
   appendRoundPhaseChanged,
   lockedRoundVersion,

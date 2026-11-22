@@ -3,7 +3,7 @@
 import { cancelDelay, delay } from '../edge/browser-time';
 import { StatusRegion } from '../components/status-region/status-region';
 import { Button } from '../components/button/button';
-import type { Person } from '@daisy/protocol';
+import type { Person } from '@daisy/protocol/people-list';
 import { ShellLink as Link } from '../layout/app-shell/shell-link';
 import { useCallback, useRef, useState, type RefObject } from 'react';
 import { Avatar } from '../components/avatar/avatar';

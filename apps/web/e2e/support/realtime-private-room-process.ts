@@ -1,6 +1,6 @@
 import { SQL } from 'bun';
 import { resolve } from 'node:path';
-import { idSchema } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
 import { requireLaunchSlot } from './room-launch-slot';
 
 /**

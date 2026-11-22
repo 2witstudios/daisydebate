@@ -1,8 +1,8 @@
 import { addMs, instantMs } from '@daisy/clock';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import type { ResolutionDrawState } from '@daisy/protocol/resolution-draw';
-import type { SeatDraw } from '@daisy/protocol';
-import { judgeSeat, sideSeat } from '@daisy/protocol';
+import type { SeatDraw } from '@daisy/protocol/seat-draw';
+import { judgeSeat, sideSeat } from '@daisy/protocol/seats';
 import {
   openingStep,
   projectOpening,

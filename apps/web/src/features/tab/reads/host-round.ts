@@ -7,7 +7,7 @@ import type {
   AuthorizationInput,
   AuthorizationDecision,
 } from '@daisy/auth/authorization';
-import { idSchema } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
 import type { TabPrincipal } from '../tab-principal';
 import { drawAuthority } from '../operations/draw-authority';
 import { eventResultsVersion } from '../operations/event-results-version';

@@ -3,9 +3,9 @@ import type {
   FrameObservation,
   FrameRunAnchor,
   FrameClockEvidence,
-} from '@daisy/protocol';
+} from '@daisy/protocol/frame-clock-evidence';
 import { calibrationOffsets, publicationClock } from './publication-clock';
-import { frameClockEvidenceSchema } from '@daisy/protocol';
+import { frameClockEvidenceSchema } from '@daisy/protocol/frame-clock-evidence';
 
 type Run = {
   readonly anchor: FrameRunAnchor;

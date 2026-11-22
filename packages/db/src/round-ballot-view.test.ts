@@ -1,9 +1,9 @@
+import { ballotCategories } from '@daisy/protocol/ballot';
 import {
-  ballotCategories,
   daisyBallotDefinitions,
   daisyWinnerBallot,
   daisyBallotSource,
-} from '@daisy/protocol';
+} from '@daisy/protocol/ballot-definition';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { ballotReadView, ownJudgeSeat } from './round-ballot-view';
 

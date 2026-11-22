@@ -1,7 +1,8 @@
 import { requireCurrentWeb } from './web-service-authority';
 import { endOpenJudgingJobs, type JudgingEndRule } from './round-judging-end';
 import { createAppError } from '@daisy/errors';
-import { idSchema, type JudgingTerminalReason } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
+import { type JudgingTerminalReason } from '@daisy/protocol/round-judging-attempt';
 import { sql } from 'drizzle-orm';
 import {
   attendanceSamples,

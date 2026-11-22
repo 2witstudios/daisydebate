@@ -1,4 +1,4 @@
-import { startEdgeLagMs } from '@daisy/protocol';
+import { startEdgeLagMs } from '@daisy/protocol/public-interval';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {
   coverageParts,

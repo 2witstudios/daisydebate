@@ -1,4 +1,4 @@
-import type { SeatKind } from '@daisy/protocol';
+import type { SeatKind } from '@daisy/protocol/seats';
 
 /**
  * Standing in a Round's live room, as a named read-only input: a seat, or a host

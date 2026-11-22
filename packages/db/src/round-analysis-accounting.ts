@@ -1,9 +1,9 @@
 import { createAppError } from '@daisy/errors';
 import {
   analysisRequest,
-  analysisUsageOutcome,
   type AnalysisWork,
-} from '@daisy/protocol';
+} from '@daisy/protocol/round-analysis-work';
+import { analysisUsageOutcome } from '@daisy/protocol/round-analysis-lifecycle';
 import { usageStateSchema } from '@daisy/protocol/billing';
 import { and, eq } from 'drizzle-orm';
 import type { AnalysisSeat } from './round-analysis-authority';

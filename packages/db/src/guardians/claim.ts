@@ -1,5 +1,5 @@
 import { and, asc, eq, gt, isNull } from 'drizzle-orm';
-import { decideBetaAccessChange } from '@daisy/protocol';
+import { decideBetaAccessChange } from '@daisy/protocol/beta-access';
 import { createAppError } from '@daisy/errors';
 import { loadAuthorizationAccount } from '../authorization';
 import { insertPendingBetaAccess } from '../beta-access';

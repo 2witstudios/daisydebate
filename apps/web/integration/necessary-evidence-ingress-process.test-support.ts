@@ -6,10 +6,8 @@ import { createDatabase } from '@daisy/db';
 import { requireTestServices } from '@daisy/config';
 import { createId } from '@paralleldrive/cuid2';
 import { captureRule } from '@daisy/debate-engine';
-import {
-  CAPTURE_STT_LAG_MS,
-  canonicalCaptureEvidenceBody,
-} from '@daisy/protocol';
+import { CAPTURE_STT_LAG_MS } from '@daisy/protocol/capture-timing';
+import { canonicalCaptureEvidenceBody } from '@daisy/protocol/capture-evidence-body';
 import { openLocalEvidenceAuthority } from '../src/features/media-capture/local-evidence-authority';
 import { openLocalEvidenceCustody } from '../src/features/media-capture/local-evidence-custody';
 import { createNecessaryEvidenceIngress } from '../src/features/media-capture/necessary-evidence-ingress';

@@ -1,4 +1,5 @@
-import { runningRoundStatuses, idSchema } from '@daisy/protocol';
+import { runningRoundStatuses } from '@daisy/protocol/round';
+import { idSchema } from '@daisy/protocol/primitives';
 import { SQL } from 'bun';
 import { createAppError } from '@daisy/errors';
 import { z } from 'zod';

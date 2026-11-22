@@ -1,7 +1,7 @@
 import { requireTestServices } from '@daisy/config';
 import { createDatabase, type Database } from '@daisy/db';
 import { seedRatingSeason } from '@daisy/db/testing';
-import type { Ballot } from '@daisy/protocol';
+import type { Ballot } from '@daisy/protocol/ballot-schema';
 import { createId } from '@paralleldrive/cuid2';
 import { SQL } from 'bun';
 import { createRoundBallotOperations } from '../src/features/round-ballots/operations';
@@ -19,7 +19,7 @@ import {
   launchRuntimeRound,
   type withRoomRuntime,
 } from './round-runtime.test-support';
-import { isJudgeSeat } from '@daisy/protocol';
+import { isJudgeSeat } from '@daisy/protocol/seats';
 
 const { databaseUrl } = requireTestServices(process.env);
 type Fixture = Parameters<Parameters<typeof withRoomRuntime>[0]>[0];

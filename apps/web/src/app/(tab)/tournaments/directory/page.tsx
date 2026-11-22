@@ -1,5 +1,5 @@
 import { notFound } from 'next/navigation';
-import { idSchema } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
 import type { SearchParams } from '../../../../features/access/decision';
 import { linkTo } from '../../../../features/tab/action';
 import { hostRoutes, tabRoutes } from '../../../../features/tab/routes';

@@ -1,7 +1,7 @@
 import type { Database } from '@daisy/db';
 import { createAppError } from '@daisy/errors';
 import { CLIENT_IP_HEADER } from '@daisy/ingress/client-ip';
-import { idSchema } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
 import { releaseRecipientSchema } from '@daisy/protocol/media-release';
 import { z } from 'zod';
 import {

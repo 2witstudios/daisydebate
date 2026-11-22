@@ -6,7 +6,8 @@ import type { CreateLobbyChoice } from '../../../features/rooms/create-lobby-cho
 
 import { useState } from 'react';
 import { casualCaptureNotice } from '../../../features/legal/agreements';
-import { type RatingDivision, type RoomCatalogChoice } from '@daisy/protocol';
+import { type RatingDivision } from '@daisy/protocol/ladder';
+import { type RoomCatalogChoice } from '@daisy/protocol/room-contract';
 import {
   changeRoomValue,
   chooseRoomChoice,

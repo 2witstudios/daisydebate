@@ -1,4 +1,4 @@
-import type { FriendList, FriendRelation } from '@daisy/protocol';
+import type { FriendList, FriendRelation } from '@daisy/protocol/friends';
 
 /** How many friends are around: online or away, not offline. */
 export const friendsAround = (friends: FriendList['friends']): number =>

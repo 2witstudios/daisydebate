@@ -1,4 +1,5 @@
-import type { FormatSelectionFacts, RoomCreate } from '@daisy/protocol';
+import type { FormatSelectionFacts } from '@daisy/protocol/format-standing';
+import type { RoomCreate } from '@daisy/protocol/room-contract';
 import {
   decideFormatSelection,
   resolveRoomConfiguration,

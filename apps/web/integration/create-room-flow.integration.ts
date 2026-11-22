@@ -1,7 +1,7 @@
 import { requireTestServices } from '@daisy/config';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { roomCreateSchema } from '@daisy/protocol';
+import { roomCreateSchema } from '@daisy/protocol/room-contract';
 import { createRoomDraft } from '../src/features/rooms/create-room-draft';
 import { draftFormValues } from '../src/features/rooms/create-room-fields';
 import { prepareRoomDraft } from '../src/features/rooms/prepare-room-draft';

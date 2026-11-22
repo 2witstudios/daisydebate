@@ -1,4 +1,4 @@
-import { idSchema } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
 import type { MessagingPreferenceAuthorizationFact } from './authorization-facts';
 /** Clear deletes an existing own row only. No content, upsert or channel grant is conveyed. */
 export function preferenceClearAllowed(

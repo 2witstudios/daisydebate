@@ -2,7 +2,7 @@ import { afterAll, setDefaultTimeout } from 'bun:test';
 import { SQL } from 'bun';
 import { createId } from '@paralleldrive/cuid2';
 import { requireTestServices } from '@daisy/config';
-import { buildUserInboxTopic } from '@daisy/protocol';
+import { buildUserInboxTopic } from '@daisy/protocol/topics';
 import { deleteNamespace } from '@daisy/redis/namespaces';
 import { removeUnowedBetaDigests } from '@daisy/db/testing';
 import {

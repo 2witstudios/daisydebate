@@ -1,5 +1,6 @@
 import { currentRoundParticipant } from './round-current-participant';
-import { isDebatingSeat, type CaptureRule } from '@daisy/protocol';
+import { isDebatingSeat } from '@daisy/protocol/seats';
+import { type CaptureRule } from '@daisy/protocol/capture-verdict';
 import { and, asc, eq, sql, type SQL } from 'drizzle-orm';
 import { readBroadcastRelease } from './broadcast-operations';
 import type { SpectatorClock } from './spectator-release-sql';

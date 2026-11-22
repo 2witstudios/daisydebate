@@ -10,7 +10,7 @@ import { CLIENT_IP_HEADER } from '@daisy/ingress/client-ip';
 import { identify } from '../src/lib/identity';
 import { createApp } from '../src/server/app';
 import { requireTestServices } from '@daisy/config';
-import { emptyRuntimeCheckpointFor } from '@daisy/protocol';
+import { emptyRuntimeCheckpointFor } from '@daisy/protocol/round';
 import { betaMessagingPolicy } from '../src/features/messaging/beta-policy';
 
 /**

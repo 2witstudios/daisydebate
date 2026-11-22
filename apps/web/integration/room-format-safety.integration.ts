@@ -7,7 +7,7 @@ import {
   invalidFormatDefinitions,
   unsafeFormatDefinitions,
 } from '@daisy/protocol/testing';
-import { sideOfSeat } from '@daisy/protocol';
+import { sideOfSeat } from '@daisy/protocol/seats';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { withRoomRuntime } from './room-runtime.test-support';
 

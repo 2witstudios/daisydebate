@@ -1,4 +1,4 @@
-import type { FormatSelectionFacts } from '@daisy/protocol';
+import type { FormatSelectionFacts } from '@daisy/protocol/format-standing';
 import {
   foundationSettings,
   foundationDefinition,

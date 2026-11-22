@@ -1,4 +1,4 @@
-import type { SpectatorTimeline } from '@daisy/protocol';
+import type { SpectatorTimeline } from '@daisy/protocol/spectator-timeline';
 import { AppRouterContext } from 'next/dist/shared/lib/app-router-context.shared-runtime';
 import { createElement as h } from 'react';
 import { renderToString } from 'react-dom/server';

@@ -1,5 +1,5 @@
 import { createAppError } from '@daisy/errors';
-import type { AgeBand } from '@daisy/protocol';
+import type { AgeBand } from '@daisy/protocol/ladder';
 
 /** `YYYY-MM`, year 1000-9999, month 01-12. */
 const BIRTH_MONTH_SHAPE = /^([1-9]\d{3})-(0[1-9]|1[0-2])$/;

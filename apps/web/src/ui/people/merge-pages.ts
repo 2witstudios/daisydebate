@@ -1,4 +1,4 @@
-import type { PeopleList, Person } from '@daisy/protocol';
+import type { PeopleList, Person } from '@daisy/protocol/people-list';
 
 /**
  * The next page added to what is loaded. Being online is part of the keyset, so

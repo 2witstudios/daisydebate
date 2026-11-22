@@ -1,7 +1,8 @@
 import { availabilityOf } from './availability-of';
 import { requireAttendanceWindow } from '@daisy/debate-engine';
 import { createRefusal, isAppError } from '@daisy/errors';
-import { attendanceTimingPolicy, isAbsentSeat } from '@daisy/protocol';
+import { attendanceTimingPolicy } from '@daisy/protocol/attendance';
+import { isAbsentSeat } from '@daisy/protocol/round';
 import type { LockedAttendanceCheckIn } from '@daisy/db/attendance';
 import { attendanceWindowFor } from './windows';
 import { attendanceReceiptTime } from './receipt-time';

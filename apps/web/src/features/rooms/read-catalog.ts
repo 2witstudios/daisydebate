@@ -2,9 +2,11 @@ import { z } from 'zod';
 import {
   roomCatalogChoiceSchema,
   roomCastChoiceSchema,
+} from '@daisy/protocol/room-read';
+import {
   type RoomCatalogChoice,
   type RoomCastChoice,
-} from '@daisy/protocol';
+} from '@daisy/protocol/room-contract';
 
 export type RoomTemplate = RoomCatalogChoice;
 const catalogSchema = z.strictObject({

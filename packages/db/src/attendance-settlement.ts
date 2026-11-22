@@ -2,9 +2,9 @@ import { tryInstantMs, instantMs } from '@daisy/clock';
 import { createAppError, createRefusal } from '@daisy/errors';
 import {
   attendanceLedgerFactsSchema,
-  idSchema,
   type AttendanceLedgerFacts,
-} from '@daisy/protocol';
+} from '@daisy/protocol/attendance';
+import { idSchema } from '@daisy/protocol/primitives';
 import { sql } from 'drizzle-orm';
 import type { Tx } from './tx';
 import { query } from './raw-rows';

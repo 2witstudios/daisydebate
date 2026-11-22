@@ -1,4 +1,4 @@
-import { ratingDivisionForAgeRule } from '@daisy/protocol';
+import { ratingDivisionForAgeRule } from '@daisy/protocol/ladder';
 import { settingValueSchemas } from '@daisy/protocol/setting-values';
 import { lockedSetting, openSetting, type SettingLine } from './settings';
 import type { LobbyLadder } from '@daisy/protocol/lobby/lobby-read';

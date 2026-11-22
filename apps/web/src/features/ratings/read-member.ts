@@ -1,6 +1,6 @@
 import type { Database } from '@daisy/db';
-import { daisyLadders, ladderKey } from '@daisy/protocol';
-import type { Ladder } from '@daisy/protocol';
+import { daisyLadders, ladderKey } from '@daisy/protocol/ladder';
+import type { Ladder } from '@daisy/protocol/ladder';
 import { readRatingStandings } from './read';
 
 /**

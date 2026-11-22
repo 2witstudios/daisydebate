@@ -1,5 +1,5 @@
 import { tryInstantMs, instantMs } from '@daisy/clock';
-import type { EntitlementGrant } from '@daisy/protocol';
+import type { EntitlementGrant } from '@daisy/protocol/entitlements';
 import type {
   AllowanceDecision,
   AllowanceFacts,

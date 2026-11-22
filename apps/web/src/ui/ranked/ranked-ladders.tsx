@@ -1,6 +1,6 @@
 import { ladderBoardHref } from '../../features/leaderboard/query';
 import Link from 'next/link';
-import type { RatingDivision } from '@daisy/protocol';
+import type { RatingDivision } from '@daisy/protocol/ladder';
 import {
   noLadderReason,
   rankedRoomLadder,

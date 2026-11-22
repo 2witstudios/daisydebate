@@ -16,7 +16,7 @@ import {
   type ErrorReporter,
 } from '@daisy/observability';
 import type { Identity } from '@daisy/auth';
-import type { RefusalReason } from '@daisy/protocol';
+import type { RefusalReason } from '@daisy/protocol/refusal-reason';
 import type { Logger } from '@daisy/logger';
 import { type ZodType } from 'zod';
 import { CLIENT_ID_HASH_HEADER } from '../features/auth/abuse/client-ip';

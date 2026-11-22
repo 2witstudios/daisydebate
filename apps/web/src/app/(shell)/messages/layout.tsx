@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { headers } from 'next/headers';
 import { systemClock } from '@daisy/clock';
-import { messagingRetainedSchemas } from '@daisy/protocol';
+import { messagingRetainedSchemas } from '@daisy/protocol/messaging/retained';
 import { readMessagingInboxResponse } from '../../../features/messaging/inbox-response';
 import {
   privateGroupsOffered,

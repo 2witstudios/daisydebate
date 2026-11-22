@@ -4,7 +4,7 @@ import {
 } from './broadcast-egress-dispatch';
 import { seatOfColumns } from './seat-columns';
 import { eq, getTableColumns } from 'drizzle-orm';
-import type { BroadcastReleasePolicy } from '@daisy/protocol';
+import type { BroadcastReleasePolicy } from '@daisy/protocol/broadcast';
 import {
   claimBroadcastReconcile,
   completeBroadcast,

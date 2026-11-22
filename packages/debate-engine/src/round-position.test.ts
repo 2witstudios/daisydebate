@@ -1,5 +1,5 @@
 import { instantMs } from '@daisy/clock';
-import { roundStartPolicy } from '@daisy/protocol';
+import { roundStartPolicy } from '@daisy/protocol/round-start-policy';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';
 import { roundControlsAt, roundPositionAt } from './round-position';

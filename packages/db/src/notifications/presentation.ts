@@ -1,7 +1,7 @@
 import {
   defaultNotificationPresentation,
   type NotificationPresentation,
-} from '@daisy/protocol';
+} from '@daisy/protocol/notifications';
 import { sql, type SQL } from 'drizzle-orm';
 import { instrumented, type DatabaseEventSink } from '../instrumented';
 import { run, query } from '../raw-rows';

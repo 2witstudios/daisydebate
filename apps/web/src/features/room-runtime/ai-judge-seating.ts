@@ -2,7 +2,7 @@ import {
   isOpenRoomStatus,
   type RoomAssemblyState,
   type RoomView,
-} from '@daisy/protocol';
+} from '@daisy/protocol/room-contract';
 import type { AllowanceDecision } from '@daisy/protocol/billing';
 
 /** Display only. Seat mutations obtain a fresh allowance decision under the host fence. */

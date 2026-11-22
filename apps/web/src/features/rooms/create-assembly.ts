@@ -1,4 +1,4 @@
-import { roomCreateSchema } from '@daisy/protocol';
+import { roomCreateSchema } from '@daisy/protocol/room-contract';
 import { field } from '../forms/form-state';
 import { recordingPolicyFromBox } from './capture-form';
 import {

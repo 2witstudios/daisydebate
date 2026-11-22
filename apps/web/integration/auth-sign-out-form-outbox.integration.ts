@@ -2,7 +2,7 @@ import { SQL } from 'bun';
 import { noopErrorReporter } from '@daisy/observability';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { buildUserInboxTopic } from '@daisy/protocol';
+import { buildUserInboxTopic } from '@daisy/protocol/topics';
 import { requireTestServices } from '@daisy/config';
 import { createAuthRouteHandlers } from '../src/features/auth/handlers';
 import { createSignOutFormHandler } from '../src/features/auth/sessions/sign-out-form';

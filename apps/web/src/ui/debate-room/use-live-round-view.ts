@@ -1,6 +1,6 @@
 'use client';
 import { useCallback } from 'react';
-import type { RoundView } from '@daisy/protocol';
+import type { RoundView } from '@daisy/protocol/round-view';
 import type { RoundRead } from '../../features/round-runtime/read-round';
 import { browserSyncEdges } from '../resource-sync/browser';
 import {

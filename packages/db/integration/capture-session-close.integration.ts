@@ -1,7 +1,7 @@
 import { instantMs } from '@daisy/clock';
 import { requireTestServices } from '@daisy/config';
 import { assertRejects } from '@daisy/errors/testing';
-import { CAPTURE_STT_LAG_MS } from '@daisy/protocol';
+import { CAPTURE_STT_LAG_MS } from '@daisy/protocol/capture-timing';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { withBoundedRound } from './bounded-transaction.test-support';
 import { historicalCapture } from './media-capture.test-support';

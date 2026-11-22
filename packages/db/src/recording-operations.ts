@@ -5,7 +5,10 @@ import {
   readLockedTournamentAdmission,
   readRecordingTournamentAdmission,
 } from './recording-tournament-admission';
-import type { RecordingClass, RecordingEligibility } from '@daisy/protocol';
+import type {
+  RecordingClass,
+  RecordingEligibility,
+} from '@daisy/protocol/recording';
 import { and, asc, eq, isNull, lte, or, sql } from 'drizzle-orm';
 import { endRoundFeed } from './broadcast-operations';
 import { openRecordingJobIfEgressRecorded } from './recording-processing-operations';

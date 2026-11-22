@@ -1,4 +1,4 @@
-import type { PresenceActivity } from '@daisy/protocol';
+import type { PresenceActivity } from '@daisy/protocol/realtime';
 import type { ConnectionStore } from './connection-types';
 import { startPresenceBeacon } from './presence-beacon';
 

@@ -2,7 +2,7 @@ import { expect, type Page } from '@playwright/test';
 import {
   createMessagingCoreSchemas,
   messagingBetaLimits,
-} from '@daisy/protocol';
+} from '@daisy/protocol/messaging/core';
 
 export async function durableMessages(page: Page, channelId: string) {
   const response = await page.request.get(

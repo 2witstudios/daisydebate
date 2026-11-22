@@ -5,12 +5,15 @@ import {
   type PreapprovalResult,
   type invitationStates,
 } from '@daisy/protocol/beta-preapproval';
-import { decideBetaAccessChange } from '@daisy/protocol';
+import { decideBetaAccessChange } from '@daisy/protocol/beta-access';
 import {
   verifyOperatorRequest,
   type OperatorCrypto,
 } from '@daisy/auth/operator-signature';
-import type { BetaAccessCommandResult, BetaAccessState } from '@daisy/protocol';
+import type {
+  BetaAccessCommandResult,
+  BetaAccessState,
+} from '@daisy/protocol/beta-access';
 import {
   betaAccessCommandSchema,
   matchOperatorRoute,

@@ -11,7 +11,7 @@ import {
   postRoundCallText,
 } from './assembly-readiness';
 import { ContentWaiverForm } from './content-waiver-form';
-import { twoSides } from '@daisy/protocol';
+import { twoSides } from '@daisy/protocol/seats';
 import { PopoverDialog } from '../../components/popover/popover-dialog';
 
 setupRitewayBun();

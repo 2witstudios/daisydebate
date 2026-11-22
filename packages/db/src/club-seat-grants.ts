@@ -1,5 +1,8 @@
 import { createAppError } from '@daisy/errors';
-import { entitlementKinds, type EntitlementGrant } from '@daisy/protocol';
+import {
+  entitlementKinds,
+  type EntitlementGrant,
+} from '@daisy/protocol/entitlements';
 import type { SubscriptionEvidence } from '@daisy/protocol/billing';
 import type { ClubSeat } from '@daisy/protocol/club-seats';
 import { clubSeatBounds } from '@daisy/protocol/club-seats';

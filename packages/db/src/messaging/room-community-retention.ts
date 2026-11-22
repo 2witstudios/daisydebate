@@ -1,4 +1,4 @@
-import { endedAssemblyRoomStatuses } from '@daisy/protocol';
+import { endedAssemblyRoomStatuses } from '@daisy/protocol/room-contract';
 import { lifecycleSqlList } from '../lifecycle-sql';
 import { sql } from 'drizzle-orm';
 import { contextChannelRetention } from './context-channel-retention';

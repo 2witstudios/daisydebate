@@ -5,14 +5,9 @@ import type {
   BotPublicationScope,
 } from '@daisy/db/bot-publication';
 import { createAppError } from '@daisy/errors';
-import {
-  leadSeatOf,
-  sameSeat,
-  seatLabel,
-  seatsOfKind,
-  segmentDueAtMs,
-  sideOfSeat,
-} from '@daisy/protocol';
+import { leadSeatOf, seatsOfKind } from '@daisy/protocol/format-seating';
+import { sameSeat, seatLabel, sideOfSeat } from '@daisy/protocol/seats';
+import { segmentDueAtMs } from '@daisy/protocol/segment-end';
 import type { Owed } from './duty';
 
 type Context = Awaited<

@@ -1,4 +1,4 @@
-import { overRoundStatuses } from '@daisy/protocol';
+import { overRoundStatuses } from '@daisy/protocol/round';
 import { lifecycleSqlList } from '../lifecycle-sql';
 import { sql } from 'drizzle-orm';
 import { contextChannelRetention } from './context-channel-retention';

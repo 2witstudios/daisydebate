@@ -1,5 +1,5 @@
 import { ballotPinCompatible } from './ballot-pin-compatible';
-import { ballotDefinitionSchema } from '@daisy/protocol';
+import { ballotDefinitionSchema } from '@daisy/protocol/ballot-definition';
 import type { LoadedSetupCommand } from '@daisy/db/tab';
 import {
   enforcedConflict,

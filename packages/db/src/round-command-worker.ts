@@ -1,6 +1,7 @@
 import { instantMs } from '@daisy/clock';
 import { and, eq } from 'drizzle-orm';
-import { segmentDueAtMs, type RoundCommandPrincipal } from '@daisy/protocol';
+import { segmentDueAtMs } from '@daisy/protocol/segment-end';
+import { type RoundCommandPrincipal } from '@daisy/protocol/round-command';
 import type { RoundHydration } from './round-hydration';
 import { roundBotPublications } from './schema/round-bot-publications';
 import type { Tx } from './tx';

@@ -2,7 +2,7 @@ import { createAppError, createRefusal } from '@daisy/errors';
 import {
   tournamentCaptureAdmissionSchema,
   type TournamentCaptureAdmission,
-} from '@daisy/protocol';
+} from '@daisy/protocol/tournament-capture-admission';
 import { tournamentCaptureAdmissions } from '../schema/tournament-capture-admissions';
 import {
   NONRANKED_CAPTURE_FLEET_LIMIT,

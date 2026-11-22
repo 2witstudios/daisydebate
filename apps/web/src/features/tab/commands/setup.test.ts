@@ -3,7 +3,7 @@ import {
   daisyWinnerBallot,
   storedBallotDefinition,
   type BallotDefinitionBody,
-} from '@daisy/protocol';
+} from '@daisy/protocol/ballot-definition';
 import type { TournamentSetupCommand } from '@daisy/protocol/lobby/lobby-setup-command';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {

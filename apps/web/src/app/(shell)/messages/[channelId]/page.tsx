@@ -7,7 +7,8 @@ import {
 } from '../../../../ui/messaging/conversation-navigation';
 import { notFound } from 'next/navigation';
 import { systemClock, systemId } from '@daisy/clock';
-import { idSchema, messagingBetaLimits } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
+import { messagingBetaLimits } from '@daisy/protocol/messaging/core';
 import { requireAccess } from '../../../../lib/access';
 import { messagingLatestPageItems } from '../../../../lib/request-session';
 import type { SearchParams } from '../../../../features/access/decision';

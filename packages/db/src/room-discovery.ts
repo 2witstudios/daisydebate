@@ -2,19 +2,18 @@ import { lifecycleSql, lifecycleSqlList } from './lifecycle-sql';
 import { sql, type SQL } from 'drizzle-orm';
 import { createAppError } from '@daisy/errors';
 import { defaultStandingLobby } from '@daisy/protocol/lobby/eligibility';
+import { runningRoundStatuses } from '@daisy/protocol/round';
 import {
-  runningRoundStatuses,
   openRoomStatuses,
   roomStatus,
   roomListQuerySchema,
   roomListPageSchema,
-  seatKindSchema,
   type RoomListQuery,
   type RoomListEntry,
   type RoomListPage,
-  type RoundRatingScope,
-  type SeatRef,
-} from '@daisy/protocol';
+} from '@daisy/protocol/room-contract';
+import { seatKindSchema, type SeatRef } from '@daisy/protocol/seats';
+import { type RoundRatingScope } from '@daisy/protocol/rating-ladder';
 import { seatOfColumns } from './seat-columns';
 import { sharedAccount, type Caller, type Account } from './room-command-facts';
 import { loadAuthorizationAccount } from './authorization';

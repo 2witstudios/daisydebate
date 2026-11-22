@@ -1,4 +1,5 @@
-import type { AudienceState, SpectatorTimeline } from '@daisy/protocol';
+import type { AudienceState } from '@daisy/protocol/audience-state';
+import type { SpectatorTimeline } from '@daisy/protocol/spectator-timeline';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { mountBrowserClient } from '../test-support/browser-client.test-support';
 import type * as Client from './broadcast-viewer.test-support';

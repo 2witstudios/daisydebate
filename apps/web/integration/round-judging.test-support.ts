@@ -15,13 +15,9 @@ import {
   oneOnOneDefinition,
   oneOnOneSettings,
 } from '@daisy/db/reference-formats';
-import {
-  ballotCategories,
-  isJudgeSeat,
-  judgeSeat,
-  twoSideKeys,
-  type Ballot,
-} from '@daisy/protocol';
+import { ballotCategories } from '@daisy/protocol/ballot';
+import { isJudgeSeat, judgeSeat, twoSideKeys } from '@daisy/protocol/seats';
+import { type Ballot } from '@daisy/protocol/ballot-schema';
 import { finalizeAsWeb } from './round-maintenance.test-support';
 import {
   launchRuntimeRound,

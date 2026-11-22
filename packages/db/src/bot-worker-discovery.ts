@@ -1,4 +1,4 @@
-import { roundStatus } from '@daisy/protocol';
+import { roundStatus } from '@daisy/protocol/round';
 import { lifecycleSql } from './lifecycle-sql';
 import { sql } from 'drizzle-orm';
 import { isDebatingSeatSql } from './seat-columns';

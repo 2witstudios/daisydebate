@@ -19,10 +19,8 @@ import {
   type ProfilePhotoStatus,
 } from '@daisy/protocol/public-profile';
 import type { Identity } from '@daisy/auth';
-import {
-  CONTENT_MODERATION_DELIVERY_BOUND_MS,
-  idSchema,
-} from '@daisy/protocol';
+import { CONTENT_MODERATION_DELIVERY_BOUND_MS } from '@daisy/protocol/content-moderation';
+import { idSchema } from '@daisy/protocol/primitives';
 import { requireMemberActor } from '../access/actor';
 import { squareWebpRenditions } from '../image-intake/square-renditions';
 import type { App } from '../../server/app';

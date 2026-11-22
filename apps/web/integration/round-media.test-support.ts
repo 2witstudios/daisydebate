@@ -12,7 +12,7 @@ import type { MediaOperationInput } from '../src/features/round-media/operation-
 import { createRoundMediaOperations } from '../src/features/round-media/operations';
 import { mediaRuntime } from '../src/features/round-media/projection';
 import { withRoomRuntime } from './room-runtime.test-support';
-import { CAPTURE_STT_LAG_MS } from '@daisy/protocol';
+import { CAPTURE_STT_LAG_MS } from '@daisy/protocol/capture-timing';
 
 export const localMediaConfig = {
   url: 'http://127.0.0.1:7880',

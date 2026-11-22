@@ -1,5 +1,6 @@
 import { createAppError, createRefusal } from '@daisy/errors';
-import type { FormatDefinition, EntitlementGrant } from '@daisy/protocol';
+import type { FormatDefinition } from '@daisy/protocol/format';
+import type { EntitlementGrant } from '@daisy/protocol/entitlements';
 import type { LobbyCommand } from '@daisy/protocol/lobby/lobby-setup-command';
 import type { LobbyAgeRule } from '@daisy/protocol/lobby/eligibility';
 import type {

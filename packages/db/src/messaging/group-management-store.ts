@@ -1,7 +1,7 @@
 import { groupLifecycleOf } from './social';
 import { readMessagingGroupCommand } from './group-command-row';
 import { createAppError } from '@daisy/errors';
-import { idSchema } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
 import { withLockedMessagingAuthority } from './authority-frame';
 import { writeGroupManagement } from './group-management-write';
 import type {

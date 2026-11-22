@@ -1,6 +1,6 @@
 import { instantMs } from '@daisy/clock';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { postRoundCallPolicy } from '@daisy/protocol';
+import { postRoundCallPolicy } from '@daisy/protocol/post-round-call';
 import {
   postRoundCallChosen,
   postRoundCallEndsAtMs,

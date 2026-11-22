@@ -6,7 +6,7 @@ import {
   experienceChoices,
   interestCategoryChoices,
   wantChoices,
-} from '@daisy/protocol';
+} from '@daisy/protocol/onboarding';
 import type { OnboardingAnswers } from '../../../features/onboarding/answers';
 import { Icon } from '../../components/icon/icon';
 import { Notice } from '../../components/notice/notice';

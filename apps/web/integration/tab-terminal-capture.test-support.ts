@@ -2,7 +2,7 @@ import { SQL } from 'bun';
 import { requireTestServices } from '@daisy/config';
 import { scratchDatabase } from '@daisy/db/testing';
 import { createId } from '@paralleldrive/cuid2';
-import { isDebatingSeat } from '@daisy/protocol';
+import { isDebatingSeat } from '@daisy/protocol/seats';
 import { committedEventRoom } from './tab-event-room-direction.test-support';
 import { withRoomRuntime } from './room-runtime.test-support';
 import { seedHostingGrant } from './tab-hosting-grant.test-support';

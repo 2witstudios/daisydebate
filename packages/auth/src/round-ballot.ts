@@ -1,9 +1,9 @@
+import type { RoundBallotAuthority } from '@daisy/protocol/round-ballot';
 import type {
-  RoundBallotAuthority,
   RoundCommandPrincipal,
   RoundRefusal,
-} from '@daisy/protocol';
-import { isJudgeSeat } from '@daisy/protocol';
+} from '@daisy/protocol/round-command';
+import { isJudgeSeat } from '@daisy/protocol/seats';
 import {
   bindOwnedRoundSeat,
   roundPrincipalAdmitted,

@@ -1,5 +1,5 @@
 import type { Page } from '@playwright/test';
-import { roundTranscriptReadSchema } from '@daisy/protocol';
+import { roundTranscriptReadSchema } from '@daisy/protocol/round-transcript';
 import { expect, openPage } from './fixtures';
 
 /** Actual capture text must reach the mounted viewer before the Round ends. */

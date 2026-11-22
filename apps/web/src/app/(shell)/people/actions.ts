@@ -1,7 +1,7 @@
 'use server';
 
 import { cookies } from 'next/headers';
-import { presenceSettingResultSchema } from '@daisy/protocol';
+import { presenceSettingResultSchema } from '@daisy/protocol/presence-setting';
 import {
   presenceFormUnavailable,
   presenceSet,

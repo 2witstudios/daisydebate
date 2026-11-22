@@ -1,5 +1,6 @@
 import { requireTestServices } from '@daisy/config';
-import { affirmativeSide, negativeSide, winnerOutcome } from '@daisy/protocol';
+import { affirmativeSide, negativeSide } from '@daisy/protocol/seats';
+import { winnerOutcome } from '@daisy/protocol/round-outcome';
 import { ratingAwaited } from '@daisy/debate-engine';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';

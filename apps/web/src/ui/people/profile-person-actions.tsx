@@ -1,12 +1,8 @@
 'use client';
 
 import { StatusRegion } from '../components/status-region/status-region';
-import {
-  competitionTypes,
-  reportReasonLabels,
-  reportReasons,
-  type CompetitionType,
-} from '@daisy/protocol';
+import { competitionTypes, type CompetitionType } from '@daisy/protocol/round';
+import { reportReasonLabels, reportReasons } from '@daisy/protocol/reports';
 import {
   challengeFields,
   challengeFormUnavailable,

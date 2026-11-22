@@ -8,12 +8,9 @@ import {
   roundResolutionStrikes,
 } from './schema/resolution-draws';
 import { createAppError } from '@daisy/errors';
-import {
-  roundStatus,
-  affirmativeSide,
-  idSchema,
-  negativeSide,
-} from '@daisy/protocol';
+import { roundStatus } from '@daisy/protocol/round';
+import { affirmativeSide, negativeSide } from '@daisy/protocol/seats';
+import { idSchema } from '@daisy/protocol/primitives';
 import type { BoundedTransaction } from './bounded-transaction';
 import {
   executeLockedRoundTick,

@@ -5,12 +5,13 @@ import type {
   RoomAssemblyState,
   RoomCommandReceipt,
   RoomParticipant,
-  FormatDefinition,
-  AiRole,
-} from '@daisy/protocol';
-import { buildRoomTopic } from '@daisy/protocol';
-import { botDifficulties } from '@daisy/protocol';
-import { idSchema, roomRoundLinkOf } from '@daisy/protocol';
+} from '@daisy/protocol/room-contract';
+import type { FormatDefinition } from '@daisy/protocol/format';
+import type { AiRole } from '@daisy/protocol/ai-roles';
+import { buildRoomTopic } from '@daisy/protocol/topics';
+import { botDifficulties } from '@daisy/protocol/room-read';
+import { idSchema } from '@daisy/protocol/primitives';
+import { roomRoundLinkOf } from '@daisy/protocol/room-contract';
 import { createAppError, createRefusal } from '@daisy/errors';
 import {
   authorizationAccountFact,
@@ -26,7 +27,7 @@ import { actors } from './schema/actors';
 import { basisSource } from './room-basis';
 import { users } from './schema/users';
 import { accountAge } from './schema/account-age';
-import type { AgeBand } from '@daisy/protocol';
+import type { AgeBand } from '@daisy/protocol/ladder';
 import { lobbies } from './schema/lobbies';
 import type { LobbyAgeRule } from '@daisy/protocol/lobby/eligibility';
 import { divisionAgeBand } from './ladder-division-band';

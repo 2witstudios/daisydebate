@@ -1,5 +1,6 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { ageBands, messageRequestSettings } from '@daisy/protocol';
+import { ageBands } from '@daisy/protocol/ladder';
+import { messageRequestSettings } from '@daisy/protocol/messaging/social';
 import {
   betaDmPolicy,
   dmAllowed,

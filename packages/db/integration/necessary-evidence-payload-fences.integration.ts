@@ -1,5 +1,5 @@
 import { requireTestServices } from '@daisy/config';
-import { necessaryEvidencePolicy } from '@daisy/protocol';
+import { necessaryEvidencePolicy } from '@daisy/protocol/necessary-evidence';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { withEvidencePayload } from './necessary-evidence-payload.test-support';
 import { loseTransactionCommitReply } from './bounded-transaction.test-support';

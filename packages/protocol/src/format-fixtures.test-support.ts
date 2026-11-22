@@ -1,4 +1,6 @@
-import type { FormatDefinition, FormatSettings, RoomConfig } from './index';
+import type { FormatDefinition } from './format';
+import type { FormatSettings } from './format-settings';
+import type { RoomConfig } from './room';
 import { sideSeat, twoSides, type SeatRef } from './seats';
 
 /** A speech by one seat. */

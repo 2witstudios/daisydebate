@@ -1,4 +1,4 @@
-import { idSchema } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
 import { isAppError } from '@daisy/errors';
 import { z } from 'zod';
 import { parseValidated, readBytes, readJson } from '../../server/http';

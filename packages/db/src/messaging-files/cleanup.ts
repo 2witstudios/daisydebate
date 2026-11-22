@@ -1,7 +1,7 @@
 import { tryInstantMs } from '@daisy/clock';
 import { and, eq, sql } from 'drizzle-orm';
 import { createAppError } from '@daisy/errors';
-import { idSchema } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
 import {
   messagingFiles,
   messagingFileDeletionIntents,

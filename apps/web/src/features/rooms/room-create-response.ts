@@ -1,10 +1,7 @@
 import { z } from 'zod';
-import {
-  activeRoomSchema,
-  idSchema,
-  roomRefusalSchema,
-  roomViewSchema,
-} from '@daisy/protocol';
+import { activeRoomSchema } from '@daisy/protocol/active-room';
+import { idSchema } from '@daisy/protocol/primitives';
+import { roomRefusalSchema, roomViewSchema } from '@daisy/protocol/room-read';
 
 /** Why POST /api/rooms refused, in words each form turns into its own line. */
 export type RoomCreateRefusal =

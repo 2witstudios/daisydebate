@@ -1,5 +1,8 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { entitlementKinds, type EntitlementGrant } from '@daisy/protocol';
+import {
+  entitlementKinds,
+  type EntitlementGrant,
+} from '@daisy/protocol/entitlements';
 import { hostHoldsCasualCapture } from '../room-runtime/capture-offer';
 import { accountEntitlements } from '@daisy/auth/authorization';
 import { holdsRecordingDownload } from './download-entitlement';

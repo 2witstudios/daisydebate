@@ -1,11 +1,11 @@
 import { createId } from '@paralleldrive/cuid2';
 import { SQL } from 'bun';
 import { requireTestServices } from '@daisy/config';
+import { buildUserInboxTopic } from '@daisy/protocol/topics';
 import {
-  buildUserInboxTopic,
   isPayloadStorableOnTopic,
   outboxPayloadSchema,
-} from '@daisy/protocol';
+} from '@daisy/protocol/realtime-payloads';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { createDatabase } from '../src';
 import {

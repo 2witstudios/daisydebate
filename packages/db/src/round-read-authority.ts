@@ -3,7 +3,7 @@ import {
   type RoundRoomAuthority,
 } from './round-room-authority';
 import { createAppError } from '@daisy/errors';
-import type { LaunchedRound } from '@daisy/protocol';
+import type { LaunchedRound } from '@daisy/protocol/round-view';
 import { sharedAccount, type Caller, type Account } from './room-command-facts';
 import { launchedRoundRows } from './launched-round-read';
 import { eq } from 'drizzle-orm';

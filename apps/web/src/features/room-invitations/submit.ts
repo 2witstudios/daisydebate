@@ -1,8 +1,5 @@
-import {
-  seatKindSchema,
-  type RoomInvitationRefusal,
-  type SeatKind,
-} from '@daisy/protocol';
+import { seatKindSchema, type SeatKind } from '@daisy/protocol/seats';
+import { type RoomInvitationRefusal } from '@daisy/protocol/room-invitations';
 import {
   idle,
   refusedWith,

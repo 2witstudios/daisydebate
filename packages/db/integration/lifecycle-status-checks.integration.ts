@@ -1,15 +1,12 @@
 import { SQL } from 'bun';
 import { assert, test } from 'riteway/bun';
-import {
-  betaAccessStates,
-  recordingJobStatuses,
-  recordingStatuses,
-  roomInvitationStates,
-  roomStatuses,
-  roundStatuses,
-  runningRoundStatuses,
-  storedFriendshipStates,
-} from '@daisy/protocol';
+import { betaAccessStates } from '@daisy/protocol/beta-access';
+import { recordingJobStatuses } from '@daisy/protocol/recording-processing';
+import { recordingStatuses } from '@daisy/protocol/recording';
+import { roomInvitationStates } from '@daisy/protocol/room-invitations';
+import { roomStatuses } from '@daisy/protocol/room-contract';
+import { roundStatuses, runningRoundStatuses } from '@daisy/protocol/round';
+import { storedFriendshipStates } from '@daisy/protocol/friends';
 import { contentReportStatuses } from '@daisy/protocol/content-moderation';
 import { flagStates } from '@daisy/protocol/flags';
 import {

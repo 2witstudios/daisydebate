@@ -5,7 +5,8 @@ import {
   refuseAllReading,
 } from './authorization.test-support';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { buildRoundTopic, sideSeat } from '@daisy/protocol';
+import { buildRoundTopic } from '@daisy/protocol/topics';
+import { sideSeat } from '@daisy/protocol/seats';
 import type { RoundAuthorizationFact } from '@daisy/auth/authorization';
 import { createRealtimeAuthorization } from './authorization';
 setupRitewayBun();

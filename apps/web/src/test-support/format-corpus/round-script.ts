@@ -1,15 +1,14 @@
-import { daisyBallotSource } from '@daisy/protocol';
+import { daisyBallotSource } from '@daisy/protocol/ballot-definition';
 import { mediaGrants } from '@daisy/debate-engine';
 import { roundControlsAt } from '@daisy/debate-engine/position';
+import { daisyWinnerBallot } from '@daisy/protocol/ballot-definition';
+import { isJudgeSeat, type SideKey } from '@daisy/protocol/seats';
 import {
-  daisyWinnerBallot,
-  isJudgeSeat,
-  type SideKey,
   type RoundPosition,
   type RoundProjection,
-  type RoundRules,
-  type RuntimeCheckpoint,
-} from '@daisy/protocol';
+} from '@daisy/protocol/runtime';
+import { type RoundRules } from '@daisy/protocol/format';
+import { type RuntimeCheckpoint } from '@daisy/protocol/round';
 import { attempt, type Recorded } from './refusal';
 import { hydrate, opening, persisted } from './durable';
 import { corpusStartMs, seatsOf } from './corpus-seats';

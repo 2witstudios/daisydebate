@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { seatRefSchema, seatKindSchema } from '@daisy/protocol';
+import { seatRefSchema, seatKindSchema } from '@daisy/protocol/seats';
 
 const count = z.int().nonnegative();
 /** The seat columns a row carries, read back as the one seat they name. */

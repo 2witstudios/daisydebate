@@ -1,11 +1,10 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import {
   daisyWinnerBallot,
-  judgeSeat,
-  sideSeat,
   panelRuleFor,
-  type FormatDefinition,
-} from '@daisy/protocol';
+} from '@daisy/protocol/ballot-definition';
+import { judgeSeat, sideSeat } from '@daisy/protocol/seats';
+import { type FormatDefinition } from '@daisy/protocol/format';
 import { fixtureRules, oneOnOneFormatFixture } from '@daisy/protocol/testing';
 import {
   resultCompetitionRecordSchema,

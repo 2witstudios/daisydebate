@@ -1,4 +1,4 @@
-import { ballotDefinitionIdentity } from '@daisy/protocol';
+import { ballotDefinitionIdentity } from '@daisy/protocol/ballot-definition';
 import { ballotFieldNames } from './ballot';
 import type { BallotPlan } from './ballot-plan';
 

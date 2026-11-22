@@ -3,7 +3,7 @@ import type { SocialCreationPolicy } from '@daisy/auth/authorization';
 import {
   createMessagingSocialSchemas,
   type MessagingSocialBounds,
-} from '@daisy/protocol';
+} from '@daisy/protocol/messaging/social';
 import type { App } from '../../server/app';
 import { parseValidated } from '../../server/http';
 import { consumeWindowsOrThrow, type RateRule } from '../../server/rate-limit';

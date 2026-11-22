@@ -63,6 +63,9 @@ These rules are blockers in every plan and review (owner, 2026-10-27 and
   `reviewBy` date (ADR 0057), so a box may ship before its reader and still
   go red if nobody adopts it. `bun policy` fails the declaration once shipping
   source imports it, or if nothing imports it at all.
+- Protocol consumers import named contracts from their owner subpaths, such as
+  `@daisy/protocol/round-view`. The architecture check rejects a package root
+  export, a root import, or a restored root barrel.
 - A new package requires a responsibility, owner, explicit public exports,
   allowed dependencies, tests, and a package-map row. Add package-specific
   `AGENTS.md` only when its rules differ from these.

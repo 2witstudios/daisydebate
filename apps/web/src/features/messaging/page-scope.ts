@@ -1,5 +1,5 @@
 import { notFound } from 'next/navigation';
-import { idSchema } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
 import { requireAccess } from '../../lib/access';
 import type { SearchParams } from '../access/decision';
 export type MessagingPageScope = {

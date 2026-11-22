@@ -1,5 +1,8 @@
 import { tryInstantMs, instantMs } from '@daisy/clock';
-import type { EntitlementGrant, PremiumEntitlementKind } from '@daisy/protocol';
+import type {
+  EntitlementGrant,
+  PremiumEntitlementKind,
+} from '@daisy/protocol/entitlements';
 import type {
   BillingAccess,
   SubscriptionEvidence,

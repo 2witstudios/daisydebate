@@ -1,5 +1,5 @@
 import { createInvariantError } from '@daisy/errors';
-import type { RoundRules } from '@daisy/protocol';
+import type { RoundRules } from '@daisy/protocol/format';
 import { attendancePolicy } from './attendance';
 import { debateInvariantIds } from './invariant-ids';
 type AttendanceTimingPolicy = {

@@ -1,7 +1,7 @@
 import { createAppError } from '@daisy/errors';
-import { isRoundRunning } from '@daisy/protocol';
+import { isRoundRunning } from '@daisy/protocol/round';
 import { ballotFields } from './fields';
-import type { RoundBallotRead } from '@daisy/protocol';
+import type { RoundBallotRead } from '@daisy/protocol/round-ballot-read';
 import { ballotPlanFor, type BallotPlan } from '../judge/ballot-plan';
 import type { RoundBallotFormState } from './form';
 /**

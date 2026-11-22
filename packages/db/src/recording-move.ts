@@ -5,7 +5,7 @@ import {
   type RecordingClass,
   type RecordingEligibility,
   type RecordingLifecycle,
-} from '@daisy/protocol';
+} from '@daisy/protocol/recording';
 import { sql } from 'drizzle-orm';
 import type { Tx } from './tx';
 import { query } from './raw-rows';

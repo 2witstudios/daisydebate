@@ -1,10 +1,10 @@
 import { sql } from 'drizzle-orm';
 import { createAppError } from '@daisy/errors';
+import { idSchema } from '@daisy/protocol/primitives';
 import {
-  idSchema,
   createMessagingReactionSchemas,
   type MessagingReactionPolicy,
-} from '@daisy/protocol';
+} from '@daisy/protocol/messaging/reactions';
 import { appendStream } from './stream';
 import type {
   MessagingReactionAssociation,

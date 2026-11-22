@@ -1,4 +1,5 @@
-import { idSchema, parseUsername } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
+import { parseUsername } from '@daisy/protocol/username';
 import type { LobbyPeopleView } from '@daisy/protocol/lobby/lobby-people-read';
 import type { DiscoverActor } from '../account/username-discovery';
 import type { TabPrincipal } from './tab-principal';

@@ -1,10 +1,12 @@
+import { ENVELOPE_VERSION } from '@daisy/protocol/realtime';
 import {
-  ENVELOPE_VERSION,
   observationResourceKey,
-  serverMessageSchema,
   type ObservationResource,
+} from '@daisy/protocol/observation';
+import {
+  serverMessageSchema,
   type ServerMessage,
-} from '@daisy/protocol';
+} from '@daisy/protocol/realtime-server';
 import type { ObservationHint } from '@daisy/redis';
 import type { SocketPrincipal } from '../subscription-state';
 import type { Fanout } from './fanout';

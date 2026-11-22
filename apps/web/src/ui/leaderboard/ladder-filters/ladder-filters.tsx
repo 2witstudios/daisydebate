@@ -1,11 +1,8 @@
 import { Button } from '../../components/button/button';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
-import {
-  ratingStyles,
-  type Ladder,
-  type RatingDivision,
-} from '@daisy/protocol';
+import { ratingStyles } from '@daisy/protocol/primitives';
+import { type Ladder, type RatingDivision } from '@daisy/protocol/ladder';
 import {
   MAX_SEARCH_LENGTH,
   activeFilterCount,

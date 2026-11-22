@@ -2,7 +2,7 @@ import { mapTabCommandAnswer } from './command-form-answer';
 import { releaseAudiences } from '@daisy/protocol/release-audience';
 import { releaseCommandEnvelopeSchema } from '@daisy/protocol/lobby/result-command';
 import { z } from 'zod';
-import { idSchema } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
 import { breakCommandEnvelopeSchema } from '@daisy/protocol/lobby/break-command';
 import { resultCommandEnvelopeSchema } from '@daisy/protocol/lobby/result-command';
 import { singleFormField } from '../forms/form-state';

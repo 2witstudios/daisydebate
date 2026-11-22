@@ -1,16 +1,18 @@
 import { currentRoundParticipant } from './round-current-participant';
 import { createAppError } from '@daisy/errors';
-import { isRoundLifecycle, type RoundLifecycle } from '@daisy/protocol';
+import {
+  isRoundLifecycle,
+  type RoundLifecycle,
+} from '@daisy/protocol/round-lifecycle';
 import { loadRoundOpening, type StoredOpening } from './round-opening-read';
 import type {
   CompetitionType,
-  RoundJudging,
-  RoundParticipantSeat,
-  RoundRules,
   RoundStage,
   RuntimeCheckpoint,
-  SegmentType,
-} from '@daisy/protocol';
+} from '@daisy/protocol/round';
+import type { RoundJudging } from '@daisy/protocol/ballot-definition';
+import type { RoundParticipantSeat } from '@daisy/protocol/runtime';
+import type { RoundRules, SegmentType } from '@daisy/protocol/format';
 import { and, eq } from 'drizzle-orm';
 import { outcomeOfColumns } from './round-outcome-columns';
 import { seatOfColumns, seatRowOrder } from './seat-columns';

@@ -1,6 +1,6 @@
 import Stripe from 'stripe';
 import { z } from 'zod';
-import { idSchema } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
 
 const eventTypes = [
   'customer.subscription.created',

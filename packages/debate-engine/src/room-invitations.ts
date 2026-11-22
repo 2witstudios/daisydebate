@@ -5,11 +5,11 @@ import {
   type InvitationEndDecision,
   type InviteeFacts,
   type PendingRoomInvitation,
-  type RoomAssemblyState,
   type RoomInvitationRefusal,
-  type SeatKind,
-} from '@daisy/protocol';
-import { freeSeatsOf, isOpenRoomStatus } from '@daisy/protocol';
+} from '@daisy/protocol/room-invitations';
+import { type RoomAssemblyState } from '@daisy/protocol/room-contract';
+import { type SeatKind } from '@daisy/protocol/seats';
+import { freeSeatsOf, isOpenRoomStatus } from '@daisy/protocol/room-contract';
 import { seatsHeldFrom } from './room-edit-transitions';
 
 const live = (invitation: PendingRoomInvitation, now: string) =>

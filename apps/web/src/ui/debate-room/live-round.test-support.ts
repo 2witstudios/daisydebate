@@ -1,9 +1,7 @@
 import { instantMs } from '@daisy/clock';
-import type {
-  RoundLifecycleColumns,
-  RoundOutcome,
-  RoundView,
-} from '@daisy/protocol';
+import type { RoundLifecycleColumns } from '@daisy/protocol/round-lifecycle';
+import type { RoundOutcome } from '@daisy/protocol/round-outcome';
+import type { RoundView } from '@daisy/protocol/round-view';
 import {
   inLifecycle,
   launched,

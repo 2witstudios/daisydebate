@@ -9,7 +9,7 @@ import {
   defaultNotificationPresentation,
   notificationShellSchema,
   type NotificationShell,
-} from '@daisy/protocol';
+} from '@daisy/protocol/notifications';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import {

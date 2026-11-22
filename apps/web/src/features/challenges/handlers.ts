@@ -3,11 +3,11 @@ import {
   challengeCommandSchemas,
   challengeListSchema,
   challengeResultSchema,
-  type RatingStyle,
   type ChallengeList,
-  type CompetitionType,
   type ChallengeResult,
-} from '@daisy/protocol';
+} from '@daisy/protocol/challenges';
+import { type RatingStyle } from '@daisy/protocol/primitives';
+import { type CompetitionType } from '@daisy/protocol/round';
 import { parseValidated, readJson } from '../../server/http';
 import {
   runEvaluatedRoute,

@@ -1,6 +1,6 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { eventRegistry } from '@daisy/logger';
-import { judgingRecoveryReasons } from '@daisy/protocol';
+import { judgingRecoveryReasons } from '@daisy/protocol/round-judging-attempt';
 import { reportJudgingRecovery } from './round-judging-recovery-report';
 setupRitewayBun();
 test('pending judging reports distinguish recovery causes from terminal failure', () => {

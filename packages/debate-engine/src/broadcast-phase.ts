@@ -1,5 +1,6 @@
 import { instantMs } from '@daisy/clock';
-import type { RoundStage, RoundStatus, SegmentType } from '@daisy/protocol';
+import type { RoundStage, RoundStatus } from '@daisy/protocol/round';
+import type { SegmentType } from '@daisy/protocol/format';
 import type { BroadcastFacts } from './broadcast-lifecycle';
 
 type Publicity = 'public' | 'private';

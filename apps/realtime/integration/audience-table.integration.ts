@@ -1,7 +1,8 @@
 import { requireTestServices } from '@daisy/config';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { systemId } from '@daisy/clock';
-import { buildUserInboxTopic, sideSeat, judgeSeat } from '@daisy/protocol';
+import { buildUserInboxTopic } from '@daisy/protocol/topics';
+import { sideSeat, judgeSeat } from '@daisy/protocol/seats';
 import {
   socketAuthorityFixture,
   issueAuthorityTicket,

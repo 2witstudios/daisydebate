@@ -1,12 +1,14 @@
 import { createInvariantError } from '@daisy/errors';
 import {
   ballotDefinitionIdentity,
+  type BallotDefinition,
+} from '@daisy/protocol/ballot-definition';
+import {
   scoreLatticeValues,
   scoreLatticeSize,
   scoreValueAt,
-  type BallotDefinition,
-  type Side,
-} from '@daisy/protocol';
+} from '@daisy/protocol/score-unit';
+import { type Side } from '@daisy/protocol/seats';
 
 type BallotPoints = NonNullable<BallotDefinition['points']>;
 

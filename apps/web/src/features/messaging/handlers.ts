@@ -1,6 +1,6 @@
 import type { Identity } from '@daisy/auth';
 import type { AuthorizationPrincipal } from '@daisy/auth/authorization';
-import type { MessagingCoreBounds } from '@daisy/protocol';
+import type { MessagingCoreBounds } from '@daisy/protocol/messaging/core';
 import type { Logger } from '@daisy/logger';
 import type { ErrorReporter } from '@daisy/observability';
 import { createAppError } from '@daisy/errors';

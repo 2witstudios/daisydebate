@@ -1,7 +1,7 @@
 import {
   captureEvidenceSpeakerSchema,
   type CaptureEvidenceSpeaker,
-} from '@daisy/protocol';
+} from '@daisy/protocol/capture-evidence-speaker';
 import { originalEvidenceBinding } from './necessary-evidence-binding';
 import { requireRoundEvidenceOpen } from './necessary-evidence-rounds';
 import { and, eq, sql } from 'drizzle-orm';

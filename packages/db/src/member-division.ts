@@ -1,4 +1,4 @@
-import { type RatingDivision, ratingDivisions } from '@daisy/protocol';
+import { type RatingDivision, ratingDivisions } from '@daisy/protocol/ladder';
 import { sql } from 'drizzle-orm';
 import { instrumented, type DatabaseEventSink } from './instrumented';
 import { divisionAgeBand, divisionOfBandSql } from './ladder-division-band';

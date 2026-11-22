@@ -1,7 +1,7 @@
 import { instantMs } from '@daisy/clock';
 import { createRoundRuntime } from '@daisy/debate-engine';
 import type { Database, RoundHydration } from '@daisy/db';
-import { roundStartPolicy } from '@daisy/protocol';
+import { roundStartPolicy } from '@daisy/protocol/round-start-policy';
 
 type Store = Database['roundStartGates'];
 

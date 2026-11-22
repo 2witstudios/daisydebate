@@ -1,6 +1,6 @@
 import { and, eq, isNull, sql, type SQL } from 'drizzle-orm';
 import { createAppError } from '@daisy/errors';
-import { idSchema } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
 import type { BillingOwner } from '@daisy/protocol/billing';
 import { scopeTransaction } from './tenant-scope';
 import { billingCustomers } from './schema/billing-customers';

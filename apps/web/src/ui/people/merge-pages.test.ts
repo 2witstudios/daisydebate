@@ -1,4 +1,4 @@
-import type { PeopleList, Person } from '@daisy/protocol';
+import type { PeopleList, Person } from '@daisy/protocol/people-list';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { mergePages } from './merge-pages';
 

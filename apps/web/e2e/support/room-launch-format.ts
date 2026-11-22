@@ -1,9 +1,7 @@
 import type { Browser, Page } from '@playwright/test';
 import { createId } from '@paralleldrive/cuid2';
-import {
-  roomCatalogChoiceSchema,
-  type RoomCatalogChoice,
-} from '@daisy/protocol';
+import { roomCatalogChoiceSchema } from '@daisy/protocol/room-read';
+import { type RoomCatalogChoice } from '@daisy/protocol/room-contract';
 import { expect, openPage } from './fixtures';
 import { hydrated } from './hydration';
 import { createRoomLaunchAccounts } from './room-launch-accounts';

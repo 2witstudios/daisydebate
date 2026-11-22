@@ -1,6 +1,6 @@
-import type { CaptureRule } from '@daisy/protocol';
+import type { CaptureRule } from '@daisy/protocol/capture-verdict';
 import { createAppError, createRefusal } from '@daisy/errors';
-import { idSchema } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
 import { and, eq } from 'drizzle-orm';
 import type { BoundedTransaction } from './bounded-transaction';
 import {

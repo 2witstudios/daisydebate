@@ -6,7 +6,7 @@ import { hostRoutes } from './routes';
 import { releaseAudiences } from '@daisy/protocol/release-audience';
 import { audienceLabels } from './results';
 import { z } from 'zod';
-import { idSchema } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
 import { releaseAudienceSchema } from '@daisy/protocol/release-audience';
 import { releaseCommandEnvelopeSchema } from '@daisy/protocol/lobby/result-command';
 

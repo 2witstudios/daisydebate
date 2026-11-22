@@ -1,6 +1,6 @@
 import { commandDigest } from '@daisy/digest';
 import { z } from 'zod';
-import { idSchema } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
 import { createAppError } from '@daisy/errors';
 
 const leaseFields = {

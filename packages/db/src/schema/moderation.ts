@@ -1,4 +1,4 @@
-import { moderationKinds } from '@daisy/protocol';
+import { moderationKinds } from '@daisy/protocol/moderation';
 import { sql } from 'drizzle-orm';
 import { check, index, pgTable, text } from 'drizzle-orm/pg-core';
 import { notBefore, oneOf, timestampColumn } from './columns';

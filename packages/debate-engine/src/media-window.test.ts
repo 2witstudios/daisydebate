@@ -3,10 +3,10 @@ import { assert, setupRitewayBun, test } from 'riteway/bun';
 import {
   noPostRoundCall,
   postRoundCallPolicy,
-  roundMediaPolicy,
   type PostRoundCallFacts,
-  type RoundStatus,
-} from '@daisy/protocol';
+} from '@daisy/protocol/post-round-call';
+import { roundMediaPolicy } from '@daisy/protocol/round-media-policy';
+import { type RoundStatus } from '@daisy/protocol/round';
 import {
   mediaPhase,
   mediaWindowClosed,

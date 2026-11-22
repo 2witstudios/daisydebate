@@ -3,12 +3,12 @@ import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assemblySnapshot } from '../../../features/rooms/assembly.test-support';
 import { AssemblySettingsFields } from './assembly-settings-form';
 import { resolveRoomConfiguration } from '@daisy/debate-engine';
+import { formatDefinitionSchema } from '@daisy/protocol/format';
 import {
-  formatDefinitionSchema,
   freezeRoomConfig,
   freezeRoomExecutionPlan,
   type RoomConfig,
-} from '@daisy/protocol';
+} from '@daisy/protocol/room';
 import { prepareSettings } from '../../../features/rooms/prepare-settings';
 import { saveSettings } from '../../../features/rooms/save-settings';
 import {

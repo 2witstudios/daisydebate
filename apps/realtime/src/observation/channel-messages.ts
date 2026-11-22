@@ -11,9 +11,11 @@ import { isAppError } from '@daisy/errors';
 import {
   channelMessagesWindow,
   createChannelMessagesProjector,
+} from '@daisy/protocol/messaging/channel-messages';
+import {
   createMessagingCoreSchemas,
   messagingBetaLimits,
-} from '@daisy/protocol';
+} from '@daisy/protocol/messaging/core';
 import {
   decideChannelViewer,
   type RealtimeReadingPolicy,

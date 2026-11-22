@@ -1,6 +1,6 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';
-import { messagingBetaLimits } from '@daisy/protocol';
+import { messagingBetaLimits } from '@daisy/protocol/messaging/core';
 import { readJson } from '../../server/http';
 import { parseMessagingPolicyLimits } from './beta-limits';
 setupRitewayBun();

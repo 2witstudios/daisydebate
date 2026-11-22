@@ -1,5 +1,6 @@
 import type { OutboxPosition, OutboxRow } from '@daisy/db/outbox';
-import { ENVELOPE_VERSION, type ServerMessage } from '@daisy/protocol';
+import { ENVELOPE_VERSION } from '@daisy/protocol/realtime';
+import { type ServerMessage } from '@daisy/protocol/realtime-server';
 import type { createAuthorityLease } from './authority-lease';
 export type SocketPrincipal = {
   readonly actorId: string;

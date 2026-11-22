@@ -1,9 +1,9 @@
 import type { BallotPlan } from '../judge/ballot-plan';
+import { idSchema } from '@daisy/protocol/primitives';
 import {
-  idSchema,
   roundBallotReceiptSchema,
   type RoundBallotReceipt,
-} from '@daisy/protocol';
+} from '@daisy/protocol/round-ballot';
 import {
   blankFields,
   formFields,

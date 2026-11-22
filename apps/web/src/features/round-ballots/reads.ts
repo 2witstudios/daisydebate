@@ -1,8 +1,8 @@
+import { idSchema } from '@daisy/protocol/primitives';
 import {
-  idSchema,
   roundBallotReadSchema,
   roundJudgeAssignmentsSchema,
-} from '@daisy/protocol';
+} from '@daisy/protocol/round-ballot-read';
 import { unavailableRead } from '../resource-sync/temporary-read';
 type FetchLike = (url: string, init: RequestInit) => Promise<Response>;
 /** Canonical protected input/result read; query parameters never choose a ballot state. */

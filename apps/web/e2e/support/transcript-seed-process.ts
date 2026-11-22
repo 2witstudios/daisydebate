@@ -2,7 +2,8 @@ import { sha3Hex } from '@daisy/digest';
 import { resolve } from 'node:path';
 import { SQL } from 'bun';
 import { createId } from '@paralleldrive/cuid2';
-import { affirmativeSide, idSchema } from '@daisy/protocol';
+import { affirmativeSide } from '@daisy/protocol/seats';
+import { idSchema } from '@daisy/protocol/primitives';
 import { admitLaunchCheckout } from './room-launch-admission';
 import { requireLaunchSlot } from './room-launch-slot';
 

@@ -1,7 +1,7 @@
 import {
   createMessagingCoreSchemas,
   messagingBetaLimits,
-} from '@daisy/protocol';
+} from '@daisy/protocol/messaging/core';
 import type { BrowserContext } from '@playwright/test';
 import type { openMessagingJourney } from './messaging-journey';
 import { createId } from '@paralleldrive/cuid2';

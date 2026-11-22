@@ -12,12 +12,14 @@ import {
   isDebatingSeat,
   isJudgeSeat,
   sideOfSeat,
+  type SeatRef,
+} from '@daisy/protocol/seats';
+import {
   type JudgePanel,
   type MatchHistoryEntry,
   type MatchHistoryQuery,
   type MemberProfile,
-  type SeatRef,
-} from '@daisy/protocol';
+} from '@daisy/protocol/member-profile';
 
 export type ProfileStore = Pick<
   Database,

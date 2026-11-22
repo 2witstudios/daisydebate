@@ -1,7 +1,8 @@
 import { sql } from 'drizzle-orm';
 import { z } from 'zod';
 import { createAppError } from '@daisy/errors';
-import { idSchema, type ChannelHistoryRecord } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
+import { type ChannelHistoryRecord } from '@daisy/protocol/messaging/channel-messages';
 import type { Tx } from '../tx';
 import { query, postgresInt8 } from '../raw-rows';
 

@@ -1,10 +1,10 @@
 import { StatusRegion } from '../../components/status-region/status-region';
+import { assertNever } from '@daisy/protocol/assert-never';
 import {
-  assertNever,
   recordingBuildSteps,
   type RecordingBuildProgress,
   type RecordingPreparation,
-} from '@daisy/protocol';
+} from '@daisy/protocol/recording-processing';
 import { clockTime } from '../recording-player/recording-player-copy';
 
 /** A step in its own units: nothing here is an estimate of the whole. */

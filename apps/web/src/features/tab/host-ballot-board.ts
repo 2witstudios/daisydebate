@@ -1,4 +1,5 @@
-import type { BallotWrittenRecord, RoundBallotRead } from '@daisy/protocol';
+import type { BallotWrittenRecord } from '@daisy/protocol/ballot-schema';
+import type { RoundBallotRead } from '@daisy/protocol/round-ballot-read';
 import { ballotPlanFor } from '../judge/ballot-plan';
 import { commandAction } from './action';
 import type { CompletionContext } from './completion-form';

@@ -1,6 +1,6 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import type { TournamentHostingFacts } from '@daisy/db/tab';
-import type { TournamentHostingGrant } from '@daisy/protocol';
+import type { TournamentHostingGrant } from '@daisy/protocol/tournament-hosting';
 import { tournamentHostingTier } from './hosting-tier';
 
 setupRitewayBun();

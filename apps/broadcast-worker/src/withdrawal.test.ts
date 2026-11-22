@@ -1,5 +1,5 @@
 import { instantMs } from '@daisy/clock';
-import { CONTENT_MODERATION_DELIVERY_BOUND_MS } from '@daisy/protocol';
+import { CONTENT_MODERATION_DELIVERY_BOUND_MS } from '@daisy/protocol/content-moderation';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {
   FEED_END_GRACE_MS,

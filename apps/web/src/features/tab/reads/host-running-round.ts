@@ -1,6 +1,6 @@
 import type { HostRoundFacts } from '@daisy/db/tab';
 import { createAppError } from '@daisy/errors';
-import { isRoundRunning, isRoundOver } from '@daisy/protocol';
+import { isRoundRunning, isRoundOver } from '@daisy/protocol/round';
 import {
   tabRoundHostViewSchema,
   type TabRoundHostView,

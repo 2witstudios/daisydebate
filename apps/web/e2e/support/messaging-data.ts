@@ -2,7 +2,7 @@ import { execFile } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { basename } from 'node:path';
 import { z } from 'zod';
-import { idSchema } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
 export function messagingBrowserTarget(
   env: Readonly<Record<string, string | undefined>>,
   folder: string,

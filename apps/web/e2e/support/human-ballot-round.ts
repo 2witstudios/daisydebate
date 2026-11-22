@@ -5,16 +5,15 @@ import {
   affirmativeSide,
   judgeSeat,
   negativeSide,
-  roomViewSchema,
-  roundViewSchema,
   sameSeat,
   sideOfSeat,
   sideSeat,
   twoSideKeys,
-  type RoomView,
-  type RoundView,
   type SeatRef,
-} from '@daisy/protocol';
+} from '@daisy/protocol/seats';
+import { roomViewSchema } from '@daisy/protocol/room-read';
+import { roundViewSchema, type RoundView } from '@daisy/protocol/round-view';
+import { type RoomView } from '@daisy/protocol/room-contract';
 import { createId } from '@paralleldrive/cuid2';
 import { expect } from './fixtures';
 import { origin } from './accounts';

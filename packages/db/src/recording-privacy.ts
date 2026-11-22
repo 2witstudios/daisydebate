@@ -1,8 +1,6 @@
 import { addMs } from '@daisy/clock';
-import {
-  RECORDING_EVIDENCE_HOLD_MS,
-  transitionRecording,
-} from '@daisy/protocol';
+import { RECORDING_EVIDENCE_HOLD_MS } from '@daisy/protocol/recording';
+import { transitionRecording } from '@daisy/protocol/recording-lifecycle';
 import { sql } from 'drizzle-orm';
 import type { PrivacyAdopter } from './privacy/contracts';
 import { endRoundFeed } from './broadcast-operations';

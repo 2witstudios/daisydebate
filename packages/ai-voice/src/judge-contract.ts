@@ -1,10 +1,10 @@
+import { ballotSchemaFor } from '@daisy/protocol/ballot-schema';
+import { scoreLatticeValues } from '@daisy/protocol/score-unit';
+import { caseMapSchema } from '@daisy/protocol/case-map';
 import {
-  ballotSchemaFor,
-  scoreLatticeValues,
-  caseMapSchema,
   type BallotDefinition,
   type BallotSubjects,
-} from '@daisy/protocol';
+} from '@daisy/protocol/ballot-definition';
 import { z } from 'zod';
 
 export type JsonSchema = { [key: string]: unknown };

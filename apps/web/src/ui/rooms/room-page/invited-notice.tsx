@@ -1,6 +1,6 @@
 'use client';
 
-import { isOpenRoomStatus, type RoomView } from '@daisy/protocol';
+import { isOpenRoomStatus, type RoomView } from '@daisy/protocol/room-contract';
 import { invitedTo } from '../../../features/notifications/notification-words';
 import type { InvitationFormState } from '../../../features/room-invitations/submit';
 import type { FormAction } from '../../form-action/form-action';

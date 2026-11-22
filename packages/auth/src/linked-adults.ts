@@ -15,11 +15,8 @@
  * standing lobby with a youth cast, only the youth debaters are included.
  */
 
-import {
-  isYouthRound,
-  type AgeBand,
-  type RatingDivision,
-} from '@daisy/protocol';
+import { isYouthRound } from '@daisy/protocol/youth-round';
+import { type AgeBand, type RatingDivision } from '@daisy/protocol/ladder';
 
 export type LinkedAdultFacts = {
   readonly round: {

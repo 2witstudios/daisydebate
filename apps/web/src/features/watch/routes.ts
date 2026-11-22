@@ -1,4 +1,4 @@
-import type { RoomWatch } from '@daisy/protocol';
+import type { RoomWatch } from '@daisy/protocol/room-read';
 
 /**
  * Where Watch lives. The live hub, the live view, the recordings archive and

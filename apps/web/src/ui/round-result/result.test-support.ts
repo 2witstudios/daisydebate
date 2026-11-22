@@ -1,5 +1,5 @@
-import { daisyBallotSource } from '@daisy/protocol';
-import type { RoundBallotRead } from '@daisy/protocol';
+import { daisyBallotSource } from '@daisy/protocol/ballot-definition';
+import type { RoundBallotRead } from '@daisy/protocol/round-ballot-read';
 import { sampleJudgeBallot } from '../mock/judge.test-support';
 import {
   aff,
@@ -9,7 +9,10 @@ import {
   rules,
   startOf,
 } from '../debate-room/live-round.test-support';
-import { daisyWinnerBallot, panelRuleFor } from '@daisy/protocol';
+import {
+  daisyWinnerBallot,
+  panelRuleFor,
+} from '@daisy/protocol/ballot-definition';
 
 const played = ran(2, true);
 
