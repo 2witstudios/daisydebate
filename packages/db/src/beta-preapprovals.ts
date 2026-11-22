@@ -19,9 +19,8 @@ import {
   lockPreapprovalEmail,
   cancelPreapprovalInvitations,
 } from './beta-preapproval-claim';
-import { operatorLimits } from '@daisy/protocol/operator';
 import { inTransaction, type Tx, type TxSource } from './tx';
-import { takeLock, transactionLocks } from './locks';
+import { commandGate, storedResult, writeReceipt } from './operator-command';
 import { run, query } from './raw-rows';
 import { z } from 'zod';
 
@@ -88,26 +87,13 @@ export function preapprovalOperations({
         if (!input.live()) throw createAppError('CONFLICT');
         const result = await inTransaction(database, async (tx) => {
           const command = preapprovalCommandSchema.parse(input.command);
-          await run(
+          await commandGate(tx, command.commandId);
+          const receipt = await storedResult(
             tx,
-            sql.raw(
-              `set local statement_timeout = ${operatorLimits.commandBoundMs}`,
-            ),
+            command.commandId,
+            input.requestDigest,
           );
-          await takeLock(
-            tx,
-            transactionLocks.operatorCommand(command.commandId),
-          );
-          const [receipt] = await query(
-            tx,
-            z.object({ request_digest: z.string(), result: z.json() }),
-            sql`select request_digest, result from operator_command_receipts where command_id = ${command.commandId}`,
-          );
-          if (receipt) {
-            if (receipt.request_digest !== input.requestDigest)
-              throw createAppError('CONFLICT');
-            return preapprovalResultSchema.parse(receipt.result);
-          }
+          if (receipt) return preapprovalResultSchema.parse(receipt);
           // Never take an account lock after the email fence. Signup, age and revoke
           // all take their account first; removal has no account effect at all.
           const accounts =
@@ -237,9 +223,17 @@ export function preapprovalOperations({
               );
           }
           const result = decision.result;
-          await run(
+          await writeReceipt(
             tx,
-            sql`insert into operator_command_receipts (command_id, service_id, operator_ref, action, request_digest, result, admin_audit_head) values (${command.commandId}, ${input.serviceId}, ${input.operatorRef}, ${preapprovalAction}, ${input.requestDigest}, ${JSON.stringify(result)}::text::jsonb, ${command.adminAuditHead})`,
+            {
+              commandId: command.commandId,
+              serviceId: input.serviceId,
+              operatorRef: input.operatorRef,
+              requestDigest: input.requestDigest,
+              adminAuditHead: command.adminAuditHead,
+            },
+            null,
+            { action: preapprovalAction, result },
           );
           if (!input.live()) throw createAppError('CONFLICT');
           return result;
