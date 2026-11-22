@@ -7,7 +7,7 @@ import { sql } from 'drizzle-orm';
 import { createDatabase } from '../src/index';
 import { erasePrivacySubject, deliverPrivacyJob } from '../src/privacy';
 import { bindings } from './privacy.test-support';
-import { flagCommand } from './flags.test-support';
+import { executeFlagCommand, flagCommand } from './flags.test-support';
 import { offer, withBillingPurchases } from './billing-purchases.test-support';
 import { createBillingPurchaseRecovery } from '../src/billing-purchase-recovery';
 import { currentWebTransaction } from '../src/web-service-authority';
@@ -24,7 +24,7 @@ const rooms = {
 test('new late Checkout facts atomically reopen cleanup and fence old completion; exact replay preserves the job', async () =>
   withBillingPurchases(
     async ({ fixture, pool, run, purchases, subject, store, key }) => {
-      await store.runFlagCommand(flagCommand(key, 0));
+      await executeFlagCommand(store, flagCommand(key, 0));
       const admitted = await purchases.admit(subject, offer);
       await purchases.recover(subject, admitted.purchase.id);
       const reserve = pool.reserve.bind(pool);
@@ -157,7 +157,7 @@ test('new late Checkout facts atomically reopen cleanup and fence old completion
 test('a killed late-fact transaction rolls back cleanup and identity together; a lost COMMIT reply reuses both', async () =>
   withBillingPurchases(
     async ({ fixture, pool, run, purchases, subject, store, key }) => {
-      await store.runFlagCommand(flagCommand(key, 0));
+      await executeFlagCommand(store, flagCommand(key, 0));
       const admitted = await purchases.admit(subject, offer);
       const claimed = await purchases.recover(subject, admitted.purchase.id);
       const database = createDatabase({

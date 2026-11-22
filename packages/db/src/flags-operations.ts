@@ -3,7 +3,11 @@ import { createAppError } from '@daisy/errors';
 import { sql } from 'drizzle-orm';
 import { instrumented, type DatabaseEventSink } from './instrumented';
 import { readFlagSnapshot } from './flags-read';
-import { runFlagCommand, type FlagCommandInput } from './flags-command';
+import {
+  inFlagCommand,
+  type FlagCommandInput,
+  type FlagCommandWork,
+} from './flags-command';
 import { lockFlags } from './flags-lock';
 import { inTransaction, type TxSource } from './tx';
 import { query } from './raw-rows';
@@ -21,9 +25,9 @@ export function flagOperations({
       instrumented(eventSink, 'readFlagSnapshot', () =>
         readFlagSnapshot(database, accountId, keys),
       ),
-    runFlagCommand: (input: FlagCommandInput) =>
+    flagCommand: (input: FlagCommandInput, work: FlagCommandWork) =>
       instrumented(eventSink, 'runFlagCommand', () =>
-        inTransaction(database, (tx) => runFlagCommand(tx, input)),
+        inTransaction(database, (tx) => inFlagCommand(tx, input, work)),
       ),
     purgeExpiredFlagOverrides: ({
       before,

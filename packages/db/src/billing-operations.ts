@@ -63,11 +63,8 @@ export function billingOperations(input: {
     },
     receiveBillingReceipt: createBillingInbox(input),
     /** Club seat commands (ADR 0148); the seat projection comes from @daisy/auth. */
-    clubSeats(
-      grants: ClubSeatGrantProjection,
-      planActive: Parameters<typeof createClubSeats>[0]['planActive'],
-    ) {
-      return createClubSeats({ ...input, grants, planActive });
+    clubSeats(grants: ClubSeatGrantProjection) {
+      return createClubSeats({ ...input, grants });
     },
     clubSeatReads: createClubSeatReads(input),
     billingSynchronization(instanceId: string, grants: GrantProjections) {

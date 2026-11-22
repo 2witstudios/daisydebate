@@ -1,3 +1,5 @@
+import { runClubInviteeCommand } from './invitee-command';
+import { runClubManagerCommand } from './manager-command';
 import { instantMs } from '@daisy/clock';
 import { subscriptionAccess } from '@daisy/auth/authorization';
 import type {
@@ -24,12 +26,24 @@ export function clubInvitationResendRefusal(input: {
     : null;
 }
 
-/** Other manager commands keep their own existing store operation. */
+/** Each manager operation uses its application-owned decision under the store fence. */
 export function createClubSeatCommands(
   store: ReturnType<Database['clubSeats']>,
 ) {
   return {
-    answer: store.answer,
+    answer: (
+      subject: MemberCaller,
+      organizationId: string,
+      invitationId: string,
+      answer: 'accept' | 'decline',
+    ) =>
+      runClubInviteeCommand(
+        store,
+        subject,
+        organizationId,
+        invitationId,
+        answer,
+      ),
     command(
       subject: MemberCaller,
       organizationId: string,
@@ -38,7 +52,7 @@ export function createClubSeatCommands(
         | { readonly kind: 'resend'; readonly invitationId: string },
     ) {
       if (command.kind !== 'resend')
-        return store.command(subject, organizationId, command);
+        return runClubManagerCommand(store, subject, organizationId, command);
       return store.resend(
         subject,
         organizationId,

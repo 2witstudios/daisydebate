@@ -4,7 +4,7 @@ import { assertRejects } from '@daisy/errors/testing';
 import { createId } from '@paralleldrive/cuid2';
 import { createBillingPurchases } from '../src/billing-purchase-store';
 import { loseTransactionCommitReply } from './bounded-transaction.test-support';
-import { flagCommand } from './flags.test-support';
+import { executeFlagCommand, flagCommand } from './flags.test-support';
 import { offer, withBillingPurchases } from './billing-purchases.test-support';
 
 requireTestServices(process.env);
@@ -22,7 +22,7 @@ test('a lost admission COMMIT reply and worker restart preserve one intent and o
       store,
       key,
     }) => {
-      await store.runFlagCommand(flagCommand(key, 0));
+      await executeFlagCommand(store, flagCommand(key, 0));
       const restore = loseTransactionCommitReply(pool, 2);
       try {
         await assertRejects({
@@ -74,7 +74,7 @@ test('a lost admission COMMIT reply and worker restart preserve one intent and o
 test('verified completion commits immutable vendor identity and unpaid synchronization atomically without granting access', async () =>
   withBillingPurchases(
     async ({ fixture, pool, purchases, subject, store, key }) => {
-      await store.runFlagCommand(flagCommand(key, 0));
+      await executeFlagCommand(store, flagCommand(key, 0));
       const first = await purchases.admit(subject, offer);
       await purchases.recover(subject, first.purchase.id);
       const session = {
@@ -164,7 +164,7 @@ test('verified completion commits immutable vendor identity and unpaid synchroni
 test('a crashed completion transaction rolls back every mapping and preserves the possible purchase for recovery', async () =>
   withBillingPurchases(
     async ({ fixture, run, policies, purchases, subject, store, key }) => {
-      await store.runFlagCommand(flagCommand(key, 0));
+      await executeFlagCommand(store, flagCommand(key, 0));
       const first = await purchases.admit(subject, offer);
       const claimed = await purchases.recover(subject, first.purchase.id);
       const session = {

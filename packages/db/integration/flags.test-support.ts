@@ -2,7 +2,13 @@ import { requireTestServices } from '@daisy/config';
 import { createId } from '@paralleldrive/cuid2';
 import { drizzle } from 'drizzle-orm/bun-sql';
 import type { FlagChange } from '@daisy/protocol/flags';
-import type { FlagCommandInput } from '../src/flags-command';
+import {
+  inFlagCommand,
+  type FlagCommandInput,
+  type FlagCommandSession,
+} from '../src/flags-command';
+import type { Tx } from '../src/tx';
+import { createAppError } from '@daisy/errors';
 import { flagOperations } from '../src/flags-operations';
 import { withFixture, type Fixture } from './constraint-helpers';
 
@@ -45,8 +51,8 @@ export function flagCommand(
   key: string,
   expectedRevision: number,
   change: FlagChange = { action: 'flag.state.update', state: 'enabled' },
-  overrides: Partial<FlagCommandInput> = {},
-): FlagCommandInput {
+  overrides: Partial<FlagTestCommand> = {},
+): FlagTestCommand {
   return {
     key,
     commandId: createId(),
@@ -83,4 +89,32 @@ export async function waitingForFlags(fixture: Fixture, count = 1) {
     await Bun.sleep(5);
   }
   throw new Error('Flags lock waiter did not arrive');
+}
+
+type FlagTestCommand = FlagCommandInput & {
+  readonly authorize: () => boolean;
+  readonly decide: (
+    revision: number,
+    now: number,
+  ) =>
+    | { readonly kind: 'apply'; readonly revision: number }
+    | { readonly kind: 'refused'; readonly reason: 'CONFLICT' | 'VALIDATION' };
+};
+
+/** Revision fixture only; the signed web vertical executes the actual catalogue policy. */
+export function executeFlagCommand(
+  source: Pick<ReturnType<typeof flagOperations>, 'flagCommand'> | Tx,
+  input: FlagTestCommand,
+) {
+  const work = async (session: FlagCommandSession) => {
+    if (!input.authorize()) throw createAppError('AUTHORIZATION');
+    const loaded = await session.load();
+    if (loaded.kind === 'replayed') return loaded.result;
+    const decision = input.decide(loaded.revision, loaded.now);
+    if (decision.kind === 'refused') throw createAppError(decision.reason);
+    return loaded.apply(decision.revision);
+  };
+  return 'flagCommand' in source
+    ? source.flagCommand(input, work)
+    : inFlagCommand(source, input, work);
 }

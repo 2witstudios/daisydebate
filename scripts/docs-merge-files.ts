@@ -31,7 +31,7 @@ export function mergeChangedFiles(
         `${mergeCommitSha}^1`,
         mergeCommitSha,
       ],
-      { cwd, encoding: 'utf8' },
+      { cwd, encoding: 'utf8', maxBuffer: Infinity },
     ),
   );
 }

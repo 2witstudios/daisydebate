@@ -95,6 +95,125 @@ describe('mergeChangedFiles', async () => {
     }
   });
 
+  test('dispatches a large merge without exporting its paths', async () => {
+    const repo = repositoryWithStaleBase();
+    try {
+      // Exceed both the incident's 170 KB and execFileSync's default 1 MiB.
+      const files = Array.from(
+        { length: 4600 },
+        (_, i) => `${String(i).padStart(5, '0')}-${'x'.repeat(230)}.test.ts`,
+      );
+      repo.git('checkout', '-q', '-b', 'large');
+      files.forEach((file) => writeFileSync(join(repo.cwd, file), 'test'));
+      repo.git('mv', 'slice.md', 'renamed.md');
+      repo.git('add', '.');
+      repo.git('commit', '-q', '-m', 'large change');
+      repo.git('checkout', '-q', 'main');
+      repo.commit('unrelated.md', 'main advance');
+      repo.git('merge', '-q', '--no-ff', '-m', 'large merge', 'large');
+      const sha = repo.git('rev-parse', 'HEAD');
+      const expectedFiles = [...files, 'renamed.md', 'slice.md'].sort();
+      expect(expectedFiles.join(',').length).toBeGreaterThan(1024 * 1024);
+      const script = resolve(import.meta.dir, 'dispatch-docs.ts');
+      const event = JSON.parse(
+        execFileSync(
+          process.execPath,
+          [
+            '-e',
+            `import { createDispatchEvent } from ${JSON.stringify(script)}; console.log(JSON.stringify(createDispatchEvent(process.cwd())));`,
+          ],
+          {
+            cwd: repo.cwd,
+            env: {
+              PATH: process.env.PATH,
+              DOC_EVENT_ID: `123-${sha}`,
+              DOC_OCCURRED_AT: '2026-11-22T14:42:00Z',
+              DOC_REPOSITORY: 'example/repo',
+              DOC_BASE_REF: 'main',
+              DOC_COMMIT: sha,
+              DOC_PR_NUMBER: '819',
+              DOC_TITLE: 'fix: large change',
+              DOC_PR_URL: 'https://example.test/pull/819',
+            },
+            encoding: 'utf8',
+            maxBuffer: 8 * 1024 * 1024,
+          },
+        ),
+      );
+      assert({
+        given:
+          'a real merge with over 1 MiB of paths, a rename and unrelated main changes',
+        should:
+          'build the complete event in a fresh Bun process with unchanged identity',
+        actual: {
+          files: event.changedFiles,
+          refs: event.sourceRefs,
+          eventId: event.eventId,
+          key: event.idempotencyKey,
+          commit: event.commit,
+          type: event.eventType,
+          occurredAt: event.occurredAt,
+          pr: event.pullRequest.number,
+        },
+        expected: {
+          files: expectedFiles,
+          refs: expectedFiles,
+          eventId: `123-${sha}`,
+          key: `example/repo:${sha}:pull_request.merged`,
+          commit: sha,
+          type: 'pull_request.merged',
+          occurredAt: '2026-11-22T14:42:00Z',
+          pr: 819,
+        },
+      });
+    } finally {
+      repo.cleanup();
+    }
+  }, 30_000);
+
+  test('retains the release changed-files input without reading Git', async () => {
+    const cwd = mkdtempSync(join(tmpdir(), 'docs-release-event-'));
+    try {
+      const event = JSON.parse(
+        execFileSync(
+          process.execPath,
+          [
+            '-e',
+            `import { createDispatchEvent } from ${JSON.stringify(resolve(import.meta.dir, 'dispatch-docs.ts'))}; console.log(JSON.stringify(createDispatchEvent(process.cwd())));`,
+          ],
+          {
+            cwd,
+            env: {
+              DOC_EVENT_TYPE: 'release.published',
+              DOC_EVENT_ID: 'release-42',
+              DOC_OCCURRED_AT: '2026-11-22T14:42:00Z',
+              DOC_REPOSITORY: 'example/repo',
+              DOC_BASE_REF: 'main',
+              DOC_COMMIT: 'a'.repeat(40),
+              DOC_PR_NUMBER: '0',
+              DOC_TITLE: 'Release 42',
+              DOC_PR_URL: 'https://example.test/releases/42',
+              DOC_CHANGED_FILES: 'b.ts,a.ts,b.ts',
+            },
+            encoding: 'utf8',
+          },
+        ),
+      );
+      assert({
+        given: 'a release event outside a Git repository',
+        should: 'retain its explicit paths and original event identity',
+        actual: [event.changedFiles, event.eventId, event.idempotencyKey],
+        expected: [
+          ['a.ts', 'b.ts'],
+          'release-42',
+          `example/repo:${'a'.repeat(40)}:release.published`,
+        ],
+      });
+    } finally {
+      rmSync(cwd, { recursive: true, force: true });
+    }
+  });
+
   test('refuses anything but a commit sha', async () => {
     expect(() => mergeChangedFiles('--output=/tmp/x')).toThrow(
       'A merge commit must be a 40-character hex sha',
@@ -107,16 +226,24 @@ describe('documentation workflows', async () => {
   const workflow = (name: string) =>
     readFileSync(join(root, '.github/workflows', name), 'utf8');
 
-  test('take changed files from the one merge-files script', async () => {
+  test('dispatch merged events without exporting changed paths', async () => {
     const workflows = ['notify-merge.yml', 'docs-replay.yml'].map(workflow);
     assert({
       given: 'the merge notification and the replay workflows',
-      should: 'list changed files with docs-merge-files, never git diff',
+      should:
+        'dispatch merged events directly without exporting paths or duplicating git diff',
       actual: workflows.map((text) => ({
-        script: text.includes('bun scripts/docs-merge-files.ts'),
+        script:
+          text.includes('run: bun scripts/dispatch-docs.ts') ||
+          text.includes('          bun scripts/dispatch-docs.ts'),
+        exportsPaths: text.includes('DOC_CHANGED_FILES'),
         diff: text.includes('git diff'),
       })),
-      expected: workflows.map(() => ({ script: true, diff: false })),
+      expected: workflows.map(() => ({
+        script: true,
+        exportsPaths: false,
+        diff: false,
+      })),
     });
   });
 

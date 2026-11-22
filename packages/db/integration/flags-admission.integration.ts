@@ -7,6 +7,7 @@ import { requireFlagAdmission, type ReleaseAdmission } from '../src/flags';
 import { lockFlags } from '../src/flags-lock';
 import { lockAuthorizationActors } from '../src/authorization';
 import {
+  executeFlagCommand,
   flagCommand,
   withFlags,
   barrier,
@@ -30,7 +31,7 @@ const policy = (key: string): ReleaseAdmission => ({
 test('a new durable admission holds a shared Flags lock through commit; later disable closes new admissions', async () => {
   await withFlags(
     async ({ fixture, database, store, key, userId, actorId }) => {
-      await store.runFlagCommand(flagCommand(key, 0));
+      await executeFlagCommand(store, flagCommand(key, 0));
       const admitted = barrier();
       const finish = barrier();
       // The fixture account's name is only a durable transaction witness, not a purchase feature.
@@ -45,7 +46,8 @@ test('a new durable admission holds a shared Flags lock through commit; later di
         return result;
       });
       await admitted.ready;
-      const disable = store.runFlagCommand(
+      const disable = executeFlagCommand(
+        store,
         flagCommand(key, 1, { action: 'flag.state.update', state: 'killed' }),
       );
       try {
@@ -84,7 +86,7 @@ test('a new durable admission holds a shared Flags lock through commit; later di
 test('admission reads a separate post-lock snapshot and clock after a concurrent disable or expiry', async () => {
   await withFlags(
     async ({ fixture, database, store, key, userId, actorId }) => {
-      await store.runFlagCommand(flagCommand(key, 0));
+      await executeFlagCommand(store, flagCommand(key, 0));
       const locked = barrier();
       const finish = barrier();
       const writer = database.transaction(async (tx) => {
@@ -206,7 +208,7 @@ test('Flags admission refuses lock upgrades, stale transaction snapshots and unb
 
 test('admission lock timeout and transaction deadline roll back the caller witness', async () => {
   await withFlags(async ({ fixture, database, store, key, userId }) => {
-    await store.runFlagCommand(flagCommand(key, 0));
+    await executeFlagCommand(store, flagCommand(key, 0));
     const held = barrier();
     const finish = barrier();
     const holder = database.transaction(async (tx) => {

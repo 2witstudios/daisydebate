@@ -1,11 +1,8 @@
+import { clubSeatTestCommands } from './club-manager.test-support';
 import { instantMs, addMs } from '@daisy/clock';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createId } from '@paralleldrive/cuid2';
-import {
-  clubSeatGrants,
-  subscriptionAccess,
-  subscriptionGrants,
-} from '@daisy/auth/authorization';
+import { clubSeatGrants, subscriptionGrants } from '@daisy/auth/authorization';
 import { requireTestServices } from '@daisy/config';
 import type { SubscriptionEvidence } from '@daisy/protocol/billing';
 import { createBillingSynchronization } from '../src/billing-synchronization';
@@ -15,7 +12,7 @@ import { createClubSeatReads } from '../src/club-seat-reads';
 import { readEntitlementGrants } from '../src/entitlement-grants';
 import { completeControlledBillingPurchase } from '../src/testing-billing-purchase';
 import { withBillingPurchases, offer } from './billing-purchases.test-support';
-import { flagCommand } from './flags.test-support';
+import { executeFlagCommand, flagCommand } from './flags.test-support';
 import { rejectedBy, type Fixture } from './constraint-helpers';
 
 setupRitewayBun();
@@ -75,7 +72,7 @@ function withPaidClub(
     readonly customerId: string;
     readonly paid: SubscriptionEvidence;
     readonly sync: Sync;
-    readonly seatStore: ReturnType<typeof createClubSeats>;
+    readonly seatStore: ReturnType<typeof clubSeatTestCommands>;
     readonly reads: ReturnType<typeof createClubSeatReads>;
     readonly clubs: string[];
   }) => Promise<void>,
@@ -86,7 +83,7 @@ function withPaidClub(
     const clubs = [organizationId];
     const vendorCustomerId = `cus_${createId()}`;
     try {
-      await input.store.runFlagCommand(flagCommand(input.key, 0));
+      await executeFlagCommand(input.store, flagCommand(input.key, 0));
       await completeControlledBillingPurchase({
         purchases,
         subject: { ...subject, organizationId },
@@ -136,13 +133,13 @@ function withPaidClub(
               mode: 'test',
             }),
         },
-        seatStore: createClubSeats({
-          run,
-          nextId: createId,
-          grants: clubSeatGrants,
-          planActive: (evidence, at) =>
-            subscriptionAccess(evidence, at).kind !== 'none',
-        }),
+        seatStore: clubSeatTestCommands(
+          createClubSeats({
+            run,
+            nextId: createId,
+            grants: clubSeatGrants,
+          }),
+        ),
         reads: createClubSeatReads({ run }),
         clubs,
       });
