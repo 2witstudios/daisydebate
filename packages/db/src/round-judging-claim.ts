@@ -17,7 +17,12 @@ import {
 import { readDatabaseTime } from './database-clock';
 import { judgingJobWhere, type JudgingScope } from './round-judging-context';
 import { nextEpoch } from './lease-policy';
-import { firstPassLost, requireClaimableJob } from './round-judging-decisions';
+import { requireClaimableJob } from './round-judging-decisions';
+import {
+  applyJudgingProgression,
+  judgingStageFacts,
+  type JudgingProgression,
+} from './round-judging-progression';
 import type { Tx } from './tx';
 import { takeLock, transactionLocks } from './locks';
 
@@ -29,6 +34,7 @@ export async function claimLockedJudgingJob(
     nextToken: () => string;
     leaseMs: number;
     model: string;
+    progression: JudgingProgression;
   },
 ) {
   const [initial] = await tx
@@ -119,41 +125,47 @@ export async function claimLockedJudgingJob(
       ),
     )
     .limit(1);
-  const claimedAt = await readDatabaseTime(tx);
-  const leaseExpiresAt = new Date(claimedAt.getTime() + input.leaseMs);
-  await tx
-    .update(roundJudgingJobs)
-    .set({
-      commandId,
-      status: 'leased',
-      attempts: epoch,
-      model,
-      retryAt: null,
-      lastClaimedAt: claimedAt,
-      recoveryReason: null,
-      ...(firstPassLost(job, priorFirstAttempt)
-        ? { firstBallotFailed: true }
-        : {}),
-      ...(job.status === 'recovering' && !job.pendingBallot
-        ? {
-            generationDeadlineAt: new Date(
-              claimedAt.getTime() + judgingPolicy.aiBudgetMs,
-            ),
-            generationFirstEpoch: epoch,
-          }
-        : {}),
-      leaseTokenDigest: agentLeaseDigest(token),
-      leaseExpiresAt,
-    })
-    .where(judgingJobWhere(target));
-  return {
-    scope,
-    token,
-    leaseExpiresAt: leaseExpiresAt.toISOString(),
-    expectedVersion: round.version,
-    model,
-    pendingBallot: job.pendingBallot,
-    frozen,
-    round,
-  };
+  return applyJudgingProgression(
+    input.progression,
+    { kind: 'takeover', facts: judgingStageFacts(job), priorFirstAttempt },
+    async ({ spendFirstPass }, writing) => {
+      const claimedAt = await readDatabaseTime(tx);
+      writing();
+      const leaseExpiresAt = new Date(claimedAt.getTime() + input.leaseMs);
+      await tx
+        .update(roundJudgingJobs)
+        .set({
+          commandId,
+          status: 'leased',
+          attempts: epoch,
+          model,
+          retryAt: null,
+          lastClaimedAt: claimedAt,
+          recoveryReason: null,
+          ...(spendFirstPass ? { firstBallotFailed: true } : {}),
+          ...(job.status === 'recovering' && !job.pendingBallot
+            ? {
+                generationDeadlineAt: new Date(
+                  claimedAt.getTime() + judgingPolicy.aiBudgetMs,
+                ),
+                generationFirstEpoch: epoch,
+              }
+            : {}),
+          leaseTokenDigest: agentLeaseDigest(token),
+          leaseExpiresAt,
+        })
+        .where(judgingJobWhere(target));
+      writing();
+      return {
+        scope,
+        token,
+        leaseExpiresAt: leaseExpiresAt.toISOString(),
+        expectedVersion: round.version,
+        model,
+        pendingBallot: job.pendingBallot,
+        frozen,
+        round,
+      };
+    },
+  );
 }

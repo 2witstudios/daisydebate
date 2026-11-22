@@ -1,4 +1,5 @@
 import { roundDecisionReleasePolicy } from '@daisy/protocol/round-decision-release';
+import { fixtureJudgingProgression } from './judging-progression.test-support';
 import { judgedRound } from './judged-round.test-support';
 import { canUseAiAllowance } from '@daisy/auth/authorization';
 import { atFinalJudgingStage } from '../src/testing-judging';
@@ -108,6 +109,7 @@ test('configured root judging aliases share the owned pool and claim actual froz
           model: 'fixture-judge',
           contractVersion: 'fixture-contract',
           rules: judgingJobRules,
+          progression: fixtureJudgingProgression,
           accountEligible: canUseAiAllowance,
           nextToken: () => randomBytes(32).toString('base64url'),
         },

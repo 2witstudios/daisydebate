@@ -1,3 +1,4 @@
+import { fixtureJudgingProgression } from './judging-progression.test-support';
 import { instantMs } from '@daisy/clock';
 import { SQL } from 'bun';
 import { judgingPolicy } from '@daisy/protocol/judging-policy';
@@ -61,6 +62,7 @@ const judgingJobs = (run: ReturnType<typeof createBoundedTransaction>) =>
     model: 'anthropic/claude-sonnet-5.5',
     contractVersion: 'fixture-contract',
     rules: judgingJobRules,
+    progression: fixtureJudgingProgression,
     accountEligible: canUseAiAllowance,
   });
 

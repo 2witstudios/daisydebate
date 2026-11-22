@@ -1,3 +1,4 @@
+import { fixtureJudgingProgression } from './judging-progression.test-support';
 import { screenBallotContacts } from '@daisy/debate-engine/ballot-contact-screening';
 import { constructBallotRound } from './ballot-round-construction.test-support';
 import { attendanceSettled } from '@daisy/debate-engine';
@@ -53,6 +54,7 @@ test('durable judging claims fence epochs and preserve one command across recove
           model: 'anthropic/claude-sonnet-5.5',
           contractVersion: 'fixture-contract',
           rules: judgingJobRules,
+          progression: fixtureJudgingProgression,
           accountEligible: canUseAiAllowance,
         });
         const target = { roundId, judgeParticipantId: seat!.id };
@@ -201,6 +203,9 @@ test('durable judging claims fence epochs and preserve one command across recove
           payloadDigest: 'c'.repeat(64),
           nextBallotId: createId,
           screenWritten: screenBallotContacts,
+          // Component proof supplies trusted policy; actual shared preparation is covered in web.
+          admitCapture: () => {},
+          admitBallot: () => {},
           authorize: (
             context: import('../src/round-ballot-operations').LockedRoundBallotContext,
           ) => {

@@ -109,3 +109,26 @@ discards every pending response of a Round the subject sat in, and owning Round
 erasure cascades it (ISSUE-498). Origin run/job/seat IDs are identifiers;
 origin epoch and receipt timestamp have category none. No bearer, prompt,
 frozen-transcript copy or raw provider envelope is retained here.
+
+## Progression ownership
+
+The round-judging application drives progression inside each existing fenced
+inspection, dispatch, stage-record, failure and takeover transaction. Its required
+`judgingProgression` driver consumes named stored stage facts and the portable
+`round-judging-progression` rules. It selects the due stage, preserves held final
+answers and spends a failed or lost first pass's single try. The raw database has
+no fallback progression policy. Ballot preparation/submission remains a separate
+round-ballots operation.
+
+A family-local progression frame permits one bound apply and closes when its
+application callback returns. Missing, repeated or released apply refuses; a duplicate irreversibly closes
+the frame even when its local rejection is caught; guards
+after awaited effects keep closure terminal. Any pending bound work is drained
+inside the transaction before refusal/rollback, so nested SQL cannot outlive it. Application refusal or exception
+rolls back local stage, attempt or takeover changes. Current lease authority is
+rechecked after application work before stage/dispatch mutation. The database
+retains account/Round/run/job lock ordering, native time, immutable attempt and
+claim identity, lease/epoch/model/freeze bindings, schema validation, usage and
+atomic materialization. Known provider usage is still recorded independently
+before stage storage; refusing an output never erases the provider call's
+accounting or grants its stale worker result authority.

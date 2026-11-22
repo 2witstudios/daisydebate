@@ -39,11 +39,15 @@ import {
 } from './casual-judge-usage';
 import type { AllowanceAccountPolicy } from './usage-ledger';
 import {
-  judgingProgress,
   pendingBallotAction,
-  requireNextStage,
   requireUndispatched,
 } from './round-judging-decisions';
+import {
+  applyJudgingProgression,
+  judgingStageFacts,
+  type JudgingProgression,
+} from './round-judging-progression';
+export type { JudgingProgression } from './round-judging-progression';
 import { requireRoundBallot } from './round-ballot-decisions';
 import type { Tx } from './tx';
 import { takeLock, transactionLocks } from './locks';
@@ -145,8 +149,10 @@ async function deferLockedJudgingJob(
   scope: JudgingScope,
   runId: string,
   recovery: ReturnType<JudgingJobRules['recover']>,
+  writing: () => void,
 ) {
   await endLockedRoundAgentRun(tx, runId, scope.judgeParticipantId);
+  writing();
   await tx
     .update(roundJudgingJobs)
     .set({
@@ -157,7 +163,9 @@ async function deferLockedJudgingJob(
       leaseExpiresAt: null,
     })
     .where(judgingJobWhere(scope));
+  writing();
   await settleCasualJudgeUsageLocked(tx, scope.roundId);
+  writing();
 }
 /** Durable intents use the same injected bounded transaction; no provider I/O occurs under locks. */
 export function createRoundJudgingJobs(input: {
@@ -170,6 +178,7 @@ export function createRoundJudgingJobs(input: {
   /** The ballot contract each dispatch is made under. */
   readonly contractVersion: string;
   readonly rules: JudgingJobRules;
+  readonly progression: JudgingProgression;
   readonly accountEligible: AllowanceAccountPolicy;
 }) {
   requireLeaseMs(input.leaseMs);
@@ -232,52 +241,72 @@ export function createRoundJudgingJobs(input: {
         }),
       ),
     verify: (scope: JudgingScope, token: string) =>
-      withLease(scope, token, (_tx, { round, job }) => ({
-        expectedVersion: round.version,
-        /** The held final ballot, or the one stage this claim may buy. */
-        progress: judgingProgress(job),
-      })),
+      withLease(scope, token, (_tx, { round, job }) =>
+        applyJudgingProgression(
+          input.progression,
+          { kind: 'inspect', facts: judgingStageFacts(job) },
+          async ({ progress }, writing) => {
+            await assertLockedJudgingLease(_tx, scope, token);
+            writing();
+            return { expectedVersion: round.version, progress };
+          },
+        ),
+      ),
     /** Ranked judging stays free; casual judging counts its admitted use before model I/O. */
     beginModelCall: (
       scope: JudgingScope,
       token: string,
       stage: JudgingStage,
     ): Promise<ModelCallBegun> =>
-      withLease(scope, token, async (tx, { run, job, now }) => {
+      withLease(scope, token, async (tx, { run, job }) => {
         requireUndispatched(job, await attemptOfRun(tx, run.id));
-        requireNextStage(job, stage);
-        const recovery = await recoveryFor(tx, scope, job, now);
-        if (recovery.status !== 'queued') {
-          await deferLockedJudgingJob(tx, scope, run.id, recovery);
-          return { kind: 'deferred', reason: recovery.reason };
-        }
-        if (!job.leaseExpiresAt) throw createAppError('INVARIANT');
-        await countCasualJudgeModelCall(tx, {
-          roundId: scope.roundId,
-          before: new Date(
-            Math.min(
-              job.generationDeadlineAt.getTime(),
-              job.leaseExpiresAt.getTime(),
-            ),
-          ).toISOString(),
-          accountEligible: input.accountEligible,
-        });
-        await tx
-          .update(agentRuns)
-          .set({ requests: run.requests + 1 })
-          .where(eq(agentRuns.id, run.id));
-        // Durable before the call is sent, so a crash still counts as bought.
-        await tx.insert(roundJudgingAttempts).values({
-          agentRunId: run.id,
-          roundId: scope.roundId,
-          judgeParticipantId: scope.judgeParticipantId,
-          jobEpoch: scope.jobEpoch,
-          model: run.model ?? input.model,
-          contractVersion: input.contractVersion,
-          stage,
-          outcome: 'dispatched',
-        });
-        return { kind: 'dispatched' };
+        return applyJudgingProgression(
+          input.progression,
+          { kind: 'dispatch', facts: judgingStageFacts(job), stage },
+          async (_decision, writing): Promise<ModelCallBegun> => {
+            const current = await assertLockedJudgingLease(tx, scope, token);
+            writing();
+            const recovery = await recoveryFor(tx, scope, job, current.now);
+            writing();
+            if (recovery.status !== 'queued') {
+              await deferLockedJudgingJob(tx, scope, run.id, recovery, writing);
+              writing();
+              return { kind: 'deferred', reason: recovery.reason };
+            }
+            if (!job.leaseExpiresAt) throw createAppError('INVARIANT');
+            await countCasualJudgeModelCall(tx, {
+              roundId: scope.roundId,
+              before: new Date(
+                Math.min(
+                  job.generationDeadlineAt.getTime(),
+                  job.leaseExpiresAt.getTime(),
+                ),
+              ).toISOString(),
+              accountEligible: input.accountEligible,
+            });
+            writing();
+            await assertLockedJudgingLease(tx, scope, token);
+            writing();
+            await tx
+              .update(agentRuns)
+              .set({ requests: run.requests + 1 })
+              .where(eq(agentRuns.id, run.id));
+            writing();
+            // Durable before the call is sent, so a crash still counts as bought.
+            await tx.insert(roundJudgingAttempts).values({
+              agentRunId: run.id,
+              roundId: scope.roundId,
+              judgeParticipantId: scope.judgeParticipantId,
+              jobEpoch: scope.jobEpoch,
+              model: run.model ?? input.model,
+              contractVersion: input.contractVersion,
+              stage,
+              outcome: 'dispatched',
+            });
+            writing();
+            return { kind: 'dispatched' };
+          },
+        );
       }),
     recordUsage: (
       scope: JudgingScope,
@@ -336,20 +365,40 @@ export function createRoundJudgingJobs(input: {
         const attempt = await attemptOfRun(tx, run.id);
         if (!attempt || attempt.stage !== record.stage)
           throw createAppError('CONFLICT', 'Model call not dispatched');
-        requireNextStage(job, record.stage);
-        await tx
-          .update(roundJudgingAttempts)
-          .set({ outcome: 'succeeded' })
-          .where(eq(roundJudgingAttempts.agentRunId, run.id));
-        await tx
-          .update(roundJudgingJobs)
-          .set(stored(now))
-          .where(judgingJobWhere(scope));
-        await deferLockedJudgingJob(tx, scope, run.id, {
-          status: 'queued',
-          reason: null,
-          retryAt: now.toISOString(),
-        });
+        return applyJudgingProgression(
+          input.progression,
+          {
+            kind: 'record',
+            facts: judgingStageFacts(job),
+            stage: record.stage,
+          },
+          async (_decision, writing) => {
+            await assertLockedJudgingLease(tx, scope, token);
+            writing();
+            await tx
+              .update(roundJudgingAttempts)
+              .set({ outcome: 'succeeded' })
+              .where(eq(roundJudgingAttempts.agentRunId, run.id));
+            writing();
+            await tx
+              .update(roundJudgingJobs)
+              .set(stored(now))
+              .where(judgingJobWhere(scope));
+            writing();
+            await deferLockedJudgingJob(
+              tx,
+              scope,
+              run.id,
+              {
+                status: 'queued',
+                reason: null,
+                retryAt: now.toISOString(),
+              },
+              writing,
+            );
+            writing();
+          },
+        );
       });
     },
     /**
@@ -376,26 +425,47 @@ export function createRoundJudgingJobs(input: {
         const attempt = await attemptOfRun(tx, run.id);
         if (!attempt)
           throw createAppError('CONFLICT', 'Model call not dispatched');
-        // The first pass is a record with one try: it never holds back the ballot.
-        if (attempt.stage === 'first')
-          await tx
-            .update(roundJudgingJobs)
-            .set({ firstBallotFailed: true })
-            .where(judgingJobWhere(scope));
-        // A provider_refused attempt was certainly not served, so it buys nothing.
-        await tx
-          .update(roundJudgingAttempts)
-          .set({
-            outcome: 'failed',
-            category: diagnostic.category,
-            diagnostic,
-          })
-          .where(eq(roundJudgingAttempts.agentRunId, run.id));
-        const recovery = await recoveryFor(tx, scope, job, now, input_.final);
-        await deferLockedJudgingJob(tx, scope, run.id, recovery);
-        return recovery.status === 'queued'
-          ? { kind: 'retry' as const }
-          : { kind: recovery.status, reason: recovery.reason };
+        return applyJudgingProgression(
+          input.progression,
+          {
+            kind: 'failure',
+            facts: judgingStageFacts(job),
+            stage: attempt.stage,
+          },
+          async ({ spendFirstPass }, writing): Promise<AttemptDeferred> => {
+            await assertLockedJudgingLease(tx, scope, token);
+            writing();
+            if (spendFirstPass)
+              await tx
+                .update(roundJudgingJobs)
+                .set({ firstBallotFailed: true })
+                .where(judgingJobWhere(scope));
+            writing();
+            // A provider_refused attempt was certainly not served, so it buys nothing.
+            await tx
+              .update(roundJudgingAttempts)
+              .set({
+                outcome: 'failed',
+                category: diagnostic.category,
+                diagnostic,
+              })
+              .where(eq(roundJudgingAttempts.agentRunId, run.id));
+            writing();
+            const recovery = await recoveryFor(
+              tx,
+              scope,
+              job,
+              now,
+              input_.final,
+            );
+            writing();
+            await deferLockedJudgingJob(tx, scope, run.id, recovery, writing);
+            writing();
+            return recovery.status === 'queued'
+              ? { kind: 'retry' as const }
+              : { kind: recovery.status, reason: recovery.reason };
+          },
+        );
       });
     },
     renew: (scope: JudgingScope, token: string): Promise<LeaseRenewed> =>

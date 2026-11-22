@@ -1,3 +1,4 @@
+import { fixtureJudgingProgression } from './judging-progression.test-support';
 import { authoredJudgedRound, judgedRound } from './judged-round.test-support';
 import { judgingJobRules } from '@daisy/debate-engine';
 import { ballotCategories } from '@daisy/protocol/ballot';
@@ -128,6 +129,7 @@ export const withJudgingJob = (
             model: 'anthropic/claude-sonnet-5.5',
             contractVersion: 'fixture-contract',
             rules: judgingJobRules,
+            progression: fixtureJudgingProgression,
             accountEligible: canUseAiAllowance,
           }),
         });

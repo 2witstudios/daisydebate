@@ -58,10 +58,9 @@ import {
 } from './round-command-replay';
 import {
   ballotReceipt,
-  requireBallotAdmission,
+  requireBallotVersion,
   requireFrozenRevision,
   requireJudgingRun,
-  requireAgentBallotCapture,
   requireRoundBallot,
   ballotDecisionColumns,
 } from './round-ballot-decisions';
@@ -87,6 +86,20 @@ export type LockedRoundBallotInput = {
   readonly envelope: RoundBallotEnvelope;
   readonly payloadDigest: string;
   readonly nextBallotId: () => string;
+  /** Application capture eligibility, before authority and replay. */
+  readonly admitCapture: (
+    frozen: Pick<
+      FrozenRoundTranscript,
+      'completeness' | 'unheardMs' | 'expectedSpeechMs'
+    >,
+  ) => void;
+  /** Fresh locked facts for a new ballot only, after replay and version binding. */
+  readonly admitBallot: (facts: {
+    readonly round: Pick<RoundHydration, 'status' | 'outcome'>;
+    readonly submittedJudgeIds: readonly string[];
+    readonly now: string;
+    readonly ballotDeadlineAt: Date | null;
+  }) => void;
   /** Fresh authority on new writes and replay. */
   readonly authorize: (context: LockedRoundBallotContext) => void;
   /** Required for bot results; called after locks and on replay, inside this transaction. */
@@ -149,7 +162,7 @@ async function lockedBallotContext(
     await readLockedFrozenRoundTranscript(tx, input.roundId),
     input.envelope.freezeRevision,
   );
-  requireAgentBallotCapture(input.principal, frozen);
+  input.admitCapture(frozen);
   const context = { ...fresh, frozen, screening };
   input.authorize(context);
   requireJudgingRun(
@@ -186,17 +199,12 @@ export async function executeLockedRoundBallot(
     .select()
     .from(ballots)
     .where(eq(ballots.roundId, input.roundId));
-  requireBallotAdmission({
-    version: current.version,
-    expectedVersion: input.envelope.expectedVersion,
+  requireBallotVersion(current.version, input.envelope.expectedVersion);
+  input.admitBallot({
     round: fresh.round,
     submittedJudgeIds: existing.map((b) => b.judgeParticipantId),
-    judgeParticipantId: input.envelope.judgeParticipantId,
     now: fresh.now,
-    // The human window is for humans; an AI seat's budget bounded its generation
-    // and a validated ballot may still submit after either (DEC-275).
-    ballotDeadlineAt:
-      input.principal.kind === 'agent' ? null : (window?.deadline ?? null),
+    ballotDeadlineAt: window?.deadline ?? null,
   });
   const stored = await insertFrozenBallot(tx, input, context);
   const ballotId = stored.id;
