@@ -62,7 +62,10 @@ export type MailIntentRead =
     }
   | {
       /** A Club seat offer (ADR 0148): the link names the invitation; the verified address accepts it. */
-      readonly kind: 'club-seat-invitation';
+      readonly kind: 'club-invitation';
+      readonly closed: boolean;
+      /** The original transaction now(), normalized to UTC microsecond precision. */
+      readonly observedAt: string;
       readonly to: string;
       readonly clubName: string;
       readonly manager: string;
@@ -237,14 +240,11 @@ export function mailIntentOperations({
         );
         if (!row)
           throw createAppError('INVARIANT', 'Digest counts are missing');
-        const digest = row;
-        return digest.new_requests === 0
-          ? { kind: 'not-owed' }
-          : {
-              kind: 'owner-digest',
-              newRequests: digest.new_requests,
-              waiting: digest.waiting,
-            };
+        return {
+          kind: 'owner-digest',
+          newRequests: row.new_requests,
+          waiting: row.waiting,
+        };
       }),
     /** False when the lease lapsed and another worker may now hold the intent. */
     settleMailIntent: (input: {
@@ -322,8 +322,8 @@ const clubInvitationKey =
 
 /**
  * The address and club a seat invitation mail names, read at send time under
- * the club's scope (the dedupe key carries the club). A lapsed, answered or
- * cancelled invitation is no longer owed.
+ * the club's scope (the dedupe key carries the club). The application owns
+ * open/expiry eligibility; storage retains lease and invitation binding.
  */
 async function clubSeatInvitationDelivery(
   database: TxSource,
@@ -348,27 +348,33 @@ async function clubSeatInvitationDelivery(
       tx,
       z.object({
         email: z.string(),
-        expires_at: z.union([z.string(), z.date()]),
+        expires_at: z.string(),
+        observed_at: z.string(),
+        closed: z.boolean(),
         name: z.string(),
         manager: z.string(),
       }),
-      sql`select i.email, i.expires_at, o.name,
+      sql`select i.email,
+        to_char(i.expires_at at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') as expires_at,
+        to_char(now() at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') as observed_at,
+        o.closed_at is not null as closed, o.name,
         coalesce(nullif(u.name, ''), u.username, 'Your club') as manager
       from club_seat_invitations i
-      join organizations o on o.id = i.organization_id and o.closed_at is null
+      join organizations o on o.id = i.organization_id
       left join users u on u.id = o.owner_user_id
-      where i.organization_id = ${organizationId} and i.id = ${invitationId}
-        and i.expires_at > now()`,
+      where i.organization_id = ${organizationId} and i.id = ${invitationId}`,
     );
     if (!row) return { kind: 'not-owed' } as const;
     return {
-      kind: 'club-seat-invitation',
+      kind: 'club-invitation',
+      closed: row.closed,
+      observedAt: row.observed_at,
       to: row.email,
       clubName: row.name,
       manager: row.manager,
       organizationId,
       invitationId,
-      expiresAt: new Date(row.expires_at).toISOString(),
+      expiresAt: row.expires_at,
     } as const;
   });
 }

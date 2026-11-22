@@ -1,5 +1,4 @@
 import { runPreapprovalCommand } from '../src/features/operator-api/preapproval-command';
-import { z } from 'zod';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createId } from '@paralleldrive/cuid2';
 import { instantMs } from '@daisy/clock';
@@ -7,8 +6,7 @@ import { sha3Hex } from '@daisy/digest';
 import { type PreapprovalCommand } from '@daisy/protocol/beta-preapproval';
 import { withBeta } from './preapproval.test-support';
 import { readBetaInvitationDelivery } from '../src/features/beta-access/invitation-delivery';
-import { createMailIntentDelivery } from '../src/features/beta-access/mail-delivery';
-import { createResendSender } from '../src/features/mail/resend-sender';
+import { mailWorker as worker } from './mail-delivery.test-support';
 
 setupRitewayBun();
 const inputFor = (command: PreapprovalCommand) => ({
@@ -27,47 +25,6 @@ const add = (email: string, invite = false): PreapprovalCommand => ({
   email,
   invite,
 });
-type Db = import('@daisy/db').Database;
-
-/** Real application worker and Resend adapter; its HTTP edge is a test provider. */
-function worker(db: Db) {
-  const keys: (string | null)[] = [];
-  const sent: string[][] = [],
-    failed: unknown[] = [];
-  const sender = createResendSender({
-    apiKey: 'test-provider-key',
-    from: 'beta@example.test',
-    nowMs: Date.now,
-    ids: { next: createId },
-    fetch: async (_request, init) => {
-      keys.push(new Headers(init?.headers).get('Idempotency-Key'));
-      sent.push(
-        z
-          .object({ to: z.array(z.string()) })
-          .parse(JSON.parse(String(init?.body))).to,
-      );
-      return Response.json({ id: createId() });
-    },
-  });
-  return {
-    sent,
-    keys,
-    failed,
-    run: createMailIntentDelivery({
-      store: db,
-      deliver: async (message) => {
-        await sender.send(message);
-        return 'sent';
-      },
-      ownerAddress: undefined,
-      appUrl: 'https://daisy.example',
-      nextToken: () => createId() + createId(),
-      now: () => new Date().toISOString(),
-      failed: (error) => failed.push(error),
-    }).run,
-  };
-}
-
 // Moved behavioral cases: expected outcomes are unchanged; the application owns delivery now.
 test('a claimed invitation stops being owed when its verified email changes', async () => {
   await withBeta(async ({ sql, db, account }) => {

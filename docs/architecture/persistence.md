@@ -440,5 +440,9 @@ The Beta application selects send, recipient-gone or not-owed from the current
 approval recipient facts supplied by mail-intents. Missing identity precedes
 approval state. The adapter retains erased-recipient scoping, queue leases,
 fencing and atomic settlement; provider calls remain outside transactions
-under the intent's existing idempotency key. Digest and Club delivery retain
-their separate eligibility operations.
+under the intent's existing idempotency key. The application also cancels a digest with zero requests in its immutable
+window before checking owner configuration. Club application eligibility uses
+open state and a strict expiry comparison against the same scoped transaction
+time, retaining UTC microsecond precision. Storage keeps purpose, lease and
+dedupe/invitation binding, tenant scoping and row-existence checks. No provider
+call runs inside that read transaction.
