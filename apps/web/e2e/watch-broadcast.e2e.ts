@@ -151,10 +151,10 @@ test('two official adult lobbies keep Watch and new Rooms on the selected lobby 
   }
 });
 
-// A stopped Broadcast leaves the listing, so no other spec sees these Rounds.
+// Retired fixtures leave both the Watch listing and the stand-in's polling set.
 test.afterEach(async () => {
   await Promise.all(
-    seeded.splice(0).map((roundId) => seed({ command: 'stop', roundId })),
+    seeded.splice(0).map((roundId) => seed({ command: 'retire', roundId })),
   );
 });
 

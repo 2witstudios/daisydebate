@@ -14,14 +14,18 @@ import { audienceStatePath, officialFeedPath } from '@daisy/protocol';
  * projections, written to the feed server's memory instead of a bucket. The publish
  * loop and its sampling are proven in apps/audience-publisher and on staging.
  */
-export const startAudienceStateStandIn = (input: {
-  readonly url: string;
+export const createAudienceStatePoll = (input: {
+  readonly store: Pick<
+    ReturnType<typeof createAudiencePublisherStore>,
+    'readPublishing' | 'readSpectatorTimeline' | 'readAudienceSnapshot'
+  >;
   readonly feedOrigin: string;
   readonly publish: (path: string, body: string) => void;
   readonly withdraw: (path: string) => void;
   readonly now: () => number;
+  readonly report: (failure: AudienceStateFailure) => void;
 }) => {
-  const store = createAudiencePublisherStore(input.url);
+  const { store } = input;
   const published = new Map<string, string>();
   const pass = async () => {
     const nowMs = input.now();
@@ -31,15 +35,21 @@ export const startAudienceStateStandIn = (input: {
       settledKeepMs: 3_600_000,
       limit: 256,
     });
-    await Promise.all(
+    const active = new Set(publishing.map(({ broadcastId }) => broadcastId));
+    for (const [broadcastId, path] of published) {
+      if (active.has(broadcastId)) continue;
+      input.withdraw(path);
+      published.delete(broadcastId);
+    }
+    const results = await Promise.allSettled(
       publishing.map(async (broadcast) => {
-        const [timeline, audience] = await Promise.all([
-          store.readSpectatorTimeline({
-            roundId: broadcast.roundId,
-            horizonOf: (facts) => spectatorTimelineHorizon({ ...facts, nowMs }),
-          }),
-          store.readAudienceSnapshot({ roundId: broadcast.roundId }),
-        ]);
+        const timeline = await store.readSpectatorTimeline({
+          roundId: broadcast.roundId,
+          horizonOf: (facts) => spectatorTimelineHorizon({ ...facts, nowMs }),
+        });
+        const audience = await store.readAudienceSnapshot({
+          roundId: broadcast.roundId,
+        });
         if (!timeline || !audience) return;
         const path = audienceStatePath(
           audienceStateKey(broadcast.feedKey, broadcast.linkHash),
@@ -67,8 +77,47 @@ export const startAudienceStateStandIn = (input: {
         );
       }),
     );
+    const failed = results.filter(({ status }) => status === 'rejected').length;
+    if (failed)
+      input.report({ event: 'e2e.audience_state.publish_failed', failed });
   };
-  const timer = setInterval(() => void pass().catch(() => undefined), 500);
+  // A slow pass must drain its reads before another pass queues work on the pool.
+  let publishing = false;
+  return async () => {
+    if (publishing) return;
+    publishing = true;
+    try {
+      await pass();
+    } catch {
+      input.report({ event: 'e2e.audience_state.read_failed' });
+    } finally {
+      publishing = false;
+    }
+  };
+};
+
+type AudienceStateFailure =
+  | { readonly event: 'e2e.audience_state.read_failed' }
+  | {
+      readonly event: 'e2e.audience_state.publish_failed';
+      readonly failed: number;
+    };
+
+export const startAudienceStateStandIn = (
+  input: Omit<
+    Parameters<typeof createAudienceStatePoll>[0],
+    'store' | 'report'
+  > & {
+    readonly url: string;
+  },
+) => {
+  const store = createAudiencePublisherStore(input.url);
+  const poll = createAudienceStatePoll({
+    ...input,
+    store,
+    report: (failure) => process.stderr.write(`${JSON.stringify(failure)}\n`),
+  });
+  const timer = setInterval(poll, 500);
   return () => {
     clearInterval(timer);
     void store.close();

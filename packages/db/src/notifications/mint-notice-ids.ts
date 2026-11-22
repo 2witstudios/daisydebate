@@ -1,7 +1,10 @@
 import { sql, type SQL } from 'drizzle-orm';
+import { createAppError } from '@daisy/errors';
 import { z } from 'zod';
-import { query, run } from '../raw-rows';
+import { query } from '../raw-rows';
 import type { Tx } from '../tx';
+
+const slotRow = z.object({ slots: z.number().int().nonnegative() });
 
 /** The database chooses the private audience. The application supplies its CUIDs. */
 export async function mintNoticeIds(
@@ -12,13 +15,18 @@ export async function mintNoticeIds(
 ) {
   const [plan] = await query(
     tx,
-    z.object({ slots: z.number().int().nonnegative() }),
+    slotRow,
     sql`select ${operation}(${args}) as slots`,
   );
-  if (!plan?.slots) return;
-  const ids = Array.from({ length: plan.slots }, () => sql`${nextId()}`);
-  await run(
-    tx,
-    sql`select ${operation}(${args}, ARRAY[${sql.join(ids, sql`,`)}]::text[])`,
-  );
+  let slots = plan?.slots ?? 0;
+  for (let attempt = 0; slots > 0; attempt += 1) {
+    if (attempt === 3) throw createAppError('INFRASTRUCTURE');
+    const ids = Array.from({ length: slots }, () => sql`${nextId()}`);
+    const [result] = await query(
+      tx,
+      slotRow,
+      sql`select ${operation}(${args}, ARRAY[${sql.join(ids, sql`,`)}]::text[]) as slots`,
+    );
+    slots = result?.slots ?? 0;
+  }
 }

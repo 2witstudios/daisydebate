@@ -26,7 +26,7 @@ type RunOutcome = {
   readonly summary: string;
 };
 
-async function runOnce(run: number): Promise<RunOutcome> {
+async function runOnce(run: number, appPort: number): Promise<RunOutcome> {
   const proc = Bun.spawnSync(['bun', 'run', '--cwd', 'apps/web', 'test:e2e'], {
     env: { ...process.env, CI: 'true' },
     stdout: 'inherit',
@@ -36,6 +36,20 @@ async function runOnce(run: number): Promise<RunOutcome> {
   // of every invocation, so this is recreated after each run, not once up
   // front, or it would not exist by the time this run writes into it.
   mkdirSync(runsDirectory, { recursive: true });
+  const log = Bun.file(`apps/web/test-results/server-${appPort}.log`);
+  const diagnostics = (await log.exists())
+    ? (await log.text())
+        .split('\n')
+        .filter((line) =>
+          /^\{"event":"e2e\.audience_state\.(?:read_failed"|publish_failed","failed":\d+)\}$/.test(
+            line,
+          ),
+        )
+    : [];
+  writeFileSync(
+    `${runsDirectory}/run-${run}-audience-state.log`,
+    diagnostics.join('\n'),
+  );
   const reportPath = 'apps/web/test-results/results.json';
   const savedPath = `${runsDirectory}/run-${run}.json`;
   let ok = proc.exitCode === 0;
@@ -84,10 +98,8 @@ async function isPortFree(port: number): Promise<boolean> {
  * bound under this worktree's e2e wrapper, then poll (never a flat sleep)
  * until every one of its three ports is actually free.
  */
-async function settleBetweenRuns(): Promise<void> {
+async function settleBetweenRuns(ports: readonly number[]): Promise<void> {
   Bun.spawnSync(['pkill', '-f', `${process.cwd()}.*e2e/support/server.ts`]);
-  const { resolveE2EPorts } = await import('../apps/web/playwright.config');
-  const ports = Object.values(resolveE2EPorts(process.env));
   const deadline = Date.now() + 30_000;
   while (Date.now() < deadline) {
     const free = await Promise.all(ports.map(isPortFree));
@@ -101,11 +113,13 @@ async function settleBetweenRuns(): Promise<void> {
 
 if (import.meta.main) {
   const outcomes: RunOutcome[] = [];
-  await settleBetweenRuns();
+  const { resolveE2EPorts } = await import('../apps/web/playwright.config');
+  const ports = resolveE2EPorts(process.env);
+  await settleBetweenRuns(Object.values(ports));
   for (let run = 1; run <= 3; run += 1) {
     console.log(`\n=== Release qualification run ${run}/3 ===`);
-    outcomes.push(await runOnce(run));
-    await settleBetweenRuns();
+    outcomes.push(await runOnce(run, ports.app));
+    await settleBetweenRuns(Object.values(ports));
   }
   for (const outcome of outcomes)
     console.log(
