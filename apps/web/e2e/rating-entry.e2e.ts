@@ -4,7 +4,7 @@ import { createId } from '@paralleldrive/cuid2';
 import { test, expect, openPage } from './support/fixtures';
 import { resetRateLimits, signUpMember } from './support/accounts';
 import { submitCreateRoom, closeRoom } from './support/room-launch-flow';
-import type { RatingStyle } from '@daisy/protocol';
+import type { RatingStyle } from '@daisy/protocol/primitives';
 
 test('ranked entry preserves canonical setup for the one Freestyle ladder', async ({
   browser,

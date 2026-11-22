@@ -1,11 +1,10 @@
+import { ballotCategories, speakerTotal } from '@daisy/protocol/ballot';
 import {
-  ballotCategories,
   ballotSchemaFor,
-  daisyWinnerBallot,
   isLowPointWin,
-  speakerTotal,
   storedBallotSchemaFor,
-} from '@daisy/protocol';
+} from '@daisy/protocol/ballot-schema';
+import { daisyWinnerBallot } from '@daisy/protocol/ballot-definition';
 
 /** Today's ballot: Daisy's winner ballot over the two-sided preset. */
 const twoSided = {

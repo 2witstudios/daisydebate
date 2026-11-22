@@ -1,5 +1,5 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { heartbeatMs } from '@daisy/protocol';
+import { heartbeatMs } from '@daisy/protocol/realtime';
 import { flush, harness, openAndReady } from './connection-store.test-support';
 
 setupRitewayBun();

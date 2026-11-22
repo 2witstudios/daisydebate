@@ -1,12 +1,12 @@
 import { instantMs } from '@daisy/clock';
 import { assertRejects } from '@daisy/errors/testing';
+import { emptyRuntimeCheckpointFor } from '@daisy/protocol/round';
+import { sideSeat } from '@daisy/protocol/seats';
 import {
-  emptyRuntimeCheckpointFor,
-  sideSeat,
   winnerOutcome,
   type RoundOutcome,
-  type RoundRules,
-} from '@daisy/protocol';
+} from '@daisy/protocol/round-outcome';
+import { type RoundRules } from '@daisy/protocol/format';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { normalizeRoundClock } from './round-clock-state';
 import {

@@ -1,6 +1,7 @@
 import { sql, type SQL } from 'drizzle-orm';
 import { z } from 'zod';
-import { idSchema, messagingChannelLifecycles } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
+import { messagingChannelLifecycles } from '@daisy/protocol/messaging/social';
 import { createAppError } from '@daisy/errors';
 import { messagingChannels } from '../schema/messaging-channels';
 import {

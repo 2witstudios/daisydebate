@@ -3,12 +3,9 @@ import { requireTestServices } from '@daisy/config';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';
-import {
-  isNamedSeat,
-  seatKey,
-  sideOfSeat,
-  type RoomCreate,
-} from '@daisy/protocol';
+import { isNamedSeat } from '@daisy/protocol/round-view';
+import { seatKey, sideOfSeat } from '@daisy/protocol/seats';
+import { type RoomCreate } from '@daisy/protocol/room-contract';
 
 import { withRoomRuntime } from './room-runtime.test-support';
 import { deleteOrphanNotificationSignals } from './notification-signals.test-support';

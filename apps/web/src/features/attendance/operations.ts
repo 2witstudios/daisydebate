@@ -26,8 +26,8 @@ import {
   attendanceEnvelopeSchema,
   attendanceTimingPolicy,
   type AttendanceEnvelope,
-  type JudgingTerminalReason,
-} from '@daisy/protocol';
+} from '@daisy/protocol/attendance';
+import { type JudgingTerminalReason } from '@daisy/protocol/round-judging-attempt';
 import { createAppError } from '@daisy/errors';
 import { acceptAttendanceReceipt } from './receipt-window';
 import { availabilityOf } from './availability-of';

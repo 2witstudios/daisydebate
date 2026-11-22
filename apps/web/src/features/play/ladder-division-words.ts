@@ -1,4 +1,4 @@
-import type { Ladder, RatingDivision } from '@daisy/protocol';
+import type { Ladder, RatingDivision } from '@daisy/protocol/ladder';
 
 /**
  * The words a member meets about the ladder they debate on (ADR 0147, ADR

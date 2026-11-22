@@ -1,5 +1,5 @@
 import { instantMs } from '@daisy/clock';
-import type { AgeBand } from '@daisy/protocol';
+import type { AgeBand } from '@daisy/protocol/ladder';
 import type {
   OrganizationCommand,
   OrganizationRefusal,

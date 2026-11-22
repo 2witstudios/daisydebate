@@ -1,5 +1,5 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import type { ChallengeList } from '@daisy/protocol';
+import type { ChallengeList } from '@daisy/protocol/challenges';
 import { mountBrowserClient } from '../test-support/browser-client.test-support';
 import type * as Client from './challenge-cards.test-support';
 

@@ -1,6 +1,6 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { stubCaseMap } from '@daisy/ai-voice/testing';
-import { ballotCategories, ballotRubricVersion } from '@daisy/protocol';
+import { ballotCategories, ballotRubricVersion } from '@daisy/protocol/ballot';
 import { claim, harness, reply } from './operations.test-support';
 setupRitewayBun();
 

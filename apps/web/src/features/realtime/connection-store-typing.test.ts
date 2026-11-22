@@ -1,5 +1,5 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { buildChannelTopic } from '@daisy/protocol';
+import { buildChannelTopic } from '@daisy/protocol/topics';
 import { harness, openAndReady } from './connection-store.test-support';
 
 setupRitewayBun();

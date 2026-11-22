@@ -1,5 +1,5 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { fourTeams, twoSides } from '@daisy/protocol';
+import { fourTeams, twoSides } from '@daisy/protocol/seats';
 import { createdSides } from './created-sides';
 
 const seating = (affirmative: number, negative: number) => ({

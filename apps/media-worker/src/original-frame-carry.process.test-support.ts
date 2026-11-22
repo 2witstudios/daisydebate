@@ -1,9 +1,7 @@
 import { createMediaWorkerAuthentication } from '@daisy/media/internal';
 import { createMediaWorkerClient } from '@daisy/media/worker';
-import {
-  canonicalCaptureEvidenceBody,
-  captureStateReply,
-} from '@daisy/protocol';
+import { canonicalCaptureEvidenceBody } from '@daisy/protocol/capture-evidence-body';
+import { captureStateReply } from '@daisy/protocol/capture-worker-replies';
 import { validateCaptureBatch, type ClipCarries } from './capture-batch';
 import { waitUntilPerformanceMs } from './capture-history';
 import { OriginalFrameBatches } from './original-frame-batches/original-frame-batches';

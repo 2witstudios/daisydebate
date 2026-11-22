@@ -1,5 +1,5 @@
 import { accountEntitlements } from '@daisy/auth/authorization';
-import type { EntitlementGrant } from '@daisy/protocol';
+import type { EntitlementGrant } from '@daisy/protocol/entitlements';
 
 /**
  * A download takes its own entitlement. An absent grant is never a grant; a beta grant counts only while beta

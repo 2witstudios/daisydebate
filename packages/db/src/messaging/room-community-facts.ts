@@ -2,7 +2,8 @@ import { sql } from 'drizzle-orm';
 import type { RoomCommunityFact } from '@daisy/protocol/room-community';
 import { postgresInt8, query } from '../raw-rows';
 import type { Tx } from '../tx';
-import { seatKindSchema, roomStatuses } from '@daisy/protocol';
+import { seatKindSchema } from '@daisy/protocol/seats';
+import { roomStatuses } from '@daisy/protocol/room-contract';
 import { z } from 'zod';
 
 type RoomCommunityRow = {

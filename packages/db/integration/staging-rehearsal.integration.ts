@@ -2,12 +2,9 @@ import { afterAll } from 'bun:test';
 import { SQL } from 'bun';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, test } from 'riteway/bun';
-import {
-  ratingStyles,
-  recordingLifecycleSchema,
-  roundRulesSchema,
-  type RoundRules,
-} from '@daisy/protocol';
+import { ratingStyles } from '@daisy/protocol/primitives';
+import { recordingLifecycleSchema } from '@daisy/protocol/recording';
+import { roundRulesSchema, type RoundRules } from '@daisy/protocol/format';
 import { resolveRoomConfiguration } from '@daisy/debate-engine';
 import {
   foundationSettings,

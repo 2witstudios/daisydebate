@@ -1,17 +1,18 @@
 import {
   affirmativeSide,
-  isNamedSeat,
-  isOpenRoomStatus,
   negativeSide,
+  type TwoSideKey,
+} from '@daisy/protocol/seats';
+import { isNamedSeat } from '@daisy/protocol/round-view';
+import { isOpenRoomStatus, type RoomView } from '@daisy/protocol/room-contract';
+import {
   seatsTwoTeams,
   sideOfTeam,
   sidesSwappable,
   teamOfPlacement,
-  type FormatSeating,
   type RoomTeam,
-  type RoomView,
-  type TwoSideKey,
-} from '@daisy/protocol';
+} from '@daisy/protocol/seat-draw';
+import { type FormatSeating } from '@daisy/protocol/format-seating';
 
 /**
  * What one roster row shows and may change (ADR 0145), derived from the

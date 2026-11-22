@@ -2,7 +2,7 @@ import { socialMemberReading } from '@daisy/auth/social-reading';
 import { betaDmPolicy } from '@daisy/auth/social-policy';
 import type { MessagingPolicyOverride } from '@daisy/config';
 import { tightenOnly } from '../../server/tighten-only';
-import { messagingBetaLimits } from '@daisy/protocol';
+import { messagingBetaLimits } from '@daisy/protocol/messaging/core';
 import type { RateRule } from '../../server/rate-limit';
 import type { MessagingRuntimePolicy } from './composition';
 

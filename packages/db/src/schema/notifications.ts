@@ -5,7 +5,7 @@ import {
   notificationSubjects,
   tournamentNotificationKinds,
   type NotificationSubjectKind,
-} from '@daisy/protocol';
+} from '@daisy/protocol/notifications';
 import { sql } from 'drizzle-orm';
 import {
   boolean,

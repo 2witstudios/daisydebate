@@ -1,6 +1,7 @@
-import { daisyBallotSource } from '@daisy/protocol';
+import { daisyBallotSource } from '@daisy/protocol/ballot-definition';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import type { RoundBallotRead, RoundBallotReceipt } from '@daisy/protocol';
+import type { RoundBallotRead } from '@daisy/protocol/round-ballot-read';
+import type { RoundBallotReceipt } from '@daisy/protocol/round-ballot';
 import {
   asActive,
   view,
@@ -12,7 +13,10 @@ import { formValues } from '../forms/form-state';
 import { ballotFormFixture } from './ballot-form.test-support';
 import type { RoundBallotFormState } from './form';
 import { ballotDisplay } from './presentation';
-import { daisyWinnerBallot, panelRuleFor } from '@daisy/protocol';
+import {
+  daisyWinnerBallot,
+  panelRuleFor,
+} from '@daisy/protocol/ballot-definition';
 
 setupRitewayBun();
 

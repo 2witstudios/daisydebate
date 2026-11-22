@@ -4,9 +4,10 @@ import { actors } from '../schema/actors';
 import { users } from '../schema/users';
 import { contactPairs } from '../schema/contacts';
 import { friendships } from '../schema/friends';
-import type { ChosenStatus, FriendshipState } from '@daisy/protocol';
+import type { ChosenStatus } from '@daisy/protocol/presence-setting';
+import type { FriendshipState } from '@daisy/protocol/friends';
 import { chosenStatusOf } from '../presence/settings';
-import type { MemberPlacement } from '@daisy/protocol';
+import type { MemberPlacement } from '@daisy/protocol/presence-setting';
 import { placementOf } from '../presence/availability';
 import {
   readOwnCollection,

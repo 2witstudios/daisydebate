@@ -3,12 +3,9 @@ import { validRules, publicLobbyId } from '@daisy/db/testing';
 import { foundationSettings } from '@daisy/db/reference-formats';
 import { SQL } from 'bun';
 import { z } from 'zod';
-import {
-  affirmativeSide,
-  emptyRuntimeCheckpointFor,
-  idSchema,
-  negativeSide,
-} from '@daisy/protocol';
+import { affirmativeSide, negativeSide } from '@daisy/protocol/seats';
+import { emptyRuntimeCheckpointFor } from '@daisy/protocol/round';
+import { idSchema } from '@daisy/protocol/primitives';
 import { betaAccessTarget } from './beta-access-target';
 
 const command = z

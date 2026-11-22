@@ -3,7 +3,7 @@ import {
   appDiscoverActor,
   usernameDiscoveryBatch,
 } from '../account/username-discovery';
-import { createMessagingSocialSchemas } from '@daisy/protocol';
+import { createMessagingSocialSchemas } from '@daisy/protocol/messaging/social';
 import type { App } from '../../server/app';
 import { parseValidated } from '../../server/http';
 

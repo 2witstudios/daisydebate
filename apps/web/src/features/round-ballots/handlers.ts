@@ -1,5 +1,6 @@
 import { serverClockHeaders } from '../round-runtime/server-clock-header';
-import { idSchema, type RoundBallotRead } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
+import { type RoundBallotRead } from '@daisy/protocol/round-ballot-read';
 import type { Clock } from '@daisy/clock';
 import type { Database } from '@daisy/db';
 import { parseValidated } from '../../server/http';

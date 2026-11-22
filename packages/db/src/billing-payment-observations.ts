@@ -1,5 +1,5 @@
 import { and, asc, eq, gt } from 'drizzle-orm';
-import { idSchema } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
 import {
   cleanupWorkSchema,
   ownsCleanupClaim,

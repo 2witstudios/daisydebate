@@ -4,7 +4,10 @@ import { randomBytes } from 'node:crypto';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { requireTestServices } from '@daisy/config';
 import { admitAllowance, canUseAiAllowance } from '@daisy/auth/authorization';
-import { analysisWorkSchema, type AnalysisWork } from '@daisy/protocol';
+import {
+  analysisWorkSchema,
+  type AnalysisWork,
+} from '@daisy/protocol/round-analysis-work';
 import { sampleRoundAnalysisReport as report } from '@daisy/protocol/round-analysis-testing';
 import { assertRejects } from '@daisy/errors/testing';
 import { withFixture, type Fixture } from './constraint-helpers';

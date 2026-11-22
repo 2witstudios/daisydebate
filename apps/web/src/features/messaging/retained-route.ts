@@ -1,7 +1,7 @@
 import { consumeMessagingRead } from './handler-boundary';
 import type { AuthorizationPrincipal } from '@daisy/auth/authorization';
 import type { OwnCollectionFence } from '@daisy/db/authorization';
-import { messagingRetainedSchemas } from '@daisy/protocol';
+import { messagingRetainedSchemas } from '@daisy/protocol/messaging/retained';
 import type { App } from '../../server/app';
 import { parseValidated, readJson } from '../../server/http';
 import { requireAuthorization } from '@daisy/auth/request-authorization';

@@ -1,6 +1,7 @@
-import { daisyBallotSource } from '@daisy/protocol';
+import { daisyBallotSource } from '@daisy/protocol/ballot-definition';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { daisyWinnerBallot, type JudgingPanelFacts } from '@daisy/protocol';
+import { daisyWinnerBallot } from '@daisy/protocol/ballot-definition';
+import { type JudgingPanelFacts } from '@daisy/protocol/round-panel-completion';
 import type { attendanceSettled } from './attendance-order';
 import { roundWaitingOn } from './round-waiting-on';
 

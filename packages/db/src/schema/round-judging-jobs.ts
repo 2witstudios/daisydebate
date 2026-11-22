@@ -1,6 +1,6 @@
+import { ballotRecordSchema } from '@daisy/protocol/ballot-schema';
+import { caseMapSchema } from '@daisy/protocol/case-map';
 import {
-  ballotRecordSchema,
-  caseMapSchema,
   judgingAttemptCategories,
   judgingAttemptDiagnosticSchema,
   judgingAttemptOutcomes,
@@ -12,7 +12,7 @@ import {
   type JudgingAttemptCategory,
   type JudgingAttemptOutcome,
   type JudgingTerminalReason,
-} from '@daisy/protocol';
+} from '@daisy/protocol/round-judging-attempt';
 import { sql } from 'drizzle-orm';
 import {
   boolean,

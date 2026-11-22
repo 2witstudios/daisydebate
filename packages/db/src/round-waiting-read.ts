@@ -3,7 +3,7 @@ import type {
   LaunchedRound,
   RoundWaitingFacts,
   RoundWaitingOn,
-} from '@daisy/protocol';
+} from '@daisy/protocol/round-view';
 import { sql } from 'drizzle-orm';
 import { readAttendanceLedger } from './attendance-settlement';
 import { readJudgingPanelFacts } from './judging-panel-read';

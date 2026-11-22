@@ -1,4 +1,5 @@
-import { sameSeat, type SeatGrantFacts } from '@daisy/protocol';
+import { sameSeat } from '@daisy/protocol/seats';
+import { type SeatGrantFacts } from '@daisy/protocol/capture-verdict';
 
 /**
  * True for a bot seat holding a grant it did not use: not its scheduled turn,

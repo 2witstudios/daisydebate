@@ -2,15 +2,17 @@ import { lifecycleSql } from './lifecycle-sql';
 import { createAppError } from '@daisy/errors';
 import {
   roundStatus,
-  idSchema,
   competitionTypes,
-  roundRatingScopeSchema,
-  roundOutcomeSchema,
   roundStatusSchema,
-  isRoundEndState,
+} from '@daisy/protocol/round';
+import { idSchema } from '@daisy/protocol/primitives';
+import { roundRatingScopeSchema } from '@daisy/protocol/rating-ladder';
+import { roundOutcomeSchema } from '@daisy/protocol/round-outcome';
+import { isRoundEndState } from '@daisy/protocol/round-lifecycle';
+import {
   type RatingEligibilityFacts,
   type RecordedEnding,
-} from '@daisy/protocol';
+} from '@daisy/protocol/ratings';
 import { roundOutcomeSql } from './round-outcome-sql';
 import { sql, type SQL } from 'drizzle-orm';
 import {

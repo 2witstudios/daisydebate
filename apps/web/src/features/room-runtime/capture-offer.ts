@@ -1,10 +1,10 @@
 import { accountEntitlements } from '@daisy/auth/authorization';
 import {
   isOpenRoomStatus,
-  type EntitlementGrant,
   type RoomAssemblyState,
   type RoomView,
-} from '@daisy/protocol';
+} from '@daisy/protocol/room-contract';
+import { type EntitlementGrant } from '@daisy/protocol/entitlements';
 
 /** This account may broadcast or record a casual Round (WATCH-8). */
 export const hostHoldsCasualCapture = (

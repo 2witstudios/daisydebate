@@ -1,6 +1,6 @@
 import { connect } from 'node:net';
 import { randomBytes, createHash } from 'node:crypto';
-import type { ServerMessage } from '@daisy/protocol';
+import type { ServerMessage } from '@daisy/protocol/realtime-server';
 import type { SocketData } from '../src/socket';
 import { createNativeCloseReader } from '../src/native-close-reader.test-support';
 import { testOrigin, waitFor } from './support';

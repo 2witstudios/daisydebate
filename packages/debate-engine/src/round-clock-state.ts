@@ -2,19 +2,20 @@ import { instantMs, tryInstantMs } from '@daisy/clock';
 import { createInvariantError } from '@daisy/errors';
 import {
   emptyRuntimeCheckpointFor,
-  isRoundLifecycle,
   isRoundOver,
-  roundLifecycleFault,
   runtimeCheckpointSchema,
-  type HydratedSegment,
   type OverRoundStatus,
-  type RoundOutcome,
+  type RuntimeCheckpoint,
+} from '@daisy/protocol/round';
+import {
+  isRoundLifecycle,
+  roundLifecycleFault,
   type RoundLifecycle,
   type RoundLifecycleColumns,
-  type RoundRules,
-  type RuntimeCheckpoint,
-  type SegmentType,
-} from '@daisy/protocol';
+} from '@daisy/protocol/round-lifecycle';
+import { type HydratedSegment } from '@daisy/protocol/runtime';
+import { type RoundOutcome } from '@daisy/protocol/round-outcome';
+import { type RoundRules, type SegmentType } from '@daisy/protocol/format';
 import { debateInvariantIds } from './invariant-ids';
 
 /** Where a Round is in its life; each status holds only the instants it has. */

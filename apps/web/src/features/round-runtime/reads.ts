@@ -11,7 +11,7 @@ import {
 } from '../spectating/linked-adults';
 import { eventRoomOwner } from '../tab/event-room-direction';
 import { readRoundOpening, roundWaitingOn } from '@daisy/debate-engine';
-import type { LaunchedRound } from '@daisy/protocol';
+import type { LaunchedRound } from '@daisy/protocol/round-view';
 const canRead = (
   caller: { readonly userId: string; readonly actorId: string },
   round: LaunchedRound,

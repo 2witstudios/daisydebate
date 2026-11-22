@@ -4,7 +4,8 @@ import { rateDebate, ratingPolicy } from '@daisy/debate-engine';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { inArena, minute } from './ratings-arena';
 import { withSql } from './fixtures';
-import { winnerOutcome, type TwoSideKey } from '@daisy/protocol';
+import { winnerOutcome } from '@daisy/protocol/round-outcome';
+import { type TwoSideKey } from '@daisy/protocol/seats';
 
 requireTestServices(process.env);
 setupRitewayBun();

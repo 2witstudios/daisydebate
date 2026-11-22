@@ -1,16 +1,15 @@
 import { instantMs } from '@daisy/clock';
+import { leadSeatOf } from '@daisy/protocol/format-seating';
 import {
-  leadSeatOf,
   otherSide,
-  roundStartPolicy,
   sideOfSeat,
   sideSeat,
   type SideKey,
-  type RoundCommand,
-  type RoundPosition,
-  type RoundRules,
   type SeatRef,
-} from '@daisy/protocol';
+} from '@daisy/protocol/seats';
+import { roundStartPolicy } from '@daisy/protocol/round-start-policy';
+import { type RoundCommand, type RoundPosition } from '@daisy/protocol/runtime';
+import { type RoundRules } from '@daisy/protocol/format';
 import { seatAt, type CorpusSeat } from './corpus-seats';
 import type { Durable } from './durable';
 

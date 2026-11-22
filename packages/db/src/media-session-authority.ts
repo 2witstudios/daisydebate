@@ -1,13 +1,13 @@
 import { roundSourceVoided } from './round-source-state';
 import { currentRoundParticipant } from './round-current-participant';
 import { createAppError } from '@daisy/errors';
+import { idSchema } from '@daisy/protocol/primitives';
+import { isAbsentSeat } from '@daisy/protocol/round';
 import {
-  idSchema,
-  isAbsentSeat,
   type MediaPhase,
   type MediaWindowFacts,
-  type RoundCommandAuthority,
-} from '@daisy/protocol';
+} from '@daisy/protocol/post-round-call';
+import { type RoundCommandAuthority } from '@daisy/protocol/round-command';
 import { and, eq } from 'drizzle-orm';
 import { lockAuthorizationActors } from './authorization';
 import { actorFact } from './room-command-facts';

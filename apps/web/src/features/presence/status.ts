@@ -1,9 +1,9 @@
 import type {
   ChosenStatus,
   MemberStatus,
-  PresenceActivity,
   MemberPlacement,
-} from '@daisy/protocol';
+} from '@daisy/protocol/presence-setting';
+import type { PresenceActivity } from '@daisy/protocol/realtime';
 
 /**
  * What anyone sees of a member, the one rule (ADR 0103). Appearing offline or

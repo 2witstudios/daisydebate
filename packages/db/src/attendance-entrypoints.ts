@@ -1,5 +1,5 @@
 import type { RoundTimeSource } from './round-execution-time';
-import { attendanceTimingPolicy } from '@daisy/protocol';
+import { attendanceTimingPolicy } from '@daisy/protocol/attendance';
 import {
   createAttendanceOperations,
   type AttendanceTransaction,

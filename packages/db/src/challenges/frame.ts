@@ -3,12 +3,9 @@ import { and, eq, or, sql } from 'drizzle-orm';
 import { createAppError, createRefusal } from '@daisy/errors';
 import { readChallengeDebaters, sharedChallengeLobby } from './lobby';
 import { readOfficialStandingLobbies } from '../official-standing-lobbies';
-import {
-  buildUserInboxTopic,
-  idSchema,
-  type RatingStyle,
-  type CompetitionType,
-} from '@daisy/protocol';
+import { buildUserInboxTopic } from '@daisy/protocol/topics';
+import { idSchema, type RatingStyle } from '@daisy/protocol/primitives';
+import { type CompetitionType } from '@daisy/protocol/round';
 import type { ContactPairKey } from '../contacts/reactions';
 import type { ContactInput } from '../contacts/fence';
 import { oweNotifications } from '../notifications/owe';

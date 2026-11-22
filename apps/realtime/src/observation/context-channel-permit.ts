@@ -1,5 +1,5 @@
 import { instantMs } from '@daisy/clock';
-import { observationPermitMs } from '@daisy/protocol';
+import { observationPermitMs } from '@daisy/protocol/observation';
 import type { loadAuthorizationSession } from '@daisy/db/authorization';
 import type { PermitDecision } from './permits';
 

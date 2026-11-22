@@ -12,7 +12,7 @@ import {
   emailDeliveryStatuses,
   emailDeliveryStatusRank,
   emailSuppressionReasons,
-} from '@daisy/protocol';
+} from '@daisy/protocol/email-delivery';
 import {
   createdAtColumn,
   oneOf,

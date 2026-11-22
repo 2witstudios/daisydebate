@@ -1,9 +1,7 @@
 import type { ConnectionDiagnostic } from './connection-diagnostics';
-import type {
-  ObservationResource,
-  PresenceActivity,
-  ServerMessage,
-} from '@daisy/protocol';
+import type { ObservationResource } from '@daisy/protocol/observation';
+import type { PresenceActivity } from '@daisy/protocol/realtime';
+import type { ServerMessage } from '@daisy/protocol/realtime-server';
 import type { ConnectionPhase } from './connection-status';
 
 /**

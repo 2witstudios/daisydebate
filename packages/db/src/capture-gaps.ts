@@ -1,6 +1,7 @@
 import { and, eq, inArray } from 'drizzle-orm';
 import { grantWindows } from './capture-history';
-import { speakingEndMs, type CaptureRule } from '@daisy/protocol';
+import { speakingEndMs } from '@daisy/protocol/segment-end';
+import { type CaptureRule } from '@daisy/protocol/capture-verdict';
 import { actors } from './schema/actors';
 import { roundParticipants } from './schema/round-participants';
 import { roundSegments } from './schema/round-segments';

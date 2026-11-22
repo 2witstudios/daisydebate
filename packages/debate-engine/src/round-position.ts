@@ -1,10 +1,10 @@
 import type {
   HydratedSegment,
-  RoundLifecycleColumns,
-  RoundRules,
   RoundParticipantSeat,
   RoundPosition,
-} from '@daisy/protocol';
+} from '@daisy/protocol/runtime';
+import type { RoundLifecycleColumns } from '@daisy/protocol/round-lifecycle';
+import type { RoundRules } from '@daisy/protocol/format';
 import { advanceRoundClock } from './round-clock';
 import { normalizeRoundClock } from './round-clock-state';
 import {

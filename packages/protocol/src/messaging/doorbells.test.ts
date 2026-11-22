@@ -1,9 +1,9 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
+import { buildChannelTopic } from '../topics';
 import {
-  buildChannelTopic,
   isPayloadStorableOnTopic,
   outboxPayloadSchema,
-} from '../index';
+} from '../realtime-payloads';
 import { parseTopic } from '../topics';
 
 setupRitewayBun();

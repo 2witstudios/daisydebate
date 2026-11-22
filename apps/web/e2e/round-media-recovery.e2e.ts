@@ -1,5 +1,5 @@
 import type { Page } from '@playwright/test';
-import { roundMediaStateSchema } from '@daisy/protocol';
+import { roundMediaStateSchema } from '@daisy/protocol/round-media';
 import { test, expect, openPage } from './support/fixtures';
 import { createRoomLaunchAccounts } from './support/room-launch-accounts';
 import { closeSettledLaunchContexts } from './support/room-launch-settled';

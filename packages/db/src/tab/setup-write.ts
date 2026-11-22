@@ -1,5 +1,5 @@
 import type { StageKind } from '@daisy/protocol/lobby';
-import type { BallotDefinition } from '@daisy/protocol';
+import type { BallotDefinition } from '@daisy/protocol/ballot-definition';
 
 type Insert<Table extends string, Row> = {
   readonly table: Table;

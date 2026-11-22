@@ -1,4 +1,4 @@
-import type { RoundMediaState } from '@daisy/protocol';
+import type { RoundMediaState } from '@daisy/protocol/round-media';
 import type { MediaReadIntent } from '../media-read-intent';
 import type {
   DeviceFailureKind,

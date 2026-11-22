@@ -1,4 +1,4 @@
-import type { TournamentNotificationKind } from '@daisy/protocol';
+import type { TournamentNotificationKind } from '@daisy/protocol/notifications';
 import { sql } from 'drizzle-orm';
 import { oweNotifications } from './owe';
 import { query } from '../raw-rows';

@@ -1,6 +1,6 @@
 import type { AuthorizationPrincipal } from '@daisy/auth/authorization';
 import type { Clock } from '@daisy/clock';
-import type { ChosenStatus } from '@daisy/protocol';
+import type { ChosenStatus } from '@daisy/protocol/presence-setting';
 import { requireMemberActor } from '../access/actor';
 
 /** The member's own status choice (ADR 0103): Online, Busy or Appear offline. */

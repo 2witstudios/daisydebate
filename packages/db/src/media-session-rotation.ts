@@ -1,8 +1,6 @@
 import { and, eq, inArray, sql } from 'drizzle-orm';
-import {
-  mediaBindingRevoked,
-  type RoundCommandAuthority,
-} from '@daisy/protocol';
+import { mediaBindingRevoked } from '@daisy/protocol/media-binding-authority';
+import { type RoundCommandAuthority } from '@daisy/protocol/round-command';
 import { mediaId } from './media-session-authority';
 import { mediaParticipants } from './schema/media-sessions';
 import { mediaWorkerLeases } from './schema/transcript-segments';

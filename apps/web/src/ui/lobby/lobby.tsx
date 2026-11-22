@@ -1,6 +1,9 @@
 import { StatusRegion } from '../components/status-region/status-region';
 import Link from 'next/link';
-import { type RoomListEntry, type RoomListQuery } from '@daisy/protocol';
+import {
+  type RoomListEntry,
+  type RoomListQuery,
+} from '@daisy/protocol/room-contract';
 import { isFiltered, lobbyHref } from '../../features/lobby/discovery-query';
 import type { StandingLobbyChoice } from '@daisy/protocol/lobby/eligibility';
 import { lobbySections, type LobbyViewer } from '../../features/lobby/rows';

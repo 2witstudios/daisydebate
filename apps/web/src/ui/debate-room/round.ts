@@ -1,7 +1,8 @@
-import type { CompetitionType, SeatRef, SideKey } from '@daisy/protocol';
+import type { CompetitionType } from '@daisy/protocol/round';
+import type { SeatRef, SideKey } from '@daisy/protocol/seats';
 import type { ChatMessage } from '../../features/debate-room/chat';
 import type { SideTone, SpeechSlot } from '../../features/debate-room/speeches';
-import type { RoundWaitingOn } from '@daisy/protocol';
+import type { RoundWaitingOn } from '@daisy/protocol/round-view';
 import type { JudgingBallots } from '../../features/debate-room/judging';
 import type { RoundPhase } from '../../features/debate-room/layout';
 import type { Agent, Channel } from '../../features/debate-room/workspace';

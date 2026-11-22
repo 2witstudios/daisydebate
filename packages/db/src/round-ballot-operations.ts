@@ -2,13 +2,13 @@ import {
   ballotTextScreeningSchema,
   type BallotWrittenRecord,
   type BallotTextScreening,
-} from '@daisy/protocol';
+} from '@daisy/protocol/ballot-schema';
 import { lockRoundBallotScreening } from './round-ballot-screening';
 import { ballotScreenings } from './schema/ballot-screenings';
 import { jsonObjectSchema } from './schema/columns';
 import { sampleRoundExecutionTime } from './round-execution-time';
 import type { RoundTimeSource } from './round-execution-time';
-import type { JudgingPanelFacts } from '@daisy/protocol';
+import type { JudgingPanelFacts } from '@daisy/protocol/round-panel-completion';
 import { readJudgingPanelFacts } from './judging-panel-read';
 import { roundBallotReads } from './round-ballot-reads';
 import {
@@ -21,10 +21,12 @@ import {
   roundBallotReceiptSchema,
   type RoundBallotEnvelope,
   type RoundBallotReceipt,
+} from '@daisy/protocol/round-ballot';
+import {
   type RoundCommandPrincipal,
   type RoundCommandAuthority,
-  type RoundProjection,
-} from '@daisy/protocol';
+} from '@daisy/protocol/round-command';
+import { type RoundProjection } from '@daisy/protocol/runtime';
 import { eq } from 'drizzle-orm';
 import {
   readLockedFrozenRoundTranscript,

@@ -1,13 +1,15 @@
 import { nowMs } from '@daisy/clock';
+import { holdAttemptPrefix } from '@daisy/protocol/recording';
+import { parseHoldPlaylist } from '@daisy/protocol/egress-hold-playlist';
 import {
-  holdAttemptPrefix,
-  parseHoldPlaylist,
   type BuiltRecordingMedia,
   type RecordingBuildProgress,
   type RecordingJobState,
+} from '@daisy/protocol/recording-processing';
+import {
   publicClips,
   type PublicInterval,
-} from '@daisy/protocol';
+} from '@daisy/protocol/public-interval';
 import {
   attemptSource,
   continuousRuns,

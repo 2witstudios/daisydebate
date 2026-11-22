@@ -2,7 +2,7 @@ import { ConversationPane } from '../../../../../../ui/messaging/conversation-pa
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { systemId } from '@daisy/clock';
-import { idSchema } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
 import { requireAccess } from '../../../../../../lib/access';
 import { privateGroupsOffered } from '../../../../../../lib/request-session';
 import type { MessagingChannelPageProps } from '../../../../../../features/messaging/channel-page';

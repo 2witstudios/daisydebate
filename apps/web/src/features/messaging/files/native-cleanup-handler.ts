@@ -1,5 +1,5 @@
 import { createAppError } from '@daisy/errors';
-import { createMessagingFileSchemas } from '@daisy/protocol';
+import { createMessagingFileSchemas } from '@daisy/protocol/messaging/files';
 import { readBytes, parseValidated } from '../../../server/http';
 import { inProcessFetch } from '../../../server/in-process-fetch';
 import { runEvaluatedRoute } from '../../../server/member-boundary';

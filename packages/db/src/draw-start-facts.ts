@@ -10,7 +10,7 @@ import {
   or,
   sql,
 } from 'drizzle-orm';
-import type { RoomAssemblyState } from '@daisy/protocol';
+import type { RoomAssemblyState } from '@daisy/protocol/room-contract';
 import {
   resolutionBankEntries,
   resolutionBankRevisions,

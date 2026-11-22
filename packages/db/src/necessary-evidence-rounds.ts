@@ -1,5 +1,5 @@
 import { createAppError } from '@daisy/errors';
-import { idSchema } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
 import { eq, sql } from 'drizzle-orm';
 import { rounds } from './schema/rounds';
 import { necessaryEvidenceRounds } from './schema/necessary-evidence-rounds';

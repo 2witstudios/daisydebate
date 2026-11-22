@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { createAppError } from '@daisy/errors';
-import type { BetaAccessDecision } from '@daisy/protocol';
+import type { BetaAccessDecision } from '@daisy/protocol/beta-access';
 import { sql } from 'drizzle-orm';
 import { applyBetaEntitlementGrants } from './entitlement-grants';
 import { query, run } from './raw-rows';

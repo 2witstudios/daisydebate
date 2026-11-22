@@ -1,5 +1,5 @@
 import posthog from 'posthog-js';
-import { idSchema } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
 import {
   parseProductEvent,
   parseSdkProductEvent,

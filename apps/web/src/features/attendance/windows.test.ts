@@ -1,5 +1,6 @@
 import { instantMs, addMs } from '@daisy/clock';
-import { emptyRuntimeCheckpointFor, twoSides } from '@daisy/protocol';
+import { emptyRuntimeCheckpointFor } from '@daisy/protocol/round';
+import { twoSides } from '@daisy/protocol/seats';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import {
   oneOnOneDefinition,
@@ -8,7 +9,7 @@ import {
 import { resolveRoomConfiguration } from '@daisy/debate-engine';
 import type { LockedAttendanceCheckIn } from '@daisy/db/attendance';
 import { isAppError } from '@daisy/errors';
-import { attendanceTimingPolicy } from '@daisy/protocol';
+import { attendanceTimingPolicy } from '@daisy/protocol/attendance';
 import { acceptAttendanceReceipt } from './receipt-window';
 import { attendanceWindowFor } from './windows';
 setupRitewayBun();

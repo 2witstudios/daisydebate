@@ -3,7 +3,7 @@ import {
   type RoundTimeSource,
 } from './round-execution-time';
 import { createAppError } from '@daisy/errors';
-import { idSchema } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
 import { sql } from 'drizzle-orm';
 import type { Tx } from './tx';
 import { query } from './raw-rows';

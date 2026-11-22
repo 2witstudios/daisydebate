@@ -1,5 +1,5 @@
 import { StatusRegion } from '../../components/status-region/status-region';
-import type { RoomView } from '@daisy/protocol';
+import type { RoomView } from '@daisy/protocol/room-contract';
 import { UpgradePanel } from '../../components/upgrade-panel/upgrade-panel';
 
 const refusals = {

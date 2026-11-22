@@ -1,7 +1,10 @@
 import { SQL } from 'bun';
 import { afterAll } from 'bun:test';
 import { createId } from '@paralleldrive/cuid2';
-import { daisyWinnerBallot, panelRuleFor } from '@daisy/protocol';
+import {
+  daisyWinnerBallot,
+  panelRuleFor,
+} from '@daisy/protocol/ballot-definition';
 import { assert, test } from 'riteway/bun';
 import { Fixture } from './constraint-helpers';
 import { daisyOrganizationId } from '../src/daisy-reference';

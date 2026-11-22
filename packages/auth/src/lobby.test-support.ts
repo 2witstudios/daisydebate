@@ -1,4 +1,4 @@
-import { affirmativeSide, judgeSeat, sideSeat } from '@daisy/protocol';
+import { affirmativeSide, judgeSeat, sideSeat } from '@daisy/protocol/seats';
 import {
   permissionSchema,
   type AuthorizationCapability,

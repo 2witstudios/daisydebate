@@ -1,4 +1,5 @@
-import { buildRoundTopic, isJudgeSeat, judgeSeat } from '@daisy/protocol';
+import { buildRoundTopic } from '@daisy/protocol/topics';
+import { isJudgeSeat, judgeSeat } from '@daisy/protocol/seats';
 import { finalizeAsWeb } from './round-maintenance.test-support';
 import { assembleJudgedRoom } from './round-judges.test-support';
 import { playOut } from './round-judging.test-support';

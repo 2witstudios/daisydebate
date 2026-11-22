@@ -1,4 +1,4 @@
-import { judgeSeat, negativeSide, sideSeat } from '@daisy/protocol';
+import { judgeSeat, negativeSide, sideSeat } from '@daisy/protocol/seats';
 import { createId } from '@paralleldrive/cuid2';
 import { execFile } from 'node:child_process';
 import { fileURLToPath } from 'node:url';

@@ -1,10 +1,7 @@
 import { systemClock } from '@daisy/clock';
-import {
-  idSchema,
-  roomViewSchema,
-  sameSeat,
-  type SeatRef,
-} from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
+import { roomViewSchema } from '@daisy/protocol/room-read';
+import { sameSeat, type SeatRef } from '@daisy/protocol/seats';
 import {
   lobbyCommandReceiptSchema,
   type CommandExpected,

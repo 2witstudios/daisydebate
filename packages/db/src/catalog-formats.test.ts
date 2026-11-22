@@ -1,5 +1,6 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { formatDefinitionSchema, formatSettingsSchema } from '@daisy/protocol';
+import { formatDefinitionSchema } from '@daisy/protocol/format';
+import { formatSettingsSchema } from '@daisy/protocol/format-settings';
 import { catalogFormats } from './catalog-formats';
 import { casualTemplateIds } from './catalog-casual';
 

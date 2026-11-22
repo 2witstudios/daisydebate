@@ -1,9 +1,9 @@
 'use client';
 import { useBrowserEffect } from '../edge/browser-sync';
-import { isRoundOver } from '@daisy/protocol';
+import { isRoundOver } from '@daisy/protocol/round';
 import { postRoundCallChosen } from '../../features/post-round-call/offered';
 import { useMemo, useState } from 'react';
-import type { RoundView } from '@daisy/protocol';
+import type { RoundView } from '@daisy/protocol/round-view';
 import { clearDeparture } from '../../features/rooms/resume-departure';
 import { clearResumeAttempt } from '../../features/rooms/resume-attempt';
 import { useResumeLifetime } from '../active-room/use-resume-lifetime';

@@ -9,16 +9,11 @@ import {
   postRoundCallOffered,
 } from '../../features/post-round-call/offered';
 import { microphoneOpensForClock } from '@daisy/debate-engine/media-grants';
-import {
-  isAbsentSeat,
-  leadSeatOf,
-  sideOfSeat,
-  speakingSeatsOf,
-  type RoundView,
-  type SeatRef,
-  type SegmentType,
-  type SideKey,
-} from '@daisy/protocol';
+import { isAbsentSeat } from '@daisy/protocol/round';
+import { leadSeatOf, speakingSeatsOf } from '@daisy/protocol/format-seating';
+import { sideOfSeat, type SeatRef, type SideKey } from '@daisy/protocol/seats';
+import { type RoundView } from '@daisy/protocol/round-view';
+import { type SegmentType } from '@daisy/protocol/format';
 import {
   floorSeatOf,
   isLiveRound,

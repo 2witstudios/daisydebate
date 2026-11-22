@@ -5,19 +5,20 @@ import type {
   RoomConsent,
   RoomMutationOutcome,
   RoomRefusal,
-  SeatDraw,
-  SideSeat,
-  TwoSideKey,
-} from '@daisy/protocol';
+} from '@daisy/protocol/room-contract';
+import type { SeatDraw } from '@daisy/protocol/seat-draw';
+import type { SideSeat, TwoSideKey } from '@daisy/protocol/seats';
 import {
   affirmativeSide,
   negativeSide,
+  sideSeat,
+  twoSideKeys,
+} from '@daisy/protocol/seats';
+import {
   seatsTwoTeams,
   sidesSwappable,
-  sideSeat,
   teamPlacementOf,
-  twoSideKeys,
-} from '@daisy/protocol';
+} from '@daisy/protocol/seat-draw';
 import {
   canonicalJson,
   canonicalOrder,

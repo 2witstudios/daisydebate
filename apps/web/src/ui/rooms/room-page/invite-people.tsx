@@ -4,7 +4,7 @@ import { Button } from '../../components/button/button';
 import { StatusRegion } from '../../components/status-region/status-region';
 import { invitePeopleTitleId } from './invite-people-title';
 import { Fragment, useState } from 'react';
-import type { RoomView } from '@daisy/protocol';
+import type { RoomView } from '@daisy/protocol/room-contract';
 import { invitedTo } from '../../../features/notifications/notification-words';
 import {
   initialInvitationForm,

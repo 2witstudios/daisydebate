@@ -2,7 +2,7 @@ import { sha3Hex } from '@daisy/digest';
 import { noopErrorReporter } from '@daisy/observability';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import type { Identity } from '@daisy/auth';
-import { ticketSchema } from '@daisy/protocol';
+import { ticketSchema } from '@daisy/protocol/realtime';
 import { silentLogger } from '../../server/test-loggers.test-support';
 import { createTicketHandler } from './ticket';
 import { allowEvery } from '../../server/rate-limit.test-support';

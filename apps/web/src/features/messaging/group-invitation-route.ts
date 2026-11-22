@@ -1,6 +1,6 @@
 import { requirePrivateGroups } from './private-groups';
 import { createAppError } from '@daisy/errors';
-import { createMessagingSocialSchemas } from '@daisy/protocol';
+import { createMessagingSocialSchemas } from '@daisy/protocol/messaging/social';
 import type { App } from '../../server/app';
 import { parseValidated, readJson } from '../../server/http';
 import { consumeWindowsOrThrow } from '../../server/rate-limit';

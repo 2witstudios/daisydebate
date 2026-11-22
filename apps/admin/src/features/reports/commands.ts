@@ -1,4 +1,4 @@
-import type { ReportOutcome } from '@daisy/protocol';
+import type { ReportOutcome } from '@daisy/protocol/reports';
 import { appendAudit } from '../../audit/store';
 import {
   authorizeOperator,

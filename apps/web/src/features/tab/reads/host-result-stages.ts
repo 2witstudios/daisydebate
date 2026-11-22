@@ -1,6 +1,6 @@
 import type { HostResultsFacts } from '@daisy/db/tab';
 import { createAppError } from '@daisy/errors';
-import { isRoundRunning, isRoundOver } from '@daisy/protocol';
+import { isRoundRunning, isRoundOver } from '@daisy/protocol/round';
 import type { HostResultsView } from '@daisy/protocol/lobby/results-read';
 import { z } from 'zod';
 import { drawStageSnapshotSchema } from '../operations/draw-facts';

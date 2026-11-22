@@ -1,4 +1,7 @@
-import type { MediaRoomFacts, MediaRoomFate } from '@daisy/protocol';
+import type {
+  MediaRoomFacts,
+  MediaRoomFate,
+} from '@daisy/protocol/media-room-fate';
 
 /**
  * The node holding an occupied room has gone. LiveKit has no room migration, and for

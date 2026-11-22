@@ -1,19 +1,23 @@
 import { createInvariantError } from '@daisy/errors';
 import {
   ballotSchemaFor,
-  aiBallotAdmissionRefusal,
   ballotSubjectsFor,
+  type Ballot,
+} from '@daisy/protocol/ballot-schema';
+import { aiBallotAdmissionRefusal } from '@daisy/protocol/ai-ballot-admission';
+import {
   isDebatingSeat,
   seatOrder,
-  type RoundRules,
   type SeatRef,
   twoSideKeys,
-  type Ballot,
+  type Side,
+} from '@daisy/protocol/seats';
+import { type RoundRules } from '@daisy/protocol/format';
+import {
   type BallotDefinition,
   type BallotSubjects,
-  type JudgingStageInput,
-  type Side,
-} from '@daisy/protocol';
+} from '@daisy/protocol/ballot-definition';
+import { type JudgingStageInput } from '@daisy/protocol/round-judging-attempt';
 import type { z } from 'zod';
 import { ballotAnswer, type JudgedAnswer, type ModelAnswer } from './judge';
 import { ballotWireSchemaFor, type JsonSchema } from './judge-contract';

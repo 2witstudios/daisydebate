@@ -1,5 +1,5 @@
 import { randomBytes } from 'node:crypto';
-import { sideSeat } from '@daisy/protocol';
+import { sideSeat } from '@daisy/protocol/seats';
 import {
   oneOnOneDefinition,
   oneOnOneSettings,

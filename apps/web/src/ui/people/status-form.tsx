@@ -2,7 +2,10 @@
 
 import { Button } from '../components/button/button';
 import { StatusRegion } from '../components/status-region/status-region';
-import { chosenStatuses, type ChosenStatus } from '@daisy/protocol';
+import {
+  chosenStatuses,
+  type ChosenStatus,
+} from '@daisy/protocol/presence-setting';
 
 import {
   initialPresenceForm,

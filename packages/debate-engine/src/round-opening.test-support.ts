@@ -3,11 +3,11 @@ import {
   drawCapableBounds,
   plainFormatSettings,
 } from '@daisy/protocol/testing';
+import type { FormatSettings } from '@daisy/protocol/format-settings';
 import type {
-  FormatSettings,
   RoomAssemblyState,
   RoomCommand,
-} from '@daisy/protocol';
+} from '@daisy/protocol/room-contract';
 import { executeRoomCommand } from './room-assembly';
 import { consent, edges, state } from './room-assembly.test-support';
 import { bytesOf } from './draw-random';

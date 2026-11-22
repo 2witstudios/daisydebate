@@ -2,7 +2,7 @@
 import { headers } from 'next/headers';
 import { revalidatePath } from 'next/cache';
 import { systemId } from '@daisy/clock';
-import { contactBlockResultSchema } from '@daisy/protocol';
+import { contactBlockResultSchema } from '@daisy/protocol/contacts';
 import { processRoute } from '../../../../server/process-app';
 import { inProcessFetch } from '../../../../server/in-process-fetch';
 import {

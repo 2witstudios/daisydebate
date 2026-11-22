@@ -1,4 +1,4 @@
-import { affirmativeSide, sideSeat } from '@daisy/protocol';
+import { affirmativeSide, sideSeat } from '@daisy/protocol/seats';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { authorize, type ChannelAuthorizationFact } from './authorization';
 import { input, resource, accounts } from './channel.test-support';

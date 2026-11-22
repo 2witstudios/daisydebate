@@ -3,7 +3,9 @@ import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { requireTestServices } from '@daisy/config';
 import { rateDebate, ratingPolicy } from '@daisy/debate-engine';
-import { ladderKey, winnerOutcome, type RatingState } from '@daisy/protocol';
+import { ladderKey } from '@daisy/protocol/ladder';
+import { winnerOutcome } from '@daisy/protocol/round-outcome';
+import { type RatingState } from '@daisy/protocol/ratings';
 import { SQL } from 'bun';
 import { Fixture } from './constraint-helpers';
 import {

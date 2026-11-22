@@ -1,11 +1,8 @@
 import { instantMs } from '@daisy/clock';
-import {
-  everySeatOf,
-  sameSeat,
-  type RoundParticipantSeat,
-  type RoundRules,
-  type SeatRef,
-} from '@daisy/protocol';
+import { everySeatOf } from '@daisy/protocol/format-seating';
+import { sameSeat, type SeatRef } from '@daisy/protocol/seats';
+import { type RoundParticipantSeat } from '@daisy/protocol/runtime';
+import { type RoundRules } from '@daisy/protocol/format';
 
 /** A seat as the authority reads it: every corpus seat is an eligible human. */
 export type CorpusSeat = RoundParticipantSeat & {

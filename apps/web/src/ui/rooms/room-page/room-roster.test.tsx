@@ -1,6 +1,7 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { judgeSeat, sideSeat, type RoomView } from '@daisy/protocol';
+import { judgeSeat, sideSeat } from '@daisy/protocol/seats';
+import { type RoomView } from '@daisy/protocol/room-contract';
 import { assemblySnapshot } from '../../../features/rooms/assembly.test-support';
 import { idle } from '../../../features/forms/form-state';
 import { botsForSeat, RoomRoster } from './room-roster';

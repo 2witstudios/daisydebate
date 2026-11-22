@@ -1,7 +1,7 @@
 import { tryInstantMs } from '@daisy/clock';
 import { createTurnTaking, turnTakingSettings } from '@daisy/ai-voice';
 import { createAppError } from '@daisy/errors';
-import { idSchema } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
 
 export type BotAudioActivityFrame = {
   readonly roundId: string;

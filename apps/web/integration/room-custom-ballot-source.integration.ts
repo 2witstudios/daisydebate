@@ -6,9 +6,9 @@ import { scratchDatabase, daisyOrganizationId } from '@daisy/db/testing';
 import { createId } from '@paralleldrive/cuid2';
 import {
   daisyWinnerBallot,
-  judgeSeat,
   type BallotDefinition,
-} from '@daisy/protocol';
+} from '@daisy/protocol/ballot-definition';
+import { judgeSeat } from '@daisy/protocol/seats';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { withRoomRuntime } from './room-runtime.test-support';
 import {

@@ -13,21 +13,27 @@ import {
 } from '@daisy/debate-engine';
 import {
   daisyBallotFor,
+  panelRuleFor,
+} from '@daisy/protocol/ballot-definition';
+import {
   emptyRuntimeCheckpointFor,
+  type RoundStage,
+} from '@daisy/protocol/round';
+import {
   isJudgeSeat,
   judgeSeat,
-  panelRuleFor,
   sideSeat,
-  type HydratedSegment,
-  type RoundOutcome,
-  type RoundPanelCompletion,
-  type RoundParticipantSeat,
-  type RoundProjection,
-  type RoundRules,
-  type RoundStage,
   type SeatRef,
   type SideKey,
-} from '@daisy/protocol';
+} from '@daisy/protocol/seats';
+import {
+  type HydratedSegment,
+  type RoundParticipantSeat,
+  type RoundProjection,
+} from '@daisy/protocol/runtime';
+import { type RoundOutcome } from '@daisy/protocol/round-outcome';
+import { type RoundPanelCompletion } from '@daisy/protocol/round-panel-completion';
+import { type RoundRules } from '@daisy/protocol/format';
 
 /** The reference formats a scenario plays, each with its sanctioned config. */
 const scenarioConfigs = {

@@ -1,5 +1,5 @@
 import type { Logger } from '@daisy/logger';
-import type { JudgingRecoveryReason } from '@daisy/protocol';
+import type { JudgingRecoveryReason } from '@daisy/protocol/round-judging-attempt';
 
 /** A durable pause is a work state, not a terminal failure or a raw provider error. */
 export function reportJudgingRecovery(

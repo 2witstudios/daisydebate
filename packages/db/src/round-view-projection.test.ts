@@ -1,10 +1,7 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import {
-  emptyRuntimeCheckpointFor,
-  twoSides,
-  type LaunchedRound,
-  type SeatRef,
-} from '@daisy/protocol';
+import { emptyRuntimeCheckpointFor } from '@daisy/protocol/round';
+import { twoSides, type SeatRef } from '@daisy/protocol/seats';
+import { type LaunchedRound } from '@daisy/protocol/round-view';
 import { foundationSettings } from './reference-formats';
 import { validRules } from './testing-rules';
 import { readableCheckpoint, roundViewFor } from './round-view-projection';

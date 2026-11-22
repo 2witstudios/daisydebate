@@ -1,6 +1,6 @@
 import { addMs } from '@daisy/clock';
 import { createAppError } from '@daisy/errors';
-import { isOpenRoomStatus } from '@daisy/protocol';
+import { isOpenRoomStatus } from '@daisy/protocol/room-contract';
 import {
   roomCommunityReadsOnly,
   roomCommunityRetentionMs,

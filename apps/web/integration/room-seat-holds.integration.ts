@@ -1,5 +1,6 @@
 import { requireTestServices } from '@daisy/config';
-import { isRoundRunning, negativeSide, sideSeat } from '@daisy/protocol';
+import { isRoundRunning } from '@daisy/protocol/round';
+import { negativeSide, sideSeat } from '@daisy/protocol/seats';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import {
   launchRuntimeRound,

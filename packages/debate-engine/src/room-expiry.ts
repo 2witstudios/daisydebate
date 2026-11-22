@@ -1,5 +1,8 @@
 import { instantMs } from '@daisy/clock';
-import { isOpenRoomStatus, type RoomAssemblyState } from '@daisy/protocol';
+import {
+  isOpenRoomStatus,
+  type RoomAssemblyState,
+} from '@daisy/protocol/room-contract';
 import { acceptedRoomMutation } from './room-assembly-facts';
 import { closeRoom } from './room-consent-transitions';
 

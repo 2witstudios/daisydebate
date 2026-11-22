@@ -12,14 +12,11 @@ import type { Database } from '@daisy/db';
 import { seedRatingSeason } from '@daisy/db/testing';
 import { recoverRankedResults } from './ranked-room.test-support';
 import { randomBytes } from 'node:crypto';
-import {
-  buildRoundTopic,
-  type Ballot,
-  isSideSeat,
-  sideOfSeat,
-  winnerOutcome,
-  roundPanelReceiptSchema,
-} from '@daisy/protocol';
+import { buildRoundTopic } from '@daisy/protocol/topics';
+import { type Ballot } from '@daisy/protocol/ballot-schema';
+import { isSideSeat, sideOfSeat } from '@daisy/protocol/seats';
+import { winnerOutcome } from '@daisy/protocol/round-outcome';
+import { roundPanelReceiptSchema } from '@daisy/protocol/round-panel-completion';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createAttendanceFeature } from '../src/features/attendance/operations';

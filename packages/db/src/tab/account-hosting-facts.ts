@@ -1,4 +1,4 @@
-import type { TournamentHostingGrant } from '@daisy/protocol';
+import type { TournamentHostingGrant } from '@daisy/protocol/tournament-hosting';
 import { readDatabaseTime } from '../database-clock';
 import { readEntitlementGrants } from '../entitlement-grants';
 import type { Tx } from '../tx';

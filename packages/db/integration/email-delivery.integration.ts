@@ -5,7 +5,7 @@ import { requireTestServices } from '@daisy/config';
 import type {
   EmailDeliveryStatus,
   EmailSuppressionReason,
-} from '@daisy/protocol';
+} from '@daisy/protocol/email-delivery';
 import { createDatabase } from '../src';
 
 setupRitewayBun();

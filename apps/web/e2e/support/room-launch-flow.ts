@@ -2,21 +2,25 @@ import { launchEvidence } from './room-launch-evidence';
 import type { APIRequestContext, Page } from '@playwright/test';
 import {
   affirmativeSide,
-  aiRoleFits,
-  isNamedSeat,
   judgeSeat,
   negativeSide,
-  roomCastChoiceSchema,
   sameSeat,
-  seatsTwoTeams,
-  sideOfTeam,
   sideSeat,
-  teamOfPlacement,
   type SeatRef,
   type TwoSideKey,
+} from '@daisy/protocol/seats';
+import { aiRoleFits } from '@daisy/protocol/ai-roles';
+import { isNamedSeat } from '@daisy/protocol/round-view';
+import {
+  roomCastChoiceSchema,
   roomViewSchema,
-  type RoomView,
-} from '@daisy/protocol';
+} from '@daisy/protocol/room-read';
+import {
+  seatsTwoTeams,
+  sideOfTeam,
+  teamOfPlacement,
+} from '@daisy/protocol/seat-draw';
+import { type RoomView } from '@daisy/protocol/room-contract';
 import { createId } from '@paralleldrive/cuid2';
 import { expect } from './fixtures';
 import { origin } from './accounts';

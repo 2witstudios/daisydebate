@@ -1,9 +1,9 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
+import { sideSeat } from '@daisy/protocol/seats';
 import {
-  sideSeat,
   type RoomAssemblyState,
   type RoomCommand,
-} from '@daisy/protocol';
+} from '@daisy/protocol/room-contract';
 import { oneOnOneFormatFixture } from '@daisy/protocol/testing';
 import { executeRoomCommand } from './room-assembly';
 import { consent, edges, started, state } from './room-assembly.test-support';

@@ -6,8 +6,8 @@ import {
   type EvidencePrivacyScope,
   type EvidencePrivacyIntent,
   type EvidencePrivacyIntentRecord,
-  type EvidenceRefusal,
-} from '@daisy/protocol';
+} from '@daisy/protocol/evidence-privacy';
+import { type EvidenceRefusal } from '@daisy/protocol/necessary-evidence';
 export const evidencePrivacyDigest = (document: string) => sha3Hex(document);
 const refused = (reason: EvidenceRefusal['reason']): EvidenceRefusal => ({
   kind: 'refused',

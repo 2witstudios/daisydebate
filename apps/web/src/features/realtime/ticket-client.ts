@@ -1,4 +1,4 @@
-import { ticketSchema } from '@daisy/protocol';
+import { ticketSchema } from '@daisy/protocol/realtime';
 import { realtimePublicUrlSchema } from '@daisy/config';
 import { z } from 'zod';
 

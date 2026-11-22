@@ -7,11 +7,13 @@ import type { RoundRuntime } from './round-runtime-api';
 import { applyRoundAdjudication } from './round-adjudication';
 import { assertAttendanceRules } from './attendance-policy';
 import { createInvariantError } from '@daisy/errors';
+import { heldSeatsComplete, leadSeatOf } from '@daisy/protocol/format-seating';
 import {
-  heldSeatsComplete,
-  leadSeatOf,
   runtimeCheckpointSchema,
-  type SideKey,
+  type RuntimeCheckpoint,
+} from '@daisy/protocol/round';
+import { type SideKey } from '@daisy/protocol/seats';
+import {
   type HydratedRound,
   type HydratedSegment,
   type RoundParticipantSeat,
@@ -20,9 +22,8 @@ import {
   type RoundProjection,
   type SegmentInsert,
   type SegmentClose,
-  type RoundRules,
-  type RuntimeCheckpoint,
-} from '@daisy/protocol';
+} from '@daisy/protocol/runtime';
+import { type RoundRules } from '@daisy/protocol/format';
 import { advanceRoundClock } from './round-clock';
 import {
   closeClockSegment,

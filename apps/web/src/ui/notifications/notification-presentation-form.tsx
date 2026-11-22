@@ -1,6 +1,6 @@
 'use client';
 import { StatusRegion } from '../components/status-region/status-region';
-import type { NotificationPresentation } from '@daisy/protocol';
+import type { NotificationPresentation } from '@daisy/protocol/notifications';
 import {
   initialSaveForm,
   saveNotice,

@@ -3,7 +3,7 @@ import { readParticipantTournament } from '../src/features/tab/reads/participant
 import { authorize } from '@daisy/auth/authorization';
 import { createTabStore } from '@daisy/db/tab';
 import { isAppError } from '@daisy/errors';
-import { isDebatingSeat, seatOrder } from '@daisy/protocol';
+import { isDebatingSeat, seatOrder } from '@daisy/protocol/seats';
 import { hostRoundViewSchema } from '@daisy/protocol/lobby/draw-read';
 import { createId } from '@paralleldrive/cuid2';
 import { assert } from 'riteway/bun';

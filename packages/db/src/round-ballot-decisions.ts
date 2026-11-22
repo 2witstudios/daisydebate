@@ -3,17 +3,17 @@ import { createAppError, createRefusal } from '@daisy/errors';
 import {
   ballotSchemaFor,
   ballotSubjectsFor,
-  captureWithinLimit,
-} from '@daisy/protocol';
+} from '@daisy/protocol/ballot-schema';
+import { captureWithinLimit } from '@daisy/protocol/capture-judging-limit';
+import type { Ballot } from '@daisy/protocol/ballot-schema';
 import type {
-  Ballot,
   RoundBallotEnvelope,
   RoundBallotReceipt,
-  RoundCommandPrincipal,
-  RoundJudging,
-  RoundOutcome,
-  RoundParticipantSeat,
-} from '@daisy/protocol';
+} from '@daisy/protocol/round-ballot';
+import type { RoundCommandPrincipal } from '@daisy/protocol/round-command';
+import type { RoundJudging } from '@daisy/protocol/ballot-definition';
+import type { RoundOutcome } from '@daisy/protocol/round-outcome';
+import type { RoundParticipantSeat } from '@daisy/protocol/runtime';
 
 /**
  * An AI judge rules only on what can be judged (DEC-208, ADR 0110): a complete transcript,

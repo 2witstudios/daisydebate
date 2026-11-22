@@ -1,5 +1,6 @@
 import { and, eq, isNull } from 'drizzle-orm';
-import { idSchema, isRoundRunning } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
+import { isRoundRunning } from '@daisy/protocol/round';
 import { broadcasts } from './schema/broadcasts';
 import { rounds } from './schema/rounds';
 import { readDatabaseTime } from './database-clock';

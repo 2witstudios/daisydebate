@@ -2,7 +2,7 @@ import { resolveRoomConfiguration } from '@daisy/debate-engine';
 import { oneOnOneDefinition, oneOnOneSettings } from '../src/reference-formats';
 import { createId } from '@paralleldrive/cuid2';
 import { drizzle } from 'drizzle-orm/bun-sql';
-import { buildRoomTopic } from '@daisy/protocol';
+import { buildRoomTopic } from '@daisy/protocol/topics';
 import { requireTestServices } from '@daisy/config';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';

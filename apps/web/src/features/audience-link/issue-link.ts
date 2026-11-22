@@ -1,7 +1,7 @@
 import { authorize } from '@daisy/auth/authorization';
 import type { Database } from '@daisy/db';
 import { createAppError } from '@daisy/errors';
-import { idSchema } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
 
 type Store = Pick<
   Database,

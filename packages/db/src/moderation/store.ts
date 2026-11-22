@@ -1,6 +1,6 @@
 import { and, eq, sql } from 'drizzle-orm';
 import { createAppError } from '@daisy/errors';
-import type { ModerationNotice } from '@daisy/protocol';
+import type { ModerationNotice } from '@daisy/protocol/moderation';
 import {
   moderationLiftCommandAction,
   type ModerationLiftResult,

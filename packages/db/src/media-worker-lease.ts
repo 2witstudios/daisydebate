@@ -1,4 +1,4 @@
-import { isRoundRunning } from '@daisy/protocol';
+import { isRoundRunning } from '@daisy/protocol/round';
 import { createAppError, createRefusal } from '@daisy/errors';
 import { nextEpoch } from './lease-policy';
 import { and, eq, isNull } from 'drizzle-orm';

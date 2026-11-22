@@ -2,7 +2,7 @@ import {
   roundMediaAdmissionSchema,
   roundMediaStateSchema,
   type RoundMediaAdmission,
-} from '@daisy/protocol';
+} from '@daisy/protocol/round-media';
 import type { MediaRoom, TrackHandle } from './adapters/livekit-room';
 import { cancelMediaWork } from './cancel-media-work';
 import { requestFailureOf } from './media-failure';

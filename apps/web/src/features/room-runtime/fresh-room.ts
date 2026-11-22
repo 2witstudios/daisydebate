@@ -1,4 +1,5 @@
-import { isRoundOver, type RoomView } from '@daisy/protocol';
+import { isRoundOver } from '@daisy/protocol/round';
+import { type RoomView } from '@daisy/protocol/room-contract';
 /** Display eligibility is also checked against a fresh authorized source before creation. */
 export const canOfferFreshRoom = (
   source: Pick<RoomView, 'status' | 'roundRef' | 'hostActorId'>,

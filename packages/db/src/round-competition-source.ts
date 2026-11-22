@@ -4,16 +4,15 @@ import { roundSourceVoided } from './round-source-state';
 import { and, eq, sql } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 import { createAppError } from '@daisy/errors';
+import { roundStatus } from '@daisy/protocol/round';
+import { idSchema } from '@daisy/protocol/primitives';
+import { isJudgeSeat, seatOrder } from '@daisy/protocol/seats';
 import {
-  roundStatus,
-  idSchema,
-  isJudgeSeat,
   roundCompetitionSourceSchema,
-  roundJudgingSchema,
-  roundRulesSchema,
-  seatOrder,
   type RoundCompetitionSource,
-} from '@daisy/protocol';
+} from '@daisy/protocol/round-competition-source';
+import { roundJudgingSchema } from '@daisy/protocol/ballot-definition';
+import { roundRulesSchema } from '@daisy/protocol/format';
 import { recordedEnding } from './recorded-ending';
 import { seatOfColumns } from './seat-columns';
 import { rounds } from './schema/rounds';

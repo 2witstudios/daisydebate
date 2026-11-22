@@ -4,9 +4,9 @@ import {
   captureMutationReply,
   sealReply,
   tokenReply,
-  canonicalCaptureEvidenceBody,
-  evidenceIngressReplySchema,
-} from '@daisy/protocol';
+} from '@daisy/protocol/capture-worker-replies';
+import { canonicalCaptureEvidenceBody } from '@daisy/protocol/capture-evidence-body';
+import { evidenceIngressReplySchema } from '@daisy/protocol/evidence-ingress-reply';
 import { createAppError } from '@daisy/errors';
 import { unavailable } from './worker-response';
 import {

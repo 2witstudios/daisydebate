@@ -1,5 +1,6 @@
 import { createAppError } from '@daisy/errors';
-import { advanceAnalysisWork, analysisWorkSchema } from '@daisy/protocol';
+import { advanceAnalysisWork } from '@daisy/protocol/round-analysis-lifecycle';
+import { analysisWorkSchema } from '@daisy/protocol/round-analysis-work';
 import { and, eq, sql } from 'drizzle-orm';
 import type { BoundedTransaction } from './bounded-transaction';
 import type { Caller } from './room-command-facts';

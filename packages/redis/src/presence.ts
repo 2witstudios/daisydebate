@@ -1,5 +1,5 @@
 import type { RedisTransport } from './transport';
-import type { PresenceActivity } from '@daisy/protocol';
+import type { PresenceActivity } from '@daisy/protocol/realtime';
 import { redisKey } from './redis-key';
 import {
   ACTOR_CONNECTIONS_MAX,

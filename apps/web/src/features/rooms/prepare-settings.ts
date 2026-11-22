@@ -1,10 +1,10 @@
 import { resolveRoomConfiguration } from '@daisy/debate-engine';
 import {
   roomCommandSchema,
-  roomConfigSchema,
   type RoomCommand,
   type RoomView,
-} from '@daisy/protocol';
+} from '@daisy/protocol/room-contract';
+import { roomConfigSchema } from '@daisy/protocol/room';
 
 import { readDuration } from './duration-input';
 import { drawFieldNames, drawSettings } from './prepare-draw-settings';

@@ -2,10 +2,12 @@ import { createAppError } from '@daisy/errors';
 import {
   capturedMediaMs,
   recordingBuildCeilingMs,
-  recordingLifecycleSchema,
+} from '@daisy/protocol/recording-processing';
+import { recordingLifecycleSchema } from '@daisy/protocol/recording';
+import {
   transitionRecording,
   type RecordingTransition,
-} from '@daisy/protocol';
+} from '@daisy/protocol/recording-lifecycle';
 import { sql } from 'drizzle-orm';
 import type { RecordingModeration } from './content-moderation-ports';
 import { inLiveRoomSql, liveRoomOfR } from './live-room-sql';

@@ -3,8 +3,8 @@ import {
   daisyBallotSource,
   panelRuleFor,
   type RoundJudging,
-  type RoundRules,
-} from '@daisy/protocol';
+} from '@daisy/protocol/ballot-definition';
+import { type RoundRules } from '@daisy/protocol/format';
 
 /**
  * What a Round launched from Daisy's catalogue is judged on (TAB-6.11): the

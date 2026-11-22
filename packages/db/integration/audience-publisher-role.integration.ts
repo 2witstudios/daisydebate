@@ -1,6 +1,6 @@
 import { requireTestServices } from '@daisy/config';
 import { createId } from '@paralleldrive/cuid2';
-import type { RecordingStatus } from '@daisy/protocol';
+import type { RecordingStatus } from '@daisy/protocol/recording';
 import { SQL } from 'bun';
 import { drizzle } from 'drizzle-orm/bun-sql';
 import { assert, setupRitewayBun, test } from 'riteway/bun';

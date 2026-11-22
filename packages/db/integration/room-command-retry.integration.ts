@@ -1,7 +1,7 @@
 import { requireTestServices } from '@daisy/config';
 import { isAppError } from '@daisy/errors';
 import { createId } from '@paralleldrive/cuid2';
-import { buildRoomTopic } from '@daisy/protocol';
+import { buildRoomTopic } from '@daisy/protocol/topics';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createAuthorizationSubject } from './authorization.test-support';
 import { withDatabase, withFixture } from './constraint-helpers';

@@ -1,5 +1,5 @@
 import { instantMs } from '@daisy/clock';
-import { sideOfSeat } from '@daisy/protocol';
+import { sideOfSeat } from '@daisy/protocol/seats';
 import { requireTestServices } from '@daisy/config';
 import { assertRejects } from '@daisy/errors/testing';
 import { createId } from '@paralleldrive/cuid2';

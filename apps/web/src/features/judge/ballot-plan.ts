@@ -1,15 +1,16 @@
+import { ballotSubjectsFor, type Ballot } from '@daisy/protocol/ballot-schema';
 import {
-  ballotSubjectsFor,
   daisyBallotDefinitions,
+  type BallotDefinition,
+  type BallotSubjects,
+} from '@daisy/protocol/ballot-definition';
+import {
   isDebatingSeat,
   seatOrder,
   sideOfSeat,
-  type Ballot,
-  type BallotDefinition,
-  type BallotSubjects,
-  type RoundRules,
   type SeatRef,
-} from '@daisy/protocol';
+} from '@daisy/protocol/seats';
+import { type RoundRules } from '@daisy/protocol/format';
 import { createAppError } from '@daisy/errors';
 import { seatName } from '../debate-room/seat-names';
 

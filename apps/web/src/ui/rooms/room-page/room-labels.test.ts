@@ -1,4 +1,4 @@
-import type { RoomView } from '@daisy/protocol';
+import type { RoomView } from '@daisy/protocol/room-contract';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { assemblySnapshot } from '../../../features/rooms/assembly.test-support';
 import {

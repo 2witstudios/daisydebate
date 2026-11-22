@@ -1,6 +1,6 @@
 import { expect, type BrowserContext, type Page } from '@playwright/test';
 import { z } from 'zod';
-import { idSchema } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
 import { openPage } from './fixtures';
 import { serverFrame } from './subscription-ledger';
 import { STEP_LIMIT_MS } from './bounded-step';

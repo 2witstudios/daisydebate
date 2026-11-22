@@ -5,7 +5,7 @@ import {
   spectatorTimelineHorizon,
   type SpectatorHorizonFacts,
 } from './spectator-horizon';
-import { SPECTATOR_MARGIN_MS } from '@daisy/protocol';
+import { SPECTATOR_MARGIN_MS } from '@daisy/protocol/broadcast';
 
 setupRitewayBun();
 

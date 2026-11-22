@@ -1,4 +1,5 @@
-import { negativeSide, winnerOutcome } from '@daisy/protocol';
+import { negativeSide } from '@daisy/protocol/seats';
+import { winnerOutcome } from '@daisy/protocol/round-outcome';
 import type { Browser, Page } from '@playwright/test';
 import { createId } from '@paralleldrive/cuid2';
 import { expect, openPage } from './fixtures';

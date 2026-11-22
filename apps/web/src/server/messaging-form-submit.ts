@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { idSchema } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
 import { inProcessFetch } from './in-process-fetch';
 /**
  * Native messaging actions verify a scoped response before choosing their

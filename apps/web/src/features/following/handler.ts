@@ -1,6 +1,6 @@
 import type { Database } from '@daisy/db';
 import { createRefusal } from '@daisy/errors';
-import { debaterFollowUpdateSchema } from '@daisy/protocol';
+import { debaterFollowUpdateSchema } from '@daisy/protocol/audience';
 import {
   audienceRoute,
   type AccountRouteDeps,

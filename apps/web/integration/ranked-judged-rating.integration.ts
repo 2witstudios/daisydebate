@@ -11,7 +11,8 @@ import { randomBytes } from 'node:crypto';
 import { createId } from '@paralleldrive/cuid2';
 import { seedRatingSeason } from '@daisy/db/testing';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { ratingStyles, sideOfSeat, type SeatRef } from '@daisy/protocol';
+import { ratingStyles } from '@daisy/protocol/primitives';
+import { sideOfSeat, type SeatRef } from '@daisy/protocol/seats';
 import {
   withRoomRuntime,
   launchRuntimeRound,

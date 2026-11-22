@@ -1,4 +1,4 @@
-import { sideSeat, affirmativeSide, negativeSide } from '@daisy/protocol';
+import { sideSeat, affirmativeSide, negativeSide } from '@daisy/protocol/seats';
 import type { Page } from '@playwright/test';
 import { expect, openPage, test } from './fixtures';
 import { origin, signUpMember } from './accounts';

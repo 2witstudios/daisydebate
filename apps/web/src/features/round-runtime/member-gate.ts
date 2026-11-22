@@ -1,4 +1,4 @@
-import { roundRefusalSchema } from '@daisy/protocol';
+import { roundRefusalSchema } from '@daisy/protocol/round-command';
 import type { RateRule } from '../../server/rate-limit';
 import { refusalResponse } from '../../server/http';
 import {

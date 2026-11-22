@@ -1,5 +1,5 @@
 import type { Browser, BrowserContext, Page, Request } from '@playwright/test';
-import { idSchema } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
 import { expect, openPage } from './fixtures';
 import { reportingTeardown, runEveryStep } from './journey-teardown';
 import { createRoomAccounts } from './room-accounts';

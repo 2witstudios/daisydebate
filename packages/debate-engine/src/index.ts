@@ -37,7 +37,7 @@ export { mediaPhase } from './media-window';
 export { nextRoomVacancy, postRoundCallGrants } from './post-round-call';
 export { mediaRoomFate, mediaRoomLost } from './media-room-fate';
 export type { RoundMediaGrants } from './media-grants';
-export type { RoundCommand, RoundPosition } from '@daisy/protocol';
+export type { RoundCommand, RoundPosition } from '@daisy/protocol/runtime';
 export { resolveRoomConfiguration } from './resolve-room-configuration';
 export { ratePeriod } from './glicko2';
 export {

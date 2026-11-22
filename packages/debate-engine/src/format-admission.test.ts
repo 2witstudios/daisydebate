@@ -1,5 +1,5 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { formatDefinitionSchema } from '@daisy/protocol';
+import { formatDefinitionSchema } from '@daisy/protocol/format';
 import {
   invalidFormatDefinitions,
   unsafeFormatDefinitions,

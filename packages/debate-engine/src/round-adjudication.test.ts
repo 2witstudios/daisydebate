@@ -1,6 +1,7 @@
 import { instantMs } from '@daisy/clock';
 import { assertRejects } from '@daisy/errors/testing';
-import { attendanceTimingPolicy, winnerOutcome } from '@daisy/protocol';
+import { attendanceTimingPolicy } from '@daisy/protocol/attendance';
+import { winnerOutcome } from '@daisy/protocol/round-outcome';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {
   emptyCheckpoint,

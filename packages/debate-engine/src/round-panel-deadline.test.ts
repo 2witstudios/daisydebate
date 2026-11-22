@@ -1,13 +1,13 @@
-import { daisyBallotSource } from '@daisy/protocol';
+import { daisyBallotSource } from '@daisy/protocol/ballot-definition';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';
+import { daisyWinnerBallot } from '@daisy/protocol/ballot-definition';
+import { isJudgeSeat } from '@daisy/protocol/seats';
 import {
-  daisyWinnerBallot,
-  isJudgeSeat,
   winnerOutcome,
-  type JudgingPanel,
   type RoundOutcome,
-} from '@daisy/protocol';
+} from '@daisy/protocol/round-outcome';
+import { type JudgingPanel } from '@daisy/protocol/round-panel-completion';
 import {
   decidePanelCompletion,
   freezeJudgingPlan,

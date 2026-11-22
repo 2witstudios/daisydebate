@@ -7,8 +7,8 @@ import {
 import {
   ENVELOPE_VERSION,
   type clientMessageSchema,
-  type ServerMessage,
-} from '@daisy/protocol';
+} from '@daisy/protocol/realtime';
+import { type ServerMessage } from '@daisy/protocol/realtime-server';
 type ClientMessage = ReturnType<typeof clientMessageSchema.parse>;
 setupRitewayBun();
 const channelId = 'c'.repeat(24);

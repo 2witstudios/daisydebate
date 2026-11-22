@@ -1,5 +1,5 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { judgeSeat, sideSeat } from '@daisy/protocol';
+import { judgeSeat, sideSeat } from '@daisy/protocol/seats';
 import { oneOnOneFormatFixture } from '@daisy/protocol/testing';
 import { executeRoomCommand } from './room-assembly';
 import { oneOnOneSettings } from './runtime.test-support';

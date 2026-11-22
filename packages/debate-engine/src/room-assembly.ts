@@ -1,13 +1,14 @@
 import { createAppError } from '@daisy/errors';
 import { resolutionCategories } from '@daisy/protocol/resolution-draw';
-import { isOpenRoom, isOpenRoomStatus, seatOrder } from '@daisy/protocol';
+import { isOpenRoom, isOpenRoomStatus } from '@daisy/protocol/room-contract';
+import { seatOrder } from '@daisy/protocol/seats';
 import type {
   RoomAssemblyState,
   RoomCommand,
   RoomConsent,
   RoomMutationOutcome,
   RoomRefusal,
-} from '@daisy/protocol';
+} from '@daisy/protocol/room-contract';
 
 import { complete, type Edges } from './room-assembly-facts';
 import { activeRoomMembers } from './room-membership';

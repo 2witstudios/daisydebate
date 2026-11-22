@@ -1,7 +1,7 @@
 import { instantMs } from '@daisy/clock';
 import type { AuthorityResources } from './authorization';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { buildChannelTopic } from '@daisy/protocol';
+import { buildChannelTopic } from '@daisy/protocol/topics';
 import type { ChannelAuthorizationFact } from '@daisy/auth/authorization';
 import {
   createRealtimeAuthorization,

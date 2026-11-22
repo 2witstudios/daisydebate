@@ -1,13 +1,14 @@
 import { instantMs } from '@daisy/clock';
 import {
   isJudgeSeat,
-  roundStartPolicy,
   sameSeat,
   sideSeat,
   type SeatRef,
-} from '@daisy/protocol';
+} from '@daisy/protocol/seats';
+import { roundStartPolicy } from '@daisy/protocol/round-start-policy';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import type { HydratedSegment, RuntimeCheckpoint } from '@daisy/protocol';
+import type { HydratedSegment } from '@daisy/protocol/runtime';
+import type { RuntimeCheckpoint } from '@daisy/protocol/round';
 import { mediaGrants } from './media-grants';
 import { createRoundRuntime } from './round-runtime';
 import { settleOpening, strikeOpening } from './round-opening';

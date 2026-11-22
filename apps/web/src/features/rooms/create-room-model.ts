@@ -1,4 +1,4 @@
-import type { RoomCatalogChoice } from '@daisy/protocol';
+import type { RoomCatalogChoice } from '@daisy/protocol/room-contract';
 import { createRoomDraft, type CreateRoomDraft } from './create-room-draft';
 import { draftFormValues, readRoomDraft } from './create-room-fields';
 import { changeDraftSchedule } from './prepare-room-draft';

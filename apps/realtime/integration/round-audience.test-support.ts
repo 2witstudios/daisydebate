@@ -2,13 +2,10 @@ import { sha3Hex } from '@daisy/digest';
 import type { SQL } from 'bun';
 import { systemId } from '@daisy/clock';
 import { fixtureRules, oneOnOneFormatFixture } from '@daisy/protocol/testing';
-import {
-  buildRoundTopic,
-  emptyRuntimeCheckpointFor,
-  sideOfSeat,
-  roundJudgeAssignmentReceiptSchema,
-  type SeatRef,
-} from '@daisy/protocol';
+import { buildRoundTopic } from '@daisy/protocol/topics';
+import { emptyRuntimeCheckpointFor } from '@daisy/protocol/round';
+import { sideOfSeat, type SeatRef } from '@daisy/protocol/seats';
+import { roundJudgeAssignmentReceiptSchema } from '@daisy/protocol/round-judge-assignment';
 
 /** Administrative fixture writes persist facts; production canonical readers decide. */
 export function roundAudienceFixture(client: SQL, actorId: string) {

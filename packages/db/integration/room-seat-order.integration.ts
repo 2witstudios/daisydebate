@@ -5,7 +5,7 @@ import { drizzle } from 'drizzle-orm/bun-sql';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { roomFacts } from '../src/room-command-facts';
 import { rooms } from '../src/schema/rooms';
-import { seatKey } from '@daisy/protocol';
+import { seatKey } from '@daisy/protocol/seats';
 import { seatColumnsOf, withFixture } from './constraint-helpers';
 
 setupRitewayBun();

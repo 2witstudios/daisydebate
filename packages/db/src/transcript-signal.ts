@@ -1,4 +1,4 @@
-import { buildRoundTopic } from '@daisy/protocol';
+import { buildRoundTopic } from '@daisy/protocol/topics';
 import { appendOutboxEvent } from './outbox';
 import type { Tx } from './tx';
 

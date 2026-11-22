@@ -1,12 +1,12 @@
 import { createInvariantError } from '@daisy/errors';
 import {
   ballotDefinitionIdentity,
-  scoreScaleFor,
   type BallotDefinition,
   type BallotSubjects,
-  type JudgingStageInput,
-  type SeatRef,
-} from '@daisy/protocol';
+} from '@daisy/protocol/ballot-definition';
+import { scoreScaleFor } from '@daisy/protocol/score-unit';
+import { type JudgingStageInput } from '@daisy/protocol/round-judging-attempt';
+import { type SeatRef } from '@daisy/protocol/seats';
 import type { AiJudgeRules } from './ai-judge';
 import type { ChatMessage } from './openrouter';
 import {

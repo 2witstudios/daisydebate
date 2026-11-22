@@ -1,5 +1,6 @@
 import { sql, eq, type SQL } from 'drizzle-orm';
-import { buildUserInboxTopic, type ChosenStatus } from '@daisy/protocol';
+import { buildUserInboxTopic } from '@daisy/protocol/topics';
+import { type ChosenStatus } from '@daisy/protocol/presence-setting';
 import { presenceSettings } from '../schema/presence';
 import {
   readOwnCollection,

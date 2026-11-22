@@ -3,7 +3,8 @@ import { sql } from 'drizzle-orm';
 import { z } from 'zod';
 import { queueObservationPurge } from '../observation-purge-jobs';
 import { createAppError } from '@daisy/errors';
-import { idSchema, messageRequestSettingSchema } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
+import { messageRequestSettingSchema } from '@daisy/protocol/messaging/social';
 import { eraseSubjectFiles, exportSubjectFiles } from '../messaging-files';
 import {
   deleteAbandonedChannels,

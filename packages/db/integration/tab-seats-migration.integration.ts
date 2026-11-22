@@ -7,13 +7,17 @@ import { resolveRoomConfiguration } from '@daisy/debate-engine';
 import {
   ballotSchemaFor,
   ballotSubjectsFor,
+} from '@daisy/protocol/ballot-schema';
+import {
   daisyBallotDefinitions,
-  formatDefinitionSchema,
   panelRuleFor,
+} from '@daisy/protocol/ballot-definition';
+import {
+  formatDefinitionSchema,
   roundRulesSchema,
   type FormatDefinition,
   type RoundRules,
-} from '@daisy/protocol';
+} from '@daisy/protocol/format';
 import { queueOfReason } from '@daisy/protocol/content-moderation';
 import { casualTemplateIds } from '../src/catalog-casual';
 import { seededFormats, seededPresets } from '../src/migrations.test-support';

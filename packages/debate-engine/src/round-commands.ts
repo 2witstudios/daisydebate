@@ -1,19 +1,16 @@
 import { instantMs } from '@daisy/clock';
-import {
-  clockStopsOf,
-  otherSide,
-  prepConsumedOf,
-  runningMs,
-  winnerOutcome,
-} from '@daisy/protocol';
+import { clockStopsOf, prepConsumedOf } from '@daisy/protocol/round';
+import { otherSide } from '@daisy/protocol/seats';
+import { runningMs } from '@daisy/protocol/clock-stops';
+import { winnerOutcome } from '@daisy/protocol/round-outcome';
+import type { SideKey } from '@daisy/protocol/seats';
 import type {
-  SideKey,
   RoundCommand,
   RoundParticipantSeat,
-  RoundRules,
-  RoundOutcome,
   RoundEffect,
-} from '@daisy/protocol';
+} from '@daisy/protocol/runtime';
+import type { RoundRules } from '@daisy/protocol/format';
+import type { RoundOutcome } from '@daisy/protocol/round-outcome';
 import { completedLifecycle, debateHasEnded } from './round-clock-state';
 import {
   roundCommandRefusal,

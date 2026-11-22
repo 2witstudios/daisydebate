@@ -1,6 +1,6 @@
 import { seedRatingSeason } from '@daisy/db/testing';
 import { createId } from '@paralleldrive/cuid2';
-import { ratingStyles } from '@daisy/protocol';
+import { ratingStyles } from '@daisy/protocol/primitives';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import {
   withRoomRuntime,

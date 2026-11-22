@@ -1,7 +1,7 @@
 import { groupLifecycleOf } from './social';
 import { and, eq, sql } from 'drizzle-orm';
 import { createAppError } from '@daisy/errors';
-import { idSchema } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
 import { lockAuthorizationActors } from '../authorization';
 import { messagingSocialCommands } from '../schema/messaging-social';
 import { readMessagingChannelFact, type MessagingChannelFact } from './social';

@@ -1,5 +1,5 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { ENVELOPE_VERSION } from '@daisy/protocol';
+import { ENVELOPE_VERSION } from '@daisy/protocol/realtime';
 import { harness, flush, openAndReady } from './connection-store.test-support';
 
 setupRitewayBun();

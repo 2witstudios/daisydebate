@@ -1,9 +1,7 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import {
-  buildChannelTopic,
-  ENVELOPE_VERSION,
-  type ServerMessage,
-} from '@daisy/protocol';
+import { buildChannelTopic } from '@daisy/protocol/topics';
+import { ENVELOPE_VERSION } from '@daisy/protocol/realtime';
+import { type ServerMessage } from '@daisy/protocol/realtime-server';
 import { attachInvalidationTopic } from './invalidation-topic';
 
 setupRitewayBun();

@@ -3,8 +3,8 @@ import {
   freezeBallotJudging,
   storedBallotDefinition,
   type BallotDefinition,
-  type FormatDefinition,
-} from '@daisy/protocol';
+} from '@daisy/protocol/ballot-definition';
+import { type FormatDefinition } from '@daisy/protocol/format';
 import type { SharedLobbyRefusal } from '@daisy/protocol/lobby/command';
 import type {
   LobbySetupRefusal,

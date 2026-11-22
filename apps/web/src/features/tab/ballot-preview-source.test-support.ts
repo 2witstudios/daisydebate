@@ -1,4 +1,4 @@
-import type { BallotDefinition } from '@daisy/protocol';
+import type { BallotDefinition } from '@daisy/protocol/ballot-definition';
 import type { EventBallotAuthoringView } from '@daisy/protocol/lobby/ballot-read';
 
 /** A league's stored ballot: a holistic 20 to 30 winner ballot in halves. */

@@ -1,4 +1,4 @@
-import type { FriendRelation, FriendshipState } from '@daisy/protocol';
+import type { FriendRelation, FriendshipState } from '@daisy/protocol/friends';
 
 /**
  * Friendship between two members (ADR 0072): one unordered pair, asked by

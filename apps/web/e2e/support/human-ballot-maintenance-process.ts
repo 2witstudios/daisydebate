@@ -1,7 +1,7 @@
 import { resolve } from 'node:path';
 import { createDatabase } from '@daisy/db';
 import { createId } from '@paralleldrive/cuid2';
-import { idSchema } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
 import { createRoundMaintenanceOperations } from '../../src/features/round-finalization/maintenance';
 import { requireLaunchSlot } from './room-launch-slot';
 import { admitLaunchCheckout } from './room-launch-admission';

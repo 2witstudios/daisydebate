@@ -1,6 +1,6 @@
 import { assertRejects } from '@daisy/errors/testing';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { sideOfSeat, sideSeat } from '@daisy/protocol';
+import { sideOfSeat, sideSeat } from '@daisy/protocol/seats';
 import {
   oneOnOneRules,
   oneOnOneSeats,

@@ -1,5 +1,5 @@
 import { inflateDeviation, isProvisional } from '@daisy/debate-engine';
-import type { RatingState } from '@daisy/protocol';
+import type { RatingState } from '@daisy/protocol/ratings';
 
 export const ratingClassification = (deviation: number) =>
   isProvisional(deviation)

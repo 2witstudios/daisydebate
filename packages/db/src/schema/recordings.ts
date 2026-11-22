@@ -15,7 +15,7 @@ import {
   recordingStatuses,
   type RecordingClass,
   type RecordingStatus,
-} from '@daisy/protocol';
+} from '@daisy/protocol/recording';
 import {
   createdAtColumn,
   jsonbColumn,

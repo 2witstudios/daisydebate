@@ -1,4 +1,4 @@
-import { competitionTypes } from '@daisy/protocol';
+import { competitionTypes } from '@daisy/protocol/round';
 import { cn } from '../../cn';
 import { modeOptionClass, modeTrackClass } from './mode-toggle-class';
 

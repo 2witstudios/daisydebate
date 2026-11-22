@@ -1,5 +1,6 @@
 import { instantMs } from '@daisy/clock';
-import type { JudgingTerminalReason, RoundEnding } from '@daisy/protocol';
+import type { JudgingTerminalReason } from '@daisy/protocol/round-judging-attempt';
+import type { RoundEnding } from '@daisy/protocol/round-panel-completion';
 import { and, eq, inArray, sql } from 'drizzle-orm';
 import { roundJudgingJobs } from './schema/round-judging-jobs';
 import { judgingJobWhere } from './round-judging-context';

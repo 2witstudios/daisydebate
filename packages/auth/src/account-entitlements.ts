@@ -1,4 +1,4 @@
-import type { EntitlementGrant } from '@daisy/protocol';
+import type { EntitlementGrant } from '@daisy/protocol/entitlements';
 import {
   currentEntitlementGrants,
   type EntitlementEvaluation,

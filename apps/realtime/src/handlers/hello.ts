@@ -1,8 +1,8 @@
+import { clientMessageSchema } from '@daisy/protocol/realtime';
 import {
-  clientMessageSchema,
   closeCodeTable,
   type CloseCodeReason,
-} from '@daisy/protocol';
+} from '@daisy/protocol/close-codes';
 
 export type FirstMessageRejection = {
   readonly code: number;

@@ -1,11 +1,9 @@
 'use client';
 import { useBrowserEffect } from '../edge/browser-sync';
 import { Fragment, useRef } from 'react';
-import {
-  isJudgeSeat,
-  type RoundView,
-  type RoundMediaState,
-} from '@daisy/protocol';
+import { isJudgeSeat } from '@daisy/protocol/seats';
+import { type RoundView } from '@daisy/protocol/round-view';
+import { type RoundMediaState } from '@daisy/protocol/round-media';
 import type { TrackHandle } from '../../features/round-media/adapters/livekit-room';
 import type {
   ObservedPeer,

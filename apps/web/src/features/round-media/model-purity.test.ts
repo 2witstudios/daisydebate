@@ -9,7 +9,7 @@ const AMBIENT =
 const ALLOWED_OUTSIDE = new Set([
   '../media-read-intent',
   '../source-failure',
-  '@daisy/protocol',
+  '@daisy/protocol/round-media',
 ]);
 
 test('the media model reads no clock, timer, storage, SDK or track handle', async () => {

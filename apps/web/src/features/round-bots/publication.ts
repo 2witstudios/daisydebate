@@ -3,7 +3,7 @@ import type { createAudioPublication } from '@daisy/media/audio';
 import { createStreamingAudioWriter } from '@daisy/media/publication';
 import type { Database } from '@daisy/db';
 import type { BotPublicationScope } from '@daisy/db/bot-publication';
-import { spokenPrefix } from '@daisy/protocol';
+import { spokenPrefix } from '@daisy/protocol/authored-speech';
 import { createAppError, isAppError, rethrow } from '@daisy/errors';
 
 type Publication = Awaited<ReturnType<typeof createAudioPublication>>;

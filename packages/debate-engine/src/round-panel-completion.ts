@@ -1,17 +1,19 @@
 import { instantMs } from '@daisy/clock';
-import { captureWithinLimit, type FrozenCapture } from '@daisy/protocol';
-import { createInvariantError } from '@daisy/errors';
 import {
-  isJudgeSeat,
+  captureWithinLimit,
+  type FrozenCapture,
+} from '@daisy/protocol/capture-judging-limit';
+import { createInvariantError } from '@daisy/errors';
+import { isJudgeSeat, type SeatRef } from '@daisy/protocol/seats';
+import {
   type JudgingPanel,
   type JudgingPanelFacts,
   type JudgeRuling,
   type PanelRuling,
-  type RoundJudging,
-  type RoundOutcome,
   type RoundPanelCompletion,
-  type SeatRef,
-} from '@daisy/protocol';
+} from '@daisy/protocol/round-panel-completion';
+import { type RoundJudging } from '@daisy/protocol/ballot-definition';
+import { type RoundOutcome } from '@daisy/protocol/round-outcome';
 import { aiSeatStanding } from './judging-job-rules';
 import { debateInvariantIds } from './invariant-ids';
 import { completedLifecycle } from './round-clock-state';

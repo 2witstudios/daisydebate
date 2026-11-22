@@ -6,10 +6,10 @@ import {
 import {
   attendanceEnvelopeSchema,
   attendanceReceiptSchema,
-  idSchema,
   type AttendanceEnvelope,
   type AttendanceReceipt,
-} from '@daisy/protocol';
+} from '@daisy/protocol/attendance';
+import { idSchema } from '@daisy/protocol/primitives';
 import { eq, sql } from 'drizzle-orm';
 import { insertCommandRow } from './round-projection-writer';
 import { roundCommands } from './schema/round-commands';

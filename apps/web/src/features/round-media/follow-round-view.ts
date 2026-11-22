@@ -1,4 +1,4 @@
-import type { RoundView } from '@daisy/protocol';
+import type { RoundView } from '@daisy/protocol/round-view';
 import type { MediaReadEvent } from './media-read-intent';
 import { nextMediaRefreshAt } from './refresh-deadline';
 

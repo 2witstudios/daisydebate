@@ -1,7 +1,7 @@
-import { roundJudgingSchema } from '@daisy/protocol';
+import { roundJudgingSchema } from '@daisy/protocol/ballot-definition';
 import { currentRoundParticipant } from './round-current-participant';
 import { createAppError } from '@daisy/errors';
-import type { JudgingPanelFacts } from '@daisy/protocol';
+import type { JudgingPanelFacts } from '@daisy/protocol/round-panel-completion';
 import { and, eq, sql } from 'drizzle-orm';
 import { ballots } from './schema/ballots';
 import { roundJudgingJobs } from './schema/round-judging-jobs';

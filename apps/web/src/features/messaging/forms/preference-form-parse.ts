@@ -1,5 +1,5 @@
 import { createAppError } from '@daisy/errors';
-import { messagingPreferenceSchemas } from '@daisy/protocol';
+import { messagingPreferenceSchemas } from '@daisy/protocol/messaging/preferences';
 import { parseValidated } from '../../../server/http';
 
 // The server's half of the preference form. The state and fields a client

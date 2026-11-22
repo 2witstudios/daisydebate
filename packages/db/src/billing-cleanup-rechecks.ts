@@ -1,7 +1,7 @@
 import { instantMs } from '@daisy/clock';
 import { and, asc, desc, gt, lte, sql } from 'drizzle-orm';
 import { z } from 'zod';
-import { idSchema } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
 import { billingCleanupSchema } from '@daisy/protocol/billing';
 import { createAppError } from '@daisy/errors';
 import type { BoundedTransaction } from './bounded-transaction';

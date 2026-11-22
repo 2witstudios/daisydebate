@@ -2,7 +2,7 @@ import { requireTestServices } from '@daisy/config';
 import { assertRejects } from '@daisy/errors/testing';
 import { maintainRoom } from '@daisy/debate-engine';
 import { createId } from '@paralleldrive/cuid2';
-import { buildRoomTopic } from '@daisy/protocol';
+import { buildRoomTopic } from '@daisy/protocol/topics';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { withDatabase, withFixture } from './constraint-helpers';
 import { publicLobbyId } from '../src/daisy-reference';

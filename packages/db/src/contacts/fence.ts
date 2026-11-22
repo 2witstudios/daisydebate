@@ -1,6 +1,6 @@
 import { and, eq } from 'drizzle-orm';
 import { createAppError } from '@daisy/errors';
-import { idSchema } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
 import { lockAuthorizationActors } from '../authorization';
 import type { authorizationAccountFact } from '../authorization-account';
 import { contactPairs } from '../schema/contacts';

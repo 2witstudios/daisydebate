@@ -1,4 +1,5 @@
-import { isRoundOver, isRoundRunning, type RoomView } from '@daisy/protocol';
+import { isRoundOver, isRoundRunning } from '@daisy/protocol/round';
+import { type RoomView } from '@daisy/protocol/room-contract';
 
 /** Round status changes independently of the Room's changeVersion. */
 function observeRound(

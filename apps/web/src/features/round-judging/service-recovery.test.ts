@@ -1,6 +1,6 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createAppError } from '@daisy/errors';
-import type { JudgingTerminalReason } from '@daisy/protocol';
+import type { JudgingTerminalReason } from '@daisy/protocol/round-judging-attempt';
 import { startRoundJudgingService } from './service';
 import { failureLog, manualTimers } from '../../lib/worker-timers.test-support';
 setupRitewayBun();

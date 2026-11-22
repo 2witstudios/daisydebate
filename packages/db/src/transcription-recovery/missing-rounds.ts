@@ -1,4 +1,4 @@
-import { roundStatus } from '@daisy/protocol';
+import { roundStatus } from '@daisy/protocol/round';
 import { lifecycleSql } from '../lifecycle-sql';
 import { sql } from 'drizzle-orm';
 /** Distinct eligible original-content Rounds. Custody refusal is handled outside this metadata-only query. */

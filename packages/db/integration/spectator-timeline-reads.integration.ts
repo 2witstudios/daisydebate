@@ -1,7 +1,8 @@
 import { resolveRoomConfiguration } from '@daisy/debate-engine';
-import { formatDefinitionSchema, formatSettingsSchema } from '@daisy/protocol';
+import { formatDefinitionSchema } from '@daisy/protocol/format';
+import { formatSettingsSchema } from '@daisy/protocol/format-settings';
 import { requireTestServices } from '@daisy/config';
-import { SPECTATOR_MARGIN_MS } from '@daisy/protocol';
+import { SPECTATOR_MARGIN_MS } from '@daisy/protocol/broadcast';
 import { createId } from '@paralleldrive/cuid2';
 import { SQL } from 'bun';
 import { drizzle } from 'drizzle-orm/bun-sql';

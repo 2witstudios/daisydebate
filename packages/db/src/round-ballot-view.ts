@@ -3,17 +3,18 @@ import {
   type RoundBallotAccess,
   type BallotScreeningRead,
 } from './round-ballot-audience';
+import { isJudgeSeat, type SeatRef } from '@daisy/protocol/seats';
 import {
-  isJudgeSeat,
   storedBallotSchemaFor,
   ballotSchemaFor,
+  type Ballot,
+} from '@daisy/protocol/ballot-schema';
+import {
   ballotDefinitionIdentity,
   type BallotDefinitionSource,
-  type Ballot,
   type BallotDefinition,
   type BallotSubjects,
-  type SeatRef,
-} from '@daisy/protocol';
+} from '@daisy/protocol/ballot-definition';
 import { createAppError } from '@daisy/errors';
 import type { FrozenRoundTranscript } from './frozen-transcript';
 import type { ballots } from './schema/ballots';

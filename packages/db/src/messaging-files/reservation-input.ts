@@ -1,6 +1,7 @@
 import { tryInstantMs } from '@daisy/clock';
 import { createAppError } from '@daisy/errors';
-import { createMessagingFileSchemas, idSchema } from '@daisy/protocol';
+import { createMessagingFileSchemas } from '@daisy/protocol/messaging/files';
+import { idSchema } from '@daisy/protocol/primitives';
 import type { FilePolicy, FileReserveCommand } from './records';
 
 export function requireReservation(

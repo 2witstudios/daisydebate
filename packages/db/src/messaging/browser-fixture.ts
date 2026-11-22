@@ -1,6 +1,6 @@
 import { tryInstantMs } from '@daisy/clock';
 import type { SQL } from 'bun';
-import { idSchema } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
 import { z } from 'zod';
 type BrowserAccount = { readonly userId: string; readonly username: string };
 /**

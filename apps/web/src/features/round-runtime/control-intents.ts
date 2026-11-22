@@ -3,14 +3,11 @@ import {
   type RoundCommandOption,
 } from '@daisy/debate-engine/position';
 import { startSpeechLabel } from '../debate-room/vocabulary';
-import {
-  isDebatingSeat,
-  isNamedSeat,
-  isRoundRunning,
-  type RoundView,
-  type RoundPosition,
-  type RoundCommandEnvelope,
-} from '@daisy/protocol';
+import { isDebatingSeat } from '@daisy/protocol/seats';
+import { isNamedSeat, type RoundView } from '@daisy/protocol/round-view';
+import { isRoundRunning } from '@daisy/protocol/round';
+import { type RoundPosition } from '@daisy/protocol/runtime';
+import { type RoundCommandEnvelope } from '@daisy/protocol/round-command';
 export type RoundControlIntent = {
   readonly type: RoundCommandEnvelope['command']['type'];
   readonly label: string;

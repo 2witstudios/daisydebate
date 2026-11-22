@@ -1,7 +1,7 @@
 import {
   attendanceTimingPolicy as policy,
   type AttendanceLedgerFacts,
-} from '@daisy/protocol';
+} from '@daisy/protocol/attendance';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import {
   attendanceSettled,

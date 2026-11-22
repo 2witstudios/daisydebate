@@ -1,7 +1,7 @@
 'use client';
 
 import { Button } from '../../components/button/button';
-import type { RoomView } from '@daisy/protocol';
+import type { RoomView } from '@daisy/protocol/room-contract';
 import type { FormFields } from '../../../features/forms/form-state';
 import type { RoomFormState } from '../../../features/rooms/command-answer';
 import { type FormAction } from '../../form-action/form-action';

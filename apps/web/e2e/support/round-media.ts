@@ -1,11 +1,8 @@
 import type { BrowserContext, Page } from '@playwright/test';
 import { expect, openPage } from './fixtures';
-import {
-  roomViewSchema,
-  roundMediaStateSchema,
-  sideSeat,
-  twoSideKeys,
-} from '@daisy/protocol';
+import { roomViewSchema } from '@daisy/protocol/room-read';
+import { roundMediaStateSchema } from '@daisy/protocol/round-media';
+import { sideSeat, twoSideKeys } from '@daisy/protocol/seats';
 import {
   createFoundationRoom,
   claimSeat,

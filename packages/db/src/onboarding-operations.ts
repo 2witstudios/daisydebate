@@ -1,5 +1,10 @@
 import { asc, eq, sql } from 'drizzle-orm';
-import type { Club, Experience, InterestCategory, Want } from '@daisy/protocol';
+import type {
+  Club,
+  Experience,
+  InterestCategory,
+  Want,
+} from '@daisy/protocol/onboarding';
 import {
   memberInterests,
   memberLeagues,

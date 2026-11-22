@@ -1,5 +1,5 @@
 import { RedisClient } from 'bun';
-import type { ObservationResource } from '@daisy/protocol';
+import type { ObservationResource } from '@daisy/protocol/observation';
 import {
   createObservationKeys,
   parseObservationHint,

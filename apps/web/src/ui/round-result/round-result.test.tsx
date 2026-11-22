@@ -1,4 +1,4 @@
-import type { RoundBallotRead } from '@daisy/protocol';
+import type { RoundBallotRead } from '@daisy/protocol/round-ballot-read';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { sampleJudgeBallot } from '../mock/judge.test-support';

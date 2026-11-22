@@ -3,7 +3,7 @@ import { SQL } from 'bun';
 import { systemId } from '@daisy/clock';
 import { createDatabase } from '@daisy/db';
 import { ageAdmitted } from '@daisy/auth/authorization';
-import { decideBetaAccessChange } from '@daisy/protocol';
+import { decideBetaAccessChange } from '@daisy/protocol/beta-access';
 
 /** Owner-authorized staging-only synthetic identity, following the existing transcript fixture conventions. */
 export async function createStagingAttendanceMember(input: {

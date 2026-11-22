@@ -7,7 +7,7 @@ import { StoredBallotScores } from '../../ballot/stored-ballot-scores';
 import { useRouter } from 'next/navigation';
 import { useMemo, useState } from 'react';
 import { idle } from '../../../features/forms/form-state';
-import type { RoundBallotRead } from '@daisy/protocol';
+import type { RoundBallotRead } from '@daisy/protocol/round-ballot-read';
 import {
   ballotDisplay,
   ballotPlanOf,

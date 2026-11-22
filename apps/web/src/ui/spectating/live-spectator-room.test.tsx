@@ -1,6 +1,6 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import type { RoundView } from '@daisy/protocol';
+import type { RoundView } from '@daisy/protocol/round-view';
 import { mockNextRouter } from '../../lib/testing/mock-router';
 import {
   asCompleted,

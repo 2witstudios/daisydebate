@@ -10,7 +10,7 @@ import { mediaPhase } from '@daisy/debate-engine';
 import {
   roundMediaAdmissionSchema,
   type RoundMediaState,
-} from '@daisy/protocol';
+} from '@daisy/protocol/round-media';
 import {
   admissionRevoked,
   mediaEnded,

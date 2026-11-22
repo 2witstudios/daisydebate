@@ -1,4 +1,4 @@
-import { idSchema } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
 import { createScriptRunner } from './presence-scripts';
 import { redisKey } from './redis-key';
 import { reportedOperation } from './reported-operation';

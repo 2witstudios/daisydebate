@@ -4,7 +4,7 @@ import type {
   CaptureInterval,
   CoverageEdges,
   StreamCoverage,
-} from '@daisy/protocol';
+} from '@daisy/protocol/capture-verdict';
 
 setupRitewayBun();
 const rule = createCaptureRule({ joinMs: 0, relayMs: 0 });

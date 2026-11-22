@@ -1,4 +1,4 @@
-import { sideOfSeat } from '@daisy/protocol';
+import { sideOfSeat } from '@daisy/protocol/seats';
 import { requireTestServices } from '@daisy/config';
 import { createId } from '@paralleldrive/cuid2';
 import { SQL } from 'bun';

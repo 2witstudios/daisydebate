@@ -6,7 +6,7 @@ import { requireTestServices } from '@daisy/config';
 import {
   SPECTATOR_MARGIN_MS,
   type BroadcastReleasePolicy,
-} from '@daisy/protocol';
+} from '@daisy/protocol/broadcast';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { readRatingStandings } from '../src/features/ratings/read';

@@ -2,7 +2,7 @@ import { and, eq, lt } from 'drizzle-orm';
 import type {
   EmailDeliveryStatus,
   EmailSuppressionReason,
-} from '@daisy/protocol';
+} from '@daisy/protocol/email-delivery';
 import { verifications } from './schema/auth';
 import {
   emailDeliveries,

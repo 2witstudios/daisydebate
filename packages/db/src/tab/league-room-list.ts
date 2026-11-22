@@ -1,4 +1,4 @@
-import { openRoomStatuses, roomStatus } from '@daisy/protocol';
+import { openRoomStatuses, roomStatus } from '@daisy/protocol/room-contract';
 import { and, desc, eq, inArray, isNull, or } from 'drizzle-orm';
 import { rooms, roomParticipants } from '../schema/rooms';
 import { rounds } from '../schema/rounds';

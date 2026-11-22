@@ -2,12 +2,14 @@ import type { AuthorizationPrincipal } from '@daisy/auth/authorization';
 import {
   peopleQuerySchema,
   peopleListSchema,
+  type PeopleFilter,
+  type PeopleList,
+} from '@daisy/protocol/people-list';
+import {
   presenceSettingResultSchema,
   presenceSettingSchema,
   type ChosenStatus,
-  type PeopleFilter,
-  type PeopleList,
-} from '@daisy/protocol';
+} from '@daisy/protocol/presence-setting';
 import { parseValidated, readJson } from '../../server/http';
 import {
   runEvaluatedRoute,

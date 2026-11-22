@@ -1,10 +1,10 @@
 import { createAppError, createRefusal } from '@daisy/errors';
 import {
   type DebaterStanding,
-  type RoundRatingScope,
   type PlannedRatingChange,
   type RatingState,
-} from '@daisy/protocol';
+} from '@daisy/protocol/ratings';
+import { type RoundRatingScope } from '@daisy/protocol/rating-ladder';
 import { and, eq, inArray, max, sql } from 'drizzle-orm';
 import type { RateDebateInput, RateDebateResult } from './rating-facts';
 import {

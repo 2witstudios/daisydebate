@@ -10,7 +10,7 @@ import {
   preapprovalPageSchema,
   preapprovalQuerySchema,
 } from '@daisy/protocol/beta-preapproval';
-import { decideBetaAccessChange } from '@daisy/protocol';
+import { decideBetaAccessChange } from '@daisy/protocol/beta-access';
 import {
   verifyOperatorRequest,
   type OperatorCrypto,

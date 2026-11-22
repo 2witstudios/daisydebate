@@ -9,12 +9,9 @@ import { roundParticipants } from './schema/round-participants';
 import { rounds } from './schema/rounds';
 import { seedVersions } from './schema/seed-versions';
 import { users } from './schema/users';
-import {
-  roundStatus,
-  emptyRuntimeCheckpointFor,
-  type RoundRules,
-  type SideSeat,
-} from '@daisy/protocol';
+import { roundStatus, emptyRuntimeCheckpointFor } from '@daisy/protocol/round';
+import { type RoundRules } from '@daisy/protocol/format';
+import { type SideSeat } from '@daisy/protocol/seats';
 import { frozenJudgingFor } from './round-judging-freeze';
 import { columnsOfSeat } from './seat-columns';
 import { inTransaction } from './tx';

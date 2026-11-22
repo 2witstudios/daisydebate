@@ -1,5 +1,5 @@
 import { instantMs, tryInstantMs } from '@daisy/clock';
-import type { AgeBand } from '@daisy/protocol';
+import type { AgeBand } from '@daisy/protocol/ladder';
 import { ageBand } from './age-band';
 import { ageAdmitted } from './participant-access';
 import type { AccountAuthorizationFact } from './authorization';

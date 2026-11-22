@@ -7,11 +7,8 @@ import {
   oneOnOneDefinition,
   oneOnOneSettings,
 } from '@daisy/db/reference-formats';
-import {
-  CONTENT_MODERATION_DELIVERY_BOUND_MS,
-  isJudgeSeat,
-  isModeratorSeat,
-} from '@daisy/protocol';
+import { CONTENT_MODERATION_DELIVERY_BOUND_MS } from '@daisy/protocol/content-moderation';
+import { isJudgeSeat, isModeratorSeat } from '@daisy/protocol/seats';
 import { plannedRecording } from '@daisy/debate-engine';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { audienceLinkHash } from '../src/features/audience-link/audience-link';

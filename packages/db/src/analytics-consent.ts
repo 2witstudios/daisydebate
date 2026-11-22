@@ -2,9 +2,9 @@ import { tryInstantMs } from '@daisy/clock';
 import { eq, sql } from 'drizzle-orm';
 import {
   analyticsConsentSchema,
-  idSchema,
   type AnalyticsConsent,
-} from '@daisy/protocol';
+} from '@daisy/protocol/analytics-consent';
+import { idSchema } from '@daisy/protocol/primitives';
 import { createAppError } from '@daisy/errors';
 import { consentRecord } from './schema/consent-record';
 import type { PrivacyAdopter } from './privacy/contracts';

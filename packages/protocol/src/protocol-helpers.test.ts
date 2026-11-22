@@ -1,5 +1,6 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { ballotCategories, seatSlotsComplete, speakerTotal } from './index';
+import { ballotCategories, speakerTotal } from './ballot';
+import { seatSlotsComplete } from './round';
 
 setupRitewayBun();
 

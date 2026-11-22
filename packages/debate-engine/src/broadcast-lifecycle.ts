@@ -1,8 +1,5 @@
-import {
-  isRoundOver,
-  type BroadcastReleasePolicy,
-  type RoundStatus,
-} from '@daisy/protocol';
+import { isRoundOver, type RoundStatus } from '@daisy/protocol/round';
+import { type BroadcastReleasePolicy } from '@daisy/protocol/broadcast';
 import {
   unsettledEgress,
   stagePrivacyActions,

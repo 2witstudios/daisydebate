@@ -1,7 +1,7 @@
 'use client';
 
 import { useBrowserEffect } from '../edge/browser-sync';
-import type { ActiveRoom } from '@daisy/protocol';
+import type { ActiveRoom } from '@daisy/protocol/active-room';
 import { useRef, useState } from 'react';
 import { departedInSession } from '../../features/rooms/resume-departure';
 import { resumeRoundHrefOf } from '../../features/rooms/resume';

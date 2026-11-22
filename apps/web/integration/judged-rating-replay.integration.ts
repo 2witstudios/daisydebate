@@ -24,12 +24,12 @@ import {
   recoverRankedResults,
 } from './ranked-room.test-support';
 import { withRoomRuntime } from './round-runtime.test-support';
+import { winnerOutcome } from '@daisy/protocol/round-outcome';
 import {
-  winnerOutcome,
   sideOfSeat,
   twoSideKeys,
   type TwoSideKey,
-} from '@daisy/protocol';
+} from '@daisy/protocol/seats';
 
 requireTestServices(process.env);
 setupRitewayBun();

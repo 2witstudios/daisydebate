@@ -1,12 +1,12 @@
 import type {
   RatingEligibility,
   RatingEligibilityFacts,
-  RoundRatingScope,
   RatingPlan,
   RatingPlanFacts,
   RatingState,
   RatingUnrated,
-} from '@daisy/protocol';
+} from '@daisy/protocol/ratings';
+import type { RoundRatingScope } from '@daisy/protocol/rating-ladder';
 
 /**
  * The adapter's side of the rating decision contract (ADR 0055, ADR 0058): the

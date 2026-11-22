@@ -7,13 +7,12 @@ import {
 } from './support/human-ballot-round';
 import {
   affirmativeSide,
-  isNamedSeat,
   negativeSide,
-  roomViewSchema,
-  roundViewSchema,
   sideOfSeat,
-  winnerOutcome,
-} from '@daisy/protocol';
+} from '@daisy/protocol/seats';
+import { isNamedSeat, roundViewSchema } from '@daisy/protocol/round-view';
+import { roomViewSchema } from '@daisy/protocol/room-read';
+import { winnerOutcome } from '@daisy/protocol/round-outcome';
 import { origin } from './support/accounts';
 import { expect, test } from './support/live-room-documents';
 import { openPage } from './support/fixtures';

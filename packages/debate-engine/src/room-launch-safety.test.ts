@@ -1,5 +1,7 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { MAX_FORMAT_SEATS, sideOfSeat, type RoundRules } from '@daisy/protocol';
+import { MAX_FORMAT_SEATS } from '@daisy/protocol/format-seating';
+import { sideOfSeat } from '@daisy/protocol/seats';
+import { type RoundRules } from '@daisy/protocol/format';
 import { executeRoomCommand } from './room-assembly';
 import { consent, edges, state } from './room-assembly.test-support';
 

@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { idSchema } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
 import { parseValidated, readJson } from '../../server/http';
 import {
   runMemberRoute,

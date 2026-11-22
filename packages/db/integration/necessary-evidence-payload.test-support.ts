@@ -1,8 +1,6 @@
 import { sha3Hex } from '@daisy/digest';
-import {
-  canonicalCaptureEvidenceBody,
-  necessaryEvidencePolicy,
-} from '@daisy/protocol';
+import { canonicalCaptureEvidenceBody } from '@daisy/protocol/capture-evidence-body';
+import { necessaryEvidencePolicy } from '@daisy/protocol/necessary-evidence';
 import { createId } from '@paralleldrive/cuid2';
 import { withBoundedRound } from './bounded-transaction.test-support';
 import { configuredCapture } from './necessary-evidence.test-support';

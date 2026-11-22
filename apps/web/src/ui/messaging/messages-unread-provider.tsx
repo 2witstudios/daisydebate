@@ -3,7 +3,10 @@
 // First: protocol schemas built after this load without Zod's eval probe.
 import '../../lib/zod-jitless';
 import { browserFetch } from '../edge/browser-request';
-import { messagingUnreadSchema, type MessagingUnread } from '@daisy/protocol';
+import {
+  messagingUnreadSchema,
+  type MessagingUnread,
+} from '@daisy/protocol/messaging/inbox';
 import {
   createContext,
   useCallback,

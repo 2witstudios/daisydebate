@@ -1,12 +1,12 @@
 import { roundOutcomeForAudience } from './round-outcome-audience';
 import type { RoundRoomAuthority } from './round-room-authority';
 import { createAppError } from '@daisy/errors';
+import { idSchema } from '@daisy/protocol/primitives';
 import {
-  idSchema,
   roundTranscriptReadSchema,
   TRANSCRIPT_CONTRACT_VERSION,
-  type LaunchedRound,
-} from '@daisy/protocol';
+} from '@daisy/protocol/round-transcript';
+import { type LaunchedRound } from '@daisy/protocol/round-view';
 import { eq } from 'drizzle-orm';
 import { type Caller, type Account } from './room-command-facts';
 import { readAuthorizedRound } from './round-read-authority';
@@ -14,7 +14,7 @@ import { readOrderedRoundUtterances } from './round-utterance-projection';
 import { readTranscriptFreeze } from './frozen-transcript';
 import { transcriptRevision } from './capture-history';
 import { closedStreamGaps, streamKey } from './capture-gaps';
-import type { CaptureRule } from '@daisy/protocol';
+import type { CaptureRule } from '@daisy/protocol/capture-verdict';
 import { transcriptSegments } from './schema/transcript-segments';
 import { roundViewFor } from './round-view-projection';
 import { inTransaction, type TxSource, type Tx } from './tx';

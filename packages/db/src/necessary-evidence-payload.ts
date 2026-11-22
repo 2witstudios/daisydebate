@@ -2,7 +2,8 @@ import { register as registerTranscriptionRecovery } from './transcription-recov
 import { eq } from 'drizzle-orm';
 import { z } from 'zod';
 import { createAppError } from '@daisy/errors';
-import { evidenceEnvelopeSchema, idSchema } from '@daisy/protocol';
+import { evidenceEnvelopeSchema } from '@daisy/protocol/evidence-envelope';
+import { idSchema } from '@daisy/protocol/primitives';
 import { lockOriginalEvidenceBody } from './necessary-evidence-body';
 import { evidenceLeaseDigest } from './necessary-evidence-policy';
 import { sampleRoundExecutionTime } from './round-execution-time';

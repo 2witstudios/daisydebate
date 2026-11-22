@@ -5,7 +5,10 @@ import { ballotFormFixture, ballotFormPlan } from './ballot-form.test-support';
 import { ballotFields } from './fields';
 import { sampleBallotRound } from '../judge/ballot-plan.test-support';
 import { createRoundBallotHandlers } from './handlers';
-import { daisyWinnerBallot, panelRuleFor } from '@daisy/protocol';
+import {
+  daisyWinnerBallot,
+  panelRuleFor,
+} from '@daisy/protocol/ballot-definition';
 
 setupRitewayBun();
 

@@ -4,9 +4,9 @@ import { and, eq } from 'drizzle-orm';
 import { createAppError } from '@daisy/errors';
 import {
   canonicalCaptureEvidenceBody,
-  captureEvidenceSpeakerSchema,
   type CaptureEvidenceBody,
-} from '@daisy/protocol';
+} from '@daisy/protocol/capture-evidence-body';
+import { captureEvidenceSpeakerSchema } from '@daisy/protocol/capture-evidence-speaker';
 import { originalEvidenceBinding } from './necessary-evidence-binding';
 import { lockOriginalNecessaryEvidence } from './necessary-evidence-subjects';
 import { requireRoundEvidenceOpen } from './necessary-evidence-rounds';

@@ -1,5 +1,7 @@
 import { z } from 'zod';
-import { idSchema, roomConfigSchema, roundRulesSchema } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
+import { roomConfigSchema } from '@daisy/protocol/room';
+import { roundRulesSchema } from '@daisy/protocol/format';
 const count = z.int().nonnegative();
 const evidence = z.strictObject({
   hash: z.string().regex(/^[0-9a-f]{64}$/),

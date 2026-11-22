@@ -1,4 +1,4 @@
-import type { EntitlementGrant } from '@daisy/protocol';
+import type { EntitlementGrant } from '@daisy/protocol/entitlements';
 import type { SubscriptionEvidence } from '@daisy/protocol/billing';
 import { fundedSeats, type ClubSeat } from '@daisy/protocol/club-seats';
 import { premiumGrantWindows } from './subscription-policy';

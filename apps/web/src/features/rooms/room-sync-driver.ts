@@ -1,4 +1,5 @@
-import { buildRoomTopic, type RoomView } from '@daisy/protocol';
+import { buildRoomTopic } from '@daisy/protocol/topics';
+import { type RoomView } from '@daisy/protocol/room-contract';
 import type { Scheduler } from '../realtime/connection-store';
 import {
   createResourceSyncDriver,

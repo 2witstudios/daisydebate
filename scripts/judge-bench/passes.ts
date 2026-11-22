@@ -3,7 +3,7 @@
  * decided, did the final ballot keep the first pass's winner, and how did the
  * scores move? Read from staging by `bun judge:bench passes`.
  */
-import { twoSideKeys, twoSides, type TwoSideKey } from '@daisy/protocol';
+import { twoSideKeys, twoSides, type TwoSideKey } from '@daisy/protocol/seats';
 
 type Side = TwoSideKey;
 type Scores = Record<Side, Record<string, number>>;

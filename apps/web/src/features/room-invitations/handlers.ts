@@ -1,9 +1,9 @@
+import { idSchema } from '@daisy/protocol/primitives';
 import {
-  idSchema,
   roomInvitationCommandSchemas,
   roomInvitationRefusals,
-  type SeatKind,
-} from '@daisy/protocol';
+} from '@daisy/protocol/room-invitations';
+import { type SeatKind } from '@daisy/protocol/seats';
 import { parseValidated, readJson, refusalResponse } from '../../server/http';
 import {
   runMemberRoute,

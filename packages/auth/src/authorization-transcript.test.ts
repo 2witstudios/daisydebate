@@ -3,7 +3,7 @@ import {
   judgeSeat,
   negativeSide,
   sideSeat,
-} from '@daisy/protocol';
+} from '@daisy/protocol/seats';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { authorize, type AuthorizationInput } from './authorization';
 setupRitewayBun();

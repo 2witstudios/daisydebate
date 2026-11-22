@@ -1,10 +1,12 @@
+import { holdAttemptPrefix } from '@daisy/protocol/recording';
 import {
-  holdAttemptPrefix,
   parseHoldPlaylist,
-  wholeSegmentsInside,
   type HoldEntry,
+} from '@daisy/protocol/egress-hold-playlist';
+import {
+  wholeSegmentsInside,
   type PublicInterval,
-} from '@daisy/protocol';
+} from '@daisy/protocol/public-interval';
 import { HOLD_PLAYLIST } from './attempt-source';
 
 type HoldPort = {

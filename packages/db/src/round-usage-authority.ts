@@ -1,5 +1,6 @@
 import { createAppError } from '@daisy/errors';
-import { idSchema, isRoundRunning, type RoundStatus } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
+import { isRoundRunning, type RoundStatus } from '@daisy/protocol/round';
 
 type Account = {
   readonly member: boolean;

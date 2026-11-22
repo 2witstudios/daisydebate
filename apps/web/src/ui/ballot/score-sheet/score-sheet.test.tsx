@@ -1,4 +1,4 @@
-import { ballotCategories } from '@daisy/protocol';
+import { ballotCategories } from '@daisy/protocol/ballot';
 import { createElement as h } from 'react';
 import { renderToString } from 'react-dom/server';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';

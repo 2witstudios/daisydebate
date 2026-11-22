@@ -5,7 +5,7 @@ import {
   emailDeliveryStatusRank,
   type EmailDeliveryStatus,
   type EmailSuppressionReason,
-} from '@daisy/protocol';
+} from '@daisy/protocol/email-delivery';
 import { readBoundedBody } from '../../server/bounded-body';
 
 const MAX_BODY_BYTES = 64 * 1024;

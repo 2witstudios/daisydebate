@@ -1,5 +1,5 @@
 import { sha3Hex } from '@daisy/digest';
-import type { ServerMessage } from '@daisy/protocol';
+import type { ServerMessage } from '@daisy/protocol/realtime-server';
 import type { RealtimeAuthorityReads } from '@daisy/db';
 import type { RealtimeApp } from './app';
 import {

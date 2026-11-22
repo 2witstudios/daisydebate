@@ -1,7 +1,7 @@
 'use client';
 import { useBrowserEffect } from '../../edge/browser-sync';
 import { cancelWindowDelay, windowDelay } from '../../edge/browser-time';
-import type { RoundBallotRead } from '@daisy/protocol';
+import type { RoundBallotRead } from '@daisy/protocol/round-ballot-read';
 import { useCallback, useMemo, useRef, useSyncExternalStore } from 'react';
 import {
   ballotDraftKey,

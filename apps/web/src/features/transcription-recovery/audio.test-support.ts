@@ -1,5 +1,5 @@
 import { createFrameClock } from '@daisy/media/observation';
-import { canonicalCaptureEvidenceBody } from '@daisy/protocol';
+import { canonicalCaptureEvidenceBody } from '@daisy/protocol/capture-evidence-body';
 export function originalBodies(count = 2, framesPerBody = 1) {
   const at = 1800000000100;
   const clock = createFrameClock({

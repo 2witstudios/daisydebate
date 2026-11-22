@@ -2,7 +2,7 @@ import { requireTestServices } from '@daisy/config';
 import { Database } from 'bun:sqlite';
 import { existsSync } from 'node:fs';
 import { sha3Hex } from '@daisy/digest';
-import { necessaryEvidencePolicy } from '@daisy/protocol';
+import { necessaryEvidencePolicy } from '@daisy/protocol/necessary-evidence';
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';

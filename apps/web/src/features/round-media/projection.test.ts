@@ -1,6 +1,6 @@
 import { addMs } from '@daisy/clock';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { noPostRoundCall } from '@daisy/protocol';
+import { noPostRoundCall } from '@daisy/protocol/post-round-call';
 import { seatGrants } from './projection';
 import { rules } from './media-world-seats.test-support';
 

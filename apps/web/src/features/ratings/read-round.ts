@@ -1,14 +1,15 @@
 import {
   affirmativeSide,
   isDebatingSeat,
-  isRoundOver,
   negativeSide,
   sideOfSeat,
-  winnerOutcome,
-} from '@daisy/protocol';
+} from '@daisy/protocol/seats';
+import { isRoundOver } from '@daisy/protocol/round';
+import { winnerOutcome } from '@daisy/protocol/round-outcome';
 import type { Database } from '@daisy/db';
 import { createAppError } from '@daisy/errors';
-import type { Ladder, RoundView } from '@daisy/protocol';
+import type { Ladder } from '@daisy/protocol/ladder';
+import type { RoundView } from '@daisy/protocol/round-view';
 import {
   postingInstant,
   rateDebateSides,

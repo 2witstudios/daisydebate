@@ -1,6 +1,8 @@
-import { roundStatus } from '@daisy/protocol';
+import { roundStatus } from '@daisy/protocol/round';
 import { createAppError } from '@daisy/errors';
-import type { RoundOutcome, RoundStatus, SeatRef } from '@daisy/protocol';
+import type { RoundOutcome } from '@daisy/protocol/round-outcome';
+import type { RoundStatus } from '@daisy/protocol/round';
+import type { SeatRef } from '@daisy/protocol/seats';
 import { and, count, desc, eq, isNotNull, sql } from 'drizzle-orm';
 import { instrumented, type DatabaseEventSink } from './instrumented';
 import { debating, historyRows, type HistoryRow } from './member-history-rows';

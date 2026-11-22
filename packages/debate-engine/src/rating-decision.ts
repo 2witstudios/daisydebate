@@ -3,11 +3,10 @@ import { createAppError } from '@daisy/errors';
 import {
   affirmativeSide,
   negativeSide,
-  rateableOutcome,
   sideOfSeat,
-  winnerOutcome,
   type SideKey,
-} from '@daisy/protocol';
+} from '@daisy/protocol/seats';
+import { rateableOutcome, winnerOutcome } from '@daisy/protocol/round-outcome';
 import type {
   DebaterStanding,
   EndingRating,
@@ -17,7 +16,7 @@ import type {
   RatingPlan,
   RatingPlanFacts,
   RatingState,
-} from '@daisy/protocol';
+} from '@daisy/protocol/ratings';
 import { attendanceSettled } from './attendance-order';
 import {
   carryOver,

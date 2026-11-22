@@ -1,11 +1,13 @@
 import {
   seatCountFor,
-  seatLabel,
   type FormatSeating,
+} from '@daisy/protocol/format-seating';
+import {
+  seatLabel,
   type SeatRef,
   type Side,
   type SideKey,
-} from '@daisy/protocol';
+} from '@daisy/protocol/seats';
 
 /**
  * How people read a format's sides and seats (TAB-6.17): always from the

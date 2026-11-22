@@ -1,6 +1,7 @@
 import { sha3Hex } from '@daisy/digest';
 import { addMs } from '@daisy/clock';
-import { judgeSeat, type RoomAssemblyState } from '@daisy/protocol';
+import { judgeSeat } from '@daisy/protocol/seats';
+import { type RoomAssemblyState } from '@daisy/protocol/room-contract';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { executeRoomCommand, projectRoom } from './room-assembly';
 import { projectOpening } from './round-opening';

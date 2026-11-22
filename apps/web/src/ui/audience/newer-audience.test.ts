@@ -1,4 +1,4 @@
-import type { AudienceSnapshot } from '@daisy/protocol';
+import type { AudienceSnapshot } from '@daisy/protocol/audience';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { newerAudience } from './newer-audience';

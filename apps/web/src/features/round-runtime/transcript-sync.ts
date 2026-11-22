@@ -1,4 +1,5 @@
-import { buildRoundTopic, type LiveTranscriptRead } from '@daisy/protocol';
+import { buildRoundTopic } from '@daisy/protocol/topics';
+import { type LiveTranscriptRead } from '@daisy/protocol/round-transcript';
 import { createResourceSyncDriver } from '../resource-sync/driver';
 import type { ResourceRead } from '../resource-sync/driver';
 import { attachVersionDoorbell } from '../resource-sync/doorbell';

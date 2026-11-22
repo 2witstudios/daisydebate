@@ -1,11 +1,8 @@
-import { roomStatus } from '@daisy/protocol';
-import type {
-  CompetitionType,
-  TwoSideKey,
-  RoomConfig,
-  RoomExecutionPlan,
-  RoundRules,
-} from '@daisy/protocol';
+import { roomStatus } from '@daisy/protocol/room-contract';
+import type { CompetitionType } from '@daisy/protocol/round';
+import type { TwoSideKey } from '@daisy/protocol/seats';
+import type { RoomConfig, RoomExecutionPlan } from '@daisy/protocol/room';
+import type { RoundRules } from '@daisy/protocol/format';
 
 export type NewRoom = {
   readonly id: string;

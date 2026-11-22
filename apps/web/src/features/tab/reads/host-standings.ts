@@ -6,7 +6,7 @@ import type {
 } from '@daisy/auth/authorization';
 import type { EventCompetitionFacts, TabStore } from '@daisy/db/tab';
 import { createAppError } from '@daisy/errors';
-import { idSchema } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
 import { resultCompetitionRecordSchema } from '@daisy/protocol/lobby/result-record';
 import {
   standingsViewSchema,

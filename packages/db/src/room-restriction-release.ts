@@ -1,5 +1,5 @@
 import { and, eq, inArray, or, sql } from 'drizzle-orm';
-import type { RoomAssemblyState } from '@daisy/protocol';
+import type { RoomAssemblyState } from '@daisy/protocol/room-contract';
 import { rooms, roomParticipants, roomSeatHolds } from './schema/rooms';
 import { appendRoomChanged, roomFacts } from './room-command-facts';
 import { persistRoomOutsideCommands } from './room-mutation-persistence';

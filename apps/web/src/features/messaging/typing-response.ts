@@ -1,4 +1,4 @@
-import { messagingTypingSchemas } from '@daisy/protocol';
+import { messagingTypingSchemas } from '@daisy/protocol/messaging/typing';
 /** Shared browser readers/writers bind the strict wire result to their exact channel under CSP. */
 export async function readTypingResponse(
   channelId: string,

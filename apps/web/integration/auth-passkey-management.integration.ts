@@ -1,7 +1,7 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { createId } from '@paralleldrive/cuid2';
 import { foundationDefinition } from '@daisy/db/reference-formats';
-import type { RoundRules } from '@daisy/protocol';
+import type { RoundRules } from '@daisy/protocol/format';
 
 const foundationToRules = (
   definition: typeof foundationDefinition | undefined,
@@ -28,7 +28,7 @@ const foundationToRules = (
   };
 };
 import { createDatabase } from '@daisy/db';
-import { buildUserInboxTopic } from '@daisy/protocol';
+import { buildUserInboxTopic } from '@daisy/protocol/topics';
 import { createPasskeyFlows } from './auth-passkey-flows';
 import {
   cookieHeader,

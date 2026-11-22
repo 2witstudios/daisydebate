@@ -1,4 +1,7 @@
-import { storedBallotDefinition, type BallotDefinition } from '@daisy/protocol';
+import {
+  storedBallotDefinition,
+  type BallotDefinition,
+} from '@daisy/protocol/ballot-definition';
 import type {
   SettingCommand,
   SettingRefusal,

@@ -1,18 +1,22 @@
+import { isNamedSeat } from '@daisy/protocol/round-view';
 import {
-  isNamedSeat,
   isOpenRoomStatus,
-  sameSeat,
-  seatTotalOf,
-  seatsTwoTeams,
-  sideOfTeam,
-  sideSeat,
-  teamOfPlacement,
   type RoomRefusal,
   type RoomView,
+} from '@daisy/protocol/room-contract';
+import {
+  sameSeat,
+  sideSeat,
   type SeatRef,
   type Side,
   type TwoSideKey,
-} from '@daisy/protocol';
+} from '@daisy/protocol/seats';
+import { seatTotalOf } from '@daisy/protocol/format-seating';
+import {
+  seatsTwoTeams,
+  sideOfTeam,
+  teamOfPlacement,
+} from '@daisy/protocol/seat-draw';
 import {
   strikeSummary,
   roundLength,

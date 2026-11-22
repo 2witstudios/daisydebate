@@ -2,8 +2,8 @@ import { isAppError, createAppError } from '@daisy/errors';
 import {
   frozenCaptureOf,
   platformLostTooMuch,
-  type RoundPanelReceipt,
-} from '@daisy/protocol';
+} from '@daisy/protocol/capture-judging-limit';
+import { type RoundPanelReceipt } from '@daisy/protocol/round-panel-completion';
 import { and, eq, sql } from 'drizzle-orm';
 import type { BoundedTransaction } from './bounded-transaction';
 import { fenceAttendance } from './attendance-facts';
@@ -18,7 +18,8 @@ import {
   type LockedRoundTickInput,
 } from './round-clock-transaction';
 import { hydrateRoundRows } from './round-hydration';
-import type { JudgingPanelFacts, JudgingTerminalReason } from '@daisy/protocol';
+import type { JudgingPanelFacts } from '@daisy/protocol/round-panel-completion';
+import type { JudgingTerminalReason } from '@daisy/protocol/round-judging-attempt';
 import { readJudgingPanelFacts } from './judging-panel-read';
 import { endOpenJudgingJobs, type JudgingEndRule } from './round-judging-end';
 import { requireCurrentWeb } from './web-service-authority';

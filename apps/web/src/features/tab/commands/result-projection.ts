@@ -1,12 +1,8 @@
 import { deriveRoundOutcome } from '@daisy/debate-engine';
-import {
-  isDebatingSeat,
-  scoreUnits,
-  seatKey,
-  type BallotCompetition,
-  type JudgeRuling,
-  type ScoreUnit,
-} from '@daisy/protocol';
+import { isDebatingSeat, seatKey } from '@daisy/protocol/seats';
+import { scoreUnits, type ScoreUnit } from '@daisy/protocol/score-unit';
+import { type BallotCompetition } from '@daisy/protocol/ballot-schema';
+import { type JudgeRuling } from '@daisy/protocol/round-panel-completion';
 import {
   resultCompetitionRecordSchema,
   type ResultCompetitionRecord,

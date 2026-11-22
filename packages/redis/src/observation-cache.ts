@@ -6,7 +6,7 @@ import {
   utf8Bytes,
   type ObservationBase,
   type ObservationResource,
-} from '@daisy/protocol';
+} from '@daisy/protocol/observation';
 import { redisKey, redisSegmentPattern } from './redis-key';
 import { defineScript } from './script-registry';
 import type { RedisTransport } from './transport';

@@ -1,4 +1,4 @@
-import { serverMessageSchema } from '@daisy/protocol';
+import { serverMessageSchema } from '@daisy/protocol/realtime-server';
 import { expect, openPage, test } from './fixtures';
 import { coachedYouthRound, openFloor, postFloorMessage } from './youth-coach';
 

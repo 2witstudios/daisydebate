@@ -1,9 +1,8 @@
+import { ENVELOPE_VERSION, PROTOCOL_VERSION } from '@daisy/protocol/realtime';
 import {
-  ENVELOPE_VERSION,
-  PROTOCOL_VERSION,
   serverMessageSchema,
   type ServerMessage,
-} from '@daisy/protocol';
+} from '@daisy/protocol/realtime-server';
 import { testOrigin, waitFor } from './support';
 
 /** Actual native transport; the caller issues a real single-use Redis ticket. */

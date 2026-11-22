@@ -5,15 +5,14 @@ import { useBrowserEffect } from '../edge/browser-sync';
 import { Button } from '../components/button/button';
 import { StatusRegion } from '../components/status-region/status-region';
 import { Dialog } from '../components/dialog/dialog';
+import { competitionTypes, type CompetitionType } from '@daisy/protocol/round';
 import {
-  competitionTypes,
   reportReasonLabels,
   reportReasons,
-  type ChallengeList,
-  type CompetitionType,
-  type Person,
   type ReportReason,
-} from '@daisy/protocol';
+} from '@daisy/protocol/reports';
+import { type ChallengeList } from '@daisy/protocol/challenges';
+import { type Person } from '@daisy/protocol/people-list';
 import { ShellLink as Link } from '../layout/app-shell/shell-link';
 import { useId, useRef, useState } from 'react';
 import {

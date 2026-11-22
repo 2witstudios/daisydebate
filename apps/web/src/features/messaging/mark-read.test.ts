@@ -1,5 +1,5 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { createMessagingCoreSchemas } from '@daisy/protocol';
+import { createMessagingCoreSchemas } from '@daisy/protocol/messaging/core';
 import { formReadThrough, messagingMarkReadBody } from './mark-read';
 setupRitewayBun();
 test('the browser read body is a valid mark-read command for its own channel', () => {

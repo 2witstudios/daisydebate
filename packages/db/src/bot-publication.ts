@@ -1,7 +1,8 @@
 import type { AllowanceAccountPolicy } from './usage-ledger';
 import { and, eq, sql } from 'drizzle-orm';
 import { createAppError } from '@daisy/errors';
-import { isJudgeSeat, leadSeatOf, sameSeat } from '@daisy/protocol';
+import { isJudgeSeat, sameSeat } from '@daisy/protocol/seats';
+import { leadSeatOf } from '@daisy/protocol/format-seating';
 import type { BoundedTransaction } from './bounded-transaction';
 import { createBotGenerationOperations } from './bot-generation';
 export { isFinalBotSpeechRefusal } from './bot-generation-rules';

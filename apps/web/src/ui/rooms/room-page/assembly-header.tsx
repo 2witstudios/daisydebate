@@ -1,4 +1,5 @@
-import { isNamedSeat, isOpenRoomStatus, type RoomView } from '@daisy/protocol';
+import { isNamedSeat } from '@daisy/protocol/round-view';
+import { isOpenRoomStatus, type RoomView } from '@daisy/protocol/room-contract';
 import Link from 'next/link';
 import type { InvitationFormState } from '../../../features/room-invitations/submit';
 import type { RoomFormState } from '../../../features/rooms/command-answer';

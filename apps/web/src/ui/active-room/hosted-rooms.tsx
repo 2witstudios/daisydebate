@@ -1,4 +1,4 @@
-import type { HostedRoom } from '@daisy/protocol';
+import type { HostedRoom } from '@daisy/protocol/hosted-rooms';
 import { roomStatusLabels } from '../../features/rooms/status-labels';
 import { Panel } from '../components/panel/panel';
 import { MediaPageLink } from '../round-media/media-page-link';

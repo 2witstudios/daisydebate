@@ -1,4 +1,4 @@
-import type { ServerMessage } from '@daisy/protocol';
+import type { ServerMessage } from '@daisy/protocol/realtime-server';
 import type { ConnectionState } from '../realtime/connection-types';
 import type { Scheduler } from '../realtime/connection-store';
 import type { SyncConnection, SyncVisibility } from './driver';

@@ -1,5 +1,5 @@
 import { botGrantUnused, captureRule } from '@daisy/debate-engine';
-import { judgingPolicy } from '@daisy/protocol';
+import { judgingPolicy } from '@daisy/protocol/judging-policy';
 import type { SQL } from 'bun';
 import type { Database } from '@daisy/db';
 import { createId } from '@paralleldrive/cuid2';

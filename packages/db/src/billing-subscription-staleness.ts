@@ -1,7 +1,7 @@
 import { and, asc, desc, eq, gt, isNull, lte } from 'drizzle-orm';
 import { createAppError } from '@daisy/errors';
 import { billingSyncStateSchema } from '@daisy/protocol/billing';
-import { idSchema } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
 import type { BoundedTransaction } from './bounded-transaction';
 import { readDatabaseTime } from './database-clock';
 import { billingCustomers } from './schema/billing-customers';

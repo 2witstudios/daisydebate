@@ -1,10 +1,8 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import type { Database } from './index';
 import { validRules } from './testing-rules';
-import {
-  emptyRuntimeCheckpointFor,
-  type RoundProjection,
-} from '@daisy/protocol';
+import { emptyRuntimeCheckpointFor } from '@daisy/protocol/round';
+import { type RoundProjection } from '@daisy/protocol/runtime';
 
 setupRitewayBun();
 

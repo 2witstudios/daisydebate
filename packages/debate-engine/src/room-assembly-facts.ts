@@ -6,15 +6,15 @@ import type {
   RoomMutationOutcome,
   RoomParticipant,
   RoomRefusal,
-  AiRole,
-} from '@daisy/protocol';
+} from '@daisy/protocol/room-contract';
+import type { AiRole } from '@daisy/protocol/ai-roles';
 import {
   formatDefinitionSchema,
-  heldSeatsComplete,
-  isJudgeSeat,
-  isOpenRoomStatus,
   roundRulesSchema,
-} from '@daisy/protocol';
+} from '@daisy/protocol/format';
+import { heldSeatsComplete } from '@daisy/protocol/format-seating';
+import { isJudgeSeat } from '@daisy/protocol/seats';
+import { isOpenRoomStatus } from '@daisy/protocol/room-contract';
 import { activeRoomMembers } from './room-membership';
 import type { FormatSelectionFacts } from './format-selection';
 import type { DrawStartFacts } from './room-draw-start';

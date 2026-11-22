@@ -7,8 +7,8 @@ import {
   judgeSeat,
   negativeSide,
   sideSeat,
-  type RoomView,
-} from '@daisy/protocol';
+} from '@daisy/protocol/seats';
+import { type RoomView } from '@daisy/protocol/room-contract';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { withRoomRuntime } from './room-runtime.test-support';
 import { everyoneReady } from './round-judging.test-support';

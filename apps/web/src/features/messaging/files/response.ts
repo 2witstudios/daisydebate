@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { createMessagingFileSchemas } from '@daisy/protocol';
+import { createMessagingFileSchemas } from '@daisy/protocol/messaging/files';
 import { createAppError } from '@daisy/errors';
 /** Transport bounds describe the injected validator, never authority or activation. */
 export function messagingFileResponseSchemas(response: Response) {

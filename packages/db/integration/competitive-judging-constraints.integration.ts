@@ -3,7 +3,7 @@ import { createId } from '@paralleldrive/cuid2';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { at, digest, rejected, withFixture } from './constraint-helpers';
 import { requireTestServices } from '@daisy/config';
-import { ballotCategories } from '@daisy/protocol';
+import { ballotCategories } from '@daisy/protocol/ballot';
 
 setupRitewayBun();
 

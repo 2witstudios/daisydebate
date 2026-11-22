@@ -1,5 +1,5 @@
 import { createRoundRuntime } from '@daisy/debate-engine';
-import { isRoundRunning } from '@daisy/protocol';
+import { isRoundRunning } from '@daisy/protocol/round';
 import {
   observerAccess,
   stageCredentialValid,

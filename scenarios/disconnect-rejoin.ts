@@ -11,7 +11,7 @@ import {
   otherSide,
   sameSeat,
   sideOfSeat,
-} from '@daisy/protocol';
+} from '@daisy/protocol/seats';
 import {
   foundationScenarioIds,
   type DebateScenario,

@@ -1,6 +1,6 @@
 import { requireTestServices } from '@daisy/config';
 import { assertRejects } from '@daisy/errors/testing';
-import { isNamedSeat } from '@daisy/protocol';
+import { isNamedSeat } from '@daisy/protocol/round-view';
 import { AUTOMATIC_STRIKE_DELAY_MS } from '@daisy/protocol/resolution-draw';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';

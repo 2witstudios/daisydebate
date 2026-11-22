@@ -1,6 +1,6 @@
 import { StatusRegion } from '../../components/status-region/status-region';
 import type { CreateLobbyChoice } from '../../../features/rooms/create-lobby-choice';
-import type { RatingDivision } from '@daisy/protocol';
+import type { RatingDivision } from '@daisy/protocol/ladder';
 import Link from 'next/link';
 import { buttonClass } from '../../components/button/button-class';
 import { PageHeader } from '../../components/page-header/page-header';

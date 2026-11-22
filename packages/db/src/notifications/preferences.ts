@@ -5,7 +5,7 @@ import {
   type NotificationChoices,
   type NotificationKind,
   notificationKinds,
-} from '@daisy/protocol';
+} from '@daisy/protocol/notifications';
 import { sql, type SQL } from 'drizzle-orm';
 import { instrumented, type DatabaseEventSink } from '../instrumented';
 import { run, query as queryRows } from '../raw-rows';

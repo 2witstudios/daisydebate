@@ -1,13 +1,10 @@
-import {
-  isNamedSeat,
-  leadSeatOf,
-  partialReasonsStateLoss,
-  sideOfSeat,
-  type Ballot,
-  type RoundBallotRead,
-  type LiveTranscriptRead,
-  type SeatRef,
-} from '@daisy/protocol';
+import { isNamedSeat } from '@daisy/protocol/round-view';
+import { leadSeatOf } from '@daisy/protocol/format-seating';
+import { partialReasonsStateLoss } from '@daisy/protocol/capture-verdict';
+import { sideOfSeat, type SeatRef } from '@daisy/protocol/seats';
+import { type Ballot } from '@daisy/protocol/ballot-schema';
+import { type RoundBallotRead } from '@daisy/protocol/round-ballot-read';
+import { type LiveTranscriptRead } from '@daisy/protocol/round-transcript';
 import { segmentSeatLabel } from '../rooms/room-page/assembly-controls';
 import { speechName } from '../../features/debate-room/vocabulary';
 

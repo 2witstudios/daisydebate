@@ -3,7 +3,7 @@ import type { DrawCommand } from '@daisy/protocol/lobby/draw-command';
 import type { LoadedDrawCommand } from '@daisy/db/tab';
 import { createAppError } from '@daisy/errors';
 import { z } from 'zod';
-import { idSchema } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
 import { drawStageSnapshotSchema, type DrawCompetition } from './draw-facts';
 import { eventCompetition } from './event-competition';
 import { eventBreaks } from './event-breaks';

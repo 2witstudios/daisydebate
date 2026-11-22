@@ -1,11 +1,9 @@
 import { z } from 'zod';
 import { realtimePublicUrlSchema } from '@daisy/config';
 import { createAppError } from '@daisy/errors';
-import {
-  createMessagingCoreSchemas,
-  createMessagingInboxSchemas,
-  messagingTypingSchemas,
-} from '@daisy/protocol';
+import { createMessagingCoreSchemas } from '@daisy/protocol/messaging/core';
+import { createMessagingInboxSchemas } from '@daisy/protocol/messaging/inbox';
+import { messagingTypingSchemas } from '@daisy/protocol/messaging/typing';
 
 export type MessagingConversation = z.infer<
   ReturnType<typeof createMessagingCoreSchemas>['historyResult']
@@ -113,7 +111,7 @@ export function readThroughSequence(
 
 type ChannelEntry = ReturnType<
   ReturnType<
-    typeof import('@daisy/protocol').createMessagingInboxSchemas
+    typeof import('@daisy/protocol/messaging/inbox').createMessagingInboxSchemas
   >['entry']['parse']
 >['entry'];
 

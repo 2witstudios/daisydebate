@@ -1,6 +1,6 @@
 import { ADMITTED_AGE_BANDS } from './age-floor';
-import type { AgeBand } from '@daisy/protocol';
-import type { BetaAccessState } from '@daisy/protocol';
+import type { AgeBand } from '@daisy/protocol/ladder';
+import type { BetaAccessState } from '@daisy/protocol/beta-access';
 import type { AuthorizationCapability } from '@daisy/protocol/authorization';
 import type { AccountAuthorizationFact } from './authorization-facts';
 

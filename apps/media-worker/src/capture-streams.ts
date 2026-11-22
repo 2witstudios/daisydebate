@@ -1,6 +1,6 @@
 import { instantMs } from '@daisy/clock';
 import { createAppError } from '@daisy/errors';
-import { speakingEndMs } from '@daisy/protocol';
+import { speakingEndMs } from '@daisy/protocol/segment-end';
 import { CAPTURE_BATCH_INTERVAL_MS } from './capture-batch';
 import type { CaptureState } from './capture-history';
 

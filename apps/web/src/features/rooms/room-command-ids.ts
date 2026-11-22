@@ -1,4 +1,5 @@
-import { seatTotalOf, type RoomView } from '@daisy/protocol';
+import { seatTotalOf } from '@daisy/protocol/format-seating';
+import { type RoomView } from '@daisy/protocol/room-contract';
 
 /** One idempotency key per room form, so a replayed post is recognized. */
 export type RoomCommandIds = {

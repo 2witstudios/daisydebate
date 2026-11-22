@@ -1,5 +1,8 @@
 import type { SettingGraph } from '@daisy/db/tab';
-import { ballotDefinitionSchema, freezeBallotJudging } from '@daisy/protocol';
+import {
+  ballotDefinitionSchema,
+  freezeBallotJudging,
+} from '@daisy/protocol/ballot-definition';
 
 /** Check the exact immutable content under the permitted pin owner's scope. */
 export const ballotPinCompatible = (

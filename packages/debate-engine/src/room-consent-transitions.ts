@@ -1,5 +1,5 @@
 import { createAppError } from '@daisy/errors';
-import { affirmativeSide } from '@daisy/protocol';
+import { affirmativeSide } from '@daisy/protocol/seats';
 import { captureUnadmitted } from './room-capture';
 import { castHoldsUnadmittedAiJudge } from './ai-judge-seating';
 import { castSeatsBotDebater } from './ai-round-cast';
@@ -8,11 +8,11 @@ import type {
   RoomAssemblyState,
   RoomCommand,
   RoomConsent,
-  RoomExecutionPlan,
   RoomMutationOutcome,
   RoomRefusal,
-  RunningRoundStatus,
-} from '@daisy/protocol';
+} from '@daisy/protocol/room-contract';
+import type { RoomExecutionPlan } from '@daisy/protocol/room';
+import type { RunningRoundStatus } from '@daisy/protocol/round';
 
 import { startBlocker, type Edges } from './room-assembly-facts';
 import { startRoundDraw } from './room-draw-start';

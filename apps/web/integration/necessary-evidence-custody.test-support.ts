@@ -2,7 +2,10 @@ import { sha3Hex } from '@daisy/digest';
 import { privacyScope } from './necessary-evidence-custody-fixture.test-support';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import type { EvidenceCustodyIdentity, SealedEvidence } from '@daisy/protocol';
+import type {
+  EvidenceCustodyIdentity,
+  SealedEvidence,
+} from '@daisy/protocol/necessary-evidence';
 import {
   initializeLocalEvidenceAuthority,
   openLocalEvidenceAuthority,

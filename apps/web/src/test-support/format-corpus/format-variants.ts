@@ -4,7 +4,8 @@ import {
   type CatalogFormat,
 } from '@daisy/db/catalog-formats';
 import { resolveRoomConfiguration } from '@daisy/debate-engine';
-import type { FormatSettings, RoundRules } from '@daisy/protocol';
+import type { FormatSettings } from '@daisy/protocol/format-settings';
+import type { RoundRules } from '@daisy/protocol/format';
 
 /** One catalog format under one interruption choice its definition permits. */
 export type FormatVariant = {

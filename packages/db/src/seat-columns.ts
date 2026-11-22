@@ -1,5 +1,5 @@
 import { createAppError } from '@daisy/errors';
-import type { SeatKind, SeatRef, SideKey } from '@daisy/protocol';
+import type { SeatKind, SeatRef, SideKey } from '@daisy/protocol/seats';
 import { asc, sql, type SQL } from 'drizzle-orm';
 import type { PgColumn } from 'drizzle-orm/pg-core';
 

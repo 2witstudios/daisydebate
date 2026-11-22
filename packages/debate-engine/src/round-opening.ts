@@ -1,12 +1,8 @@
 import { instantMs } from '@daisy/clock';
-import { dueAfterStops } from '@daisy/protocol';
-import {
-  isSideSeat,
-  sideOfSeat,
-  type ClockStop,
-  type RoundView,
-  type SeatRef,
-} from '@daisy/protocol';
+import { dueAfterStops } from '@daisy/protocol/clock-stops';
+import { isSideSeat, sideOfSeat, type SeatRef } from '@daisy/protocol/seats';
+import { type ClockStop } from '@daisy/protocol/clock-stops';
+import { type RoundView } from '@daisy/protocol/round-view';
 import type {
   ResolutionDrawState,
   RoundOpening,

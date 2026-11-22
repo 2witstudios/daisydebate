@@ -2,15 +2,14 @@ import { instantMs } from '@daisy/clock';
 import { createAppError } from '@daisy/errors';
 import {
   affirmativeSide,
-  dueAfterStops,
   negativeSide,
   otherSide,
   sideOfSeat,
   twoSides,
-  type ClockStop,
-  type RoomAssemblyState,
   type TwoSideKey,
-} from '@daisy/protocol';
+} from '@daisy/protocol/seats';
+import { dueAfterStops, type ClockStop } from '@daisy/protocol/clock-stops';
+import { type RoomAssemblyState } from '@daisy/protocol/room-contract';
 import { canonicalOrder } from '@daisy/seeded-random';
 import { automaticChoice, shuffle } from './draw-random';
 import type {

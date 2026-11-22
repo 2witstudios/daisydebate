@@ -1,4 +1,4 @@
-import type { AudienceState } from '@daisy/protocol';
+import type { AudienceState } from '@daisy/protocol/audience-state';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import {
   nextPollDelayMs,

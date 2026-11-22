@@ -8,9 +8,9 @@ import {
   ROOM_SEAT_HOLD_MS,
   type RoomAssemblyState,
   type RoomMutationOutcome,
-  type RoomCapture,
-  type SeatRef,
-} from '@daisy/protocol';
+} from '@daisy/protocol/room-contract';
+import { type RoomCapture } from '@daisy/protocol/room-capture';
+import { type SeatRef } from '@daisy/protocol/seats';
 import type { CasualJudgeAdmission } from './casual-judge-admission';
 import { actors } from './schema/actors';
 import { botProfiles } from './schema/bot-profiles';

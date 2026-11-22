@@ -17,7 +17,7 @@ import {
   decideRoomResolution,
 } from '@daisy/debate-engine';
 import { createAppError } from '@daisy/errors';
-import { isDebatingSeat } from '@daisy/protocol';
+import { isDebatingSeat } from '@daisy/protocol/seats';
 import {
   commandReplay,
   type LobbyCommandAnswer,

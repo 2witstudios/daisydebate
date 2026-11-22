@@ -1,5 +1,5 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import type { BetaAccessState } from '@daisy/protocol';
+import type { BetaAccessState } from '@daisy/protocol/beta-access';
 import {
   claimedUsername,
   resolveIdentity,

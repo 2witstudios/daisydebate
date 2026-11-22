@@ -7,11 +7,9 @@ import { ContentWaiverForm } from './content-waiver-form';
 import type { RoomFormState } from '../../../features/rooms/command-answer';
 import type { FormAction } from '../../form-action/form-action';
 import type { ReactNode } from 'react';
-import {
-  freezePostRoundCall,
-  isJudgeSeat,
-  type RoomView,
-} from '@daisy/protocol';
+import { freezePostRoundCall } from '@daisy/protocol/post-round-call';
+import { isJudgeSeat } from '@daisy/protocol/seats';
+import { type RoomView } from '@daisy/protocol/room-contract';
 import { AssemblyCommandFields } from './assembly-command-fields';
 import { buttonClass } from '../../components/button/button-class';
 import { PopoverDialog } from '../../components/popover/popover-dialog';

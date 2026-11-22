@@ -1,4 +1,4 @@
-import type { RoomView } from '@daisy/protocol';
+import type { RoomView } from '@daisy/protocol/room-contract';
 import {
   resourceSync,
   seedResourceSync,

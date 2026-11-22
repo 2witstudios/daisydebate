@@ -4,7 +4,7 @@ import {
   refuseAllReading,
 } from './authorization.test-support';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { buildRoomTopic } from '@daisy/protocol';
+import { buildRoomTopic } from '@daisy/protocol/topics';
 import { createRealtimeAuthorization } from './authorization';
 
 setupRitewayBun();

@@ -4,7 +4,7 @@ import type { AuthorizationPrincipal } from '@daisy/auth/authorization';
 import type { Logger } from '@daisy/logger';
 import type { ErrorReporter } from '@daisy/observability';
 import { createAppError } from '@daisy/errors';
-import type { RefusalReason } from '@daisy/protocol';
+import type { RefusalReason } from '@daisy/protocol/refusal-reason';
 import { identify } from '../lib/identity';
 import type { App } from './app';
 import {

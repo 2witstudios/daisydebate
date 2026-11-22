@@ -1,4 +1,4 @@
-import { challengeListSchema } from '@daisy/protocol';
+import { challengeListSchema } from '@daisy/protocol/challenges';
 import { headers } from 'next/headers';
 import { GET as readChallengesRoute } from '../../api/challenges/route';
 

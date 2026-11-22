@@ -1,4 +1,5 @@
-import { negativeSide, winnerOutcome } from '@daisy/protocol';
+import { negativeSide } from '@daisy/protocol/seats';
+import { winnerOutcome } from '@daisy/protocol/round-outcome';
 import { test, expect } from './support/fixtures';
 import { leadSideOf } from './support/segment-lead';
 import { createRoomLaunchAccounts } from './support/room-launch-accounts';

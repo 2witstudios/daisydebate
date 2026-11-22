@@ -1,4 +1,4 @@
-import { isSpeakingSeat, type SeatRef } from '@daisy/protocol';
+import { isSpeakingSeat, type SeatRef } from '@daisy/protocol/seats';
 import { createAppError } from '@daisy/errors';
 import type { BotPublicationScope } from './bot-publication-context';
 import { nextEpoch } from './lease-policy';

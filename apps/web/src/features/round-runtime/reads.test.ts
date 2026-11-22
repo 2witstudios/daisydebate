@@ -3,7 +3,7 @@ import type { RoundRoomAuthority } from '@daisy/db';
 import type { AccountAuthorizationFact } from '@daisy/auth/authorization';
 import { createAppError } from '@daisy/errors';
 import { rejectionOf } from '@daisy/errors/testing';
-import type { LaunchedRound } from '@daisy/protocol';
+import type { LaunchedRound } from '@daisy/protocol/round-view';
 import { account, caller } from '../room-runtime/operations.test-support';
 import { launched, round } from './round.test-support';
 import { roundViewReader, canReadRound } from './reads';

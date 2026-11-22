@@ -1,4 +1,4 @@
-import type { Ladder, RatingDivision } from '@daisy/protocol';
+import type { Ladder, RatingDivision } from '@daisy/protocol/ladder';
 
 /**
  * The ladder the leaderboard and Seasons pages show (ADR 0147): Freestyle in

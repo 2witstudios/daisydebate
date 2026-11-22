@@ -1,5 +1,5 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { sideSeat } from '@daisy/protocol';
+import { sideSeat } from '@daisy/protocol/seats';
 import {
   executeRoomCommand,
   projectRoom,

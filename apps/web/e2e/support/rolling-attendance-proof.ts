@@ -1,6 +1,6 @@
 import { instantMs } from '@daisy/clock';
 import type { Browser } from '@playwright/test';
-import { attendanceTimingPolicy } from '@daisy/protocol';
+import { attendanceTimingPolicy } from '@daisy/protocol/attendance';
 import { expect } from './fixtures';
 import { createRoomLaunchAccounts } from './room-launch-accounts';
 import { createHumanBallotRound } from './human-ballot-round';

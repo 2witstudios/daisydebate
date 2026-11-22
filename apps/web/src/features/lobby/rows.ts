@@ -1,9 +1,7 @@
 import { instantMs } from '@daisy/clock';
-import {
-  type AgeBand,
-  type RoomListEntry,
-  type RoundStage,
-} from '@daisy/protocol';
+import { type AgeBand } from '@daisy/protocol/ladder';
+import { type RoomListEntry } from '@daisy/protocol/room-contract';
+import { type RoundStage } from '@daisy/protocol/round';
 import { mayDebate } from '@daisy/protocol/lobby/eligibility';
 import { drawnTopicLabel } from '../debate-room/vocabulary';
 import { liveHref, liveRoomHref, watchRoutes } from '../watch/routes';

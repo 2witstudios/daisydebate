@@ -1,10 +1,10 @@
 import {
   isRoundOver,
-  SPECTATOR_CHAT_WINDOW,
-  seatKindSchema,
   roundStatusSchema,
   competitionTypes,
-} from '@daisy/protocol';
+} from '@daisy/protocol/round';
+import { SPECTATOR_CHAT_WINDOW } from '@daisy/protocol/audience';
+import { seatKindSchema } from '@daisy/protocol/seats';
 import { sql } from 'drizzle-orm';
 import { readReactionTotals } from './audience-reactions';
 import { query } from './raw-rows';

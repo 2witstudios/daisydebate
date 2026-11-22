@@ -1,5 +1,6 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { judgeSeat, sideSeat, winnerOutcome } from '@daisy/protocol';
+import { judgeSeat, sideSeat } from '@daisy/protocol/seats';
+import { winnerOutcome } from '@daisy/protocol/round-outcome';
 import { recordResult, tallyRecord } from './debate-record';
 
 setupRitewayBun();

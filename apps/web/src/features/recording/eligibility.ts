@@ -1,8 +1,6 @@
 import { instantMs } from '@daisy/clock';
-import {
-  type CompetitionType,
-  type RecordingEligibility,
-} from '@daisy/protocol';
+import { type CompetitionType } from '@daisy/protocol/round';
+import { type RecordingEligibility } from '@daisy/protocol/recording';
 
 /**
  * Whether a Round is captured. Ranked always is, as the deal for competing. Any

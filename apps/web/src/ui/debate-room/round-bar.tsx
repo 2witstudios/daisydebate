@@ -1,6 +1,6 @@
 'use client';
 
-import type { CompetitionType } from '@daisy/protocol';
+import type { CompetitionType } from '@daisy/protocol/round';
 import { cn } from '../cn';
 import { Icon } from '../components/icon/icon';
 import { LeaveRoom, type LeaveLinks } from './leave-room';

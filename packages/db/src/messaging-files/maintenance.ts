@@ -1,7 +1,7 @@
 import { tryInstantMs } from '@daisy/clock';
 import { sql } from 'drizzle-orm';
 import { createAppError, isAppError } from '@daisy/errors';
-import { idSchema } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
 import { withLockedMessagingAuthority } from '../messaging/authority-frame';
 import {
   acknowledgeErasedFileDeletion,

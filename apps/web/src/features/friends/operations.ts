@@ -4,12 +4,9 @@ import type { Clock, IdGenerator } from '@daisy/clock';
 import type { PublicProfileCard, SocialRequestLimits } from '@daisy/db';
 import type { FriendshipRow, FriendStore } from '@daisy/db/friends';
 import { createAppError, isAppError } from '@daisy/errors';
-import type {
-  FriendCommandResult,
-  FriendList,
-  MemberStatus,
-  PresenceActivity,
-} from '@daisy/protocol';
+import type { FriendCommandResult, FriendList } from '@daisy/protocol/friends';
+import type { MemberStatus } from '@daisy/protocol/presence-setting';
+import type { PresenceActivity } from '@daisy/protocol/realtime';
 
 import {
   decideFriendship,

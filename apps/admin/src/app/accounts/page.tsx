@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { idSchema } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
 import { Preapprovals } from './preapprovals';
 import type { OperatorAccountsPage } from '@daisy/protocol/operator';
 import { reconcileOpenCommands } from '../../features/accounts/commands';

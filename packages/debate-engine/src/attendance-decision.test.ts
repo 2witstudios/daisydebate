@@ -1,5 +1,5 @@
 import { assertRejects } from '@daisy/errors/testing';
-import { attendanceLedgerFactsSchema } from '@daisy/protocol';
+import { attendanceLedgerFactsSchema } from '@daisy/protocol/attendance';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { adjudicationFactOf, type AttendanceDecision } from './attendance';
 import { requireAttendanceDecision } from './attendance-decision';

@@ -1,4 +1,4 @@
-import { idSchema } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
 import {
   hostBallotsViewSchema,
   type HostBallotsView,

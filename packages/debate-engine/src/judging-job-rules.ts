@@ -1,12 +1,12 @@
 import { instantMs } from '@daisy/clock';
+import { judgingPolicy } from '@daisy/protocol/judging-policy';
 import {
-  judgingPolicy,
   type AiSeatStanding,
   type HeldBallotFacts,
   type JudgingJobFacts,
-  type JudgingTerminalReason,
   type RoundEnding,
-} from '@daisy/protocol';
+} from '@daisy/protocol/round-panel-completion';
+import { type JudgingTerminalReason } from '@daisy/protocol/round-judging-attempt';
 
 /** The budget bounds generation only: a held ballot is never expired by it (DEC-275). */
 export const generationBudgetSpent = (

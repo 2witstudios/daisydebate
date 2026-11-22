@@ -1,7 +1,7 @@
 import type {
   ChannelHistoryRecord,
   ChannelMessageRecord,
-} from '@daisy/protocol';
+} from '@daisy/protocol/messaging/channel-messages';
 import type { MessagingChannelFact } from './social';
 import type { authorizationAccountFact } from '../authorization-account';
 import type { Tx } from '../tx';

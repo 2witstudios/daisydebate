@@ -1,16 +1,15 @@
 import { sha3Hex } from '@daisy/digest';
 import {
   isDebatingSeat,
-  isRoundOver,
   sameSeat,
   seatKey,
   seatOrder,
   sideOfSeat,
-  type FormatSeating,
-  type RoundStatus,
   type SeatRef,
   type Side,
-} from '@daisy/protocol';
+} from '@daisy/protocol/seats';
+import { isRoundOver, type RoundStatus } from '@daisy/protocol/round';
+import { type FormatSeating } from '@daisy/protocol/format-seating';
 import { seatName, sideName } from '../debate-room/seat-names';
 
 /** A CSPRNG secret for one Egress's stage page; only its hash is ever stored. */

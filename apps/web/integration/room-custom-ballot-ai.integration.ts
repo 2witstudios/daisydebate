@@ -6,13 +6,11 @@ import { judgingJobRules } from '@daisy/debate-engine';
 import { scratchDatabase, daisyOrganizationId } from '@daisy/db/testing';
 import {
   daisyWinnerBallot,
-  judgeSeat,
-  isDebatingSeat,
-  seatOrder,
-  scoreLatticeValues,
   type BallotDefinition,
-  type CaseMap,
-} from '@daisy/protocol';
+} from '@daisy/protocol/ballot-definition';
+import { judgeSeat, isDebatingSeat, seatOrder } from '@daisy/protocol/seats';
+import { scoreLatticeValues } from '@daisy/protocol/score-unit';
+import { type CaseMap } from '@daisy/protocol/case-map';
 import {
   oneOnOneDefinition,
   oneOnOneSettings,

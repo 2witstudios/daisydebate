@@ -1,7 +1,10 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { idle } from '../../../features/forms/form-state';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import type { RoomCatalogChoice, RoomView } from '@daisy/protocol';
+import type {
+  RoomCatalogChoice,
+  RoomView,
+} from '@daisy/protocol/room-contract';
 import {
   assemblySnapshot,
   unequalTemplate,

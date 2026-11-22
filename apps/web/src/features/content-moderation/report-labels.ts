@@ -1,4 +1,4 @@
-import type { ContentReportReason } from '@daisy/protocol';
+import type { ContentReportReason } from '@daisy/protocol/content-moderation';
 
 export const reportReasonLabels: Readonly<Record<ContentReportReason, string>> =
   {

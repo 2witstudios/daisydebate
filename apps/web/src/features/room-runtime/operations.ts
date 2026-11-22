@@ -35,10 +35,10 @@ import { spectatorClockAt } from '../spectating/spectator-clock';
 import { withSeatRatings } from '../ratings/room-seat-ratings';
 import { replayPublishedStandings } from '../ratings/replay-published-standings';
 import type { createRedis } from '@daisy/redis';
+import type { ActiveRoom } from '@daisy/protocol/active-room';
+import type { AgeBand } from '@daisy/protocol/ladder';
+import type { HostedRoom } from '@daisy/protocol/hosted-rooms';
 import type {
-  ActiveRoom,
-  AgeBand,
-  HostedRoom,
   RoomListPage,
   RoomListQuery,
   RoomAssemblyState,
@@ -47,13 +47,11 @@ import type {
   RoomCommandResponse,
   RoomCreate,
   RoomView,
-} from '@daisy/protocol';
-import {
-  isDebatingSeat,
-  isOpenRoomStatus,
-  isRoundOver,
-  type RoomWatch,
-} from '@daisy/protocol';
+} from '@daisy/protocol/room-contract';
+import { isDebatingSeat } from '@daisy/protocol/seats';
+import { isOpenRoomStatus } from '@daisy/protocol/room-contract';
+import { isRoundOver } from '@daisy/protocol/round';
+import { type RoomWatch } from '@daisy/protocol/room-read';
 import { liveAudience } from '@daisy/auth/live-audience';
 import type { LinkedAdultsOf } from '../spectating/linked-adults';
 import { createdSides } from './created-sides';

@@ -7,7 +7,7 @@ import {
   createMessagingSocialSchemas,
   messagingGroupInvitationResultSchema,
   type MessagingSocialBounds,
-} from '@daisy/protocol';
+} from '@daisy/protocol/messaging/social';
 
 import { parseValidated } from '../../server/http';
 import { messagingSocialDigest } from './social-command-digest';

@@ -1,5 +1,5 @@
 import { rateDebate, ratingPolicy } from '@daisy/debate-engine';
-import { winnerOutcome } from '@daisy/protocol';
+import { winnerOutcome } from '@daisy/protocol/round-outcome';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { replayPublishedStandings } from './replay-published-standings';
 

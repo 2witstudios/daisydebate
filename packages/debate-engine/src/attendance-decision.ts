@@ -1,7 +1,7 @@
 import { createInvariantError } from '@daisy/errors';
 import { adjudicateAttendance, type AttendanceDecision } from './attendance';
 import { debateInvariantIds } from './invariant-ids';
-import type { SegmentType } from '@daisy/protocol';
+import type { SegmentType } from '@daisy/protocol/format';
 type AttendanceDecisionEvidence = Parameters<typeof adjudicateAttendance>[0] & {
   readonly segmentType: SegmentType | 'prep';
 };

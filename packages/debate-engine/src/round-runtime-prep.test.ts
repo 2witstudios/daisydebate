@@ -1,6 +1,6 @@
 import { assertRejects } from '@daisy/errors/testing';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { roundStartPolicy } from '@daisy/protocol';
+import { roundStartPolicy } from '@daisy/protocol/round-start-policy';
 import { mediaGrants } from './media-grants';
 import { resolveRoomConfiguration } from './resolve-room-configuration';
 import {

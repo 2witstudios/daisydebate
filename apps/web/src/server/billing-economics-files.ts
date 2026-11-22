@@ -4,7 +4,7 @@ import { constants } from 'node:fs';
 import { lstat, mkdir, open, opendir, unlink } from 'node:fs/promises';
 import { join } from 'node:path';
 import { createRefusal } from '@daisy/errors';
-import { idSchema } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
 import {
   economicsInstant,
   isEconomicsWindow,

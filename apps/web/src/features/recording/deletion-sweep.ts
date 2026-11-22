@@ -2,8 +2,8 @@ import { instantMs } from '@daisy/clock';
 import {
   recordingObjectPrefix,
   transitionRecording,
-  type RecordingLifecycle,
-} from '@daisy/protocol';
+} from '@daisy/protocol/recording-lifecycle';
+import { type RecordingLifecycle } from '@daisy/protocol/recording';
 import type { RecordingObjectStore, RecordingStore } from './ports';
 
 const MINUTE_MS = 60_000;

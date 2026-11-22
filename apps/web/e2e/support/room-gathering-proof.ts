@@ -1,5 +1,5 @@
 import type { Browser, BrowserContext, Page, TestInfo } from '@playwright/test';
-import type { RoomView } from '@daisy/protocol';
+import type { RoomView } from '@daisy/protocol/room-contract';
 import type { LobbyAction } from '../../src/features/lobby/rows';
 import { expect, openPage } from './fixtures';
 import { origin } from './accounts';

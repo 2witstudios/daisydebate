@@ -1,5 +1,5 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { ENVELOPE_VERSION, PROTOCOL_VERSION } from '@daisy/protocol';
+import { ENVELOPE_VERSION, PROTOCOL_VERSION } from '@daisy/protocol/realtime';
 import { evaluateFirstMessage } from './hello';
 
 setupRitewayBun();

@@ -1,5 +1,5 @@
 import { requireAuthorization } from '@daisy/auth/request-authorization';
-import { moderationAcknowledgeSchema } from '@daisy/protocol';
+import { moderationAcknowledgeSchema } from '@daisy/protocol/moderation';
 import { requireMemberActor } from '../access/actor';
 import type { App } from '../../server/app';
 import { parseValidated, readJson } from '../../server/http';

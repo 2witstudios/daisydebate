@@ -4,22 +4,17 @@ import {
   isRoundOver,
   isRoundCompleted,
   roundBegan,
-  attendanceTimingPolicy,
-  TRANSCRIPT_ADMISSION_WINDOW_MS,
-} from '@daisy/protocol';
+} from '@daisy/protocol/round';
+import { attendanceTimingPolicy } from '@daisy/protocol/attendance';
+import { TRANSCRIPT_ADMISSION_WINDOW_MS } from '@daisy/protocol/capture-timing';
 import { createAppError } from '@daisy/errors';
 import { and, eq, isNull, sql } from 'drizzle-orm';
-import type {
-  RoundOutcome,
-  RoundProjection,
-  RoundRules,
-} from '@daisy/protocol';
-import {
-  prepConsumedOf,
-  privateSpanChanges,
-  runtimeCheckpointSchema,
-  buildRoundTopic,
-} from '@daisy/protocol';
+import type { RoundOutcome } from '@daisy/protocol/round-outcome';
+import type { RoundProjection } from '@daisy/protocol/runtime';
+import type { RoundRules } from '@daisy/protocol/format';
+import { prepConsumedOf, runtimeCheckpointSchema } from '@daisy/protocol/round';
+import { privateSpanChanges } from '@daisy/protocol/public-interval';
+import { buildRoundTopic } from '@daisy/protocol/topics';
 import type { z } from 'zod';
 import { appendOutboxEvent } from './outbox';
 import { appendRoundStrikes, revealEvidence } from './room-draw-persistence';

@@ -1,12 +1,9 @@
 import { createAppError } from '@daisy/errors';
-import {
-  isJudgeSeat,
-  type JudgeRuling,
-  type RoundJudging,
-  type RoundOutcome,
-  type RoundRules,
-  type SeatRef,
-} from '@daisy/protocol';
+import { isJudgeSeat, type SeatRef } from '@daisy/protocol/seats';
+import { type JudgeRuling } from '@daisy/protocol/round-panel-completion';
+import { type RoundJudging } from '@daisy/protocol/ballot-definition';
+import { type RoundOutcome } from '@daisy/protocol/round-outcome';
+import { type RoundRules } from '@daisy/protocol/format';
 
 type Seat = { readonly id: string; readonly seat: SeatRef };
 type Judging = NonNullable<RoundJudging>;

@@ -1,4 +1,4 @@
-import { roundIncidentPolicy } from '@daisy/protocol';
+import { roundIncidentPolicy } from '@daisy/protocol/round-incident-policy';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { CAPTURE_OUTAGE_BUDGET_MS } from './capture-memory';
 setupRitewayBun();

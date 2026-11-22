@@ -1,6 +1,6 @@
 import { instantMs } from '@daisy/clock';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import type { RoomListEntry } from '@daisy/protocol';
+import type { RoomListEntry } from '@daisy/protocol/room-contract';
 import { lobbyRow, lobbySections, rowActions, type LobbyViewer } from './rows';
 setupRitewayBun();
 

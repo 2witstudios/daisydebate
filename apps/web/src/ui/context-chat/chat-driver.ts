@@ -2,7 +2,7 @@ import '../../lib/zod-jitless';
 import { cancelDelay, delay } from '../edge/browser-time';
 import { browserFetch } from '../edge/browser-request';
 import { instantMs, nowMs, systemClock } from '@daisy/clock';
-import { idSchema } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
 import type { ChatContext } from '../../features/messaging/context-chat/chat-context';
 import type { ContextChatEffect } from '../../features/messaging/context-chat/chat-effects';
 import type { ContextChatEvent } from '../../features/messaging/context-chat/chat-events';

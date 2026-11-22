@@ -1,6 +1,6 @@
 import { and, eq } from 'drizzle-orm';
 import { createAppError } from '@daisy/errors';
-import { idSchema } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
 import { messagingSocialCommands } from '../schema/messaging-social';
 import {
   withContactPairs,

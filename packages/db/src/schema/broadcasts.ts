@@ -12,7 +12,7 @@ import {
   broadcastFeedEndReasons,
   broadcastReleasePolicySchema,
   releaseSkipsSchema,
-} from '@daisy/protocol';
+} from '@daisy/protocol/broadcast';
 import {
   createdAtColumn,
   jsonbColumn,

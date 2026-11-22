@@ -2,7 +2,7 @@ import { judgeContractVersion } from '@daisy/ai-voice';
 import { judgingJobRules } from '@daisy/debate-engine';
 import { admitAllowance, canUseAiAllowance } from '@daisy/auth/authorization';
 import type { ServerConfig } from '@daisy/config';
-import type { AiRole } from '@daisy/protocol';
+import type { AiRole } from '@daisy/protocol/ai-roles';
 import type { createDatabase } from '@daisy/db';
 import { createAppError } from '@daisy/errors';
 

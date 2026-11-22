@@ -1,19 +1,19 @@
+import { recordingHiddenByModeration } from '@daisy/protocol/recording';
 import {
-  recordingHiddenByModeration,
   recordingPreparationOf,
   type RecordingJobState,
   type RecordingPreparation,
-} from '@daisy/protocol';
+} from '@daisy/protocol/recording-processing';
+import { pointsTotal } from '@daisy/protocol/ballot-schema';
 import {
-  pointsTotal,
   seatLabel,
   sideOfSeat,
-  type Ladder,
-  type RecordingMedia,
-  type RoundOutcome,
   type SeatRef,
   type Side,
-} from '@daisy/protocol';
+} from '@daisy/protocol/seats';
+import { type Ladder } from '@daisy/protocol/ladder';
+import { type RecordingMedia } from '@daisy/protocol/recording';
+import { type RoundOutcome } from '@daisy/protocol/round-outcome';
 import { sideName } from '../debate-room/seat-names';
 import { UNDRAWN_RESOLUTION } from './archive';
 import { resultHeadline } from './archive';

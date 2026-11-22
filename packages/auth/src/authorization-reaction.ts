@@ -1,4 +1,4 @@
-import { idSchema } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
 import type { MessagingReactionAuthorizationFact } from './authorization-facts';
 /** This proof is loaded from a locked row, never constructed from a removal intent. */
 export function reactionAssociationOwned(

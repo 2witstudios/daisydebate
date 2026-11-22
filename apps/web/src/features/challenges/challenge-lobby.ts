@@ -1,8 +1,6 @@
-import {
-  type CompetitionType,
-  type RatingDivision,
-  type RatingStyle,
-} from '@daisy/protocol';
+import { type CompetitionType } from '@daisy/protocol/round';
+import { type RatingDivision } from '@daisy/protocol/ladder';
+import { type RatingStyle } from '@daisy/protocol/primitives';
 import { noLadderReason } from '../play/ladder-division-words';
 import { styleLabels } from '../ratings/ladder-labels';
 

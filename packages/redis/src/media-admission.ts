@@ -1,4 +1,4 @@
-import { idSchema } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
 import { redisKey } from './redis-key';
 import { defineScript } from './script-registry';
 import type { RedisTransport } from './transport';

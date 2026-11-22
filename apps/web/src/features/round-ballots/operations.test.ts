@@ -1,14 +1,14 @@
 import { sha3Hex } from '@daisy/digest';
 import { addMs } from '@daisy/clock';
-import { daisyBallotSource } from '@daisy/protocol';
+import { daisyBallotSource } from '@daisy/protocol/ballot-definition';
 import { assertRejects } from '@daisy/errors/testing';
 import type { LockedRoundBallotInput } from '@daisy/db/round-ballot';
 import {
   daisyWinnerBallot,
-  isJudgeSeat,
   panelRuleFor,
-  type RoundBallotEnvelope,
-} from '@daisy/protocol';
+} from '@daisy/protocol/ballot-definition';
+import { isJudgeSeat } from '@daisy/protocol/seats';
+import { type RoundBallotEnvelope } from '@daisy/protocol/round-ballot';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import {
   judgeActorId,

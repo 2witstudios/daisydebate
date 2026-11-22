@@ -1,5 +1,5 @@
 import type { Clock } from '@daisy/clock';
-import type { MessagingSocialBounds } from '@daisy/protocol';
+import type { MessagingSocialBounds } from '@daisy/protocol/messaging/social';
 /** Explicit edge inputs shared by issuance and membership operations. */
 export type MessagingGroupOperationDependencies = {
   readonly bounds: MessagingSocialBounds;

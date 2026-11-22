@@ -1,4 +1,4 @@
-import { defaultNotificationChoices } from '@daisy/protocol';
+import { defaultNotificationChoices } from '@daisy/protocol/notifications';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { choicesFromForm, chosen } from './preference-form';
 

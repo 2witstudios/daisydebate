@@ -2,7 +2,10 @@
 import '../../lib/zod-jitless';
 import { useBrowserEffect } from '../edge/browser-sync';
 import { browserFetch } from '../edge/browser-request';
-import { audienceSnapshotSchema, type AudienceSnapshot } from '@daisy/protocol';
+import {
+  audienceSnapshotSchema,
+  type AudienceSnapshot,
+} from '@daisy/protocol/audience';
 import { useState } from 'react';
 import { answerOfResponse } from '../../features/spectating/poll-pace';
 import { startBrowserPoll } from '../spectating/browser-poll';

@@ -1,4 +1,5 @@
-import { assertNever, type FriendRelation } from '@daisy/protocol';
+import { assertNever } from '@daisy/protocol/assert-never';
+import { type FriendRelation } from '@daisy/protocol/friends';
 import type { FriendFormState } from '../../features/friends/forms';
 import type { FormAction } from '../form-action/form-action';
 import { FriendButtonForm } from './friend-forms';

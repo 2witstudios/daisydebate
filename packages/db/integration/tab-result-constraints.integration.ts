@@ -5,7 +5,7 @@ import {
   daisyBallotDefinitions,
   daisyWinnerBallot,
   panelRuleFor,
-} from '@daisy/protocol';
+} from '@daisy/protocol/ballot-definition';
 import { assert, test } from 'riteway/bun';
 import { daisyOrganizationId, publicLobbyId } from '../src/daisy-reference';
 import { drizzle } from 'drizzle-orm/bun-sql';

@@ -1,6 +1,10 @@
 import { aiJudgeFor } from '@daisy/ai-voice';
 import { stubCaseMap } from '@daisy/ai-voice/testing';
-import { daisyWinnerBallot, panelRuleFor, twoSides } from '@daisy/protocol';
+import {
+  daisyWinnerBallot,
+  panelRuleFor,
+} from '@daisy/protocol/ballot-definition';
+import { twoSides } from '@daisy/protocol/seats';
 import { createRoundJudgingOperations } from './operations';
 import {
   frozen,

@@ -1,5 +1,6 @@
 import { instantMs } from '@daisy/clock';
-import { CAPTURE_HISTORY_READ_MS, speakingEndMs } from '@daisy/protocol';
+import { CAPTURE_HISTORY_READ_MS } from '@daisy/protocol/capture-timing';
+import { speakingEndMs } from '@daisy/protocol/segment-end';
 import { CAPTURE_OUTAGE_BUDGET_MS } from './capture-memory';
 import { createAppError } from '@daisy/errors';
 import {

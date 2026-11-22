@@ -1,5 +1,5 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import type { ChallengeList } from '@daisy/protocol';
+import type { ChallengeList } from '@daisy/protocol/challenges';
 import {
   challengeListOf,
   challengesHeld,

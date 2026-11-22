@@ -2,7 +2,7 @@ import { eraseBetaPreapprovals } from './beta-preapproval-erasure';
 import { claimBetaPreapproval } from './beta-preapproval-claim';
 import { and, eq, isNull, sql } from 'drizzle-orm';
 import { createAppError } from '@daisy/errors';
-import { idSchema } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
 import { instrumented, type DatabaseEventSink } from './instrumented';
 import { exportRows } from './privacy/export-rows';
 import type { PrivacyAdopter } from './privacy/contracts';

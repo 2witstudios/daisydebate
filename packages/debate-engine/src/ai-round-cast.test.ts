@@ -1,10 +1,6 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import {
-  judgeSeat,
-  sideSeat,
-  type RoomParticipant,
-  type SeatRef,
-} from '@daisy/protocol';
+import { judgeSeat, sideSeat, type SeatRef } from '@daisy/protocol/seats';
+import { type RoomParticipant } from '@daisy/protocol/room-contract';
 import { castSeatsBotDebater } from './ai-round-cast';
 import { executeRoomCommand } from './room-assembly';
 import { consent, edges, state } from './room-assembly.test-support';

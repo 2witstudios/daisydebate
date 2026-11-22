@@ -1,5 +1,5 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import type { FormatSettings } from '@daisy/protocol';
+import type { FormatSettings } from '@daisy/protocol/format-settings';
 import { format, schedule } from './catalog-formats.test-support';
 
 setupRitewayBun();

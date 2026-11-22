@@ -5,13 +5,15 @@ import {
   affirmativeSide,
   judgeSeat,
   negativeSide,
-  roomCatalogChoiceSchema,
-  roomViewSchema,
-  roundViewSchema,
   sideOfSeat,
   sideSeat,
-  type RoomView,
-} from '@daisy/protocol';
+} from '@daisy/protocol/seats';
+import {
+  roomCatalogChoiceSchema,
+  roomViewSchema,
+} from '@daisy/protocol/room-read';
+import { roundViewSchema } from '@daisy/protocol/round-view';
+import { type RoomView } from '@daisy/protocol/room-contract';
 import { expect, openPage, test } from './support/fixtures';
 import { origin } from './support/accounts';
 import { foundationSelection } from '../integration/foundation-selection.test-support';

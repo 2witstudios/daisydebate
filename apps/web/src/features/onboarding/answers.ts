@@ -7,7 +7,7 @@ import {
   type Experience,
   type InterestCategory,
   type Want,
-} from '@daisy/protocol';
+} from '@daisy/protocol/onboarding';
 
 type AboutAnswers = {
   readonly wants: readonly Want[];

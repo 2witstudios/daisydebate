@@ -1,5 +1,6 @@
 import { reportedOperation } from './reported-operation';
-import { idSchema, messagingTypingSchemas } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
+import { messagingTypingSchemas } from '@daisy/protocol/messaging/typing';
 import type { RedisTransport } from './transport';
 import { redisKey } from './redis-key';
 import { defineScript } from './script-registry';

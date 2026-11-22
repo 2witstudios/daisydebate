@@ -1,5 +1,5 @@
 import { instantMs } from '@daisy/clock';
-import type { RoomCreate } from '@daisy/protocol';
+import type { RoomCreate } from '@daisy/protocol/room-contract';
 import type { LobbyAgeRule } from '@daisy/protocol/lobby/eligibility';
 import type { SharedLobbyRefusal } from '@daisy/protocol/lobby/command';
 import {

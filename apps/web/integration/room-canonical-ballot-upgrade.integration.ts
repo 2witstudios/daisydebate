@@ -6,7 +6,7 @@ import {
   withRolledBackDatabase,
   loanRoundAssignmentInterface,
 } from '@daisy/db/testing';
-import { judgeSeat } from '@daisy/protocol';
+import { judgeSeat } from '@daisy/protocol/seats';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { withRoomRuntime } from './room-runtime.test-support';
 import {

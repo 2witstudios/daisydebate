@@ -1,4 +1,4 @@
-import { judgeSeat } from '@daisy/protocol';
+import { judgeSeat } from '@daisy/protocol/seats';
 import { test, expect } from './support/fixtures';
 import { signUpMember, origin } from './support/accounts';
 import { readRoomBotRoster } from './support/ai-cast';

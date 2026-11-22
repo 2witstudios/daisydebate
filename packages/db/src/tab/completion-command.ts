@@ -9,7 +9,7 @@ import type {
   ActionHistoryEntry,
   LobbyCommandReceipt,
 } from '@daisy/protocol/lobby/command';
-import type { BallotWrittenRecord } from '@daisy/protocol';
+import type { BallotWrittenRecord } from '@daisy/protocol/ballot-schema';
 import { jsonObjectSchema } from '../schema/columns';
 import { results } from '../schema/results';
 import { certifications, certificationResults } from '../schema/certifications';

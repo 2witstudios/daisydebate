@@ -1,9 +1,9 @@
 import { StatusRegion } from '../../components/status-region/status-region';
 import { Button } from '../../components/button/button';
-import { isRoundOver } from '@daisy/protocol';
+import { isRoundOver } from '@daisy/protocol/round';
 import { HiddenFields } from '../../form-action/hidden-fields';
 import { createAppError } from '@daisy/errors';
-import type { RoundBallotRead } from '@daisy/protocol';
+import type { RoundBallotRead } from '@daisy/protocol/round-ballot-read';
 import type { FormFields } from '../../../features/forms/form-state';
 import type { BallotDisplay } from '../../../features/round-ballots/presentation';
 import type { BallotPlan } from '../../../features/judge/ballot-plan';

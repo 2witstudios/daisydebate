@@ -7,7 +7,7 @@ import {
   ballotDefinitionVersions,
 } from '../schema/ballot-definitions';
 import { resolutionPools, poolResolutions } from '../schema/resolution-pools';
-import { ballotDefinitionSchema } from '@daisy/protocol';
+import { ballotDefinitionSchema } from '@daisy/protocol/ballot-definition';
 
 import type { SetupWrite } from './setup-write';
 import type { Tx } from '../tx';

@@ -1,6 +1,7 @@
 import { instantMs } from '@daisy/clock';
 import { createInvariantError } from '@daisy/errors';
-import { availabilityRecoveryPolicy, type ClockStop } from '@daisy/protocol';
+import { availabilityRecoveryPolicy } from '@daisy/protocol/attendance';
+import { type ClockStop } from '@daisy/protocol/clock-stops';
 
 const { recoverySamples, maxSampleGapMs } = availabilityRecoveryPolicy;
 

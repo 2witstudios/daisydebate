@@ -1,4 +1,4 @@
-import { overRoundStatuses } from '@daisy/protocol';
+import { overRoundStatuses } from '@daisy/protocol/round';
 import { lifecycleSqlList } from './lifecycle-sql';
 import { SQL } from 'bun';
 import { sql } from 'drizzle-orm';

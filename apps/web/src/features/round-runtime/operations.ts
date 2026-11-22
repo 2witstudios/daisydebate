@@ -13,7 +13,7 @@ import {
   roundCommandEnvelopeSchema,
   type RoundCommandEnvelope,
   type RoundCommandPrincipal,
-} from '@daisy/protocol';
+} from '@daisy/protocol/round-command';
 
 /** One shared command operation for session callers and seat-scoped AgentRuns. */
 export function createRoundRuntimeOperations(input: {

@@ -1,5 +1,5 @@
 import { and, eq } from 'drizzle-orm';
-import { idSchema } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
 import { createAppError } from '@daisy/errors';
 import { requireClaimScope, requireRunScope } from './bot-publication-context';
 import { readDatabaseTime } from './database-clock';

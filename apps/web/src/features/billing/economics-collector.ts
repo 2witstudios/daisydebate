@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { createRefusal, isAppError, type ErrorCode } from '@daisy/errors';
-import type { RefusalReason } from '@daisy/protocol';
+import type { RefusalReason } from '@daisy/protocol/refusal-reason';
 import { billingEconomicsReadSchema } from '@daisy/protocol/billing-economics';
 import {
   economicsInput,

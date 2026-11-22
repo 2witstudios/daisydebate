@@ -6,7 +6,10 @@ import {
   payload,
   privacyScope,
 } from './necessary-evidence-custody-fixture.test-support';
-import { necessaryEvidencePolicy, type SealedEvidence } from '@daisy/protocol';
+import {
+  necessaryEvidencePolicy,
+  type SealedEvidence,
+} from '@daisy/protocol/necessary-evidence';
 import type { EvidenceAuthority } from '../src/features/media-capture/local-evidence-authority';
 setupRitewayBun();
 requireTestServices(process.env);

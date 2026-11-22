@@ -1,4 +1,4 @@
-import { openRoomStatuses } from '@daisy/protocol';
+import { openRoomStatuses } from '@daisy/protocol/room-contract';
 import { lifecycleSqlList } from '../lifecycle-sql';
 import { roomCommunityRetentionMs } from '@daisy/protocol/room-community';
 import { sql } from 'drizzle-orm';

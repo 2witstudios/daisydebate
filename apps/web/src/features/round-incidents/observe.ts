@@ -1,5 +1,5 @@
 import { instantMs } from '@daisy/clock';
-import { isRoundRunning } from '@daisy/protocol';
+import { isRoundRunning } from '@daisy/protocol/round';
 import {
   createRoundRuntime,
   incidentDecision,
@@ -10,7 +10,7 @@ import { createAppError } from '@daisy/errors';
 import type { Database, RoundHydration } from '@daisy/db';
 import type { Logger } from '@daisy/logger';
 import type { ErrorReporter } from '@daisy/observability';
-import { roundIncidentPolicy } from '@daisy/protocol';
+import { roundIncidentPolicy } from '@daisy/protocol/round-incident-policy';
 import type { MediaPassReport } from '../round-media/operation-context';
 
 type Store = Pick<

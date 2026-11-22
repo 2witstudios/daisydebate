@@ -1,12 +1,9 @@
 import { requireTestServices } from '@daisy/config';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createId } from '@paralleldrive/cuid2';
-import {
-  isNamedSeat,
-  roomViewSchema,
-  roundViewSchema,
-  buildRoundTopic,
-} from '@daisy/protocol';
+import { isNamedSeat, roundViewSchema } from '@daisy/protocol/round-view';
+import { roomViewSchema } from '@daisy/protocol/room-read';
+import { buildRoundTopic } from '@daisy/protocol/topics';
 import { createRoomHttpFixture } from './room-http.test-support';
 import { foundationSelection } from './foundation-selection.test-support';
 import { inProcessFetch } from '../src/server/in-process-fetch';

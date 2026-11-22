@@ -1,6 +1,7 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import type { ServerMessage } from '@daisy/protocol';
-import { buildChannelTopic, ENVELOPE_VERSION } from '@daisy/protocol';
+import type { ServerMessage } from '@daisy/protocol/realtime-server';
+import { buildChannelTopic } from '@daisy/protocol/topics';
+import { ENVELOPE_VERSION } from '@daisy/protocol/realtime';
 import { createTimerQueue } from '../realtime/connection-store.test-support';
 import { attachTypingReader } from './typing-reader';
 import { createTypingWriter } from './typing-writer';

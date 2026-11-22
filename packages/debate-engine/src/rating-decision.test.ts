@@ -4,8 +4,9 @@ import type {
   EndingRating,
   RatingEligibility,
   RatingEligibilityFacts,
-} from '@daisy/protocol';
-import { sideSeat, winnerOutcome } from '@daisy/protocol';
+} from '@daisy/protocol/ratings';
+import { sideSeat } from '@daisy/protocol/seats';
+import { winnerOutcome } from '@daisy/protocol/round-outcome';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { rateDebate, ratingPolicy } from './rating';
 import {

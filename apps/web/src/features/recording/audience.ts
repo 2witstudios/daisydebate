@@ -5,12 +5,10 @@ import {
   removableStatus,
   type YouthRoundPeople,
 } from './youth-audience';
-import {
-  SPECTATOR_MARGIN_MS,
-  type CompetitionType,
-  type RecordingPolicy,
-  type RecordingStatus,
-} from '@daisy/protocol';
+import { SPECTATOR_MARGIN_MS } from '@daisy/protocol/broadcast';
+import { type CompetitionType } from '@daisy/protocol/round';
+import { type RecordingPolicy } from '@daisy/protocol/room-capture';
+import { type RecordingStatus } from '@daisy/protocol/recording';
 
 export type RecordingViewer =
   | { readonly kind: 'visitor' }

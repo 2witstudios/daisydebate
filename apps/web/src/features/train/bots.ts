@@ -1,4 +1,4 @@
-import type { RoomCastChoice } from '@daisy/protocol';
+import type { RoomCastChoice } from '@daisy/protocol/room-contract';
 import type { SearchParams } from '../access/decision';
 import { trainDestinations } from './actions';
 

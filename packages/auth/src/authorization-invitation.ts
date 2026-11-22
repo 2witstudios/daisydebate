@@ -1,4 +1,4 @@
-import { messagingPrivateGroupPolicySchema } from '@daisy/protocol';
+import { messagingPrivateGroupPolicySchema } from '@daisy/protocol/messaging/social';
 import {
   contactSafetyAllowed,
   sameAuthorizationAccount,

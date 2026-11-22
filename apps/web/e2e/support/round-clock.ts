@@ -1,10 +1,7 @@
 import { instantMs } from '@daisy/clock';
 import type { BrowserContext, Page } from '@playwright/test';
-import {
-  roundViewSchema,
-  segmentDueAtMs,
-  type RoundView,
-} from '@daisy/protocol';
+import { roundViewSchema, type RoundView } from '@daisy/protocol/round-view';
+import { segmentDueAtMs } from '@daisy/protocol/segment-end';
 
 /** The m:ss reading of a live round clock ("aria-label": label m:ss). */
 const parseClock = (aria: string | null): number => {

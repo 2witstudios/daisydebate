@@ -1,5 +1,5 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import type { LiveTranscriptRead } from '@daisy/protocol';
+import type { LiveTranscriptRead } from '@daisy/protocol/round-transcript';
 import type { ResourceRead } from '../resource-sync/driver';
 import { askForTranscriptSeed, type TranscriptSeed } from './transcript-seed';
 

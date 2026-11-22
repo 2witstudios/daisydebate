@@ -1,6 +1,6 @@
 import { tryInstantMs } from '@daisy/clock';
 import { createAppError, createRefusal } from '@daisy/errors';
-import { idSchema } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
 import { and, eq, sql } from 'drizzle-orm';
 import { rounds } from './schema/rounds';
 import { roundSegments } from './schema/round-segments';

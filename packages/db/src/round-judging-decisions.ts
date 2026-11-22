@@ -1,6 +1,10 @@
 import { isDeepStrictEqual } from 'node:util';
 import { createAppError } from '@daisy/errors';
-import type { Ballot, JudgingStage, JudgingStageInput } from '@daisy/protocol';
+import type { Ballot } from '@daisy/protocol/ballot-schema';
+import type {
+  JudgingStage,
+  JudgingStageInput,
+} from '@daisy/protocol/round-judging-attempt';
 import type { JudgingScope } from './round-judging-context';
 import type { agentRuns } from './schema/agent-runs';
 import type {

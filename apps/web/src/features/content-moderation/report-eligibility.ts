@@ -1,4 +1,7 @@
-import type { ContentReportCreate, ContentReportReason } from '@daisy/protocol';
+import type {
+  ContentReportCreate,
+  ContentReportReason,
+} from '@daisy/protocol/content-moderation';
 import {
   audienceAdmits,
   type AudienceLinkFacts,

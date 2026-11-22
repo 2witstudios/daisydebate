@@ -1,12 +1,10 @@
 import { createId } from '@paralleldrive/cuid2';
-import type { RatingDivision, RatingStyle } from '@daisy/protocol';
+import type { RatingDivision } from '@daisy/protocol/ladder';
+import type { RatingStyle } from '@daisy/protocol/primitives';
 import { fixedIds } from '@daisy/clock';
 import { createDatabase } from '@daisy/db';
-import {
-  affirmativeSide,
-  emptyRuntimeCheckpointFor,
-  negativeSide,
-} from '@daisy/protocol';
+import { affirmativeSide, negativeSide } from '@daisy/protocol/seats';
+import { emptyRuntimeCheckpointFor } from '@daisy/protocol/round';
 import { validRules, daisyOrganizationId } from '@daisy/db/testing';
 import { rateCompletedRound } from '../src/features/ratings/rate-debate';
 import { testDatabaseUrl, withSql } from './fixtures';

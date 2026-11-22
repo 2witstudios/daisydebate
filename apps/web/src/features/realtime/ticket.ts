@@ -1,6 +1,6 @@
 import { sha3Hex } from '@daisy/digest';
 import { createAppError } from '@daisy/errors';
-import { ticketSchema } from '@daisy/protocol';
+import { ticketSchema } from '@daisy/protocol/realtime';
 import {
   runMemberRoute,
   type BudgetedMemberBoundary,

@@ -11,7 +11,9 @@ import {
 } from '../src/features/legal/agreements';
 import { createRatingSweep } from '../src/features/ratings/sweep';
 import { createRoundJudgingOperations } from '../src/features/round-judging/operations';
-import { judgeSeat, type Ballot, type RatingStyle } from '@daisy/protocol';
+import { judgeSeat } from '@daisy/protocol/seats';
+import { type Ballot } from '@daisy/protocol/ballot-schema';
+import { type RatingStyle } from '@daisy/protocol/primitives';
 import type { withRoomRuntime } from './room-runtime.test-support';
 import { launchRuntimeRound } from './round-runtime.test-support';
 import { everyoneReady, playOut } from './round-judging.test-support';

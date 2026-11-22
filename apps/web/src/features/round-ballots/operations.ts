@@ -16,9 +16,9 @@ import { createAppError, createRefusal } from '@daisy/errors';
 import {
   roundBallotEnvelopeSchema,
   type RoundBallotEnvelope,
-  type RoundCommandPrincipal,
   type RoundBallotReceipt,
-} from '@daisy/protocol';
+} from '@daisy/protocol/round-ballot';
+import { type RoundCommandPrincipal } from '@daisy/protocol/round-command';
 
 type Submission = {
   readonly principal: RoundCommandPrincipal;

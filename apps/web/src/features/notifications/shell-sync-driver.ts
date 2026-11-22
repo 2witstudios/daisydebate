@@ -1,4 +1,5 @@
-import { buildUserInboxTopic, type NotificationShell } from '@daisy/protocol';
+import { buildUserInboxTopic } from '@daisy/protocol/topics';
+import { type NotificationShell } from '@daisy/protocol/notifications';
 import type { Scheduler } from '../realtime/connection-store';
 import { attachInvalidationTopic } from '../realtime/invalidation-topic';
 import {

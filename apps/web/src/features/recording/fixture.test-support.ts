@@ -1,5 +1,5 @@
 import { instantMs } from '@daisy/clock';
-import type { RecordingMedia } from '@daisy/protocol';
+import type { RecordingMedia } from '@daisy/protocol/recording';
 import type { RecordingRound, RecordingViewer } from './audience';
 import { fakeObjectStore, fakeRecordingStore } from './fake-store.test-support';
 import type { RecordingRecord } from './ports';

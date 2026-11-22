@@ -5,7 +5,8 @@ import { lobbyAdministrationCommand } from '../src/features/tab/operations/lobby
 import { assembleRoom } from '@daisy/db/room-assembly';
 import { validRules } from '@daisy/db/testing';
 import { createTabStore } from '@daisy/db/tab';
-import { roomConfigSchema, sideSeat } from '@daisy/protocol';
+import { roomConfigSchema } from '@daisy/protocol/room';
+import { sideSeat } from '@daisy/protocol/seats';
 import { activeRoomMembers } from '@daisy/debate-engine';
 import { createId } from '@paralleldrive/cuid2';
 import { authorize } from '@daisy/auth/authorization';

@@ -1,5 +1,5 @@
 import { requireTestServices } from '@daisy/config';
-import { buildUserInboxTopic } from '@daisy/protocol';
+import { buildUserInboxTopic } from '@daisy/protocol/topics';
 import { assertRejects } from '@daisy/errors/testing';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';

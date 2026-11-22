@@ -1,10 +1,10 @@
+import { buildUserInboxTopic } from '@daisy/protocol/topics';
 import {
-  buildUserInboxTopic,
   isEmailedNotificationKind,
   subjectOf,
   type NotificationKind,
   type SubjectOf,
-} from '@daisy/protocol';
+} from '@daisy/protocol/notifications';
 import { sql } from 'drizzle-orm';
 import { appendOutboxEvents } from '../outbox';
 import { query } from '../raw-rows';

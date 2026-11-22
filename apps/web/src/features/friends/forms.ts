@@ -1,5 +1,5 @@
 import { createAppError } from '@daisy/errors';
-import type { FriendRelation } from '@daisy/protocol';
+import type { FriendRelation } from '@daisy/protocol/friends';
 import { singleFormField } from '../forms/form-state';
 import type { Idle, Refused } from '../forms/form-state';
 

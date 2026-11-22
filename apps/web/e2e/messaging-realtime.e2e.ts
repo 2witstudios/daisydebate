@@ -17,12 +17,12 @@ import {
 import { manageNativeReactions } from './support/messaging-reactions';
 import { proveNativeTyping } from './support/messaging-typing';
 import type { Page } from '@playwright/test';
-import type { ServerMessage } from '@daisy/protocol';
+import type { ServerMessage } from '@daisy/protocol/realtime-server';
 import { manageNativePreferences } from './support/messaging-preferences';
 import { attachNativeMessageFile } from './support/messaging-attachments';
 import { testProfileMessageEntry } from './support/messaging-profile-entry';
 import { testMessagesPage } from './support/messages-page';
-import { serverMessageSchema } from '@daisy/protocol';
+import { serverMessageSchema } from '@daisy/protocol/realtime-server';
 import { test, expect, openPage } from './support/fixtures';
 import {
   openMessagingJourney,

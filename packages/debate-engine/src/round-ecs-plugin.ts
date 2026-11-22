@@ -1,12 +1,9 @@
 import { instantMs } from '@daisy/clock';
 import { Database } from '@adobe/data/ecs';
 import { Schema } from '@adobe/data/schema';
-import {
-  segmentTypes,
-  type RuntimeCheckpoint,
-  type SegmentType,
-  type SideKey,
-} from '@daisy/protocol';
+import { segmentTypes, type SegmentType } from '@daisy/protocol/format';
+import { type RuntimeCheckpoint } from '@daisy/protocol/round';
+import { type SideKey } from '@daisy/protocol/seats';
 
 /**
  * The Adobe ECS plugin the round store runs on (ADR 0058 §6): segment rows

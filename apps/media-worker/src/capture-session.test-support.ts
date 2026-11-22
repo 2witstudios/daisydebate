@@ -3,7 +3,7 @@ import { createAppError } from '@daisy/errors';
 import { createMediaWorkerClient } from '@daisy/media/worker';
 import { createMediaWorkerAuthentication } from '@daisy/media/internal';
 import { subscriptionClosed } from '@daisy/media/subscription';
-import { CAPTURE_HISTORY_READ_MS } from '@daisy/protocol';
+import { CAPTURE_HISTORY_READ_MS } from '@daisy/protocol/capture-timing';
 import { captureFailureExit, describeCaptureExit } from './capture-exit';
 import type { CaptureClient } from './capture-history';
 import { runCaptureSession } from './capture-session';

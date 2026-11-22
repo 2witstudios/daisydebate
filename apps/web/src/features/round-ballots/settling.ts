@@ -1,5 +1,6 @@
 import { instantMs } from '@daisy/clock';
-import { attendanceTimingPolicy, type RoundView } from '@daisy/protocol';
+import { attendanceTimingPolicy } from '@daisy/protocol/attendance';
+import { type RoundView } from '@daisy/protocol/round-view';
 
 type SettlingRound = Pick<RoundView, 'rules' | 'segments'>;
 

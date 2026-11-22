@@ -1,6 +1,6 @@
 import { projectAudienceSnapshot } from '@daisy/debate-engine';
 import { noopErrorReporter } from '@daisy/observability';
-import { audienceSnapshotSchema } from '@daisy/protocol';
+import { audienceSnapshotSchema } from '@daisy/protocol/audience';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { silentLogger } from '../../server/test-loggers.test-support';

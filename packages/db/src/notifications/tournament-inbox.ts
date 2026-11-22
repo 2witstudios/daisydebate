@@ -1,6 +1,6 @@
-import { roomStatus } from '@daisy/protocol';
+import { roomStatus } from '@daisy/protocol/room-contract';
 import { lifecycleSql } from '../lifecycle-sql';
-import type { TournamentNotificationKind } from '@daisy/protocol';
+import type { TournamentNotificationKind } from '@daisy/protocol/notifications';
 import { sql } from 'drizzle-orm';
 import { loadLobbyAuthority } from '../tab/lobby-authority';
 import { query } from '../raw-rows';

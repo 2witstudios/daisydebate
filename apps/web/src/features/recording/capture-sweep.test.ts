@@ -1,5 +1,8 @@
 import { instantMs } from '@daisy/clock';
-import { capturedMediaMs, recordingBuildCeilingMs } from '@daisy/protocol';
+import {
+  capturedMediaMs,
+  recordingBuildCeilingMs,
+} from '@daisy/protocol/recording-processing';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { createRecordingCaptureSweep } from './capture-sweep';
 import type { RecordingCapturePort } from './capture-port';

@@ -1,5 +1,5 @@
 import { sql } from 'drizzle-orm';
-import { storedFriendshipStates } from '@daisy/protocol';
+import { storedFriendshipStates } from '@daisy/protocol/friends';
 import {
   boolean,
   check,

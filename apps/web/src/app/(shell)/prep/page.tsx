@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { idSchema } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
 import { redirect } from 'next/navigation';
 import type { SearchParams } from '../../../features/access/decision';
 import { driveNoticeText } from '../../../features/documents/drive-return';

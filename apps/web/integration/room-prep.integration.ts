@@ -4,7 +4,7 @@ import { withRoomRuntime } from './room-runtime.test-support';
 import { assert, test, setupRitewayBun } from 'riteway/bun';
 import { requireTestServices } from '@daisy/config';
 import { createId } from '@paralleldrive/cuid2';
-import { isNamedSeat } from '@daisy/protocol';
+import { isNamedSeat } from '@daisy/protocol/round-view';
 import { createRoundRuntimeOperations } from '../src/features/round-runtime/operations';
 
 requireTestServices(process.env);

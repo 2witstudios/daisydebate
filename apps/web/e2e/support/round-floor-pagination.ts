@@ -1,6 +1,6 @@
 import type { Page } from '@playwright/test';
 import { createId } from '@paralleldrive/cuid2';
-import { channelMessagesWindow } from '@daisy/protocol';
+import { channelMessagesWindow } from '@daisy/protocol/messaging/channel-messages';
 import { expect } from './fixtures';
 import { origin } from './accounts';
 const floor = (page: Page) =>

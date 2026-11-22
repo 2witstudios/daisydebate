@@ -1,11 +1,11 @@
 import { requireTestServices } from '@daisy/config';
+import { buildRoundTopic } from '@daisy/protocol/topics';
 import {
-  buildRoundTopic,
   roomViewSchema,
   roomCatalogChoiceSchema,
   roomCastChoiceSchema,
-  roundViewSchema,
-} from '@daisy/protocol';
+} from '@daisy/protocol/room-read';
+import { roundViewSchema } from '@daisy/protocol/round-view';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 
 import { withRoomOutboxFailure } from './room-outbox-rollback.test-support';

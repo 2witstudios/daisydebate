@@ -6,7 +6,7 @@ import {
   notificationPresentationSchema,
   notificationShellSchema,
   notificationsReadSchema,
-} from '@daisy/protocol';
+} from '@daisy/protocol/notifications';
 import {
   accountRead,
   accountRoute,

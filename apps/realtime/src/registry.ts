@@ -5,12 +5,12 @@ import {
   type OutboxPosition,
   type OutboxRow,
 } from '@daisy/db/outbox';
+import { ENVELOPE_VERSION } from '@daisy/protocol/realtime';
 import {
-  ENVELOPE_VERSION,
   isPayloadDeliverableOnTopic,
   outboxPayloadSchema,
-  type ServerMessage,
-} from '@daisy/protocol';
+} from '@daisy/protocol/realtime-payloads';
+import { type ServerMessage } from '@daisy/protocol/realtime-server';
 
 import {
   compare,

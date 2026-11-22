@@ -5,7 +5,7 @@ import {
   type ReportSurface,
   reportReasons,
   reportSurfaces,
-} from '@daisy/protocol';
+} from '@daisy/protocol/reports';
 import {
   reportResolveCommandAction,
   type ReportResolveResult,

@@ -1,4 +1,4 @@
-import { messageRequestSettings } from '@daisy/protocol';
+import { messageRequestSettings } from '@daisy/protocol/messaging/social';
 import { check, pgTable, text } from 'drizzle-orm/pg-core';
 import { oneOf, updatedAtColumn } from './columns';
 import { users } from './users';

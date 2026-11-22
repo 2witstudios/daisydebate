@@ -1,5 +1,5 @@
 import { createAppError, isAppError } from '@daisy/errors';
-import { idSchema } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
 import {
   AudioFrame,
   AudioSource,

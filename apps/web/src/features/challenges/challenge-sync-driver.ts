@@ -1,4 +1,5 @@
-import { buildUserInboxTopic, type ChallengeList } from '@daisy/protocol';
+import { buildUserInboxTopic } from '@daisy/protocol/topics';
+import { type ChallengeList } from '@daisy/protocol/challenges';
 import type { Scheduler } from '../realtime/connection-store';
 import { attachInvalidationTopic } from '../realtime/invalidation-topic';
 import {

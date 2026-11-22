@@ -1,4 +1,4 @@
-import type { MemberStatus as Presence } from '@daisy/protocol';
+import type { MemberStatus as Presence } from '@daisy/protocol/presence-setting';
 import { presenceDotClass } from './presence-dot-class';
 import { statusLabels } from './status-labels';
 

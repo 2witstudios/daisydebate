@@ -1,8 +1,8 @@
+import { startEdgeLagMs } from '@daisy/protocol/public-interval';
 import {
-  startEdgeLagMs,
   type CoverageGap,
   type RecordingMedia,
-} from '@daisy/protocol';
+} from '@daisy/protocol/recording';
 import { outsideGaps } from './speech-timeline';
 
 type Unrecorded = NonNullable<RecordingMedia['unrecorded']>[number];

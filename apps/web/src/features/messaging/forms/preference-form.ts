@@ -1,4 +1,4 @@
-import { messagingPreferenceSchemas } from '@daisy/protocol';
+import { messagingPreferenceSchemas } from '@daisy/protocol/messaging/preferences';
 import {
   idle,
   refusedWith,

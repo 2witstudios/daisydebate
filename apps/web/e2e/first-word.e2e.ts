@@ -4,11 +4,8 @@ import { mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { oneOnOneSettings } from '@daisy/db/reference-formats';
-import {
-  roundTranscriptReadSchema,
-  sideOfSeat,
-  twoSideKeys,
-} from '@daisy/protocol';
+import { roundTranscriptReadSchema } from '@daisy/protocol/round-transcript';
+import { sideOfSeat, twoSideKeys } from '@daisy/protocol/seats';
 import type { Page } from '@playwright/test';
 import {
   ballotRoundCommand,

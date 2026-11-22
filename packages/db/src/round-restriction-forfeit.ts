@@ -1,8 +1,8 @@
 import { commandDigest } from '@daisy/digest';
-import { isRoundRunning, runningRoundStatuses } from '@daisy/protocol';
+import { isRoundRunning, runningRoundStatuses } from '@daisy/protocol/round';
 import { isDebatingSeatSql } from './seat-columns';
 import { and, eq, inArray } from 'drizzle-orm';
-import type { RoundProjection } from '@daisy/protocol';
+import type { RoundProjection } from '@daisy/protocol/runtime';
 import type { DatabaseEventSink } from './instrumented';
 import { commitRoundCommand } from './round-command-commit';
 import { sampleRoundExecutionTime } from './round-execution-time';

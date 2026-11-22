@@ -3,7 +3,7 @@ import { SQL } from 'bun';
 import { systemId } from '@daisy/clock';
 import { createDatabase } from '@daisy/db';
 import { ageAdmitted } from '@daisy/auth/authorization';
-import { decideBetaAccessChange } from '@daisy/protocol';
+import { decideBetaAccessChange } from '@daisy/protocol/beta-access';
 
 const email = 'transcript-proof@example.test';
 const username = 'staging-transcript-proof';

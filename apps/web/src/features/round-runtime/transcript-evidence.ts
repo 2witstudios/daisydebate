@@ -1,7 +1,7 @@
 import type { TranscriptEvidenceInput } from '@daisy/ai-voice';
 import type { FrozenRoundTranscript } from '@daisy/db/frozen-transcript';
 import { createAppError } from '@daisy/errors';
-import { isSpeakingSeat, type SeatRef } from '@daisy/protocol';
+import { isSpeakingSeat, type SeatRef } from '@daisy/protocol/seats';
 type Round = {
   readonly id: string;
   /** Null only before a reveal, which no frozen, played Round is. */

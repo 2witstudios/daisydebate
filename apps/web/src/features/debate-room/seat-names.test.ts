@@ -1,5 +1,5 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { fourTeams, twoSides } from '@daisy/protocol';
+import { fourTeams, twoSides } from '@daisy/protocol/seats';
 import { seatName, shapeLabel, sideName, sideShortName } from './seat-names';
 
 setupRitewayBun();

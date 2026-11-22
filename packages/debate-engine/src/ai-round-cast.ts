@@ -1,4 +1,5 @@
-import { isDebatingSeat, type RoomAssemblyState } from '@daisy/protocol';
+import { isDebatingSeat } from '@daisy/protocol/seats';
+import { type RoomAssemblyState } from '@daisy/protocol/room-contract';
 
 /**
  * A bot debates in this cast, which is the one fact Launch acts on: the host

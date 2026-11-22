@@ -3,7 +3,7 @@ import { messagingGroupResultView } from './group-result-view';
 import type { AuthorizationPrincipal } from '@daisy/auth/authorization';
 import type { MessagingGroupIssuanceStore } from '@daisy/db/messaging';
 import { createAppError } from '@daisy/errors';
-import { createMessagingSocialSchemas } from '@daisy/protocol';
+import { createMessagingSocialSchemas } from '@daisy/protocol/messaging/social';
 import { parseValidated } from '../../server/http';
 
 import { messagingSocialDigest } from './social-command-digest';

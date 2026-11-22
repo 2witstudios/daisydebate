@@ -1,10 +1,10 @@
 import { instantMs } from '@daisy/clock';
 import {
   canonicalCaptureEvidenceBody,
-  captureStateReply,
-  idSchema,
   type CaptureEvidenceBody,
-} from '@daisy/protocol';
+} from '@daisy/protocol/capture-evidence-body';
+import { captureStateReply } from '@daisy/protocol/capture-worker-replies';
+import { idSchema } from '@daisy/protocol/primitives';
 import { verifyFrameClockEvidence } from '@daisy/media/observation';
 import { contained, type CaptureState } from '../capture-history';
 import type { StagedFrame } from '../capture-staging';

@@ -9,7 +9,10 @@ import {
   type MouseEvent,
   type RefObject,
 } from 'react';
-import type { RoomCatalogChoice, RoomView } from '@daisy/protocol';
+import type {
+  RoomCatalogChoice,
+  RoomView,
+} from '@daisy/protocol/room-contract';
 import type { RoomCommandIds } from '../../../features/rooms/room-command-ids';
 import type { RoomFormState } from '../../../features/rooms/command-answer';
 import type { FormAction } from '../../form-action/form-action';

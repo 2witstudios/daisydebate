@@ -1,4 +1,4 @@
-import type { RoundIncidentChange } from '@daisy/protocol';
+import type { RoundIncidentChange } from '@daisy/protocol/runtime';
 import { and, eq, isNull } from 'drizzle-orm';
 import { refundPlatformEndedLocked } from './round-bot-admission';
 import { roundIncidents } from './schema/round-incidents';

@@ -19,7 +19,7 @@ import { createdAtColumn, oneOf } from './columns';
 import { actors } from './actors';
 import { rounds } from './rounds';
 import { rooms } from './rooms';
-import { messagingChannelLifecycles } from '@daisy/protocol';
+import { messagingChannelLifecycles } from '@daisy/protocol/messaging/social';
 
 /**
  * Social channels and separate contextual conversations: a Round's floor and

@@ -1,4 +1,4 @@
-import type { PresenceActivity } from '@daisy/protocol';
+import type { PresenceActivity } from '@daisy/protocol/realtime';
 
 /** ADR 0033 §1: a 60 s lease, refreshed every 20 s while the socket lives. */
 export const PRESENCE_TTL_SECONDS = 60;

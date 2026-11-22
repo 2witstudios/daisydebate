@@ -4,7 +4,7 @@ import {
   audienceReactionKinds,
   SPECTATOR_CHAT_UNITS,
   type AudienceSnapshot,
-} from '@daisy/protocol';
+} from '@daisy/protocol/audience';
 import Link from 'next/link';
 import type { FormStateAction } from '../form-action/action-form';
 import { ActionForm } from '../form-action/action-form';

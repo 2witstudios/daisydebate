@@ -4,8 +4,8 @@ import {
   ballotDefinitionSchema,
   freezeBallotJudging,
   type RoundJudging,
-  type RoundRules,
-} from '@daisy/protocol';
+} from '@daisy/protocol/ballot-definition';
+import { type RoundRules } from '@daisy/protocol/format';
 import {
   ballotDefinitions,
   ballotDefinitionVersions,

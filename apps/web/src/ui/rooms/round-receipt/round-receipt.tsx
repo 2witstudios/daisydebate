@@ -1,4 +1,5 @@
-import { isJudgeSeat, seatKey, type RoundView } from '@daisy/protocol';
+import { isJudgeSeat, seatKey } from '@daisy/protocol/seats';
+import { type RoundView } from '@daisy/protocol/round-view';
 import type { ReactNode } from 'react';
 import { seatLabel, segmentSeatLabel } from '../room-page/assembly-controls';
 import { sideName } from '../../../features/debate-room/seat-names';

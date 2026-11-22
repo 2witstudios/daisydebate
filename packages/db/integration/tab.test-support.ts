@@ -1,6 +1,9 @@
-import { panelRuleFor } from '@daisy/protocol';
+import { panelRuleFor } from '@daisy/protocol/ballot-definition';
 import { administrativeFixtureRecord } from './tab-result-record.test-support';
-import { daisyWinnerBallot, storedBallotDefinition } from '@daisy/protocol';
+import {
+  daisyWinnerBallot,
+  storedBallotDefinition,
+} from '@daisy/protocol/ballot-definition';
 import { SQL } from 'bun';
 import { createId } from '@paralleldrive/cuid2';
 import { drizzle } from 'drizzle-orm/bun-sql';
@@ -8,10 +11,8 @@ import { daisyOrganizationId } from '../src/daisy-reference';
 import { scopeTransaction, type TenantScope } from '../src/tenant-scope';
 import { Fixture, digest } from './constraint-helpers';
 import { validConfig, validRules } from './round-fixtures';
-import {
-  daisyBallotDefinitions,
-  emptyRuntimeCheckpointFor,
-} from '@daisy/protocol';
+import { daisyBallotDefinitions } from '@daisy/protocol/ballot-definition';
+import { emptyRuntimeCheckpointFor } from '@daisy/protocol/round';
 
 type PostgresFailure = { errno?: unknown; constraint?: unknown };
 type Row = Readonly<Record<string, unknown>>;

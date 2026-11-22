@@ -26,7 +26,11 @@ import {
   createOpenRouter,
   type TranscriptEvidenceInput,
 } from '@daisy/ai-voice';
-import { affirmativeSide, negativeSide, twoSideKeys } from '@daisy/protocol';
+import {
+  affirmativeSide,
+  negativeSide,
+  twoSideKeys,
+} from '@daisy/protocol/seats';
 import { transcriptEvidenceInput } from '../apps/web/src/features/round-runtime/transcript-evidence';
 import {
   expand,

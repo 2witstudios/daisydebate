@@ -1,5 +1,6 @@
 import { requireTestServices } from '@daisy/config';
-import { buildChannelTopic, type ServerMessage } from '@daisy/protocol';
+import { buildChannelTopic } from '@daisy/protocol/topics';
+import { type ServerMessage } from '@daisy/protocol/realtime-server';
 import { SQL } from 'bun';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';

@@ -1,5 +1,5 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import type { ObservationResource } from '@daisy/protocol';
+import type { ObservationResource } from '@daisy/protocol/observation';
 import { createFanout } from './fanout';
 import { createObservationNode, type ObservationConnection } from './node';
 import type { PermitDecision } from './permits';

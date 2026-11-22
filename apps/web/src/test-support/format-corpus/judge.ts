@@ -5,13 +5,9 @@ import {
   transcriptLines,
   type TranscriptEvidenceInput,
 } from '@daisy/ai-voice';
-import {
-  caseMapSchema,
-  daisyWinnerBallot,
-  sideSeat,
-  twoSides,
-  type CaseMap,
-} from '@daisy/protocol';
+import { caseMapSchema, type CaseMap } from '@daisy/protocol/case-map';
+import { daisyWinnerBallot } from '@daisy/protocol/ballot-definition';
+import { sideSeat, twoSides } from '@daisy/protocol/seats';
 
 type Seated = { readonly side: string; readonly slot: number };
 type Recorded<T> = Omit<T, 'seat'> & Seated;

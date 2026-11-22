@@ -1,5 +1,5 @@
 import { and, eq, inArray } from 'drizzle-orm';
-import type { RoomAssemblyState } from '@daisy/protocol';
+import type { RoomAssemblyState } from '@daisy/protocol/room-contract';
 import type { PrivacyAdopter } from './privacy/contracts';
 import { rooms, roomParticipants } from './schema/rooms';
 import { roomFacts } from './room-command-facts';

@@ -1,6 +1,7 @@
 import { and, asc, eq, gt, sql } from 'drizzle-orm';
 import { createAppError } from '@daisy/errors';
-import { roundStatus, idSchema } from '@daisy/protocol';
+import { roundStatus } from '@daisy/protocol/round';
+import { idSchema } from '@daisy/protocol/primitives';
 import type { BoundedTransaction } from './bounded-transaction';
 import { currentWebTransaction } from './web-service-authority';
 import { createUsageRelease } from './usage-release';

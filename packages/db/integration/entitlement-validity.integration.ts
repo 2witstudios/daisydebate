@@ -1,6 +1,6 @@
 import { requireTestServices } from '@daisy/config';
 import { accountEntitlements, admitAllowance } from '@daisy/auth/authorization';
-import { entitlementKinds } from '@daisy/protocol';
+import { entitlementKinds } from '@daisy/protocol/entitlements';
 import { drizzle } from 'drizzle-orm/bun-sql';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { readEntitlementGrants } from '../src/entitlement-grants';

@@ -15,11 +15,9 @@ import {
   participatingRulings,
 } from '@daisy/debate-engine';
 import { createAppError, isAppError, createRefusal } from '@daisy/errors';
-import {
-  isJudgeSeat,
-  judgingPolicy,
-  type JudgingTerminalReason,
-} from '@daisy/protocol';
+import { isJudgeSeat } from '@daisy/protocol/seats';
+import { judgingPolicy } from '@daisy/protocol/judging-policy';
+import { type JudgingTerminalReason } from '@daisy/protocol/round-judging-attempt';
 import { createRatingSweep } from '../ratings/sweep';
 import { roundTickProjection } from './operations';
 

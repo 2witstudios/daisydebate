@@ -5,7 +5,7 @@ import {
   type OutboxPosition,
   type OutboxRow,
 } from '@daisy/db/outbox';
-import { ENVELOPE_VERSION } from '@daisy/protocol';
+import { ENVELOPE_VERSION } from '@daisy/protocol/realtime';
 import { createAuthorityLease } from './authority-lease';
 import {
   compare,

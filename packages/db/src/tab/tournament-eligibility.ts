@@ -1,6 +1,6 @@
 import { and, eq, inArray, sql } from 'drizzle-orm';
 import { createAppError } from '@daisy/errors';
-import type { AgeBand } from '@daisy/protocol';
+import type { AgeBand } from '@daisy/protocol/ladder';
 import { mayDebate } from '@daisy/protocol/lobby/eligibility';
 import { tournamentFirstDay } from '@daisy/protocol/lobby/tournament-schedule';
 import { divisionAgeBand } from '../ladder-division-band';

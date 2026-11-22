@@ -1,6 +1,6 @@
 'use server';
 import { headers } from 'next/headers';
-import { messagingDmDecisionResultSchema } from '@daisy/protocol';
+import { messagingDmDecisionResultSchema } from '@daisy/protocol/messaging/social';
 import { processRoute } from '../../../../../server/process-app';
 import { inProcessFetch } from '../../../../../server/in-process-fetch';
 import { moveOn } from '../../../../../server/form-action';

@@ -1,6 +1,6 @@
 import { and, eq } from 'drizzle-orm';
 import { z } from 'zod';
-import { idSchema } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
 import { billingRefundActions } from './schema/billing-refund-actions';
 import { lockRefundAction } from './billing-refund-authority';
 import type { Tx } from './tx';

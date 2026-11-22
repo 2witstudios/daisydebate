@@ -9,7 +9,7 @@ import type {
 } from '@daisy/db/bot-publication';
 import type { RoundBotWorkerPolicy } from '@daisy/config';
 import { createAppError } from '@daisy/errors';
-import { idSchema } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
 import type { OneShotTimer } from '../../lib/worker-timers';
 import type { ProviderCall } from '../../server/provider-budget';
 import type { Owed } from './duty';

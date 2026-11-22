@@ -1,5 +1,5 @@
 import { eventFixtureAudiences } from '../event-room-direction';
-import { isRoundRunning } from '@daisy/protocol';
+import { isRoundRunning } from '@daisy/protocol/round';
 import { showTournamentEntrant } from '../shown-entrant';
 import { authorize, visibleThing } from '@daisy/auth/authorization';
 import type {

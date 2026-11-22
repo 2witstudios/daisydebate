@@ -1,5 +1,5 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { fourTeams, twoSides } from '@daisy/protocol';
+import { fourTeams, twoSides } from '@daisy/protocol/seats';
 import { formatChangeLine as lineOf } from './format-changes';
 
 const formatChangeLine = (change: Parameters<typeof lineOf>[0]) =>

@@ -1,4 +1,7 @@
-import { closeCodeTable, type CloseCodeReason } from '@daisy/protocol';
+import {
+  closeCodeTable,
+  type CloseCodeReason,
+} from '@daisy/protocol/close-codes';
 import type { ReconnectKind } from './backoff';
 
 /**

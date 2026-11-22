@@ -1,6 +1,6 @@
 import Image from 'next/image';
 import { PresenceDot } from '../presence-dot/presence-dot';
-import type { MemberStatus as Presence } from '@daisy/protocol';
+import type { MemberStatus as Presence } from '@daisy/protocol/presence-setting';
 import { avatarClass, type AvatarSize } from './avatar-class';
 import { initialsOf } from '../../../lib/initials';
 

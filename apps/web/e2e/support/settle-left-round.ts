@@ -1,10 +1,7 @@
 import type { APIRequestContext, BrowserContext } from '@playwright/test';
-import {
-  activeRoomReadSchema,
-  isNamedSeat,
-  isSideSeat,
-  type SeatRef,
-} from '@daisy/protocol';
+import { activeRoomReadSchema } from '@daisy/protocol/active-room';
+import { isNamedSeat } from '@daisy/protocol/round-view';
+import { isSideSeat, type SeatRef } from '@daisy/protocol/seats';
 import { currentRoundForfeit, readBallotRound } from './human-ballot-round';
 
 const ATTEMPTS = 3;

@@ -1,7 +1,7 @@
 import { createId } from '@paralleldrive/cuid2';
 import { requireTestServices } from '@daisy/config';
 import { assertRejects } from '@daisy/errors/testing';
-import type { RatingPlanFacts } from '@daisy/protocol';
+import type { RatingPlanFacts } from '@daisy/protocol/ratings';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { ledgerOf, ratingsOf, stub, withRatings } from './rating-fixtures';
 

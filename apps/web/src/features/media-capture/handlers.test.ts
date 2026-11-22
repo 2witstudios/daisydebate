@@ -1,5 +1,5 @@
 import { createAppError, createRefusal } from '@daisy/errors';
-import { captureRefusalSchema } from '@daisy/protocol';
+import { captureRefusalSchema } from '@daisy/protocol/capture-refusal';
 import { noopErrorReporter } from '@daisy/observability';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { silentLogger } from '../../server/test-loggers.test-support';

@@ -16,7 +16,9 @@ import { postRoundCallOffered } from '../../../../features/post-round-call/offer
 import { MediaPageLink } from '../../../../ui/round-media/media-page-link';
 import { notFound, redirect } from 'next/navigation';
 import { createAppError } from '@daisy/errors';
-import { idSchema, isDebatingSeat, type RoundView } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
+import { isDebatingSeat } from '@daisy/protocol/seats';
+import { type RoundView } from '@daisy/protocol/round-view';
 import type { SearchParams } from '../../../../features/access/decision';
 import { accessOrTemporary } from '../../../../lib/access';
 import { isLiveDebater } from '../../../../ui/debate-room/live-round';

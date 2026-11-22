@@ -1,11 +1,11 @@
 import { z } from 'zod';
 import { roundSourceVoided } from './round-source-state';
 import { createAppError } from '@daisy/errors';
+import { startGateInstant } from '@daisy/protocol/round-start-policy';
 import {
-  startGateInstant,
   roundStatusSchema,
   runtimeCheckpointSchema,
-} from '@daisy/protocol';
+} from '@daisy/protocol/round';
 import { eq, sql } from 'drizzle-orm';
 import type { BoundedTransaction } from './bounded-transaction';
 import {

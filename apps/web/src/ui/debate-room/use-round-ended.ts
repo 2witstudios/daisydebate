@@ -1,6 +1,6 @@
 'use client';
 import { useBrowserEffect } from '../edge/browser-sync';
-import { isRoundOver, type RoundStatus } from '@daisy/protocol';
+import { isRoundOver, type RoundStatus } from '@daisy/protocol/round';
 import { useRouter } from 'next/navigation';
 
 import { browserDocument } from '../round-media/browser-document';

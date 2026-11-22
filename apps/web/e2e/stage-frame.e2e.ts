@@ -1,5 +1,5 @@
 import { instantMs } from '@daisy/clock';
-import { affirmativeSide, negativeSide } from '@daisy/protocol';
+import { affirmativeSide, negativeSide } from '@daisy/protocol/seats';
 import type { StageSeatView } from '../src/features/stage-capture/stage-access';
 import { expect, test } from './support/fixtures';
 

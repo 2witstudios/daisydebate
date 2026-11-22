@@ -1,10 +1,10 @@
 import type { ContentWaiverStanding } from '@daisy/db';
+import { isDebatingSeat } from '@daisy/protocol/seats';
+import { type AgeBand } from '@daisy/protocol/ladder';
 import {
-  isDebatingSeat,
-  type AgeBand,
   type RoomAssemblyState,
   type RoomRefusal,
-} from '@daisy/protocol';
+} from '@daisy/protocol/room-contract';
 import {
   casualCaptureNotice,
   contentWaiverOf,

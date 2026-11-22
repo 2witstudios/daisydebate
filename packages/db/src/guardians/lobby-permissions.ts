@@ -1,6 +1,6 @@
 import { sql, type SQL } from 'drizzle-orm';
 import { z } from 'zod';
-import type { AgeBand } from '@daisy/protocol';
+import type { AgeBand } from '@daisy/protocol/ladder';
 import { query } from '../raw-rows';
 import { currentTenantScope, scopeTransaction } from '../tenant-scope';
 import type { Tx } from '../tx';

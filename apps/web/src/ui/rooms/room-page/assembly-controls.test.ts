@@ -1,5 +1,5 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { twoSides, type SeatRef } from '@daisy/protocol';
+import { twoSides, type SeatRef } from '@daisy/protocol/seats';
 import { declaredSeats, readinessControl } from './assembly-controls';
 
 setupRitewayBun();

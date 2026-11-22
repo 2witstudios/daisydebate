@@ -1,7 +1,8 @@
 import { instantMs } from '@daisy/clock';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { twoSides, type RoundView } from '@daisy/protocol';
+import { twoSides } from '@daisy/protocol/seats';
+import { type RoundView } from '@daisy/protocol/round-view';
 import { OpeningChosen, OpeningStatus, OpeningStrike } from './opening-strike';
 
 setupRitewayBun();

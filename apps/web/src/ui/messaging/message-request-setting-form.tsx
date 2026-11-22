@@ -1,6 +1,6 @@
 'use client';
 import { StatusRegion } from '../components/status-region/status-region';
-import type { MessageRequestSetting } from '@daisy/protocol';
+import type { MessageRequestSetting } from '@daisy/protocol/messaging/social';
 import {
   initialSaveForm,
   saveNotice,

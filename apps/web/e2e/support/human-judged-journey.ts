@@ -2,11 +2,11 @@ import { instantMs } from '@daisy/clock';
 import {
   affirmativeSide,
   sideOfSeat,
-  TRANSCRIPT_ADMISSION_WINDOW_MS,
   twoSideKeys,
-  winnerOutcome,
   type SideKey,
-} from '@daisy/protocol';
+} from '@daisy/protocol/seats';
+import { TRANSCRIPT_ADMISSION_WINDOW_MS } from '@daisy/protocol/capture-timing';
+import { winnerOutcome } from '@daisy/protocol/round-outcome';
 import type {
   APIRequestContext,
   Browser,
@@ -14,12 +14,9 @@ import type {
   Page,
 } from '@playwright/test';
 import { createId } from '@paralleldrive/cuid2';
-import {
-  attendanceReceiptSchema,
-  isNamedSeat,
-  roundBallotReadSchema,
-  type RoundView,
-} from '@daisy/protocol';
+import { attendanceReceiptSchema } from '@daisy/protocol/attendance';
+import { isNamedSeat, type RoundView } from '@daisy/protocol/round-view';
+import { roundBallotReadSchema } from '@daisy/protocol/round-ballot-read';
 import { expect, openPage } from './fixtures';
 import { hydrated } from './hydration';
 import { origin } from './accounts';

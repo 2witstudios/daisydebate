@@ -1,15 +1,17 @@
 import { assertRejects } from '@daisy/errors/testing';
+import { ballotSchemaFor } from '@daisy/protocol/ballot-schema';
 import {
-  ballotSchemaFor,
   daisyBallotDefinitions,
   daisyWinnerBallot,
+  type BallotDefinition,
+} from '@daisy/protocol/ballot-definition';
+import {
   fourTeams,
   twoSides,
-  type BallotDefinition,
   type SeatRef,
   sideSeat,
   judgeSeat,
-} from '@daisy/protocol';
+} from '@daisy/protocol/seats';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { aiJudgeFor } from './ai-judge';
 import {

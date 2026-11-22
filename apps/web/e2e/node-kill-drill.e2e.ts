@@ -5,9 +5,9 @@ import { instantMs, systemClock } from '@daisy/clock';
 import {
   affirmativeSide,
   negativeSide,
-  roundTranscriptReadSchema,
   sideOfSeat,
-} from '@daisy/protocol';
+} from '@daisy/protocol/seats';
+import { roundTranscriptReadSchema } from '@daisy/protocol/round-transcript';
 import {
   captureBackAfter,
   captureCoverage,

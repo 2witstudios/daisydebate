@@ -3,7 +3,8 @@ import { ConversationPane } from '../../../../../../ui/messaging/conversation-pa
 import { headers } from 'next/headers';
 import { notFound, redirect } from 'next/navigation';
 import { systemId } from '@daisy/clock';
-import { idSchema, messagingDmResultSchema } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
+import { messagingDmResultSchema } from '@daisy/protocol/messaging/social';
 import { requireAccess } from '../../../../../../lib/access';
 import type { MessagingChannelPageProps } from '../../../../../../features/messaging/channel-page';
 import { RequestDecision } from '../../../../../../ui/messaging/request-decision';

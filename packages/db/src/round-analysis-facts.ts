@@ -1,5 +1,8 @@
 import { createAppError } from '@daisy/errors';
-import { analysisWorkSchema, type AnalysisWork } from '@daisy/protocol';
+import {
+  analysisWorkSchema,
+  type AnalysisWork,
+} from '@daisy/protocol/round-analysis-work';
 import { sql } from 'drizzle-orm';
 import { z } from 'zod';
 import type { Tx } from './tx';

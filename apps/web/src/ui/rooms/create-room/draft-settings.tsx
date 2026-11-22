@@ -1,5 +1,6 @@
 import { Button } from '../../components/button/button';
-import { leadSeatOf, sideOfSeat } from '@daisy/protocol';
+import { leadSeatOf } from '@daisy/protocol/format-seating';
+import { sideOfSeat } from '@daisy/protocol/seats';
 import type { CreateRoomDraft } from '../../../features/rooms/create-room-draft';
 import {
   segmentSeatValues,

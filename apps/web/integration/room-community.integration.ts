@@ -1,11 +1,9 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createId } from '@paralleldrive/cuid2';
-import {
-  buildRoundTopic,
-  isNamedSeat,
-  roomViewSchema,
-  type RoomView,
-} from '@daisy/protocol';
+import { buildRoundTopic } from '@daisy/protocol/topics';
+import { isNamedSeat } from '@daisy/protocol/round-view';
+import { roomViewSchema } from '@daisy/protocol/room-read';
+import { type RoomView } from '@daisy/protocol/room-contract';
 import {
   oneOnOneDefinition,
   oneOnOneRankedSettings,

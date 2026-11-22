@@ -9,9 +9,9 @@ import { createAppError } from '@daisy/errors';
 import {
   channelHistoryView,
   channelMessageView,
-  createMessagingCoreSchemas,
-  contentReportCreateSchema,
-} from '@daisy/protocol';
+} from '@daisy/protocol/messaging/channel-messages';
+import { createMessagingCoreSchemas } from '@daisy/protocol/messaging/core';
+import { contentReportCreateSchema } from '@daisy/protocol/content-moderation';
 import type { App } from '../../../server/app';
 import { parseValidated } from '../../../server/http';
 import { consumeWindowsOrThrow } from '../../../server/rate-limit';

@@ -1,4 +1,4 @@
-import type { AudienceState } from '@daisy/protocol';
+import type { AudienceState } from '@daisy/protocol/audience-state';
 import type { PollAnswer } from '../../features/spectating/poll-pace';
 
 /** What a tab has read of a Round's published state, on its own clock. */

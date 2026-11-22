@@ -1,5 +1,5 @@
 import { requireTestServices } from '@daisy/config';
-import { SPECTATOR_MARGIN_MS } from '@daisy/protocol';
+import { SPECTATOR_MARGIN_MS } from '@daisy/protocol/broadcast';
 import { SQL } from 'bun';
 import type { SQL as SQLType } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/bun-sql';

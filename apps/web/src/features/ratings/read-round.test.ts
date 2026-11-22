@@ -8,7 +8,8 @@ import {
 } from '../../ui/debate-room/live-round.test-support';
 import { readRoundRatings } from './read-round';
 import { rateDebateSides } from '@daisy/debate-engine';
-import { sideSeat, winnerOutcome } from '@daisy/protocol';
+import { sideSeat } from '@daisy/protocol/seats';
+import { winnerOutcome } from '@daisy/protocol/round-outcome';
 setupRitewayBun();
 
 const seasonId = 's'.repeat(24);

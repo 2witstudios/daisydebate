@@ -1,4 +1,4 @@
-import { caseMapSchema } from '@daisy/protocol';
+import { caseMapSchema } from '@daisy/protocol/case-map';
 
 type Sql = (
   strings: TemplateStringsArray,

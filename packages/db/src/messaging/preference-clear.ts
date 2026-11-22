@@ -1,7 +1,7 @@
 import { invalidateMessagingInboxes } from './inbox-change';
 import { and, eq } from 'drizzle-orm';
 import { createAppError } from '@daisy/errors';
-import { idSchema } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
 import { lockAuthorizationActors } from '../authorization';
 import { messagingActorStates } from '../schema/messaging-channels';
 import type { Tx } from '../tx';

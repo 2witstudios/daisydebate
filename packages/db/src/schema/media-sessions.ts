@@ -1,7 +1,7 @@
 import {
   mediaRoomRotationCauses,
   type MediaRoomRotationCause,
-} from '@daisy/protocol';
+} from '@daisy/protocol/media-room-fate';
 import { sql } from 'drizzle-orm';
 import {
   boolean,

@@ -1,10 +1,7 @@
 import { resolveSettings, roomChain } from '@daisy/protocol/setting-resolution';
-import {
-  affirmativeSide,
-  formatDefinitionSchema,
-  roomConfigSchema,
-  type RoomConfig,
-} from '@daisy/protocol';
+import { affirmativeSide } from '@daisy/protocol/seats';
+import { formatDefinitionSchema } from '@daisy/protocol/format';
+import { roomConfigSchema, type RoomConfig } from '@daisy/protocol/room';
 import type { StandingRoomDraftFacts } from '@daisy/db/tab';
 import { presetSettingDefaults } from './format-setting-defaults';
 import { settingRow } from './setting-facts';

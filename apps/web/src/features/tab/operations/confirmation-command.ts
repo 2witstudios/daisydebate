@@ -15,7 +15,7 @@ import {
   type ConfirmationOwnerEffects,
 } from '@daisy/db/tab';
 import { createAppError, createRefusal, isAppError } from '@daisy/errors';
-import { idSchema } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
 import {
   confirmationCommandEnvelopeSchema,
   confirmationCommandCatalogue,

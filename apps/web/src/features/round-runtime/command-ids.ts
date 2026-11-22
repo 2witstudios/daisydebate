@@ -1,4 +1,4 @@
-import type { RoundCommandEnvelope } from '@daisy/protocol';
+import type { RoundCommandEnvelope } from '@daisy/protocol/round-command';
 export type RoundCommandIds = Readonly<
   Record<RoundCommandEnvelope['command']['type'], string>
 >;

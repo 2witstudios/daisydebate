@@ -2,7 +2,7 @@ import type { Locator } from '@playwright/test';
 import { openPage } from './support/fixtures';
 import { test, expect } from './support/live-room-documents';
 import { controlLaunch } from './support/room-launch-settled';
-import { roundViewSchema } from '@daisy/protocol';
+import { roundViewSchema } from '@daisy/protocol/round-view';
 test.use({ roundCommands: true });
 
 /**

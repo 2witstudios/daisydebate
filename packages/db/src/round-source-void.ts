@@ -1,12 +1,10 @@
 import { rounds } from './schema/rounds';
 import { appendRoundPhaseChanged } from './round-projection-writer';
 import { createAppError, createRefusal } from '@daisy/errors';
-import {
-  isRoundRunning,
-  idSchema,
-  type RoundProjection,
-  type RoundCommandReceipt,
-} from '@daisy/protocol';
+import { isRoundRunning } from '@daisy/protocol/round';
+import { idSchema } from '@daisy/protocol/primitives';
+import { type RoundProjection } from '@daisy/protocol/runtime';
+import { type RoundCommandReceipt } from '@daisy/protocol/round-command';
 import { eq, sql } from 'drizzle-orm';
 import { hydrateRoundRows, type RoundHydration } from './round-hydration';
 import {

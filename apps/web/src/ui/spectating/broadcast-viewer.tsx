@@ -3,7 +3,7 @@ import '../../lib/zod-jitless';
 import { useBrowserEffect, useBrowserLayoutEffect } from '../edge/browser-sync';
 import { Button } from '../components/button/button';
 import { StatusRegion } from '../components/status-region/status-region';
-import { type SpectatorTimeline } from '@daisy/protocol';
+import { type SpectatorTimeline } from '@daisy/protocol/spectator-timeline';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useReducer } from 'react';

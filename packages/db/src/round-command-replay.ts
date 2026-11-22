@@ -1,5 +1,5 @@
 import { createAppError, createRefusal } from '@daisy/errors';
-import { idSchema } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
 
 /** The identity a stored Round command row is bound to. */
 export type CommandBinding = {

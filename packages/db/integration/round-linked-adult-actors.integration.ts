@@ -8,7 +8,7 @@ import {
   type LinkedAdultFixture,
 } from '@daisy/auth/linked-adults-testing';
 import { requireTestServices } from '@daisy/config';
-import type { AgeBand } from '@daisy/protocol';
+import type { AgeBand } from '@daisy/protocol/ladder';
 import { createId } from '@paralleldrive/cuid2';
 import { drizzle } from 'drizzle-orm/bun-sql';
 import { assert, setupRitewayBun, test } from 'riteway/bun';

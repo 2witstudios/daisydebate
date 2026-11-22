@@ -7,7 +7,7 @@ import { settingCommand } from '../src/features/tab/operations/settings';
 import { createLobbyRoom } from '../src/features/tab/operations/create-lobby-room';
 import { readStandingRoomDraft } from '../src/features/tab/reads/standing-room-draft';
 import { readLeagueSeason } from '../src/features/tab/reads/league-season';
-import { judgeSeat, sideSeat } from '@daisy/protocol';
+import { judgeSeat, sideSeat } from '@daisy/protocol/seats';
 import { withRoomRuntime } from './room-runtime.test-support';
 import { readLeagueLadder } from '../src/features/ratings/read-league-ladder';
 import { readLadder } from '../src/features/leaderboard/read-leaderboard';

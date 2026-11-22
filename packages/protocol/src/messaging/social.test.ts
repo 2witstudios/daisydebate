@@ -2,7 +2,7 @@ import { assert, setupRitewayBun, test } from 'riteway/bun';
 import {
   createMessagingSocialSchemas,
   type MessagingSocialBounds,
-} from '../index';
+} from './social';
 
 setupRitewayBun();
 const bounds: MessagingSocialBounds = {

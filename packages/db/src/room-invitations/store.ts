@@ -5,11 +5,10 @@ import {
   type InvitationEndDecision,
   type InviteeFacts,
   type PendingRoomInvitation,
-  type RoomAssemblyState,
   type RoomInvitationView,
-  type SeatKind,
-  seatKindSchema,
-} from '@daisy/protocol';
+} from '@daisy/protocol/room-invitations';
+import { type RoomAssemblyState } from '@daisy/protocol/room-contract';
+import { type SeatKind, seatKindSchema } from '@daisy/protocol/seats';
 import { eq, sql } from 'drizzle-orm';
 import { lockAuthorizationActors } from '../authorization';
 import type { authorizationAccountFact } from '../authorization-account';

@@ -3,7 +3,7 @@ import { ConversationPane } from '../../../../../../ui/messaging/conversation-pa
 import { headers } from 'next/headers';
 import { notFound } from 'next/navigation';
 import { systemId } from '@daisy/clock';
-import { messagingGroupInvitationResultSchema } from '@daisy/protocol';
+import { messagingGroupInvitationResultSchema } from '@daisy/protocol/messaging/social';
 import {
   readMessagingPageChannel,
   type MessagingPageScope,

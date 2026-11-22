@@ -4,20 +4,25 @@ import type { RoundBallotAccess } from './round-ballot-audience';
 import { ballotScreenings } from './schema/ballot-screenings';
 import type { RoundRoomAuthority } from './round-room-authority';
 import { withOpening, type ReadOpening } from './round-opening-read';
-import type { RoundWaitingFacts, RoundWaitingOn } from '@daisy/protocol';
+import type {
+  RoundWaitingFacts,
+  RoundWaitingOn,
+} from '@daisy/protocol/round-view';
 import { closedStreamGaps, streamKey } from './capture-gaps';
-import type { CaptureRule } from '@daisy/protocol';
+import type { CaptureRule } from '@daisy/protocol/capture-verdict';
 import { createAppError, isAppError } from '@daisy/errors';
 import {
   ballotSubjectsFor,
-  idSchema,
   feedbackSubjectOf,
-  isJudgeSeat,
+} from '@daisy/protocol/ballot-schema';
+import { idSchema } from '@daisy/protocol/primitives';
+import { isJudgeSeat } from '@daisy/protocol/seats';
+import {
   roundBallotReadSchema,
   roundJudgeAssignmentsSchema,
-  type LaunchedRound,
   type RoundBallotRead,
-} from '@daisy/protocol';
+} from '@daisy/protocol/round-ballot-read';
+import { type LaunchedRound } from '@daisy/protocol/round-view';
 import { and, desc, eq, inArray, sql } from 'drizzle-orm';
 import { readLockedFrozenRoundTranscript } from './frozen-transcript';
 import { sharedAccount, type Caller, type Account } from './room-command-facts';

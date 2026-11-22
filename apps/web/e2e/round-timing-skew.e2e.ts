@@ -25,12 +25,9 @@ import {
 } from './support/room-launch-flow';
 import { closeSettledLaunchContexts } from './support/room-launch-settled';
 import { displayDeltaMs } from './support/round-clock';
-import {
-  affirmativeSide,
-  roundMediaStateSchema,
-  roundViewSchema,
-  sideOfSeat,
-} from '@daisy/protocol';
+import { affirmativeSide, sideOfSeat } from '@daisy/protocol/seats';
+import { roundMediaStateSchema } from '@daisy/protocol/round-media';
+import { roundViewSchema } from '@daisy/protocol/round-view';
 import { turnOnDevices } from './support/turn-on-devices';
 
 const TWO_MINUTE_SKEW_MS = 120_000;

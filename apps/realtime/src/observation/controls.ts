@@ -1,4 +1,4 @@
-import { outboxPayloadSchema } from '@daisy/protocol';
+import { outboxPayloadSchema } from '@daisy/protocol/realtime-payloads';
 
 /**
  * The actors a batch of drained outbox rows fences (ADR 0089 §8): a

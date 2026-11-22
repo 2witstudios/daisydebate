@@ -1,4 +1,4 @@
-import type { BallotWrittenRecord } from '@daisy/protocol';
+import type { BallotWrittenRecord } from '@daisy/protocol/ballot-schema';
 
 /** Deterministic contact rules only; this does not classify language or intent. */
 const contactPatterns = [

@@ -1,11 +1,11 @@
 import { instantMs } from '@daisy/clock';
-import type { RoundStartGate } from '@daisy/protocol';
+import type { RoundStartGate } from '@daisy/protocol/round';
+import { clockStopsOf } from '@daisy/protocol/round';
+import { dueAfterStops } from '@daisy/protocol/clock-stops';
 import {
-  clockStopsOf,
-  dueAfterStops,
   roundStartPolicy,
   startGateInstant,
-} from '@daisy/protocol';
+} from '@daisy/protocol/round-start-policy';
 import {
   closedCount,
   countdownAnchor,

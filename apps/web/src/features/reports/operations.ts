@@ -2,7 +2,7 @@ import type { AuthorizationPrincipal } from '@daisy/auth/authorization';
 import type { Clock, IdGenerator } from '@daisy/clock';
 import type { ReportStore } from '@daisy/db/reports';
 import { createAppError, isAppError } from '@daisy/errors';
-import type { ReportReason, ReportSurface } from '@daisy/protocol';
+import type { ReportReason, ReportSurface } from '@daisy/protocol/reports';
 import type { DiscoverActor } from '../account/username-discovery';
 import { requireMemberActor } from '../access/actor';
 

@@ -1,9 +1,6 @@
-import {
-  isJudgeSeat,
-  isNamedSeat,
-  type RoomCommand,
-  type RoomView,
-} from '@daisy/protocol';
+import { isJudgeSeat } from '@daisy/protocol/seats';
+import { isNamedSeat } from '@daisy/protocol/round-view';
+import { type RoomCommand, type RoomView } from '@daisy/protocol/room-contract';
 import type { RoomRead } from './read-assembly';
 import type { submitAssembly } from './submit-assembly';
 

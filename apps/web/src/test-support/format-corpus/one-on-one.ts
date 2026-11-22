@@ -3,7 +3,8 @@ import {
   oneOnOneSettings,
 } from '@daisy/db/reference-formats';
 import { resolveRoomConfiguration } from '@daisy/debate-engine';
-import type { RoundProjection, RoundRules } from '@daisy/protocol';
+import type { RoundProjection } from '@daisy/protocol/runtime';
+import type { RoundRules } from '@daisy/protocol/format';
 import { attempt } from './refusal';
 import { corpusAt, seatsOf } from './corpus-seats';
 import { hydrate, opening, persisted } from './durable';

@@ -2,7 +2,7 @@ import { Button } from '../components/button/button';
 import {
   reasonsForTarget,
   type ContentReportTargetKind,
-} from '@daisy/protocol';
+} from '@daisy/protocol/content-moderation';
 import { reportReasonLabels } from '../../features/content-moderation/report-labels';
 
 /**

@@ -1,4 +1,4 @@
-import type { RoundView } from '@daisy/protocol';
+import type { RoundView } from '@daisy/protocol/round-view';
 import { postRoundCallEndsAtMs } from '../post-round-call/offered';
 import { floorBoundaries, floorClockOf } from './floor-clock';
 

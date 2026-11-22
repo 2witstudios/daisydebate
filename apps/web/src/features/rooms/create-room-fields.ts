@@ -1,12 +1,11 @@
 import { formatStanding } from '@daisy/debate-engine';
 import {
   formatDefinitionSchema,
-  roomConfigSchema,
-  twoSideKeys,
   type FormatDefinition,
-  type RoomCatalogChoice,
-  type RoomConfig,
-} from '@daisy/protocol';
+} from '@daisy/protocol/format';
+import { roomConfigSchema, type RoomConfig } from '@daisy/protocol/room';
+import { twoSideKeys } from '@daisy/protocol/seats';
+import { type RoomCatalogChoice } from '@daisy/protocol/room-contract';
 import {
   createRoomDraft,
   type CreateRoomDraft,

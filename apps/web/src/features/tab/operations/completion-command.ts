@@ -14,7 +14,8 @@ import {
   type CompletionWrite,
 } from '@daisy/db/tab';
 import { createAppError } from '@daisy/errors';
-import { idSchema, ballotWrittenRecordSchema } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
+import { ballotWrittenRecordSchema } from '@daisy/protocol/ballot-schema';
 import {
   resultCommandEnvelopeSchema,
   resultCommandCatalogue,

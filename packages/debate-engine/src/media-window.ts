@@ -1,10 +1,10 @@
 import { instantMs } from '@daisy/clock';
+import { isRoundRunning } from '@daisy/protocol/round';
+import { roundMediaPolicy } from '@daisy/protocol/round-media-policy';
 import {
-  isRoundRunning,
-  roundMediaPolicy,
   type MediaPhase,
   type MediaWindowFacts,
-} from '@daisy/protocol';
+} from '@daisy/protocol/post-round-call';
 import { postRoundCallState } from './post-round-call';
 
 /** The instant shared media closes, from the final segment's end. */

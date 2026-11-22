@@ -1,5 +1,5 @@
 import { requireTestServices } from '@daisy/config';
-import { sideSeat, judgeSeat } from '@daisy/protocol';
+import { sideSeat, judgeSeat } from '@daisy/protocol/seats';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import type { SocketData } from '../src/socket';
 import {

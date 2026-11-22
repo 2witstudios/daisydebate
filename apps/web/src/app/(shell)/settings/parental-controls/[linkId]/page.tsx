@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { idSchema } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
 import type { SearchParams } from '../../../../../features/access/decision';
 import { requireAccess } from '../../../../../lib/access';
 import {

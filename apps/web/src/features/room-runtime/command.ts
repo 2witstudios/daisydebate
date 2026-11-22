@@ -7,12 +7,12 @@ import { castSeatsBotDebater, executeRoomCommand } from '@daisy/debate-engine';
 import { createAppError, createRefusal } from '@daisy/errors';
 import type { IdGenerator } from '@daisy/clock';
 import type { createRedis } from '@daisy/redis';
+import { judgeSeat } from '@daisy/protocol/seats';
 import {
-  judgeSeat,
   type RoomAssemblyState,
   type RoomCommand,
   type RoomCommandResponse,
-} from '@daisy/protocol';
+} from '@daisy/protocol/room-contract';
 import { can, capabilityOf, digest } from './authority';
 import { hostHoldsCasualCapture } from './capture-offer';
 import {

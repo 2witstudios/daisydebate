@@ -1,4 +1,5 @@
-import type { ProtocolError, RefusalReason } from '@daisy/protocol';
+import type { ProtocolError } from '@daisy/protocol/primitives';
+import type { RefusalReason } from '@daisy/protocol/refusal-reason';
 
 /** The code vocabulary is the protocol's; this table only maps each code. */
 export type ErrorCode = ProtocolError['code'];

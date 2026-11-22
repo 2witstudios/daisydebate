@@ -1,4 +1,4 @@
-import { speakingEndMs } from '@daisy/protocol';
+import { speakingEndMs } from '@daisy/protocol/segment-end';
 import { and, eq, inArray, sql } from 'drizzle-orm';
 import { mediaSessions } from './schema/media-sessions';
 import { roundIncidents } from './schema/round-incidents';

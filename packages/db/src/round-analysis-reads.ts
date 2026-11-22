@@ -1,5 +1,6 @@
 import { createAppError } from '@daisy/errors';
-import { idSchema, MAX_FORMAT_SEATS } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
+import { MAX_FORMAT_SEATS } from '@daisy/protocol/format-seating';
 import type { Caller } from './room-command-facts';
 import {
   readRoundAnalysisAccess,

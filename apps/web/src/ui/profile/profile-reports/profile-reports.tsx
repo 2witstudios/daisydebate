@@ -1,5 +1,5 @@
 import { StatusRegion } from '../../components/status-region/status-region';
-import type { ContentReportTargetKind } from '@daisy/protocol';
+import type { ContentReportTargetKind } from '@daisy/protocol/content-moderation';
 import type { ShownPublicProfile } from '../../../features/profile/read-profile';
 import {
   reportAnswerText,

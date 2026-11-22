@@ -1,5 +1,6 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { clientMessageSchema, serverMessageSchema } from '@daisy/protocol';
+import { clientMessageSchema } from '@daisy/protocol/realtime';
+import { serverMessageSchema } from '@daisy/protocol/realtime-server';
 import { fixture, topic } from './registry.test-support';
 
 setupRitewayBun();

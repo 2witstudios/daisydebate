@@ -1,7 +1,8 @@
-import { daisyBallotSource } from '@daisy/protocol';
+import { daisyBallotSource } from '@daisy/protocol/ballot-definition';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';
-import { daisyWinnerBallot, isJudgeSeat } from '@daisy/protocol';
+import { daisyWinnerBallot } from '@daisy/protocol/ballot-definition';
+import { isJudgeSeat } from '@daisy/protocol/seats';
 import {
   oneOnOneRules,
   oneOnOneSeats,

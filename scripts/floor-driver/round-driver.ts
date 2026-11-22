@@ -1,16 +1,15 @@
 import { instantMs } from '@daisy/clock';
 import { Room } from '@livekit/rtc-node';
 import { createMediaService } from '@daisy/media';
+import { leadSeatOf } from '@daisy/protocol/format-seating';
+import { roomViewSchema } from '@daisy/protocol/room-read';
+import { roundViewSchema, type RoundView } from '@daisy/protocol/round-view';
 import {
-  leadSeatOf,
-  roomViewSchema,
-  roundViewSchema,
   sameSeat,
   sideOfSeat,
   sideSeat,
-  type RoundView,
   type SideKey,
-} from '@daisy/protocol';
+} from '@daisy/protocol/seats';
 import { floorSelection } from './format';
 import { newCommandId, type HttpSession } from './http-session';
 import type { DriverArgs, DriverTarget } from './target';

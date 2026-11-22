@@ -1,5 +1,5 @@
-import type { ObservationResource } from '@daisy/protocol';
-import { observationResourceKey } from '@daisy/protocol';
+import type { ObservationResource } from '@daisy/protocol/observation';
+import { observationResourceKey } from '@daisy/protocol/observation';
 import {
   definitionFor,
   type ObservableResources,

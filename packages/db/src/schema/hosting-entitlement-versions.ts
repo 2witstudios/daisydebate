@@ -1,5 +1,5 @@
 import { sql } from 'drizzle-orm';
-import { tournamentHostingCoverageSchema } from '@daisy/protocol';
+import { tournamentHostingCoverageSchema } from '@daisy/protocol/tournament-hosting';
 import {
   check,
   index,

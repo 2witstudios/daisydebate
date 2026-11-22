@@ -11,7 +11,7 @@ import { useRoundAttendance } from './use-round-attendance';
 import { createAttendanceReconnect } from '../../features/attendance/reconnect';
 import { useCallback, useMemo, useState, type ReactNode } from 'react';
 import { systemId } from '@daisy/clock';
-import type { RoundView } from '@daisy/protocol';
+import type { RoundView } from '@daisy/protocol/round-view';
 import type { RoundRead } from '../../features/round-runtime/read-round';
 import { FreshnessNotice } from '../resource-sync/freshness-notice';
 import { useLiveRoundView } from './use-live-round-view';

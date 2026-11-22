@@ -1,8 +1,8 @@
 import {
   partialReasonsStateLoss,
   type CaptureRule,
-  type FrozenCapture,
-} from '@daisy/protocol';
+} from '@daisy/protocol/capture-verdict';
+import { type FrozenCapture } from '@daisy/protocol/capture-judging-limit';
 import { and, eq, ne, sql } from 'drizzle-orm';
 import { closedStreamGaps, streamKey } from './capture-gaps';
 import { roundSpeakingIntervals } from './schema/round-speaking-intervals';

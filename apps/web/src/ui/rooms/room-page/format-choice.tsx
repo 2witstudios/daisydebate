@@ -2,7 +2,10 @@
 
 import { Button } from '../../components/button/button';
 import { useId } from 'react';
-import type { RoomCatalogChoice, RoomView } from '@daisy/protocol';
+import type {
+  RoomCatalogChoice,
+  RoomView,
+} from '@daisy/protocol/room-contract';
 import type { RoomFormState } from '../../../features/rooms/command-answer';
 import type { RoomCommandIds } from '../../../features/rooms/room-command-ids';
 import {

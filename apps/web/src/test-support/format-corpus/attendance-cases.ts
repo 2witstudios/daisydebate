@@ -3,12 +3,8 @@ import {
   attendancePolicy,
   requireAttendanceDecision,
 } from '@daisy/debate-engine';
-import {
-  isJudgeSeat,
-  sideOfSeat,
-  sideSeat,
-  type RoundRules,
-} from '@daisy/protocol';
+import { isJudgeSeat, sideOfSeat, sideSeat } from '@daisy/protocol/seats';
+import { type RoundRules } from '@daisy/protocol/format';
 import { attempt } from './refusal';
 import {
   corpusStartMs,

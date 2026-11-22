@@ -4,7 +4,7 @@ import { createId } from '@paralleldrive/cuid2';
 import { drizzle } from 'drizzle-orm/bun-sql';
 import { requireTestServices } from '@daisy/config';
 import { isAppError } from '@daisy/errors';
-import type { CompetitionType } from '@daisy/protocol';
+import type { CompetitionType } from '@daisy/protocol/round';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createChallengeStore } from '../src/challenges/store';
 import { createMessagingTestFixture } from '../src/testing';

@@ -1,4 +1,4 @@
-import type { ClockCalibration } from '@daisy/protocol';
+import type { ClockCalibration } from '@daisy/protocol/frame-clock-evidence';
 
 type ClockFields = {
   readonly calibration: ClockCalibration;

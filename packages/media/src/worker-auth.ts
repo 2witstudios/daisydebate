@@ -2,7 +2,7 @@ import { sha3Hex } from '@daisy/digest';
 import { tryInstantMs } from '@daisy/clock';
 import { createHmac } from 'node:crypto';
 import { createAppError } from '@daisy/errors';
-import { idSchema } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
 
 type SignedRequest = {
   readonly method: string;

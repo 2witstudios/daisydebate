@@ -1,6 +1,6 @@
 import { instantMs } from '@daisy/clock';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import type { RoomAssemblyState } from '@daisy/protocol';
+import type { RoomAssemblyState } from '@daisy/protocol/room-contract';
 import { edges } from './room-assembly.test-support';
 import { projectOpening, settleOpening, openingStep } from './round-opening';
 import {

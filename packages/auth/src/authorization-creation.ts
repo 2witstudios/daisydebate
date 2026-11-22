@@ -1,4 +1,4 @@
-import { messagingSocialCreationPolicySchema } from '@daisy/protocol';
+import { messagingSocialCreationPolicySchema } from '@daisy/protocol/messaging/social';
 import { contactPairValid } from './authorization-contact';
 import { policySelfCurrent } from './authorization-policy';
 import type {

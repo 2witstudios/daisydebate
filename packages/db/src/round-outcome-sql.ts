@@ -1,4 +1,4 @@
-import type { RoundOutcome } from '@daisy/protocol';
+import type { RoundOutcome } from '@daisy/protocol/round-outcome';
 import { sql, type SQL } from 'drizzle-orm';
 
 /**

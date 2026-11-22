@@ -1,6 +1,6 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { workKindsOf } from './round-projection-writer';
-import type { RoundProjection } from '@daisy/protocol';
+import type { RoundProjection } from '@daisy/protocol/runtime';
 
 setupRitewayBun();
 

@@ -6,8 +6,8 @@ import { EventSettingParentsChanged, type TabStore } from '@daisy/db/tab';
 import {
   ballotDefinitionSchema,
   freezeBallotJudging,
-  idSchema,
-} from '@daisy/protocol';
+} from '@daisy/protocol/ballot-definition';
+import { idSchema } from '@daisy/protocol/primitives';
 import {
   eventBallotAuthoringViewSchema,
   type EventBallotAuthoringView,

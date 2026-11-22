@@ -1,5 +1,5 @@
 import { renderToStaticMarkup } from 'react-dom/server';
-import type { RoomView } from '@daisy/protocol';
+import type { RoomView } from '@daisy/protocol/room-contract';
 import { drawCapableBounds } from '@daisy/protocol/testing';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assemblySnapshot } from '../../../features/rooms/assembly.test-support';

@@ -1,5 +1,5 @@
 export type { AuthorizationPrincipal as Principal } from './authorization';
-export { parseUsername } from '@daisy/protocol';
+export { parseUsername } from '@daisy/protocol/username';
 export {
   claimedUsername,
   resolveIdentity,

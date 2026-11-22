@@ -1,5 +1,5 @@
 import { instantMs } from '@daisy/clock';
-import type { RecordingLifecycle } from '@daisy/protocol';
+import type { RecordingLifecycle } from '@daisy/protocol/recording';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {
   deletionRetryAt,

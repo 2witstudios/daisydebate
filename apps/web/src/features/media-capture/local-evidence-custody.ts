@@ -1,21 +1,20 @@
 import { sha3Hex } from '@daisy/digest';
-import { evidenceEnvelopeSchema, idSchema } from '@daisy/protocol';
+import { evidenceEnvelopeSchema } from '@daisy/protocol/evidence-envelope';
+import { idSchema } from '@daisy/protocol/primitives';
 import { requirePrivateEvidenceDirectory } from './local-evidence-storage';
 import { createAppError } from '@daisy/errors';
 import { chmodSync } from 'node:fs';
 import { Database } from 'bun:sqlite';
 import { createCipheriv, createDecipheriv, randomBytes } from 'node:crypto';
-import {
-  necessaryEvidencePolicy,
-  encodeEvidencePrivacyScope,
-} from '@daisy/protocol';
+import { necessaryEvidencePolicy } from '@daisy/protocol/necessary-evidence';
+import { encodeEvidencePrivacyScope } from '@daisy/protocol/evidence-privacy';
 import { evidencePrivacyDigest } from './local-evidence-privacy';
 import type {
   EvidenceCustodyIdentity,
   EvidenceRefusal,
   NecessaryEvidenceCustody,
   SealedEvidence,
-} from '@daisy/protocol';
+} from '@daisy/protocol/necessary-evidence';
 import type { EvidenceAuthority } from './local-evidence-authority';
 
 type Material = { key: Uint8Array; nonce: Uint8Array };

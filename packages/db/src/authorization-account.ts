@@ -1,9 +1,9 @@
 import { z } from 'zod';
 import {
   betaAccessStates,
-  idSchema,
   type BetaAccessState,
-} from '@daisy/protocol';
+} from '@daisy/protocol/beta-access';
+import { idSchema } from '@daisy/protocol/primitives';
 /** Minimal facts returned only by the canonical database account producer. */
 export const authorizationAccountRow = z.object({
   userId: z.string(),

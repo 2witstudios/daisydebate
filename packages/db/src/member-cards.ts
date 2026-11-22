@@ -3,13 +3,11 @@ import { inTransaction, type TxSource } from './tx';
 import { query } from './raw-rows';
 import { z } from 'zod';
 import type { LobbyAgeRule } from '@daisy/protocol/lobby/eligibility';
-import {
-  type RatingDivision,
-  type RatingStyle,
-  roundOutcomeSchema,
-  roundStatusSchema,
-  seatKindSchema,
-} from '@daisy/protocol';
+import { type RatingDivision } from '@daisy/protocol/ladder';
+import { type RatingStyle } from '@daisy/protocol/primitives';
+import { roundOutcomeSchema } from '@daisy/protocol/round-outcome';
+import { roundStatusSchema } from '@daisy/protocol/round';
+import { seatKindSchema } from '@daisy/protocol/seats';
 import { roundOutcomeSql } from './round-outcome-sql';
 import { seatOfColumns } from './seat-columns';
 import { instrumented, type DatabaseEventSink } from './instrumented';
@@ -20,7 +18,7 @@ import {
   type PublishStandings,
 } from './standings';
 import { lobbies as standingLobbies } from './schema/lobbies';
-import { ratingDivisionForAgeRule } from '@daisy/protocol';
+import { ratingDivisionForAgeRule } from '@daisy/protocol/ladder';
 import {
   outcomeReleasedSql,
   roundAliasR,

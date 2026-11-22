@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { createAppError } from '@daisy/errors';
-import { idSchema } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
 import { paidHostingTiers } from '@daisy/protocol/lobby/hosting-tier';
 import {
   hostedTournamentsViewSchema,

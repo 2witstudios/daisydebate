@@ -1,5 +1,5 @@
 import { sql } from 'drizzle-orm';
-import { decideBetaAccessChange } from '@daisy/protocol';
+import { decideBetaAccessChange } from '@daisy/protocol/beta-access';
 import { normalizeEmail } from '@daisy/protocol/email';
 import { canClaimPreapproval } from '@daisy/protocol/beta-preapproval';
 import { loadAuthorizationAccount } from './authorization';

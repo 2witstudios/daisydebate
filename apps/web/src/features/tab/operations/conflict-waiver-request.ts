@@ -10,7 +10,7 @@ import {
   type TabStore,
 } from '@daisy/db/tab';
 import { createAppError } from '@daisy/errors';
-import { idSchema } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
 import {
   commandReplay,
   type LobbyCommandAnswer,

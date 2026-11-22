@@ -4,11 +4,11 @@ import {
   type JudgeRoomMembers,
 } from './room-judge-assignment-write';
 import { createAppError, createRefusal } from '@daisy/errors';
+import { idSchema } from '@daisy/protocol/primitives';
 import {
-  idSchema,
   roundJudgeAssignmentReceiptSchema,
   type RoundJudgeAssignmentReceipt,
-} from '@daisy/protocol';
+} from '@daisy/protocol/round-judge-assignment';
 import { and, eq, sql } from 'drizzle-orm';
 import { readAuthorizationActors } from './authorization';
 import {

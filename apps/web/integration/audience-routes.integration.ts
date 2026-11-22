@@ -3,7 +3,7 @@ import {
   oneOnOneDefinition,
   oneOnOneSettings,
 } from '@daisy/db/reference-formats';
-import { sideSeat, judgeSeat } from '@daisy/protocol';
+import { sideSeat, judgeSeat } from '@daisy/protocol/seats';
 import { requireTestServices } from '@daisy/config';
 import { noopErrorReporter } from '@daisy/observability';
 import { createId } from '@paralleldrive/cuid2';

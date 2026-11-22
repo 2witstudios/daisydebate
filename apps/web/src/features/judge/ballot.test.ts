@@ -1,5 +1,5 @@
 import { ballotPlanFor } from './ballot-plan';
-import { ballotCategories, type BallotCategory } from '@daisy/protocol';
+import { ballotCategories, type BallotCategory } from '@daisy/protocol/ballot';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { postedForm } from '../../lib/testing/posted-form';
 import { parseBallot, readScore, ballotFieldNames } from './ballot';

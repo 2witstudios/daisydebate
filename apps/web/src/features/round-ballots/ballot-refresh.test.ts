@@ -1,6 +1,7 @@
 import { instantMs } from '@daisy/clock';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import type { RoundBallotRead, RoundWaitingOn } from '@daisy/protocol';
+import type { RoundBallotRead } from '@daisy/protocol/round-ballot-read';
+import type { RoundWaitingOn } from '@daisy/protocol/round-view';
 import {
   ballotRefreshCeilingMs,
   ballotRefreshEveryMs,

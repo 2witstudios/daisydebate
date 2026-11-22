@@ -1,4 +1,4 @@
-import { daisyWinnerBallot } from '@daisy/protocol';
+import { daisyWinnerBallot } from '@daisy/protocol/ballot-definition';
 import { fixtureRules, oneOnOneFormatFixture } from '@daisy/protocol/testing';
 import { ballotPlanFor, type BallotPlan } from './ballot-plan';
 

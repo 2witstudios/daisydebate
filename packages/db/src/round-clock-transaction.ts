@@ -1,5 +1,5 @@
 import { createAppError } from '@daisy/errors';
-import type { RoundProjection } from '@daisy/protocol';
+import type { RoundProjection } from '@daisy/protocol/runtime';
 import { eq } from 'drizzle-orm';
 import { rounds } from './schema/rounds';
 import { hydrateRoundRows, type RoundHydration } from './round-hydration';

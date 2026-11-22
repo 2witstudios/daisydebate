@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { idSchema } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
 import { createAppError } from '@daisy/errors';
 import type { BoundedTransaction } from '../bounded-transaction';
 import { requireLeaseMs } from '../lease-policy';

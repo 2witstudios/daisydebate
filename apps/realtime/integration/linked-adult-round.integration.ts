@@ -2,11 +2,8 @@ import type { SQL } from 'bun';
 import { systemId } from '@daisy/clock';
 import { requireTestServices } from '@daisy/config';
 import { foundationSettings } from '@daisy/db/reference-formats';
-import {
-  buildChannelTopic,
-  buildRoundTopic,
-  emptyRuntimeCheckpointFor,
-} from '@daisy/protocol';
+import { buildChannelTopic, buildRoundTopic } from '@daisy/protocol/topics';
+import { emptyRuntimeCheckpointFor } from '@daisy/protocol/round';
 import { fixtureRules, oneOnOneFormatFixture } from '@daisy/protocol/testing';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import type { SocketData } from '../src/socket';

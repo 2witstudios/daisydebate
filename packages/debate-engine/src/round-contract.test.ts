@@ -1,12 +1,12 @@
 import { instantMs } from '@daisy/clock';
 import { assertRejects } from '@daisy/errors/testing';
+import { roundLifecycleFault } from '@daisy/protocol/round-lifecycle';
+import { runtimeCheckpointSchema } from '@daisy/protocol/round';
 import {
-  roundLifecycleFault,
-  runtimeCheckpointSchema,
   type HydratedSegment,
   type RoundCommand,
   type RoundProjection,
-} from '@daisy/protocol';
+} from '@daisy/protocol/runtime';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import type { RoundRuntime } from './round-runtime-api';
 import { createRoundRuntime } from './round-runtime';

@@ -12,7 +12,7 @@ import {
   requireAttendanceDecision,
   requireAttendanceWindow,
 } from '@daisy/debate-engine';
-import type { RoundRules } from '@daisy/protocol';
+import type { RoundRules } from '@daisy/protocol/format';
 import { refusalOf, type OracleFormat } from './round-oracle.test-support';
 
 /**

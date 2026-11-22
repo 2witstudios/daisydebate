@@ -2,7 +2,7 @@ import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {
   observationResourceKey,
   type ObservationResource,
-} from '@daisy/protocol';
+} from '@daisy/protocol/observation';
 import { createObservationOwner, type ObservationOwnerCache } from './owner';
 import { defineObservableResources, type ObservationHeader } from './resources';
 

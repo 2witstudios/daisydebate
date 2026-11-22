@@ -1,5 +1,8 @@
 import { assertRejects } from '@daisy/errors/testing';
-import { winnerOutcome, type RoundOutcome } from '@daisy/protocol';
+import {
+  winnerOutcome,
+  type RoundOutcome,
+} from '@daisy/protocol/round-outcome';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { requireCompletionProjection } from './round-panel-decisions';
 

@@ -6,7 +6,7 @@ import { join, resolve } from 'node:path';
 import type { Page } from '@playwright/test';
 import { resolveE2EPorts } from '../../playwright.config';
 import type { ConnectionStore } from '../../src/features/realtime/connection-store';
-import type { ServerMessage } from '@daisy/protocol';
+import type { ServerMessage } from '@daisy/protocol/realtime-server';
 
 declare global {
   interface Window {

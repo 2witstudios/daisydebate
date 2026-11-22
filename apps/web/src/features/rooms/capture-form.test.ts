@@ -1,5 +1,5 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { roomCommandSchema } from '@daisy/protocol';
+import { roomCommandSchema } from '@daisy/protocol/room-contract';
 import {
   captureFromFields,
   captureLine,

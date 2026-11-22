@@ -1,6 +1,6 @@
 'use client';
 import { useBrowserEffect } from '../edge/browser-sync';
-import type { BroadcastStream } from '@daisy/protocol';
+import type { BroadcastStream } from '@daisy/protocol/spectator-timeline';
 import { useRef, type RefObject } from 'react';
 import { trackClient } from '../../features/analytics/client-adapter';
 import { browserDocument } from '../round-media/browser-document';

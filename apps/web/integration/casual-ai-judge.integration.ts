@@ -3,7 +3,7 @@ import {
   judgeSeat,
   negativeSide,
   sideSeat,
-} from '@daisy/protocol';
+} from '@daisy/protocol/seats';
 import { canUseAiAllowance } from '@daisy/auth/authorization';
 import { atFinalJudgingStage } from '@daisy/db/testing';
 import { randomBytes } from 'node:crypto';

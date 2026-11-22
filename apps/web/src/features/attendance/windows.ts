@@ -7,9 +7,9 @@ import {
   otherSide,
   sameSeat,
   sideOfSeat,
-  type RoundRules,
   type SideKey,
-} from '@daisy/protocol';
+} from '@daisy/protocol/seats';
+import { type RoundRules } from '@daisy/protocol/format';
 
 /**
  * The side an absent speaker's forfeit hands the win to: the other side of a

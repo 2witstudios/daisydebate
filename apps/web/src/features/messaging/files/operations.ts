@@ -8,7 +8,7 @@ import {
   type FileScope,
   type FileToken,
 } from '@daisy/db/messaging-files';
-import { createMessagingFileSchemas } from '@daisy/protocol';
+import { createMessagingFileSchemas } from '@daisy/protocol/messaging/files';
 import { createAppError, isAppError } from '@daisy/errors';
 
 import { parseValidated } from '../../../server/http';

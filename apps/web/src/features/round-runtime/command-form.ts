@@ -1,5 +1,6 @@
 import { z } from 'zod';
-import { idSchema, roundViewSchema, type RoundView } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
+import { roundViewSchema, type RoundView } from '@daisy/protocol/round-view';
 import {
   blankFields,
   formFields,

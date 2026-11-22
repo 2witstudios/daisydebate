@@ -1,5 +1,5 @@
 import { createAppError } from '@daisy/errors';
-import { idSchema } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
 import type { TransportObservation } from './transport-observation';
 import type { sample } from './sample';
 import { settle } from './settle';

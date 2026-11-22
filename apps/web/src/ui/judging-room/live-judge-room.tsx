@@ -2,7 +2,7 @@
 import '../../lib/zod-jitless';
 import Link from 'next/link';
 import { useCallback, useMemo, useState, type ReactNode } from 'react';
-import type { RoundView } from '@daisy/protocol';
+import type { RoundView } from '@daisy/protocol/round-view';
 import { drawnTopicLabel } from '../../features/debate-room/vocabulary';
 import type { RoundRead } from '../../features/round-runtime/read-round';
 import { observedRoundOf } from '../../features/round-runtime/observed-round';

@@ -3,20 +3,16 @@ import { countdownDue } from './round-start-gate';
 import {
   clockStopsOf,
   isRoundRunning,
-  leadSeatOf,
   prepConsumedOf,
-  runningMs,
-  segmentDueAtMs,
-  sideKeysOf,
-} from '@daisy/protocol';
-import type {
-  SideKey,
-  RoundLifecycle,
-  RoundPosition,
-  RoundRules,
-  RoundStage,
-  RuntimeCheckpoint,
-} from '@daisy/protocol';
+} from '@daisy/protocol/round';
+import { leadSeatOf, sideKeysOf } from '@daisy/protocol/format-seating';
+import { runningMs } from '@daisy/protocol/clock-stops';
+import { segmentDueAtMs } from '@daisy/protocol/segment-end';
+import type { SideKey } from '@daisy/protocol/seats';
+import type { RoundLifecycle } from '@daisy/protocol/round-lifecycle';
+import type { RoundPosition } from '@daisy/protocol/runtime';
+import type { RoundRules } from '@daisy/protocol/format';
+import type { RoundStage, RuntimeCheckpoint } from '@daisy/protocol/round';
 import { advanceRoundClock } from './round-clock';
 import {
   debateHasEnded,

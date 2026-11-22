@@ -1,5 +1,5 @@
 import { instantMs } from '@daisy/clock';
-import type { RuntimeCheckpoint } from '@daisy/protocol';
+import type { RuntimeCheckpoint } from '@daisy/protocol/round';
 
 /** The words every viewer of a held Round reads: seats, judges and spectators alike. */
 const HELD =

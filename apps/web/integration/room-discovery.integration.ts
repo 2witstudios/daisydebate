@@ -1,4 +1,4 @@
-import { buildRoundTopic } from '@daisy/protocol';
+import { buildRoundTopic } from '@daisy/protocol/topics';
 import { SQL } from 'bun';
 import { createId } from '@paralleldrive/cuid2';
 import { requireTestServices } from '@daisy/config';

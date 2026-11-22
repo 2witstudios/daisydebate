@@ -7,7 +7,7 @@ import {
   buildRoundTopic,
   buildRoomTopic,
   buildUserInboxTopic,
-} from '@daisy/protocol';
+} from '@daisy/protocol/topics';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 
 setupRitewayBun();

@@ -1,11 +1,11 @@
 import { instantMs, tryInstantMs } from '@daisy/clock';
+import { isRoundCompleted } from '@daisy/protocol/round';
 import {
-  isRoundCompleted,
   postRoundCallPolicy,
-  type MediaRoomRead,
   type PostRoundCallFacts,
   type PostRoundCallState,
-} from '@daisy/protocol';
+} from '@daisy/protocol/post-round-call';
+import { type MediaRoomRead } from '@daisy/protocol/media-room-fate';
 import type { RoundMediaGrants } from './media-grants';
 
 /**

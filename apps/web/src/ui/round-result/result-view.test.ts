@@ -1,6 +1,6 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { speechName } from '../../features/debate-room/vocabulary';
-import { twoSides } from '@daisy/protocol';
+import { twoSides } from '@daisy/protocol/seats';
 import { segmentSeatLabel } from '../rooms/room-page/assembly-controls';
 import { asActive } from '../debate-room/live-round.test-support';
 import { completed, speeches } from './result.test-support';

@@ -3,7 +3,7 @@ import type {
   RoundAnalysisReport,
   RoundAnalysisSkill,
   RoundAnalysisView,
-} from '@daisy/protocol';
+} from '@daisy/protocol/round-analysis';
 
 /** A transcript line the report may cite, as the page's own transcript read gives it. */
 export type CitedLine = RoundAnalysisLine & {

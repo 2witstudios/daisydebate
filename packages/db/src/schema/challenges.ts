@@ -1,4 +1,5 @@
-import { competitionTypes, ratingStyles } from '@daisy/protocol';
+import { competitionTypes } from '@daisy/protocol/round';
+import { ratingStyles } from '@daisy/protocol/primitives';
 import { sql } from 'drizzle-orm';
 import {
   check,

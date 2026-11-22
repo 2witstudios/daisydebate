@@ -4,7 +4,7 @@ import {
   messagingTestPosting,
   messagingTestReading,
 } from '@daisy/auth/testing';
-import { messagingBetaLimits } from '@daisy/protocol';
+import { messagingBetaLimits } from '@daisy/protocol/messaging/core';
 import { dec251MessagingValues } from './beta-policy';
 import type { MessagingRuntimePolicy } from './composition';
 

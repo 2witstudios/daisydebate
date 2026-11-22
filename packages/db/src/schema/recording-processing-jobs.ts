@@ -4,7 +4,7 @@ import {
   recordingJobStateSchema,
   recordingJobStatuses,
   type RecordingJobState,
-} from '@daisy/protocol';
+} from '@daisy/protocol/recording-processing';
 import {
   createdAtColumn,
   jsonbColumn,

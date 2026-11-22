@@ -1,4 +1,4 @@
-import type { CaptureEvidenceSpeaker } from '@daisy/protocol';
+import type { CaptureEvidenceSpeaker } from '@daisy/protocol/capture-evidence-speaker';
 import { captureDigest } from './capture-input';
 import type { z } from 'zod';
 import type { captureEvidenceIntentSchema } from './capture-input';

@@ -22,7 +22,7 @@ import {
 } from '../features/tab/lobby-grant-target';
 import { readLobbyPeople } from '../features/tab/reads/lobby-people';
 import { requireSameOrigin } from '../server/http';
-import { channelMessagesWindow } from '@daisy/protocol';
+import { channelMessagesWindow } from '@daisy/protocol/messaging/channel-messages';
 import { readAudienceForViewer } from '../features/spectating/audience-snapshot';
 import type { NotificationsQuery } from '../features/notifications/notifications';
 import { readNotificationItems } from '../features/notifications/read-notifications';
@@ -46,7 +46,8 @@ import { headers } from 'next/headers';
 import type { Identity } from '@daisy/auth';
 import type { PublicProfileCard } from '@daisy/db';
 import { admitsOptionalAnswers } from '@daisy/auth/account-age';
-import { type MatchHistoryQuery, type RatingDivision } from '@daisy/protocol';
+import { type MatchHistoryQuery } from '@daisy/protocol/member-profile';
+import { type RatingDivision } from '@daisy/protocol/ladder';
 import type { OnboardingAnswers } from '../features/onboarding/answers';
 import { CLIENT_ID_HASH_HEADER } from '../features/auth/abuse/client-ip';
 import { readViewerAnalytics } from '../features/analytics/viewer-analytics';
@@ -567,7 +568,7 @@ export const requestOfficialRatingLadders = cache(() =>
 /** Process binding for the public ladder and its signed-in blinding context. */
 export async function requestLadder(input: {
   readonly seasonId: string | null;
-  readonly ladder: import('@daisy/protocol').Ladder;
+  readonly ladder: import('@daisy/protocol/ladder').Ladder;
   readonly lobbyId?: string;
   readonly now: string;
 }) {
@@ -611,7 +612,7 @@ export async function requestSeasonHistory(username: string) {
 
 /** The renderer supplies a Round it already read under its audience policy. */
 export async function requestRoundRatings(
-  round: import('@daisy/protocol').RoundView,
+  round: import('@daisy/protocol/round-view').RoundView,
 ) {
   const identity = await requestIdentity();
   if (identity.state === 'unavailable') throw createAppError('INFRASTRUCTURE');

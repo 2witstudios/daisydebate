@@ -1,12 +1,12 @@
 import {
   affirmativeSide,
-  formatDefinitionSchema,
   negativeSide,
-  roomConfigSchema,
   sideSeat,
   twoSides,
-  type RoomCreate,
-} from '@daisy/protocol';
+} from '@daisy/protocol/seats';
+import { formatDefinitionSchema } from '@daisy/protocol/format';
+import { roomConfigSchema } from '@daisy/protocol/room';
+import { type RoomCreate } from '@daisy/protocol/room-contract';
 import { plainRoomConfig } from '@daisy/protocol/testing';
 /** Declared proof format, persisted through canonical custom-create, never a mock view. */
 export const launchCustomSelection = {

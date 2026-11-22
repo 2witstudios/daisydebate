@@ -1,4 +1,5 @@
-import { idSchema, type RoundAnalysisView } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
+import { type RoundAnalysisView } from '@daisy/protocol/round-analysis';
 import { createAppError } from '@daisy/errors';
 import { readBoundedBody } from '../../server/bounded-body';
 import { analysisRequestNotice } from './request-notice';

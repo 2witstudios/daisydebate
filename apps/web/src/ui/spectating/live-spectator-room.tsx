@@ -6,7 +6,7 @@ import { OpeningStatus } from '../debate-room/opening-strike';
 import { drawnTopicLabel } from '../../features/debate-room/vocabulary';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
-import type { RoundView } from '@daisy/protocol';
+import type { RoundView } from '@daisy/protocol/round-view';
 import type { RoundRead } from '../../features/round-runtime/read-round';
 import type { SpectatorKind } from '../../features/spectating/spectator-view';
 import {

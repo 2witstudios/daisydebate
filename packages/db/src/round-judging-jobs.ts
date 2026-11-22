@@ -1,16 +1,16 @@
 import { eq, sql } from 'drizzle-orm';
 import { createAppError } from '@daisy/errors';
+import { ballotRecordSchema } from '@daisy/protocol/ballot-schema';
+import { caseMapSchema } from '@daisy/protocol/case-map';
+import { isJudgeSeat } from '@daisy/protocol/seats';
 import {
-  ballotRecordSchema,
-  caseMapSchema,
-  isJudgeSeat,
   judgingAttemptDiagnosticSchema,
   type JudgingStage,
   type JudgingAttemptDiagnostic,
   type JudgingTerminalReason,
   type JudgingRecoveryReason,
-  type JudgingWorkKind,
-} from '@daisy/protocol';
+} from '@daisy/protocol/round-judging-attempt';
+import { type JudgingWorkKind } from '@daisy/protocol/judging-policy';
 import type { BoundedTransaction } from './bounded-transaction';
 import { agentRuns } from './schema/agent-runs';
 import {

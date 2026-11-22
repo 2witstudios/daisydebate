@@ -1,8 +1,6 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import type {
-  RoundBallotAuthority,
-  RoundCommandPrincipal,
-} from '@daisy/protocol';
+import type { RoundBallotAuthority } from '@daisy/protocol/round-ballot';
+import type { RoundCommandPrincipal } from '@daisy/protocol/round-command';
 import { bindRoundBallotPrincipal } from './round-ballot';
 setupRitewayBun();
 const authority: RoundBallotAuthority = {

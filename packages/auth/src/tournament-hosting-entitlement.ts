@@ -1,4 +1,5 @@
-import type { EntitlementGrant, TournamentHostingGrant } from '@daisy/protocol';
+import type { EntitlementGrant } from '@daisy/protocol/entitlements';
+import type { TournamentHostingGrant } from '@daisy/protocol/tournament-hosting';
 import { currentEntitlementGrants } from './entitlement-validity';
 
 /** Coverage is explicit; holding the capability alone never authorizes an arbitrary tournament. */

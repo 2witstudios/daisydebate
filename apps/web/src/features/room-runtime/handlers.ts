@@ -1,11 +1,11 @@
 import { createAppError, isAppError } from '@daisy/errors';
+import { idSchema } from '@daisy/protocol/primitives';
 import {
-  idSchema,
   roomCommandSchema,
   roomCreateSchema,
   roomListQuerySchema,
-  roomRefusalSchema,
-} from '@daisy/protocol';
+} from '@daisy/protocol/room-contract';
+import { roomRefusalSchema } from '@daisy/protocol/room-read';
 import type { RateRule } from '../../server/rate-limit';
 import { refusalResponse, parseValidated, readJson } from '../../server/http';
 import {

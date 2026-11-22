@@ -1,4 +1,4 @@
-import type { roomStatuses } from '@daisy/protocol';
+import type { roomStatuses } from '@daisy/protocol/room-contract';
 
 /**
  * A Room's lifecycle in words, read the same on the Room page and in the

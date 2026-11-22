@@ -1,5 +1,7 @@
 import type { InboxRow } from '@daisy/db';
-import type { CompetitionType, RatingStyle, SeatKind } from '@daisy/protocol';
+import type { CompetitionType } from '@daisy/protocol/round';
+import type { RatingStyle } from '@daisy/protocol/primitives';
+import type { SeatKind } from '@daisy/protocol/seats';
 import { styleLabels } from '../ratings/ladder-labels';
 
 /** What one notification is about, with only the facts its words need. */

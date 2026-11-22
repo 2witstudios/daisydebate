@@ -4,7 +4,8 @@ import {
   type TranscriptEvidenceInput,
 } from '@daisy/ai-voice';
 import { stubCaseMap } from '@daisy/ai-voice/testing';
-import { daisyWinnerBallot, twoSides } from '@daisy/protocol';
+import { daisyWinnerBallot } from '@daisy/protocol/ballot-definition';
+import { twoSides } from '@daisy/protocol/seats';
 import type { CallOptions, Placeholders } from './prompt-file';
 
 const EVIDENCE = /Frozen evidence:\n(\{.*\})\n/;

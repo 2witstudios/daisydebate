@@ -2,7 +2,7 @@
 import { useBrowserEffect } from '../../edge/browser-sync';
 import { cancelWindowDelay, windowDelay } from '../../edge/browser-time';
 import { nowMs, systemClock } from '@daisy/clock';
-import type { RoundBallotRead } from '@daisy/protocol';
+import type { RoundBallotRead } from '@daisy/protocol/round-ballot-read';
 import { useRef } from 'react';
 import {
   ballotRefresh,

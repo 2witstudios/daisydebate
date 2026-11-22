@@ -2,11 +2,9 @@ import { sha3Hex } from '@daisy/digest';
 import { createId } from '@paralleldrive/cuid2';
 import { validRules, publicLobbyId } from '@daisy/db/testing';
 import { SQL } from 'bun';
-import {
-  affirmativeSide,
-  emptyRuntimeCheckpointFor,
-  roundJudgeAssignmentReceiptSchema,
-} from '@daisy/protocol';
+import { affirmativeSide } from '@daisy/protocol/seats';
+import { emptyRuntimeCheckpointFor } from '@daisy/protocol/round';
+import { roundJudgeAssignmentReceiptSchema } from '@daisy/protocol/round-judge-assignment';
 import { betaAccessTarget } from './beta-access-target';
 import { seatJudges } from './seat-judges';
 

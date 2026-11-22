@@ -4,8 +4,8 @@ import {
   affirmativeSide,
   negativeSide,
   type TwoSideKey,
-  type WinnerOutcome,
-} from '@daisy/protocol';
+} from '@daisy/protocol/seats';
+import { type WinnerOutcome } from '@daisy/protocol/round-outcome';
 import {
   GLICKO2_SCALE,
   ratePeriod,

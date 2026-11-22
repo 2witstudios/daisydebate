@@ -21,7 +21,7 @@ const named = (aff: string, neg: string) => {
   );
 };
 import { StoredBallotScores } from './stored-ballot-scores';
-import { daisyWinnerBallot } from '@daisy/protocol';
+import { daisyWinnerBallot } from '@daisy/protocol/ballot-definition';
 setupRitewayBun();
 test('recorded scores name both actual sides and every rubric category without a fabricated companion', () => {
   const html = renderToString(

@@ -1,6 +1,6 @@
 import type { Clock } from '@daisy/clock';
 import type { Database } from '@daisy/db';
-import { watchHistoryUpdateSchema } from '@daisy/protocol';
+import { watchHistoryUpdateSchema } from '@daisy/protocol/audience';
 import {
   accountRoute,
   type AccountRouteDeps,

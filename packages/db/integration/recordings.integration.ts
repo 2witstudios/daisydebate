@@ -6,7 +6,7 @@ import { createId } from '@paralleldrive/cuid2';
 import {
   recordingLifecycleSchema,
   type RecordingLifecycle,
-} from '@daisy/protocol';
+} from '@daisy/protocol/recording';
 import { SQL } from 'bun';
 import { drizzle } from 'drizzle-orm/bun-sql';
 import { assertRejects } from '@daisy/errors/testing';

@@ -1,8 +1,6 @@
-import {
-  assertNever,
-  type CompetitionType,
-  type RoundWaitingOn,
-} from '@daisy/protocol';
+import { assertNever } from '@daisy/protocol/assert-never';
+import { type CompetitionType } from '@daisy/protocol/round';
+import { type RoundWaitingOn } from '@daisy/protocol/round-view';
 
 /**
  * The ballots a round is judged by. One ballot decides it: the human

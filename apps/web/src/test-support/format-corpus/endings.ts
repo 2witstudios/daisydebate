@@ -1,10 +1,6 @@
 import { adjudicateAttendance, attendancePolicy } from '@daisy/debate-engine';
-import {
-  isJudgeSeat,
-  judgeSeat,
-  sideSeat,
-  type JudgingPanel,
-} from '@daisy/protocol';
+import { isJudgeSeat, judgeSeat, sideSeat } from '@daisy/protocol/seats';
+import { type JudgingPanel } from '@daisy/protocol/round-panel-completion';
 import { majorityJudging } from './panel-decisions';
 import { attendanceCases, firstSpeechEvidence } from './attendance-cases';
 import { corpusAt, seatAt } from './corpus-seats';

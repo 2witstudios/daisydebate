@@ -1,17 +1,17 @@
+import { isAbsentSeat, prepConsumedOf } from '@daisy/protocol/round';
 import {
-  isAbsentSeat,
   isDebatingSeat,
-  leadSeatOf,
-  prepConsumedOf,
   sameSeat,
-  segmentDueAtMs,
   sideOfSeat,
+  type SideKey,
+} from '@daisy/protocol/seats';
+import { leadSeatOf } from '@daisy/protocol/format-seating';
+import { segmentDueAtMs } from '@daisy/protocol/segment-end';
+import {
   type RoundCommand,
   type RoundParticipantSeat,
-  type RoundRules,
-  type SegmentType,
-  type SideKey,
-} from '@daisy/protocol';
+} from '@daisy/protocol/runtime';
+import { type RoundRules, type SegmentType } from '@daisy/protocol/format';
 import { forfeitsToOpponent } from './round-outcome';
 import { debateInvariantIds } from './invariant-ids';
 import {

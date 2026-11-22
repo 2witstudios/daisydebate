@@ -1,4 +1,4 @@
-import { ENVELOPE_VERSION } from '@daisy/protocol';
+import { ENVELOPE_VERSION } from '@daisy/protocol/realtime';
 import {
   createConnectionStore,
   type Scheduler,

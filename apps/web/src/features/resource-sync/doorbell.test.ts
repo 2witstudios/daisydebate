@@ -1,10 +1,7 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import {
-  buildRoundTopic,
-  buildRoomTopic,
-  ENVELOPE_VERSION,
-  type ServerMessage,
-} from '@daisy/protocol';
+import { buildRoundTopic, buildRoomTopic } from '@daisy/protocol/topics';
+import { ENVELOPE_VERSION } from '@daisy/protocol/realtime';
+import { type ServerMessage } from '@daisy/protocol/realtime-server';
 import { attachVersionDoorbell } from './doorbell';
 
 setupRitewayBun();

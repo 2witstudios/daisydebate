@@ -1,5 +1,5 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import type { FormatDefinition } from '@daisy/protocol';
+import type { FormatDefinition } from '@daisy/protocol/format';
 import {
   oneOnOneDefinition,
   oneOnOneSettings,

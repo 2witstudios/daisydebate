@@ -1,6 +1,6 @@
 import { sha3Hex } from '@daisy/digest';
 import { createAppError } from '@daisy/errors';
-import type { RoomAssemblyState } from '@daisy/protocol';
+import type { RoomAssemblyState } from '@daisy/protocol/room-contract';
 import { canonicalJson } from '@daisy/seeded-random';
 import { bytesOf, drawCommitment, inputCommitment } from './draw-random';
 import { drawResolutions, sideControllers } from './resolution-draw';

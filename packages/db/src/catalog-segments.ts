@@ -3,8 +3,8 @@ import {
   negativeSide,
   sideSeat,
   type SeatRef,
-  type SegmentType,
-} from '@daisy/protocol';
+} from '@daisy/protocol/seats';
+import { type SegmentType } from '@daisy/protocol/format';
 
 /**
  * The league templates' speech orders (FMT-2a), as each league's rules

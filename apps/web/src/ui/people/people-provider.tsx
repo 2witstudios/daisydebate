@@ -11,12 +11,12 @@ import {
   startTick,
   stopTick,
 } from '../edge/browser-time';
+import { ONLINE_TOPIC } from '@daisy/protocol/topics';
 import {
-  ONLINE_TOPIC,
   peopleListSchema,
   type PeopleFilter,
   type PeopleList,
-} from '@daisy/protocol';
+} from '@daisy/protocol/people-list';
 import {
   createContext,
   useCallback,

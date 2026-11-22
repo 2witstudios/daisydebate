@@ -1,6 +1,6 @@
 import type { OperationName } from '../ops/operation-names';
 import type { AuthorizationPrincipal } from '@daisy/auth/authorization';
-import { contactBlockResultSchema } from '@daisy/protocol';
+import { contactBlockResultSchema } from '@daisy/protocol/contacts';
 import { readJson } from '../../server/http';
 import {
   runEvaluatedRoute,

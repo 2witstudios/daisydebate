@@ -1,5 +1,5 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { roomStatuses } from '@daisy/protocol';
+import { roomStatuses } from '@daisy/protocol/room-contract';
 import type { RoomCommunityFact } from '@daisy/protocol/room-community';
 import { decideRoomCommunity, roomCommunityStanding } from './room-community';
 setupRitewayBun();

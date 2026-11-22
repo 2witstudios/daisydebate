@@ -1,6 +1,6 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { createId } from '@paralleldrive/cuid2';
-import { buildUserInboxTopic } from '@daisy/protocol';
+import { buildUserInboxTopic } from '@daisy/protocol/topics';
 import { createPasskeyFlows } from './auth-passkey-flows';
 import { withOutboxInsertBlockedForTopic } from './auth-outbox-helpers';
 import { cookieHeader, userIdOf, withSql } from './fixtures';
