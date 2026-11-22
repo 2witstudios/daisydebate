@@ -311,11 +311,13 @@ export function createAttendanceOperations(deps: {
                   },
                   locked.current.version,
                 );
+                live();
                 if (prepared.insert)
                   await runStatement(
                     tx,
                     sql`insert into round_check_ins(command_id,round_id,segment_id,participant_id,received_at) values(${receipt.commandId},${receipt.roundId},${receipt.segmentId},${receipt.participantId},${receipt.receivedAt}::timestamptz)`,
                   );
+                live();
                 state = { kind: 'settled', receipt };
               },
             });
