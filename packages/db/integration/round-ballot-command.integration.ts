@@ -56,6 +56,9 @@ test('ballot writes require actual frozen input and replay reauthorizes without 
         return screenBallotContacts(...args);
       },
       authorize: () => {},
+      // This storage fixture supplies trusted admission; application policy is tested at its callers.
+      admitCapture: () => {},
+      admitBallot: () => {},
       attendanceSettled,
       buildProjection: () => null,
     };

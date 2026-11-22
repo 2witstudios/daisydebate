@@ -1,3 +1,4 @@
+import { requireAgentBallotCapture, requireBallotAdmission } from './admission';
 import { commandDigest } from '@daisy/digest';
 import { instantMs } from '@daisy/clock';
 import { screenBallotContacts } from '@daisy/debate-engine/ballot-contact-screening';
@@ -55,6 +56,16 @@ export function prepareRoundBallotSubmission(
     screenWritten: screenBallotContacts,
     payloadDigest: commandDigest(envelope),
     authorize,
+    admitCapture: (frozen) =>
+      requireAgentBallotCapture(input.principal, frozen),
+    admitBallot: (facts) =>
+      requireBallotAdmission({
+        ...facts,
+        judgeParticipantId: envelope.judgeParticipantId,
+        // The human window never bounds an already validated AI result (DEC-275).
+        ballotDeadlineAt:
+          input.principal.kind === 'agent' ? null : facts.ballotDeadlineAt,
+      }),
     attendanceSettled,
     /**
      * The panel's one decision. Only every seat ruling for one side completes

@@ -186,6 +186,15 @@ is a subject-keyed object, including an empty object); nullable written columns
 serve event definitions which omit those fields. Ordinary feedback readers map a
 stored null to the same empty object.
 
+Human HTTP submissions and leased AI judging results share application-owned
+ballot preparation in `features/round-ballots`. Its pure capture decision runs
+under the existing account/Round/screening fences before authorization and replay;
+its new-ballot decision runs after receipt replay and optimistic version binding.
+The application applies the persisted deadline to humans only (DEC-275), and
+requires an undecided Round and an unused judge seat. Storage supplies fresh locked
+facts and database time, retains frozen revision/schema and run/lease binding,
+and atomically writes the immutable ballot, projection and command receipt.
+
 Submitted ballots cannot be updated or directly deleted by the runtime role.
 A database trigger pins a canonical SHA-256 content digest for every ballot a
 Round finalization consumes; the recorded-ending read treats a mismatch as
