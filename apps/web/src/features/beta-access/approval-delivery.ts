@@ -6,9 +6,7 @@ type ApprovalRead = Extract<
 >;
 
 /** Missing identity takes precedence over whether the approval is still owed. */
-export function decideApprovalDelivery(
-  recipient: ApprovalRead['recipient'],
-):
+export function decideApprovalDelivery(recipient: ApprovalRead['recipient']):
   | { readonly kind: 'recipient-gone' }
   | { readonly kind: 'not-owed' }
   | {
