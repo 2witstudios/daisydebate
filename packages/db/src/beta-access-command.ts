@@ -8,10 +8,6 @@ import {
   type BetaAccessDecision,
   type BetaAccessState,
 } from '@daisy/protocol/beta-access';
-import {
-  operatorCommandReceiptSchema,
-  operatorLimits,
-} from '@daisy/protocol/operator';
 import { sql } from 'drizzle-orm';
 import { lockAuthorizationActors } from './authorization';
 import type { authorizationAccountFact } from './authorization-account';
@@ -20,7 +16,7 @@ import { appendSessionRevokedFor } from './session-revoked';
 import { writeBetaAccessChange } from './beta-access-change';
 import { mailIntentQueue } from './mail-intent-queue';
 import type { Tx } from './tx';
-import { takeLock, transactionLocks } from './locks';
+import { commandGate, storedResult, writeReceipt } from './operator-command';
 import { run, query } from './raw-rows';
 import { z } from 'zod';
 
@@ -99,20 +95,6 @@ async function lockTarget(tx: Tx, userId: string) {
     maxActors: 1,
   });
   return fact ?? null;
-}
-
-/** A stored receipt's result for the same digest; a different digest conflicts. */
-async function storedResult(tx: Tx, input: BetaAccessCommandInput) {
-  const [receipt] = await query(
-    tx,
-    z.object({ request_digest: z.string(), result: z.json() }),
-    sql`select request_digest, result
-    from operator_command_receipts where command_id = ${input.commandId}`,
-  );
-  if (!receipt) return null;
-  if (receipt.request_digest !== input.requestDigest)
-    throw createAppError('CONFLICT');
-  return betaAccessCommandResultSchema.parse(receipt.result);
 }
 
 const liveTarget = (
@@ -204,35 +186,22 @@ export async function runBetaAccessCommand(
   input: BetaAccessCommandInput,
   eventSink: DatabaseEventSink | undefined,
 ): Promise<BetaAccessCommandOutcome> {
-  // Every statement, COMMIT included, is bounded, so a command that passes
-  // its deadline check commits within the bound or not at all.
-  await run(
-    tx,
-    sql.raw(`set local statement_timeout = ${operatorLimits.commandBoundMs}`),
-  );
-  // One command id is one command, whatever its target: a concurrent reuse
-  // waits here and then meets the receipt as a conflict, not a key error.
-  await takeLock(tx, transactionLocks.operatorCommand(input.commandId));
+  await commandGate(tx, input.commandId);
   const fact = await lockTarget(tx, input.targetUserId);
-  const replayed = await storedResult(tx, input);
-  if (replayed) return { kind: 'replayed', result: replayed };
+  const replayed = await storedResult(tx, input.commandId, input.requestDigest);
+  if (replayed)
+    return {
+      kind: 'replayed',
+      result: betaAccessCommandResultSchema.parse(replayed),
+    };
   const decision = decided(input, fact);
   const result = commandResult(input.commandId, decision);
   if (decision.kind === 'changed')
     await applyChange(tx, input, decision, eventSink);
-  const receipt = operatorCommandReceiptSchema.parse({
+  await writeReceipt(tx, input, input.targetUserId, {
     action: betaAccessCommandAction,
     result,
   });
-  await run(
-    tx,
-    sql`insert into operator_command_receipts
-      (command_id, service_id, operator_ref, action, target_user_id,
-       request_digest, result, admin_audit_head)
-    values (${input.commandId}, ${input.serviceId}, ${input.operatorRef},
-      ${receipt.action}, ${input.targetUserId},
-      ${input.requestDigest}, ${JSON.stringify(receipt.result)}::text::jsonb, ${input.adminAuditHead})`,
-  );
   // Checked last: a PUT delayed past its signed deadline (behind a lock, say)
   // writes nothing, so an admin that waited out the deadline may abandon it.
   if (!input.live()) throw createAppError('CONFLICT');

@@ -1,3 +1,4 @@
+import { runPreapprovalCommand } from '../../src/features/operator-api/preapproval-command';
 import { sha3Hex } from '@daisy/digest';
 import { createId } from '@paralleldrive/cuid2';
 import { createDatabase } from '@daisy/db';
@@ -20,7 +21,7 @@ try {
     adminAuditHead: 'a'.repeat(64),
     ...input,
   } as const;
-  await database.runPreapprovalCommand({
+  await runPreapprovalCommand(database, {
     command,
     serviceId: 'daisy-admin',
     operatorRef: 'o'.repeat(24),

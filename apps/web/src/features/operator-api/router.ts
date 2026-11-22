@@ -1,3 +1,4 @@
+import { runPreapprovalCommand } from './preapproval-command';
 import { mayReadOperatorCommand } from './command-access';
 import {
   ageAdmitted,
@@ -88,7 +89,7 @@ const operatorService = {
 type Store = Pick<
   Database,
   | 'listBetaPreapprovals'
-  | 'runPreapprovalCommand'
+  | 'preapprovalCommand'
   | 'listOperatorAccounts'
   | 'flagCommand'
   | 'runBetaAccessCommand'
@@ -639,7 +640,7 @@ async function updatePreapproval(
           parsed.data.preapprovalId,
           parsed.data.expectedRevision,
         ];
-  return deps.store.runPreapprovalCommand({
+  return runPreapprovalCommand(deps.store, {
     command: parsed.data,
     serviceId: principal.serviceId,
     operatorRef: principal.operatorRef,

@@ -190,6 +190,81 @@ describe('operator beta access commands (ADR 0079)', () => {
     });
   });
 
+  test('identical concurrent retries apply once and replay without reauthorizing', async () => {
+    await withFixture(url, async (fixture) => {
+      const { userId } = await pendingAccount(fixture);
+      const input = command(userId, 'approved', 1);
+      await withDatabase(url, async (database) => {
+        const outcomes = await Promise.all([
+          database.runBetaAccessCommand(input),
+          database.runBetaAccessCommand(input),
+        ]);
+        const replay = await database.runBetaAccessCommand({
+          ...input,
+          authorize: () => false,
+          live: () => false,
+        });
+        const [counts] = await fixture.sql`select
+          (select revision from account_beta_access where user_id=${userId}) as revision,
+          (select count(*)::int from account_access_events where command_id=${input.commandId}) as events,
+          (select count(*)::int from operator_command_receipts where command_id=${input.commandId}) as receipts,
+          (select count(*)::int from mail_intents where dedupe_key=${'beta-approved:' + input.commandId}) as mail`;
+        assert({
+          given:
+            'simultaneous identical commands followed by a retry without current authority or liveness',
+          should:
+            'apply once and replay the identical accepted result without another effect',
+          actual: {
+            kinds: outcomes.map((outcome) => outcome.kind).sort(),
+            results: [
+              ...outcomes.map((outcome) => outcome.result),
+              replay.result,
+            ],
+            replay: replay.kind,
+            counts,
+          },
+          expected: {
+            kinds: ['applied', 'replayed'],
+            results: [
+              outcomes[0]!.result,
+              outcomes[0]!.result,
+              outcomes[0]!.result,
+            ],
+            replay: 'replayed',
+            counts: { revision: 2, events: 1, receipts: 1, mail: 1 },
+          },
+        });
+      });
+    });
+  });
+
+  test('a receipt constraint failure rolls back beta state, audit and mail', async () => {
+    await withFixture(url, async (fixture) => {
+      const { userId } = await pendingAccount(fixture);
+      const input = command(userId, 'approved', 1, {
+        adminAuditHead: 'invalid',
+      });
+      const outcomes = await withDatabase(url, (database) =>
+        Promise.allSettled([database.runBetaAccessCommand(input)]),
+      );
+      const [counts] = await fixture.sql`select
+        (select revision from account_beta_access where user_id=${userId}) as revision,
+        (select count(*)::int from account_access_events where command_id=${input.commandId}) as events,
+        (select count(*)::int from operator_command_receipts where command_id=${input.commandId}) as receipts,
+        (select count(*)::int from mail_intents where dedupe_key=${'beta-approved:' + input.commandId}) as mail`;
+      assert({
+        given:
+          'a receipt rejected after the beta change and owed mail are written',
+        should: 'roll back the entire command',
+        actual: { status: outcomes[0]!.status, counts },
+        expected: {
+          status: 'rejected',
+          counts: { revision: 1, events: 0, receipts: 0, mail: 0 },
+        },
+      });
+    });
+  });
+
   test('a revocation ends live session authority and pushes the socket close', async () => {
     await withFixture(url, async (fixture) => {
       const { userId, actorId, sessionId } = await pendingAccount(fixture);

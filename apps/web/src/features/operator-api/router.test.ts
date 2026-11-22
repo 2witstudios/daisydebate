@@ -171,7 +171,7 @@ describe('the private operator API (ADR 0079)', () => {
           throw new Error('Unexpected flag command');
         },
         listBetaPreapprovals: async () => [],
-        runPreapprovalCommand: async () => {
+        preapprovalCommand: async () => {
           throw new Error('unused');
         },
         listOperatorReports: async () => [],
@@ -289,7 +289,7 @@ test('an unexpected handler failure reaches the error reporter; a refusal does n
         throw new Error('Unexpected flag command');
       },
       listBetaPreapprovals: async () => [],
-      runPreapprovalCommand: async () => {
+      preapprovalCommand: async () => {
         throw new Error('unused');
       },
       listOperatorReports: async () => [],
@@ -363,7 +363,7 @@ describe('the report routes (ADR 0103)', () => {
           throw new Error('Unexpected flag command');
         },
         listBetaPreapprovals: async () => [],
-        runPreapprovalCommand: async () => {
+        preapprovalCommand: async () => {
           throw new Error('unused');
         },
         ...storeOf(),
@@ -395,7 +395,7 @@ describe('the report routes (ADR 0103)', () => {
           throw new Error('Unexpected flag command');
         },
         listBetaPreapprovals: async () => [],
-        runPreapprovalCommand: async () => {
+        preapprovalCommand: async () => {
           throw new Error('unused');
         },
         ...storeOf(),
@@ -475,7 +475,7 @@ describe('the report routes (ADR 0103)', () => {
           throw new Error('Unexpected flag command');
         },
         listBetaPreapprovals: async () => [],
-        runPreapprovalCommand: async () => {
+        preapprovalCommand: async () => {
           throw new Error('unused');
         },
         ...storeOf(),
