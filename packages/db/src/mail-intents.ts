@@ -1,4 +1,4 @@
-import { canInviteClaimedPreapproval } from './beta-preapproval-decision';
+import type { PreapprovalAccountEligibility } from '@daisy/protocol/beta-preapproval';
 import { normalizedEmailSql } from './email-identity';
 import { loadAuthorizationAccount } from './authorization';
 import { createAppError } from '@daisy/errors';
@@ -27,12 +27,30 @@ export type MailIntentClaim = {
   readonly token: string;
 };
 
-/** What a claimed intent should say right now; read fresh at send time. */
-export type MailIntentDelivery =
+/** Fresh delivery input; Beta eligibility reads are chosen by the application. */
+export type MailIntentRead =
   | {
-      readonly kind: 'invitation';
-      readonly to: string;
+      readonly kind: 'beta-invitation';
       readonly sendBefore: string;
+      readonly readGrant: () => Promise<{
+        readonly email: string;
+        readonly claimed: {
+          readonly userId: string;
+          readonly identity: Pick<
+            PreapprovalAccountEligibility,
+            'verified' | 'emailMatches' | 'erased' | 'state'
+          >;
+        } | null;
+      } | null>;
+      readonly readAccount: (
+        userId: string,
+      ) => Promise<Pick<
+        PreapprovalAccountEligibility,
+        'erased' | 'restricted' | 'state' | 'ageBand'
+      > | null>;
+      readonly readVerifiedAccounts: (
+        email: string,
+      ) => Promise<readonly string[]>;
     }
   | {
       readonly kind: 'member';
@@ -107,7 +125,7 @@ export function mailIntentOperations({
           )
         ).map(({ row, token }) => ({ ...row, token })),
       ),
-    readMailIntentDelivery: (id: string): Promise<MailIntentDelivery> =>
+    readMailIntentDelivery: (id: string): Promise<MailIntentRead> =>
       instrumented(eventSink, 'readMailIntentDelivery', async () => {
         // A digest counts its own window, which retries never move.
         const [intent] = await query(
@@ -131,54 +149,68 @@ export function mailIntentOperations({
           return clubSeatInvitationDelivery(database, intent);
         if (intent.purpose === 'beta-invitation') {
           if (intent.state !== 'leased') return { kind: 'not-owed' };
-          const [grant] = await query(
-            database,
-            z.object({
-              email: z.string(),
-              claimed_user_id: z.string().nullable(),
-            }),
-            sql`select p.email, p.claimed_user_id from beta_preapprovals p
-            left join users u on u.id = p.claimed_user_id
-            left join account_beta_access b on b.user_id = p.claimed_user_id
-            where p.id = ${intent.preapproval_id} and (p.claimed_user_id is null or (u.deleted_at is null and u.email_verified and ${normalizedEmailSql(sql`u.email`)} = p.email and b.state = 'approved'))`,
-          );
-          if (!grant) return { kind: 'not-owed' };
-          if (grant.claimed_user_id) {
-            const account = await loadAuthorizationAccount(
-              database,
-              grant.claimed_user_id,
-            );
-            if (
-              !account ||
-              !canInviteClaimedPreapproval({
-                verified: true,
-                emailMatches: true,
-                erased: account.erased,
-                restricted: account.restricted,
-                state: account.beta?.state ?? null,
-                ageBand: account.ageBand,
-              })
-            )
-              return { kind: 'not-owed' };
-          }
-          const accounts = await query(
-            database,
-            z.object({ id: z.string() }),
-            sql`select id from users where ${normalizedEmailSql(sql`email`)} = ${grant.email} and email_verified`,
-          );
-          for (const account of accounts) {
-            const fact = await loadAuthorizationAccount(database, account.id);
-            if (
-              fact?.erased ||
-              fact?.restricted ||
-              fact?.beta?.state === 'revoked'
-            )
-              return { kind: 'not-owed' };
-          }
+          // These are independent fresh reads, as before; no new transaction or lease
+          // is introduced across application eligibility or the provider call.
           return {
-            kind: 'invitation',
-            to: grant.email,
+            kind: 'beta-invitation',
             sendBefore: intent.invitation_deadline,
+            readGrant: () =>
+              instrumented(eventSink, 'readMailIntentDelivery', async () => {
+                const [grant] = await query(
+                  database,
+                  z.object({
+                    email: z.string(),
+                    claimed_user_id: z.string().nullable(),
+                    erased: z.boolean(),
+                    verified: z.boolean().nullable(),
+                    email_matches: z.boolean().nullable(),
+                    state: z.string().nullable(),
+                  }),
+                  sql`select p.email, p.claimed_user_id,
+                u.deleted_at is not null as erased, u.email_verified as verified,
+                ${normalizedEmailSql(sql`u.email`)} = p.email as email_matches, b.state
+                from beta_preapprovals p left join users u on u.id=p.claimed_user_id
+                left join account_beta_access b on b.user_id=p.claimed_user_id
+                where p.id=${intent.preapproval_id}`,
+                );
+                return grant
+                  ? {
+                      email: grant.email,
+                      claimed: grant.claimed_user_id
+                        ? {
+                            userId: grant.claimed_user_id,
+                            identity: {
+                              erased: grant.erased,
+                              verified: grant.verified ?? false,
+                              emailMatches: grant.email_matches ?? false,
+                              state: grant.state,
+                            },
+                          }
+                        : null,
+                    }
+                  : null;
+              }),
+            readAccount: (userId) =>
+              instrumented(eventSink, 'readMailIntentDelivery', async () => {
+                const fact = await loadAuthorizationAccount(database, userId);
+                return fact
+                  ? {
+                      erased: fact.erased,
+                      restricted: fact.restricted,
+                      state: fact.beta?.state ?? null,
+                      ageBand: fact.ageBand,
+                    }
+                  : null;
+              }),
+            readVerifiedAccounts: (email) =>
+              instrumented(eventSink, 'readMailIntentDelivery', async () => {
+                const accounts = await query(
+                  database,
+                  z.object({ id: z.string() }),
+                  sql`select id from users where ${normalizedEmailSql(sql`email`)}=${email} and email_verified`,
+                );
+                return accounts.map((account) => account.id);
+              }),
           };
         }
         if (intent.purpose === 'beta-approved') {
@@ -305,7 +337,7 @@ async function clubSeatInvitationDelivery(
     readonly dedupe_key: string;
     readonly club_seat_invitation_id: string | null;
   },
-): Promise<MailIntentDelivery> {
+): Promise<MailIntentRead> {
   const [, organizationId, invitationId] =
     clubInvitationKey.exec(intent.dedupe_key) ?? [];
   if (

@@ -6,6 +6,18 @@ PostgreSQL is the durable source of competitive truth ([ADR 0058](../decisions/0
 
 Identifiers are application-minted cuid2 text values, except canonical format slugs and the exact historical casual-judge accounting migration exception in [ADR 0018](../decisions/0018-cuid2-identifiers.md). That exception supplies predictable derived accounting IDs only; it does not permit runtime or actor ID generation in SQL. Durations are integer milliseconds and timestamps are `timestamptz`, exposed as UTC ISO strings. Personal data is recorded per data class in [compliance](../operations/compliance.md). `users` is tombstoned when an account closes: its email, name and image are cleared, authentication rows are deleted, and active grants are revoked transactionally; the username, actors and competitive history remain ([ADR 0087](../decisions/0087-compliance-from-obligations.md)). Actor-owned documents require explicit deletion in the account-erasure operation because the user tombstone keeps its row.
 
+## Beta invitation eligibility
+
+The Beta application worker decides invitation eligibility from named fresh
+reads supplied by the mail store. The store checks purpose and leased state;
+the worker then reads the grant/current identity, claimed authorization account
+and matching verified accounts in that order, stopping at each earlier refusal.
+No transaction is retained across those reads or the provider call; the normal
+worker claim keeps its existing lease and token settlement contract.
+The same protocol eligibility rule decides invitations for preapproval commands
+over their raw fenced account facts. Provider deadlines, queue claims, token
+settlement, retry and unknown-delivery semantics are unchanged.
+
 ## Competitive records
 
 | Record                                          | Durable responsibility                                                                                                                                                                                                                                                                                                                                                                                                                                                 |

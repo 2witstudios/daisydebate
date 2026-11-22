@@ -1,6 +1,5 @@
 import { normalizeEmail } from '@daisy/protocol/email';
 import { loadAuthorizationAccount } from './authorization';
-import { canInviteClaimedPreapproval } from './beta-preapproval-decision';
 import { normalizedEmailSql } from './email-identity';
 import { createAppError } from '@daisy/errors';
 import { sql } from 'drizzle-orm';
@@ -10,6 +9,7 @@ import {
   preapprovalCommandSchema,
   preapprovalResultSchema,
   type PreapprovalCommand,
+  type PreapprovalAccountEligibility,
   type PreapprovalDecision,
   type PreapprovalGrantFact,
 } from '@daisy/protocol/beta-preapproval';
@@ -84,7 +84,7 @@ export function preapprovalOperations({
       readonly decide: (facts: {
         readonly command: PreapprovalCommand;
         readonly grant: PreapprovalGrantFact | null;
-        readonly claimedAccountInvitable: boolean;
+        readonly claimedAccount: PreapprovalAccountEligibility | null;
         readonly activeInvitation: boolean;
       }) => PreapprovalDecision;
     }) => {
@@ -185,19 +185,20 @@ export function preapprovalOperations({
                   invited: grant.last_invited_at !== null,
                 }
               : null,
-            claimedAccountInvitable:
-              account !== null &&
-              canInviteClaimedPreapproval({
-                verified: identity?.email_verified ?? false,
-                emailMatches:
-                  identity?.email !== null &&
-                  identity?.email !== undefined &&
-                  normalizeEmail(identity.email) === email,
-                erased: account.erased,
-                restricted: account.restricted,
-                state: account.beta?.state ?? null,
-                ageBand: account.ageBand,
-              }),
+            claimedAccount:
+              account !== null
+                ? {
+                    verified: identity?.email_verified ?? false,
+                    emailMatches:
+                      identity?.email !== null &&
+                      identity?.email !== undefined &&
+                      normalizeEmail(identity.email) === email,
+                    erased: account.erased,
+                    restricted: account.restricted,
+                    state: account.beta?.state ?? null,
+                    ageBand: account.ageBand,
+                  }
+                : null,
             activeInvitation: owed !== undefined,
           });
           if (decision.kind === 'refused') throw createAppError(decision.code);

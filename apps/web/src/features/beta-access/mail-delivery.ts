@@ -9,6 +9,7 @@ import {
   renderClubSeatInvitation,
 } from '../clubs/invitation-email';
 import { retryOrFail as backOff } from '../mail/retry-policy';
+import { readBetaInvitationDelivery } from './invitation-delivery';
 import { runMailQueue } from '../mail/run-queue';
 
 type Store = Pick<
@@ -39,7 +40,11 @@ export function createMailIntentDelivery(input: {
   readonly failed: (error: unknown) => void;
 }) {
   const decide = async (claim: Claim): Promise<Outcome> => {
-    const delivery = await input.store.readMailIntentDelivery(claim.id);
+    const read = await input.store.readMailIntentDelivery(claim.id);
+    const delivery =
+      read.kind === 'beta-invitation'
+        ? await readBetaInvitationDelivery(read)
+        : read;
     if (delivery.kind === 'recipient-gone' || delivery.kind === 'not-owed')
       return { kind: 'cancelled', errorCode: delivery.kind };
     if (
