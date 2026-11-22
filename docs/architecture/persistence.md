@@ -18,6 +18,14 @@ The same protocol eligibility rule decides invitations for preapproval commands
 over their raw fenced account facts. Provider deadlines, queue claims, token
 settlement, retry and unknown-delivery semantics are unchanged.
 
+The signed operator application owns preapproval decisions and the maximum
+three account-first attempts. Each store session owns one transaction, with
+receipt replay before account/email discovery and a single-use writer bound
+to the prepared command. Loading an add may provisionally claim its grant and
+approve an account; returning without apply, refusal or failure rolls that
+preparation back. Receipt/mail/grant changes and the final live check remain
+atomic, and session capabilities close when the attempt ends.
+
 ## Competitive records
 
 | Record                                          | Durable responsibility                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
