@@ -105,3 +105,25 @@ and marks uncertain or missing observations as gaps. It must read all pages;
 there is no silent history truncation or assumption that only one floor change
 occurred between polls. Fresh serverNow remains a bracketed calibration sample,
 not permission or an exact frame timestamp.
+
+## Reconcile pass outcome
+
+The application pass keeps one tagged outcome, with the snapshot/room
+evidence and an initial or closing cleanup receipt. It distinguishes an
+occupied call, cleanup proof, a lost room, acknowledged or unacknowledged
+reconciliation, the caller’s own refusal, an expected authority race and a
+retryable fault. Cleanliness, the finish request, incident observation and
+caller result are derived from that value. Only a reconciled pass carries
+the held callback result; the callback runs after unacknowledged writes too.
+
+Closing-read failure preserves an earlier pass failure and makes the pass
+unclean. Finish and incident-hook failures still escape first; otherwise a
+pass fault is deferred and rethrown before a callback fault or the caller’s
+own refusal. Initial cleanup is not repeated by the closing uncertainty
+check. Unread faults and expected refusals keep distinct incident evidence.
+
+This outcome is a record of what happened, never a preauthorized plan.
+The reconcile lease does not freeze Round or account authority. Every
+vendor intent keeps its own fresh transaction and authorization; closes
+still precede fresh opening checks, provider I/O stays outside database
+locks, and absence proof and finish retain their existing fences.

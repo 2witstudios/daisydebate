@@ -31,6 +31,16 @@ import { isRoundRunning } from '@daisy/protocol/round';
 import { roundStartPolicy } from '@daisy/protocol/round-start-policy';
 import { type MediaRoomRead } from '@daisy/protocol/media-room-fate';
 import { createMediaMutations } from './mutation';
+import {
+  initialMediaPass,
+  nextMediaPass,
+  initiallyCleaned,
+  mediaPassCompletion,
+  mediaPassObservation,
+  mediaPassReply,
+  type HeldOutcome,
+  type RoomReconcileOutcome,
+} from './model/reconcile-outcome';
 
 /** What a vendor mutation's authorization reads, under its locks. */
 type AuthorizeContext = Parameters<
@@ -455,11 +465,7 @@ export function createMediaReconcileRun(
     admission: Principal | undefined,
     before: MediaSnapshot,
     read: RoomRead,
-  ): Promise<
-    | { readonly refused: unknown }
-    | { readonly settled: boolean }
-    | { readonly lost: true }
-  > => {
+  ): Promise<RoomReconcileOutcome> => {
     // Nothing is written to a room the session is about to leave.
     if (
       mediaRoomLost({
@@ -487,12 +493,14 @@ export function createMediaReconcileRun(
     };
   };
   /** The caller's step under the lease; its failure is returned, not thrown. */
-  const runHeld = async (whileHeld?: () => Promise<void>) => {
+  const runHeld = async (
+    whileHeld?: () => Promise<void>,
+  ): Promise<HeldOutcome> => {
     try {
       await whileHeld?.();
-      return null;
+      return { kind: 'succeeded' };
     } catch (error) {
-      return { error };
+      return { kind: 'failed', error };
     }
   };
   /**
@@ -515,60 +523,74 @@ export function createMediaReconcileRun(
     admission?: Principal,
     whileHeld?: () => Promise<void>,
   ) => {
-    let absenceProof: Awaited<ReturnType<typeof removeRoom>> = null;
-    let cleanupAttempted = false;
-    let held: { readonly error: unknown } | null = null;
-    let refusal: unknown;
-    let failure: { readonly error: unknown } | null = null;
-    let clean = false;
-    let read: RoomRead | null = null;
-    let known: MediaSnapshot | null = null;
+    let outcome = initialMediaPass();
     try {
       const state = await snapshot(claim.roundId);
-      known = state;
+      outcome = nextMediaPass(outcome, { type: 'snapshot', state });
       if (vacancyDue(state, claim)) {
         // Only this pass's own look at the room may end a call for emptiness.
-        read = await readRoom(claim, state);
-        if (read.vendor.kind === 'read' && !read.vendor.empty) clean = true;
+        const read = await readRoom(claim, state);
+        outcome = nextMediaPass(outcome, { type: 'room-read', read });
+        if (read.vendor.kind === 'read' && !read.vendor.empty)
+          outcome = nextMediaPass(outcome, { type: 'occupied-call' });
         else {
-          cleanupAttempted = true;
-          absenceProof = await removeRoom(claim);
-          clean = absenceProof !== null;
+          outcome = nextMediaPass(outcome, {
+            type: 'cleanup-started',
+            phase: 'initial',
+          });
+          outcome = nextMediaPass(outcome, {
+            type: 'cleanup-completed',
+            proof: await removeRoom(claim),
+          });
         }
       } else if (needsCleanup(state, claim)) {
-        cleanupAttempted = true;
-        absenceProof = await removeRoom(claim);
-        clean = absenceProof !== null;
+        outcome = nextMediaPass(outcome, {
+          type: 'cleanup-started',
+          phase: 'initial',
+        });
+        outcome = nextMediaPass(outcome, {
+          type: 'cleanup-completed',
+          proof: await removeRoom(claim),
+        });
       } else {
-        read = await readRoom(claim, state);
+        const read = await readRoom(claim, state);
+        outcome = nextMediaPass(outcome, { type: 'room-read', read });
         const room = await reconcileRoom(claim, admission, state, read);
-        if ('refused' in room) refusal = room.refused;
-        else if ('settled' in room) {
-          clean = room.settled;
-          held = await runHeld(whileHeld);
-        }
+        outcome = nextMediaPass(outcome, { type: 'room-result', result: room });
+        if ('settled' in room)
+          outcome = nextMediaPass(outcome, {
+            type: 'held-result',
+            result: await runHeld(whileHeld),
+          });
       }
     } catch (error) {
-      if (!isRefusal(error)) failure = { error };
+      outcome = nextMediaPass(outcome, {
+        type: 'pass-failed',
+        error,
+        expected: isRefusal(error),
+      });
     } finally {
       try {
         const state = await snapshot(claim.roundId);
-        if (!cleanupAttempted && uncertain(state)) {
-          absenceProof = await removeRoom(claim);
-          clean &&= absenceProof !== null;
+        if (!initiallyCleaned(outcome) && uncertain(state)) {
+          outcome = nextMediaPass(outcome, {
+            type: 'cleanup-started',
+            phase: 'closing',
+          });
+          outcome = nextMediaPass(outcome, {
+            type: 'cleanup-completed',
+            proof: await removeRoom(claim),
+          });
         }
       } catch (error) {
-        clean = false;
-        failure ??= { error };
+        outcome = nextMediaPass(outcome, { type: 'closing-failed', error });
       }
       const finished = await input.store.finishMediaReconcile({
         mediaPhase,
         ...claim.fence,
-        absenceProof,
-        clean,
+        ...mediaPassCompletion(outcome),
         roomFate,
         roomVacancy: nextRoomVacancy,
-        seen: read?.vendor ?? null,
       });
       // Best effort, outside the journal: no token names this room any more, and a create
       // inside the delete clears what a dead node left listed in LiveKit's Redis.
@@ -581,20 +603,16 @@ export function createMediaReconcileRun(
           'The session left its room for a fresh one',
         );
       // The incident hook is the Round's: a post-round call has no Round to pause.
-      if (known && isRoundRunning(known.round.status))
-        await reportToIncident(
-          known,
-          // Only a real failure before any read means the vendor was not reached.
-          read?.observation ?? {
-            kind: failure && !cleanupAttempted ? 'unreachable' : 'unread',
-          },
-        );
+      const observed = mediaPassObservation(outcome);
+      if (observed && isRoundRunning(observed.state.round.status))
+        await reportToIncident(observed.state, observed.observation);
     }
-    if (failure) {
-      deferred(failure.error);
-      throw failure.error;
+    const reply = mediaPassReply(outcome);
+    if (reply.kind === 'defer') {
+      deferred(reply.error);
+      throw reply.error;
     }
-    if (held) throw held.error;
-    return refusal;
+    if (reply.kind === 'held-failed') throw reply.error;
+    return reply.refusal;
   };
 }
