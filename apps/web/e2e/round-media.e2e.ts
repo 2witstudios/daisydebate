@@ -1,3 +1,4 @@
+import type { Request as BrowserRequest } from '@playwright/test';
 import { instantMs } from '@daisy/clock';
 import { affirmativeSide, sideOfSeat } from '@daisy/protocol/seats';
 import {
@@ -8,6 +9,7 @@ import { createMediaService } from '@daisy/media';
 import { test, expect, openPage } from './support/fixtures';
 import { launchLiveKit } from './support/launch-livekit';
 import { serverOffsetMs } from './support/round-timing-response';
+import { createMediaSupersessionProbe } from './support/media-supersession-probe';
 import { origin } from './support/accounts';
 import { createRoomLaunchAccounts } from './support/room-launch-accounts';
 import { closeSettledLaunchContexts } from './support/room-launch-settled';
@@ -451,23 +453,23 @@ for (const [name, tickOnly] of [
         }, MEDIA_POLL)
         .toBe(true);
 
-      // This debater's next two reads are held: the first is superseded by the
-      // new view, and the second is the young read the boundary lets finish.
+      // Setup can itself supersede reads. Arm an aged held baseline only once setup
+      // is complete, so the yield controls the read window we assert below.
       const release = Promise.withResolvers<void>();
-      const reads: { startedAt: number; endedAt: number | null }[] = [];
+      const probe = createMediaSupersessionProbe<BrowserRequest>({
+        now,
+        minBaselineAgeMs: PERMISSION_BAR_MS - COUNTDOWN_MS / 2,
+      });
       await page.route(`**${mediaPath}/reconcile`, async (route) => {
-        reads.push({ startedAt: now(), endedAt: null });
-        if (reads.length > 2 && !tickOnly) return route.fallback();
+        probe.start(route.request());
+        if (probe.window.length > 2 && !tickOnly) return route.fallback();
         if (!tickOnly) await route.fetch();
         await release.promise;
         await route.abort().catch(() => undefined);
       });
-      let settledReads = 0;
       page.on('requestfailed', (request) => {
-        if (new URL(request.url()).pathname === `${mediaPath}/reconcile`) {
-          const read = reads[settledReads++];
-          if (read && read.endedAt === null) read.endedAt = now();
-        }
+        if (new URL(request.url()).pathname === `${mediaPath}/reconcile`)
+          probe.finish(request);
       });
 
       // The peer joining is the SDK invalidation that asks for the first held read.
@@ -496,7 +498,9 @@ for (const [name, tickOnly] of [
       await expect(
         opponentPage.getByRole('status').filter({ hasText: /^Connected$/ }),
       ).toBeVisible(MEDIA_POLL);
-      await expect.poll(() => reads.length, MEDIA_POLL).toBeGreaterThan(0);
+      await expect
+        .poll(() => probe.observed.length, MEDIA_POLL)
+        .toBeGreaterThan(0);
 
       if (tickOnly)
         await opponentPage.route(`**${mediaPath}/reconcile`, async (route) => {
@@ -527,6 +531,12 @@ for (const [name, tickOnly] of [
           ),
         now,
       );
+      const setupFinishedAt = now();
+      const setupReadCount = probe.observed.length;
+      // Age alone satisfies this precondition; it does not wait for a new request
+      // that the still-withheld yield might itself have to produce.
+      await expect.poll(() => probe.arm(), MEDIA_POLL).toBe(true);
+      const preYieldReadCount = probe.observed.length;
       const yielded = await ballotRoundCommand(speaker!.context.request, view, {
         type: 'yield',
         participantId: seat.id,
@@ -542,21 +552,21 @@ for (const [name, tickOnly] of [
         .poll(opponentGrants, { timeout: 15_000, intervals: [50] })
         .toContain('microphone');
       const grantedAt = now();
-      await expect.poll(() => reads.length, MEDIA_POLL).toBeGreaterThan(2);
-      const [superseded, young, fresh] = reads;
+      await expect
+        .poll(() => probe.window.length, MEDIA_POLL)
+        .toBeGreaterThan(2);
+      const [superseded, young, fresh] = probe.window;
       release.resolve();
 
-      // The forced shape: the first read went at the view, and the second started
-      // before the deadline and was let finish, not aborted at once or left to its
-      // 10 s request deadline. The next speech's own view may be what lets it finish
-      // instead of the boundary, by the same path; either way the wait is this one.
-      expect(superseded!.endedAt).not.toBeNull();
-      expect(young!.startedAt).toBeLessThan(deadline);
-      expect(fresh!.startedAt).toBeGreaterThan(deadline);
-      expect(fresh!.startedAt - young!.startedAt).toBeGreaterThan(1_900);
-      expect(fresh!.startedAt - young!.startedAt).toBeLessThan(2_500);
       await test.info().attach('boundary-after-supersession', {
         body: JSON.stringify({
+          setupFinishedAt,
+          setupReadCount,
+          preYieldReadCount,
+          probeArmedAt: probe.armedAt,
+          baselineAgeAtArmMs: probe.armedAt! - superseded!.startedAt,
+          observedReads: probe.observed,
+          controlledReads: probe.window,
           tickOnly,
           countdownMs: COUNTDOWN_MS,
           youngReadAgeAtDeadlineMs: deadline - young!.startedAt,
@@ -573,6 +583,15 @@ for (const [name, tickOnly] of [
         }),
         contentType: 'application/json',
       });
+      // The forced shape: the first read went at the view, and the second started
+      // before the deadline and was let finish, not aborted at once or left to its
+      // 10 s request deadline. The next speech's own view may be what lets it finish
+      // instead of the boundary, by the same path; either way the wait is this one.
+      expect(superseded!.endedAt).not.toBeNull();
+      expect(young!.startedAt).toBeLessThan(deadline);
+      expect(fresh!.startedAt).toBeGreaterThan(deadline);
+      expect(fresh!.startedAt - young!.startedAt).toBeGreaterThan(1_900);
+      expect(fresh!.startedAt - young!.startedAt).toBeLessThan(2_500);
       // No lower bound: at this countdown the microphone is due the moment the speech
       // ends (roundStartPolicy.microphoneLeadMs, proven in floor-clock.test.ts), and the
       // check before the yield already proves the opponent held no microphone until then.
