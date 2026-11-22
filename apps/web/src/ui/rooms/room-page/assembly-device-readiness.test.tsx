@@ -54,12 +54,16 @@ for (const role of ['affirmative', 'judge'] as const) {
     assert({
       given: `a server-rendered human ${role} with no local checks`,
       should:
-        'render native consent with only the debater disabled and no invented preview',
+        'keep the judge’s native consent and the debater’s disabled device action, without opening a camera',
       actual: [
-        html.includes('I’m ready'),
-        (html.match(/<button[^>]*>I’m ready<\/button>/)?.[0] ?? '').includes(
-          'disabled=""',
+        html.includes(
+          role === 'judge' ? 'I’m ready' : 'Turn on camera and mic',
         ),
+        (
+          html.match(
+            /<button[^>]*>(?:I’m ready|Turn on camera and mic)<\/button>/,
+          )?.[0] ?? ''
+        ).includes('disabled=""'),
         html.includes('<video'),
         html.includes('Checking your camera and microphone…'),
         html.includes('data-roster'),
@@ -107,7 +111,7 @@ test('the Room chat sits under the roster for a viewer with no devices (RCHAT-9)
   });
 });
 
-test('a seated debater has I’m ready under their own tile, above the Room controls (SEAT-8)', () => {
+test('a seated debater has Turn on under their own tile, above the Room controls (SEAT-8)', () => {
   const view = {
     ...assemblySnapshot,
     capabilities: { ...assemblySnapshot.capabilities, canReady: true },
@@ -139,13 +143,50 @@ test('a seated debater has I’m ready under their own tile, above the Room cont
   const roster = html.indexOf('data-roster');
   const chat = html.indexOf('aria-label="Room chat"');
   const tile = html.indexOf('aria-label="You"');
-  const ready = html.indexOf('I’m ready');
+  const ready = html.indexOf('Turn on camera and mic');
   const aside = html.indexOf('data-aside');
   assert({
     given: 'a seated debater with the Room chat',
     should:
-      'order roster, chat, their tile with Ready in it, then the controls',
+      'order roster, chat, their tile with its device action in it, then the controls',
     actual: [roster < chat, chat < tile, tile < ready, ready < aside],
     expected: [true, true, true, true],
+  });
+});
+
+test('initial device preview reserves the camera tile’s space (RHS-1)', () => {
+  const view = {
+    ...assemblySnapshot,
+    capabilities: { ...assemblySnapshot.capabilities, canReady: true },
+    participants: [
+      {
+        id: 'p'.repeat(24),
+        actorId,
+        kind: 'human' as const,
+        label: 'Host',
+        seat: { kind: 'side', side: 'affirmative', slot: 0 } as const,
+        teamOpen: false,
+        positionOpen: false,
+        rating: null,
+        ageBand: null,
+        needsReady: true,
+        eligible: true,
+        ready: 'not-ready' as const,
+        consentVersion: 0,
+      },
+    ],
+  };
+  const html = renderToStaticMarkup(
+    <AssemblyDeviceReadiness {...nativeProps} view={view} />,
+  );
+  assert({
+    given: 'a seated debater before browser device resources initialize',
+    should:
+      'reserve the preview aspect ratio so Settings below it stays in place',
+    actual:
+      /<[^>]+class="[^"]*aspect-room-preview[^"]*"[^>]*>Checking your camera and microphone…/.test(
+        html,
+      ),
+    expected: true,
   });
 });

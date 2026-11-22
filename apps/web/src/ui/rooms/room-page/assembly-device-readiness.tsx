@@ -147,7 +147,7 @@ function GatheringWithDevices({
         local={{ devicesPassed: false, unreadyPending: false }}
         devices={
           needsDevices ? (
-            <p className="rounded-xl bg-surface-sunken p-4 text-sm text-ink-muted">
+            <p className="flex aspect-room-preview items-center justify-center rounded-xl bg-surface-sunken p-4 text-center text-sm text-ink-muted">
               Checking your camera and microphone…
             </p>
           ) : null

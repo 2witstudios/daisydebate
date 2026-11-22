@@ -6,6 +6,7 @@ import { origin } from './accounts';
 import { closeRoomSetup, openRoomSetup, reread } from './room-launch-flow';
 import { assertNoSeriousFindings } from './axe';
 import { proveSiblingSave } from './room-setup-save-proof';
+import { proveStableDeviceHydration } from './room-device-hydration-proof';
 import { proveClosedRoomNavigation } from './room-shell-refresh-proof';
 
 /**
@@ -153,7 +154,7 @@ export async function proveGathering(
   } finally {
     await editor.close();
   }
-  await page.reload();
+  await proveStableDeviceHydration(page, info);
   await proveSiblingSave(page);
   await visualStates(page, info);
   await proveClosedRoomNavigation(page);
