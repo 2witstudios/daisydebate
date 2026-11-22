@@ -84,7 +84,19 @@ pu kill --agent <agent> && pu clean
     guard whose merge turned it red.
   - The sweep merges at most two PRs per cycle into main. A feature parent
     takes one PR at a time (ADR 0128).
-- **After a merge.** The tasks the PR names move to Done when its latest
+- **After a merge.** From a retained checkout, the point guard runs
+  `bun merge:followup <merged-pr-number>`. The local follow-up reconciles the
+  board and retires only a matching PurePoint worktree at the exact merged
+  head, after the merged commit is reachable from the remote destination.
+  Git removes it without force before PurePoint retires its agents and
+  metadata. The current checkout, advanced heads, dirty and untracked files,
+  unexpected ignored files (including environment files and local notes),
+  and branches still present on the remote are preserved and reported.
+  Ignored dependency/build output (`node_modules`, `.next`, `.turbo`, `dist`)
+  is disposable. Do not replace a preservation report with `pu clean`:
+  resolve unique work explicitly. The hosted board job has no local daemon
+  and cannot perform this cleanup.
+  The tasks the PR names move to Done when its latest
   review verdict approves ([reviews](reviews.md)); otherwise they move to
   Merged.
 

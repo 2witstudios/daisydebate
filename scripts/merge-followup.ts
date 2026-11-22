@@ -161,7 +161,7 @@ const json = (method: string, body: unknown): RequestInit => ({
   body: JSON.stringify(body),
 });
 
-function liveDeps(repository: string, pr: number): FollowupDeps {
+export function liveDeps(repository: string, pr: number): FollowupDeps {
   return {
     drivePages: () =>
       pagespace<readonly PageNode[]>(
