@@ -48,6 +48,25 @@ const withStore = (
         digests.push(input.requestDigest);
         return { v: 1, outcome: 'applied' };
       },
+      recordingTakedownCommand: async (input, work) => {
+        changes.push(input.change);
+        digests.push(input.requestDigest);
+        const saved: {
+          result: { v: 1; outcome: 'applied' | 'unchanged' } | null;
+        } = { result: null };
+        await work({
+          load: async () => ({
+            kind: 'fresh',
+            recording: 'applied',
+            endFeed: async () => null,
+            settle: async (result) => {
+              saved.result = result;
+            },
+          }),
+        });
+        if (!saved.result) throw new Error('Test takedown did not settle');
+        return saved.result;
+      },
       ...overrides,
     },
   });
