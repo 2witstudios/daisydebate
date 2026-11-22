@@ -1,4 +1,5 @@
 import { sha3Hex } from '@daisy/digest';
+import { assertRejects } from '@daisy/errors/testing';
 import { instantMs } from '@daisy/clock';
 import { subjectRightsVerificationBindings } from '../src/privacy/verification-bindings';
 import { drizzle } from 'drizzle-orm/bun-sql';
@@ -127,6 +128,65 @@ describe('beta email grants through participant operations', () => {
             mail.state,
           ],
           expected: ['removed', 'approved', 'cancelled'],
+        });
+      } finally {
+        await db.close();
+      }
+    });
+  });
+
+  test('preapproval replay still requires early liveness and its original digest', async () => {
+    await withFixture(url, async (f) => {
+      const db = trackedDatabase(f, { url, nextActorId: createId });
+      try {
+        const input = inputFor(add(`${createId()}@example.test`, true));
+        const saved = await db.runPreapprovalCommand(input);
+        await assertRejects({
+          given:
+            'an accepted preapproval command retried after its signed deadline',
+          should:
+            'refuse at the early liveness check even though a receipt exists',
+          actual: () =>
+            db.runPreapprovalCommand({ ...input, live: () => false }),
+          code: 'CONFLICT',
+        });
+        await assertRejects({
+          given: 'the command id reused with another semantic digest',
+          should: 'refuse without another grant or invitation',
+          actual: () =>
+            db.runPreapprovalCommand({
+              ...input,
+              requestDigest: 'e'.repeat(64),
+            }),
+          code: 'CONFLICT',
+        });
+        const replay = await db.runPreapprovalCommand(input);
+        const own = await db.readOperatorCommand({
+          commandId: input.command.commandId,
+          serviceId: input.serviceId,
+        });
+        const other = await db.readOperatorCommand({
+          commandId: input.command.commandId,
+          serviceId: 'another-service',
+        });
+        const [counts] = await f.sql`select
+          (select count(*)::int from operator_command_receipts where command_id=${input.command.commandId}) as receipts,
+          (select count(*)::int from mail_intents where preapproval_id=${saved.preapprovalId}) as mail`;
+        assert({
+          given: 'a live identical retry and issuer-scoped command readback',
+          should:
+            'replay exactly one receipt and queued invitation only to its issuer',
+          actual: { replay, own, other, counts },
+          expected: {
+            replay: saved,
+            own: {
+              action: 'beta.preapproval.update',
+              result: saved,
+              mailState: 'queued',
+            },
+            other: null,
+            counts: { receipts: 1, mail: 1 },
+          },
         });
       } finally {
         await db.close();
