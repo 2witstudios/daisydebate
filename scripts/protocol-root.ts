@@ -1,9 +1,11 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { posix } from 'node:path';
 import ts from 'typescript';
+import { isGlobal, sourceChecker } from './migration-bindings';
 
 export const protocolPackage = '@daisy/protocol';
-export const protocolBarrel = 'packages/protocol/src/index.ts';
+export const protocolDirectory = 'packages/protocol';
+export const protocolBarrel = `${protocolDirectory}/src/index.ts`;
 
 export function protocolRootExportIssue(exports: unknown): string | null {
   return typeof exports === 'string' ||
@@ -15,6 +17,18 @@ export function protocolRootExportIssue(exports: unknown): string | null {
     : null;
 }
 
+function unwrapExpression(node: ts.Expression): ts.Expression {
+  while (
+    ts.isParenthesizedExpression(node) ||
+    ts.isAsExpression(node) ||
+    ts.isTypeAssertionExpression(node) ||
+    ts.isNonNullExpression(node) ||
+    ts.isSatisfiesExpression(node)
+  )
+    node = node.expression;
+  return node;
+}
+
 function moduleSpecifier(node: ts.Node) {
   if (ts.isImportDeclaration(node) || ts.isExportDeclaration(node))
     return node.moduleSpecifier;
@@ -23,12 +37,8 @@ function moduleSpecifier(node: ts.Node) {
     return node.argument.literal;
   if (ts.isModuleDeclaration(node) && ts.isStringLiteral(node.name))
     return node.name;
-  if (
-    ts.isCallExpression(node) &&
-    (node.expression.kind === ts.SyntaxKind.ImportKeyword ||
-      (ts.isIdentifier(node.expression) && node.expression.text === 'require'))
-  )
-    return node.arguments[0];
+  if (ts.isCallExpression(node) && node.arguments[0])
+    return unwrapExpression(node.arguments[0]);
 }
 
 function resolvesToBarrel(path: string, name: string): boolean {
@@ -38,8 +48,8 @@ function resolvesToBarrel(path: string, name: string): boolean {
     .replace(/\/$/, '')
     .replace(/\.[jt]s$/, '');
   return (
-    target === 'packages/protocol/src/index' ||
-    target === 'packages/protocol/src'
+    target === `${protocolDirectory}/src/index` ||
+    target === `${protocolDirectory}/src`
   );
 }
 
@@ -48,13 +58,25 @@ export function protocolRootReferences(path: string, source: string) {
   if (!/protocol|index|\\[ux]|['"`][.]{1,2}\/?['"`]/.test(source)) return [];
   const file = ts.createSourceFile(path, source, ts.ScriptTarget.Latest, true);
   const references: { node: ts.Node; specifier: ts.StringLiteralLike }[] = [];
+  let checker: ts.TypeChecker | undefined;
+  const isModuleLoad = (node: ts.Node) => {
+    if (!ts.isCallExpression(node)) return true;
+    const callee = unwrapExpression(node.expression);
+    return (
+      callee.kind === ts.SyntaxKind.ImportKeyword ||
+      (ts.isIdentifier(callee) &&
+        callee.text === 'require' &&
+        isGlobal((checker ??= sourceChecker(file)), callee, 'require'))
+    );
+  };
   const visit = (node: ts.Node) => {
     const specifier = moduleSpecifier(node);
     if (
       specifier &&
       ts.isStringLiteralLike(specifier) &&
       (specifier.text === protocolPackage ||
-        resolvesToBarrel(path, specifier.text))
+        resolvesToBarrel(path, specifier.text)) &&
+      isModuleLoad(node)
     )
       references.push({ node, specifier });
     ts.forEachChild(node, visit);

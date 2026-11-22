@@ -74,3 +74,56 @@ test('reports a namespace import for explicit migration', () => {
     'apps/web/example.ts:1: use named protocol imports or re-exports',
   );
 });
+
+test('moves wrapped module literals without changing the surrounding expression', () => {
+  const source = `const { value } = await import(('@daisy/protocol' as const)!);
+const { detail } = require(('@daisy/protocol' satisfies string));
+`;
+  const expected = `const { value } = await import(('@daisy/protocol/round' as const)!);
+const { detail } = require(('@daisy/protocol/round' satisfies string));
+`;
+  const migrated = migrate(source);
+  assert({
+    given: 'literal module loads with transparent TypeScript expressions',
+    should: 'replace only the string literals',
+    actual: migrated,
+    expected,
+  });
+  assert({
+    given: 'the migrated calls',
+    should: 'produce zero edits on a second pass',
+    actual: migrate(migrated),
+    expected: migrated,
+  });
+});
+
+test('preserves a package name passed to a locally bound callback', () => {
+  const source = `function lookup(require: (name: string) => { value: string }) {
+  const { value } = require('@daisy/protocol');
+  return value;
+}
+const { detail } = require('@daisy/protocol');
+`;
+  assert({
+    given:
+      'a function argument named require and a CommonJS load in the same file',
+    should: 'migrate only the CommonJS load',
+    actual: migrate(source),
+    expected: source.replace(
+      "const { detail } = require('@daisy/protocol');",
+      "const { detail } = require('@daisy/protocol/round');",
+    ),
+  });
+});
+
+test('moves external relative barrel imports to public owner subpaths', () => {
+  assert({
+    given: 'a script outside protocol reaching the barrel by relative path',
+    should: 'use the public subpath',
+    actual: migrate(
+      "import { value } from '../packages/protocol/src/index';",
+      'scripts/probe.ts',
+    ),
+    expected: "import { value } from '@daisy/protocol/round';",
+  });
+});

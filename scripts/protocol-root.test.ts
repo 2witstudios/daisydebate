@@ -61,3 +61,24 @@ test('resolves an owner subpath and rejects the package root at runtime', () => 
     "Cannot find package '@daisy/protocol'",
   );
 });
+
+test('finds wrapped root module loads while leaving shadowed require calls alone', () => {
+  const source = `await import(('@daisy/protocol'));
+await import('@daisy/protocol' as const);
+const direct = require(<'@daisy/protocol'>'@daisy/protocol');
+function lookup(require: (name: string) => unknown) {
+  return require('@daisy/protocol');
+}
+`;
+  assert({
+    given: 'wrapped module literals and an argument to a locally bound require',
+    should: 'report the three module loads',
+    actual: protocolRootReferences('scripts/probe.ts', source).map(
+      ({ specifier }) =>
+        specifier
+          .getSourceFile()
+          .getLineAndCharacterOfPosition(specifier.getStart()).line + 1,
+    ),
+    expected: [1, 2, 3],
+  });
+});

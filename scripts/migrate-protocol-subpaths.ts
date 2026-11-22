@@ -3,6 +3,7 @@ import { posix, resolve } from 'node:path';
 import ts from 'typescript';
 import {
   protocolBarrel,
+  protocolDirectory,
   protocolPackage,
   protocolRootReferences,
   repositorySources,
@@ -85,17 +86,14 @@ export function migrateProtocolSubpaths(
       const destination = (name: string) => {
         const target =
           owners.get(name) ?? fail(`unknown protocol export "${name}"`);
-        if (specifier.text === protocolPackage) {
+        if (!path.startsWith(`${protocolDirectory}/`)) {
           const subpath =
             subpaths.get(target) ??
             fail(`missing protocol subpath for ${target}`);
           return protocolPackage + subpath.slice(1);
         }
         const relativePath = posix
-          .relative(
-            posix.dirname(path),
-            posix.join('packages/protocol', target),
-          )
+          .relative(posix.dirname(path), posix.join(protocolDirectory, target))
           .replace(/\.ts$/, '');
         return relativePath.startsWith('.')
           ? relativePath
