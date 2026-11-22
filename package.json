@@ -64,6 +64,8 @@
     "board:relate": "bun scripts/board.ts relate",
     "board:replace": "bun scripts/board.ts replace",
     "board:stale": "bun scripts/board-stale.ts",
+    "merge:followup": "bun scripts/local-merge-followup.ts",
+    "merge:pr": "bun scripts/local-merge-followup.ts",
     "progress:sync": "bun scripts/progress-canvas.ts",
     "progress:watch": "bun scripts/watch-status.ts",
     "decision:record": "bun scripts/decision.ts",
