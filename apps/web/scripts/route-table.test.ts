@@ -37,7 +37,6 @@ test('every bound handler resolves on an app of the test’s own', async () => {
     waits: virtualClock(),
     messagingPolicy: betaMessagingPolicy,
     env: {
-      NODE_ENV: 'test',
       DATABASE_URL: 'postgres://unit:unit@localhost:5432/unit',
       REDIS_URL: 'redis://localhost:6379',
       REDIS_NAMESPACE: 'unit-route-net',
@@ -51,9 +50,9 @@ test('every bound handler resolves on an app of the test’s own', async () => {
   const unresolved: string[] = [];
   let bound = 0;
   for (const file of routeFiles()) {
-    const module = await routeModule(file);
+    const exported = await routeModule(file);
     for (const method of METHODS) {
-      const handler = module[method];
+      const handler = exported[method];
       if (!isBound(handler)) continue;
       bound++;
       if (typeof handler.bindTo(app) !== 'function')
