@@ -10,8 +10,7 @@ describe('TrainComingSoon', () => {
     const view = renderAccessible(h(TrainComingSoon));
     assert({
       given: 'a viewer without the bot-debates release',
-      should:
-        'say bot debates are coming soon, with no button, link or field',
+      should: 'say bot debates are coming soon, with no button, link or field',
       actual: [
         view.text('heading', 'Train'),
         view.text('paragraph'),
