@@ -52,6 +52,7 @@
     "github:rules": "bun scripts/github-rules.ts",
     "staging:security-probe": "bun scripts/staging-security-probe.ts",
     "invariants": "bun scripts/invariants.ts",
+    "oracle:sabotage": "bun scripts/heavy.ts bun scripts/round-oracle-sabotage.ts",
     "evidence": "bun scripts/evidence.ts",
     "review:evidence": "bun scripts/review-evidence.ts",
     "migrations:check": "bun scripts/check-migrations.ts",
