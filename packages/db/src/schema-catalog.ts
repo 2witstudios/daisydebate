@@ -234,7 +234,7 @@ const catalogReads = (): readonly SQL[] => [
       join pg_namespace n on n.oid = c.relnamespace
       where ${userNamespace('n')}`,
   sql`select 'default privileges ' || pg_get_userbyid(d.defaclrole) || ' ' || coalesce(n.nspname, '*')
-        || ' ' || d.defaclobjtype as key, jsonb_build_object('acl', ${sortedAcl('d.defaclacl')})::text as value
+        || ' ' || d.defaclobjtype::text as key, jsonb_build_object('acl', ${sortedAcl('d.defaclacl')})::text as value
       from pg_default_acl d left join pg_namespace n on n.oid = d.defaclnamespace`,
   sql`select 'event trigger ' || e.evtname as key, jsonb_build_object(
         'event', e.evtevent, 'function', e.evtfoid::regprocedure::text,

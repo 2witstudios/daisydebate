@@ -1,1 +1,0 @@
-ALTER TABLE "profile_photos" DROP CONSTRAINT "profile_photos_status_check", ADD CONSTRAINT "profile_photos_status_check" CHECK ("status" in ('uploading', 'in_review', 'published', 'rejected', 'removed', 'withdrawn', 'erased'));

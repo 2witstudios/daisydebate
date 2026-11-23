@@ -1,1 +1,0 @@
-ALTER TABLE "rooms" ADD COLUMN "holds_host" boolean DEFAULT false NOT NULL;
