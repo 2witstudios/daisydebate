@@ -6,8 +6,6 @@ import { routeReadTiming } from '../../features/route-read/route-read';
 /** A route read whose response has finished arriving. */
 export type RouteRead = {
   readonly url: URL;
-  /** When the request started, on the page's monotonic clock. */
-  readonly startedMs: number;
 };
 
 const routeReadOf = (entry: PerformanceEntry): RouteRead | null => {
@@ -17,7 +15,7 @@ const routeReadOf = (entry: PerformanceEntry): RouteRead | null => {
     return null;
   const url = new URL(timing.name, window.location.href);
   if (url.origin !== window.location.origin) return null;
-  return { url, startedMs: timing.startTime };
+  return { url };
 };
 
 /**

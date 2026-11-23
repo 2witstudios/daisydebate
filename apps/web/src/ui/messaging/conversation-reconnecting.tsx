@@ -41,26 +41,29 @@ export function ConversationReconnecting({
   const held = useResource(router, (current) => {
     const address = window.location.href;
     const owner = {
-      /** When the latest refresh asked, on the page's monotonic clock. */
-      refreshedAtMs: null as number | null,
+      /** A refresh has asked and its read has not yet finished arriving. */
+      awaitingRead: false,
       recovery: createConversationRecovery({
         refresh: () => {
           if (window.location.href !== address) {
             owner.recovery.stop();
             return;
           }
-          owner.refreshedAtMs = performance.now();
+          owner.awaitingRead = true;
           startTransition(() => current.refresh());
         },
         schedule: browserScheduler.after,
         exhausted: () => setExhausted(true),
       }),
-      /** A finished read of this page that the latest refresh started settles it. */
-      readFinished: ({ url, startedMs }: RouteRead) => {
-        if (owner.refreshedAtMs === null) return;
+      /**
+       * The first read of this page to finish after a refresh asked settles
+       * it. Recovery holds one refresh at a time, so nothing but that refresh
+       * reads this page in between (prefetches and actions are not reads).
+       */
+      readFinished: ({ url }: RouteRead) => {
+        if (!owner.awaitingRead) return;
         if (url.pathname !== new URL(address).pathname) return;
-        if (startedMs < owner.refreshedAtMs) return;
-        owner.refreshedAtMs = null;
+        owner.awaitingRead = false;
         owner.recovery.settled();
       },
       dispose: () => {
@@ -74,9 +77,8 @@ export function ConversationReconnecting({
   const recovery = held?.recovery;
   // A discarded held refresh settles its transition on discard while its
   // network read is still in flight. The buffered newest render is adopted
-  // only once a route read of this page that started with or after the
-  // latest refresh has finished arriving, so a wait never dispatches while
-  // the held refresh is still on the wire.
+  // only once the route read the latest refresh made has finished arriving,
+  // so a wait never dispatches while the held refresh is still on the wire.
   useRouteReads((read) => held?.readFinished(read));
   // Native default actions are separate from Next's accepted-link notice.
   useDocumentEvent('click', (event) => {
