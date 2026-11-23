@@ -1,16 +1,6 @@
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import type { PgTransactionConfig } from 'drizzle-orm/pg-core';
 
-/** The statement methods an `AdminTx` carries. */
-const adminTxMethods = [
-  'select',
-  'selectDistinct',
-  'insert',
-  'update',
-  'delete',
-  'execute',
-] as const satisfies readonly (keyof BunSQLDatabase)[];
-
 /**
  * The statements an admin store runs, on the pool or inside a transaction.
  * It has no transaction controls: a store that needs its own transaction
@@ -19,7 +9,10 @@ const adminTxMethods = [
  * through `locks`. The admin database is its own (ADR 0077), so these are
  * the admin app's homes, not `@daisy/db`'s.
  */
-export type AdminTx = Pick<BunSQLDatabase, (typeof adminTxMethods)[number]>;
+export type AdminTx = Pick<
+  BunSQLDatabase,
+  'select' | 'selectDistinct' | 'insert' | 'update' | 'delete' | 'execute'
+>;
 
 /** A connection that can also open a transaction: the admin pool. */
 export interface AdminTxSource extends AdminTx {

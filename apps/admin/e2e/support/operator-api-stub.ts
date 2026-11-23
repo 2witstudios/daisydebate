@@ -1,4 +1,3 @@
-import { sha3Hex } from '@daisy/digest';
 import {
   preapprovalCommandSchema,
   type PreapprovalPage,
