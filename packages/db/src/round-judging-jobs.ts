@@ -34,7 +34,7 @@ import { recordJudgingUsage } from './round-judging-accounting';
 import { claimLockedJudgingJob } from './round-judging-claim';
 import { submitLockedJudgingResult } from './round-judging-result';
 import type { LockedRoundBallotInput } from './round-ballot-operations';
-import { requireLeaseMs } from './lease-policy';
+import { requireLeaseMs } from './lease';
 import {
   countCasualJudgeModelCall,
   settleCasualJudgeUsageLocked,

@@ -4,7 +4,7 @@ import {
 } from './necessary-evidence-read';
 import { adoptCaptureEvidencePayload } from './necessary-evidence-payload';
 import { reserveCaptureEvidenceIntent } from './capture-evidence-intents';
-import { evidencePolicyOf } from './necessary-evidence-policy';
+import { evidencePolicyOf } from './capture-evidence-intents';
 import { withdrawRoundEvidence } from './necessary-evidence-rounds';
 import { claimEvidenceAcquisition } from './necessary-evidence-reconciliation';
 import { createAppError } from '@daisy/errors';

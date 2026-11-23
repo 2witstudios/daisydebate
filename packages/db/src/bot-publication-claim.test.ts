@@ -1,10 +1,7 @@
 import { instantMs } from '@daisy/clock';
 import { assertRejects } from '@daisy/errors/testing';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import {
-  nextPublicationClaim,
-  publicationClaim,
-} from './bot-publication-rules';
+import { nextPublicationClaim, publicationClaim } from './bot-publication';
 
 setupRitewayBun();
 

@@ -2,7 +2,7 @@ import type { AllowanceAccountPolicy } from './usage-ledger';
 import { and, eq, isNotNull, sql } from 'drizzle-orm';
 import { createAppError } from '@daisy/errors';
 import type { BoundedTransaction } from './bounded-transaction';
-import { agentLeaseDigest } from './round-agent-lease';
+import { leaseTokenDigest } from './lease';
 import { lockAgentAccounting } from './agent-accounting';
 import {
   generationRun,
@@ -189,7 +189,7 @@ export function createBotGenerationOperations(input: {
                 configuration: {
                   ...scope,
                   parentAgentRunId: scope.agentRunId,
-                  executionTokenDigest: agentLeaseDigest(executionToken),
+                  executionTokenDigest: leaseTokenDigest(executionToken),
                   providerOutcome: 'unknown',
                 },
               });

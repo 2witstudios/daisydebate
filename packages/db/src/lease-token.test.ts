@@ -1,20 +1,17 @@
 import { assertRejects } from '@daisy/errors/testing';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { agentLeaseDigest, requireAgentLeaseToken } from './round-agent-lease';
+import { leaseTokenDigest, requireLeaseToken } from './lease';
 
 setupRitewayBun();
 
 const token = 'a'.repeat(43);
-const digest = agentLeaseDigest(token);
+const digest = leaseTokenDigest(token);
 
 test('a lease token is admitted only against its own stored digest', async () => {
   assert({
     given: 'the token whose SHA3-256 digest is stored',
     should: 'admit it',
-    actual: [
-      /^[a-f0-9]{64}$/.test(digest),
-      requireAgentLeaseToken(token, digest),
-    ],
+    actual: [/^[a-f0-9]{64}$/.test(digest), requireLeaseToken(token, digest)],
     expected: [true, undefined],
   });
   for (const [label, candidate, stored] of [
@@ -26,7 +23,7 @@ test('a lease token is admitted only against its own stored digest', async () =>
     await assertRejects({
       given: label,
       should: 'refuse authority',
-      actual: () => requireAgentLeaseToken(candidate, stored),
+      actual: () => requireLeaseToken(candidate, stored),
       code: 'AUTHORIZATION',
     });
 });

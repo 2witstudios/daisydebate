@@ -1,6 +1,6 @@
 import { assertRejects } from '@daisy/errors/testing';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { nextEpoch, requireLeaseMs } from './lease-policy';
+import { nextEpoch, requireLeaseMs } from './lease';
 
 setupRitewayBun();
 

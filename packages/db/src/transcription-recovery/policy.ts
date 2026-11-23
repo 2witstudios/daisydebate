@@ -23,8 +23,3 @@ export const claimInput = z.object({
   }),
 });
 export type Claim = z.infer<typeof claimInput>;
-export function claimDigest(token: string) {
-  if (!/^[A-Za-z0-9_-]{43,128}$/.test(token))
-    throw createAppError('AUTHORIZATION');
-  return sha3Hex(token);
-}

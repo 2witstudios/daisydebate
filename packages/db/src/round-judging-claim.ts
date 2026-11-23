@@ -8,7 +8,7 @@ import {
   roundJudgingJobs,
 } from './schema/round-judging-jobs';
 import { readLockedFrozenRoundTranscript } from './frozen-transcript';
-import { agentLeaseDigest } from './round-agent-lease';
+import { leaseTokenDigest } from './lease';
 import {
   endLockedRoundAgentRun,
   lockRoundAgentContext,
@@ -16,7 +16,7 @@ import {
 } from './round-agent-runs';
 import { readDatabaseTime } from './database-clock';
 import { judgingJobWhere, type JudgingScope } from './round-judging-context';
-import { nextEpoch } from './lease-policy';
+import { nextEpoch } from './lease';
 import { requireClaimableJob } from './round-judging-decisions';
 import {
   applyJudgingProgression,
@@ -109,7 +109,7 @@ export async function claimLockedJudgingJob(
     model,
     configuration: {
       ...scope,
-      executionTokenDigest: agentLeaseDigest(token),
+      executionTokenDigest: leaseTokenDigest(token),
     },
   });
   // Every attempt here is a prior run's: one still dispatched lost its answer.
@@ -151,7 +151,7 @@ export async function claimLockedJudgingJob(
                 generationFirstEpoch: epoch,
               }
             : {}),
-          leaseTokenDigest: agentLeaseDigest(token),
+          leaseTokenDigest: leaseTokenDigest(token),
           leaseExpiresAt,
         })
         .where(judgingJobWhere(target));
