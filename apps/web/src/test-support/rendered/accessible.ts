@@ -154,3 +154,7 @@ export const accessible = (html: string): AccessibleView => viewOf(mount(html));
 /** Renders an element on the server and reads it by role and name. */
 export const renderAccessible = (node: ReactNode): AccessibleView =>
   accessible(renderToStaticMarkup(node));
+
+/** Reads a live element (a mounted test's container) by role and name. */
+export const accessibleWithin = (element: Element): AccessibleView =>
+  viewOf(element as HTMLElement);

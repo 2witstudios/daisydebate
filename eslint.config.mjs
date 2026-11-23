@@ -2,6 +2,7 @@ import { clientEdgeRules } from './eslint.config-client-edge.mjs';
 import { hostTimeRules } from './eslint.config-host-time.mjs';
 import { clockDigestRules } from './eslint.config-clock-digest.mjs';
 import { requestPathRules } from './eslint.config-request-path.mjs';
+import { renderedMarkupRules } from './eslint.config-rendered-markup.mjs';
 import js from '@eslint/js';
 import ts from 'typescript';
 import tseslint from 'typescript-eslint';
@@ -1246,6 +1247,7 @@ export default [
   },
   ...clockDigestRules,
   requestPathRules,
+  renderedMarkupRules,
   clientEdgeRules,
   hostTimeRules,
   js.configs.recommended,

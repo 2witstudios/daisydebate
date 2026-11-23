@@ -1,6 +1,7 @@
 import { createElement as h } from 'react';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { accessible, renderAccessible } from './accessible';
+import { Window } from 'happy-dom';
+import { accessible, accessibleWithin, renderAccessible } from './accessible';
 
 setupRitewayBun();
 
@@ -235,6 +236,23 @@ describe('accessible: scope and states', () => {
         h('nav', { 'aria-label': 'Tabs' }, h('a', { href: '/x' }, 'X')),
       ).attribute('link', 'X', 'href'),
       expected: '/x',
+    });
+  });
+
+  test('accessibleWithin reads a live element', () => {
+    const { document } = new Window();
+    const container = document.createElement('div');
+    container.innerHTML = '<button aria-pressed="true">Mute</button>';
+    document.body.append(container);
+    assert({
+      given: 'a mounted container',
+      should: 'read its roles as they are now',
+      actual: accessibleWithin(container as unknown as Element).has(
+        'button',
+        'Mute',
+        { pressed: true },
+      ),
+      expected: true,
     });
   });
 });
