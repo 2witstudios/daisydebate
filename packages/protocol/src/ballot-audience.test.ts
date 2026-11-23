@@ -1,6 +1,6 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { eventBallotForAudience } from './round-ballot-audience';
-import type { Ballot } from '@daisy/protocol/ballot-schema';
+import { eventBallotForAudience } from './ballot-audience';
+import type { Ballot } from './ballot-schema';
 setupRitewayBun();
 const ballot: Ballot = {
   rubricVersion: 'speaker-10@2',

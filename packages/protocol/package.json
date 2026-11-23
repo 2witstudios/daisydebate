@@ -199,7 +199,10 @@
     "./youth-live": "./src/youth-live.ts",
     "./youth-round": "./src/youth-round.ts",
     "./round-judging-progression": "./src/round-judging-progression.ts",
-    "./seat-eligibility": "./src/seat-eligibility.ts"
+    "./seat-eligibility": "./src/seat-eligibility.ts",
+    "./round-viewer": "./src/round-viewer.ts",
+    "./ballot-audience": "./src/ballot-audience.ts",
+    "./round-outcome-audience": "./src/round-outcome-audience.ts"
   },
   "scripts": {
     "typecheck": "tsgo --noEmit && tsgo --noEmit -p tsconfig.test.json",

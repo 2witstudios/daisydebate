@@ -1,10 +1,13 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { emptyRuntimeCheckpointFor } from '@daisy/protocol/round';
-import { twoSides, type SeatRef } from '@daisy/protocol/seats';
-import { type LaunchedRound } from '@daisy/protocol/round-view';
-import { foundationSettings } from './reference-formats';
-import { validRules } from './testing-rules';
-import { readableCheckpoint, roundViewFor } from './round-view-projection';
+import { emptyRuntimeCheckpointFor } from './round';
+import { twoSides, type SeatRef } from './seats';
+import { type LaunchedRound } from './round-view';
+import {
+  fixtureRules,
+  oneOnOneFormatFixture,
+  plainRoomConfig,
+} from './format-fixtures.test-support';
+import { roundViewFor } from './round-viewer';
 
 setupRitewayBun();
 
@@ -45,8 +48,8 @@ const round: LaunchedRound = {
   hostInherited: false,
   participants: [aff, neg, judge],
   ladder: null,
-  config: foundationSettings,
-  rules: validRules,
+  config: plainRoomConfig,
+  rules: fixtureRules(oneOnOneFormatFixture),
   postRoundCall: false,
   panelRuling: null,
   platformEnding: null,
@@ -179,21 +182,6 @@ describe('roundViewFor', () => {
         aff.actorId,
       ).participants[2],
       expected: bot,
-    });
-  });
-});
-
-describe('readableCheckpoint', () => {
-  test('a stored checkpoint that no longer parses', () => {
-    assert({
-      given: 'a valid checkpoint, a malformed one and none',
-      should: 'keep the valid one and read the others as no live position',
-      actual: [
-        readableCheckpoint(emptyRuntimeCheckpoint),
-        readableCheckpoint({ version: 1, prep_consumed_ms: 'lots' }),
-        readableCheckpoint(null),
-      ],
-      expected: [emptyRuntimeCheckpoint, null, null],
     });
   });
 });

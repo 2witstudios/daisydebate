@@ -1,5 +1,5 @@
 import { readAuthorizedRound } from './round-read-authority';
-import { roundOutcomeForAudience } from './round-outcome-audience';
+import { roundOutcomeForAudience } from '@daisy/protocol/round-outcome-audience';
 import type { RoundRoomAuthority } from './round-room-authority';
 import { loadRoomDirection } from './tab/room-direction';
 import { fenceTabAccountRead } from './tab/account-read-fence';
@@ -49,7 +49,7 @@ import { rooms } from './schema/rooms';
 import { rounds } from './schema/rounds';
 import { roomRatingPoolReader } from './ladder-season';
 import type { LobbyRatingSelection } from './standings';
-import { roundViewFor } from './round-view-projection';
+import { roundViewFor } from '@daisy/protocol/round-viewer';
 import { formats } from './schema/formats';
 
 import { loadFormatCatalogue } from './format-catalogue';

@@ -2,7 +2,7 @@ import {
   eventBallotForAudience,
   type RoundBallotAccess,
   type BallotScreeningRead,
-} from './round-ballot-audience';
+} from '@daisy/protocol/ballot-audience';
 import { isJudgeSeat, type SeatRef } from '@daisy/protocol/seats';
 import {
   storedBallotSchemaFor,

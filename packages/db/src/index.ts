@@ -89,11 +89,15 @@ import {
   deliverObservationPurges,
   owedObservationPurges,
 } from './observation-purge-jobs';
-import { duePrivacyJobs, owedPrivacyJobs } from './privacy/vendor-jobs';
-import { deliverPrivacyJob as deliverPrivacyJobImpl } from './privacy/vendor-jobs';
+import {
+  duePrivacyJobs,
+  owedPrivacyJobs,
+  deliverPrivacyJob as deliverPrivacyJobImpl,
+} from './privacy/vendor-jobs';
 import {
   erasePrivacySubject as runSubjectRightsErasure,
   exportPrivacySubject as runSubjectRightsExport,
+  eraseGuardianChild,
 } from './privacy/subject-rights';
 import type { PrivacySubject } from './privacy/contracts';
 import type { PrivacyVerificationBinding } from './privacy/operations';
@@ -109,7 +113,6 @@ import {
 import { claimUsername } from './username-claim';
 import { mailIntentOperations } from './mail-intents';
 import { leagueRequestOperations } from './league-requests';
-import { eraseGuardianChild } from './privacy/subject-rights';
 import { createMediaReleases } from './media-releases';
 import { createMediaReleaseClubs } from './media-release-club';
 import { mediaReleaseMailOperations } from './media-release-mail';
@@ -657,4 +660,4 @@ export function createDatabase({
 export type Database = ReturnType<typeof createDatabase>;
 export type { LeagueRequestNotice } from './league-requests';
 
-export type { RoundBallotAccess } from './round-ballot-audience';
+export type { RoundBallotAccess } from '@daisy/protocol/ballot-audience';

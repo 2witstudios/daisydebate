@@ -1,8 +1,5 @@
-import {
-  ballotWrittenRecordSchema,
-  type Ballot,
-} from '@daisy/protocol/ballot-schema';
-import type { BallotPart } from '@daisy/protocol/lobby/results-read';
+import { ballotWrittenRecordSchema, type Ballot } from './ballot-schema';
+import type { BallotPart } from './lobby/results-read';
 
 /** Current evaluator decisions, on the same fenced event source as the Round read. */
 export type RoundBallotAccess = {

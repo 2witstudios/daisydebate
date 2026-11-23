@@ -1,4 +1,4 @@
-import { roundOutcomeForAudience } from './round-outcome-audience';
+import { roundOutcomeForAudience } from '@daisy/protocol/round-outcome-audience';
 import type { RoundRoomAuthority } from './round-room-authority';
 import { createAppError } from '@daisy/errors';
 import { idSchema } from '@daisy/protocol/primitives';
@@ -16,7 +16,7 @@ import { transcriptRevision } from './capture-history';
 import { closedStreamGaps, streamKey } from './capture-gaps';
 import type { CaptureRule } from '@daisy/protocol/capture-verdict';
 import { transcriptSegments } from './schema/transcript-segments';
-import { roundViewFor } from './round-view-projection';
+import { roundViewFor } from '@daisy/protocol/round-viewer';
 import { inTransaction, type TxSource, type Tx } from './tx';
 
 export const roundProtectedReads = ({

@@ -1,6 +1,6 @@
 import { currentRoundParticipant } from './round-current-participant';
-import { roundOutcomeForAudience } from './round-outcome-audience';
-import type { RoundBallotAccess } from './round-ballot-audience';
+import { roundOutcomeForAudience } from '@daisy/protocol/round-outcome-audience';
+import type { RoundBallotAccess } from '@daisy/protocol/ballot-audience';
 import { ballotScreenings } from './schema/ballot-screenings';
 import type { RoundRoomAuthority } from './round-room-authority';
 import { withOpening, type ReadOpening } from './round-opening-read';
@@ -28,7 +28,7 @@ import { readLockedFrozenRoundTranscript } from './frozen-transcript';
 import { sharedAccount, type Caller, type Account } from './room-command-facts';
 import { readAuthorizedRound } from './round-read-authority';
 import { ballotReadView, ownJudgeSeat } from './round-ballot-view';
-import { roundViewFor } from './round-view-projection';
+import { roundViewFor } from '@daisy/protocol/round-viewer';
 import { readWaitingOn } from './round-waiting-read';
 import { ballots } from './schema/ballots';
 import { rounds } from './schema/rounds';

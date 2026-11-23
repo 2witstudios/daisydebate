@@ -1,22 +1,4 @@
-import {
-  runtimeCheckpointSchema,
-  type RuntimeCheckpoint,
-} from '@daisy/protocol/round';
-import {
-  type LaunchedRound,
-  type RoundRecord,
-} from '@daisy/protocol/round-view';
-
-/**
- * The stored checkpoint, or null when it no longer reads as one: the Round
- * and its receipt still read, and the room shows no live position.
- */
-export const readableCheckpoint = (
-  value: unknown,
-): RuntimeCheckpoint | null => {
-  const parsed = runtimeCheckpointSchema.safeParse(value);
-  return parsed.success ? parsed.data : null;
-};
+import { type LaunchedRound, type RoundRecord } from './round-view';
 
 /**
  * Struck host-written lines reach the Round's own people only; everyone
