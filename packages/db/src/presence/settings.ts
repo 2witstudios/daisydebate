@@ -37,7 +37,7 @@ const chosen = async (tx: Tx, actorId: string): Promise<ChosenStatus> => {
     .select({ chosenStatus: presenceSettings.chosenStatus })
     .from(presenceSettings)
     .where(eq(presenceSettings.actorId, actorId));
-  return (row?.chosenStatus) ?? 'online';
+  return row?.chosenStatus ?? 'online';
 };
 
 /** The status the member chose; no row means online. */

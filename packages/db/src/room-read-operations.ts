@@ -306,8 +306,7 @@ export const roomReadOperations = ({
               ? {
                   ...bot,
                   persona: row.persona,
-                  difficulty:
-                    row.difficulty,
+                  difficulty: row.difficulty,
                 }
               : bot;
           }),
