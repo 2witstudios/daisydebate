@@ -1,7 +1,5 @@
 import type { BotPublicationScope } from '@daisy/db/bot-publication';
-import { isCapacityRefusal } from '@daisy/db/capacity';
-import { isFinalBotSpeechRefusal } from '@daisy/db/bot-publication';
-import { createAppError, isAppError } from '@daisy/errors';
+import { createAppError } from '@daisy/errors';
 import type { Waits } from '@daisy/clock';
 import {
   retryPauseMs,
@@ -15,9 +13,14 @@ import {
   nextSpeechWork,
   phraseAt,
   hasBought,
+  hasVoice,
   isPublishing,
-  voicesToBuy,
+  needsLine,
   openingVoices,
+  setbackOf,
+  stopAt,
+  tailWasCut,
+  voicesToBuy,
   type SpeechEvent,
 } from './model/speech-state';
 import type { PhraseSource } from './phrase-source';
@@ -45,8 +48,6 @@ type Generated = Answer<{ readonly phrases: PhraseSource }> & {
   readonly abandon: () => void;
 };
 const STOPPED = 'Bot publication stopped before the phrase was sent';
-const isPlatformIncidentRefusal = (error: unknown) =>
-  isAppError(error) && error.reason === 'platform-incident';
 /** What the seat's hearing reports about one peer. */
 export type PeerActivity =
   | {
@@ -174,10 +175,11 @@ export function createBotSpeaker(input: {
   const voiceLength = (job: BotSpeechJob) =>
     (job.pcm.length / job.sampleRate) * 1000;
   const prepareAhead = (index: number) => {
-    const voice = phraseAt(state, index);
     const answer = goods.voices.get(index);
-    if (!isPublishing(state) || voice?.status !== 'settled' || !answer) return;
-    if (voice.lineId === null || input.lineClosed(voice.lineId))
+    if (!isPublishing(state) || phraseAt(state, index)?.status !== 'settled')
+      return;
+    if (!answer) return;
+    if (needsLine(state, index, input.lineClosed))
       record({
         type: 'line',
         generation: state.generation,
@@ -224,8 +226,9 @@ export function createBotSpeaker(input: {
         index,
         durationMs: voiceLength(answer.value),
       });
-      if (goods === current && !signal.aborted && !voicing.aborted)
-        voiceAhead(phrases, signal);
+      const live = () =>
+        state.generation === generation && state.turn.voicing === 'open';
+      if (live() && !signal.aborted) voiceAhead(phrases, signal);
       // A paid receipt settles even if its generation was replaced meanwhile.
       record({ type: 'voice-settling', generation, index });
       try {
@@ -235,7 +238,7 @@ export function createBotSpeaker(input: {
         throw error;
       }
       record({ type: 'voice-settled', generation, index });
-      if (goods === current && index === state.turn.cursor + 1)
+      if (state.generation === generation && index === state.turn.cursor + 1)
         prepareAhead(index);
     })();
     current.buying.set(index, pending);
@@ -254,7 +257,7 @@ export function createBotSpeaker(input: {
       if (state.generation !== generation || state.turn.awaiting !== index)
         return;
       record({ type: 'await-phrase', generation, index: null });
-      if (text !== null && !signal.aborted && !goods.voicing.signal.aborted)
+      if (text !== null && !signal.aborted && state.turn.voicing === 'open')
         voiceAhead(phrases, signal);
     });
   };
@@ -271,12 +274,11 @@ export function createBotSpeaker(input: {
     signal: AbortSignal,
   ) => {
     const index = state.turn.cursor;
-    const pending = goods.buying.get(index);
-    if (pending) {
+    if (phraseAt(state, index)) {
       voiceAhead(phrases, signal);
-      await pending.catch(() => undefined);
+      await goods.buying.get(index)?.catch(() => undefined);
     }
-    if (!goods.voices.has(index)) {
+    if (!hasVoice(state, index)) {
       const buying = buyVoice(phrases, text, index, signal);
       voiceAhead(phrases, signal);
       await buying;
@@ -307,12 +309,13 @@ export function createBotSpeaker(input: {
       );
     if (signal.aborted) throw createAppError('CONFLICT', STOPPED);
   };
-  const speak = async (signal: AbortSignal, stopAtMs: number) => {
+  const speak = async (signal: AbortSignal) => {
     const index = state.turn.cursor;
-    const voice = phraseAt(state, index);
     const answer = goods.voices.get(index);
-    if (!voice || !answer) throw createAppError('CONFLICT', STOPPED);
-    if (voice.lineId === null || input.lineClosed(voice.lineId))
+    const stopAtMs = stopAt(state);
+    if (!phraseAt(state, index) || !answer || stopAtMs === null)
+      throw createAppError('CONFLICT', STOPPED);
+    if (needsLine(state, index, input.lineClosed))
       record({
         type: 'line',
         generation: state.generation,
@@ -334,9 +337,7 @@ export function createBotSpeaker(input: {
     }
   };
   const stepBackIfTailCut = () => {
-    const before = state.turn.previous;
-    const lineId = before === null ? null : phraseAt(state, before)?.lineId;
-    if (lineId && goods.voices.has(state.turn.cursor) && input.tailCut(lineId))
+    if (tailWasCut(state, input.tailCut))
       record({ type: 'tail-cut', generation: state.generation });
   };
   const dropAhead = () => {
@@ -371,7 +372,7 @@ export function createBotSpeaker(input: {
     }
     const { phrases } = current.generated.value;
     work('publish');
-    const stopAtMs = await input.deadline();
+    record({ type: 'deadline', atMs: await input.deadline() });
     for (;;) {
       const text =
         phrases.ready(state.turn.cursor) ??
@@ -411,7 +412,7 @@ export function createBotSpeaker(input: {
           if (state.turn.cursor === 0) await holdShortOpening(signal);
           if (crossEx) await floorClear(signal);
           work('publish');
-          const speaking = speak(signal, stopAtMs);
+          const speaking = speak(signal);
           prepareAhead(state.turn.cursor + 1);
           const outcome = await speaking.catch((error: unknown) => {
             stepBackIfTailCut();
@@ -470,23 +471,16 @@ export function createBotSpeaker(input: {
     for (const kind of effects) effect(kind);
   };
   const recover = (error: unknown, stage: string) => {
-    if (isFinalBotSpeechRefusal(error))
-      return apply({ type: 'refused-for-good' });
-    if (isCapacityRefusal(error)) {
-      input.failed(error, stage);
-      return apply({ type: 'deferred', authorityChanged: false });
-    }
-    if (isPlatformIncidentRefusal(error) || input.busy(error))
-      return apply({ type: 'deferred', authorityChanged: false });
-    if (isAppError(error) && error.code === 'CONFLICT')
-      return apply({ type: 'deferred', authorityChanged: true });
     const phrases = goods.generated?.value.phrases;
-    const unusable =
-      phrases !== undefined &&
-      phrases.ended() &&
-      phrases.ready(0) === undefined;
-    input.failed(error, stage);
-    apply({ type: 'failed', unusable });
+    const setback = setbackOf(error, {
+      busy: input.busy(error),
+      unusable:
+        phrases !== undefined &&
+        phrases.ended() &&
+        phrases.ready(0) === undefined,
+    });
+    if (setback.reported) input.failed(error, stage);
+    apply(setback.event);
   };
   const turn = async (abort: AbortController, to: Owed) => {
     let failure: { readonly error: unknown } | null = null;

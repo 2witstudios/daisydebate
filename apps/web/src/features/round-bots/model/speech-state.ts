@@ -1,3 +1,6 @@
+import { isCapacityRefusal } from '@daisy/db/capacity';
+import { isFinalBotSpeechRefusal } from '@daisy/db/bot-publication';
+import { isAppError } from '@daisy/errors';
 import {
   initialSpeakerState,
   nextSpeakerState,
@@ -33,6 +36,8 @@ type SpeechState = SpeakerState & {
     | {
         readonly status: 'working' | 'publishing';
         readonly stage: 'generate' | 'synthesize' | 'publish';
+        /** The speech's hard stop on the monotonic clock, read once per turn. */
+        readonly stopAtMs: number | null;
       };
   readonly turn: Turn;
 };
@@ -74,6 +79,7 @@ export type SpeechEvent =
       readonly stage: 'generate' | 'synthesize' | 'publish';
     }
   | { readonly type: 'publishing'; readonly active: boolean }
+  | { readonly type: 'deadline'; readonly atMs: number }
   | {
       readonly type: 'duty';
       readonly event: DutyEvent;
@@ -106,6 +112,66 @@ export const initialSpeechState = (rules: DutyRules): SpeechState => ({
 });
 export const phraseAt = (state: SpeechState, index: number) =>
   state.turn.voices.find((voice) => voice.index === index);
+/** Whether phrase `index`'s voice is in hand: received, settling or settled. */
+export const hasVoice = (state: SpeechState, index: number) => {
+  const voice = phraseAt(state, index);
+  return voice !== undefined && 'durationMs' in voice;
+};
+/** A phrase needs a new line id when it has none, or its last line was closed. */
+export const needsLine = (
+  state: SpeechState,
+  index: number,
+  closed: (lineId: string) => boolean,
+) => {
+  const lineId = phraseAt(state, index)?.lineId ?? null;
+  return lineId === null || closed(lineId);
+};
+/**
+ * The phrase before was reported played whole but a later clear cut its
+ * queued tail: the speech steps back to say it again, if the phrase in play
+ * is still in hand to follow it.
+ */
+export const tailWasCut = (
+  state: SpeechState,
+  cut: (lineId: string) => boolean,
+) => {
+  const before = state.turn.previous;
+  const lineId = before === null ? null : phraseAt(state, before)?.lineId;
+  return !!lineId && hasVoice(state, state.turn.cursor) && cut(lineId);
+};
+/** The speech's hard stop, once read for the turn in play. */
+export const stopAt = (state: SpeechState) =>
+  state.run.status === 'idle' ? null : state.run.stopAtMs;
+/**
+ * What a failed turn means for the duty, and whether the failure is
+ * reported. A final refusal ends the speech; pool capacity, a platform
+ * incident or a full provider budget wait without spending an attempt; a
+ * conflict means what was prepared no longer fits; anything else spends one.
+ */
+export function setbackOf(
+  error: unknown,
+  facts: {
+    readonly busy: boolean;
+    /** The bought answer ended before producing any phrase. */
+    readonly unusable: boolean;
+  },
+): { readonly event: DutyEvent; readonly reported: boolean } {
+  if (isFinalBotSpeechRefusal(error))
+    return { event: { type: 'refused-for-good' }, reported: false };
+  const deferred = (authorityChanged: boolean, reported = false) => ({
+    event: { type: 'deferred', authorityChanged } as const,
+    reported,
+  });
+  if (isCapacityRefusal(error)) return deferred(false, true);
+  if (isAppError(error) && error.reason === 'platform-incident')
+    return deferred(false);
+  if (facts.busy) return deferred(false);
+  if (isAppError(error) && error.code === 'CONFLICT') return deferred(true);
+  return {
+    event: { type: 'failed', unusable: facts.unusable },
+    reported: true,
+  };
+}
 export const hasBought = (state: SpeechState) =>
   state.turn.language !== 'empty';
 export const isPublishing = (state: SpeechState) =>
@@ -161,9 +227,13 @@ export function nextSpeechState(
     };
   if (event.type === 'run-ended')
     return { state: { ...state, run: { status: 'idle' } }, effects: [] };
+  const stopAtMs = stopAt(state);
   if (event.type === 'work')
     return {
-      state: { ...state, run: { status: 'working', stage: event.stage } },
+      state: {
+        ...state,
+        run: { status: 'working', stage: event.stage, stopAtMs },
+      },
       effects: [],
     };
   if (event.type === 'publishing')
@@ -173,8 +243,17 @@ export function nextSpeechState(
         run: {
           status: event.active ? 'publishing' : 'working',
           stage: 'publish',
+          stopAtMs,
         },
       },
+      effects: [],
+    };
+  if (event.type === 'deadline')
+    return {
+      state:
+        state.run.status === 'idle'
+          ? state
+          : { ...state, run: { ...state.run, stopAtMs: event.atMs } },
       effects: [],
     };
   if (event.generation !== state.generation) return { state, effects: [] };
