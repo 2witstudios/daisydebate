@@ -28,3 +28,4 @@ export const createGuardiansStore = (resources: DatabaseResources) => {
   });
 };
 export type GuardiansStore = ReturnType<typeof createGuardiansStore>;
+export type { GuardianLinkRow, GuardianSession } from '../guardians/store';

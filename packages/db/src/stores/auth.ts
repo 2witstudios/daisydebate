@@ -16,3 +16,7 @@ export const createAuthStore = (resources: DatabaseResources) => {
   });
 };
 export type AuthStore = ReturnType<typeof createAuthStore>;
+export type {
+  ProvisionalLinkPurposes,
+  ProvisionalMailCleanup,
+} from '../provisional-cleanup';

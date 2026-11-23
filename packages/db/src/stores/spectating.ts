@@ -30,3 +30,5 @@ export const createSpectatingStore = (resources: DatabaseResources) => {
   });
 };
 export type SpectatingStore = ReturnType<typeof createSpectatingStore>;
+export type { SpectatorTimelineRead } from '../spectator-timeline-reads';
+export type { LiveBroadcastPage } from '../live-broadcast-reads';

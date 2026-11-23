@@ -27,3 +27,4 @@ export const createListenStore = (resources: DatabaseResources) => {
   });
 };
 export type ListenStore = ReturnType<typeof createListenStore>;
+export type { WorkKind } from '../work-wake';

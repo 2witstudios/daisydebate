@@ -22,3 +22,7 @@ export const createMessagingStore = (
   });
 };
 export type MessagingStore = ReturnType<typeof createMessagingStore>;
+export type {
+  MessagingUnreadEmailDelivery,
+  MessagingUnreadEmailOutcome,
+} from '../messaging/unread-emails';

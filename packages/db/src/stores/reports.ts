@@ -36,3 +36,4 @@ export const createReportsStore = (
   });
 };
 export type ReportsStore = ReturnType<typeof createReportsStore>;
+export type { RestrictionRules } from '../moderation/store';

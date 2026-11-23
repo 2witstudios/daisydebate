@@ -12,3 +12,4 @@ export const createLeagueRequestsStore = (resources: DatabaseResources) => {
   });
 };
 export type LeagueRequestsStore = ReturnType<typeof createLeagueRequestsStore>;
+export type { LeagueRequestNotice } from '../league-requests';

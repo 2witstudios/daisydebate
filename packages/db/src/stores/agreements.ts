@@ -12,3 +12,4 @@ export const createAgreementsStore = (resources: DatabaseResources) => {
   });
 };
 export type AgreementsStore = ReturnType<typeof createAgreementsStore>;
+export type { ContentWaiverStanding } from '../agreement-signatures';

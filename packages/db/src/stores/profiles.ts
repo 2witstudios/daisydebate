@@ -21,3 +21,9 @@ export const createProfileStore = (resources: DatabaseResources) => {
   });
 };
 export type ProfileStore = ReturnType<typeof createProfileStore>;
+export type {
+  OwnPublicProfile,
+  PhotoDeletion,
+  PublicProfileCard,
+  StoredProfilePhoto,
+} from '../public-profile-operations';

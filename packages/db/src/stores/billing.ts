@@ -16,3 +16,9 @@ export const createBillingStore = (
   });
 };
 export type BillingStore = ReturnType<typeof createBillingStore>;
+export type {
+  ClubSeatAnswer,
+  ClubInvitationResendFacts,
+  ClubSeatManagerCommand,
+} from '../club-seat-commands';
+export type { ClubSeatingRead, ClubPerson } from '../club-seat-reads';

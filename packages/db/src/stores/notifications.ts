@@ -11,3 +11,9 @@ export const createNotificationsStore = (resources: DatabaseResources) => {
   );
 };
 export type NotificationsStore = ReturnType<typeof createNotificationsStore>;
+export type {
+  InboxCursor,
+  InboxRow,
+  NotificationDigestDelivery,
+  NotificationDigestOutcome,
+} from '../notifications';

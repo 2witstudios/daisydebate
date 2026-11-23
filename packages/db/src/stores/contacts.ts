@@ -28,3 +28,4 @@ export const createContactsStore = (
   });
 };
 export type ContactsStore = ReturnType<typeof createContactsStore>;
+export type { SocialRequestLimits } from '../contacts/request-budget';

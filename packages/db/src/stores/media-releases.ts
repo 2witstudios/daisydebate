@@ -22,3 +22,19 @@ export const createMediaReleaseStore = (
   });
 };
 export type MediaReleaseStore = ReturnType<typeof createMediaReleaseStore>;
+export type {
+  MinorReleaseRead,
+  ParentLinkRead,
+  ParentAnswer,
+} from '../media-releases';
+export type {
+  ClubReleasesRead,
+  ClubReleaseStudent,
+  ClubConfirmAnswer,
+} from '../media-release-club';
+export type {
+  MediaReleaseMailClaim,
+  MediaReleaseMailKind,
+  MediaReleaseMailOutcome,
+  PreparedReleaseMail,
+} from '../media-release-mail';
