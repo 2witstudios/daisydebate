@@ -24,7 +24,6 @@ import {
 } from './publication-io';
 export type { PhraseOutcome } from './model/publisher';
 export type { BotSpeechJob } from './publication-io';
-export { playedFraction } from './model/line-ledger';
 
 type Claim = { readonly scope: BotPublicationScope; readonly token: string };
 type Event = PublisherEventBody;

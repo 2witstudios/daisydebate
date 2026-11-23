@@ -287,7 +287,7 @@ describe('the bot’s generated walks (R4.3)', () => {
       actual: await holds(
         walk(
           (draw) => {
-            const script = generatedSpeaker('walk', draw);
+            const script = generatedSpeaker('walk', draw, true);
             return script;
           },
           [...speakerProperties, quietOverPeers],

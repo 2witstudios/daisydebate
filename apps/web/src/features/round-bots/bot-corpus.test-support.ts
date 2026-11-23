@@ -55,6 +55,8 @@ export type SpeakerStep =
   | {
       readonly peer: 'speech-start' | 'barge-in' | 'end-of-turn';
       readonly who?: string;
+      /** The hearing reports the last turn's end again, as a replay. */
+      readonly replay?: true;
     }
   | { readonly stop: true };
 export type PublisherStep =
@@ -623,14 +625,14 @@ async function runSpeaker(
       log('stopped');
     } else {
       const peer = step.who ?? 'peer';
-      log(`peer ${step.peer} ${peer}`);
+      log(`peer ${step.peer} ${peer}${step.replay ? ' again' : ''}`);
       note({ kind: 'peer', peer, event: step.peer });
       speaker.peer(
         step.peer === 'end-of-turn'
           ? {
               kind: step.peer,
               peer,
-              spokeUntilMs: (spokeUntilMs += 1000),
+              spokeUntilMs: step.replay ? spokeUntilMs : (spokeUntilMs += 1000),
               spokeForMs: 800,
             }
           : { kind: step.peer, peer },

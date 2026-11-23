@@ -662,6 +662,22 @@ const speakerCases: readonly CorpusScript[] = [
     { answers: [{ phrases: say('Q?') }, { phrases: four }] },
   ),
   speaker(
+    'a replayed end of turn is not answered again',
+    'cross_ex',
+    [
+      ended,
+      wake,
+      advance(3000),
+      { ...ended, replay: true },
+      wake,
+      advance(3000),
+      ended,
+      wake,
+      advance(3000),
+    ],
+    { opensExchange: false, answers: [{ phrases: two }] },
+  ),
+  speaker(
     'a pause from one turn never holds the next',
     'cross_ex',
     [wake, advance(100), ended, wake, advance(3000)],
@@ -728,7 +744,12 @@ export function generatedPublisher(name: string, draw: Draw): CorpusScript {
 }
 
 /** A speaker round built from draws: answers, peers, wakes and stub answers. */
-export function generatedSpeaker(name: string, draw: Draw): CorpusScript {
+export function generatedSpeaker(
+  name: string,
+  draw: Draw,
+  /** Whether the hearing may report a turn's end twice. */
+  replays = false,
+): CorpusScript {
   const segment = draw(2) === 0 ? 'speech' : 'cross_ex';
   const texts = ['One.', 'Two.', 'Three.', 'Four.', 'Five.'].slice(
     0,
@@ -748,6 +769,7 @@ export function generatedSpeaker(name: string, draw: Draw): CorpusScript {
     () => ended,
     () => spoke,
     () => bargeIn,
+    ...(replays ? [(): SpeakerStep => ({ ...ended, replay: true })] : []),
   ];
   for (let index = 0; index < 6 + draw(10); index++) {
     const move = moves[draw(segment === 'speech' ? 2 : moves.length)]!();

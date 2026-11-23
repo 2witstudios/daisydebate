@@ -30,8 +30,8 @@ const mutations: readonly Mutation[] = [
   {
     name: 'a retried end credits the whole phrase',
     file: `${bots}/model/line-ledger.ts`,
-    find: "        fraction: line.ending.status === 'open' ? 0 : line.ending.fraction,",
-    replace: '        fraction: 1,',
+    find: "          line.ending.status === 'open' ? { kind: 'whole' } : line.ending.end,",
+    replace: "          { kind: 'whole' },",
   },
   {
     name: 'a cleared tail is still credited',
@@ -41,15 +41,28 @@ const mutations: readonly Mutation[] = [
   },
   {
     name: 'frames play past the hard stop',
-    file: `${bots}/publication.ts`,
-    find: '        stopAtMs,\n      );\n      played.abort();',
-    replace: '        stopAtMs + 100,\n      );\n      played.abort();',
+    file: `${bots}/model/publisher.ts`,
+    find: "  emit(step, { type: 'write', stopAtMs: playing.stopAtMs });",
+    replace:
+      "  emit(step, { type: 'write', stopAtMs: playing.stopAtMs + 100 });",
   },
   {
     name: 'a start backing off is asked again after the claim ended',
-    file: `${bots}/publication.ts`,
-    find: '          if (writes && ended.signal.aborted) throw error;',
-    replace: '',
+    file: `${bots}/model/publisher.ts`,
+    find: "    if (args.kind !== 'end' && last) {",
+    replace: '    if (false) {',
+  },
+  {
+    name: 'a refused start still plays',
+    file: `${bots}/model/publisher.ts`,
+    find: "      const outcome = failure ?? ('granted' as const);",
+    replace: "      const outcome = 'granted' as const;",
+  },
+  {
+    name: 'a played line is never closed',
+    file: `${bots}/model/publisher.ts`,
+    find: '  const ending = lineRevealed(step.state.lines, id)',
+    replace: '  const ending = false',
   },
   {
     name: 'a phrase voiced ahead is bought again',
@@ -62,6 +75,12 @@ const mutations: readonly Mutation[] = [
     file: `${bots}/model/speech-state.ts`,
     find: '        cursor: turn.cursor + 1,',
     replace: '        cursor: turn.cursor + (turn.cursor === 1 ? 2 : 1),',
+  },
+  {
+    name: 'a replayed turn is answered again',
+    file: `${bots}/duty.ts`,
+    find: '    event.spokeUntilMs <= state.answeredThroughMs',
+    replace: '    event.spokeUntilMs < state.answeredThroughMs',
   },
   {
     name: 'cross-examination speaks over a peer mid-turn',
