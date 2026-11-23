@@ -1,10 +1,10 @@
 'use client';
 
-import { observeResize } from '../edge/use-browser-bindings';
-import { useBrowserEffect, useBrowserLayoutEffect } from '../edge/browser-sync';
-import { cancelFrame, nextFrame } from '../edge/browser-time';
+import { useResizeObserver, useWindowEvent } from '../edge/use-dom-events';
+import { useFocusOnChange } from '../edge/use-focus';
+import { useFrame } from '../edge/use-tick';
 import { Button } from '../components/button/button';
-import { StatusRegion } from '../components/status-region/status-region';
+import { Announcement } from '../components/announcement/announcement';
 import {
   useCallback,
   useId,
@@ -97,13 +97,7 @@ export function FileMenu({
   const menu = useRef<HTMLDivElement>(null);
   const [view, setView] = useState<View>('main');
   const [isOpen, setIsOpen] = useState(false);
-  const openingFrame = useRef<number | null>(null);
-  useBrowserEffect(
-    () => () => {
-      if (openingFrame.current !== null) cancelFrame(openingFrame.current);
-    },
-    [],
-  );
+  const openingFrame = useFrame();
   const isFolder = node.kind === 'folder';
   const close = () => {
     menu.current?.hidePopover();
@@ -130,20 +124,12 @@ export function FileMenu({
     menu.current.style.setProperty('--file-menu-left', `${location.left}px`);
     menu.current.style.setProperty('--file-menu-top', `${location.top}px`);
   }, []);
-  useBrowserLayoutEffect(() => {
+  useFocusOnChange(`${isOpen}:${view}`, () => {
     place();
     if (menu.current?.matches(':popover-open')) focusMenuStart(menu.current);
-  }, [isOpen, view, place]);
-  useBrowserEffect(() => {
-    const element = menu.current;
-    if (!element || !isOpen) return;
-    const stopObserving = observeResize(element, place);
-    window.addEventListener('resize', place);
-    return () => {
-      stopObserving();
-      window.removeEventListener('resize', place);
-    };
-  }, [isOpen, place]);
+  });
+  useResizeObserver(menu, place, isOpen);
+  useWindowEvent('resize', place, isOpen);
   const moveTo = (target: string | null) =>
     run(() =>
       drive.change(
@@ -156,12 +142,13 @@ export function FileMenu({
   return (
     <>
       <Button
-        variant="unstyled"
+        variant="icon"
         ref={trigger}
         type="button"
         popoverTarget={id}
         aria-label={`Actions for ${label}`}
-        className="mr-px flex size-dense-target shrink-0 cursor-pointer items-center justify-center rounded-sm file-action"
+        size="dense"
+        className="mr-px file-action"
       >
         <Icon name="dots" size={14} />
       </Button>
@@ -180,7 +167,7 @@ export function FileMenu({
           }
         }}
         onBeforeToggle={(event) => {
-          if (openingFrame.current !== null) cancelFrame(openingFrame.current);
+          openingFrame.cancel();
           if (event.newState !== 'open') return;
           // Native opening must not paint an empty shell while toggle waits in
           // its event queue. Commit the contents before entering the top layer.
@@ -203,8 +190,7 @@ export function FileMenu({
               `${initial.top}px`,
             );
           }
-          openingFrame.current = nextFrame(() => {
-            openingFrame.current = null;
+          openingFrame.arm(() => {
             if (!menu.current?.matches(':popover-open')) return;
             place();
             focusMenuStart(menu.current);
@@ -258,13 +244,13 @@ export function FileMenu({
               Move {label} to
             </p>
             {drive.folderProblem ? (
-              <StatusRegion
+              <Announcement
                 as="p"
-                role="alert"
+                kind="problem"
                 className="px-2 py-1 text-xs text-live"
               >
                 {drive.folderProblem}
-              </StatusRegion>
+              </Announcement>
             ) : null}
             <Item icon="folder" onClick={() => moveTo(null)}>
               My drive

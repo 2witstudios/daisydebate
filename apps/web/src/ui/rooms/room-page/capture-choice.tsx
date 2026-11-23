@@ -56,9 +56,10 @@ export function CaptureChoice({
               commandId={commandId}
             />
             <Button
-              variant="unstyled"
+              variant="text"
               type="submit"
-              className="self-start text-sm font-strong"
+              size="small"
+              className="self-start"
             >
               Turn off broadcast and recording
             </Button>
@@ -117,9 +118,10 @@ export function CaptureChoice({
           Record this round
         </label>
         <Button
-          variant="unstyled"
+          variant="text"
           type="submit"
-          className="self-start text-sm font-strong"
+          size="small"
+          className="self-start"
         >
           Save broadcast and recording
         </Button>

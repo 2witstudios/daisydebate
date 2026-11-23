@@ -1,6 +1,6 @@
 'use client';
 
-import { useBrowserEffect } from '../edge/browser-sync';
+import { useDeliver } from '../edge/use-answer';
 import { useCallback, useRef, useSyncExternalStore } from 'react';
 import { tabObservations } from './observation-browser';
 import type {
@@ -49,9 +49,9 @@ export function useRealtime<Body>(
     () => held.current?.view() ?? null,
     () => null,
   );
-  useBrowserEffect(() => {
-    seed.current = initial;
-    if (initial !== null) held.current?.offer(initial);
-  }, [initial]);
+  useDeliver(initial, (body) => {
+    seed.current = body;
+    if (body !== null) held.current?.offer(body);
+  });
   return live ?? { status: 'pending', body: initial };
 }

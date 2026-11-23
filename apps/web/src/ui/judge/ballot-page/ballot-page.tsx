@@ -1,6 +1,7 @@
 'use client';
-import { useBrowserEffect } from '../../edge/browser-sync';
-import { StatusRegion } from '../../components/status-region/status-region';
+import { browserScheduler } from '../../edge/browser-time';
+import { useDeliver } from '../../edge/use-answer';
+import { Announcement } from '../../components/announcement/announcement';
 import { drawnTopicLabel } from '../../../features/debate-room/vocabulary';
 import Link from 'next/link';
 import { StoredBallotScores } from '../../ballot/stored-ballot-scores';
@@ -61,9 +62,9 @@ export function BallotPage({
   if (rendered.answer !== answer)
     setRendered({ answer, revision: rendered.revision + 1 });
   useFocusAfterAnswer(answer, fields.error ? errorId : undefined, !pending);
-  useBrowserEffect(() => {
-    if (answer.kind === 'recorded') router.refresh();
-  }, [answer, router]);
+  useDeliver(answer, (shown) => {
+    if (shown.kind === 'recorded') router.refresh();
+  });
   useBallotRefresh(
     view,
     pending || answer.kind === 'unacknowledged',
@@ -72,7 +73,13 @@ export function BallotPage({
   );
   const plan = useMemo(() => ballotPlanOf(view), [view]);
   const display = ballotDisplay(view, answer);
-  const draft = useBallotDraft(plan, view, display, fields.values);
+  const draft = useBallotDraft(
+    plan,
+    view,
+    display,
+    fields.values,
+    browserScheduler,
+  );
   const own = display === 'retry' ? null : view.own?.ballot;
   const opensInMs = useBallotOpensIn(
     view.round,
@@ -127,12 +134,12 @@ export function BallotPage({
         />
       ) : null}
       {display !== 'retry' && view.round.status === 'completed' ? (
-        <StatusRegion as="p" role="status">
+        <Announcement as="p" kind="progress">
           Round outcome:{' '}
           {view.round.outcome
             ? outcomeText(plan, view.round.outcome)
             : 'No competitive outcome'}
-        </StatusRegion>
+        </Announcement>
       ) : null}
       {postRoundCallOffered(view.round, renderedAtMs) ? (
         <MediaPageLink

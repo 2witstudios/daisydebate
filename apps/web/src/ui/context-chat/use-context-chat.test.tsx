@@ -14,7 +14,11 @@ const metadata = (readOnly = false) => ({
   readOnly,
   expiresAt: null,
 });
-const page = (readOnly = false, changeVersion = 0) =>
+const page = (
+  readOnly = false,
+  changeVersion = 0,
+  messages: readonly unknown[] = [],
+) =>
   new Response(
     JSON.stringify({
       version: 1,
@@ -24,7 +28,7 @@ const page = (readOnly = false, changeVersion = 0) =>
         version: 1,
         channelId,
         changeVersion,
-        messages: [],
+        messages,
         nextBefore: null,
         viewer: {
           readSequence: 0,
@@ -721,6 +725,38 @@ test('a reader who may no longer post has the chat read again as read-only', asy
         unchanged: true,
         onRevision: ['read'],
       },
+    });
+  } finally {
+    await chat.unmount();
+  }
+});
+
+test('an author the reader may never name asks for one refresh per change, not one per answer', async () => {
+  const unnamed = {
+    id: 'm'.repeat(24),
+    channelId,
+    sequence: 1,
+    changeVersion: 1,
+    authorActorId: 'u'.repeat(24),
+    text: 'From a judge the reader may not name',
+    createdAt: '2026-11-12T00:00:00.000Z',
+    editedAt: null,
+    reactions: [],
+  };
+  const chat = await mount(null, 'on its way');
+  try {
+    // Answer every read with the same version, whose author is never labelled.
+    for (let answered = 0; answered < 6; answered += 1) {
+      const next = chat.reads[answered];
+      if (next === undefined) break;
+      await chat.act(() => next.resolve(page(false, 1, [unnamed])));
+    }
+    assert({
+      given:
+        'a history whose one message is by an author the thread never names, each read answered in turn',
+      should: 'read once, ask for one refresh for that version, and stop',
+      actual: chat.reads.length,
+      expected: 2,
     });
   } finally {
     await chat.unmount();

@@ -1223,15 +1223,217 @@ describe('browser edges', () => {
     assert({
       given:
         'a server module that statically imports, reexports or dynamically imports the browser adapter',
-      should: 'report each cross-boundary module dependency',
+      should:
+        'report each cross-boundary module dependency and the aliased port',
       actual: await probe(
         web('server/probe.ts'),
-        `import { browserFetch } from '../ui/edge/browser-request';
-         export { browserFetch as transport } from '../ui/edge/browser-request';
+        `import { browserTransport } from '../ui/edge/browser-request';
+         export { browserTransport as transport } from '../ui/edge/browser-request';
          export const read = () => import('../ui/edge/browser-request');
-         export const fetcher = browserFetch;`,
+         export const fetcher = browserTransport;`,
+      ),
+      expected: 4,
+    });
+  });
+
+  test('refuses a re-exported effect under any name, the edge included', async () => {
+    assert({
+      given:
+        'the edge and a feature module re-exporting React effects by alias, by binding and wholesale',
+      should: 'report each re-export',
+      actual: await Promise.all([
+        probe(
+          web('ui/edge/browser-sync.ts'),
+          `export {
+             useEffect as useBrowserEffect,
+             useLayoutEffect as useBrowserLayoutEffect,
+           } from 'react';`,
+        ),
+        probe(
+          web('ui/edge/lifetime.ts'),
+          `import * as React from 'react';
+           import { useEffect } from 'react';
+           export { useEffect as useLifetime };
+           export const useLayout = React.useLayoutEffect;
+           export const usePassive = useEffect;`,
+        ),
+        probe(web('ui/room/hooks.ts'), `export * from 'react';`),
+      ]),
+      expected: [2, 3, 1],
+    });
+  });
+
+  test('refuses a hook that takes an arbitrary effect', async () => {
+    assert({
+      given: 'an edge hook typed with React’s effect callback and dependencies',
+      should: 'report the effect types, imported or namespaced',
+      actual: await probe(
+        web('ui/edge/use-mount.ts'),
+        `import * as React from 'react';
+         import { useEffect, type EffectCallback, type DependencyList } from 'react';
+         export function useMount(start: EffectCallback, deps: DependencyList) {
+           useEffect(start, deps);
+         }
+         export const useLater = (start: React.EffectCallback) => useEffect(start);`,
       ),
       expected: 3,
+    });
+  });
+
+  test('injects the timer and request ports instead of calling them', async () => {
+    assert({
+      given:
+        'a component calling, and a driver composition passing, the browser ports',
+      should: 'report only the calls',
+      actual: await probe(
+        web('ui/room/controls.tsx'),
+        `import { browserScheduler } from '../edge/browser-time';
+         import { browserTransport } from '../edge/browser-request';
+         import * as time from '../edge/browser-time';
+         browserScheduler.after(() => {}, 10);
+         void browserTransport('/api/rooms');
+         time.browserScheduler.every(() => {}, 10);
+         export const driver = createDriver({ fetch: browserTransport, scheduler: browserScheduler });`,
+      ),
+      expected: 3,
+    });
+  });
+
+  test('refuses a port called through an alias, a destructure or a default', async () => {
+    assert({
+      given:
+        'a port aliased, destructured, defaulted as a parameter, and one handed on as an argument and a property',
+      should: 'report the three uses and allow the two hand-offs',
+      actual: await probe(
+        web('ui/room/controls.tsx'),
+        `import { browserScheduler } from '../edge/browser-time';
+         import { browserTransport } from '../edge/browser-request';
+         const s = browserScheduler;
+         const { every } = browserScheduler;
+         export const read = (transport = browserTransport) => transport('/x');
+         export const poll = startPoll(browserScheduler.after);
+         export const client = createClient({ fetch: browserTransport });
+         void s; void every;`,
+      ),
+      expected: 3,
+    });
+  });
+
+  test('refuses an edge hook handed a dependency list instead of its value', async () => {
+    assert({
+      given:
+        'a zero-parameter handler, an unused parameter, a template-literal key, a JSON.stringify key and an array key',
+      should:
+        'report each, and allow a job acting on its value or an answer’s arrival',
+      actual: await Promise.all([
+        probe(
+          web('ui/room/controls.tsx'),
+          `import { useDeliver } from '../edge/use-answer';
+           import { useResource } from '../edge/use-driver';
+           export function useMarks(a: string, b: number) {
+             useDeliver(a, () => mark());
+             useResource(a, (unused) => open());
+             useDeliver(\`\${a}|\${b}\`, (key) => mark(key));
+             useDeliver(JSON.stringify([a, b]), (key) => mark(key));
+             useResource([a, b], (key) => open(key));
+           }`,
+        ),
+        probe(
+          web('ui/room/controls.tsx'),
+          `import { useAnswer, useDeliver } from '../edge/use-answer';
+           import { useResource } from '../edge/use-driver';
+           export function useMarks(mark: Mark, answer: Answer, onAnswer: () => void) {
+             useDeliver(mark, (shown) => send(shown.sequence));
+             useResource(mark, ({ channelId }) => open(channelId));
+             useDeliver(answer, report);
+             useAnswer(answer, () => onAnswer());
+           }`,
+        ),
+      ]),
+      expected: [5, 0],
+    });
+  });
+
+  test('refuses a memoised value whose fields only re-fire the job', async () => {
+    assert({
+      given:
+        'memoised values with a field the handler never reads: by destructure, by member, with no parameter, as an array, from a block body and through a named handler',
+      should:
+        'report each, and allow a value whose every field the job reads or a prop handler it cannot read',
+      actual: await Promise.all([
+        probe(
+          web('ui/room/controls.tsx'),
+          `import { useMemo } from 'react';
+           import { useAnswer, useDeliver } from '../edge/use-answer';
+           export function useBar(reader: Reader, path: string, seed: number) {
+             const view = useMemo(() => ({ reader, path, seed }), [reader, path, seed]);
+             useDeliver(view, ({ reader }) => reader.read());
+             const shown = useMemo(() => ({ reader, path }), [reader, path]);
+             useDeliver(shown, (value) => value.reader.read());
+             const moved = useMemo(() => ({ path }), [path]);
+             useAnswer(moved, () => refresh());
+             const pair = useMemo(() => [reader, path] as const, [reader, path]);
+             useDeliver(pair, ([r]) => r.read());
+             const block = useMemo(() => {
+               return { reader, path };
+             }, [reader, path]);
+             useDeliver(block, ({ reader }) => reader.read());
+             const bag = useMemo(() => ({ reader, seed }), [reader, seed]);
+             function handle(value: { reader: Reader }) {
+               value.reader.read();
+             }
+             useDeliver(bag, handle);
+           }`,
+        ),
+        probe(
+          web('ui/room/controls.tsx'),
+          `import { useMemo } from 'react';
+           import { useDeliver } from '../edge/use-answer';
+           export function useMark(channelId: string, sequence: number) {
+             const mark = useMemo(() => ({ channelId, sequence }), [channelId, sequence]);
+             useDeliver(mark, ({ channelId, sequence }) => send(channelId, sequence));
+           }
+           export function Bar({ a, onShown }: { a: number; onShown: (v: unknown) => void }) {
+             const v = useMemo(() => ({ a, b: 2 }), [a]);
+             useDeliver(v, onShown);
+             return null;
+           }`,
+        ),
+      ]),
+      expected: [6, 0],
+    });
+  });
+
+  test('a port inside an object or array is handed on only as an argument', async () => {
+    assert({
+      given:
+        'ports bound into a local object and array then used, a browser wait called, and ports in an argument literal',
+      should:
+        'report the bound ports and the wait call, and allow the argument',
+      actual: await Promise.all([
+        probe(
+          web('ui/messaging/mark-read.tsx'),
+          `import { browserScheduler } from '../edge/browser-time';
+           import { browserTransport } from '../edge/browser-request';
+           import { pause } from '../edge/browser-waits';
+           const ports = { s: browserScheduler, t: browserTransport };
+           ports.s.after(run, 10);
+           const [t2] = [browserTransport];
+           void t2('/y');
+           void pause(5);`,
+        ),
+        probe(
+          web('ui/messaging/mark-read.tsx'),
+          `import { browserScheduler } from '../edge/browser-time';
+           import { browserTransport } from '../edge/browser-request';
+           import { pause } from '../edge/browser-waits';
+           export const driver = createDriver({
+             ports: { wait: browserScheduler.after, fetch: browserTransport },
+             waits: [pause],
+           });`,
+        ),
+      ]),
+      expected: [4, 0],
     });
   });
 

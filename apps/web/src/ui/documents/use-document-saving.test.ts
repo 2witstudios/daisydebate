@@ -249,8 +249,7 @@ test('browser resource composition shares exact serialized exit capacity across 
       },
     });
   const resources = () => ({
-    ...browserDraftResources(),
-    timers: manualTimers().timers,
+    ...browserDraftResources(manualTimers().timers),
     storage: memoryStorage(),
     wallClock: () => 100,
   });

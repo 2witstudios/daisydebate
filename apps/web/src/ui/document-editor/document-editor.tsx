@@ -1,10 +1,10 @@
 'use client';
 
-import { useBrowserEffect } from '../edge/browser-sync';
+import { useDeliver } from '../edge/use-answer';
 import type { PageTone } from '../../features/documents/document-manager-state';
 import { createDocument } from '@tiptap/core';
 import { EditorContent, useEditor } from '@tiptap/react';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { sameDocumentHtml } from '../../features/documents/document-lines';
 import { documentExtensions } from '../../features/documents/document-schema';
 import { EditorToolbar } from './editor-toolbar';
@@ -66,26 +66,38 @@ export function DocumentEditor({
 
   // Renaming changes the accessible name on the existing view, preserving its
   // content, history and selection rather than rebuilding the editor.
-  useBrowserEffect(() => {
-    editor?.setOptions({
+  const named = useMemo(
+    () => ({ editor, title: document.title }),
+    [editor, document.title],
+  );
+  useDeliver(named, ({ editor: open, title }) => {
+    open?.setOptions({
       editorProps: {
-        ...editor.options.editorProps,
-        attributes: editorAttributes(document.title),
+        ...open.options.editorProps,
+        attributes: editorAttributes(title),
       },
     });
-  }, [editor, document.title]);
+  });
 
   // A change from outside the editor (an applied agent edit, a server load)
   // goes into the open editor without echoing back as a local update.
-  useBrowserEffect(() => {
-    if (!editor || sameDocumentHtml(editor.getHTML(), document.html)) return;
+  const stored = useMemo(
+    () => ({
+      editor,
+      html: document.html,
+      undoable: document.textFromServer !== true,
+    }),
+    [editor, document.html, document.textFromServer],
+  );
+  useDeliver(stored, ({ editor: open, html, undoable }) => {
+    if (!open || sameDocumentHtml(open.getHTML(), html)) return;
     const change = outsideTextTransaction(
-      editor.state,
-      createDocument(document.html, editor.schema),
-      { undoable: document.textFromServer !== true },
+      open.state,
+      createDocument(html, open.schema),
+      { undoable },
     );
-    if (change) editor.view.dispatch(change);
-  }, [editor, document.html, document.textFromServer]);
+    if (change) open.view.dispatch(change);
+  });
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">

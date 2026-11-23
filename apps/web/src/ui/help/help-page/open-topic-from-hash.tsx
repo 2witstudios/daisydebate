@@ -1,6 +1,7 @@
 'use client';
 
-import { useBrowserEffect } from '../../edge/browser-sync';
+import { useDeliver } from '../../edge/use-answer';
+import { useWindowEvent } from '../../edge/use-dom-events';
 
 import { topicFromHash } from './topic-from-hash';
 
@@ -16,17 +17,13 @@ export function OpenTopicFromHash({
 }: {
   readonly topicIds: readonly string[];
 }) {
-  useBrowserEffect(() => {
-    const open = () => {
-      const id = topicFromHash(window.location.hash, topicIds);
-      const details = id
-        ? document.getElementById(id)?.closest('details')
-        : null;
-      if (details) details.open = true;
-    };
-    open();
-    window.addEventListener('hashchange', open);
-    return () => window.removeEventListener('hashchange', open);
-  }, [topicIds]);
+  const open = (ids: readonly string[]) => {
+    const id = topicFromHash(window.location.hash, ids);
+    const details = id ? document.getElementById(id)?.closest('details') : null;
+    if (details) details.open = true;
+  };
+  // On arrival, for each new set of topics, and on every hash change.
+  useDeliver(topicIds, open);
+  useWindowEvent('hashchange', () => open(topicIds));
   return null;
 }

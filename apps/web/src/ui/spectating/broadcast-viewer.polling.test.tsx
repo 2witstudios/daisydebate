@@ -45,13 +45,28 @@ const mount = async () => {
   const polls = new Map<object, () => void>();
   let refreshes = 0;
   const noop = () => undefined;
+  const fetch = async (url: string) => {
+    reads.push(url);
+    return answers.get(url)!();
+  };
+  // A poll waits seconds; everything React schedules runs on the next turn.
+  const setTimeoutFake = (run: () => void, ms = 0) => {
+    if (ms < 1000) return setTimeout(run, 0);
+    const handle = {};
+    polls.set(handle, run);
+    return handle;
+  };
+  const clearTimeoutFake = (
+    handle: object | Parameters<typeof clearTimeout>[0],
+  ) => {
+    if (typeof handle === 'object' && handle !== null && polls.delete(handle))
+      return;
+    clearTimeout(handle as Parameters<typeof clearTimeout>[0]);
+  };
   const client = await mountBrowserClient<typeof Client>(
     Bun.resolveSync('./broadcast-viewer.test-support', import.meta.dir),
     {
-      fetch: async (url: string) => {
-        reads.push(url);
-        return answers.get(url)!();
-      },
+      fetch,
       AbortSignal,
       // next/link reads build flags from the environment.
       process: { env: {} },
@@ -67,24 +82,16 @@ const mount = async () => {
       TextDecoder,
       performance,
       crypto,
-      // A poll waits seconds; everything React schedules runs on the next turn.
-      setTimeout: (run: () => void, ms = 0) => {
-        if (ms < 1000) return setTimeout(run, 0);
-        const handle = {};
-        polls.set(handle, run);
-        return handle;
-      },
-      clearTimeout: (handle: object | Parameters<typeof clearTimeout>[0]) => {
-        if (
-          typeof handle === 'object' &&
-          handle !== null &&
-          polls.delete(handle)
-        )
-          return;
-        clearTimeout(handle as Parameters<typeof clearTimeout>[0]);
-      },
+      setTimeout: setTimeoutFake,
+      clearTimeout: clearTimeoutFake,
     },
   );
+  // The browser ports read the window's own transport and timers.
+  Object.assign(client.browser, {
+    fetch,
+    setTimeout: setTimeoutFake,
+    clearTimeout: clearTimeoutFake,
+  });
   const router = {
     bfcacheId: 'test',
     back: noop,

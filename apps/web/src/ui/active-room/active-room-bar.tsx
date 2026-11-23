@@ -1,7 +1,8 @@
 'use client';
 
-import { useBrowserEffect } from '../edge/browser-sync';
-import { browserFetch } from '../edge/browser-request';
+import { browserTransport } from '../edge/browser-request';
+import { useAnswer } from '../edge/use-answer';
+import { useResource } from '../edge/use-driver';
 import { useState } from 'react';
 import { refreshActiveRoom } from './refresh-membership';
 import { usePathname } from 'next/navigation';
@@ -30,6 +31,22 @@ export const showsActiveRoomBar = (
  * A slim bar above every other shell page while the viewer is in a Room, so
  * wherever they wander there is one way back.
  */
+/**
+ * The bar's reader: it reads once on opening, each read replaces the one
+ * before it, and leaving aborts the last.
+ */
+function openActiveRoomReader(adopt: (room: ActiveRoomSummary | null) => void) {
+  let current: AbortController | null = null;
+  const read = () => {
+    current?.abort();
+    const controller = new AbortController();
+    current = controller;
+    void refreshActiveRoom(browserTransport, controller.signal, adopt);
+  };
+  read();
+  return { read, dispose: () => current?.abort() };
+}
+
 export function ActiveRoomBar({
   room: seed,
 }: {
@@ -37,11 +54,11 @@ export function ActiveRoomBar({
 }) {
   const pathname = usePathname();
   const [room, setRoom] = useState(seed);
-  useBrowserEffect(() => {
-    const controller = new AbortController();
-    void refreshActiveRoom(browserFetch, controller.signal, setRoom);
-    return () => controller.abort();
-  }, [pathname, seed]);
+  // The reader reads as it opens; each page the viewer reaches, and each
+  // new seed, reads the Room again.
+  const reader = useResource(setRoom, openActiveRoomReader);
+  useAnswer(pathname, () => reader?.read());
+  useAnswer(seed, () => reader?.read());
   if (!room || !showsActiveRoomBar(pathname, room)) return null;
   return (
     <MediaPageLink

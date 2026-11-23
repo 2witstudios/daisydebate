@@ -1,4 +1,4 @@
-import { StatusRegion } from '../../components/status-region/status-region';
+import { Announcement } from '../../components/announcement/announcement';
 import type {
   ManageState,
   SentState,
@@ -20,8 +20,8 @@ export const problemOf = (answers: readonly Answer[]): string | undefined => {
 export function Problem({ state }: { readonly state: Answer }) {
   const problem = problemOf([state]);
   return problem === undefined ? null : (
-    <StatusRegion as="p" role="alert" className={errorClass}>
+    <Announcement as="p" kind="problem" className={errorClass}>
       {problem}
-    </StatusRegion>
+    </Announcement>
   );
 }

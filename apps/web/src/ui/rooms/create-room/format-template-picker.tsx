@@ -2,17 +2,10 @@
 
 import { Dialog } from '../../components/dialog/dialog';
 import { Button } from '../../components/button/button';
-import {
-  useId,
-  useRef,
-  useState,
-  useSyncExternalStore,
-  type RefObject,
-} from 'react';
+import { useId, useState, useSyncExternalStore } from 'react';
 import type { RoomTemplate } from '../../../features/rooms/read-catalog';
 import { FormField } from '../../components/form-field/form-field';
 import { controlClass } from '../../components/form-field/form-field-class';
-import { buttonClass } from '../../components/button/button-class';
 import { clockDuration } from '../../../features/rooms/duration-input';
 import {
   formatFamilyLabel,
@@ -68,14 +61,16 @@ function TemplateSchedule({ choice }: { readonly choice: RoomTemplate }) {
 function FormatBrowserDialog({
   choices,
   serialize,
-  dialog,
+  open,
+  onClose,
   draft,
   setDraft,
   onUse,
 }: {
   readonly choices: readonly RoomTemplate[];
   readonly serialize: (choice: RoomTemplate) => string;
-  readonly dialog: RefObject<HTMLDialogElement | null>;
+  readonly open: boolean;
+  readonly onClose: () => void;
   readonly draft: string;
   readonly setDraft: (value: string) => void;
   readonly onUse: () => void;
@@ -88,7 +83,8 @@ function FormatBrowserDialog({
   const preview = choices.find((choice) => serialize(choice) === draft);
   return (
     <Dialog
-      ref={dialog}
+      open={open}
+      onClose={onClose}
       aria-labelledby={titleId}
       className="m-auto max-h-full w-full max-w-dash-column overflow-y-auto rounded-xl border border-border bg-surface p-6 text-ink shadow-3 backdrop:bg-scrim max-compact:rounded-none"
     >
@@ -96,11 +92,7 @@ function FormatBrowserDialog({
         <h2 id={titleId} className="font-display text-xl font-bold">
           Choose a format
         </h2>
-        <Button
-          variant="secondary"
-          type="button"
-          onClick={() => dialog.current?.close()}
-        >
+        <Button variant="secondary" type="button" onClick={onClose}>
           Cancel
         </Button>
       </header>
@@ -122,12 +114,12 @@ function FormatBrowserDialog({
             >
               {tabs.map((option) => (
                 <Button
-                  variant="unstyled"
+                  variant="chip"
                   type="button"
                   key={option.key}
                   aria-pressed={option.key === tab}
                   onClick={() => setTab(option.key)}
-                  className="min-h-room-target rounded-round border border-border px-3 text-sm font-strong aria-pressed:border-accent aria-pressed:bg-accent aria-pressed:text-accent-ink"
+                  size="room"
                 >
                   {option.label}
                 </Button>
@@ -140,11 +132,10 @@ function FormatBrowserDialog({
           >
             {listed.map((choice) => (
               <Button
-                variant="unstyled"
+                variant="option-card"
                 type="button"
                 key={`${choice.formatId}:${choice.formatVersion}`}
                 aria-pressed={draft === serialize(choice)}
-                className="rounded-lg border border-border p-3 text-left hover:bg-surface-raised aria-pressed:border-accent aria-pressed:bg-surface-raised"
                 onClick={() => setDraft(serialize(choice))}
               >
                 <span className="block">{choice.label}</span>
@@ -212,7 +203,7 @@ export function FormatTemplatePicker({
     () => true,
     () => false,
   );
-  const dialog = useRef<HTMLDialogElement>(null);
+  const [browsing, setBrowsing] = useState(false);
   const selected = choices.find((choice) => serialize(choice) === value);
   return (
     <div className="flex flex-col gap-3">
@@ -250,13 +241,12 @@ export function FormatTemplatePicker({
       {choices.length > 0 ? (
         <>
           <Button
-            variant="unstyled"
+            variant="secondary"
             type="button"
             hidden={!interactive}
-            className={buttonClass('secondary')}
             onClick={() => {
               setDraft(value);
-              dialog.current?.showModal();
+              setBrowsing(true);
             }}
           >
             Browse formats
@@ -264,12 +254,13 @@ export function FormatTemplatePicker({
           <FormatBrowserDialog
             choices={choices}
             serialize={serialize}
-            dialog={dialog}
+            open={browsing}
+            onClose={() => setBrowsing(false)}
             draft={draft}
             setDraft={setDraft}
             onUse={() => {
               setValue(draft);
-              dialog.current?.close();
+              setBrowsing(false);
             }}
           />
         </>

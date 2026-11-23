@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useBrowserEffect } from '../../edge/browser-sync';
+import { useResource } from '../../edge/use-driver';
 import { assemblySnapshot } from '../../../features/rooms/assembly.test-support';
 import { AssemblyDeviceReadiness } from './assembly-device-readiness';
 import { idle } from '../../../features/forms/form-state';
@@ -11,15 +11,17 @@ export const discoveryCount = () => pending.length;
 export const finishFirstDiscovery = () => pending[0]?.();
 function PendingChat() {
   const [status, setStatus] = useState('Loading Room chat');
-  useBrowserEffect(() => {
+  useResource('discovery', () => {
     let present = true;
     pending.push(() => {
       if (present) setStatus('Recovered Room chat');
     });
-    return () => {
-      present = false;
+    return {
+      dispose: () => {
+        present = false;
+      },
     };
-  }, []);
+  });
   return <output>{status}</output>;
 }
 

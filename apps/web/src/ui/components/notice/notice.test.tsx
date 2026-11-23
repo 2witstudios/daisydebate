@@ -28,7 +28,7 @@ describe('Notice', () => {
         tone: 'accent',
         icon: 'check',
         title: 'Saved',
-        role: 'status',
+        announced: true,
       }),
     );
     assert({

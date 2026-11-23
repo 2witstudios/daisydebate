@@ -1,4 +1,4 @@
-import { scheduleDelay } from '../edge/browser-time';
+import type { BrowserScheduler } from '../edge/browser-time';
 import {
   startPacedPoll,
   type PollAnswer,
@@ -6,10 +6,8 @@ import {
 
 const spread = () => crypto.getRandomValues(new Uint32Array(1))[0]! / 2 ** 32;
 
-const schedule = (ms: number, run: () => void) => {
-  return scheduleDelay(run, ms);
-};
-
-/** A viewer's read loop on the browser's clock and entropy; returns its stop. */
-export const startBrowserPoll = (read: () => Promise<PollAnswer>) =>
-  startPacedPoll({ read, spread, schedule });
+/** A viewer's read loop on the given clock and the browser's entropy; returns its stop. */
+export const startBrowserPoll = (
+  read: () => Promise<PollAnswer>,
+  after: BrowserScheduler['after'],
+) => startPacedPoll({ read, spread, schedule: (ms, run) => after(run, ms) });

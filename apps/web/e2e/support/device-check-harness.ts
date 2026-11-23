@@ -1,10 +1,16 @@
 import type { DeviceCheckSnapshot } from '../../src/features/video/device-check-controller';
-import { createBrowserDeviceChecks } from '../../src/ui/round-media/browser-device-checks';
+import {
+  browserDeviceEdge,
+  createBrowserDeviceChecks,
+} from '../../src/ui/round-media/browser-device-checks';
+import { browserScheduler } from '../../src/ui/edge/browser-time';
 
 export const deviceCheckHarnessEntry = new URL(import.meta.url).pathname;
 
 function mount() {
-  const controller = createBrowserDeviceChecks();
+  const controller = createBrowserDeviceChecks(
+    browserDeviceEdge(browserScheduler),
+  );
   const output = document.querySelector('output')!;
   controller.subscribe((snapshot: DeviceCheckSnapshot) => {
     output.textContent = JSON.stringify({

@@ -1,4 +1,4 @@
-import { StatusRegion } from '../../components/status-region/status-region';
+import { Announcement } from '../../components/announcement/announcement';
 import Link from 'next/link';
 import type { AssignedDebate } from '../../../features/judge/get-assigned';
 import { PageHeader } from '../../components/page-header/page-header';
@@ -20,10 +20,10 @@ export function JudgeHub({ assigned }: JudgeHubProps) {
           className="flex flex-col gap-3 rounded-xl border border-border bg-surface p-6"
         >
           <h2 className="text-lg font-strong">No assigned Rounds</h2>
-          <StatusRegion as="p" role="status">
+          <Announcement as="p" kind="progress">
             Join a Room as its judge. Your assigned Rounds and recorded ballots
             appear here.
-          </StatusRegion>
+          </Announcement>
         </section>
       )}
       <div className="flex flex-wrap gap-3">

@@ -10,7 +10,6 @@ import {
   entrySearchOf,
   type EntryFilter,
 } from '../../../features/tab/entry-search';
-import { buttonClass } from '../../components/button/button-class';
 import { ActionButton } from '../action-control/action-control';
 import {
   GroupRows,
@@ -127,14 +126,11 @@ export function EntrySummary({ entries }: { readonly entries: HostEntries }) {
         >
           {search.choices.map((choice) => (
             <Button
-              variant="unstyled"
+              variant={filter.status === choice.id ? 'primary' : 'secondary'}
               key={choice.id}
               type="button"
               aria-pressed={filter.status === choice.id}
               onClick={() => setFilter({ ...filter, status: choice.id })}
-              className={buttonClass(
-                filter.status === choice.id ? 'primary' : 'secondary',
-              )}
             >
               {choice.label} {choice.count}
             </Button>

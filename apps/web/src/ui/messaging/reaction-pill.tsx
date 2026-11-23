@@ -8,7 +8,6 @@ import {
   reactionPillUnavailable,
   type ReactionPillState,
 } from '../../features/messaging/forms/reaction-pill-form';
-import { cn } from '../cn';
 
 export type ReactionPillAction = FormAction<ReactionPillState>;
 
@@ -63,18 +62,12 @@ export function ReactionPill({
       <input type="hidden" name="observed" value={String(observed)} />
       <input type="hidden" name="active" value={String(!own)} />
       <Button
-        variant="unstyled"
+        variant="reaction"
         type="submit"
         disabled={pending}
         aria-pressed={own}
         aria-label={`${reaction} ${shownCount}${own ? ', you reacted. Remove' : '. React'}`}
         title={fields.notice}
-        className={cn(
-          'inline-flex h-6 cursor-pointer items-center gap-1 rounded-round border px-2 text-xs font-semibold tabular-nums disabled:opacity-60',
-          own
-            ? 'border-border-strong bg-accent-soft text-ink'
-            : 'border-border bg-surface-raised text-ink-muted hover:border-border-strong hover:text-ink',
-        )}
       >
         <span aria-hidden="true">{reaction}</span>
         <span aria-hidden="true">{shownCount}</span>

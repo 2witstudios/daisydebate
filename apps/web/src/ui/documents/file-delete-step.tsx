@@ -1,8 +1,7 @@
 'use client';
 
-import { useBrowserEffect } from '../edge/browser-sync';
-import { StatusRegion } from '../components/status-region/status-region';
-import { useState } from 'react';
+import { useSettled } from '../edge/use-settled';
+import { Announcement } from '../components/announcement/announcement';
 import type { DriveNode } from '../../features/documents/drive-tree';
 import { FileMenuItem } from './file-menu-item';
 import type { DriveActions } from './use-drive';
@@ -28,30 +27,24 @@ export function FileDeleteStep({
   readonly close: () => void;
   readonly run: (action: () => void) => void;
 }) {
-  const [preview, setPreview] = useState<DeletionPreview>(
-    node.kind === 'folder' ? { kind: 'loading' } : { kind: 'ready', count: 1 },
+  const counted = useSettled(
+    node.kind === 'folder' ? node.id : null,
+    folderCount,
   );
-  useBrowserEffect(() => {
-    if (node.kind !== 'folder') return;
-    let live = true;
-    folderCount(node.id).then(
-      (count) => {
-        if (live) setPreview({ kind: 'ready', count });
-      },
-      () => {
-        if (live) setPreview({ kind: 'failed' });
-      },
-    );
-    return () => {
-      live = false;
-    };
-  }, [node.id, node.kind, folderCount]);
+  const preview: DeletionPreview =
+    node.kind !== 'folder'
+      ? { kind: 'ready', count: 1 }
+      : counted === null
+        ? { kind: 'loading' }
+        : counted.kind === 'ready'
+          ? { kind: 'ready', count: counted.value }
+          : { kind: 'failed' };
   return (
     <>
-      <StatusRegion
+      <Announcement
         as="p"
         className="px-2 py-1 text-xs text-ink-muted"
-        role={preview.kind === 'failed' ? 'alert' : 'status'}
+        kind={preview.kind === 'failed' ? 'problem' : 'progress'}
       >
         {preview.kind === 'loading'
           ? 'Counting documents…'
@@ -60,7 +53,7 @@ export function FileDeleteStep({
             : node.kind === 'folder'
               ? `This deletes ${label}, the folders inside it and ${preview.count} ${preview.count === 1 ? 'document' : 'documents'} for good. They cannot be restored.`
               : `This deletes ${label} for good. It cannot be restored.`}
-      </StatusRegion>
+      </Announcement>
       <FileMenuItem
         icon="trash"
         danger
