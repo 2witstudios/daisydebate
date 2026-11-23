@@ -136,13 +136,7 @@ const strikeSettings = (
  */
 
 /** [key, label, type, seat, minutes]: the seat speaks a speech, or asks in cross-ex. */
-type SegmentRow = readonly [
-  string,
-  string,
-  SegmentType,
-  SeatRef,
-  number,
-];
+type SegmentRow = readonly [string, string, SegmentType, SeatRef, number];
 
 /** The two-sided preset's seats, by slot. */
 const aff = (slot: number) => sideSeat(affirmativeSide, slot);

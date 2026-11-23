@@ -215,7 +215,9 @@ export function createMediaReconcileStore(input: {
         await tx
           .update(mediaSessions)
           .set({
-            reconcileLeaseUntil: new Date(addMs(dispatchedAtIso, MEDIA_RECONCILE_LEASE_MS)),
+            reconcileLeaseUntil: new Date(
+              addMs(dispatchedAtIso, MEDIA_RECONCILE_LEASE_MS),
+            ),
           })
           .where(eq(mediaSessions.id, session.id));
         return id;

@@ -1,6 +1,4 @@
-import { sha3Hex } from '@daisy/digest';
 import { z } from 'zod';
-import { createAppError } from '@daisy/errors';
 import { idSchema } from '@daisy/protocol/primitives';
 export const policy = z.strictObject({
   leaseMs: z.number().int().min(1).max(60000),
