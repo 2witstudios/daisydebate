@@ -1,4 +1,4 @@
-import { ladderCopyIn } from '../test-support/ladder-copy.test-support';
+import { ladderCopyInView } from '../test-support/ladder-copy.test-support';
 import { createElement as h } from 'react';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { Dashboard } from './dashboard';
@@ -159,7 +159,8 @@ describe('Dashboard ladder words', () => {
         'show Play with only its title and tagline, and Leaderboard with its shipped tagline, naming no division',
       actual: [
         play?.textContent,
-        ladderCopyIn(text) ?? (text.includes('Freestyle') ? 'Freestyle' : null),
+        ladderCopyInView(view) ??
+          (text.includes('Freestyle') ? 'Freestyle' : null),
         text.includes('The season ladder.'),
       ],
       expected: [`${playTile?.title}${playTile?.description}`, null, true],

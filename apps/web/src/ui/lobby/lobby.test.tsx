@@ -1,3 +1,4 @@
+import { ladderCopyInView } from '../test-support/ladder-copy.test-support';
 import { instantMs } from '@daisy/clock';
 import {
   renderAccessible,
@@ -53,24 +54,6 @@ const filterFields = (view: AccessibleView) => {
     .map((field) => field as HTMLInputElement)
     .filter((field) => field.name !== '')
     .map((field) => `${field.name}=${field.value}`);
-};
-/**
- * The owner copy rule of ladder-copy.test-support (no division words outside
- * the lobby switch and the selects), read from the page's text. The shared
- * helper still reads HTML strings, which these tests no longer have.
- */
-const divisionWords =
-  /Open – |Youth – | ladders\.|Freestyle ladder|Open and Youth|Youth and Open|under 18|18 and over|Open lobby|Youth lobby/;
-const ladderCopyIn = (view: AccessibleView) => {
-  const controls = [
-    view.text('navigation', 'Lobby'),
-    ...view.all('combobox').map((select) => select.textContent ?? ''),
-  ];
-  const text = controls.reduce(
-    (rest, control) => rest.replace(control, ''),
-    view.textContent(),
-  );
-  return divisionWords.exec(text)?.[0] ?? null;
 };
 const render = (props: Partial<LobbyProps> = {}) =>
   renderAccessible(
@@ -471,7 +454,7 @@ describe('Lobby', () => {
           view.attribute('link', 'Judge: Judge wanted', 'href'),
           view.text('link', 'Judge: Judge wanted'),
         ],
-        ladderCopyIn(view),
+        ladderCopyInView(view, { format: true }),
         view.textContent().includes('Freestyle'),
       ],
       expected: ['Watch', false, [`/rooms/${id('c')}`, 'Judge'], null, false],

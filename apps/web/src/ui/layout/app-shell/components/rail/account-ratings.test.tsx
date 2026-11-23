@@ -1,4 +1,4 @@
-import { ladderCopyIn } from '../../../../test-support/ladder-copy.test-support';
+import { ladderCopyInView } from '../../../../test-support/ladder-copy.test-support';
 import { createElement as h } from 'react';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { renderAccessible } from '../../../../../test-support/rendered/accessible';
@@ -124,7 +124,7 @@ describe('AccountRatings', () => {
         view.within('region', 'Ratings').has('heading', 'Ranked · Fall 2026'),
         view.text('term'),
         view.text('definition', 'Provisional rating'),
-        ladderCopyIn(text) ??
+        ladderCopyInView(view) ??
           ['Youth', 'Open', 'Freestyle'].some((word) => text.includes(word)),
       ],
       expected: [true, 'Rating', '1530*', false],
