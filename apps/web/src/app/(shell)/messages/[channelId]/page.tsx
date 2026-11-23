@@ -1,4 +1,4 @@
-import { StatusRegion } from '../../../../ui/components/status-region/status-region';
+import { Announcement } from '../../../../ui/components/announcement/announcement';
 import { headers } from 'next/headers';
 import {
   ConversationNavigation,
@@ -105,13 +105,13 @@ export default async function ConversationPage({
             }
           />
         ) : conversation === null ? (
-          <StatusRegion
+          <Announcement
             as="p"
-            role="status"
+            kind="progress"
             className="flex-1 p-6 text-ink-muted"
           >
             This conversation is unavailable. Refresh to try again.
-          </StatusRegion>
+          </Announcement>
         ) : (
           <>
             {searchQuery === undefined && !paging ? (

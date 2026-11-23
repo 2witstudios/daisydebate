@@ -1,5 +1,4 @@
-import { cancelDelay, delay } from './browser-time';
-import { browserFetch } from './browser-request';
+import { browserTransport } from './browser-request';
 import type {
   ConnectionStoreDeps,
   Scheduler,
@@ -26,8 +25,8 @@ import { sharedConnections } from '../../features/realtime/shared-connection';
  */
 export const systemScheduler: Scheduler = {
   now: () => performance.now(),
-  setTimeout: (callback, ms) => delay(callback, ms),
-  clearTimeout: (id) => cancelDelay(id as ReturnType<typeof delay>),
+  setTimeout: (callback, ms) => window.setTimeout(callback, ms),
+  clearTimeout: (id) => window.clearTimeout(id as number),
 };
 
 /**
@@ -94,7 +93,7 @@ export function createBrowserConnectionStore(url: string): ConnectionStore {
       fetchRealtimeTicket({
         expectedSocketUrl: url,
         signal,
-        fetchImpl: (url, init) => browserFetch(url, init),
+        fetchImpl: browserTransport,
       }),
     random: secureRandom,
     onVisibilityChange: onDocumentVisibilityChange,

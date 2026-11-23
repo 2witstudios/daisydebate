@@ -1,5 +1,5 @@
 'use client';
-import { useBrowserEffect } from '../edge/browser-sync';
+import { useAnswer } from '../edge/use-answer';
 import { useRef, type ReactNode } from 'react';
 import type { JudgeRoomStage } from '../../features/judge/judge-room-stage';
 import type { ObservedRound } from '../../features/round-runtime/observed-round';
@@ -27,16 +27,13 @@ export const focusIsFree = (active: Element | null, body: Element | null) =>
 function useStageNotice(key: string, announcement: string) {
   const heading = useRef<HTMLHeadingElement>(null);
   const region = useRef<HTMLParagraphElement>(null);
-  const shown = useRef(key);
-  useBrowserEffect(() => {
-    if (shown.current === key) return;
-    shown.current = key;
+  useAnswer(key, () => {
     if (focusIsFree(document.activeElement, document.body)) {
       if (region.current) region.current.textContent = '';
       // The judge may be reading further down: the reading point moves, the page does not.
       heading.current?.focus({ preventScroll: true });
     } else if (region.current) region.current.textContent = announcement;
-  }, [key, announcement]);
+  });
   return { heading, region };
 }
 

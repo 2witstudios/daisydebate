@@ -1,8 +1,8 @@
 'use client';
 
-import { useBrowserEffect } from '../edge/browser-sync';
-import { cancelDelay, delay } from '../edge/browser-time';
-import { useCallback, useRef, useState } from 'react';
+import { useDeliver } from '../edge/use-answer';
+import { useWait } from '../edge/use-tick';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import { nowMs, systemClock } from '@daisy/clock';
 import { driveApi, type RecentDocument } from './drive-api';
 import type { SaveState } from './document-pane';
@@ -23,12 +23,11 @@ export function useRecentDocuments(
   const generation = useRef(0);
   const first = useRef(initial !== undefined);
   const lastStarted = useRef(-Infinity);
-  const timer = useRef<ReturnType<typeof delay> | null>(null);
+  const wait = useWait();
   const refresh = useCallback(() => {
     if (!enabled) return;
     generation.current++;
     const read = () => {
-      timer.current = null;
       lastStarted.current = nowMs(systemClock);
       const requested = generation.current;
       driveApi.recent().then(
@@ -43,23 +42,18 @@ export function useRecentDocuments(
       REFRESH_INTERVAL_MS - (nowMs(systemClock) - lastStarted.current),
     );
     if (waitMs === 0) {
-      if (timer.current !== null) cancelDelay(timer.current);
+      wait.cancel();
       read();
-    } else if (timer.current === null) timer.current = delay(read, waitMs);
-  }, [enabled]);
-  useBrowserEffect(() => {
+    } else if (!wait.armed()) wait.arm(read, waitMs);
+  }, [enabled, wait]);
+  // The frame's save settling refreshes Recent; a seeded list skips the first.
+  const settled = useMemo(() => ({ refresh, save }), [refresh, save]);
+  useDeliver(settled, (next) => {
     if (first.current) {
       first.current = false;
       return;
     }
-    if (save === undefined || save === 'saved') refresh();
-  }, [refresh, save]);
-  useBrowserEffect(
-    () => () => {
-      generation.current++;
-      if (timer.current !== null) cancelDelay(timer.current);
-    },
-    [],
-  );
+    if (next.save === undefined || next.save === 'saved') next.refresh();
+  });
   return { documents, refresh };
 }

@@ -1,6 +1,31 @@
+import { virtualClock } from '@daisy/clock/testing';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { createBrowserDeviceChecks } from './browser-device-checks';
 setupRitewayBun();
+
+/** The device checks' scheduler on a clock the test owns (ADR 0164). */
+const clock = virtualClock();
+const testScheduler = {
+  after: (run: () => void, ms: number) => {
+    const waiting = new AbortController();
+    void clock.sleep(ms, waiting.signal).then(() => {
+      if (!waiting.signal.aborted) run();
+    });
+    return () => waiting.abort();
+  },
+  every: (run: () => void, ms: number) => {
+    const waiting = new AbortController();
+    const next = (): Promise<void> =>
+      clock.sleep(ms, waiting.signal).then(() => {
+        if (waiting.signal.aborted) return;
+        run();
+        return next();
+      });
+    void next();
+    return () => waiting.abort();
+  },
+  frame: (run: () => void) => testScheduler.after(run, 0),
+};
 
 describe('microphone setup cleanup', () => {
   for (const stage of [
@@ -46,6 +71,7 @@ describe('microphone setup cleanup', () => {
           removeEventListener() {},
         } as unknown as MediaDevices,
         document: {} as Document,
+        scheduler: testScheduler,
         createAudioContext: () =>
           ({
             createMediaStreamSource: () => {

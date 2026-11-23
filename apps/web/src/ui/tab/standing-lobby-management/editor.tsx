@@ -12,7 +12,7 @@ import {
 import type { StandingLobbyFormState } from '../../../features/tab/standing-lobby-form';
 import { ActionButton } from '../action-control/action-control';
 import { ListCard, ListHeading } from '../list-card/list-card';
-import { StatusRegion } from '../../components/status-region/status-region';
+import { Announcement } from '../../components/announcement/announcement';
 import { Button } from '../../components/button/button';
 import { controlClass } from '../../components/form-field/form-field-class';
 import { FormField } from '../../components/form-field/form-field';
@@ -178,17 +178,17 @@ export function StandingLobbyEditor({
             ))
           : null}
         {fields.error || retry ? (
-          <StatusRegion
+          <Announcement
             as="p"
             id={notice}
-            role="status"
+            kind="progress"
             tabIndex={-1}
             className="text-sm text-ink"
           >
             {retry
               ? 'The answer was lost. Retry the same change, or reload to check what was saved.'
               : fields.error}
-          </StatusRegion>
+          </Announcement>
         ) : null}
         <div className="flex flex-wrap gap-3">
           <Button type="submit" disabled={pending || next !== undefined}>

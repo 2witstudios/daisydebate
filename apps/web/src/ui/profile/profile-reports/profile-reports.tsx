@@ -1,4 +1,4 @@
-import { StatusRegion } from '../../components/status-region/status-region';
+import { Announcement } from '../../components/announcement/announcement';
 import type { ContentReportTargetKind } from '@daisy/protocol/content-moderation';
 import type { ShownPublicProfile } from '../../../features/profile/read-profile';
 import {
@@ -76,9 +76,9 @@ export function ProfileReports({
       className="flex flex-col gap-2"
     >
       {notice ? (
-        <StatusRegion as="p" role="status" className="text-sm text-ink-muted">
+        <Announcement as="p" kind="progress" className="text-sm text-ink-muted">
           {reportAnswerText(notice)}
-        </StatusRegion>
+        </Announcement>
       ) : null}
       <div className="flex flex-wrap gap-x-6 gap-y-2">
         {targets.map((target) => (

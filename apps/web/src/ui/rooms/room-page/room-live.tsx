@@ -1,6 +1,6 @@
 'use client';
-import { useBrowserEffect } from '../../edge/browser-sync';
-import { StatusRegion } from '../../components/status-region/status-region';
+import { useNavigation } from '../../edge/use-navigation';
+import { Announcement } from '../../components/announcement/announcement';
 import { roomWatchHref } from '../../../features/watch/routes';
 import { roundEntry } from '../../../features/rooms/round-entry';
 import { canOfferFreshRoom } from '../../../features/room-runtime/fresh-room';
@@ -114,9 +114,9 @@ export function RoomLive(props: Props) {
   );
   const { ids } = sync.value;
   const router = useRouter();
-  useBrowserEffect(() => {
-    if (entry.href) replaceRoute(router, browserDocument(), entry.href);
-  }, [entry.href, router]);
+  useNavigation(router, entry.href || undefined, (navigator, href) =>
+    replaceRoute(navigator, browserDocument(), href),
+  );
   return (
     <RoomSyncContext value={handle}>
       <AssemblyHeader
@@ -149,9 +149,9 @@ export function RoomLive(props: Props) {
       <RoomResolution view={view} />
       <FreshnessNotice freshness={sync.freshness} noun="room" />
       {props.notice ? (
-        <StatusRegion as="p" role="alert">
+        <Announcement as="p" kind="problem">
           {roomNoticeText(props.notice)}
-        </StatusRegion>
+        </Announcement>
       ) : null}
       <AssemblyDeviceReadiness
         chat={

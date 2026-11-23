@@ -26,10 +26,9 @@ export function CopyLink({ path }: CopyLinkProps) {
         />
         {ready ? (
           <Button
-            variant="unstyled"
+            variant="primary"
             type="button"
             onClick={() => copy(`${window.location.origin}${path}`)}
-            className={buttonClass('primary')}
           >
             Copy
           </Button>

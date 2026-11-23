@@ -1,4 +1,4 @@
-import { StatusRegion } from '../components/status-region/status-region';
+import { Announcement } from '../components/announcement/announcement';
 import type { HostingAccountReadView } from '@daisy/protocol/lobby/hosting-read';
 import {
   hostingOffers,
@@ -41,9 +41,9 @@ export function EntryLimitNotice({
       ? 'An entry is waiting.'
       : `${account.waitingEntries} entries are waiting.`;
   return (
-    <StatusRegion
+    <Announcement
       as="section"
-      role="status"
+      kind="progress"
       className="flex flex-wrap items-center gap-4 rounded-lg border border-border-strong bg-surface-raised px-5 py-4"
     >
       <div className="flex min-w-0 flex-1 flex-col gap-1">
@@ -64,7 +64,7 @@ export function EntryLimitNotice({
       <a href={upgradeHref} className={rowButton('primary')}>
         Upgrade this event
       </a>
-    </StatusRegion>
+    </Announcement>
   );
 }
 

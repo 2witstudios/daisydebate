@@ -1,4 +1,4 @@
-import { StatusRegion } from '../components/status-region/status-region';
+import { Announcement } from '../components/announcement/announcement';
 import type {
   ClubBillingView,
   ClubSeatsView,
@@ -137,22 +137,22 @@ export function ClubBillingPage({
         lede={`One bill for ${club.name}. ${dollars(plan.seatPriceMinor)} per seat a month; every seat is Premium.`}
       />
       {notice ? (
-        <StatusRegion
+        <Announcement
           as="p"
-          role="status"
+          kind="progress"
           className="rounded-xl bg-surface-sunken p-4"
         >
           {clubBillingNotices[notice]}
-        </StatusRegion>
+        </Announcement>
       ) : returned && plan.state === 'none' ? (
-        <StatusRegion
+        <Announcement
           as="p"
-          role="status"
+          kind="progress"
           className="rounded-xl bg-surface-sunken p-4"
         >
           Your seats are being confirmed. This page updates once payment is
           confirmed.
-        </StatusRegion>
+        </Announcement>
       ) : null}
       {plan.state === 'none' ? (
         view.purchaseAvailable ? (

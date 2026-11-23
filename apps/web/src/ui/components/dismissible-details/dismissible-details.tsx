@@ -1,6 +1,6 @@
 'use client';
 
-import { useMount } from '../../edge/use-mount';
+import { useDocumentEvent } from '../../edge/use-dom-events';
 import { useRef, type ReactNode } from 'react';
 import { cn } from '../../cn';
 
@@ -28,34 +28,23 @@ export function DismissibleDetails({
   const ref = useRef<HTMLDetailsElement>(null);
   const summaryRef = useRef<HTMLElement>(null);
 
-  useMount(() => {
+  useDocumentEvent('click', (event) => {
     const element = ref.current;
-    if (!element) return;
-
-    const onDocumentClick = (event: MouseEvent) => {
-      if (!element.open) return;
-      const target = event.target as Node | null;
-      if (target && element.contains(target)) return;
-      element.open = false;
-    };
-
-    const onKeydown = (event: KeyboardEvent) => {
-      if (event.key !== 'Escape' || !element.open) return;
-      // Return focus to the disclosure control only when focus was inside it,
-      // so an Escape pressed elsewhere on the page never steals focus.
-      const active = document.activeElement;
-      if (active && active !== summaryRef.current && element.contains(active)) {
-        summaryRef.current?.focus();
-      }
-      element.open = false;
-    };
-
-    document.addEventListener('click', onDocumentClick);
-    document.addEventListener('keydown', onKeydown);
-    return () => {
-      document.removeEventListener('click', onDocumentClick);
-      document.removeEventListener('keydown', onKeydown);
-    };
+    if (!element?.open) return;
+    const target = event.target as Node | null;
+    if (target && element.contains(target)) return;
+    element.open = false;
+  });
+  useDocumentEvent('keydown', (event) => {
+    const element = ref.current;
+    if (event.key !== 'Escape' || !element?.open) return;
+    // Return focus to the disclosure control only when focus was inside it,
+    // so an Escape pressed elsewhere on the page never steals focus.
+    const active = document.activeElement;
+    if (active && active !== summaryRef.current && element.contains(active)) {
+      summaryRef.current?.focus();
+    }
+    element.open = false;
   });
 
   return (

@@ -1,5 +1,5 @@
 'use client';
-import { useBrowserEffect } from '../edge/browser-sync';
+import { useDeliver } from '../edge/use-answer';
 import { useRef, useState, type ComponentPropsWithoutRef } from 'react';
 
 import { cn } from '../cn';
@@ -48,9 +48,7 @@ export function CountedTextarea({
   const [count, setCount] = useState(defaultValue.length);
   const text = characterCountText(count, maxUnits);
   const ref = useRef<HTMLTextAreaElement>(null);
-  useBrowserEffect(() => {
-    ref.current?.setCustomValidity(text.over ?? '');
-  }, [text.over]);
+  useDeliver(text.over, (over) => ref.current?.setCustomValidity(over ?? ''));
   return (
     <>
       <textarea

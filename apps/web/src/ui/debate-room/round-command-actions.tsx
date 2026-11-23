@@ -1,5 +1,5 @@
 'use client';
-import { useBrowserEffect } from '../edge/browser-sync';
+import { useNavigation } from '../edge/use-navigation';
 import { Button } from '../components/button/button';
 import { useId, useMemo, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
@@ -82,11 +82,11 @@ export function CommandForm({
         <input type="hidden" name="confirmed" value="true" />
       ) : null}
       <Button
-        variant="unstyled"
+        variant="secondary"
+        size="room"
         id={`${control}-${intent.type}`}
         type="submit"
         disabled={pending || !intent.enabled}
-        className="inline-flex h-room-target cursor-pointer items-center justify-center rounded-sm border border-border-strong px-4 text-sm font-strong whitespace-nowrap hover:bg-surface-raised disabled:cursor-not-allowed disabled:opacity-60"
       >
         {confirmation ? `Confirm ${intent.label.toLowerCase()}` : intent.label}
       </Button>
@@ -157,19 +157,19 @@ export function RoundCommandActions({
     action,
     unanswered,
     roundCommandUnavailable,
+    onAnswer,
   );
   const router = useRouter();
   const lost = answer.kind === 'unacknowledged';
-  useBrowserEffect(() => {
-    // A debater on the post-round call stays in the room until it ends (ADR 0127).
-    if (!pending && !lost && !isLiveDebater(view, actorId) && !onCall)
-      replaceRoute(router, browserDocument(), `/rounds/${view.id}`);
-  }, [pending, lost, view, actorId, onCall, router]);
+  // A debater on the post-round call stays in the room until it ends (ADR 0127).
+  const leaving = !pending && !lost && !isLiveDebater(view, actorId) && !onCall;
+  useNavigation(
+    router,
+    leaving ? `/rounds/${view.id}` : undefined,
+    (to, href) => replaceRoute(to, browserDocument(), href),
+  );
   const feedback = useId(),
     control = useId();
-  useBrowserEffect(() => {
-    if (answer !== unanswered) onAnswer(answer);
-  }, [answer, onAnswer]);
   // The feedback moves when the Round ends and the frame gives way, so an answer
   // on screen is focused again in its new place.
   const live = isLiveDebater(view, actorId);

@@ -1,4 +1,4 @@
-import { StatusRegion } from '../../../../../ui/components/status-region/status-region';
+import { Announcement } from '../../../../../ui/components/announcement/announcement';
 import { ConversationPane } from '../../../../../ui/messaging/conversation-pane';
 import { messagePageContext } from '../message-page-context';
 import Link from 'next/link';
@@ -30,9 +30,9 @@ export default async function MessageReactionsPage({
   return (
     <ConversationPane title="Message reactions">
       {current === null ? (
-        <StatusRegion as="p" role="status">
+        <Announcement as="p" kind="progress">
           Reactions are unavailable. Refresh to try again.
-        </StatusRegion>
+        </Announcement>
       ) : (
         <>
           <ul aria-label="Current reactions">

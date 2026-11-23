@@ -3,8 +3,9 @@ import type { ReactNode } from 'react';
 import type { TabAction } from '../../../features/tab/action';
 import { cn } from '../../cn';
 import {
-  buttonClass,
-  type ButtonVariant,
+  lookClass,
+  type ButtonLook,
+  type ButtonActionVariant,
 } from '../../components/button/button-class';
 import { UnavailableControl } from './unavailable-control';
 import { linkTo, unavailableAction } from '../../../features/tab/action';
@@ -20,48 +21,39 @@ type ActionProps = {
 const nameOf = (action: TabAction, about: string | undefined) =>
   about === undefined ? undefined : `${action.label}: ${about}`;
 
+/** One look for an action and its disabled stand-in, and the layout its site adds. */
+type Look = {
+  readonly button: ButtonLook;
+  readonly className: string;
+};
+
 function Control({
   action,
   about,
   lead,
-  className,
-}: ActionProps & { readonly className: string; readonly lead?: ReactNode }) {
+  look,
+}: ActionProps & { readonly look: Look; readonly lead?: ReactNode }) {
   const name = nameOf(action, about);
   return action.kind === 'unavailable' ? (
     <UnavailableControl
-      className={className}
+      look={look.button}
+      className={look.className}
       {...(name === undefined ? {} : { ariaLabel: name })}
     >
       {lead}
       {action.label}
     </UnavailableControl>
   ) : (
-    <Link href={action.href} className={className} aria-label={name}>
+    <Link
+      href={action.href}
+      className={cn(lookClass(look.button), look.className)}
+      aria-label={name}
+    >
       {lead}
       {action.label}
     </Link>
   );
 }
-
-/** The compact sizes of a Tab button: `row` for row actions, list expanders and header actions, `back` for back links. */
-type CompactSize = 'row' | 'back';
-const compact: Readonly<Record<CompactSize, string>> = {
-  row: 'min-h-12 px-3 text-base',
-  back: 'min-h-10 px-3 text-sm',
-};
-
-/**
- * The app's button at a compact Tab size. The shared button owns its padding
- * and type size, so they are swapped here rather than overridden, keeping one
- * value per property on the element.
- */
-const compactButtonClass = (
-  variant: ButtonVariant,
-  size: CompactSize,
-): string =>
-  buttonClass(variant)
-    .replace('px-5 py-3', compact[size])
-    .replace(' text-base ', ' ');
 
 /**
  * A Tab action drawn as a button: a link where there is a page, a disabled
@@ -75,7 +67,7 @@ export function ActionButton({
   size,
   className,
 }: ActionProps & {
-  readonly variant?: ButtonVariant;
+  readonly variant?: ButtonActionVariant;
   readonly size?: 'small';
 }) {
   const chosen = variant ?? (action.primary ? 'primary' : 'secondary');
@@ -83,13 +75,13 @@ export function ActionButton({
     <Control
       action={action}
       {...(about === undefined ? {} : { about })}
-      className={cn(
-        size === 'small'
-          ? compactButtonClass(chosen, 'row')
-          : buttonClass(chosen),
-        'whitespace-nowrap no-underline hover:no-underline',
-        className,
-      )}
+      look={{
+        button: { variant: chosen, size: size === 'small' ? 'row' : 'regular' },
+        className: cn(
+          'whitespace-nowrap no-underline hover:no-underline',
+          className,
+        ),
+      }}
     />
   );
 }
@@ -103,10 +95,10 @@ export function TitleLink({ action, about, className }: ActionProps) {
     <Control
       action={action}
       {...(about === undefined ? {} : { about })}
-      className={cn(
-        'font-strong text-ink no-underline hover:underline',
-        className,
-      )}
+      look={{
+        button: { variant: 'text' },
+        className: cn('text-ink no-underline hover:underline', className),
+      }}
     />
   );
 }
@@ -128,11 +120,13 @@ export function BackButton({
     <Control
       action={href === null ? unavailableAction(label) : linkTo(label, href)}
       lead={<span aria-hidden="true">←</span>}
-      className={cn(
-        compactButtonClass('secondary', 'back'),
-        'self-start whitespace-nowrap no-underline hover:no-underline',
-        className,
-      )}
+      look={{
+        button: { variant: 'secondary', size: 'back' },
+        className: cn(
+          'self-start whitespace-nowrap no-underline hover:no-underline',
+          className,
+        ),
+      }}
     />
   );
 }

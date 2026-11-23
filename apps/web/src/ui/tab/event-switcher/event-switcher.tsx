@@ -4,12 +4,17 @@ import Link from 'next/link';
 import { buttonClass } from '../../components/button/button-class';
 import { UnavailableControl } from '../action-control/unavailable-control';
 
-const itemClass =
-  'block rounded-sm px-3 py-2 whitespace-nowrap text-ink no-underline hover:bg-surface hover:no-underline';
+/** An event in the switcher, as a link or its disabled stand-in: a menu row. */
+const itemClass = `${buttonClass('row', 'menu')} whitespace-nowrap`;
 
 function Other({ event }: { readonly event: TabAction }) {
   return event.kind === 'unavailable' ? (
-    <UnavailableControl className={itemClass}>{event.label}</UnavailableControl>
+    <UnavailableControl
+      look={{ variant: 'row', size: 'menu' }}
+      className="whitespace-nowrap"
+    >
+      {event.label}
+    </UnavailableControl>
   ) : (
     <Link href={event.href} className={itemClass}>
       {event.label}

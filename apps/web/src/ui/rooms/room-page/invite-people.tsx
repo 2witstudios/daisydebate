@@ -1,7 +1,7 @@
 'use client';
 
 import { Button } from '../../components/button/button';
-import { StatusRegion } from '../../components/status-region/status-region';
+import { Announcement } from '../../components/announcement/announcement';
 import { invitePeopleTitleId } from './invite-people-title';
 import { Fragment, useState } from 'react';
 import type { RoomView } from '@daisy/protocol/room-contract';
@@ -12,7 +12,6 @@ import {
   invitationFormUnavailable,
   type InvitationFormState,
 } from '../../../features/room-invitations/submit';
-import { buttonClass } from '../../components/button/button-class';
 import {
   useFocusAfterAnswer,
   useFormAction,
@@ -81,17 +80,17 @@ function InviteForm({
         </label>
       </fieldset>
       <Button
-        variant="unstyled"
+        variant="primary"
         type="submit"
-        className={`${buttonClass('primary')} self-start`}
+        className="self-start"
         disabled={pending}
       >
         Send invitation
       </Button>
       {fields.notice ? (
-        <StatusRegion as="p" role="status" className="text-sm text-ink-muted">
+        <Announcement as="p" kind="progress" className="text-sm text-ink-muted">
           {fields.notice}
-        </StatusRegion>
+        </Announcement>
       ) : null}
     </form>
   );

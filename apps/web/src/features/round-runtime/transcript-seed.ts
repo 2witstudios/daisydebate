@@ -16,8 +16,10 @@ export type TranscriptSeed =
  */
 export function askForTranscriptSeed(input: {
   readonly read: () => Promise<ResourceRead<LiveTranscriptRead>>;
-  /** Runs its argument after the numbered wait; the answer cancels that. */
-  readonly schedule: (attempt: () => void, asked: number) => () => void;
+  /** Runs its argument after `ms`; the answer cancels that. */
+  readonly after: (attempt: () => void, ms: number) => () => void;
+  /** How long to wait before the numbered ask. */
+  readonly waitMs: (asked: number) => number;
   readonly settled: (seed: Exclude<TranscriptSeed, { kind: 'asking' }>) => void;
 }): () => void {
   let stopped = false;
@@ -38,7 +40,7 @@ export function askForTranscriptSeed(input: {
     }
   };
   const ask = () => {
-    cancel = input.schedule(() => void attempt(), asked++);
+    cancel = input.after(() => void attempt(), input.waitMs(asked++));
   };
   ask();
   return () => {

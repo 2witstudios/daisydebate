@@ -103,7 +103,7 @@ export function HeroJoin({
               }
               className={fieldClass.input}
             />
-            <Button type="submit" disabled={busy} className="h-auth-control">
+            <Button type="submit" disabled={busy} size="auth">
               {state.pending === 'link' ? 'Sending…' : 'Join the waitlist'}
               <Icon name="arrowRight" size={18} />
             </Button>

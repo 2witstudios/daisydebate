@@ -72,7 +72,7 @@ export default async function Page({
           tone="gold"
           icon="alert"
           title="Checkout is not available right now."
-          role="status"
+          announced
         >
           Nothing was charged. Try again in a moment.
         </Notice>

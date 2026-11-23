@@ -1,6 +1,6 @@
 'use client';
 
-import { useDocumentEvent } from '../edge/use-browser-bindings';
+import { useDocumentEvent } from '../edge/use-dom-events';
 import { type Dispatch } from 'react';
 import type { ManagerAction } from '../../features/documents/document-manager-state';
 

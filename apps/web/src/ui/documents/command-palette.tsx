@@ -1,10 +1,9 @@
 'use client';
 
-import { useBrowserEffect, useBrowserLayoutEffect } from '../edge/browser-sync';
-import { cancelDelay, delay } from '../edge/browser-time';
+import { useSettled } from '../edge/use-settled';
 import { Dialog } from '../components/dialog/dialog';
-import { StatusRegion } from '../components/status-region/status-region';
-import { useMemo, useRef, useState, type KeyboardEvent } from 'react';
+import { Announcement } from '../components/announcement/announcement';
+import { useMemo, useState, type KeyboardEvent } from 'react';
 import {
   groupRanked,
   moveSelection,
@@ -154,45 +153,19 @@ export function CommandPalette({
 }: Props) {
   const creating = mode === 'create';
   const open = mode !== 'closed';
-  const dialog = useRef<HTMLDialogElement>(null);
   const [query, setQuery] = useState('');
   const [selected, setSelected] = useState(0);
-  const [hits, setHits] = useState<
-    | {
-        readonly kind: 'ready';
-        readonly query: string;
-        readonly documents: readonly PaletteDocument[];
-      }
-    | { readonly kind: 'failed'; readonly query: string }
-    | null
-  >(null);
-  useBrowserEffect(() => {
-    if (!open || creating || !search || query.trim() === '') return;
-    let live = true;
-    const wait = delay(() => {
-      // Results and failures belong to the query that produced them.
-      search(query).then(
-        (found) => {
-          if (live) setHits({ kind: 'ready', query, documents: found });
-        },
-        () => {
-          if (live) setHits({ kind: 'failed', query });
-        },
-      );
-    }, SEARCH_DELAY_MS);
-    return () => {
-      live = false;
-      cancelDelay(wait);
-    };
-  }, [open, creating, query, search]);
+  // Results and failures belong to the query that produced them.
+  const hits = useSettled(
+    !open || creating || !search || query.trim() === '' ? null : query,
+    (text) => search?.(text) ?? Promise.resolve([]),
+    SEARCH_DELAY_MS,
+  );
   const shown =
-    creating ||
-    query.trim() === '' ||
-    hits?.query !== query ||
-    hits.kind !== 'ready'
+    creating || query.trim() === '' || hits?.kind !== 'ready'
       ? null
-      : hits.documents;
-  const searchFailed = hits?.kind === 'failed' && hits.query === query;
+      : hits.value;
+  const searchFailed = hits?.kind === 'failed';
   const commands = useMemo(
     () => (creating ? createCommands : paletteCommands(shown ?? documents)),
     [creating, shown, documents],
@@ -209,16 +182,8 @@ export function CommandPalette({
   const choiceOf = (id: string) => commands.find((c) => c.id === id)?.choice;
   const snippetOf = (id: string) => commands.find((c) => c.id === id)?.snippet;
 
-  useBrowserLayoutEffect(() => {
-    const node = dialog.current;
-    if (!node) return;
-    if (open && !node.open) node.showModal();
-    if (!open && node.open) node.close();
-  }, [open]);
-
   const closed = () => {
     setQuery('');
-    setHits(null);
     setSelected(0);
     onClose();
   };
@@ -226,7 +191,6 @@ export function CommandPalette({
     const choice = ranked && choiceOf(ranked.command.id);
     if (!choice) return;
     setQuery('');
-    setHits(null);
     setSelected(0);
     onChoose(choice);
   };
@@ -244,10 +208,10 @@ export function CommandPalette({
 
   return (
     <Dialog
-      ref={dialog}
-      aria-label="Command palette"
+      open={open}
       onClose={closed}
-      onClick={(event) => event.target === dialog.current && closed()}
+      closeOnBackdrop
+      aria-label="Command palette"
       className="m-auto w-full room-palette overflow-hidden rounded-lg border border-border-strong bg-surface-raised p-0 text-ink shadow-3 backdrop:bg-scrim/60"
     >
       <div className="flex items-center gap-2 border-b border-border px-4">
@@ -323,13 +287,13 @@ export function CommandPalette({
           </div>
         ))}
         {searchFailed ? (
-          <StatusRegion
+          <Announcement
             as="p"
-            role="alert"
+            kind="problem"
             className="px-2 py-6 text-center text-sm text-live"
           >
             Search did not run. Try another search or close and try again.
-          </StatusRegion>
+          </Announcement>
         ) : null}
         {ranked.length === 0 && !searchFailed ? (
           <p className="px-2 py-6 text-center text-sm text-ink-faint">

@@ -1,7 +1,7 @@
 'use client';
-import { useBrowserEffect } from '../edge/browser-sync';
-import { currentBrowserFetch } from '../edge/browser-request';
-import { StatusRegion } from '../components/status-region/status-region';
+import { browserTransport } from '../edge/browser-request';
+import { useDeliver } from '../edge/use-answer';
+import { Announcement } from '../components/announcement/announcement';
 import { Button } from '../components/button/button';
 import { useCallback, useState, type ReactNode } from 'react';
 import type { LiveTranscriptRead } from '@daisy/protocol/round-transcript';
@@ -44,7 +44,7 @@ export function LiveTranscript({
   const [holder] = useState(() =>
     createTranscriptHolder(seed, () =>
       readTranscript(
-        currentBrowserFetch(),
+        browserTransport,
         roundId,
         AbortSignal.timeout(TRANSCRIPT_READ_DEADLINE_MS),
       ),
@@ -55,28 +55,32 @@ export function LiveTranscript({
     [holder, socketUrl],
   );
   const [synced, driver] = useDriver(holder.seed, start);
-  useBrowserEffect(() => holder.offer(seed), [holder, seed]);
+  useDeliver(seed, (rendered) => holder.offer(rendered));
   // Whatever rendered this page may be old: durable history decides.
-  useBrowserEffect(() => driver?.signal(), [driver]);
+  useDeliver(driver, (running) => running?.signal());
   if (synced.freshness === 'gone')
     return placement === 'sidebar' ? (
-      <StatusRegion as="p" role="status" className="p-4 text-sm text-ink-muted">
+      <Announcement
+        as="p"
+        kind="progress"
+        className="p-4 text-sm text-ink-muted"
+      >
         Transcript unavailable.
-      </StatusRegion>
+      </Announcement>
     ) : null;
   const sections = liveTranscriptSections(synced.value);
   const status: ReactNode = (
-    <StatusRegion
+    <Announcement
       as="div"
-      role="status"
+      kind="progress"
       className="flex gap-2 text-sm text-ink-muted"
     >
       <p>{labels[transcriptState(synced.value)]}</p>
       {synced.freshness !== 'stale' ? null : holder.outdated() ? (
         <Button
-          variant="unstyled"
+          variant="text-link"
           type="button"
-          className="cursor-pointer font-strong underline"
+
           onClick={() => window.location.reload()}
         >
           Reload
@@ -84,7 +88,7 @@ export function LiveTranscript({
       ) : (
         <p>Reconnecting</p>
       )}
-    </StatusRegion>
+    </Announcement>
   );
   if (placement === 'sidebar')
     return (

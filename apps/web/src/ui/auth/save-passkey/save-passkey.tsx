@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { Button } from '../../components/button/button';
-import type { ButtonVariant } from '../../components/button/button-class';
+import type { ButtonLook } from '../../components/button/button-class';
 import { Icon } from '../../components/icon/icon';
 import { AuthFrame, AuthHeading, taglinePanel } from '../auth-frame/auth-frame';
 import { Notice } from '../notice/notice';
@@ -24,25 +24,20 @@ export type SavePasskeyProps = {
 /** A choice that leaves without a passkey; unavailable while one is saving. */
 function DeclineButton({
   decline,
-  variant,
+  look,
   locked,
   className,
   children,
 }: {
   readonly decline: (form: FormData) => void | Promise<void>;
-  readonly variant: ButtonVariant;
+  readonly look: ButtonLook;
   readonly locked: boolean;
   readonly className?: string;
   readonly children: ReactNode;
 }) {
   return (
     <form action={decline}>
-      <Button
-        type="submit"
-        variant={variant}
-        disabled={locked}
-        className={className}
-      >
+      <Button type="submit" {...look} disabled={locked} className={className}>
         {children}
       </Button>
     </form>
@@ -77,7 +72,8 @@ export function SavePasskey({
           <Button
             disabled={pending}
             onClick={savePasskey}
-            className="h-auth-control"
+            variant="primary"
+            size="auth"
           >
             <Icon name="key" />
             {pending
@@ -86,9 +82,8 @@ export function SavePasskey({
           </Button>
           <DeclineButton
             decline={decline}
-            variant="secondary"
+            look={{ variant: 'secondary', size: 'auth' }}
             locked={pending}
-            className="h-auth-control"
           >
             <Icon name="users" />
             This is a shared computer
@@ -99,7 +94,7 @@ export function SavePasskey({
         )}
         <DeclineButton
           decline={decline}
-          variant="ghost"
+          look={{ variant: 'ghost' }}
           locked={pending}
           className="-ml-3"
         >

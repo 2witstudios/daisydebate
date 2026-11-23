@@ -1,7 +1,8 @@
 'use client';
-import { useBrowserEffect } from '../edge/browser-sync';
+import { useResource } from '../edge/use-driver';
+import { useLatest } from '../edge/use-latest';
 import type { BroadcastStream } from '@daisy/protocol/spectator-timeline';
-import { useRef, type RefObject } from 'react';
+import { useMemo, useRef, type RefObject } from 'react';
 import { trackClient } from '../../features/analytics/client-adapter';
 import { browserDocument } from '../round-media/browser-document';
 import { watchPlayback } from './playback-session';
@@ -51,62 +52,61 @@ export function StreamVideo({
 }: StreamVideoProps) {
   const own = useRef<HTMLVideoElement>(null);
   const video = videoRef ?? own;
-  const latest = useRef({
+  const latest = useLatest({
     onFinished,
     onFailed,
     onCaptureJump,
     documentStale,
     surface,
   });
-  useBrowserEffect(() => {
-    latest.current = {
-      onFinished,
-      onFailed,
-      onCaptureJump,
-      documentStale,
-      surface,
-    };
-  });
   const { path, manifestUrl } = stream;
-  useBrowserEffect(() => {
+  const playing = useMemo(
+    () => ({ autoPlay, path, manifestUrl }),
+    [autoPlay, path, manifestUrl],
+  );
+  useResource(playing, (watched) => {
     const element = video.current;
-    if (!element) return;
+    if (!element) return null;
     if (
-      latest.current.documentStale(
-        browserDocument().url,
-        window.location.pathname,
-      )
+      latest().documentStale(browserDocument().url, window.location.pathname)
     ) {
       window.location.reload();
-      return;
+      return null;
     }
     const engine = chooseStreamEngine(browserHlsSupport(element));
     if (engine === null) {
-      latest.current.onFailed();
-      return;
+      latest().onFailed();
+      return null;
     }
     const stopWatching = watchPlayback({
       element,
       page: window,
       engine,
-      surface: () => latest.current.surface,
+      surface: () => latest().surface,
       nowMs: () => Math.round(performance.now()),
       report: trackClient,
-      onEnded: () => latest.current.onFinished?.(),
+      onEnded: () => latest().onFinished?.(),
     });
-    const detach = attachStream(element, { path, manifestUrl }, engine, {
-      // A refused autoplay leaves the controls for the viewer to press.
-      onReady: () => {
-        if (autoPlay) void element.play().catch(() => undefined);
+    const detach = attachStream(
+      element,
+      { path: watched.path, manifestUrl: watched.manifestUrl },
+      engine,
+      {
+        // A refused autoplay leaves the controls for the viewer to press.
+        onReady: () => {
+          if (watched.autoPlay) void element.play().catch(() => undefined);
+        },
+        onFailed: () => latest().onFailed(),
+        onCaptureJump: () => latest().onCaptureJump?.(),
       },
-      onFailed: () => latest.current.onFailed(),
-      onCaptureJump: () => latest.current.onCaptureJump?.(),
-    });
-    return () => {
-      stopWatching();
-      detach();
+    );
+    return {
+      dispose: () => {
+        stopWatching();
+        detach();
+      },
     };
-  }, [autoPlay, manifestUrl, path, video]);
+  });
   return (
     <video
       ref={video}

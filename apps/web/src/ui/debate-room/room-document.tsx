@@ -54,12 +54,7 @@ export function RoomDocument({
         leading={<ShowFiles state={state} dispatch={dispatch} />}
         empty={
           <div className="flex min-h-0 flex-1 items-center justify-center p-6">
-            <Button
-              variant="unstyled"
-              type="button"
-              onClick={onNew}
-              className="h-room-target cursor-pointer rounded-sm bg-accent px-4 text-sm font-strong text-accent-ink hover:bg-accent-strong"
-            >
+            <Button variant="primary" size="room" type="button" onClick={onNew}>
               New document
             </Button>
           </div>

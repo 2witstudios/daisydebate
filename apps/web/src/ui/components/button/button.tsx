@@ -1,21 +1,34 @@
 import type { ComponentPropsWithRef } from 'react';
 import { cn } from '../../cn';
-import { buttonClass, type ButtonVariant } from './button-class';
+import { lookClass, type ButtonLook, type ButtonSize } from './button-class';
 
-export type ButtonProps = {
-  readonly variant?: ButtonVariant | 'unstyled';
-} & Omit<ComponentPropsWithRef<'button'>, 'formMethod'>;
+export type ButtonProps = (
+  | ButtonLook
+  | { readonly variant?: undefined; readonly size?: ButtonSize<'primary'> }
+) &
+  Omit<ComponentPropsWithRef<'button'>, 'formMethod'>;
 
-export function Button({ variant = 'primary', ...attributes }: ButtonProps) {
-  if (variant === 'unstyled')
-    return <button {...attributes} formMethod={undefined} />;
-
-  const { className, type = 'button', ...rest } = attributes;
+/**
+ * A native button of a named variant, which owns its whole look (`primary`
+ * when unnamed). It is `type="button"` unless it says it submits;
+ * `className` adds only layout.
+ */
+export function Button({
+  variant,
+  size,
+  className,
+  type = 'button',
+  ...attributes
+}: ButtonProps) {
+  const look: ButtonLook =
+    variant === undefined
+      ? { variant: 'primary', ...(size === undefined ? {} : { size }) }
+      : ({ variant, size } as ButtonLook);
   return (
     <button
       type={type}
-      className={cn(buttonClass(variant), className)}
-      {...rest}
+      className={cn(lookClass(look), className)}
+      {...attributes}
       formMethod={undefined}
     />
   );

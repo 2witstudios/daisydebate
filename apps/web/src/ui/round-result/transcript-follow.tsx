@@ -1,7 +1,7 @@
 'use client';
 
-import { useResizeObserver } from '../edge/use-browser-bindings';
-import { useBrowserLayoutEffect } from '../edge/browser-sync';
+import { useDeliverBeforePaint } from '../edge/use-answer';
+import { useResizeObserver } from '../edge/use-dom-events';
 import { Button } from '../components/button/button';
 import { useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
 import {
@@ -16,6 +16,7 @@ type Scroller = ScrollPosition & { scrollTop: number };
 /** The thin store around the pure decision: it alone writes the position. */
 function createFollow() {
   let state = initialFollow;
+  let measured: unknown = undefined;
   const listeners = new Set<() => void>();
   const apply = (event: FollowEvent, box: Scroller | null) => {
     const wasFollowing = state.following;
@@ -40,6 +41,12 @@ function createFollow() {
     changed(box: Scroller) {
       if (state.following) apply({ type: 'changed', position: box }, box);
     },
+    /** Lines that rendered: measured once each, before they paint. */
+    shown(lines: unknown, box: Scroller | null) {
+      if (box === null || Object.is(lines, measured)) return;
+      measured = lines;
+      if (state.following) apply({ type: 'changed', position: box }, box);
+    },
     latest: (box: Scroller | null) => apply({ type: 'latest' }, box),
   };
 }
@@ -60,9 +67,10 @@ export function TranscriptFollow({
     follow.following,
     () => true,
   );
-  useBrowserLayoutEffect(() => {
-    if (scroller.current) follow.changed(scroller.current);
-  }, [children, follow]);
+  // Each render's lines are measured before they paint.
+  useDeliverBeforePaint(children, (lines) =>
+    follow.shown(lines, scroller.current),
+  );
   // A resize moves the end, and a panel shown again has one to return to.
   useResizeObserver(scroller, (node) => follow.changed(node));
   return (
@@ -79,14 +87,14 @@ export function TranscriptFollow({
       </div>
       {following ? null : (
         <Button
-          variant="unstyled"
+          variant="pill"
           type="button"
           onClick={() => {
             // This button goes away with the click, so focus moves to the lines.
             scroller.current?.focus();
             follow.latest(scroller.current);
           }}
-          className="absolute right-4 bottom-3 h-room-target cursor-pointer rounded-round border border-border-strong bg-surface-raised px-4 text-sm font-strong shadow-2"
+          className="absolute right-4 bottom-3 bg-surface-raised shadow-2"
         >
           Latest
         </Button>

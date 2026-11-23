@@ -1,4 +1,4 @@
-import { StatusRegion } from '../components/status-region/status-region';
+import { Announcement } from '../components/announcement/announcement';
 import type { RuntimeCheckpoint } from '@daisy/protocol/round';
 import { roundIncidentNotice } from '../../features/round-incidents/notice';
 
@@ -18,9 +18,9 @@ export function RoundIncidentBanner({
       className="rounded-md bg-surface-overlay px-4 py-3 font-strong"
     >
       {/* Announced once: a count that changes each second is not read aloud each second. */}
-      <StatusRegion as="span" role="status">
+      <Announcement as="span" kind="progress">
         {notice.held}
-      </StatusRegion>
+      </Announcement>
       {notice.resumesInSeconds === null
         ? null
         : ` Resuming in ${notice.resumesInSeconds} s.`}

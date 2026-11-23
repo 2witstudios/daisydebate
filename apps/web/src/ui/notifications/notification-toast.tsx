@@ -1,14 +1,13 @@
 'use client';
 
-import { useBrowserEffect } from '../edge/browser-sync';
-import { scheduleDelay } from '../edge/browser-time';
+import { useDelay } from '../edge/use-tick';
 import { Button } from '../components/button/button';
 import type {
   NotificationKind,
   NotificationShell,
 } from '@daisy/protocol/notifications';
 import Link from 'next/link';
-import { useRef, useState } from 'react';
+import { useState } from 'react';
 import {
   TOAST_INFORMATIONAL_MS,
   toastWaits,
@@ -188,14 +187,7 @@ export function NotificationToast({
   const look = looks[row.kind];
   const waits = toastWaits(row.kind);
   const [held, setHeld] = useState(false);
-  const dismissRef = useRef(dismiss);
-  useBrowserEffect(() => {
-    dismissRef.current = dismiss;
-  }, [dismiss]);
-  useBrowserEffect(() => {
-    if (waits || held) return;
-    return scheduleDelay(() => dismissRef.current(), TOAST_INFORMATIONAL_MS);
-  }, [waits, held]);
+  useDelay(dismiss, waits || held ? null : TOAST_INFORMATIONAL_MS);
   // What starts now sits on the stage colours.
   const stage =
     row.kind === 'challenge_accepted' || row.kind === 'round_started';
@@ -243,14 +235,12 @@ export function NotificationToast({
         </div>
       </div>
       <Button
-        variant="unstyled"
+        variant={stage ? 'icon-on-stage' : 'icon'}
+        size="toast"
         type="button"
         aria-label="Dismiss"
         onClick={dismiss}
-        className={cn(
-          '-mt-2 flex size-toast-target flex-none cursor-pointer items-center justify-center rounded-md',
-          stage ? 'text-stage-ink-muted' : 'text-ink-muted hover:text-ink',
-        )}
+        className="-mt-2 flex-none"
       >
         <Icon name="close" className="size-4" />
       </Button>

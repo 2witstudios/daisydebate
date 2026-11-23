@@ -1,4 +1,4 @@
-import { StatusRegion } from '../../../../../../ui/components/status-region/status-region';
+import { Announcement } from '../../../../../../ui/components/announcement/announcement';
 import { ConversationPane } from '../../../../../../ui/messaging/conversation-pane';
 import { headers } from 'next/headers';
 import { notFound, redirect } from 'next/navigation';
@@ -50,10 +50,10 @@ export default async function SentRequestPage({
           />
         </>
       ) : (
-        <StatusRegion as="p" role="status">
+        <Announcement as="p" kind="progress">
           This request is unavailable or has already been decided. Return to
           messages for its current status.
-        </StatusRegion>
+        </Announcement>
       )}
     </ConversationPane>
   );
