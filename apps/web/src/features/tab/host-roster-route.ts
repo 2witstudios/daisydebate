@@ -4,7 +4,7 @@ import {
   type HostRosterView,
 } from '@daisy/protocol/lobby/entry-read';
 import { z } from 'zod';
-import type { MemberBoundary } from '../../server/member-boundary';
+import type { MemberBoundary } from '../auth/member-boundary';
 import { bindTabRead } from './read-route';
 import type { TabPrincipal } from './tab-principal';
 const query = z.strictObject({

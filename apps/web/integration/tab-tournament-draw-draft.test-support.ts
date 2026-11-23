@@ -18,7 +18,10 @@ import {
 } from '../src/features/tab/host-draw-route';
 import type { DrawCompetition } from '../src/features/tab/operations/draw-facts';
 import { readHostRound } from '../src/features/tab/reads/host-round';
-import { member, origin } from '../src/server/member-boundary.test-support';
+import {
+  member,
+  origin,
+} from '../src/features/auth/member-boundary.test-support';
 import { silentLogger } from '../src/server/test-loggers.test-support';
 import {
   hostDrawHttp,

@@ -1,5 +1,5 @@
 import { defineComposition } from '../../server/composition';
-import { memberHttpBoundary } from '../../server/member-boundary';
+import { memberHttpBoundary } from '../auth/member-boundary';
 import { createTicketHandler } from './ticket';
 
 /** realtime-ticket: the connect-ticket route binds here (`processRoute`). */

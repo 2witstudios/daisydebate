@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import { claimedUsername } from '@daisy/auth';
 import { redirect } from 'next/navigation';
-import { readOnboardingEntry } from '../../../../lib/auth-entry';
+import { readOnboardingEntry } from '../../../../features/access/auth-entry';
 import {
   onboardingHref,
   signInHref,

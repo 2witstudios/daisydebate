@@ -26,7 +26,7 @@ import type { Metadata } from 'next';
 import { notFound, redirect } from 'next/navigation';
 import { postRoundCallOffered } from '../../../../../features/post-round-call/offered';
 import type { SearchParams } from '../../../../../features/access/decision';
-import { accessOrTemporary } from '../../../../../lib/access';
+import { accessOrTemporary } from '../../../../../features/access/page-access';
 import {
   isCallDebater,
   isLiveDebater,

@@ -26,7 +26,7 @@ import { channelMessageView } from '@daisy/protocol/messaging/channel-messages';
 import { messagingTypingSchemas } from '@daisy/protocol/messaging/typing';
 import type { MessagingCoreBounds } from '@daisy/protocol/messaging/core';
 import type { App } from '../../server/app';
-import { identify } from '../../lib/identity';
+import { identify } from '../auth/identity';
 import { consumeWindowsOrThrow, type RateRule } from '../../server/rate-limit';
 import {
   messagingAuthorizationFence,

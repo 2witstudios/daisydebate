@@ -2,7 +2,7 @@ import { join } from 'node:path';
 import { mock } from 'bun:test';
 import type { Identity } from '@daisy/auth';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { accessGuard } from '../../lib/access-guard';
+import { accessGuard } from '../access/guard';
 
 setupRitewayBun();
 
@@ -11,7 +11,7 @@ setupRitewayBun();
 // installed as that guard bound to the script, because another suite in this
 // process replaces the module with a recording guard that never redirects.
 let identity: Identity;
-mock.module(join(import.meta.dir, '../../lib/access.ts'), () =>
+mock.module(join(import.meta.dir, '../access/page-access.ts'), () =>
   accessGuard(async () => identity),
 );
 const anonymous: Identity = {

@@ -2,7 +2,11 @@ import { systemClock, systemId } from '@daisy/clock';
 import { hostWaits } from '@daisy/worker/host';
 import { createApp, type App } from './app';
 import type { Fetch } from '../features/mail/resend-sender';
-import { captureMail, fileRecorder, readDevMailFile } from './dev-mail';
+import {
+  captureMail,
+  fileRecorder,
+  readDevMailFile,
+} from '../features/mail/dev-capture';
 import { createProcessEdge, type ProcessHolder } from './process-edge';
 import { createRouteBinder } from './route-binding';
 import { composedOn, type Composed, type Composition } from './composition';

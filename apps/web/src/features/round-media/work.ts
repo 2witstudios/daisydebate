@@ -1,8 +1,8 @@
 import { featureWork, type ProcessWork } from '../../server/feature-work';
 import type { Waits } from '@daisy/clock';
 import type { App } from '../../server/app';
-import { startRoundMediaRecovery } from '../../server/round-media-recovery';
-import { mediaConfigured } from '../../server/round-worker-policy';
+import { startRoundMediaRecovery } from './recovery-worker';
+import { mediaConfigured } from '../round-runtime/worker-policy';
 import { readPublicCheckInProbe } from '../availability/configuration';
 import { createRoundMediaRuntime, stopRoundMedia } from './composition';
 import { recoveryFailureFields } from './recovery-failure';

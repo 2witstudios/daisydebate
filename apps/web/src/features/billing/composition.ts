@@ -1,7 +1,7 @@
-import { createBillingNativeResolver } from '../../server/billing-app';
-import { composeBillingWebhook } from '../../server/billing-webhook';
+import { createBillingNativeResolver } from './native-resolver';
+import { composeBillingWebhook } from './webhook-route';
 import { defineComposition } from '../../server/composition';
-import { memberHttpBoundary } from '../../server/member-boundary';
+import { memberHttpBoundary } from '../auth/member-boundary';
 import { composeBillingRoutes } from './native-composition';
 
 const native = createBillingNativeResolver();

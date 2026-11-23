@@ -17,7 +17,7 @@ import {
   aiAdmissionOptions,
   roundWorkerDatabaseOptions,
   type AiSeatAvailability,
-} from './round-worker-policy';
+} from '../features/round-runtime/worker-policy';
 import type { MessagingFileRuntime } from '../features/messaging/files/runtime';
 import { readRealtimePublicUrl } from '@daisy/config';
 import type { MessagingRuntimePolicy } from '../features/messaging/composition';
@@ -43,6 +43,7 @@ import { createRedis } from '@daisy/redis';
 import { createResendSender, type Fetch } from '../features/mail/resend-sender';
 import { createRateLimiter } from './rate-limit';
 import { createAuthServer, type AuthServer } from '../features/auth/server';
+import { resolveSession } from '../features/auth/identity';
 import type { AfterResponseLimits } from '../features/auth/after-response';
 import { createResendWebhook } from '../features/mail/webhook';
 import { createSendMail } from '../features/mail/send-mail';
@@ -375,6 +376,9 @@ export function createApp({
     limiter,
     /** The composed auth server, validated and built on first use. */
     auth: (): AuthServer => (auth ??= composeAuth()),
+    /** This request's session and identity, resolved through auth (its Cookie only). */
+    resolveSession: (requestHeaders: Headers) =>
+      resolveSession((auth ??= composeAuth()), requestHeaders),
     /** The mail transport's configuration (ISSUE-780), validated on first use. */
     mailConfig: readMail,
     /**

@@ -6,10 +6,7 @@ import { createMessagingSocialSchemas } from '@daisy/protocol/messaging/social';
 
 import { resolveMessagingCreationIntent } from './creation-intent';
 import { composeMessagingCreationOperation } from './creation-operation';
-import {
-  memberHttpBoundary,
-  runEvaluatedRoute,
-} from '../../server/member-boundary';
+import { memberHttpBoundary, runEvaluatedRoute } from '../auth/member-boundary';
 export function composeMessagingCreationIntentRoutes(app: App) {
   const run = (request: Request, kind: 'dm' | 'private_group') => {
     const policy = app.messagingPolicy,

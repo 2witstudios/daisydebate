@@ -1,5 +1,5 @@
 import { featureWork, type ProcessWork } from '../../server/feature-work';
-import { startMediaReleaseMail } from '../../server/media-release-mail';
+import { startMediaReleaseMail } from './mail-worker';
 
 /** Media release email (ADR 0151). */
 export const startMediaReleaseWork = ({ app, waits }: ProcessWork) =>

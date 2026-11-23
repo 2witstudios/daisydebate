@@ -1,5 +1,5 @@
 import { defineComposition } from '../../server/composition';
-import { memberHttpBoundary } from '../../server/member-boundary';
+import { memberHttpBoundary } from '../auth/member-boundary';
 import { createDocumentHandlers } from './document-handlers';
 import { createDocumentOperations } from './document-operations';
 

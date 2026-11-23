@@ -7,7 +7,7 @@ import {
   type RoundFloorFact,
 } from '@daisy/protocol/round-floor';
 import type { App } from '../../../server/app';
-import { memberHttpBoundary } from '../../../server/member-boundary';
+import { memberHttpBoundary } from '../../auth/member-boundary';
 import { requireMemberActor } from '../../access/actor';
 import { contextChatFence } from '../context-chat/authority';
 import { createContextChatHandlers } from '../context-chat/handlers';

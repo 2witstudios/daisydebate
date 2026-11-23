@@ -10,8 +10,8 @@ import {
   type PrivacySubject,
 } from '@daisy/db/privacy';
 import type { App } from '../../../server/app';
-import { identify } from '../../../lib/identity';
-import { configuredPrivacyJobVendors } from '../../../server/privacy-jobs';
+import { identify } from '../../auth/identity';
+import { configuredPrivacyJobVendors } from './privacy-jobs';
 import { createEraseAccountHandler } from './erase-account';
 import { createExportDataHandler } from './export-data';
 

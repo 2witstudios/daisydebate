@@ -6,7 +6,7 @@ import {
   usernameHref,
   type SearchParams,
 } from '../../../../features/access/decision';
-import { readOnboardingEntry } from '../../../../lib/auth-entry';
+import { readOnboardingEntry } from '../../../../features/access/auth-entry';
 import { requestLandingLobby } from '../../../../features/lobby/page-reads';
 import { YouthLanding } from '../../../../ui/onboarding/age/youth-landing';
 

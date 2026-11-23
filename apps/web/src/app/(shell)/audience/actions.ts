@@ -15,7 +15,7 @@ import {
   CHAT_POST_FAILED,
   chatRefusalText,
 } from '../../../features/messaging/spectator-chat/form';
-import { stayOn } from '../../../server/form-action';
+import { stayOn } from '../../../features/forms/form-action';
 import { inProcessFetch } from '../../../server/in-process-fetch';
 import { processRoute } from '../../../server/process-app';
 import { audienceComposition } from '../../../features/spectating/audience-composition';

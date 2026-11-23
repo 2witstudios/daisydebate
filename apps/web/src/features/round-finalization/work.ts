@@ -1,5 +1,5 @@
 import { featureWork, type ProcessWork } from '../../server/feature-work';
-import { startRoundCompetitiveMaintenance } from '../../server/round-maintenance';
+import { startRoundCompetitiveMaintenance } from './maintenance-worker';
 
 /** A Round's competitive maintenance: finalization, attendance and ratings. */
 export const startRoundFinalizationWork = ({

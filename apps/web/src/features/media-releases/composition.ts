@@ -1,7 +1,7 @@
 import { defineComposition } from '../../server/composition';
 import { nowMs } from '@daisy/clock';
 import type { App } from '../../server/app';
-import { memberHttpBoundary } from '../../server/member-boundary';
+import { memberHttpBoundary } from '../auth/member-boundary';
 import { deriveRecipientSubkey } from '../mail/recipient-key';
 import { composeMediaReleaseHandlers } from './handlers';
 import { deriveReleaseStopSubkey } from './stop-token';

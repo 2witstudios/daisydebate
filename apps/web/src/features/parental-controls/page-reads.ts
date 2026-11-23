@@ -1,6 +1,6 @@
 import { readFamilySettings } from './settings';
 import { CONTENT_WAIVER_VERSION } from '../legal/agreements';
-import { evaluatedIdentity } from '../../server/member-boundary';
+import { evaluatedIdentity } from '../auth/member-boundary';
 import { cache } from 'react';
 import { requestApp, requestIdentity } from '../../lib/page-reads';
 import { requestReleaseEnabled } from '../flags/page-reads';

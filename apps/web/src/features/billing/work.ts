@@ -1,10 +1,10 @@
 import { featureWork, type ProcessWork } from '../../server/feature-work';
-import { startBillingCleanup } from '../../server/billing-cleanup';
-import { startBillingEconomics } from '../../server/billing-economics';
-import { startBillingPurchases } from '../../server/billing-purchases';
-import { startBillingRefunds } from '../../server/billing-refunds';
-import { startBillingSubscriptions } from '../../server/billing-subscriptions';
-import { startUsageRecovery } from '../../server/usage-recovery';
+import { startBillingCleanup } from './cleanup-worker';
+import { startBillingEconomics } from './economics-worker';
+import { startBillingPurchases } from './purchases-worker';
+import { startBillingRefunds } from './refunds-worker';
+import { startBillingSubscriptions } from './subscriptions-worker';
+import { startUsageRecovery } from './usage-recovery-worker';
 
 /** Billing's background work: allowance recovery, economics and Stripe reconciliation. */
 export const startBillingWork = ({

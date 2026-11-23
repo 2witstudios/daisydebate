@@ -5,7 +5,7 @@ import { readAssembly } from '../../../../features/rooms/read-assembly';
 import { saveSettings } from '../../../../features/rooms/save-settings';
 import { submitAssembly } from '../../../../features/rooms/submit-assembly';
 import { inProcessFetch } from '../../../../server/in-process-fetch';
-import { hydratedPost, moveOn } from '../../../../server/form-action';
+import { hydratedPost, moveOn } from '../../../../features/forms/form-action';
 import {
   commandAnswer,
   roomFormAnswer,

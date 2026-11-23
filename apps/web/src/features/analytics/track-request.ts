@@ -1,5 +1,5 @@
 import type { App } from '../../server/app';
-import { identify } from '../../lib/identity';
+import { identify } from '../auth/identity';
 import { cookieConsent } from './handlers';
 import { analyticsConfiguration } from './config';
 import type { ProductEvent } from './events';

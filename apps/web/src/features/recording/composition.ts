@@ -12,7 +12,7 @@ import {
   plannedRecording,
 } from '@daisy/debate-engine';
 import { isJudgeSeat, isModeratorSeat } from '@daisy/protocol/seats';
-import { identify } from '../../lib/identity';
+import { identify } from '../auth/identity';
 import type { App } from '../../server/app';
 import { stageEgressOf } from '../stage-capture/composition';
 import { newStageCredential } from '../stage-capture/stage-access';

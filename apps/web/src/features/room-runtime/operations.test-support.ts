@@ -1,5 +1,5 @@
 import { noLinkedAdults } from '../spectating/linked-adults';
-import type { AiSeatAvailability } from '../../server/round-worker-policy';
+import type { AiSeatAvailability } from '../round-runtime/worker-policy';
 import { fixedIds } from '@daisy/clock';
 import type { AccountAuthorizationFact } from '@daisy/auth/authorization';
 import { createAppError } from '@daisy/errors';

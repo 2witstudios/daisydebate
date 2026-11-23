@@ -4,7 +4,7 @@ import { createAppError } from '@daisy/errors';
 import { defaultStandingLobby } from '@daisy/protocol/lobby/eligibility';
 import type { SearchParams } from '../../../features/access/decision';
 import { parseRoomDiscoveryQuery } from '../../../features/lobby/discovery-query';
-import { requireAccess } from '../../../lib/access';
+import { requireAccess } from '../../../features/access/page-access';
 import {
   requestCompetitionAgeBand,
   requestGuardianLobbyIds,

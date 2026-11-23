@@ -1,5 +1,5 @@
 import { featureWork, type ProcessWork } from '../../server/feature-work';
-import { startBetaMail } from '../../server/beta-mail';
+import { startBetaMail } from './mail-worker';
 
 /** The durable beta mail (ADR 0075). */
 export const startBetaAccessWork = ({ app, waits }: ProcessWork) =>

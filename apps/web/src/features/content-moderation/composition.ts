@@ -1,5 +1,5 @@
 import { defineComposition } from '../../server/composition';
-import { identify } from '../../lib/identity';
+import { identify } from '../auth/identity';
 import type { App } from '../../server/app';
 import { createReportHandler } from './report-handler';
 

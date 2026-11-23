@@ -9,7 +9,7 @@ import { notFound } from 'next/navigation';
 import { systemClock, systemId } from '@daisy/clock';
 import { idSchema } from '@daisy/protocol/primitives';
 import { messagingBetaLimits } from '@daisy/protocol/messaging/core';
-import { requireAccess } from '../../../../lib/access';
+import { requireAccess } from '../../../../features/access/page-access';
 import { messagingLatestPageItems } from '../../../../features/messaging/page-reads';
 import type { SearchParams } from '../../../../features/access/decision';
 import {

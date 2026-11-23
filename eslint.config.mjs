@@ -316,6 +316,36 @@ const processEntries = [
   'apps/web/src/{proxy,instrumentation}.ts',
   'apps/web/src/server/start.ts',
 ];
+/**
+ * RECON-4.6 (ADR 0917): `server/` and `lib/` are the process edge, HTTP
+ * plumbing and what two or more features share, so they import no feature.
+ * Each spot below composes features by its nature, one sentence each in the
+ * ADR: the one feature list, the app's shared resources, the process edge's
+ * outbound transport, the proxy's per-request gate and the one retention
+ * sweep's targets. Tests compose feature fixtures and are not covered.
+ */
+const featureMessage =
+  "server/ and lib/ import no feature: move the code into its feature, or start the feature's work from the one feature list (server/process-work.ts) (ADR 0917).";
+const featurePath = '(^|/)features(/|$)';
+const featureImport = { regex: featurePath, message: featureMessage };
+const featureLoads = [
+  {
+    selector: `ImportExpression[source.value=/${featurePath.replaceAll('/', '\\/')}/]`,
+    message: featureMessage,
+  },
+];
+const featureComposers = [
+  'apps/web/src/server/process-work.ts',
+  'apps/web/src/server/app.ts',
+  'apps/web/src/server/process-app.ts',
+  'apps/web/src/server/proxy-handler.ts',
+  'apps/web/src/server/retention-targets.ts',
+];
+const sharedSources = ['apps/web/src/{server,lib}/**/*.{ts,tsx}'];
+const sharedSourceTests = [
+  'apps/web/src/{server,lib}/**/*.test.{ts,tsx}',
+  'apps/web/src/{server,lib}/**/*.test-support.{ts,tsx}',
+];
 /** Every page read, beside its feature, and the request scope they share. */
 const pageReadModules = [
   'apps/web/src/**/page-reads.ts',
@@ -1656,6 +1686,56 @@ export default [
     rules: { 'db-native-rows/require-query': 'error' },
   },
   {
+    files: sharedSources,
+    ignores: [
+      ...featureComposers,
+      ...sharedSourceTests,
+      ...processEntries,
+      ...pageReadModules,
+    ],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            ...appImportRestrictions,
+            {
+              group: ['@sentry/*'],
+              message:
+                'Import Sentry only inside src/features/telemetry/ or next.config.ts (ADR 0037).',
+            },
+            processEdgeImport,
+            featureImport,
+          ],
+        },
+      ],
+      'no-restricted-syntax': [
+        'error',
+        ...repoSyntaxRestrictions,
+        ...processEdgeLoads,
+        ...featureLoads,
+      ],
+    },
+  },
+  // The production start is a process entry under server/: it reaches the
+  // edge, never a feature.
+  {
+    files: processEntries.filter((path) =>
+      path.startsWith('apps/web/src/server/'),
+    ),
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        { patterns: [...appImportRestrictions, featureImport] },
+      ],
+      'no-restricted-syntax': [
+        'error',
+        ...repoSyntaxRestrictions,
+        ...featureLoads,
+      ],
+    },
+  },
+  {
     files: pageReadModules,
     rules: {
       'no-restricted-imports': [
@@ -1676,6 +1756,28 @@ export default [
         'error',
         ...repoSyntaxRestrictions,
         ...processEdgeLoads,
+      ],
+    },
+  },
+  // The shared request scope reads the app, and no feature.
+  {
+    files: ['apps/web/src/lib/**/page-reads.ts'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            ...appImportRestrictions,
+            { ...processEdgeImport, allowImportNames: ['processApp'] },
+            featureImport,
+          ],
+        },
+      ],
+      'no-restricted-syntax': [
+        'error',
+        ...repoSyntaxRestrictions,
+        ...processEdgeLoads,
+        ...featureLoads,
       ],
     },
   },

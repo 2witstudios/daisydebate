@@ -4,7 +4,6 @@ import { headers } from 'next/headers';
 import type { Identity } from '@daisy/auth';
 import type { App } from '../server/app';
 import { processApp } from '../server/process-app';
-import { resolveSession } from './identity';
 
 /**
  * The one request scope page reads are built on: this process's app, this
@@ -31,7 +30,7 @@ export const renderReadDeadline = (ms: number) =>
  * them share one durable session read.
  */
 export const requestSession = cache(async () =>
-  resolveSession(processApp().auth(), await headers()),
+  processApp().resolveSession(await headers()),
 );
 
 /** This process clock's instant, for a render that words time. */

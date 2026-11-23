@@ -4,7 +4,7 @@ import { idSchema } from '@daisy/protocol/primitives';
 import { notFound, redirect } from 'next/navigation';
 import type { SearchParams } from '../../../../../features/access/decision';
 import { canOfferFreshRoom } from '../../../../../features/room-runtime/fresh-room';
-import { requireAccess } from '../../../../../lib/access';
+import { requireAccess } from '../../../../../features/access/page-access';
 import { CreateRoomPage } from '../../../../../ui/rooms/create-room/create-room-page';
 import { roomTemplates } from '../../../play/actions';
 import { roomAssembly } from '../actions';

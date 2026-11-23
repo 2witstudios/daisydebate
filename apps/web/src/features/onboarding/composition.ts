@@ -1,5 +1,5 @@
 import { admitsOptionalAnswers } from '@daisy/auth/account-age';
-import { identify } from '../../lib/identity';
+import { identify } from '../auth/identity';
 import { defineComposition } from '../../server/composition';
 import { createOnboardingHandler } from './save-answers';
 

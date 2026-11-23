@@ -7,13 +7,13 @@ import { idSchema } from '@daisy/protocol/primitives';
 import { processRoute } from '../../../../server/process-app';
 import { messagingComposition } from '../../../../features/messaging/composition';
 import { inProcessFetch } from '../../../../server/in-process-fetch';
-import { submitMessagingForm } from '../../../../server/messaging-form-submit';
+import { submitMessagingForm } from '../../../../features/messaging/form-submit';
 import {
   parseMessageMutationForm,
   messageMutationConflict,
   messageMutationUnavailable,
 } from '../../../../features/messaging/forms/message-mutation-form';
-import { hydratedPost, moveOn } from '../../../../server/form-action';
+import { hydratedPost, moveOn } from '../../../../features/forms/form-action';
 import {
   formReadThrough,
   messagingMarkReadBody,

@@ -1,5 +1,5 @@
 import { featureWork, type ProcessWork } from '../../server/feature-work';
-import { startMessagingFileMaintenance } from '../../server/file-maintenance';
+import { startMessagingFileMaintenance } from './files/maintenance-worker';
 
 /** Message attachment maintenance, only when explicitly configured. */
 export const startMessagingWork = ({ app, waits }: ProcessWork) => {

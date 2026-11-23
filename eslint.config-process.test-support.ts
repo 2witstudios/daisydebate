@@ -44,7 +44,7 @@ export function registerProcessEdgeTests() {
         ],
         [
           'export const a = globalThis as unknown;',
-          web('lib/identity.ts'),
+          web('lib/clock-display.ts'),
           [...globals, hostTime],
         ],
         [
@@ -52,7 +52,7 @@ export function registerProcessEdgeTests() {
           web('features/foundation/leak.ts'),
           imports,
         ],
-        [edgeImport('../server/'), web('lib/identity.ts'), imports],
+        [edgeImport('../server/'), web('lib/clock-display.ts'), imports],
         [edgeImport('../../../../server/'), route, imports],
         [edgeImport('./'), web('server/composition.ts'), imports],
         // A feature's own reads outside its page-reads module stay off the edge.

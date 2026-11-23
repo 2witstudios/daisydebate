@@ -1,6 +1,6 @@
 import { defineComposition } from '../../server/composition';
 import type { App } from '../../server/app';
-import { memberHttpBoundary } from '../../server/member-boundary';
+import { memberHttpBoundary } from '../auth/member-boundary';
 import { createRoomInvitationHandlers } from './handlers';
 import { endRoomInvitation, inviteToRoom } from './operations';
 

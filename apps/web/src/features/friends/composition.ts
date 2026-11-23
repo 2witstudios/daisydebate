@@ -13,7 +13,7 @@ import {
   readFriendList,
   type FriendReadDependencies,
 } from './operations';
-import { memberHttpBoundary } from '../../server/member-boundary';
+import { memberHttpBoundary } from '../auth/member-boundary';
 import { contactPairFence } from '../contacts/authorization';
 import { appDiscoverActor } from '../account/username-discovery';
 

@@ -5,7 +5,7 @@ import { createFlows } from './auth-mounted-flows';
 import { cookieHeader, withSql, type TestApp } from './fixtures';
 import { CLIENT_IP_HEADER } from '@daisy/ingress/client-ip';
 import { CONFIRM_PATH } from '../src/features/auth/confirmation/confirm-page';
-import { identify, resolveSession } from '../src/lib/identity';
+import { identify, resolveSession } from '../src/features/auth/identity';
 import { usernameComposition } from '../src/features/account/composition';
 import { ageComposition } from '../src/features/account/composition';
 

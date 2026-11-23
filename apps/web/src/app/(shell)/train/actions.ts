@@ -8,7 +8,7 @@ import {
   preparePractice,
 } from '../../../features/train/start-practice';
 import { readRoomTemplates } from '../../../features/rooms/read-catalog';
-import { moveOn } from '../../../server/form-action';
+import { moveOn } from '../../../features/forms/form-action';
 import { inProcessFetch } from '../../../server/in-process-fetch';
 import { processRoute } from '../../../server/process-app';
 import { roomComposition } from '../../../features/room-runtime/composition';

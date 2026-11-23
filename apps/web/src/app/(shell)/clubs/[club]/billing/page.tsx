@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
-import { requireAccess } from '../../../../../lib/access';
+import { requireAccess } from '../../../../../features/access/page-access';
 import { requestNow } from '../../../../../lib/page-reads';
 import type { SearchParams } from '../../../../../features/access/decision';
 import {

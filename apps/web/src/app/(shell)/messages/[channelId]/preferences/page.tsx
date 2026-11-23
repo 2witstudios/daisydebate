@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { idSchema } from '@daisy/protocol/primitives';
 import { messagingPreferenceSchemas } from '@daisy/protocol/messaging/preferences';
-import { requireAccess } from '../../../../../lib/access';
+import { requireAccess } from '../../../../../features/access/page-access';
 import type { MessagingChannelPageProps } from '../../../../../features/messaging/channel-page';
 import { PreferenceForm } from '../../../../../ui/messaging/preference-form';
 import { GET } from '../../../../api/messaging/channels/[channelId]/preferences/route';

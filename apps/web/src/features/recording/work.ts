@@ -1,5 +1,5 @@
 import { featureWork, type ProcessWork } from '../../server/feature-work';
-import { startRecordingDeletions } from '../../server/recording-deletions';
+import { startRecordingDeletions } from './deletions-worker';
 import { startRecordingCapture } from './composition';
 import { recordingPersistence } from './persistence';
 

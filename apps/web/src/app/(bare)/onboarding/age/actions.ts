@@ -14,7 +14,7 @@ import {
   AGE_HOLD_COOKIE_OPTIONS,
 } from '../../../../features/account/age-step';
 import { returnableDestination } from '../../../../features/auth/redirect';
-import { moveOn } from '../../../../server/form-action';
+import { moveOn } from '../../../../features/forms/form-action';
 import { inProcessFetch } from '../../../../server/in-process-fetch';
 import { routeReleaseFor } from '../../../../features/flags/route-release';
 import { processRoute } from '../../../../server/process-app';

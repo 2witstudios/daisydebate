@@ -5,10 +5,7 @@ import { z } from 'zod';
 import { agreementWords, contentWaiverDocument } from '../legal/agreements';
 import type { App } from '../../server/app';
 import { parseValidated, readJson } from '../../server/http';
-import {
-  memberHttpBoundary,
-  runMemberRoute,
-} from '../../server/member-boundary';
+import { memberHttpBoundary, runMemberRoute } from '../auth/member-boundary';
 
 const target = { linkId: idSchema, lobbyId: idSchema };
 const lobbyPermissionCommand = z.discriminatedUnion('type', [

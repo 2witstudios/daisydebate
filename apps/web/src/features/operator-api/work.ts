@@ -1,5 +1,5 @@
 import { featureWork, type ProcessWork } from '../../server/feature-work';
-import { startOperatorApi } from '../../server/operator-api';
+import { startOperatorApi } from './start-listener';
 
 /**
  * ADR 0079: the private operator listener, only when keys are configured.

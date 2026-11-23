@@ -1,4 +1,4 @@
-import { aiAdmissionOptions } from '../src/server/round-worker-policy';
+import { aiAdmissionOptions } from '../src/features/round-runtime/worker-policy';
 
 /** Production bot-debater admission at local proof capacity 4 and the beta cap of 20. */
 export const botAdmissionForTests = aiAdmissionOptions({

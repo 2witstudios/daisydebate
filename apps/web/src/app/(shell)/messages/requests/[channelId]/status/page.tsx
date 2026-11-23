@@ -5,7 +5,7 @@ import { notFound, redirect } from 'next/navigation';
 import { systemId } from '@daisy/clock';
 import { idSchema } from '@daisy/protocol/primitives';
 import { messagingDmResultSchema } from '@daisy/protocol/messaging/social';
-import { requireAccess } from '../../../../../../lib/access';
+import { requireAccess } from '../../../../../../features/access/page-access';
 import type { MessagingChannelPageProps } from '../../../../../../features/messaging/channel-page';
 import { RequestDecision } from '../../../../../../ui/messaging/request-decision';
 import { GET } from '../../../../../api/messaging/requests/[channelId]/status/route';

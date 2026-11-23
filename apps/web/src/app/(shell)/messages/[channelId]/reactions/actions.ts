@@ -6,8 +6,8 @@ import { messagingComposition } from '../../../../../features/messaging/composit
 import { inProcessFetch } from '../../../../../server/in-process-fetch';
 import { readReactionResponse } from '../../../../../features/messaging/reaction-response';
 import { readReactionChangeResponse } from '../../../../../features/messaging/reaction-change-response';
-import { submitMessagingForm } from '../../../../../server/messaging-form-submit';
-import { moveOn, stayOn } from '../../../../../server/form-action';
+import { submitMessagingForm } from '../../../../../features/messaging/form-submit';
+import { moveOn, stayOn } from '../../../../../features/forms/form-action';
 import {
   parseReactionForm,
   reactionUnavailable,

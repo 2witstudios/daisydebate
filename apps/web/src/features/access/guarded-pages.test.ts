@@ -21,7 +21,7 @@ const routeOf = (file: string): string =>
 // reads the request's cookies through the process app): the test invokes
 // the page itself and observes what it asks the guard for.
 const guardCalls: Array<{ path: string; searchParams: unknown }> = [];
-mock.module(join(import.meta.dir, '../../lib/access.ts'), () => ({
+mock.module(join(import.meta.dir, './page-access.ts'), () => ({
   requireAccess: async (path: string, searchParams: unknown) => {
     guardCalls.push({ path, searchParams });
     return { state: 'anonymous' };

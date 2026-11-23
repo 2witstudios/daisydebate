@@ -2,7 +2,7 @@ import { createAppError } from '@daisy/errors';
 import {
   runMemberRoute,
   type BudgetedMemberBoundary,
-} from '../../server/member-boundary';
+} from '../auth/member-boundary';
 import { createBillingNativeHandlers } from './native-handlers';
 import type { NativeBillingRuntime } from './native-contract';
 

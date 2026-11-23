@@ -1,6 +1,6 @@
 import { routeReleaseFor } from '../../../../features/flags/route-release';
 import { createParticipantPageRoute } from '../../../../features/tab/participant-page-route';
-import { memberHttpBoundary } from '../../../../server/member-boundary';
+import { memberHttpBoundary } from '../../../../features/auth/member-boundary';
 import { processRoute } from '../../../../server/process-app';
 import { roomComposition } from '../../../../features/room-runtime/composition';
 import { inProcessFetch } from '../../../../server/in-process-fetch';

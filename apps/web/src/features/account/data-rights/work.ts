@@ -1,9 +1,6 @@
 import { featureWork, type ProcessWork } from '../../../server/feature-work';
-import { startObservationPurges } from '../../../server/observation-purges';
-import {
-  privacyJobsQueue,
-  startPrivacyJobs,
-} from '../../../server/privacy-jobs';
+import { startObservationPurges } from './observation-purges';
+import { privacyJobsQueue, startPrivacyJobs } from './privacy-jobs';
 
 /** An erasure's queued work, delivered, retried and recorded. */
 export const startDataRightsWork = ({ app, waits }: ProcessWork) =>

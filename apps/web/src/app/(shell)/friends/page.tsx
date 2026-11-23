@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import { systemId } from '@daisy/clock';
 import type { SearchParams } from '../../../features/access/decision';
-import { requireAccess } from '../../../lib/access';
+import { requireAccess } from '../../../features/access/page-access';
 import { requestLiveRoundsOf } from '../../../features/watch/page-reads';
 import { FriendsPage } from '../../../ui/friends/friends-page/friends-page';
 import { friendAction } from './actions';

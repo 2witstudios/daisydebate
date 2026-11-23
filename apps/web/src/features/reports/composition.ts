@@ -7,10 +7,7 @@ import { appDiscoverActor } from '../account/username-discovery';
 import { contactPairFence } from '../contacts/authorization';
 import type { App } from '../../server/app';
 import { parseValidated, readJson } from '../../server/http';
-import {
-  memberHttpBoundary,
-  runEvaluatedRoute,
-} from '../../server/member-boundary';
+import { memberHttpBoundary, runEvaluatedRoute } from '../auth/member-boundary';
 import { consumeOrThrow } from '../../server/rate-limit';
 import { fileReport, REPORT_RULE } from './operations';
 

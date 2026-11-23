@@ -5,7 +5,7 @@ import { createRoomDraftHandler } from '../rooms/create-room-draft-handler';
 import { createAppError } from '@daisy/errors';
 import type { App } from '../../server/app';
 import { handleOperation } from '../../server/http';
-import { memberHttpBoundary } from '../../server/member-boundary';
+import { memberHttpBoundary } from '../auth/member-boundary';
 import { createRoomHandlers } from './handlers';
 import { createRoomRuntimeOperations } from './operations';
 import { drawEntropy } from './entropy';

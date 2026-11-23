@@ -1,5 +1,6 @@
 import type { Waits } from '@daisy/clock';
 import { repeatEvery } from '@daisy/worker';
+import { releaseFlagDefault } from '../features/flags/release-default';
 import { startDataRightsWork } from '../features/account/data-rights/work';
 import { provisionalLinkPurposes } from '../features/auth/mail/provisional-mail';
 import { startBetaAccessWork } from '../features/beta-access/work';
@@ -22,8 +23,8 @@ import type { FeatureWork, StartWork, Stoppable } from './feature-work';
 import { startLaneGauges } from './lane-gauges';
 import { createRetentionSweep } from './retention-sweep';
 import { retentionTargets } from './retention-targets';
-import { startRoundAvailability } from './round-availability';
-import { startCompetitiveRoundWork } from './round-workers';
+import { startRoundAvailability } from '../features/availability/worker';
+import { startCompetitiveRoundWork } from '../features/round-runtime/ai-work';
 import { waitForHealthy } from './wait-for-healthy';
 import { createWorkWakes, keepWorkWakesListening } from './work-wakes';
 
@@ -70,6 +71,18 @@ export async function startProcessWork(input: {
   readonly probeFetch: (url: string, init: RequestInit) => Promise<Response>;
 }) {
   const { app, waits, vendorFetch, probeFetch } = input;
+  // ADR 0118: the effective release-flag default, once per process. Only
+  // staging may set DAISY_RELEASE_FLAG_DEFAULT; config refused it elsewhere.
+  app.logger.log(
+    'flags.release_default',
+    {
+      operation: 'flags.release_default',
+      // `environment`: release flags with no stored choice are on (staging);
+      // `catalogue`: each keeps its safe default (off).
+      source: releaseFlagDefault(app.config) ? 'environment' : 'catalogue',
+    },
+    'Release flag default resolved',
+  );
   // ADR 0154: each worker loop wakes on the work it looks for. Lossy hints:
   // while the LISTEN cannot start, every loop runs at its idle cap, and it is
   // tried again with back-off.

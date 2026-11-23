@@ -13,7 +13,10 @@ import {
   createHostBallotsRoute,
   hostBallotsPath,
 } from '../src/features/tab/host-ballots-route';
-import { member, origin } from '../src/server/member-boundary.test-support';
+import {
+  member,
+  origin,
+} from '../src/features/auth/member-boundary.test-support';
 import { silentLogger } from '../src/server/test-loggers.test-support';
 import { noopErrorReporter } from '@daisy/observability';
 import { readHostBallots } from '../src/features/tab/reads/host-ballots';

@@ -1,6 +1,6 @@
-import { createBillingStripe } from '../../server/billing-stripe';
+import { createBillingStripe } from '../billing/stripe-client';
 import { defineComposition } from '../../server/composition';
-import { memberHttpBoundary } from '../../server/member-boundary';
+import { memberHttpBoundary } from '../auth/member-boundary';
 import { nowMs } from '@daisy/clock';
 import type Stripe from 'stripe';
 import { createId } from '@paralleldrive/cuid2';
@@ -12,7 +12,7 @@ import {
   subscriptionAccess,
 } from '@daisy/auth/authorization';
 import type { App } from '../../server/app';
-import type { BudgetedMemberBoundary } from '../../server/member-boundary';
+import type { BudgetedMemberBoundary } from '../auth/member-boundary';
 import { releaseAdmission } from '../flags/admission';
 import { createRequestFlagReader } from '../flags/reader';
 import { releaseFlagDefault } from '../flags/release-default';

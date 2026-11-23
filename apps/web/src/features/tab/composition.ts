@@ -75,7 +75,7 @@ import { entryEnrollmentCommand } from './operations/entry-enrollment';
 import { judgeRegistrationCommand } from './operations/judge-registration';
 import { authorize } from '@daisy/auth/authorization';
 import type { App } from '../../server/app';
-import { memberHttpBoundary } from '../../server/member-boundary';
+import { memberHttpBoundary } from '../auth/member-boundary';
 import {
   createOrganizationPeopleRoute,
   type OrganizationPeopleRouteDependencies,

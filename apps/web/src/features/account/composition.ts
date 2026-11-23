@@ -1,4 +1,4 @@
-import { identify } from '../../lib/identity';
+import { identify } from '../auth/identity';
 import type { App } from '../../server/app';
 import { defineComposition } from '../../server/composition';
 import { provisionalMailCleanup } from '../auth/mail/provisional-mail';

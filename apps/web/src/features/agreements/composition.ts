@@ -1,6 +1,6 @@
 import { defineComposition } from '../../server/composition';
 import { createAppError } from '@daisy/errors';
-import { identify } from '../../lib/identity';
+import { identify } from '../auth/identity';
 import type { App } from '../../server/app';
 import { agreementWords, contentWaiverAt } from '../legal/agreements';
 import { createContentWaiverHandler } from './content-waiver-handler';

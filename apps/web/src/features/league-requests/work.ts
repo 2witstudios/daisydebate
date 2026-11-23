@@ -1,5 +1,5 @@
 import { featureWork, type ProcessWork } from '../../server/feature-work';
-import { startLeagueRequestMail } from '../../server/league-request-mail';
+import { startLeagueRequestMail } from './mail-worker';
 
 /** League request email; nothing without an owner address. */
 export const startLeagueRequestWork = ({ app, waits }: ProcessWork) =>

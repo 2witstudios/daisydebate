@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { audienceLinkPageHref } from '../../../../../features/audience-link/audience-link';
-import { accessOrTemporary } from '../../../../../lib/access';
+import { accessOrTemporary } from '../../../../../features/access/page-access';
 import type { SearchParams } from '../../../../../features/access/decision';
 import { requestHostedAudienceLink } from '../../../../../features/audience-link/page-reads';
 import { AudienceLinkPanel } from '../../../../../ui/spectating/audience-link-panel/audience-link-panel';

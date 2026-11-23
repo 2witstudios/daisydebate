@@ -1,5 +1,5 @@
 import { defineComposition } from '../../server/composition';
-import { memberHttpBoundary } from '../../server/member-boundary';
+import { memberHttpBoundary } from '../auth/member-boundary';
 import { createRoundMediaHandlers } from './handlers';
 import { captureAdmissionPolicy } from '../media-capture/capture-policy';
 import { nowMs, type Waits } from '@daisy/clock';

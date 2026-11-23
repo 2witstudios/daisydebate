@@ -5,7 +5,10 @@ import {
 } from '@daisy/ingress/client-ip';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { create, magicLinkRequest } from './abuse.test-support';
-import { deriveClientIdSubkey, stampClientIdentity } from './client-ip';
+import {
+  deriveClientIdSubkey,
+  stampClientIdentity,
+} from '../../../server/client-ip';
 
 setupRitewayBun();
 

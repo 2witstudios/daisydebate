@@ -21,7 +21,7 @@ import { submitRoomCreation } from '../../../features/rooms/create-room-form';
 import { requestIdentity } from '../../../lib/page-reads';
 import { activeRoomRead } from '../actions';
 import { post, text } from '../form-post';
-import { moveOn } from '../../../server/form-action';
+import { moveOn } from '../../../features/forms/form-action';
 import { inProcessFetch } from '../../../server/in-process-fetch';
 import { processRoute } from '../../../server/process-app';
 import { challengeComposition } from '../../../features/challenges/composition';

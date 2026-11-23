@@ -2,7 +2,7 @@ import { StatusRegion } from '../../../ui/components/status-region/status-region
 import type { Metadata } from 'next';
 import { claimedUsername } from '@daisy/auth';
 import { redirect } from 'next/navigation';
-import { readAuthEntry } from '../../../lib/auth-entry';
+import { readAuthEntry } from '../../../features/access/auth-entry';
 import {
   onboardingHref,
   type SearchParams,

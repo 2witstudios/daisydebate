@@ -4,7 +4,7 @@ import type { SearchParams } from '../../../../features/access/decision';
 import { linkTo } from '../../../../features/tab/action';
 import { hostRoutes, tabRoutes } from '../../../../features/tab/routes';
 import { requestHostedLeagues } from '../../../../features/tab/page-reads';
-import { requireAccess } from '../../../../lib/access';
+import { requireAccess } from '../../../../features/access/page-access';
 import { PageHeader } from '../../../../ui/components/page-header/page-header';
 import { ActionButton } from '../../../../ui/tab/action-control/action-control';
 import {

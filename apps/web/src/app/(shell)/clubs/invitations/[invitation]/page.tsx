@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { claimedUsername } from '@daisy/auth';
-import { requireAccess } from '../../../../../lib/access';
+import { requireAccess } from '../../../../../features/access/page-access';
 import type { SearchParams } from '../../../../../features/access/decision';
 import { clubInvitationViewSchema } from '../../../../../features/clubs/views';
 import { ClubInvitationPage } from '../../../../../ui/clubs/invitation-page';

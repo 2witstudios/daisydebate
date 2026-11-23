@@ -1,6 +1,6 @@
 import { defineComposition } from '../../server/composition';
-import { hostingPurchaseDependencies } from '../../server/hosting-purchases';
-import { memberHttpBoundary } from '../../server/member-boundary';
+import { hostingPurchaseDependencies } from './dependencies';
+import { memberHttpBoundary } from '../auth/member-boundary';
 import { z } from 'zod';
 import { createAppError } from '@daisy/errors';
 import { idSchema } from '@daisy/protocol/primitives';
@@ -14,7 +14,7 @@ import {
   runEvaluatedRoute,
   runMemberRoute,
   type BudgetedMemberBoundary,
-} from '../../server/member-boundary';
+} from '../auth/member-boundary';
 import { hostRoutes } from '../tab/routes';
 import type { TabPrincipal } from '../tab/tab-principal';
 import {

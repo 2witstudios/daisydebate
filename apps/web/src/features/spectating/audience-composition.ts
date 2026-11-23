@@ -1,7 +1,7 @@
 import { defineComposition } from '../../server/composition';
 import type { Waits } from '@daisy/clock';
 import { passOf, pollWork } from '@daisy/worker';
-import { identify } from '../../lib/identity';
+import { identify } from '../auth/identity';
 import type { App } from '../../server/app';
 import type { AccountRouteDeps } from '../../server/account-route';
 import { createAudienceReactionRoute } from '../audience-reactions/handler';

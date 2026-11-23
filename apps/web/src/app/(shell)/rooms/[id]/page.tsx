@@ -12,7 +12,7 @@ import {
 } from '../../../../features/rooms/command-answer';
 import { roomCommandIds } from '../../../../features/rooms/room-command-ids';
 import { roomWatchHref } from '../../../../features/watch/routes';
-import { requireAccess } from '../../../../lib/access';
+import { requireAccess } from '../../../../features/access/page-access';
 import { requestIdentity } from '../../../../lib/page-reads';
 import { requestWatchableRoundOfRoom } from '../../../../features/spectating/page-reads';
 import { RoomLive } from '../../../../ui/rooms/room-page/room-live';

@@ -1,4 +1,4 @@
-import { identify } from '../../lib/identity';
+import { identify } from '../auth/identity';
 import { defineComposition } from '../../server/composition';
 import { createAudienceLinkHandlers } from './handlers';
 

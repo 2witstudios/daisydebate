@@ -4,10 +4,7 @@ import { moderationAcknowledgeSchema } from '@daisy/protocol/moderation';
 import { requireMemberActor } from '../access/actor';
 import type { App } from '../../server/app';
 import { parseValidated, readJson } from '../../server/http';
-import {
-  memberHttpBoundary,
-  runEvaluatedRoute,
-} from '../../server/member-boundary';
+import { memberHttpBoundary, runEvaluatedRoute } from '../auth/member-boundary';
 
 const MAX_BODY_BYTES = 1024;
 

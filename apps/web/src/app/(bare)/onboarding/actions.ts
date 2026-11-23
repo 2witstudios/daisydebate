@@ -6,7 +6,7 @@ import { isQuestionStep } from '../../../features/onboarding/answers';
 import { afterStepHref } from '../../../features/onboarding/continue';
 import { sendOffHref } from '../../../features/onboarding/steps';
 import { returnableDestination } from '../../../features/auth/redirect';
-import { moveOn } from '../../../server/form-action';
+import { moveOn } from '../../../features/forms/form-action';
 import { inProcessFetch } from '../../../server/in-process-fetch';
 import { processRoute } from '../../../server/process-app';
 import { onboardingComposition } from '../../../features/onboarding/composition';
