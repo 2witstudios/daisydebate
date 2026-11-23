@@ -198,6 +198,7 @@
         "@daisy/protocol": "workspace:*",
         "@daisy/redis": "workspace:*",
         "@daisy/tab-engine": "workspace:*",
+        "@daisy/worker": "workspace:*",
         "@paralleldrive/cuid2": "3.3.0",
         "@sentry/nextjs": "11.10.0",
         "@tiptap/core": "3.31.4",

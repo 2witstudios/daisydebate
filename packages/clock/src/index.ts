@@ -40,6 +40,7 @@ export function fixedIds(values: readonly string[]): IdGenerator {
 
 export { waitsOf, type Pace, type Waits } from './waits';
 export {
+  afterMs,
   deadlineReason,
   deadlineSignal,
   withDeadline,

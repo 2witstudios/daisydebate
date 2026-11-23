@@ -1,5 +1,5 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { deadlineSignal, withDeadline } from './deadline';
+import { afterMs, deadlineSignal, withDeadline } from './deadline';
 import { virtualClock } from './testing';
 
 setupRitewayBun();
@@ -91,5 +91,20 @@ test('withDeadline rejects a slow operation and passes a fast one through', asyn
       fast: 'on time',
       sleepers: 0,
     },
+  });
+});
+
+test('a one-shot runs once when due, and never once cancelled', async () => {
+  const clock = virtualClock();
+  const ran: number[] = [];
+  afterMs(clock, 100, () => ran.push(clock.nowMs()));
+  const cancel = afterMs(clock, 50, () => ran.push(-1));
+  cancel();
+  await clock.advance(500);
+  assert({
+    given: 'a 100 ms one-shot and a 50 ms one cancelled at once',
+    should: 'run the first at 100 only, the second never, and leave no wait',
+    actual: { ran, sleepers: clock.sleepers() },
+    expected: { ran: [100], sleepers: 0 },
   });
 });

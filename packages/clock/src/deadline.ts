@@ -64,3 +64,20 @@ export async function withDeadline<T>(
     deadline.clear();
   }
 }
+
+/**
+ * Runs `run` once `ms` have passed on injected time, unless the returned
+ * cancel is called first: a one-shot callback (a debounce, a retry pause, a
+ * silence timer) with no host timer behind it.
+ */
+export function afterMs(waits: Pace, ms: number, run: () => void): () => void {
+  const cancel = new AbortController();
+  const dueMs = waits.nowMs() + Math.max(0, ms);
+  void waits
+    .waitUntilMs(dueMs, cancel.signal)
+    .catch(() => undefined)
+    .then(() => {
+      if (!cancel.signal.aborted && waits.nowMs() >= dueMs) run();
+    });
+  return () => cancel.abort();
+}
