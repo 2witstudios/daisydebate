@@ -30,8 +30,14 @@ import {
 import { post } from '../form-post';
 
 const routes = {
-  chat: processRoute((all) => all.audience.chat),
-  reaction: processRoute((all) => all.audience.reaction),
+  chat: (roundId: string) =>
+    processRoute(
+      (all) => (request: Request) => all.audience.chat(request, roundId),
+    ),
+  reaction: (roundId: string) =>
+    processRoute(
+      (all) => (request: Request) => all.audience.reaction(request, roundId),
+    ),
   follow: processRoute((all) => all.audience.follow),
   history: processRoute((all) => all.audience.watchHistory),
   read: processRoute((all) => all.audience.notificationsRead),
@@ -62,7 +68,7 @@ export async function postSpectatorChatAction(
   const incoming = new Headers(await headers());
   try {
     const response = await post(
-      routes.chat,
+      routes.chat(target.roundId),
       roundPath(target.roundId, 'chat'),
       {
         version: 1,
@@ -116,7 +122,7 @@ export async function reactToRoundAction(
   form: FormData,
 ): Promise<FormState> {
   return mutate(
-    routes.reaction,
+    routes.reaction(target.roundId),
     roundPath(target.roundId, 'reactions'),
     { version: 1, kind: field(form, 'kind') },
     form,

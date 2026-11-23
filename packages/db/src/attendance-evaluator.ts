@@ -1,3 +1,5 @@
+import { checkInAttemptStates } from '@daisy/protocol/attendance';
+import { listedWord } from './lifecycle-sql';
 import type { DecisionReleasePolicy } from '@daisy/protocol/round-decision-release';
 import { requireCurrentWeb } from './web-service-authority';
 import { endOpenJudgingJobs, type JudgingEndRule } from './round-judging-end';
@@ -136,7 +138,7 @@ export function createAttendanceEvaluator(
         const pending = await query(
           tx,
           z.object({ attempt_id: z.string() }),
-          sql`select attempt_id from round_check_in_attempts where round_id=${round.id} and state='pending' limit 1`,
+          sql`select attempt_id from round_check_in_attempts where round_id=${round.id} and state=${listedWord(checkInAttemptStates, 'pending')} limit 1`,
         );
         if (pending.length > 0)
           return { kind: 'held', reason: 'pending_writer' };

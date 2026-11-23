@@ -1,3 +1,7 @@
+import { messagingSocialCommandKinds } from '../schema/messaging-social';
+import { messagingChannelKinds } from '../schema/messaging-channels';
+import { actorKinds } from '../schema/actors';
+import { listedValue } from '../lifecycle-sql';
 import { tryInstantMs } from '@daisy/clock';
 import type { SQL } from 'bun';
 import { idSchema } from '@daisy/protocol/primitives';
@@ -22,7 +26,7 @@ export async function seedMessagingBrowserAccounts(
       a.userId.localeCompare(b.userId),
     )) {
       const [row] =
-        await tx`select a.id as "actorId" from users u join actors a on a.user_id=u.id where u.id=${account.userId} and u.username=${account.username} and u.email_verified and u.deleted_at is null and a.kind='human' for update of u`;
+        await tx`select a.id as "actorId" from users u join actors a on a.user_id=u.id where u.id=${account.userId} and u.username=${account.username} and u.email_verified and u.deleted_at is null and a.kind=${listedValue(actorKinds, 'human')} for update of u`;
       const actorId = idSchema.safeParse(row?.actorId);
       if (!actorId.success)
         throw new Error('Messaging browser account ownership refused');
@@ -56,7 +60,7 @@ export async function cleanupMessagingBrowserData(
     ];
     await tx`select id from messaging_channels where id=any(${tx.array(channelIds, 'text')}::text[]) order by id for update`;
     const [foreign] =
-      await tx`select exists(select 1 from messaging_channels c where c.id=any(${tx.array(channelIds, 'text')}::text[]) and not ((c.kind='dm' and exists(select 1 from messaging_dm_pairs p where p.channel_id=c.id and p.low_actor_id=any(${tx.array(actors, 'text')}::text[]) and p.high_actor_id=any(${tx.array(actors, 'text')}::text[]))) or (c.kind='private_group' and exists(select 1 from messaging_social_commands s where s.result_channel_id=c.id and s.kind='group.create' and s.actor_id=any(${tx.array(actors, 'text')}::text[])))))
+      await tx`select exists(select 1 from messaging_channels c where c.id=any(${tx.array(channelIds, 'text')}::text[]) and not ((c.kind=${listedValue(messagingChannelKinds, 'dm')} and exists(select 1 from messaging_dm_pairs p where p.channel_id=c.id and p.low_actor_id=any(${tx.array(actors, 'text')}::text[]) and p.high_actor_id=any(${tx.array(actors, 'text')}::text[]))) or (c.kind=${listedValue(messagingChannelKinds, 'private_group')} and exists(select 1 from messaging_social_commands s where s.result_channel_id=c.id and s.kind=${listedValue(messagingSocialCommandKinds, 'group.create')} and s.actor_id=any(${tx.array(actors, 'text')}::text[])))))
       or exists(select 1 from messaging_group_grants where channel_id=any(${tx.array(channelIds, 'text')}::text[]) and not(actor_id=any(${tx.array(actors, 'text')}::text[])))
       or exists(select 1 from messaging_group_invitations where channel_id=any(${tx.array(channelIds, 'text')}::text[]) and (not(invitee_actor_id=any(${tx.array(actors, 'text')}::text[])) or not(invited_by_actor_id=any(${tx.array(actors, 'text')}::text[]))))
       or exists(select 1 from messaging_messages where channel_id=any(${tx.array(channelIds, 'text')}::text[]) and not(author_actor_id=any(${tx.array(actors, 'text')}::text[])))

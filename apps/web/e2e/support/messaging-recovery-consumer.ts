@@ -1,9 +1,15 @@
+import { sha256Hex } from '@daisy/digest';
 import type { Page, Response as PageResponse } from '@playwright/test';
 
-/** Test-only consumer observation; returns every native operation unchanged. */
+/**
+ * Test-only consumer observation; returns every native operation unchanged.
+ * `digest` hashes the consumed bytes: `@daisy/digest` in a test, and in the
+ * page a call back to the test process, so no hasher runs in the browser.
+ */
 export function observeRecoveryConsumer(
   response: Response,
   changed: () => void,
+  digest: (bytes: Uint8Array) => Promise<string>,
 ) {
   const state = {
     readerOpened: false,
@@ -50,12 +56,9 @@ export function observeRecoveryConsumer(
                 bytes.set(chunk, offset);
                 offset += chunk.byteLength;
               }
-              void crypto.subtle.digest('SHA-256', bytes).then(
-                (digest) => {
-                  state.bodyDigest = Array.from(
-                    new Uint8Array(digest),
-                    (byte) => byte.toString(16).padStart(2, '0'),
-                  ).join('');
+              void digest(bytes).then(
+                (hex) => {
+                  state.bodyDigest = hex;
                   changed();
                 },
                 () => {
@@ -115,6 +118,14 @@ export async function watchRecoveryConsumer(
     }
   >();
   const expected = new Map<string, { digest: string; byteLength: number }>();
+  await page.exposeFunction(
+    '__messagingRecoveryDigest',
+    async (base64: string) => {
+      if (typeof base64 !== 'string' || base64.length > 1_400_000)
+        throw new Error('Controlled response evidence is out of bounds');
+      return sha256Hex(new Uint8Array(Buffer.from(base64, 'base64')));
+    },
+  );
   await page.exposeFunction(
     '__messagingRecoveryConsumer',
     (
@@ -185,14 +196,8 @@ export async function watchRecoveryConsumer(
       expectBody: async (id: string, body: Uint8Array) => {
         if (!expected.has(id) && expected.size >= 4)
           throw new Error('Controlled response evidence limit exceeded');
-        const digest = await crypto.subtle.digest(
-          'SHA-256',
-          Uint8Array.from(body),
-        );
         expected.set(id, {
-          digest: Array.from(new Uint8Array(digest), (byte) =>
-            byte.toString(16).padStart(2, '0'),
-          ).join(''),
+          digest: sha256Hex(body),
           byteLength: body.byteLength,
         });
       },
@@ -204,11 +209,16 @@ function installRecoveryConsumer(
   pathname: string,
   observe: typeof observeRecoveryConsumer,
 ) {
-  const notify = (
-    window as unknown as {
-      __messagingRecoveryConsumer: (id: string, state: object) => Promise<void>;
-    }
-  ).__messagingRecoveryConsumer;
+  const exposed = window as unknown as {
+    __messagingRecoveryConsumer: (id: string, state: object) => Promise<void>;
+    __messagingRecoveryDigest: (base64: string) => Promise<string>;
+  };
+  const notify = exposed.__messagingRecoveryConsumer;
+  const digest = (bytes: Uint8Array) => {
+    let binary = '';
+    for (const byte of bytes) binary += String.fromCharCode(byte);
+    return exposed.__messagingRecoveryDigest(btoa(binary));
+  };
   const fetch = window.fetch.bind(window);
   window.fetch = Object.assign((...args: Parameters<typeof fetch>) => {
     const original = fetch(...args);
@@ -245,7 +255,7 @@ function installRecoveryConsumer(
       (response) => {
         const id = response.headers.get('x-request-id');
         if (id === null) return;
-        const state = observe(response, () => emit());
+        const state = observe(response, () => emit(), digest);
         emit = () => {
           void notify(id, {
             ...state,

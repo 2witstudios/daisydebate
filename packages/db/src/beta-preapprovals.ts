@@ -1,3 +1,6 @@
+import { mailJobStates } from './schema/columns';
+import { listedWord, listedWords } from './lifecycle-sql';
+import { mailIntentErrorCodes } from './schema/mail-intents';
 import { normalizeEmail } from '@daisy/protocol/email';
 import { loadAuthorizationAccount } from './authorization';
 import { normalizedEmailSql } from './email-identity';
@@ -25,9 +28,7 @@ import { z } from 'zod';
 import { withLaneOperation } from './lane-operation';
 
 /** Delivery is unknown while a send may have happened without settlement. */
-const invitationStatusSql = sql.raw(
-  `case when m.last_error_code = 'delivery-unknown' then 'unknown' when m.last_error_code = 'suppressed' then 'suppressed' when m.state = 'leased' or (m.state = 'queued' and m.attempts > 0) then 'unknown' else coalesce(m.state, 'none') end`,
-);
+const invitationStatusSql = sql`case when m.last_error_code = ${listedWord(mailIntentErrorCodes, 'delivery-unknown')} then 'unknown' when m.last_error_code = ${listedWord(mailIntentErrorCodes, 'suppressed')} then 'suppressed' when m.state = ${listedWord(mailJobStates, 'leased')} or (m.state = ${listedWord(mailJobStates, 'queued')} and m.attempts > 0) then 'unknown' else coalesce(m.state, 'none') end`;
 
 export async function readPreapprovalCommandState(
   database: Tx,
@@ -216,7 +217,7 @@ async function runPreapprovalAttempt(
       ? await query(
           tx,
           z.object({ id: z.string() }),
-          sql`select id from mail_intents where preapproval_id = ${grant.id} and state in ('queued', 'leased') limit 1`,
+          sql`select id from mail_intents where preapproval_id = ${grant.id} and state in ${listedWords(mailJobStates, ['queued', 'leased'])} limit 1`,
         )
       : [];
     const facts: PreapprovalFacts = {

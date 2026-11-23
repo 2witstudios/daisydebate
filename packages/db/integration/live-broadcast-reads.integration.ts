@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import { sideOfSeat } from '@daisy/protocol/seats';
 import { requireTestServices } from '@daisy/config';
 import { createId } from '@paralleldrive/cuid2';
@@ -12,8 +13,9 @@ setupRitewayBun();
 const { databaseUrl } = requireTestServices(process.env);
 
 /** Everything here is relative to this read instant, far from other suites' rows. */
-const now = new Date('2031-03-03T12:00:00.000Z');
-const ago = (seconds: number) => new Date(now.getTime() - seconds * 1000);
+const nowMs = instantMs('2031-03-03T12:00:00.000Z');
+const now = new Date(nowMs);
+const ago = (seconds: number) => new Date(nowMs - seconds * 1000);
 const clock = { now: now.toISOString(), rankedDelaySeconds: 60 };
 const NEVER = { mode: 'any', q: '' } as const;
 

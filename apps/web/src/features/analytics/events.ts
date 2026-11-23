@@ -66,9 +66,18 @@ export function parseSdkProductEvent(
   );
 }
 
+/**
+ * The product area a page path is in: the area whose `/<area>` the path is,
+ * or begins as a whole segment (before a `/`, `?` or `#`). The root is home.
+ */
 export function pageArea(pathname: string): z.infer<typeof area> | null {
-  const segment = pathname.split(/[?#]/)[0]?.split('/')[1] ?? '';
-  if (segment === '') return 'home';
-  const result = area.safeParse(segment);
-  return result.success ? result.data : null;
+  const within = (prefix: string) =>
+    pathname === prefix ||
+    ['/', '?', '#'].some((next) => pathname.startsWith(prefix + next));
+  if (
+    ['', '/'].includes(pathname) ||
+    ['?', '#', '/?', '/#'].some((root) => pathname.startsWith(root))
+  )
+    return 'home';
+  return area.options.find((name) => within(`/${name}`)) ?? null;
 }

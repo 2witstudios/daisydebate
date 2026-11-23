@@ -14,7 +14,7 @@ test('a bot reads whether the line holding a peer’s words at an instant is wri
       const claim = await operations.claimWorker(target);
       const [segment] =
         await fixture.sql`select started_at from round_segments where id=${target.segmentId}`;
-      const startedMs = new Date(segment.started_at).getTime();
+      const startedMs = segment.started_at.getTime();
       const at = (ms: number) => new Date(startedMs + ms).toISOString();
       const reads = (peers: readonly string[], ms: number) =>
         operations.readPeerLine(claim.scope, claim.token, peers, at(ms));

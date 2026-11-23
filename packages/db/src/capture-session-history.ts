@@ -3,6 +3,7 @@ import { and, eq, inArray, sql } from 'drizzle-orm';
 import { mediaSessions } from './schema/media-sessions';
 import { roundIncidents } from './schema/round-incidents';
 import { mediaVendorMutations } from './schema/media-vendor-mutations';
+import { parsedColumn, postgresInstantMs } from './raw-rows';
 import type { Tx } from './tx';
 
 /** Vendor lifecycle evidence survives rotation, even when no PCM or text was persisted. */
@@ -18,8 +19,9 @@ export async function captureSessionInterrupted(
 ) {
   const incidents = await tx
     .select({
-      from: sql<Date>`coalesce(${roundIncidents.resumePoint}, ${roundIncidents.detectedAt})`.mapWith(
-        roundIncidents.detectedAt,
+      fromMs: parsedColumn(
+        postgresInstantMs,
+        sql`coalesce(${roundIncidents.resumePoint}, ${roundIncidents.detectedAt})`,
       ),
       resumedAt: roundIncidents.resumedAt,
       endedAt: roundIncidents.endedAt,
@@ -30,8 +32,8 @@ export async function captureSessionInterrupted(
   /** A vendor change inside an incident's span is the incident, stated elsewhere. */
   const excused = (at: Date) =>
     incidents.some(
-      ({ from, resumedAt, endedAt }) =>
-        at.getTime() >= from.getTime() &&
+      ({ fromMs, resumedAt, endedAt }) =>
+        at.getTime() >= fromMs &&
         at.getTime() <= (resumedAt ?? endedAt ?? new Date(8.64e15)).getTime(),
     );
   const history = await tx

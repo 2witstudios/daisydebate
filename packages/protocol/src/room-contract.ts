@@ -61,6 +61,8 @@ export type RoomStatus = (typeof roomStatuses)[number];
  * What a host may choose when creating or editing a Room. Private is refused
  * until an invite path can seat a second human (ISSUE-443, DEC-206).
  */
+/** Who may find a Room, and its Rounds: anyone, those with its link, or its seats. */
+export const roomVisibilities = ['public', 'unlisted', 'private'] as const;
 const roomVisibilitySchema = z.enum(['public', 'unlisted']);
 const versionSchema = z.int().positive();
 const textSchema = z.string().trim().min(1);

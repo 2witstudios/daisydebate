@@ -85,8 +85,9 @@ test('a signed capture call dispatches under the authenticated Round scope', asy
   const f = fixture();
   const lease = await f.handlers.handle(
     signed('lease', JSON.stringify({ roundId: id('x'), leaseMs: 5000 })),
+    'lease',
   );
-  const seal = await f.handlers.handle(signed('seal', '{}'));
+  const seal = await f.handlers.handle(signed('seal', '{}'), 'seal');
   assert({
     given: 'a signed lease claiming another Round and a seal',
     should: 'bind the verified Round id over the body and answer each reply',
@@ -109,7 +110,7 @@ test('a signed capture call dispatches under the authenticated Round scope', asy
 
 test('a reply outside the capture contract is never sent', async () => {
   const f = fixture(async () => ({ state: 'complete', revision: 1, extra: 1 }));
-  const response = await f.handlers.handle(signed('seal', '{}'));
+  const response = await f.handlers.handle(signed('seal', '{}'), 'seal');
   assert({
     given: 'an operation whose answer the worker would refuse',
     should: 'fail here rather than send it',
@@ -119,7 +120,10 @@ test('a reply outside the capture contract is never sent', async () => {
 });
 
 test('an inherited object name is refused like any unknown operation', async () => {
-  const response = await fixture().handlers.handle(signed('constructor', '{}'));
+  const response = await fixture().handlers.handle(
+    signed('constructor', '{}'),
+    'constructor',
+  );
   assert({
     given: 'a signed call to an operation name every object inherits',
     should: 'be refused rather than fail on it',
@@ -133,9 +137,11 @@ test('a signed token request is validated against its strict scope', async () =>
   const scope = { sessionId: id('s'), workerId: id('w'), epoch: 2 };
   const issued = await f.handlers.handle(
     signed('token', JSON.stringify(scope)),
+    'token',
   );
   const extra = await f.handlers.handle(
     signed('token', JSON.stringify({ ...scope, admin: true })),
+    'token',
   );
   assert({
     given: 'an exact token scope and one with an extra field',
@@ -150,6 +156,7 @@ test('signed heard reports reach the heard relay, apart from the worker scope (I
   const scope = { sessionId: id('s'), workerId: id('w'), epoch: 2 };
   const response = await f.handlers.handle(
     signed('heard', JSON.stringify({ ...scope, trackId: 'TR_bot' })),
+    'heard',
   );
   assert({
     given: "a signed report that capture hears a bot's track",
@@ -173,11 +180,16 @@ test('signed heard reports reach the heard relay, apart from the worker scope (I
 test('unsigned, undecodable or unknown capture calls never reach capture', async () => {
   const f = fixture();
   const statuses = await Promise.all(
-    [
-      signed('lease', '{}', 'forged'),
-      signed('lease', new Uint8Array([0xff, 0xfe])),
-      signed('delete', '{}'),
-    ].map(async (request) => (await f.handlers.handle(request)).status),
+    (
+      [
+        ['lease', signed('lease', '{}', 'forged')],
+        ['lease', signed('lease', new Uint8Array([0xff, 0xfe]))],
+        ['delete', signed('delete', '{}')],
+      ] as const
+    ).map(
+      async ([operation, request]) =>
+        (await f.handlers.handle(request, operation)).status,
+    ),
   );
   assert({
     given: 'a forged signature, invalid UTF-8 and an unknown operation',
@@ -190,7 +202,7 @@ test('unsigned, undecodable or unknown capture calls never reach capture', async
 const refusedWith = (error: unknown) =>
   fixture(async () => {
     throw error;
-  }).handlers.handle(signed('seal', '{}'));
+  }).handlers.handle(signed('seal', '{}'), 'seal');
 const answered = async (error: unknown) => {
   const response = await refusedWith(error);
   return [response.status, (await response.json()).refusal];
@@ -276,6 +288,7 @@ test('a reinstated lease is measured and its reply keeps the worker contract', a
   };
   const response = await fixture(undefined, undefined, lease).handlers.handle(
     signed('lease', '{}'),
+    'lease',
   );
   assert({
     given: 'a renewal that reinstated an expired lease',
@@ -302,6 +315,7 @@ test('a terminal token refusal ends native capture rather than restarting it', a
       'token',
       JSON.stringify({ sessionId: id('s'), workerId: id('w'), epoch: 1 }),
     ),
+    'token',
   );
   const body = await response.json();
   assert({

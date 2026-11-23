@@ -1,3 +1,4 @@
+import { tryInstantMs } from '@daisy/clock';
 import { createAppError } from '@daisy/errors';
 import { idSchema } from '@daisy/protocol/primitives';
 import { messagingChannels } from '../schema/messaging-channels';
@@ -20,13 +21,14 @@ export async function writeMessagingGroupCreation(
   scope: MessagingGroupCreationScope,
   command: Parameters<MessagingGroupCreationFrame['commit']>[0],
 ) {
-  const now = new Date(command.now);
+  const nowMs = tryInstantMs(command.now);
   if (
     !idSchema.safeParse(command.channelId).success ||
-    !Number.isFinite(now.getTime()) ||
+    nowMs === undefined ||
     scope.policyRevision === undefined
   )
     throw createAppError('VALIDATION');
+  const now = new Date(nowMs);
   await tx.insert(messagingChannels).values({
     id: command.channelId,
     kind: 'private_group',
@@ -49,14 +51,16 @@ export async function writeMessagingGroupCreation(
     (actorId) => actorId !== scope.actorId,
   );
   await tx.insert(messagingGroupInvitations).values(
-    invitees.map((inviteeActorId) => ({
-      channelId: command.channelId,
-      inviteeActorId,
-      invitedByActorId: scope.actorId,
-      generation: 1,
-      state: 'pending',
-      invitedAt: now,
-    })),
+    invitees.map(
+      (inviteeActorId): typeof messagingGroupInvitations.$inferInsert => ({
+        channelId: command.channelId,
+        inviteeActorId,
+        invitedByActorId: scope.actorId,
+        generation: 1,
+        state: 'pending',
+        invitedAt: now,
+      }),
+    ),
   );
   await tx.insert(messagingSocialCommands).values({
     actorId: scope.actorId,

@@ -52,7 +52,12 @@ test('signed capture recovers a lost actual HTTP payload reply without replacing
     const server = Bun.serve({
       hostname: '127.0.0.1',
       port: 0,
-      fetch: (request) => handlers.handle(request),
+      routes: {
+        '/api/internal/media/:roundId/capture/:operation': {
+          POST: (request) => handlers.handle(request, request.params.operation),
+        },
+      },
+      fetch: () => new Response(null, { status: 404 }),
     });
     let lose = true;
     const client = createMediaWorkerClient({
@@ -142,7 +147,12 @@ test('signed capture without an injected evidence capability cannot activate pay
     const server = Bun.serve({
       hostname: '127.0.0.1',
       port: 0,
-      fetch: (request) => handlers.handle(request),
+      routes: {
+        '/api/internal/media/:roundId/capture/:operation': {
+          POST: (request) => handlers.handle(request, request.params.operation),
+        },
+      },
+      fetch: () => new Response(null, { status: 404 }),
     });
     const client = createMediaWorkerClient({
       scope: {
@@ -201,7 +211,12 @@ test('SIGKILL with nonempty pre-WAV carry retains the actual signed original pay
     const server = Bun.serve({
       hostname: '127.0.0.1',
       port: 0,
-      fetch: (request) => handlers.handle(request),
+      routes: {
+        '/api/internal/media/:roundId/capture/:operation': {
+          POST: (request) => handlers.handle(request, request.params.operation),
+        },
+      },
+      fetch: () => new Response(null, { status: 404 }),
     });
     const child = Bun.spawn(
       [

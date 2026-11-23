@@ -1,3 +1,4 @@
+import { messagingGroupRoles } from '../schema/messaging-social';
 import { sql } from 'drizzle-orm';
 import { createAppError } from '@daisy/errors';
 import { idSchema } from '@daisy/protocol/primitives';
@@ -270,7 +271,7 @@ async function viewerFacts(
     tx,
     z.object({
       actorId: z.string(),
-      role: z.string(),
+      role: z.enum(messagingGroupRoles),
       revokedAt: z.date().nullable(),
       generation: postgresInt8,
     }),

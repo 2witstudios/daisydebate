@@ -1,3 +1,4 @@
+import { actorKinds } from './schema/actors';
 import { roundJudgingSchema } from '@daisy/protocol/ballot-definition';
 import { currentRoundParticipant } from './round-current-participant';
 import { createAppError } from '@daisy/errors';
@@ -6,7 +7,7 @@ import { and, eq, sql } from 'drizzle-orm';
 import { ballots } from './schema/ballots';
 import { roundJudgingJobs } from './schema/round-judging-jobs';
 import type { Tx } from './tx';
-import { query } from './raw-rows';
+import { parsedColumn, query } from './raw-rows';
 import { z } from 'zod';
 
 const iso = (column: string) =>
@@ -58,7 +59,10 @@ export async function readJudgingPanelFacts(
       judgeParticipantId: roundJudgingJobs.judgeParticipantId,
       status: roundJudgingJobs.status,
       generationDeadlineAt: roundJudgingJobs.generationDeadlineAt,
-      holdsBallot: sql<boolean>`${roundJudgingJobs.pendingBallot} is not null`,
+      holdsBallot: parsedColumn(
+        z.boolean(),
+        sql`${roundJudgingJobs.pendingBallot} is not null`,
+      ),
     })
     .from(roundJudgingJobs)
     .where(
@@ -72,7 +76,7 @@ export async function readJudgingPanelFacts(
     z.object({
       slot: z.number(),
       id: z.string().nullable(),
-      kind: z.string().nullable(),
+      kind: z.enum(actorKinds).nullable(),
     }),
     sql`select s.slot,p.id,a.kind from round_judge_slots s
     left join round_participants p on p.id=s.participant_id

@@ -20,6 +20,13 @@ const strikeSideSchema = z.enum(twoSideKeys);
  * from a drawn set until one resolution is left. Two sides, alternating
  * turns and one survivor are contract assumptions, not modes.
  */
+
+/** How hard a bank resolution is to argue. */
+export const resolutionDifficulties = [
+  'intro',
+  'standard',
+  'advanced',
+] as const;
 export const resolutionCategories = ['policy', 'value', 'fact'] as const;
 const resolutionCategorySchema = z.enum(resolutionCategories);
 export type ResolutionCategory = (typeof resolutionCategories)[number];

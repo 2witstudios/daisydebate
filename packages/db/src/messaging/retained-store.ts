@@ -1,3 +1,5 @@
+import { messagingChannelLifecycles } from '@daisy/protocol/messaging/social';
+import { listedWord } from '../lifecycle-sql';
 import { sql } from 'drizzle-orm';
 import { readOwnCollection, type OwnCollectionFence } from '../authorization';
 import { instrumented, type DatabaseEventSink } from '../instrumented';
@@ -21,7 +23,7 @@ async function listRetained(tx: Tx, actorId: string) {
     sql`
     select r.channel_id as "channelId", count(m.id)::int as "messages", max(m.created_at) as "lastAt"
     from messaging_retained_authors r
-    join messaging_channels c on c.id=r.channel_id and c.lifecycle='retained'
+    join messaging_channels c on c.id=r.channel_id and c.lifecycle=${listedWord(messagingChannelLifecycles, 'retained')}
     join messaging_messages m on m.channel_id=r.channel_id and m.author_actor_id=r.actor_id and m.removed_at is null
     where r.actor_id=${actorId}
     group by r.channel_id order by max(m.created_at) desc, r.channel_id

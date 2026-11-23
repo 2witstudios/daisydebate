@@ -1,5 +1,7 @@
 import { createAppError } from '@daisy/errors';
 import { and, asc, desc, eq, inArray, isNull, sql } from 'drizzle-orm';
+import { parsedColumn } from '../raw-rows';
+import { z } from 'zod';
 import { lobbies } from '../schema/lobbies';
 import { fenceTabAccountRead } from './account-read-fence';
 import { loadAccountHostingFacts } from './account-hosting-facts';
@@ -42,7 +44,10 @@ const readPurchases = async (
         id: tournamentHostingPurchases.id,
         lobbyId: tournamentHostingPurchases.lobbyId,
         payerUserId: tournamentHostingPurchases.payerUserId,
-        payerName: sql<string>`coalesce(nullif(${users.name}, ''), ${users.username}, '')`,
+        payerName: parsedColumn(
+          z.string(),
+          sql`coalesce(nullif(${users.name}, ''), ${users.username}, '')`,
+        ),
         tier: tournamentHostingPurchases.tier,
         amount: tournamentHostingPurchases.amount,
         mode: tournamentHostingPurchases.mode,
@@ -88,7 +93,7 @@ const loadHostingAccount = async (
   );
   if (!hosting) return null;
   const [accepted] = await tx
-    .select({ count: sql<number>`count(*)::int` })
+    .select({ count: parsedColumn(z.number().int(), sql`count(*)::int`) })
     .from(entries)
     .where(
       and(
@@ -97,7 +102,7 @@ const loadHostingAccount = async (
       ),
     );
   const [waiting] = await tx
-    .select({ count: sql<number>`count(*)::int` })
+    .select({ count: parsedColumn(z.number().int(), sql`count(*)::int`) })
     .from(entries)
     .where(
       and(
@@ -226,7 +231,7 @@ const loadHostedTournaments = async (tx: Tx, viewerUserId: string) => {
         ),
       );
     const [accepted] = await tx
-      .select({ count: sql<number>`count(*)::int` })
+      .select({ count: parsedColumn(z.number().int(), sql`count(*)::int`) })
       .from(entries)
       .where(
         and(eq(entries.lobbyId, lobby.id), eq(entries.status, 'accepted')),

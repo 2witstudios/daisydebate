@@ -32,7 +32,7 @@ export default async function ClubSeats({
   await requireClubRelease(identity);
   if (!clubId.test(club)) notFound();
   const view = await readOwnRoute(
-    GET,
+    (request) => GET(request, { params: Promise.resolve({ club }) }),
     `/api/clubs/${club}/seats`,
     clubSeatsViewSchema,
   );

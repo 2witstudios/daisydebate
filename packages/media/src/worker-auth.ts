@@ -1,6 +1,5 @@
-import { sha3Hex } from '@daisy/digest';
+import { hmacSha256Hex, sha3Hex } from '@daisy/digest';
 import { tryInstantMs } from '@daisy/clock';
-import { createHmac } from 'node:crypto';
 import { createAppError } from '@daisy/errors';
 import { idSchema } from '@daisy/protocol/primitives';
 
@@ -97,7 +96,7 @@ export function createMediaWorkerAuthentication(input: {
       'Worker authentication is unavailable',
     );
   const digest = (request: Omit<SignedRequest, 'signature'>) =>
-    createHmac('sha256', key).update(message(request), 'utf8').digest();
+    hmacSha256Hex(key, message(request));
   return {
     sign(request: Pick<SignedRequest, 'method' | 'path' | 'body'>) {
       const now = input.now();
@@ -105,7 +104,7 @@ export function createMediaWorkerAuthentication(input: {
       const timestamp = new Date(now).toISOString();
       return {
         timestamp,
-        signature: digest({ ...request, timestamp }).toString('hex'),
+        signature: digest({ ...request, timestamp }),
       };
     },
     verify(request: SignedRequest) {
@@ -126,9 +125,7 @@ export function createMediaWorkerAuthentication(input: {
       )
         throw unauthorized();
       // Compare SHA3-256 digests of both signatures, never the raw HMACs.
-      if (
-        sha3Hex(digest(request).toString('hex')) !== sha3Hex(request.signature)
-      )
+      if (sha3Hex(digest(request)) !== sha3Hex(request.signature))
         throw unauthorized();
       return workerPrincipal(request.body, route(request.path));
     },

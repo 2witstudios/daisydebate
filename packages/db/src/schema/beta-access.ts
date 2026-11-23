@@ -1,3 +1,4 @@
+import { listedWord } from '../lifecycle-sql';
 import {
   betaAccessProvenances,
   betaAccessStates,
@@ -19,11 +20,13 @@ export const accountBetaAccess = pgTable(
     userId: text('user_id')
       .primaryKey()
       .references(() => users.id, { onDelete: 'cascade' }),
-    state: text('state').notNull(),
+    state: text('state').$type<(typeof betaAccessStates)[number]>().notNull(),
     revision: integer('revision').notNull().default(1),
     requestedAt: timestampColumn('requested_at').notNull(),
     decidedAt: timestampColumn('decided_at'),
-    provenance: text('provenance').notNull(),
+    provenance: text('provenance')
+      .$type<(typeof betaAccessProvenances)[number]>()
+      .notNull(),
   },
   (table) => [
     check(
@@ -37,7 +40,7 @@ export const accountBetaAccess = pgTable(
     check('account_beta_access_revision_positive', sql`${table.revision} > 0`),
     check(
       'account_beta_access_decided_check',
-      sql`(${table.state} = 'pending') = (${table.decidedAt} is null)`,
+      sql`(${table.state} = ${listedWord(betaAccessStates, 'pending')}) = (${table.decidedAt} is null)`,
     ),
     index('account_beta_access_listing_idx').on(
       table.state,
@@ -62,8 +65,10 @@ export const accountAccessEvents = pgTable(
       .notNull()
       .references(() => users.id, { onDelete: 'cascade' }),
     commandId: text('command_id'),
-    fromState: text('from_state'),
-    toState: text('to_state').notNull(),
+    fromState: text('from_state').$type<(typeof betaAccessStates)[number]>(),
+    toState: text('to_state')
+      .$type<(typeof betaAccessStates)[number]>()
+      .notNull(),
     revision: integer('revision').notNull(),
     principal: text('principal').notNull(),
     createdAt: createdAtColumn(),

@@ -1,3 +1,4 @@
+import { tryInstantMs } from '@daisy/clock';
 import type { AllowanceAccountPolicy } from './usage-ledger';
 import { and, eq, sql } from 'drizzle-orm';
 import { createAppError } from '@daisy/errors';
@@ -281,8 +282,8 @@ export function createBotPublicationOperations(input: {
       at: string,
     ) =>
       input.run(async (tx) => {
-        const instant = new Date(at);
-        if (!Number.isFinite(instant.getTime()) || peers.length > 255)
+        const atMs = tryInstantMs(at);
+        if (atMs === undefined || peers.length > 255)
           throw createAppError('VALIDATION');
         const [claim] = await tx
           .select()
@@ -293,7 +294,7 @@ export function createBotPublicationOperations(input: {
         const now = await readDatabaseTime(tx);
         if (claim.leaseExpiresAt.getTime() <= now.getTime())
           throw createAppError('CONFLICT', 'Publication lease expired');
-        return peerLineCovers(tx, scope, peers, instant);
+        return peerLineCovers(tx, scope, peers, new Date(atMs));
       }),
     /** Writes a phrase's line as its audio starts, and rings the doorbell. */
     revealBotPhrase: (

@@ -1,5 +1,7 @@
 import { settings } from '../schema/settings';
 import { and, asc, eq, inArray, or, sql } from 'drizzle-orm';
+import { parsedColumn } from '../raw-rows';
+import { z } from 'zod';
 import { actors } from '../schema/actors';
 import { users } from '../schema/users';
 import { ladders } from '../schema/ladders';
@@ -117,12 +119,22 @@ export async function loadLeagueRatingInputs(
           rating: ratings.rating,
           deviation: ratings.deviation,
           volatility: ratings.volatility,
-          games: sql<number>`count(${ratingChanges.id})::int`,
-          wins: sql<number>`(count(${ratingChanges.id}) filter (where ${rounds.winningSide}=${roundParticipants.side}))::int`,
-          lastRatedAt: sql<
-            string | null
-          >`to_char(max(${ratingChanges.occurredAt}) at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')`,
-          change: sql<number>`(array_agg(${ratingChanges.ratingAfter}-${ratingChanges.ratingBefore} order by ${ratingChanges.occurredAt} desc))[1]`,
+          games: parsedColumn(
+            z.number().int(),
+            sql`count(${ratingChanges.id})::int`,
+          ),
+          wins: parsedColumn(
+            z.number().int(),
+            sql`(count(${ratingChanges.id}) filter (where ${rounds.winningSide}=${roundParticipants.side}))::int`,
+          ),
+          lastRatedAt: parsedColumn(
+            z.string().nullable(),
+            sql`to_char(max(${ratingChanges.occurredAt}) at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')`,
+          ),
+          change: parsedColumn(
+            z.number(),
+            sql`(array_agg(${ratingChanges.ratingAfter}-${ratingChanges.ratingBefore} order by ${ratingChanges.occurredAt} desc))[1]`,
+          ),
         })
         .from(ratings)
         .innerJoin(

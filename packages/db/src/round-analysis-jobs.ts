@@ -1,3 +1,5 @@
+import { usageKinds } from '@daisy/protocol/billing';
+import { listedWord } from './lifecycle-sql';
 import { instantMs } from '@daisy/clock';
 import { createAppError } from '@daisy/errors';
 import {
@@ -139,7 +141,7 @@ export function createRoundAnalysisJobs(input: {
             requestedAt: z.string(),
           }),
           sql`select round_id as "roundId",round_participant_id as "roundParticipantId",coalesce(work->>'requestedAt',work->'request'->>'requestedAt') as "requestedAt"
-          from round_analyses a where (work->>'kind'='queued' or (work->>'kind'='leased' and (work->'lease'->>'expiresAt')::timestamptz<=clock_timestamp()) or (work->>'kind' in ('purged','failed','succeeded') and exists (select 1 from usage_reservations u join round_participants p on p.actor_id=u.actor_id and p.round_id=u.round_id where p.id=a.round_participant_id and u.kind='round_analysis' and u.state->>'kind' in ('reserved','dispatched'))))
+          from round_analyses a where (work->>'kind'='queued' or (work->>'kind'='leased' and (work->'lease'->>'expiresAt')::timestamptz<=clock_timestamp()) or (work->>'kind' in ('purged','failed','succeeded') and exists (select 1 from usage_reservations u join round_participants p on p.actor_id=u.actor_id and p.round_id=u.round_id where p.id=a.round_participant_id and u.kind=${listedWord(usageKinds, 'round_analysis')} and u.state->>'kind' in ('reserved','dispatched'))))
           and (${after === null} or (coalesce(work->>'requestedAt',work->'request'->>'requestedAt'), round_participant_id)>(${after?.requestedAt ?? ''},${after?.seatId ?? ''}))
           order by coalesce(work->>'requestedAt',work->'request'->>'requestedAt'),round_participant_id limit ${limit}`,
         );

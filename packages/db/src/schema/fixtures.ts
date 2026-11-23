@@ -1,3 +1,4 @@
+import { listedWord } from '../lifecycle-sql';
 import { fixtureKinds, fixtureStatuses } from '@daisy/protocol/lobby';
 import { sql } from 'drizzle-orm';
 import {
@@ -86,11 +87,11 @@ export const fixtures = pgTable(
     check('fixtures_status_check', oneOf(table.status, fixtureStatuses)),
     check(
       'fixtures_lifecycle_instants',
-      sql`(${table.publishedAt} is not null) = (${table.status} <> 'draft') and (${table.withdrawnAt} is not null) = (${table.status} = 'withdrawn')`,
+      sql`(${table.publishedAt} is not null) = (${table.status} <> ${listedWord(fixtureStatuses, 'draft')}) and (${table.withdrawnAt} is not null) = (${table.status} = ${listedWord(fixtureStatuses, 'withdrawn')})`,
     ),
     check(
       'fixtures_room_when_published',
-      sql`(${table.roomId} is not null) = (${table.status} <> 'draft' and ${table.kind} <> 'bye')`,
+      sql`(${table.roomId} is not null) = (${table.status} <> ${listedWord(fixtureStatuses, 'draft')} and ${table.kind} <> ${listedWord(fixtureKinds, 'bye')})`,
     ),
     versionPositive('fixtures', table.version),
   ],

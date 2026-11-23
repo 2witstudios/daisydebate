@@ -123,7 +123,7 @@ describe('issuing a link', () => {
     const { handlers, written, logged } = build();
     const response = await handlers.issue(issuing(), roundId);
     const { url } = (await response.json()) as { url: string };
-    const issued = url.split('token=')[1]!;
+    const issued = new URL(url).searchParams.get('token')!;
     assert({
       given: 'the host of an unlisted Round',
       should: 'answer the link and store the SHA3-256 of its token alone',

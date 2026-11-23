@@ -3,6 +3,14 @@ import type { CaptureEvidenceSpeaker } from './capture-evidence-speaker';
 import type { EvidencePrivacyScope } from './evidence-privacy';
 
 /** Necessary evidence is not an optional Recording or a claim of peer hearing. */
+/** Held evidence's lifecycle: acquired, retained, then retired. */
+export const necessaryEvidenceStates = [
+  'acquiring',
+  'retained',
+  'retiring',
+  'retired',
+] as const;
+
 export const necessaryEvidencePolicy = {
   maxAgeMs: 7 * 24 * 60 * 60 * 1000,
   maxPayloadBytes: 64 * 1024,

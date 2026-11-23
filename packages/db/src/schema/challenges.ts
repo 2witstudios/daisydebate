@@ -26,8 +26,10 @@ export const challenges = pgTable(
     id: text('id').primaryKey(),
     challengerActorId: contactActorColumn('challenger_actor_id'),
     challengedActorId: contactActorColumn('challenged_actor_id'),
-    mode: text('mode').notNull(),
-    formatId: text('format_id').notNull(),
+    mode: text('mode').$type<(typeof competitionTypes)[number]>().notNull(),
+    formatId: text('format_id')
+      .$type<(typeof ratingStyles)[number]>()
+      .notNull(),
     /**
      * The lobby both members share, decided at send (ADR 0162): the
      * challenge's Room opens in it, and a ranked offer rates on its ladder.

@@ -1,3 +1,6 @@
+import { seasonStatuses } from '../schema/seasons';
+import { guardianLinkStatuses } from '@daisy/protocol/guardians';
+import { listedWord } from '../lifecycle-sql';
 import { sql, type SQL } from 'drizzle-orm';
 import { z } from 'zod';
 import type { AgeBand } from '@daisy/protocol/ladder';
@@ -36,7 +39,7 @@ export async function readGuardianLobbyIds(
       from restriction_lobbies permission
       join guardian_links link on link.id = permission.guardian_link_id
       where link.minor_user_id = ${minorUserId}
-        and permission.signed_at is not null and link.status = 'active'`,
+        and permission.signed_at is not null and link.status = ${listedWord(guardianLinkStatuses, 'active')}`,
   );
   return rows.map(({ lobbyId }) => lobbyId);
 }
@@ -58,9 +61,9 @@ export async function hasGuardianLobbyWaiver(
       select 1 from restriction_lobby_waivers waiver
       join guardian_links link on link.id = waiver.guardian_link_id
       join seasons season on season.id = waiver.season_id
-      where link.minor_user_id = ${input.minorUserId} and link.status = 'active'
+      where link.minor_user_id = ${input.minorUserId} and link.status = ${listedWord(guardianLinkStatuses, 'active')}
         and waiver.lobby_id = ${input.lobbyId} and waiver.waiver_version = ${input.waiverVersion}
-        and season.status = 'active'
+        and season.status = ${listedWord(seasonStatuses, 'active')}
         ${input.seasonId === undefined ? sql`` : sql`and waiver.season_id = ${input.seasonId}`}
     ) as signed`,
   );

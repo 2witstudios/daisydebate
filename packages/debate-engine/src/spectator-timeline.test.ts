@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import { SPECTATOR_MARGIN_MS } from '@daisy/protocol/broadcast';
 import { sideSeat, twoSides } from '@daisy/protocol/seats';
 import { winnerOutcome } from '@daisy/protocol/round-outcome';
@@ -10,10 +11,11 @@ import {
 setupRitewayBun();
 
 type Read = Parameters<typeof project>[0];
-const started = new Date('2026-11-02T00:00:00.000Z');
+const startedMs = instantMs('2026-11-02T00:00:00.000Z');
+const started = new Date(startedMs);
 const ended = new Date('2026-11-02T00:10:00.000Z');
 const MANIFEST = 'https://feed.daisy.invalid/live/b1/master.m3u8';
-const NOW = started.getTime() + 300_000;
+const NOW = startedMs + 300_000;
 const context = { nowMs: NOW, feedUrlOf: () => MANIFEST };
 const projectSpectatorTimeline = (facts: Read) => project(facts, context);
 const delay60 = { kind: 'delay', seconds: 60 } as const;
@@ -208,7 +210,7 @@ describe('projectSpectatorTimeline', () => {
     assert({
       given: 'a horizon short of the Round start',
       should: 'not say the Round has begun',
-      actual: phaseOf({ horizonMs: started.getTime() - 1000 }),
+      actual: phaseOf({ horizonMs: startedMs - 1000 }),
       expected: 'unreleased',
     });
     assert({

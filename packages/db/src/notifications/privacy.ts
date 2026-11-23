@@ -1,3 +1,4 @@
+import { mailJobStates } from '../schema/columns';
 import { sql } from 'drizzle-orm';
 import type { PrivacyAdopter } from '../privacy/contracts';
 import { exportRows } from '../privacy/export-rows';
@@ -93,7 +94,7 @@ export const notificationPrivacyAdopter: PrivacyAdopter = {
         await query(
           tx,
           z.object({
-            state: z.string(),
+            state: z.enum(mailJobStates),
             attempts: z.int(),
             last_error_code: z.string().nullable(),
             first_owed_at: z.date(),

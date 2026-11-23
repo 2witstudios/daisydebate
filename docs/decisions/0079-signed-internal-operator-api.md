@@ -56,9 +56,9 @@ The participant app still has no admin screen or route.
 ### 3. Signature, keys and verification order
 
 The signer and verifier are one pure module, `@daisy/auth/operator-signature`.
-The admin app signs with it and the web app verifies with it. Hash
-primitives are injected (`node:crypto` in each app), and so are time and
-keys.
+The admin app signs with it and the web app verifies with it. Its hashes
+come from `@daisy/digest`, the repository's one hashing home, so both sides
+compute identical bytes; time and keys are injected.
 
 **Canonical string.** UTF-8 lines joined by `\n`, every field checked
 against its grammar first:

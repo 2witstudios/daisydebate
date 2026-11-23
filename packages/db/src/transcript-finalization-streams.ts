@@ -1,3 +1,5 @@
+import { transcriptStreamStates } from '@daisy/protocol/round-transcript';
+import { listedWord } from './lifecycle-sql';
 import { asc, eq, sql } from 'drizzle-orm';
 import type { CaptureRule } from '@daisy/protocol/capture-verdict';
 import { readSeatGrants } from './capture-history';
@@ -76,6 +78,6 @@ export async function closeUnresolvedStreams(
       sealedAt: sql`clock_timestamp()`,
     })
     .where(
-      sql`${transcriptSegments.roundId}=${roundId} and ${transcriptSegments.state}='open'`,
+      sql`${transcriptSegments.roundId}=${roundId} and ${transcriptSegments.state}=${listedWord(transcriptStreamStates, 'open')}`,
     );
 }

@@ -1,6 +1,6 @@
 import { repeatEvery } from '@daisy/worker';
 import type { Waits } from '@daisy/clock';
-import type { Clock } from '@daisy/clock';
+import { addMs, type Clock } from '@daisy/clock';
 import type { Logger } from '@daisy/logger';
 import { createAppError } from '@daisy/errors';
 import {
@@ -79,13 +79,13 @@ export const PRIVACY_JOBS_RETRY_MAX_MS = 3_600_000;
  * confirms; nothing about the failure is stored or logged beyond counts.
  */
 export const privacyJobRetryAt = (now: string, attempts: number): string =>
-  new Date(
-    new Date(now).getTime() +
-      Math.min(
-        PRIVACY_JOBS_RETRY_MS * 2 ** Math.max(0, attempts),
-        PRIVACY_JOBS_RETRY_MAX_MS,
-      ),
-  ).toISOString();
+  addMs(
+    now,
+    Math.min(
+      PRIVACY_JOBS_RETRY_MS * 2 ** Math.max(0, attempts),
+      PRIVACY_JOBS_RETRY_MAX_MS,
+    ),
+  );
 
 /**
  * Delivers durable vendor deletion jobs (ADR 0087, ISSUE-833): each run

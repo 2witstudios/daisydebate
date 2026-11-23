@@ -1,3 +1,8 @@
+import {
+  contentReportStatuses,
+  contentReportTargetKinds,
+} from '@daisy/protocol/content-moderation';
+import { listedWord } from './lifecycle-sql';
 import { instantMs } from '@daisy/clock';
 import { createAppError } from '@daisy/errors';
 import { readDatabaseTime } from './database-clock';
@@ -222,9 +227,9 @@ export const recordingOperations = ({
           eq(recordings.status, 'taken_down'),
           sql`${recordings.lifecycle} ? 'removalOwed'`,
           sql`((${recordings.lifecycle}->'removalOwed'->>'heldUntil')::timestamptz <= ${input.now}::timestamptz
-            or not exists (select 1 from content_reports c where c.status = 'open' and (
-              (c.target_kind = 'recording' and c.target_id = ${recordings.id})
-              or (c.target_kind = 'round' and c.target_id = ${recordings.roundId}))))`,
+            or not exists (select 1 from content_reports c where c.status = ${listedWord(contentReportStatuses, 'open')} and (
+              (c.target_kind = ${listedWord(contentReportTargetKinds, 'recording')} and c.target_id = ${recordings.id})
+              or (c.target_kind = ${listedWord(contentReportTargetKinds, 'round')} and c.target_id = ${recordings.roundId}))))`,
         ),
       )
       .orderBy(asc(recordings.updatedAt))
@@ -246,9 +251,9 @@ export const recordingOperations = ({
           eq(recordings.recordingClass, 'casual'),
           lte(recordings.updatedAt, new Date(input.before)),
           // What a report rests on stays until the report is decided.
-          sql`not exists (select 1 from content_reports c where c.status = 'open' and (
-            (c.target_kind = 'recording' and c.target_id = ${recordings.id})
-            or (c.target_kind = 'round' and c.target_id = ${recordings.roundId})))`,
+          sql`not exists (select 1 from content_reports c where c.status = ${listedWord(contentReportStatuses, 'open')} and (
+            (c.target_kind = ${listedWord(contentReportTargetKinds, 'recording')} and c.target_id = ${recordings.id})
+            or (c.target_kind = ${listedWord(contentReportTargetKinds, 'round')} and c.target_id = ${recordings.roundId})))`,
         ),
       )
       .orderBy(asc(recordings.updatedAt))

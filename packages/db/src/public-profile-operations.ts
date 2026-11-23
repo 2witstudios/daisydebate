@@ -1,3 +1,4 @@
+import { listedWord, listedWords } from './lifecycle-sql';
 import { createAppError } from '@daisy/errors';
 import { idSchema } from '@daisy/protocol/primitives';
 import {
@@ -74,7 +75,7 @@ const ownProfile = async (
     tx,
     z.object({ id: z.string(), status: z.enum(profilePhotoStatuses) }),
     sql`select id, status from profile_photos
-      where actor_id = ${actorId} and status in ('published', 'in_review')`,
+      where actor_id = ${actorId} and status in ${listedWords(profilePhotoStatuses, ['published', 'in_review'])}`,
   );
   const live = (status: ProfilePhotoStatus) =>
     photos.find((photo) => photo.status === status)?.id ?? null;
@@ -135,7 +136,7 @@ const endPhotos = (
     sql`update profile_photos set status = ${status},
         ended_at = ${now}::timestamptz, delete_after = ${now}::timestamptz,
         version = version + 1
-      where status in ('published', 'in_review') and ${where}
+      where status in ${listedWords(profilePhotoStatuses, ['published', 'in_review'])} and ${where}
       returning id`,
   );
 
@@ -254,7 +255,7 @@ export const publicProfileOperations = ({
           sql`insert into profile_photos
             (id, actor_id, status, check_verdict, object_prefix, created_at,
              ended_at, delete_after)
-          values (${input.photoId}, ${scope.actorId}, 'uploading',
+          values (${input.photoId}, ${scope.actorId}, ${listedWord(profilePhotoStatuses, 'uploading')},
             ${input.checkVerdict}, ${input.objectPrefix}, ${input.now}::timestamptz,
             ${input.now}::timestamptz, ${input.deleteAfter}::timestamptz)`,
         );
@@ -303,7 +304,7 @@ export const publicProfileOperations = ({
               decided_at = ${input.status === 'published' ? input.now : null}::timestamptz,
               version = version + 1
             where id = ${input.photoId} and actor_id = ${scope.actorId}
-              and status = 'uploading' and delete_attempts = 0
+              and status = ${listedWord(profilePhotoStatuses, 'uploading')} and delete_attempts = 0
               and delete_after > ${input.now}::timestamptz + ${`${RECORD_MARGIN_SECONDS} seconds`}::interval
             returning id`,
         );
@@ -385,7 +386,7 @@ export const publicProfileOperations = ({
         sql`select a.id as actor_id, m.display_name, p.id as photo_id
           from actors a
           left join member_profiles m on m.actor_id = a.id
-          left join profile_photos p on p.actor_id = a.id and p.status = 'published'
+          left join profile_photos p on p.actor_id = a.id and p.status = ${listedWord(profilePhotoStatuses, 'published')}
           where a.id in (${sql.join(
             ids.map((id) => sql`${id}`),
             sql`, `,
@@ -417,7 +418,7 @@ export const publicProfileOperations = ({
         sql`select m.id as profile_id, m.display_name, m.bio, p.id as photo_id
           from actors a
           left join member_profiles m on m.actor_id = a.id
-          left join profile_photos p on p.actor_id = a.id and p.status = 'published'
+          left join profile_photos p on p.actor_id = a.id and p.status = ${listedWord(profilePhotoStatuses, 'published')}
           where a.id = ${actorId}`,
       );
       return {

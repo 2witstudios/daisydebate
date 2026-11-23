@@ -1,3 +1,4 @@
+import { billingModes } from './billing-mode';
 import {
   instantMs,
   isInstantAtOrBefore,
@@ -63,7 +64,7 @@ export const partialPaymentFactsSchema = z.strictObject({
 export type PartialPaymentFacts = z.infer<typeof partialPaymentFactsSchema>;
 /** Complete linked allocation facts; this shape alone is never permission to create money effects. */
 const paymentBinding = {
-  mode: z.enum(['test', 'live']),
+  mode: z.enum(billingModes),
   customerId: vendorId('cus'),
   invoiceId: vendorId('in'),
   vendorSubscriptionId: vendorId('sub'),
@@ -108,7 +109,7 @@ export const paymentObservationEvidenceSchema = z.discriminatedUnion('kind', [
 /** Constructed only after an owned bounded traversal durably retains every returned identity. */
 export const invoiceEnumerationCoverageSchema = z.strictObject({
   kind: z.literal('complete'),
-  mode: z.enum(['test', 'live']),
+  mode: z.enum(billingModes),
   customerId: vendorId('cus'),
   invoiceId: vendorId('in'),
   paymentCount: z.number().int().positive().max(Number.MAX_SAFE_INTEGER),
@@ -163,7 +164,7 @@ export const billingPaymentObservationStateSchema = z.union([
 const owner = {
   id: idSchema,
   userId: idSchema,
-  mode: z.enum(['test', 'live']),
+  mode: z.enum(billingModes),
   customerId: vendorId('cus'),
   invoiceId: vendorId('in'),
   closedAt: instant,

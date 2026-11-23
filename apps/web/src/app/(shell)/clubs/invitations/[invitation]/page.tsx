@@ -33,7 +33,7 @@ export default async function ClubInvitation({
   await requireClubRelease(identity);
   if (!reference.test(invitation)) notFound();
   const view = await readOwnRoute(
-    GET,
+    (request) => GET(request, { params: Promise.resolve({ invitation }) }),
     `/api/clubs/invitations/${invitation}`,
     clubInvitationViewSchema,
   );

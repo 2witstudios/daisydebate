@@ -1,3 +1,4 @@
+import { sha256Hex } from '@daisy/digest';
 import { createTigrisObjectStore } from '../src/features/recording/tigris-object-store';
 
 type TransferEvent = {
@@ -5,8 +6,7 @@ type TransferEvent = {
   readonly kind: 'enter' | 'sent' | 'cancelled';
   readonly atMs: number;
 };
-const hash = (bytes: Uint8Array) =>
-  new Bun.CryptoHasher('sha256').update(bytes).digest('hex');
+const hash = (bytes: Uint8Array) => sha256Hex(bytes);
 
 /** Controlled TEST receiver, not a Tigris/S3 server qualification. Only exact links
  * issued by the real signer are accepted; no credentials or URLs enter receipts. */

@@ -1,3 +1,5 @@
+import { necessaryEvidenceStates } from '@daisy/protocol/necessary-evidence';
+import { listedWord } from './lifecycle-sql';
 import {
   captureEvidenceSpeakerSchema,
   type CaptureEvidenceSpeaker,
@@ -126,7 +128,7 @@ export async function reserveCaptureEvidenceIntent(
       sql`select count(*)::integer as count,
       coalesce(sum(reserved_bytes),0)::integer as total,
       coalesce(sum(case when round_id=${input.roundId} then reserved_bytes else 0 end),0)::integer as round
-      from necessary_evidence where state in ('acquiring','retained','retiring')`,
+      from necessary_evidence where state in (${listedWord(necessaryEvidenceStates, 'acquiring')},${listedWord(necessaryEvidenceStates, 'retained')},${listedWord(necessaryEvidenceStates, 'retiring')})`,
     );
     if (
       !capacity ||

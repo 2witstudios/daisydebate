@@ -63,7 +63,7 @@ async function capturedRound(f: Fixture) {
         roundParticipantId: grant.round_participant_id as string,
       },
       trackId = createId();
-    const start = new Date(grant.started_at).getTime();
+    const start = grant.started_at.getTime();
     await capture.appendCapturedTranscript({
       ...stream,
       trackId,

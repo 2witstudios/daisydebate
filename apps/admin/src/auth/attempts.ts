@@ -1,7 +1,7 @@
 import type { Clock, IdGenerator } from '@daisy/clock';
 import { appendAudit } from '../audit/store';
 import type { AuditDetail } from '../audit/chain';
-import type { AdminDatabase } from '../db/client';
+import { inTransaction, type AdminTxSource } from '../db/tx';
 import type { RandomBytes } from './secrets';
 import {
   ATTEMPT_LIMIT,
@@ -16,7 +16,7 @@ import type { CeremonyOrigin } from './webauthn';
 
 /** Everything a ceremony needs, injected at the process edge. */
 export type AuthDeps = {
-  readonly db: AdminDatabase;
+  readonly db: AdminTxSource;
   readonly clock: Clock;
   readonly ids: IdGenerator;
   readonly random: RandomBytes;
@@ -49,7 +49,7 @@ const audited = (
   detail: AuditDetail,
   operatorId: string | null,
 ) =>
-  deps.db.transaction((tx) =>
+  inTransaction(deps.db, (tx) =>
     appendAudit(tx, {
       id: deps.ids.next(),
       kind: 'auth.failure',

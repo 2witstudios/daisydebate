@@ -1,3 +1,4 @@
+import { competitionTypes } from '@daisy/protocol/round';
 import { sql } from 'drizzle-orm';
 import { idSchema } from '@daisy/protocol/primitives';
 import type { PrivacyAdopter, PrivacyExport } from '../privacy/contracts';
@@ -26,7 +27,7 @@ export const challengesPrivacyAdopter: PrivacyAdopter = {
             id: z.string(),
             challenger_actor_id: z.string(),
             challenged_actor_id: z.string(),
-            mode: z.string(),
+            mode: z.enum(competitionTypes),
             format_id: z.string(),
             room_id: z.string().nullable(),
             created_at: z.date(),

@@ -20,11 +20,13 @@ export function createLazyBillingRoutes(
 ) {
   let held: Promise<BillingRoutes> | undefined;
   const bind =
-    (
+    <Args extends unknown[]>(
       operation: OperationName,
-      pick: (routes: BillingRoutes) => (request: Request) => Promise<Response>,
+      pick: (
+        routes: BillingRoutes,
+      ) => (request: Request, ...args: Args) => Promise<Response>,
     ) =>
-    async (request: Request) => {
+    async (request: Request, ...args: Args) => {
       let routes: BillingRoutes;
       try {
         held ??= load().then((module) => module.billingRoutes(app, fetch));
@@ -40,7 +42,7 @@ export function createLazyBillingRoutes(
           app.reporter,
         );
       }
-      return pick(routes)(request);
+      return pick(routes)(request, ...args);
     };
   return {
     checkout: {

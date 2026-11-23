@@ -1,3 +1,4 @@
+import { roundDecisionReleases } from '@daisy/protocol/round';
 import { createAppError } from '@daisy/errors';
 import type { DecisionReleasePolicy } from '@daisy/protocol/round-decision-release';
 import { createId } from '@paralleldrive/cuid2';
@@ -81,7 +82,7 @@ export async function releaseFinalizedDecision(
     );
   const [round] = await query(
     tx,
-    z.object({ decision_release: z.string() }),
+    z.object({ decision_release: z.enum(roundDecisionReleases) }),
     sql`select decision_release from rounds where id=${input.roundId}`,
   );
   if (!policy.release(round?.decision_release ?? null)) return;

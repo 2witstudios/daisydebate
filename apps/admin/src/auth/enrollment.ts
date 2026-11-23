@@ -3,7 +3,7 @@ import type {
   RegistrationResponseJSON,
 } from '@simplewebauthn/server';
 import { appendAudit } from '../audit/store';
-import type { AdminTransaction } from '../db/client';
+import { inTransaction, type AdminTransaction } from '../db/tx';
 import { operatorCredentials } from '../db/schema';
 import {
   isUniqueViolation,
@@ -137,7 +137,7 @@ async function replacePrevious(
 }
 
 function storeEnrollment(deps: AuthDeps, input: Enrolling, now: string) {
-  return deps.db.transaction(async (tx) => {
+  return inTransaction(deps.db, async (tx) => {
     const consumed =
       (await consumeChallenge(tx, {
         challengeHash: input.challengeHash,

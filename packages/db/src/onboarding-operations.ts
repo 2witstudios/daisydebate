@@ -60,9 +60,9 @@ const noRow = {
 } as const;
 
 const rowAnswers = (row: OnboardingRow) => ({
-  club: row.club as Club | null,
+  club: row.club,
   clubName: row.clubName,
-  experience: row.experience as Experience | null,
+  experience: row.experience,
   completedAt: row.completedAt === null ? null : row.completedAt.toISOString(),
 });
 

@@ -1,3 +1,4 @@
+import { addMs } from '@daisy/clock';
 import type { DecisionReleasePolicy } from '@daisy/protocol/round-decision-release';
 import {
   readBroadcastObserverHeld,
@@ -210,7 +211,8 @@ export function createMediaReconcileStore(input: {
           finalSegmentEndedAt: tick.finalSegmentEndedAt,
           participantId,
         });
-        const dispatchedAt = new Date(await sampleRoundExecutionTime(tx));
+        const dispatchedAtIso = await sampleRoundExecutionTime(tx);
+        const dispatchedAt = new Date(dispatchedAtIso);
         requireReconcileLease(session, request, dispatchedAt);
         const id = mediaId(input.nextId());
         await tx.insert(mediaVendorMutations).values({
@@ -223,7 +225,7 @@ export function createMediaReconcileStore(input: {
         await tx
           .update(mediaSessions)
           .set({
-            reconcileLeaseUntil: new Date(dispatchedAt.getTime() + LEASE_MS),
+            reconcileLeaseUntil: new Date(addMs(dispatchedAtIso, LEASE_MS)),
           })
           .where(eq(mediaSessions.id, session.id));
         return id;

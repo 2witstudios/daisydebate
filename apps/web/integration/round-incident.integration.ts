@@ -145,8 +145,7 @@ test('a node outage pauses a live speech, and recovery gives its time back', asy
     const after = await segmentOf(f);
     const reopened =
       await f.sql`select count(*)::int as open from round_speaking_intervals where round_id=${f.roundId} and ended_at is null`;
-    const dueMoved =
-      new Date(after.due_at).getTime() - new Date(before.due_at).getTime();
+    const dueMoved = after.due_at.getTime() - before.due_at.getTime();
     const [row] = await incidentsOf(f);
     assert({
       given: 'the first tick after the countdown',
@@ -234,7 +233,8 @@ test('a speech resumes from the last confirmed audio', async () => {
       const { observe } = await liveSpeech(f);
       const [open] =
         await f.sql`select segment_id, round_participant_id, started_at from round_speaking_intervals where round_id=${f.roundId} and ended_at is null limit 1`;
-      const at = new Date(new Date(open!.started_at).getTime() + 400);
+      const atMs = open!.started_at.getTime() + 400;
+      const at = new Date(atMs);
       await prove(f, {
         segment: String(open!.segment_id),
         seat: String(open!.round_participant_id),
@@ -246,7 +246,7 @@ test('a speech resumes from the last confirmed audio', async () => {
       const { runtime_state: state } = await checkpointOf(f);
       actual = {
         confirmedMs: instantMs(state.incident.resume_point),
-        expectedMs: at.getTime(),
+        expectedMs: atMs,
       };
     });
     return actual!;

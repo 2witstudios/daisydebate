@@ -1,3 +1,10 @@
+import {
+  membershipStatuses,
+  grantScopeKinds,
+  permissions,
+  organizationKinds,
+} from '@daisy/protocol/lobby';
+import { listedWord, listedWords } from './lifecycle-sql';
 import { createAppError } from '@daisy/errors';
 import { idSchema } from '@daisy/protocol/primitives';
 import {
@@ -6,6 +13,8 @@ import {
   reuseLicensingWordings,
   type ClubConfirmDecision,
   type ReleaseStanding,
+  mediaReleaseScopes,
+  releaseRequestOutcomes,
 } from '@daisy/protocol/media-release';
 import { sql } from 'drizzle-orm';
 import type { BoundedTransaction } from './bounded-transaction';
@@ -53,12 +62,12 @@ async function clubReleaseRole(
     z.object({ n: z.number() }),
     sql`select count(*)::int as n from grants g
       join memberships m on m.organization_id = g.organization_id
-        and m.user_id = g.user_id and m.status = 'active'
+        and m.user_id = g.user_id and m.status = ${listedWord(membershipStatuses, 'active')}
       where g.organization_id = ${club.id} and g.user_id = ${userId}
-        and g.scope_kind = 'organization' and g.revoked_at is null
+        and g.scope_kind = ${listedWord(grantScopeKinds, 'organization')} and g.revoked_at is null
         and (g.expires_at is null or g.expires_at > clock_timestamp())
         and exists (select 1 from role_permissions p
-          where p.role_id = g.role_id and p.permission = 'school.roster.manage')`,
+          where p.role_id = g.role_id and p.permission = ${listedWord(permissions, 'school.roster.manage')})`,
   );
   return (staff?.n ?? 0) > 0 ? 'staff' : null;
 }
@@ -73,12 +82,12 @@ async function clubReleaseStaff(tx: Tx, club: ClubRow): Promise<string[]> {
           z.object({ user_id: z.string() }),
           sql`select distinct g.user_id from grants g
             join memberships m on m.organization_id = g.organization_id
-              and m.user_id = g.user_id and m.status = 'active'
-            where g.organization_id = ${club.id} and g.scope_kind = 'organization'
+              and m.user_id = g.user_id and m.status = ${listedWord(membershipStatuses, 'active')}
+            where g.organization_id = ${club.id} and g.scope_kind = ${listedWord(grantScopeKinds, 'organization')}
               and g.revoked_at is null
               and (g.expires_at is null or g.expires_at > clock_timestamp())
               and exists (select 1 from role_permissions p
-                where p.role_id = g.role_id and p.permission = 'school.roster.manage')`,
+                where p.role_id = g.role_id and p.permission = ${listedWord(permissions, 'school.roster.manage')})`,
         )
       : [];
   return [
@@ -105,7 +114,7 @@ const readClub = async (
     }),
     sql`select id, name, handle, kind, owner_user_id from organizations
       where ${'handle' in by ? sql`lower(handle) = lower(${by.handle})` : sql`id = ${by.id}`}
-        and kind in ('school', 'family') and closed_at is null
+        and kind in ${listedWords(organizationKinds, ['school', 'family'])} and closed_at is null
       ${lock ? sql`for update` : sql``}`,
   );
   return club ?? null;
@@ -154,7 +163,7 @@ async function youthStudents(
     }),
     sql`select m.user_id, u.username, m.joined_at from memberships m
       join users u on u.id = m.user_id and u.deleted_at is null
-      where m.organization_id = ${club.id} and m.status = 'active'
+      where m.organization_id = ${club.id} and m.status = ${listedWord(membershipStatuses, 'active')}
         ${
           only === undefined
             ? sql``
@@ -273,10 +282,10 @@ export function createMediaReleaseClubs(input: {
           sql`select count(*)::int as n from memberships m
             join users u on u.id = m.user_id and u.deleted_at is null
             join account_age on account_age.user_id = m.user_id
-            where m.organization_id = ${club.id} and m.status = 'active'
+            where m.organization_id = ${club.id} and m.status = ${listedWord(membershipStatuses, 'active')}
               and ${divisionOfBandSql(divisionAgeBand())} = 'youth'
               and not exists (select 1 from media_releases r
-                where r.user_id = m.user_id and r.scope = 'publish'
+                where r.user_id = m.user_id and r.scope = ${listedWord(mediaReleaseScopes, 'publish')}
                   and r.withdrawn_at is null
                   and r.wording_version in (${sql.join(
                     reuseLicensingWordings.map((version) => sql`${version}`),
@@ -368,7 +377,7 @@ export function createMediaReleaseClubs(input: {
           if (student.supersedes !== null)
             await runStatement(
               tx,
-              sql`update media_release_requests set outcome = 'superseded',
+              sql`update media_release_requests set outcome = ${listedWord(releaseRequestOutcomes, 'superseded')},
                   resolved_at = clock_timestamp()
                 where id = ${student.supersedes} and outcome is null`,
             );
@@ -413,7 +422,7 @@ export function createMediaReleaseClubs(input: {
           z.object({ n: z.number() }),
           sql`select count(*)::int as n from memberships
             where organization_id = ${club.id} and user_id = ${command.userId}
-              and status = 'active'`,
+              and status = ${listedWord(membershipStatuses, 'active')}`,
         );
         if (
           (member?.n ?? 0) === 0 ||

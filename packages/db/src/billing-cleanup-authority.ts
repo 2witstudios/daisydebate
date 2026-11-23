@@ -1,3 +1,4 @@
+import { billingModes } from '@daisy/protocol/billing-mode';
 import { and, eq, sql } from 'drizzle-orm';
 import { createAppError } from '@daisy/errors';
 import { idSchema } from '@daisy/protocol/primitives';
@@ -70,7 +71,7 @@ export async function cleanupFacts(tx: Tx, userId: string) {
   if (!effects) throw createAppError('INVARIANT');
   const routes = await query(
     tx,
-    z.object({ mode: z.string(), customerId: z.string() }),
+    z.object({ mode: z.enum(billingModes), customerId: z.string() }),
     sql`select mode,"customerId" from (
     select mode,vendor_customer_id as "customerId" from billing_customers where user_id=${userId}
     union select mode,state->>'customerId' as "customerId" from billing_purchases where user_id=${userId} and state->>'customerId' is not null

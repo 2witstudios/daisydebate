@@ -38,7 +38,7 @@ export const agentRuns = pgTable(
     roundParticipantId: text('round_participant_id')
       .notNull()
       .references(() => roundParticipants.id, { onDelete: 'cascade' }),
-    kind: text('kind').notNull(),
+    kind: text('kind').$type<(typeof agentRunKinds)[number]>().notNull(),
     model: text('model'),
     provider: text('provider').notNull(),
     configurationSnapshot: jsonbColumn(

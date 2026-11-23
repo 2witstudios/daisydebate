@@ -6,7 +6,7 @@ import {
   clubSeatsView,
   prorationEstimateMinor,
 } from './views';
-import { clubIdFrom, invitationFrom } from './routes';
+import { clubIdOf, invitationOf } from './routes';
 
 setupRitewayBun();
 const id = (c: string) => c.repeat(24);
@@ -202,8 +202,7 @@ test('a seat increase is estimated for the rest of the paid period', () => {
   });
 });
 
-test('the club and invitation come from the path, never the body', () => {
-  const at = (path: string) => new Request(`https://daisy.example${path}`);
+test('the club and invitation come from the route params, never the body', () => {
   const attempt = (run: () => unknown) => {
     try {
       return run();
@@ -212,13 +211,13 @@ test('the club and invitation come from the path, never the body', () => {
     }
   };
   assert({
-    given: 'club and invitation paths, and malformed ones',
+    given: 'club and invitation route params, and malformed ones',
     should: 'read the ids, and refuse the rest',
     actual: [
-      clubIdFrom(at(`/api/clubs/${id('c')}/seats`)),
-      invitationFrom(at(`/api/clubs/invitations/${id('c')}.${id('i')}`)),
-      attempt(() => clubIdFrom(at('/api/clubs/new/seats'))),
-      attempt(() => invitationFrom(at(`/api/clubs/invitations/${id('c')}`))),
+      clubIdOf(id('c')),
+      invitationOf(`${id('c')}.${id('i')}`),
+      attempt(() => clubIdOf('new')),
+      attempt(() => invitationOf(id('c'))),
     ],
     expected: [
       id('c'),

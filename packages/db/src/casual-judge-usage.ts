@@ -1,3 +1,9 @@
+import { agentRunKinds } from './schema/agent-runs';
+import { judgingAttemptCategories } from '@daisy/protocol/round-judging-attempt';
+import { seatKinds } from '@daisy/protocol/seats';
+import { actorKinds } from './schema/actors';
+import { judgingJobStatuses } from '@daisy/protocol/round-panel-completion';
+import { listedWord } from './lifecycle-sql';
 import { isRoundOver } from '@daisy/protocol/round';
 import { and, eq, sql } from 'drizzle-orm';
 import { createAppError } from '@daisy/errors';
@@ -71,10 +77,10 @@ export async function settleCasualJudgeUsageLocked(tx: Tx, roundId: string) {
     tx,
     z.object({ total: z.int(), open: z.int() }),
     sql`select count(*)::int as total,
-    count(*) filter(where j.status is null or j.status in ('queued','leased','recovering','blocked'))::int as open
-    from round_participants p join actors a on a.id=p.actor_id and a.kind='bot'
+    count(*) filter(where j.status is null or j.status in (${listedWord(judgingJobStatuses, 'queued')},${listedWord(judgingJobStatuses, 'leased')},${listedWord(judgingJobStatuses, 'recovering')},${listedWord(judgingJobStatuses, 'blocked')}))::int as open
+    from round_participants p join actors a on a.id=p.actor_id and a.kind=${listedWord(actorKinds, 'bot')}
     left join round_judging_jobs j on j.round_id=p.round_id and j.judge_participant_id=p.id
-    where p.round_id=${roundId} and p.seat_kind='judge' and public.daisy_round_participant_is_current(p.id)`,
+    where p.round_id=${roundId} and p.seat_kind=${listedWord(seatKinds, 'judge')} and public.daisy_round_participant_is_current(p.id)`,
   );
   if (!isRoundOver(round.status) && (!jobs?.total || jobs.open !== 0)) return;
   const reservation = await judgeReservation(tx, roundId);
@@ -86,10 +92,10 @@ export async function settleCasualJudgeUsageLocked(tx: Tx, roundId: string) {
     z.object({ total: z.int(), received: z.int(), failed: z.int() }),
     sql`select coalesce(sum(a.requests),0)::int as total,
     count(*) filter(where t.answered_at is not null)::int as received,
-    count(*) filter(where t.answered_at is null and t.category='provider_refused')::int as failed
+    count(*) filter(where t.answered_at is null and t.category=${listedWord(judgingAttemptCategories, 'provider_refused')})::int as failed
     from agent_runs a join round_participants p on p.id=a.round_participant_id
     left join round_judging_attempts t on t.agent_run_id=a.id
-    where p.round_id=${roundId} and p.seat_kind='judge' and a.kind='judging' and a.requests>0`,
+    where p.round_id=${roundId} and p.seat_kind=${listedWord(seatKinds, 'judge')} and a.kind=${listedWord(agentRunKinds, 'judging')} and a.requests>0`,
   );
   const outcome =
     !calls?.total ||

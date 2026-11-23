@@ -1,3 +1,4 @@
+import { tryCanonicalInstantMs } from '@daisy/clock';
 import { createAppError } from '@daisy/errors';
 import { idSchema } from '@daisy/protocol/primitives';
 import {
@@ -49,10 +50,8 @@ export function planPrivacyErasure(
   adoption: PrivacyAdoption,
 ) {
   const plan = planPrivacyExport(input.subject, adoption);
-  const date = new Date(input.now);
   if (
-    !Number.isFinite(date.getTime()) ||
-    date.toISOString() !== input.now ||
+    tryCanonicalInstantMs(input.now) === undefined ||
     input.vendors.length !== input.jobIds.length ||
     new Set(input.vendors).size !== input.vendors.length ||
     new Set(input.jobIds).size !== input.jobIds.length ||

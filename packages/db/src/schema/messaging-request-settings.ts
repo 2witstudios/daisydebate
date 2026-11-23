@@ -14,7 +14,9 @@ export const messagingRequestSettings = pgTable(
     userId: text('user_id')
       .primaryKey()
       .references(() => users.id, { onDelete: 'cascade' }),
-    setting: text('setting').notNull(),
+    setting: text('setting')
+      .$type<(typeof messageRequestSettings)[number]>()
+      .notNull(),
     updatedAt: updatedAtColumn(),
   },
   (table) => [

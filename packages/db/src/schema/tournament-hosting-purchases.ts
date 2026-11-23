@@ -1,3 +1,5 @@
+import { listedWord } from '../lifecycle-sql';
+import { billingModes } from '@daisy/protocol/billing-mode';
 import { sql } from 'drizzle-orm';
 import {
   check,
@@ -41,7 +43,7 @@ export const tournamentHostingPurchases = pgTable(
     tier: text('tier').$type<PaidHostingTier>().notNull(),
     /** USD cents charged: the tier's price, or the difference from the tier held. */
     amount: integer('amount').notNull(),
-    mode: text('mode').$type<'test' | 'live'>().notNull(),
+    mode: text('mode').$type<(typeof billingModes)[number]>().notNull(),
     state: text('state')
       .$type<TournamentHostingPurchaseState>()
       .notNull()
@@ -61,7 +63,9 @@ export const tournamentHostingPurchases = pgTable(
     index('tournament_hosting_purchases_payer_idx').on(table.payerUserId),
     uniqueIndex('tournament_hosting_purchases_open_unique')
       .on(table.lobbyId)
-      .where(sql`${table.state} = 'open'`),
+      .where(
+        sql`${table.state} = ${listedWord(tournamentHostingPurchaseStates, 'open')}`,
+      ),
     uniqueIndex('tournament_hosting_purchases_session_unique').on(
       table.mode,
       table.vendorSessionId,
@@ -76,7 +80,7 @@ export const tournamentHostingPurchases = pgTable(
     ),
     check(
       'tournament_hosting_purchases_mode_check',
-      oneOf(table.mode, ['test', 'live']),
+      oneOf(table.mode, billingModes),
     ),
     check(
       'tournament_hosting_purchases_amount_check',
@@ -92,9 +96,9 @@ export const tournamentHostingPurchases = pgTable(
     check(
       'tournament_hosting_purchases_lifecycle_check',
       sql`case ${table.state}
-    when 'open' then ${table.paidAt} is null and ${table.expiredAt} is null
-    when 'paid' then ${table.paidAt} is not null and ${table.expiredAt} is null and ${table.vendorSessionId} is not null and ${table.vendorPaymentIntentId} is not null
-    when 'expired' then ${table.paidAt} is null and ${table.expiredAt} is not null
+    when ${listedWord(tournamentHostingPurchaseStates, 'open')} then ${table.paidAt} is null and ${table.expiredAt} is null
+    when ${listedWord(tournamentHostingPurchaseStates, 'paid')} then ${table.paidAt} is not null and ${table.expiredAt} is null and ${table.vendorSessionId} is not null and ${table.vendorPaymentIntentId} is not null
+    when ${listedWord(tournamentHostingPurchaseStates, 'expired')} then ${table.paidAt} is null and ${table.expiredAt} is not null
     else false end`,
     ),
   ],

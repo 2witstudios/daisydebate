@@ -1,3 +1,6 @@
+import { messagingChannelKinds } from '../schema/messaging-channels';
+import { messagingChannelLifecycles } from '@daisy/protocol/messaging/social';
+import { listedWord } from '../lifecycle-sql';
 import { sql } from 'drizzle-orm';
 import { createAppError } from '@daisy/errors';
 import { idSchema } from '@daisy/protocol/primitives';
@@ -96,7 +99,7 @@ export async function retainSurvivorDms(
       });
       await run(
         tx,
-        sql`update messaging_channels set lifecycle='retained', title=null, title_author_actor_id=null where id=${channelId}`,
+        sql`update messaging_channels set lifecycle=${listedWord(messagingChannelLifecycles, 'retained')}, title=null, title_author_actor_id=null where id=${channelId}`,
       );
       await run(
         tx,
@@ -159,7 +162,7 @@ export async function deleteAbandonedChannels(
     await run(
       tx,
       sql`
-      delete from messaging_channels c where c.id=${channelId} and c.kind='dm'
+      delete from messaging_channels c where c.id=${channelId} and c.kind=${listedWord(messagingChannelKinds, 'dm')}
         and not exists(select 1 from messaging_retained_authors r where r.channel_id=c.id)
         and not exists(select 1 from messaging_dm_pairs p where p.channel_id=c.id)
     `,
@@ -189,7 +192,7 @@ export async function requireRetainedAuthor(
     channelIdRow,
     sql`
     select r.channel_id as "channelId" from messaging_retained_authors r
-    join messaging_channels c on c.id=r.channel_id and c.lifecycle='retained'
+    join messaging_channels c on c.id=r.channel_id and c.lifecycle=${listedWord(messagingChannelLifecycles, 'retained')}
     where r.channel_id=${channelId} and r.actor_id=${actorId} for update of r
   `,
   );

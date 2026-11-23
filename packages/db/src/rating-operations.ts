@@ -1,3 +1,5 @@
+import { seatKinds } from '@daisy/protocol/seats';
+import { listedWord } from './lifecycle-sql';
 import { createAppError, createRefusal } from '@daisy/errors';
 import {
   type DebaterStanding,
@@ -208,7 +210,7 @@ async function rateOnce(
     z.object({ key: z.string() }),
     sql`select key::text as key from (select distinct
     hashtext(${eligibility.scope.ladderId} || ':' || ${eligibility.scope.seasonId} || ':' || actor_id) as key
-    from round_participants where round_id=${roundId} and seat_kind='side' and side in (${sql.join(
+    from round_participants where round_id=${roundId} and seat_kind=${listedWord(seatKinds, 'side')} and side in (${sql.join(
       sides.map((side) => sql`${side}`),
       sql`, `,
     )})) locks

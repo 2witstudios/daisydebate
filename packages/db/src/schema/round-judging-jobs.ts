@@ -1,3 +1,5 @@
+import { listedWord } from '../lifecycle-sql';
+import { judgingJobStatuses } from '@daisy/protocol/round-panel-completion';
 import { ballotRecordSchema } from '@daisy/protocol/ballot-schema';
 import { caseMapSchema } from '@daisy/protocol/case-map';
 import {
@@ -46,9 +48,7 @@ export const roundJudgingJobs = pgTable(
     commandId: text('command_id'),
     judgeParticipantId: text('judge_participant_id').notNull(),
     status: text('status')
-      .$type<
-        'queued' | 'leased' | 'recovering' | 'blocked' | 'succeeded' | 'failed'
-      >()
+      .$type<(typeof judgingJobStatuses)[number]>()
       .notNull(),
     leaseTokenDigest: text('lease_token_digest'),
     leaseExpiresAt: timestampColumn('lease_expires_at'),
@@ -101,7 +101,7 @@ export const roundJudgingJobs = pgTable(
     ),
     check(
       'round_judging_jobs_terminal_reason_check',
-      sql`(${table.status} = 'failed') = (${table.terminalReason} is not null) and (${table.terminalReason} is null or ${oneOf(table.terminalReason, judgingTerminalReasons)})`,
+      sql`(${table.status} = ${listedWord(judgingJobStatuses, 'failed')}) = (${table.terminalReason} is not null) and (${table.terminalReason} is null or ${oneOf(table.terminalReason, judgingTerminalReasons)})`,
     ),
     foreignKey({
       name: 'round_judging_jobs_pending_run_judge_fk',
@@ -114,7 +114,7 @@ export const roundJudgingJobs = pgTable(
     ),
     check(
       'round_judging_jobs_pending_check',
-      sql`(${table.pendingBallot} is null and ${table.pendingBallotAgentRunId} is null and ${table.pendingBallotEpoch} is null and ${table.pendingBallotReceivedAt} is null) or (${table.pendingBallot} is not null and ${table.pendingBallotAgentRunId} is not null and ${table.pendingBallotEpoch} is not null and ${table.pendingBallotEpoch} > 0 and ${table.pendingBallotEpoch} <= ${table.attempts} and ${table.pendingBallotReceivedAt} is not null and ${table.status} <> 'succeeded')`,
+      sql`(${table.pendingBallot} is null and ${table.pendingBallotAgentRunId} is null and ${table.pendingBallotEpoch} is null and ${table.pendingBallotReceivedAt} is null) or (${table.pendingBallot} is not null and ${table.pendingBallotAgentRunId} is not null and ${table.pendingBallotEpoch} is not null and ${table.pendingBallotEpoch} > 0 and ${table.pendingBallotEpoch} <= ${table.attempts} and ${table.pendingBallotReceivedAt} is not null and ${table.status} <> ${listedWord(judgingJobStatuses, 'succeeded')})`,
     ),
     primaryKey({ columns: [table.roundId, table.judgeParticipantId] }),
     uniqueIndex('round_judging_jobs_command_unique').on(table.commandId),
@@ -154,24 +154,17 @@ export const roundJudgingJobs = pgTable(
     ),
     check(
       'round_judging_jobs_status_check',
-      oneOf(table.status, [
-        'queued',
-        'leased',
-        'recovering',
-        'blocked',
-        'succeeded',
-        'failed',
-      ]),
+      oneOf(table.status, judgingJobStatuses),
     ),
     check(
       'round_judging_jobs_recovery_check',
-      sql`(${table.status} in ('recovering','blocked')) = (${table.recoveryReason} is not null)
+      sql`(${table.status} in (${listedWord(judgingJobStatuses, 'recovering')},${listedWord(judgingJobStatuses, 'blocked')})) = (${table.recoveryReason} is not null)
         and (${table.recoveryReason} is null or ${oneOf(table.recoveryReason, judgingRecoveryReasons)})
-        and (${table.status} <> 'recovering' or ${table.retryAt} is not null)`,
+        and (${table.status} <> ${listedWord(judgingJobStatuses, 'recovering')} or ${table.retryAt} is not null)`,
     ),
     check(
       'round_judging_jobs_attempts_check',
-      sql`${table.attempts} >= 0 and (${table.status} <> 'leased' or ${table.attempts} > 0)`,
+      sql`${table.attempts} >= 0 and (${table.status} <> ${listedWord(judgingJobStatuses, 'leased')} or ${table.attempts} > 0)`,
     ),
     check(
       'round_judging_jobs_generation_epoch_check',
@@ -179,7 +172,7 @@ export const roundJudgingJobs = pgTable(
     ),
     check(
       'round_judging_jobs_lease_check',
-      sql`(${table.status} = 'leased' and ${table.leaseTokenDigest} is not null and ${table.leaseExpiresAt} is not null) or (${table.status} <> 'leased' and ${table.leaseTokenDigest} is null and ${table.leaseExpiresAt} is null)`,
+      sql`(${table.status} = ${listedWord(judgingJobStatuses, 'leased')} and ${table.leaseTokenDigest} is not null and ${table.leaseExpiresAt} is not null) or (${table.status} <> ${listedWord(judgingJobStatuses, 'leased')} and ${table.leaseTokenDigest} is null and ${table.leaseExpiresAt} is null)`,
     ),
     check(
       'round_judging_jobs_token_digest_check',
@@ -187,7 +180,7 @@ export const roundJudgingJobs = pgTable(
     ),
     check(
       'round_judging_jobs_result_check',
-      sql`(${table.status} = 'succeeded') = (${table.resultBallotId} is not null)`,
+      sql`(${table.status} = ${listedWord(judgingJobStatuses, 'succeeded')}) = (${table.resultBallotId} is not null)`,
     ),
   ],
 );
@@ -254,7 +247,7 @@ export const roundJudgingAttempts = pgTable(
     ),
     check(
       'round_judging_attempts_outcome_check',
-      sql`${oneOf(table.outcome, judgingAttemptOutcomes)} and (${table.outcome} = 'failed') = (${table.category} is not null) and (${table.category} is null) = (${table.diagnostic} is null)`,
+      sql`${oneOf(table.outcome, judgingAttemptOutcomes)} and (${table.outcome} = ${listedWord(judgingAttemptOutcomes, 'failed')}) = (${table.category} is not null) and (${table.category} is null) = (${table.diagnostic} is null)`,
     ),
   ],
 );

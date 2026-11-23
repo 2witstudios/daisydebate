@@ -1,6 +1,11 @@
 import { sql, eq, type SQL } from 'drizzle-orm';
+import { parsedColumn } from '../raw-rows';
+import { z } from 'zod';
 import { buildUserInboxTopic } from '@daisy/protocol/topics';
-import { type ChosenStatus } from '@daisy/protocol/presence-setting';
+import {
+  chosenStatuses,
+  type ChosenStatus,
+} from '@daisy/protocol/presence-setting';
 import { presenceSettings } from '../schema/presence';
 import {
   readOwnCollection,
@@ -22,14 +27,17 @@ type PresenceScope = {
  * by `actorId` (a column or value) chose. No row means online.
  */
 export const chosenStatusOf = (actorId: SQL) =>
-  sql<ChosenStatus>`coalesce((select ${presenceSettings.chosenStatus} from ${presenceSettings} where ${presenceSettings.actorId} = ${actorId}), 'online')`;
+  parsedColumn(
+    z.enum(chosenStatuses),
+    sql`coalesce((select ${presenceSettings.chosenStatus} from ${presenceSettings} where ${presenceSettings.actorId} = ${actorId}), 'online')`,
+  );
 
 const chosen = async (tx: Tx, actorId: string): Promise<ChosenStatus> => {
   const [row] = await tx
     .select({ chosenStatus: presenceSettings.chosenStatus })
     .from(presenceSettings)
     .where(eq(presenceSettings.actorId, actorId));
-  return (row?.chosenStatus as ChosenStatus | undefined) ?? 'online';
+  return row?.chosenStatus ?? 'online';
 };
 
 /** The status the member chose; no row means online. */

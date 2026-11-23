@@ -1,3 +1,4 @@
+import { listedWord } from './lifecycle-sql';
 import { createAppError } from '@daisy/errors';
 import type {
   ContentModerationSubject,
@@ -68,10 +69,10 @@ async function movePhoto(
     // The member's earlier published photo gives way to the approved one.
     await run(
       tx,
-      sql`update profile_photos set status = 'withdrawn',
+      sql`update profile_photos set status = ${listedWord(profilePhotoStatuses, 'withdrawn')},
         ended_at = ${now}::timestamptz, delete_after = ${now}::timestamptz,
         version = version + 1
-      where actor_id = ${row.actor_id} and status = 'published'`,
+      where actor_id = ${row.actor_id} and status = ${listedWord(profilePhotoStatuses, 'published')}`,
     );
   const ended = next.to !== 'published';
   await run(
@@ -190,7 +191,7 @@ export const publicProfileModeration = {
         from profile_photos p
         join actors a on a.id = p.actor_id
         join users u on u.id = a.user_id
-        where p.status = 'in_review' and u.deleted_at is null
+        where p.status = ${listedWord(profilePhotoStatuses, 'in_review')} and u.deleted_at is null
         order by p.created_at, p.id limit ${limit}`,
     );
     return found.map((row) => ({
