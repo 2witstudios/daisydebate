@@ -7,7 +7,8 @@ import { requireTestServices } from '@daisy/config';
 import type { SubscriptionEvidence } from '@daisy/protocol/billing';
 import { createBillingSynchronization } from '../src/billing-synchronization';
 import { createBillingInbox } from '../src/billing-inbox';
-import { createClubSeats, endOfUtcDay } from '../src/club-seat-commands';
+import { removedSeatPremiumEndsAt } from '@daisy/protocol/club-seats';
+import { createClubSeats } from '../src/club-seat-commands';
 import { createClubSeatReads } from '../src/club-seat-reads';
 import { readEntitlementGrants } from '../src/entitlement-grants';
 import { completeControlledBillingPurchase } from '../src/testing-billing';
@@ -407,7 +408,9 @@ test('removing a seat ends its Premium at the end of that UTC day; cancellation 
         userId: removed.userId,
       });
       const [clock] = await fixture.sql`select now() as now`;
-      const midnight = endOfUtcDay(clock!.now as Date).toISOString();
+      const midnight = removedSeatPremiumEndsAt(
+        clock!.now as Date,
+      ).toISOString();
       const ending = await seatGrants(fixture, removed.userId);
       assert({
         given: 'a seat removed mid-period',

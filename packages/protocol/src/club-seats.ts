@@ -329,3 +329,12 @@ export function clubInvitationMailRefusal(
     ? 'resend-too-soon'
     : null;
 }
+
+/**
+ * When a removed seat's Premium ends (point guard, Delivery 5111): the end of
+ * that UTC day. The store never extends a grant that already ended earlier.
+ */
+export const removedSeatPremiumEndsAt = (now: Date) =>
+  new Date(
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1),
+  );
