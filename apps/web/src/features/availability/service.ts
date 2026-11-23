@@ -1,5 +1,6 @@
+import { repeatEvery } from '@daisy/worker';
+import type { Waits } from '@daisy/clock';
 import { guarded } from '@daisy/observability';
-import type { WorkerTimers } from '../../lib/worker-timers';
 import {
   afterRenewal,
   checkLease,
@@ -41,7 +42,7 @@ export function startAvailabilityService(deps: {
   readonly probeInvalid?: (problem: string) => void;
   /** Monotonic milliseconds. */
   readonly nowMs: () => number;
-  readonly timers: WorkerTimers;
+  readonly waits: Waits;
   /** A renewal or availability cycle failed, with its own error. */
   readonly failed: (error: unknown) => void;
   /**
@@ -164,14 +165,21 @@ export function startAvailabilityService(deps: {
         running = null;
       });
   };
-  const timer = deps.timers.setInterval(async () => tick(), RENEW_INTERVAL_MS);
-  tick();
+  // The heartbeat itself: one tick now and each second. A tick never waits
+  // on its renewal, so a renewal that hangs is still seen as unproven.
+  const heartbeat = repeatEvery({
+    waits: deps.waits,
+    everyMs: RENEW_INTERVAL_MS,
+    runOnStart: true,
+    run: async () => tick(),
+    failed: failedSafely,
+  });
   return {
     /** Settles once this process has checked the probe's resources at start. */
     probeChecked: checkProbeResources(),
     async stop() {
       stopped = true;
-      deps.timers.clearInterval(timer);
+      await heartbeat.stop();
       await Promise.all([running, renewing]);
       try {
         // Refresh real public evidence at the handoff boundary. Otherwise the

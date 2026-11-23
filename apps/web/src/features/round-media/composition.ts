@@ -1,12 +1,16 @@
+import { defineComposition } from '../../server/composition';
+import { memberHttpBoundary } from '../auth/member-boundary';
+import { createRoundMediaHandlers } from './handlers';
 import { captureAdmissionPolicy } from '../media-capture/capture-policy';
-import { nowMs } from '@daisy/clock';
+import { nowMs, type Waits } from '@daisy/clock';
+import { repeatEvery, type RepeatWorker } from '@daisy/worker';
 import { createRoundStartGate } from '../round-start-gate/gate';
 import { captureRule } from '@daisy/debate-engine';
 import {
   createAdmissionPriority,
   MEDIA_ADMISSION_HINT_TIMEOUT_MS,
 } from './admission-priority';
-import type { App } from '../../server/app';
+import { heldKey, type App } from '../../server/app';
 import { createAppError } from '@daisy/errors';
 import { mediaEndpointsOf } from '@daisy/config';
 import { createMediaNodes } from '@daisy/media';
@@ -27,11 +31,40 @@ import { CAPTURE_STT_LAG_MS } from '@daisy/protocol/capture-timing';
 /** How soon a dead node stops being offered to a new join. */
 const MEDIA_NODE_PROBE_MS = 1_000;
 
-/** Optional configuration stays inert until a real media operation is requested. */
+type RoundMediaStop = { readonly stop: () => Promise<void> };
+
+/** Every round media runtime composed for an app, so its shutdown stops them all. */
+const RUNTIMES = heldKey<Set<RoundMediaStop>>('round-media/runtimes');
+const composedFor = (app: App) =>
+  app.held(RUNTIMES, () => new Set<RoundMediaStop>());
+/** Whether the app's round media was stopped: a runtime composed after starts no probe. */
+const STOPPED = heldKey<{ stopped: boolean }>('round-media/stopped');
+const stoppedFor = (app: App) => app.held(STOPPED, () => ({ stopped: false }));
+
+/**
+ * Stops the node probe of every round media runtime composed for `app` (the
+ * process's own and the routes'); the process's shutdown awaits it. A
+ * runtime composed for the app afterwards starts no probe.
+ */
+export const stopRoundMedia = async (app: App): Promise<void> => {
+  stoppedFor(app).stopped = true;
+  await Promise.all([...composedFor(app)].map((runtime) => runtime.stop()));
+};
+
+/**
+ * Optional configuration stays inert until a real media operation is
+ * requested. Its node probe, once started, runs on `waits` until `stop`
+ * (or `stopRoundMedia` for its app).
+ */
 export function createRoundMediaRuntime(
   app: App,
+  waits: Waits,
   reporter: ErrorReporter = noopErrorReporter,
 ) {
+  /** The node probe: not started, running, or stopped for good. */
+  let probe: RepeatWorker | 'stopped' | null = stoppedFor(app).stopped
+    ? 'stopped'
+    : null;
   let runtime: {
     operations: ReturnType<typeof createRoundMediaOperations>;
     workerTokens: ReturnType<typeof createMediaWorkerTokenBroker>;
@@ -58,6 +91,7 @@ export function createRoundMediaRuntime(
       apiKey,
       apiSecret,
       fetch,
+      waits,
       healthChanged: (nodeIndex, healthy) =>
         app.logger.log(
           'round.media.node_health',
@@ -66,14 +100,22 @@ export function createRoundMediaRuntime(
         ),
     });
     // One node has nowhere to fail over to, so it pays for no probe. The runtime lives
-    // as long as the process, and the timer never holds it open.
-    if (nodes.size > 1) {
-      void nodes.probe();
-      setInterval(() => void nodes.probe(), MEDIA_NODE_PROBE_MS).unref();
-    }
+    // as long as the process; its owner stops the probe at shutdown, and a
+    // runtime first composed after that starts none.
+    if (nodes.size > 1 && probe !== 'stopped')
+      probe = repeatEvery({
+        waits,
+        everyMs: MEDIA_NODE_PROBE_MS,
+        runOnStart: true,
+        run: () => nodes.probe(),
+        // A probe settles every node's fault as down; only a throwing health
+        // log rejects it, and the next run logs again.
+        failed: () => {},
+      });
     const resources: MediaOperationInput = {
       priority: createAdmissionPriority({
-        deadline: (work) => withTimeout(work, MEDIA_ADMISSION_HINT_TIMEOUT_MS),
+        deadline: (work) =>
+          withTimeout(waits, work, MEDIA_ADMISSION_HINT_TIMEOUT_MS),
         hint: (...args) => app.redis.mediaAdmissionHint(...args),
         logger: app.logger,
       }),
@@ -94,8 +136,8 @@ export function createRoundMediaRuntime(
         logger: app.logger,
         nextId: () => app.ids.next(),
       }),
-      deadline: (work) => withTimeout(work, 2_000),
-      wait: () => Bun.sleep(25),
+      deadline: (work) => withTimeout(waits, work, 2_000),
+      wait: () => waits.sleep(25),
       now: () => nowMs(app.clock),
       recoveryHeartbeatMs: MEDIA_RECOVERY_HEARTBEAT_MS,
     };
@@ -135,8 +177,26 @@ export function createRoundMediaRuntime(
     };
     return runtime;
   };
+  const stoppable: RoundMediaStop = {
+    /** Ends the node probe, if one started; none starts after. */
+    stop: async () => {
+      const running = probe;
+      probe = 'stopped';
+      if (running !== null && running !== 'stopped') await running.stop();
+    },
+  };
+  composedFor(app).add(stoppable);
   return {
     operations: () => get().operations,
     workerTokens: () => get().workerTokens,
+    stop: stoppable.stop,
   };
 }
+
+/** round-media: its route files bind here (`processRoute`). */
+export const roundMediaComposition = defineComposition('round-media', (app) =>
+  createRoundMediaHandlers({
+    ...memberHttpBoundary(app),
+    operations: createRoundMediaRuntime(app, app.waits).operations,
+  }),
+);

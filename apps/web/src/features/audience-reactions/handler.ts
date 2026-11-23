@@ -1,11 +1,10 @@
+import type { AudienceReactionsStore } from '@daisy/db/stores/audience-reactions';
 import { instantMs } from '@daisy/clock';
 import type { Clock, IdGenerator } from '@daisy/clock';
-import type { Database } from '@daisy/db';
 import { createAppError, createRefusal } from '@daisy/errors';
 import { audienceReactionPostSchema } from '@daisy/protocol/audience';
 import {
   audienceRoute,
-  roundIdOf,
   type AccountRouteDeps,
 } from '../../server/account-route';
 import { parseValidated } from '../../server/http';
@@ -55,12 +54,12 @@ export const refuseAudienceReaction = (facts: {
 /** POST /api/rounds/:id/reactions: an account reacts to the Round. */
 export const createAudienceReactionRoute = (
   deps: AccountRouteDeps & {
-    readonly store: Pick<Database, 'recordAudienceReaction'>;
+    readonly store: Pick<AudienceReactionsStore, 'recordAudienceReaction'>;
     readonly clock: Pick<Clock, 'now'>;
     readonly ids: Pick<IdGenerator, 'next'>;
   },
 ) => {
-  return (request: Request) =>
+  return (request: Request, roundId: string) =>
     audienceRoute(
       deps,
       {
@@ -72,7 +71,6 @@ export const createAudienceReactionRoute = (
       async ({ identity, body }) => {
         const { kind } = parseValidated(audienceReactionPostSchema, body);
         const at = deps.clock.now();
-        const roundId = roundIdOf(request);
         const recorded = await deps.store.recordAudienceReaction(
           {
             id: deps.ids.next(),

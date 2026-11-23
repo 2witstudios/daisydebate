@@ -1,3 +1,4 @@
+import { hostWaits } from '@daisy/worker/host';
 import { testLane } from '../src/testing-lane';
 import { mediaTestHuman } from './media-session.test-support';
 import { admitsPrincipalAccess } from '@daisy/auth/authorization';
@@ -16,8 +17,8 @@ test('media authority fence permits durable attendance marker FK admission while
     const entered = Promise.withResolvers<void>(),
       release = Promise.withResolvers<void>();
     const run = createBoundedTransaction({
-      lane: testLane(fixture.sql, 10),
-      now: performance.now,
+      lane: testLane(fixture.sql, hostWaits, 10),
+      waits: hostWaits,
     });
     const held = run(async (tx) => {
       await lockMediaRound(tx, roundId, {

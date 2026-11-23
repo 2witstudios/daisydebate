@@ -1,4 +1,5 @@
-import { renderToStaticMarkup } from 'react-dom/server';
+import { renderAccessible } from '../../test-support/rendered/accessible';
+import { postedBy } from '../test-support/posted-fields.test-support';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { moved } from '../../features/forms/form-state';
 import {
@@ -14,7 +15,7 @@ const render = (
   state: Parameters<typeof MessageUserFields>[0]['answer'],
   pending = false,
 ) =>
-  renderToStaticMarkup(
+  renderAccessible(
     <MessageUserFields
       username="kelvin"
       answer={state}
@@ -24,22 +25,19 @@ const render = (
     />,
   );
 test('the Message button posts the native direct-request form for one member', () => {
-  const html = render(answer);
+  const view = render(answer);
   assert({
     given: 'a member username',
     should: 'render a submit button named for that member',
     actual: [
-      html.includes('aria-label="Message @kelvin"'),
-      html.includes('type="submit"'),
-      html.includes('>Message</button>'),
+      view.attribute('button', 'Message @kelvin', 'type'),
+      view.text('button', 'Message @kelvin'),
     ],
-    expected: [true, true, true],
+    expected: ['submit', 'Message'],
   });
   const form = new FormData();
-  for (const [, name, value] of html.matchAll(
-    /<input type="hidden" name="([^"]+)" value="([^"]*)"/g,
-  ))
-    form.set(name!, value!);
+  for (const [name, value] of Object.entries(postedBy(view, 'Message @kelvin')))
+    form.set(name, value);
   assert({
     given: 'the hidden fields the button posts',
     should:
@@ -53,18 +51,20 @@ test('the Message button refuses double submission and reports a refused request
     given: 'a request on its way or already answered with a destination',
     should: 'disable the button',
     actual: [
-      render(answer, true).includes('disabled=""'),
-      render(moved('/messages/x')).includes('disabled=""'),
-      render(answer).includes('disabled=""'),
+      render(answer, true)
+        .get('button', 'Message @kelvin')
+        .hasAttribute('disabled'),
+      render(moved('/messages/x'))
+        .get('button', 'Message @kelvin')
+        .hasAttribute('disabled'),
+      render(answer).get('button', 'Message @kelvin').hasAttribute('disabled'),
     ],
     expected: [true, true, false],
   });
   assert({
     given: 'a refused or failed request',
     should: 'say so without leaking why',
-    actual: render(creationFormUnavailable(new FormData())).includes(
-      'Could not open a conversation with @kelvin. Try again.',
-    ),
-    expected: true,
+    actual: render(creationFormUnavailable(new FormData())).text('status'),
+    expected: 'Could not open a conversation with @kelvin. Try again.',
   });
 });

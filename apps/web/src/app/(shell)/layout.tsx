@@ -16,13 +16,13 @@ import { readModerationNotices } from './moderation/read-notices';
 import { readChosenStatus } from './people/read-people';
 import { ModerationNotices } from '../../ui/moderation/moderation-notices';
 import { shellAccount } from '../../lib/shell-account';
+import { requestIdentity } from '../../lib/page-reads';
 import {
-  requestIdentity,
   requestMemberDivision,
   requestMemberStandings,
-  requestOwnProfileCard,
-  requestRealtimeEndpoint,
-} from '../../lib/request-session';
+} from '../../features/ratings/page-reads';
+import { requestOwnProfileCard } from '../../features/profile/page-reads';
+import { requestRealtimeEndpoint } from '../../features/realtime/page-reads';
 import type { ShellRatings } from '../../ui/layout/app-shell/account';
 import { requestActiveRoom } from './active-room';
 import { toggleRail } from './rail-actions';

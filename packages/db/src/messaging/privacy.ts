@@ -1,10 +1,17 @@
+import { messagingGroupRoles } from '../schema/messaging-social';
+import { messagingChannelKinds } from '../schema/messaging-channels';
+import { listedWord } from '../lifecycle-sql';
+import { mailJobStates } from '../schema/columns';
 import { appendStream } from './stream';
 import { sql } from 'drizzle-orm';
 import { z } from 'zod';
 import { queueObservationPurge } from '../observation-purge-jobs';
 import { createAppError } from '@daisy/errors';
 import { idSchema } from '@daisy/protocol/primitives';
-import { messageRequestSettingSchema } from '@daisy/protocol/messaging/social';
+import {
+  messageRequestSettingSchema,
+  messagingGroupInvitationStates,
+} from '@daisy/protocol/messaging/social';
 import { eraseSubjectFiles, exportSubjectFiles } from '../messaging-files';
 import {
   deleteAbandonedChannels,
@@ -14,10 +21,9 @@ import {
   retainedChannelsOf,
   survivingDms,
 } from './retained-dm';
-import { exportRows } from '../privacy/export-rows';
+import { exportRows, postgresInt8, run, query } from '../raw-rows';
 import type { PrivacyAdopter, PrivacyExport } from '../privacy';
 import type { Tx } from '../tx';
-import { postgresInt8, run, query } from '../raw-rows';
 
 function omitPrivateColumns(
   row: Record<string, unknown>,
@@ -39,7 +45,7 @@ async function lockSubjectMessaging(tx: Tx, actorId: string) {
   await run(
     tx,
     sql`select r.id from rounds r where exists (
-    select 1 from messaging_channels c where c.round_id=r.id and c.kind='round_floor' and (
+    select 1 from messaging_channels c where c.round_id=r.id and c.kind=${listedWord(messagingChannelKinds, 'round_floor')} and (
       exists(select 1 from messaging_messages m where m.channel_id=c.id and m.author_actor_id=${actorId})
       or exists(select 1 from messaging_actor_states s where s.channel_id=c.id and s.actor_id=${actorId})
       or exists(select 1 from messaging_receipts x where x.channel_id=c.id and x.actor_id=${actorId})
@@ -50,7 +56,7 @@ async function lockSubjectMessaging(tx: Tx, actorId: string) {
   await run(
     tx,
     sql`select r.id from rooms r where exists (
-    select 1 from messaging_channels c where c.room_id=r.id and c.kind='room_community' and (
+    select 1 from messaging_channels c where c.room_id=r.id and c.kind=${listedWord(messagingChannelKinds, 'room_community')} and (
       exists(select 1 from messaging_messages m where m.channel_id=c.id and m.author_actor_id=${actorId})
       or exists(select 1 from messaging_actor_states s where s.channel_id=c.id and s.actor_id=${actorId})
       or exists(select 1 from messaging_receipts x where x.channel_id=c.id and x.actor_id=${actorId})
@@ -195,7 +201,7 @@ async function eraseAssociations(
   for (const { channelId } of authorityChannels) {
     await run(
       tx,
-      sql`update messaging_channels c set lifecycle='archived' where c.id=${channelId} and c.kind='private_group' and not exists(select 1 from messaging_group_grants g where g.channel_id=c.id and g.role='manager' and g.revoked_at is null)`,
+      sql`update messaging_channels c set lifecycle='archived' where c.id=${channelId} and c.kind=${listedWord(messagingChannelKinds, 'private_group')} and not exists(select 1 from messaging_group_grants g where g.channel_id=c.id and g.role=${listedWord(messagingGroupRoles, 'manager')} and g.revoked_at is null)`,
     );
     versions.set(channelId, await advanceChannel(tx, channelId, true));
   }
@@ -363,7 +369,7 @@ export function createMessagingPrivacyAdopter(): PrivacyAdopter {
             invitee_actor_id: z.string(),
             invited_by_actor_id: z.string(),
             generation: postgresInt8,
-            state: z.string(),
+            state: z.enum(messagingGroupInvitationStates),
             invited_at: z.date(),
             decided_at: z.date().nullable(),
           }),
@@ -396,7 +402,7 @@ export function createMessagingPrivacyAdopter(): PrivacyAdopter {
       const unreadEmails = await query(
         tx,
         z.object({
-          state: z.string(),
+          state: z.enum(mailJobStates),
           attempts: z.int(),
           last_error_code: z.string().nullable(),
           first_owed_at: z.date(),

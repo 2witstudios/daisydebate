@@ -135,11 +135,7 @@ export function UpgradeForm({
               : `The ${waitingEntries} waiting entries can be accepted as soon as payment is confirmed.`}
           </p>
         ) : null}
-        <Button
-          variant="unstyled"
-          type="submit"
-          className={cn(buttonClass('primary'), 'min-h-12 w-full text-base')}
-        >
+        <Button variant="primary" type="submit" className="min-h-12 w-full">
           <Icon name="card" size={18} />
           Continue to checkout · {formatUsd(current.owed)}
         </Button>

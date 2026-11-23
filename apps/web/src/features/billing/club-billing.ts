@@ -1,10 +1,10 @@
+import type { BillingStore, ClubSeatAnswer } from '@daisy/db/stores/billing';
 import type { createClubSeatCommands } from '../clubs/invitation-resend';
 import type Stripe from 'stripe';
 import { z } from 'zod';
 import { isAppError } from '@daisy/errors';
 import type { Clock } from '@daisy/clock';
 import type { ClubBillingConfig } from '@daisy/config';
-import type { ClubSeatAnswer, Database } from '@daisy/db';
 import { clubSeatBounds } from '@daisy/protocol/club-seats';
 import { createCheckoutVendor, type CheckoutPort } from './checkout-vendor';
 import {
@@ -16,8 +16,8 @@ import { createPortalSession } from './portal-session';
 import { clubSubscriptionSchema } from './club-subscription-facts';
 
 type Subject = { readonly userId: string; readonly actorId: string };
-type PurchaseStore = ReturnType<Database['billingPurchases']>;
-type MemberStore = ReturnType<Database['billingMember']>;
+type PurchaseStore = ReturnType<BillingStore['billingPurchases']>;
+type MemberStore = ReturnType<BillingStore['billingMember']>;
 type SeatStore = Pick<ReturnType<typeof createClubSeatCommands>, 'command'>;
 type PortalCreate = Parameters<typeof createPortalSession>[0]['create'];
 

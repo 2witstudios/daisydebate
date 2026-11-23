@@ -1,3 +1,4 @@
+import type { RoundCommandType } from './schema/round-commands';
 import type { DecisionReleasePolicy } from '@daisy/protocol/round-decision-release';
 import { instantMs } from '@daisy/clock';
 import { freezeRoundFinalization } from './round-finalization-writer';
@@ -5,6 +6,8 @@ import {
   isRoundOver,
   isRoundCompleted,
   roundBegan,
+  prepConsumedOf,
+  runtimeCheckpointSchema,
 } from '@daisy/protocol/round';
 import { attendanceTimingPolicy } from '@daisy/protocol/attendance';
 import { TRANSCRIPT_ADMISSION_WINDOW_MS } from '@daisy/protocol/capture-timing';
@@ -12,11 +15,11 @@ import { createAppError } from '@daisy/errors';
 import { and, eq, isNull, sql } from 'drizzle-orm';
 import type { RoundOutcome } from '@daisy/protocol/round-outcome';
 import type { RoundProjection } from '@daisy/protocol/runtime';
-import type { RoundRules } from '@daisy/protocol/format';
-import { prepConsumedOf, runtimeCheckpointSchema } from '@daisy/protocol/round';
+import { roundRulesSchema } from '@daisy/protocol/format';
 import { privateSpanChanges } from '@daisy/protocol/public-interval';
 import { buildRoundTopic } from '@daisy/protocol/topics';
 import type { z } from 'zod';
+import { parsedColumn, isUniqueViolation } from './raw-rows';
 import { appendOutboxEvent } from './outbox';
 import { appendRoundStrikes, revealEvidence } from './room-draw-persistence';
 import { refundUnservedPracticeLocked } from './round-bot-admission';
@@ -29,8 +32,7 @@ import {
 import { oweRoundStarted } from './round-began';
 import { releaseFinalizedDecision } from './round-decision-release';
 import { jsonObjectSchema } from './schema/columns';
-import { columnsOfOutcome, outcomeOfColumns } from './round-outcome-columns';
-import { isUniqueViolation } from './unique-violation';
+import { columnsOfOutcome, outcomeOfColumns } from './round-hydration';
 import { roundCommands } from './schema/round-commands';
 import { roundPrivateSpans } from './schema/round-private-spans';
 import { roundSegments } from './schema/round-segments';
@@ -206,9 +208,10 @@ export async function lockedRoundVersion(
       completedAt: rounds.completedAt,
       winningSide: rounds.winningSide,
       ranking: rounds.ranking,
-      rulesOutcome: sql<
-        RoundRules['outcome']
-      >`${rounds.rulesSnapshot}->'outcome'`,
+      rulesOutcome: parsedColumn(
+        roundRulesSchema.shape.outcome,
+        sql`${rounds.rulesSnapshot}->'outcome'`,
+      ),
       runtimeState: rounds.runtimeState,
     })
     .from(rounds)
@@ -238,7 +241,7 @@ export async function insertCommandRow(
     readonly commandId: string;
     readonly actorId: string | null;
     readonly serviceId: string | null;
-    readonly type: string;
+    readonly type: RoundCommandType;
     readonly payloadDigest: string;
     readonly result: z.infer<typeof jsonObjectSchema>;
   } | null,

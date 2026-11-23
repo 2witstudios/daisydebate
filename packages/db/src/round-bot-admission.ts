@@ -1,5 +1,6 @@
+import { actorKinds } from './schema/actors';
 import { runningRoundStatuses } from '@daisy/protocol/round';
-import { lifecycleSqlList } from './lifecycle-sql';
+import { lifecycleSqlList, listedWord } from './lifecycle-sql';
 import { z } from 'zod';
 import { query } from './raw-rows';
 import { roundHasAiJudge } from './round-ai-judge';
@@ -10,10 +11,7 @@ import type { BoundedTransaction } from './bounded-transaction';
 import { lockAuthorizationActors } from './authorization';
 import { rounds } from './schema/rounds';
 import { usageReservations } from './schema/usage-reservations';
-import {
-  requireAdmissionTarget,
-  requireSponsor,
-} from './round-usage-authority';
+import { lockUsageSponsor } from './usage-sponsor';
 import {
   reserveUsageLocked,
   readAllowanceLocked,
@@ -34,19 +32,6 @@ type Reservation = Target & { readonly id: string };
 /** Global bot capacity precedes canonical account then Room/Round and usage fences. */
 export const lockBotAdmission = (tx: Tx) =>
   takeLock(tx, transactionLocks.botAdmission());
-async function lockSponsor(tx: Tx, target: Target) {
-  requireAdmissionTarget(target);
-  const [account] = await lockAuthorizationActors(tx, [target.actorId], {
-    maxActors: 1,
-  });
-  const [round] = await tx
-    .select()
-    .from(rounds)
-    .where(eq(rounds.id, target.roundId))
-    .for('no key update');
-  requireSponsor(account ?? null, round, target.actorId);
-  return account ?? null;
-}
 
 /** First model-call count and provider-run creation share the caller's transaction. */
 export async function markLockedRoundBotModelCall(
@@ -63,7 +48,7 @@ export async function markLockedRoundBotModelCall(
     .where(eq(rounds.id, input.roundId));
   if (!round?.actorId) throw createAppError('AUTHORIZATION');
   const target = { roundId: input.roundId, actorId: round.actorId };
-  const account = await lockSponsor(tx, target);
+  const account = await lockUsageSponsor(tx, target);
   if (!input.accountEligible(account)) throw createAppError('AUTHORIZATION');
   const [current] = await tx
     .select()
@@ -94,7 +79,7 @@ export async function markLockedRoundBotModelCall(
 const liveBotDebaterRounds = (exceptRoundId?: string) =>
   sql`select count(distinct r.id)::int from rounds r
     join round_participants p on p.round_id=r.id and ${isDebatingSeatSql(sql`p.seat_kind`)}
-    join actors a on a.id=p.actor_id and a.kind='bot'
+    join actors a on a.id=p.actor_id and a.kind=${listedWord(actorKinds, 'bot')}
     where r.status in ${lifecycleSqlList(runningRoundStatuses)} and r.id<>${exceptRoundId ?? ''}`;
 
 async function countLiveBotRounds(tx: Tx, exceptRoundId?: string) {
@@ -139,7 +124,7 @@ export function createRoundBotAdmission(input: {
     tx: Tx,
     target: Target,
   ): Promise<Reservation> => {
-    const account = await lockSponsor(tx, target);
+    const account = await lockUsageSponsor(tx, target);
     const [existing] = await tx
       .select()
       .from(usageReservations)

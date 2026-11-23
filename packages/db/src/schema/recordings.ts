@@ -1,3 +1,4 @@
+import { listedWord } from '../lifecycle-sql';
 import { sql } from 'drizzle-orm';
 import {
   check,
@@ -80,7 +81,9 @@ export const recordings = pgTable(
     index('recordings_status_idx').on(table.status, table.updatedAt),
     index('recordings_deletion_due_idx')
       .on(table.deletionDueAt)
-      .where(sql`${table.status} = 'removing'`),
+      .where(
+        sql`${table.status} = ${listedWord(recordingStatuses, 'removing')}`,
+      ),
     check(
       'recordings_class_check',
       oneOf(table.recordingClass, recordingClasses),
@@ -98,7 +101,7 @@ export const recordings = pgTable(
     ),
     check(
       'recordings_class_matches_eligibility_check',
-      sql`(${table.recordingClass} = 'ranked') = (${table.eligibility}->>'kind' = 'ranked')`,
+      sql`(${table.recordingClass} = ${listedWord(recordingClasses, 'ranked')}) = (${table.eligibility}->>'kind' = 'ranked')`,
     ),
     check(
       'recordings_deletion_attempts_check',
@@ -107,7 +110,7 @@ export const recordings = pgTable(
     /** A deletion is due exactly while the Recording is being removed. */
     check(
       'recordings_deletion_due_check',
-      sql`(${table.status} = 'removing') = (${table.deletionDueAt} is not null)`,
+      sql`(${table.status} = ${listedWord(recordingStatuses, 'removing')}) = (${table.deletionDueAt} is not null)`,
     ),
     check(
       'recordings_lease_check',

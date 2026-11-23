@@ -1,3 +1,4 @@
+import { billingModes } from '@daisy/protocol/billing-mode';
 import { sql } from 'drizzle-orm';
 import { check, index, pgTable, text, uniqueIndex } from 'drizzle-orm/pg-core';
 import { oneOf, timestampColumn } from './columns';
@@ -9,7 +10,7 @@ export const billingWebhookEvents = pgTable(
     id: text('id').primaryKey(),
     vendorEventId: text('vendor_event_id').notNull(),
     vendorCustomerId: text('vendor_customer_id').notNull(),
-    mode: text('mode').notNull(),
+    mode: text('mode').$type<(typeof billingModes)[number]>().notNull(),
     receivedAt: timestampColumn('received_at').notNull().defaultNow(),
     notifiedAt: timestampColumn('notified_at'),
   },
@@ -29,10 +30,7 @@ export const billingWebhookEvents = pgTable(
       table.receivedAt,
       table.id,
     ),
-    check(
-      'billing_webhook_events_mode_check',
-      oneOf(table.mode, ['test', 'live']),
-    ),
+    check('billing_webhook_events_mode_check', oneOf(table.mode, billingModes)),
     check(
       'billing_webhook_events_identity_check',
       sql`${table.vendorEventId} ~ '^evt_[A-Za-z0-9]+$' and length(${table.vendorEventId})<=255 and ${table.vendorCustomerId} ~ '^cus_[A-Za-z0-9]+$' and length(${table.vendorCustomerId})<=255`,

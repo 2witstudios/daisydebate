@@ -1,3 +1,4 @@
+import { billingModes } from './billing-mode';
 import { z } from 'zod';
 import {
   paymentObservationSourceSchema,
@@ -5,7 +6,7 @@ import {
 } from './billing-payment-observation';
 /** An owned invoice identity is retained even when its payment enumeration is unavailable. */
 export const ownedInvoiceObservationSchema = z.strictObject({
-  mode: z.enum(['test', 'live']),
+  mode: z.enum(billingModes),
   customerId: z
     .string()
     .max(255)

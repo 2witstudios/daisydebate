@@ -3,11 +3,30 @@ import { runInNewContext } from 'node:vm';
 import { MessageChannel } from 'node:worker_threads';
 import type { Root } from 'react-dom/client';
 
-/** Real React and client code in a private browser realm, without runner globals. */
+const windowPorts = [
+  'fetch',
+  'setTimeout',
+  'clearTimeout',
+  'setInterval',
+  'clearInterval',
+] as const;
+
+type RealmGlobals = Readonly<Record<string, unknown>>;
+
+/**
+ * Real React and client code in a private browser realm, without runner
+ * globals. `globals` may read the realm's window, for the DOM classes
+ * (`Element`, `HTMLAnchorElement`) client code tests instances against.
+ */
 export async function mountBrowserClient<
   T extends { createRoot: (container: HTMLElement) => Root },
->(entrypoint: string, globals: Readonly<Record<string, unknown>> = {}) {
+>(
+  entrypoint: string,
+  realmGlobals: RealmGlobals | ((browser: BrowserWindow) => RealmGlobals) = {},
+) {
   const browser = new BrowserWindow({ url: 'https://daisy.test/' });
+  const globals =
+    typeof realmGlobals === 'function' ? realmGlobals(browser) : realmGlobals;
   const built = await Bun.build({
     entrypoints: [entrypoint],
     format: 'cjs',
@@ -35,6 +54,10 @@ export async function mountBrowserClient<
       ...globals,
     },
   ) as T;
+  // The browser ports read the window's transport and timers: what a test
+  // injects as a realm global is what the window answers too.
+  for (const name of windowPorts)
+    if (name in globals) Object.assign(browser, { [name]: globals[name] });
   const container = browser.document.createElement('div');
   browser.document.body.append(container);
   const root = client.createRoot(container as unknown as HTMLElement);

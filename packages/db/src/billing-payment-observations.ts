@@ -8,11 +8,14 @@ import {
   type OwnedInvoiceObservation,
 } from '@daisy/protocol/billing';
 import type { BoundedTransaction } from './bounded-transaction';
-import { lockCleanupJob, cleanupContext } from './billing-cleanup-authority';
+import {
+  lockCleanupJob,
+  cleanupContext,
+  cleanupFacts,
+} from './billing-cleanup-authority';
 import { billingPaymentObservations } from './schema/billing-payment-observations';
-import { paymentObservationFromRow } from './billing-payment-observation-record';
+import { paymentObservationFromRow } from './billing-payment-observation-write';
 import { retainInvoiceWitness } from './billing-invoice-observation';
-import { cleanupFacts } from './billing-cleanup-authority';
 import { commitObservationProgress } from './billing-observation-progress';
 
 const refuse = { kind: 'refuse' } as const;

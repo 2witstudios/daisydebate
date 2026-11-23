@@ -1,8 +1,9 @@
 import { hostTiersReleasedFor } from '../../../../features/tab/route-release';
 import { processRoute } from '../../../../server/process-app';
+import { hostingComposition } from '../../../../features/hosting-purchases/routes';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 export const GET = processRoute(
-  (routes, app, fetch) =>
-    routes.hosting.account(hostTiersReleasedFor(app), fetch).GET,
+  hostingComposition,
+  (routes, app, fetch) => routes.account(hostTiersReleasedFor(app), fetch).GET,
 );

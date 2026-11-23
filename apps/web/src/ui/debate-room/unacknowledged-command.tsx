@@ -41,12 +41,7 @@ export function UnacknowledgedCommand({
           fields.has(name),
         )}
       />
-      <Button
-        variant="unstyled"
-        type="submit"
-        disabled={pending}
-        className="inline-flex h-room-target items-center rounded-sm border border-border-strong px-4 text-sm font-strong disabled:opacity-60"
-      >
+      <Button variant="secondary" size="room" type="submit" disabled={pending}>
         {pending ? 'Retrying…' : 'Retry command'}
       </Button>
     </form>

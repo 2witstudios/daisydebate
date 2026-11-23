@@ -1,4 +1,4 @@
-import type { Database } from '@daisy/db';
+import type { MessagingStore } from '@daisy/db/stores/messaging';
 import type { MessagingGroupIssuanceFence } from '@daisy/db/messaging';
 import type {
   AuthorizationPrincipal,
@@ -14,7 +14,7 @@ import { requireMessagingGroupResult } from './group-command-result';
 import { requireMemberActor } from '../access/actor';
 /** Actual cast plus proposed accounts are fenced in the exact same persistence transaction. */
 export function composeMessagingGroupIssuanceStore(input: {
-  readonly database: Database;
+  readonly database: MessagingStore;
   readonly principal: AuthorizationPrincipal;
   readonly clock: Clock;
   readonly policy: SocialCreationPolicy | undefined;

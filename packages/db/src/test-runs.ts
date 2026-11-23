@@ -12,7 +12,7 @@ import type { SQL } from 'bun';
 import { createAppError } from '@daisy/errors';
 import { z } from 'zod';
 import { sessionLocks } from './locks';
-import { quoteIdentifier } from './identifiers';
+import { quoteIdentifier } from './slots';
 import { query } from './raw-rows';
 
 const tokenPattern = /^[0-9a-f]{8}$/;

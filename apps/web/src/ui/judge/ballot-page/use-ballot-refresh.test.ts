@@ -24,13 +24,12 @@ const manualEdges = () => {
       for (const listener of listeners) listener();
     },
     edges: {
-      setTimeout: (callback: () => void, inMs: number) => {
+      after: (callback: () => void, inMs: number) => {
         run = callback;
         delays.push(inMs);
-        return delays.length;
-      },
-      clearTimeout: () => {
-        run = null;
+        return () => {
+          run = null;
+        };
       },
       visible: () => visible,
       onVisibilityChange: (listener: () => void) => {

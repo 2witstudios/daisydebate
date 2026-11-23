@@ -1,8 +1,8 @@
+import { moderationKinds } from '@daisy/protocol/moderation';
 import { sql } from 'drizzle-orm';
 import { idSchema } from '@daisy/protocol/primitives';
 import type { PrivacyAdopter, PrivacyExport } from '../privacy/contracts';
-import { exportRows } from '../privacy/export-rows';
-import { query } from '../raw-rows';
+import { exportRows, query } from '../raw-rows';
 import { z } from 'zod';
 
 /**
@@ -22,7 +22,7 @@ export const moderationPrivacyAdopter: PrivacyAdopter = {
           tx,
           z.object({
             id: z.string(),
-            kind: z.string(),
+            kind: z.enum(moderationKinds),
             starts_at: z.date(),
             ends_at: z.date().nullable(),
             lifted_at: z.date().nullable(),

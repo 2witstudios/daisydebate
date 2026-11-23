@@ -1,12 +1,15 @@
+import { listedWord } from './lifecycle-sql';
 import { roundJudgeAssignments } from './schema/round-judge-assignments';
 import { roundFinalizationJudgeAssignments } from './schema/round-finalization-judge-assignments';
 import { roundSourceVoided } from './round-source-state';
 import { and, eq, sql } from 'drizzle-orm';
+import { parsedColumn } from './raw-rows';
+import { z } from 'zod';
 import { alias } from 'drizzle-orm/pg-core';
 import { createAppError } from '@daisy/errors';
 import { roundStatus } from '@daisy/protocol/round';
 import { idSchema } from '@daisy/protocol/primitives';
-import { isJudgeSeat, seatOrder } from '@daisy/protocol/seats';
+import { isJudgeSeat, seatOrder, seatKinds } from '@daisy/protocol/seats';
 import {
   roundCompetitionSourceSchema,
   type RoundCompetitionSource,
@@ -23,6 +26,9 @@ import {
   roundFinalizationBallots,
 } from './schema/round-finalizations';
 import type { Tx } from './tx';
+
+/** Whether a finalized ballot still carries the digest it was finalized with. */
+const ballotDigestUnchanged = z.boolean();
 
 /** Caller authorizes the addressed source and holds its owning aggregate fences; this export has no private words. */
 export const readRoundCompetitionSource = async (
@@ -107,7 +113,7 @@ export const readRoundCompetitionSource = async (
     .where(
       and(
         eq(roundParticipants.roundId, input.roundId),
-        sql`(${roundParticipants.seatKind}<>'judge' or exists(select 1 from round_finalization_judge_assignments a where a.round_id=${roundParticipants.roundId} and a.participant_id=${roundParticipants.id}))`,
+        sql`(${roundParticipants.seatKind}<>${listedWord(seatKinds, 'judge')} or exists(select 1 from round_finalization_judge_assignments a where a.round_id=${roundParticipants.roundId} and a.participant_id=${roundParticipants.id}))`,
       ),
     );
   const cast = castRows
@@ -133,7 +139,10 @@ export const readRoundCompetitionSource = async (
       ballotDefinitionVersion: ballots.ballotDefinitionVersion,
       submittedAt: ballots.submittedAt,
       contentDigest: roundFinalizationBallots.ballotDigest,
-      unchanged: sql<boolean>`${roundFinalizationBallots.ballotDigest} = daisy_ballot_content_digest(${ballots})`,
+      unchanged: parsedColumn(
+        ballotDigestUnchanged,
+        sql`${roundFinalizationBallots.ballotDigest} = daisy_ballot_content_digest(${ballots})`,
+      ),
     })
     .from(roundFinalizationBallots)
     .innerJoin(

@@ -1,10 +1,26 @@
+import { createAvailabilityStore } from '../src/stores/availability';
+import { createBillingStore } from '../src/stores/billing';
+import { openDatabaseResources } from '../src/resources';
+import { hostWaits } from '@daisy/worker/host';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { requireTestServices } from '@daisy/config';
 import { createId } from '@paralleldrive/cuid2';
 import { advanceCleanup, type CleanupState } from '@daisy/protocol/billing';
-import { createDatabase } from '../src/index';
 import { withBillingRefunds } from './billing-refunds.test-support';
 import { sqlStateOf } from './constraint-helpers';
+/** This file's database: the area stores it reads, over one set of resources. */
+const openStores = (
+  options: Parameters<typeof openDatabaseResources>[0] & {
+    readonly nextActorId: () => string;
+  },
+) => {
+  const resources = openDatabaseResources(options);
+  return {
+    ...createAvailabilityStore(resources),
+    ...createBillingStore(resources, { nextId: options.nextActorId }),
+    close: resources.close,
+  };
+};
 
 const { databaseUrl } = requireTestServices(process.env);
 setupRitewayBun();
@@ -26,7 +42,8 @@ test('current unlinked original refund action cannot be skipped by public resolu
         await connection`set role daisy_web`;
         return connection;
       };
-      const database = createDatabase({
+      const database = openStores({
+          waits: hostWaits,
           url: databaseUrl,
           client: pool,
           nextActorId: createId,

@@ -1,12 +1,11 @@
-import { Dialog } from '../../components/dialog/dialog';
+import { DialogRegion } from '../../components/dialog/dialog-region';
 import { Button } from '../../components/button/button';
+import { buttonClass } from '../../components/button/button-class';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 import { numberedSteps } from '../../../features/onboarding/steps';
 
-const touch =
-  'inline-flex min-h-onboarding-touch items-center justify-center rounded-round px-6 text-md font-strong no-underline hover:no-underline';
-const primary = `${touch} bg-accent text-accent-ink hover:bg-accent-strong`;
+const primary = buttonClass('touch-primary');
 
 export type OnboardingFrameProps = {
   /** The step's number in the flow, or null where no count is shown. */
@@ -31,7 +30,7 @@ export function OnboardingFrame({
 }: OnboardingFrameProps) {
   return (
     <div className="flex min-h-dvh items-center justify-center bg-background p-3 text-ink max-narrow:p-0">
-      <Dialog
+      <DialogRegion
         as="section"
 
         aria-labelledby={titleId}
@@ -61,7 +60,7 @@ export function OnboardingFrame({
           {skip}
         </div>
         <div className="flex flex-1 flex-col gap-4">{children}</div>
-      </Dialog>
+      </DialogRegion>
     </div>
   );
 }
@@ -91,20 +90,15 @@ export function NextButton({
 }) {
   return (
     <Button
-      variant="unstyled"
+      variant="touch-primary"
       type="submit"
       disabled={pending}
       aria-busy={pending || undefined}
-      className={`${primary} cursor-pointer border-0 disabled:cursor-wait disabled:opacity-60`}
     >
       {children}
     </Button>
   );
 }
-
-/** The Skip control's look: a quiet underlined button inside its form. */
-export const skipClass =
-  'inline-flex min-h-onboarding-touch cursor-pointer items-center border-0 bg-transparent px-3 text-base font-strong text-ink-muted underline underline-offset-4 hover:text-ink';
 
 /** Back (a link to the previous step) and Next, under a rule. */
 export function StepFooter({
@@ -119,10 +113,7 @@ export function StepFooter({
       {backHref === null ? (
         <span />
       ) : (
-        <Link
-          href={backHref}
-          className={`${touch} border border-border-strong text-ink`}
-        >
+        <Link href={backHref} className={buttonClass('touch-secondary')}>
           Back
         </Link>
       )}

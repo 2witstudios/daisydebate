@@ -1,17 +1,17 @@
+import type {
+  BillingStore,
+  ClubInvitationResendFacts,
+  ClubSeatManagerCommand,
+} from '@daisy/db/stores/billing';
 import { runClubInviteeCommand } from './invitee-command';
 import { runClubManagerCommand } from './manager-command';
 import { instantMs } from '@daisy/clock';
 import { subscriptionAccess } from '@daisy/auth/authorization';
-import type {
-  ClubInvitationResendFacts,
-  ClubSeatManagerCommand,
-  Database,
-} from '@daisy/db';
 import {
   clubInvitationMailRefusal,
   type SeatInvitation,
 } from '@daisy/protocol/club-seats';
-import type { MemberCaller } from '../../server/member-boundary';
+import type { MemberCaller } from '../auth/member-boundary';
 
 /** A lapsed plan offers no seat worth mailing; earlier refusals win. */
 export function clubInvitationResendRefusal(input: {
@@ -28,7 +28,7 @@ export function clubInvitationResendRefusal(input: {
 
 /** Each manager operation uses its application-owned decision under the store fence. */
 export function createClubSeatCommands(
-  store: ReturnType<Database['clubSeats']>,
+  store: ReturnType<BillingStore['clubSeats']>,
 ) {
   return {
     answer: (

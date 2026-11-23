@@ -269,8 +269,7 @@ test('a tick starts a Round at the instant its prep ended, however late it runs'
         during.status,
         during.started_at,
         after.status,
-        new Date(after.started_at).getTime() ===
-          new Date(after.prep_end).getTime(),
+        after.started_at.getTime() === after.prep_end.getTime(),
       ],
       expected: ['opening', null, 'active', true],
     });

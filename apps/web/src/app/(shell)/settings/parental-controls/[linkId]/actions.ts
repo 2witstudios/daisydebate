@@ -10,7 +10,7 @@ import {
   type FormState,
   type Unacknowledged,
 } from '../../../../../features/forms/form-state';
-import { moveOn } from '../../../../../server/form-action';
+import { moveOn } from '../../../../../features/forms/form-action';
 import { POST } from '../../../../api/parental-controls/more/route';
 import { post } from '../../../form-post';
 

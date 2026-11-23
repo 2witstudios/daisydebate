@@ -1,6 +1,6 @@
 import { createElement as h } from 'react';
-import { renderToString } from 'react-dom/server';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
+import { renderAccessible } from '../../../test-support/rendered/accessible';
 import { TabLinks } from './tab-links';
 import { tabLinkClass } from './tab-links-class';
 
@@ -22,7 +22,7 @@ describe('tabLinkClass', () => {
 
 describe('TabLinks', () => {
   test('links with the current one marked and counts shown', () => {
-    const html = renderToString(
+    const view = renderAccessible(
       h(TabLinks, {
         label: 'Status',
         tabs: [
@@ -35,12 +35,11 @@ describe('TabLinks', () => {
       given: 'two tabs, the first selected with a count',
       should: 'be a labelled nav of links, marking only the first current',
       actual: [
-        html.includes('aria-label="Status"'),
-        html.match(/aria-current="page"/g)?.length,
-        html.includes('href="/x?tab=b"'),
-        html.includes('>3<'),
+        view.within('navigation', 'Status').names('link'),
+        view.names('link', { current: 'page' }),
+        view.attribute('link', 'Two', 'href'),
       ],
-      expected: [true, 1, true, true],
+      expected: [['One 3', 'Two'], ['One 3'], '/x?tab=b'],
     });
   });
 });

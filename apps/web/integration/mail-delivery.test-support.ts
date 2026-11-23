@@ -1,9 +1,10 @@
+import { hostWaits } from '@daisy/worker/host';
 import { z } from 'zod';
 import { createId } from '@paralleldrive/cuid2';
 import { createMailIntentDelivery } from '../src/features/beta-access/mail-delivery';
 import { createResendSender } from '../src/features/mail/resend-sender';
 
-type Db = import('@daisy/db').Database;
+type Db = Parameters<typeof createMailIntentDelivery>[0]['store'];
 
 /** Real application worker and Resend adapter; its HTTP edge is a test provider. */
 export function mailWorker(db: Db, ownerAddress?: string) {
@@ -14,6 +15,7 @@ export function mailWorker(db: Db, ownerAddress?: string) {
     apiKey: 'test-provider-key',
     from: 'beta@example.test',
     nowMs: Date.now,
+    waits: hostWaits,
     ids: { next: createId },
     fetch: async (_request, init) => {
       keys.push(new Headers(init?.headers).get('Idempotency-Key'));

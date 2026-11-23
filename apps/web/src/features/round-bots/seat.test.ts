@@ -1,12 +1,12 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createBotSeat } from './seat';
-import { manualTimers } from '../../lib/worker-timers.test-support';
+import { inertWaits, manualWaits } from '../../lib/manual-waits.test-support';
 import { within } from '../../lib/deadline.test-support';
 
 setupRitewayBun();
 function harness(withFeed: boolean, speakerStop = async () => undefined) {
   const log: string[] = [];
-  const { tasks: timers, timers: worker } = manualTimers();
+  const { tasks: timers, waits } = manualWaits();
   const blocked = Promise.withResolvers<void>();
   let polls = 0;
   const seat = createBotSeat({
@@ -42,7 +42,7 @@ function harness(withFeed: boolean, speakerStop = async () => undefined) {
         }
       : null,
     pollMs: 50,
-    timers: worker,
+    waits,
     failed: () => log.push('failed'),
   });
   return { seat, log, timers, blocked, polls: () => polls };
@@ -53,8 +53,8 @@ test('control receipts never wait for speaking work', async () => {
   assert({
     given: 'a speech seat pulse',
     should: 'wake the speaker and record the receipt without a poll timer',
-    actual: [log, timers.size],
-    expected: [['publication-start', 'wake', 'receipt'], 0],
+    actual: [log, timers.has(50)],
+    expected: [['publication-start', 'wake', 'receipt'], false],
   });
   await seat.stop();
   assert({
@@ -66,9 +66,9 @@ test('control receipts never wait for speaking work', async () => {
 });
 test("cross-examination's own hearing polls single-flight, joins with the seat and ends after its publication (ISSUE-764)", async () => {
   const { seat, log, timers, blocked, polls } = harness(true);
-  const poll = timers.get(50)!;
-  const first = poll();
-  const overlapping = poll();
+  // The second tick comes while the first poll is still running.
+  await timers.get(50)!();
+  await timers.get(50)!();
   assert({
     given: 'a slow hearing poll and an overlapping 50ms tick',
     should: 'keep one poll in flight',
@@ -76,13 +76,13 @@ test("cross-examination's own hearing polls single-flight, joins with the seat a
     expected: 1,
   });
   blocked.resolve();
-  await Promise.all([first, overlapping]);
+  // Stopping waits out the poll in flight.
   await seat.stop();
   assert({
     given: 'a completed poll and shutdown',
     should:
       'join the hearing with the publication, wake the speaker after the poll, clear the timer and end the hearing last',
-    actual: [log, timers.size],
+    actual: [log, timers.has(50)],
     expected: [
       [
         'publication-start',
@@ -92,7 +92,7 @@ test("cross-examination's own hearing polls single-flight, joins with the seat a
         'publication-close',
         'listening-close',
       ],
-      0,
+      false,
     ],
   });
 });
@@ -142,7 +142,7 @@ test('a seat whose hearing fails to start closes what it started (ISSUE-789)', a
         },
       },
       pollMs: 50,
-      timers: manualTimers().timers,
+      waits: inertWaits,
       failed: (error, stage) => failures.push([error, stage]),
     });
   } catch (error) {
@@ -195,7 +195,7 @@ function failingSeat(input: {
         },
       },
       pollMs: 50,
-      timers: manualTimers().timers,
+      waits: inertWaits,
       failed: (error, stage) => {
         if (reported.push([error, stage]) === 2) bothReported.resolve();
       },

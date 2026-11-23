@@ -1,6 +1,7 @@
+import { openWebDatabase, type WebDatabase } from '../src/server/database';
+import { hostWaits } from '@daisy/worker/host';
 import { decisionRelease as roundDecisionReleasePolicy } from '../src/features/notifications/decision-release';
 import { requireTestServices } from '@daisy/config';
-import { createDatabase, type Database } from '@daisy/db';
 import { seedRatingSeason } from '@daisy/db/testing';
 import type { Ballot } from '@daisy/protocol/ballot-schema';
 import { createId } from '@paralleldrive/cuid2';
@@ -32,10 +33,11 @@ export const ruling = (winner: Side) =>
 /** Fully separate pools, so each contender holds its own PostgreSQL session. */
 export async function withClients<T>(
   count: number,
-  work: (clients: readonly Database[]) => Promise<T>,
+  work: (clients: readonly WebDatabase[]) => Promise<T>,
 ) {
   const clients = Array.from({ length: count }, () =>
-    createDatabase({
+    openWebDatabase({
+      waits: hostWaits,
       decisionRelease: roundDecisionReleasePolicy,
       url: databaseUrl,
       nextActorId: createId,
@@ -160,7 +162,7 @@ export const ballotCommand = async (
     freezeRevision,
     ballot: ruling(winner),
   };
-  return (store: Database = f.store) =>
+  return (store: WebDatabase = f.store) =>
     createRoundBallotOperations({
       store,
       nextBallotId: createId,

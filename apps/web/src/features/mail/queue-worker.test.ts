@@ -1,11 +1,11 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { startMailQueueWorker } from './queue-worker';
-import { manualTimers } from '../../lib/worker-timers.test-support';
+import { manualWaits } from '../../lib/manual-waits.test-support';
 
 setupRitewayBun();
 
 test('a queue sending mail keeps its pace; an empty one backs off', async () => {
-  const { timers, waits, nextPass } = manualTimers();
+  const { waits, armed, nextPass } = manualWaits();
   const limits: number[] = [];
   const sent = [3, 1, 0, 0];
   const service = startMailQueueWorker({
@@ -15,7 +15,7 @@ test('a queue sending mail keeps its pace; an empty one backs off', async () => 
     },
     batch: 10,
     everyMs: 5_000,
-    timers,
+    waits,
     failed: () => {},
   });
   await service.started;
@@ -27,16 +27,16 @@ test('a queue sending mail keeps its pace; an empty one backs off', async () => 
     given: 'two batches that send mail, then two that find none, then a stop',
     should:
       'run each batch with its limit, at 15 s while sending, then wait longer',
-    actual: { limits, waits },
+    actual: { limits, armed },
     expected: {
       limits: [10, 10, 10, 10],
-      waits: [5_000, 5_000, 10_000, 15_000],
+      armed: [5_000, 5_000, 10_000, 15_000],
     },
   });
 });
 
 test('a failed batch is reported and the loop carries on', async () => {
-  const { timers, nextPass } = manualTimers();
+  const { waits, nextPass } = manualWaits();
   const failures: unknown[] = [];
   const service = startMailQueueWorker({
     run: async () => {
@@ -44,7 +44,7 @@ test('a failed batch is reported and the loop carries on', async () => {
     },
     batch: 10,
     everyMs: 15_000,
-    timers,
+    waits,
     failed: (error) => failures.push(error),
   });
   await service.started;

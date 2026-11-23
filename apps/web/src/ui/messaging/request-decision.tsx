@@ -46,12 +46,7 @@ export function RequestDecision({
       <input type="hidden" name="requestId" value={fields.requestId} />
       {fields.notice ? (
         <div id="request-notice" tabIndex={-1}>
-          <Notice
-            tone="neutral"
-            icon="info"
-            title={fields.notice}
-            role="status"
-          />
+          <Notice tone="neutral" icon="info" title={fields.notice} announced />
         </div>
       ) : null}
       <div className="flex flex-wrap gap-3">

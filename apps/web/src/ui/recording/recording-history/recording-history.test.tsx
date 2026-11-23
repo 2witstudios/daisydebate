@@ -1,7 +1,10 @@
 import { AppRouterContext } from 'next/dist/shared/lib/app-router-context.shared-runtime';
 import { createElement as h } from 'react';
-import { renderToString } from 'react-dom/server';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
+import {
+  renderAccessible,
+  type AccessibleView,
+} from '../../../test-support/rendered/accessible';
 import type { RecordingHistoryScreen } from '../../../features/recording/history';
 import { RecordingHistory } from './recording-history';
 
@@ -48,20 +51,27 @@ const router = {
   bfcacheId: 'recording',
 };
 const render = (over: Partial<typeof screen> = {}) =>
-  renderToString(
+  renderAccessible(
     h(
       AppRouterContext.Provider,
       { value: router },
       h(RecordingHistory, { screen: { ...screen, ...over }, notice: null }),
     ),
   );
+/**
+ * The player is a `<video>`, which has no role; its Speed choice renders only
+ * beside it, so the Speed combobox stands for the player.
+ */
+const player = (view: AccessibleView) => view.has('combobox', /^Speed/);
+/** The form a control posts, for its action and its hidden fields. */
+const formOf = (control: Element) => control.closest('form') as HTMLFormElement;
 
 describe('RecordingHistory', () => {
   test('shows the player only for ready media', () => {
     assert({
       given: 'ready media',
       should: 'show the player',
-      actual: render().includes('<video'),
+      actual: player(render()),
       expected: true,
     });
     for (const [state, text] of [
@@ -70,11 +80,16 @@ describe('RecordingHistory', () => {
       ['removed', 'no longer available'],
       ['withheld', 'being held back'],
     ] as const) {
-      const html = render({ media: { state } });
+      const view = render({ media: { state } });
       assert({
         given: `media ${state}`,
         should: 'state it and show no player',
-        actual: [html.includes(text), html.includes('<video')],
+        actual: [
+          view
+            .names('heading', { level: 2 })
+            .some((heading) => heading.includes(text)),
+          player(view),
+        ],
         expected: [true, false],
       });
     }
@@ -86,61 +101,71 @@ describe('RecordingHistory', () => {
       given: 'a viewer with only the video',
       should: 'show no transcript, result, download or removal',
       actual: [
-        'Transcript',
-        'Result',
-        'Download video',
-        'Remove recording',
-      ].map((text) => none.includes(text)),
+        none.has('region', 'Transcript'),
+        none.has('region', 'Result'),
+        none.has('link', 'Download video'),
+        none.has('button', 'Remove recording'),
+      ],
       expected: [false, false, false, false],
     });
   });
 
   test('searches the transcript on its Recording page', () => {
-    const html = render({
+    const view = render({
       transcript: { q: 'opening', revision: 1, coverageNote: null, rows: [] },
     });
+    const search = view.within('region', 'Transcript');
     assert({
       given: 'a viewer with transcript access and a search query',
       should: 'submit only the search query to this Recording page',
       actual: [
-        html.includes('action="/recordings/round"'),
-        html.includes('method="get"'),
-        html.includes('name="q"'),
-        html.includes('value="opening"'),
+        search.attribute('search', 'Search the transcript', 'action'),
+        search.attribute('search', 'Search the transcript', 'method'),
+        search.attribute('searchbox', 'Search the transcript', 'name'),
+        search.attribute('searchbox', 'Search the transcript', 'value'),
       ],
-      expected: [true, true, true, true],
+      expected: ['/recordings/round', 'get', 'q', 'opening'],
     });
   });
 
   test('states the limits of a download and of removal', () => {
-    const html = render({
+    const view = render({
       downloadHref: '/api/recordings/rec/download',
       removal: { recordingId: 'rec', version: 4 },
     });
+    const removal = formOf(view.get('button', 'Remove recording'));
+    const version = removal.elements.namedItem('version') as HTMLInputElement;
     assert({
       given: 'a subscriber who is a participant',
       should: 'say a copy is beyond Daisy, and post removal with its version',
       actual: [
-        html.includes('A copy you download is outside Daisy'),
-        html.includes('action="/api/recordings/rec/removal"'),
-        html.includes('name="version" value="4"'),
-        html.includes('The whole recording'),
+        view
+          .within('region', 'Download')
+          .textContent()
+          .includes('A copy you download is outside Daisy'),
+        removal.getAttribute('action'),
+        removal.getAttribute('method'),
+        version.value,
+        removal.textContent?.includes('The whole recording'),
       ],
-      expected: [true, true, true, true],
+      expected: [true, '/api/recordings/rec/removal', 'post', '4', true],
     });
   });
 
   test('never calls a tie anything but what it is', () => {
-    const html = render({ result: { headline: 'No winner', ballots: [] } });
+    const view = render({ result: { headline: 'No winner', ballots: [] } });
     assert({
       given: 'no winner',
       should: 'not say draw',
-      actual: [html.includes('No winner'), /draw/i.test(html)],
+      actual: [
+        view.within('region', 'Result').textContent().includes('No winner'),
+        /draw/i.test(view.textContent()),
+      ],
       expected: [true, false],
     });
   });
   test('says how far a video being prepared really is', () => {
-    const html = render({
+    const view = render({
       media: {
         state: 'processing',
         preparation: {
@@ -154,10 +179,10 @@ describe('RecordingHistory', () => {
       given: 'a late build part way through saving',
       should: 'state the real figures and the delay, with no player',
       actual: [
-        html.includes('being prepared'),
-        html.includes('Saving the video: 3 of 9 files'),
-        html.includes('taking longer than it should'),
-        html.includes('<video'),
+        view.has('heading', 'The video is being prepared'),
+        view.text('status').includes('Saving the video: 3 of 9 files'),
+        view.textContent().includes('taking longer than it should'),
+        player(view),
       ],
       expected: [true, true, true, false],
     });
@@ -165,13 +190,14 @@ describe('RecordingHistory', () => {
 });
 
 describe('RecordingHistory, a Youth Round (ADR 0161)', () => {
-  const youth = render({
-    ranked: true,
-    visibility: 'public',
-    ladder: { style: 'freestyle', division: 'youth' },
-    youth: true,
-    removal: { recordingId: 'rec', version: 4 },
-  });
+  const youth = () =>
+    render({
+      ranked: true,
+      visibility: 'public',
+      ladder: { style: 'freestyle', division: 'youth' },
+      youth: true,
+      removal: { recordingId: 'rec', version: 4 },
+    });
 
   test('shares and reads as an Open Round does', () => {
     assert({
@@ -179,13 +205,16 @@ describe('RecordingHistory, a Youth Round (ADR 0161)', () => {
       should:
         'name no ladder, say anyone can replay it, offer its link, and show no Private badge or Share publicly',
       actual: [
-        !/<header[\s\S]*?Youth – Freestyle[\s\S]*?<\/header>/.test(youth),
-        youth.includes('Anyone can replay it'),
-        youth.includes('Copy link'),
-        youth.includes('Share publicly'),
-        youth.includes('>Private<'),
+        youth().within('banner').textContent().includes('Youth – Freestyle'),
+        youth()
+          .within('region', 'Sharing')
+          .textContent()
+          .includes('Anyone can replay it'),
+        youth().within('region', 'Sharing').textContent().includes('Copy link'),
+        youth().textContent().includes('Share publicly'),
+        youth().textContent().includes('Private'),
       ],
-      expected: [true, true, true, false, false],
+      expected: [false, true, true, false, false],
     });
   });
 
@@ -194,9 +223,11 @@ describe('RecordingHistory, a Youth Round (ADR 0161)', () => {
       given: 'a youth debater or linked adult',
       should: 'offer the takedown for everyone',
       actual: [
-        youth.includes('Take down this recording'),
-        youth.includes('Take it down for everyone'),
-        youth.includes('Remove recording'),
+        formOf(youth().get('button', 'Take down')).textContent?.includes(
+          'Take down this recording',
+        ),
+        youth().has('checkbox', 'Take it down for everyone'),
+        youth().has('button', 'Remove recording'),
       ],
       expected: [true, true, false],
     });

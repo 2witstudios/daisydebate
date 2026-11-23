@@ -1,3 +1,4 @@
+import { hostWaits } from '@daisy/worker/host';
 import { afterAll } from 'bun:test';
 import { SQL } from 'bun';
 import { authorize } from '@daisy/auth/authorization';
@@ -82,7 +83,7 @@ test('standing Room readers coexist and retain actual template, offer and member
     const [held] = await reader`select pg_backend_pid() as pid`;
     const observed = (operation: Promise<unknown>) =>
       finishedOrBlockedBehind(operation, observer, Number(held?.pid), {
-        now: Date.now,
+        waits: hostWaits,
       });
     await pause();
     overlapping = read(createTabStore(committingRuntimeTestDatabase(owner)));

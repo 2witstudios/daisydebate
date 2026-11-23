@@ -1,7 +1,7 @@
-import { renderToString } from 'react-dom/server';
 import { createElement as h } from 'react';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { Button } from '../../components/button/button';
+import { renderAccessible } from '../../../test-support/rendered/accessible';
 import { byText, findElements } from '../../test-support/find-elements';
 import { SignInForm, type SignInFormProps } from './sign-in-form';
 
@@ -26,102 +26,130 @@ const submit = (tree: ReturnType<typeof SignInForm>, calls: string[]) => {
   return form;
 };
 
-const html = (overrides: Partial<SignInFormProps> = {}) =>
-  renderToString(h(SignInForm, props(overrides)));
+const render = (overrides: Partial<SignInFormProps> = {}) =>
+  renderAccessible(h(SignInForm, props(overrides)));
+
+/** The form the email field posts in. */
+const formOf = (view: ReturnType<typeof render>) =>
+  view.get('textbox', 'Email').closest('form');
 
 describe('SignInForm', () => {
   test('offers one email field and a passkey button', () => {
-    const page = html();
+    const view = render();
     assert({
       given: 'an idle form',
       should:
         'label the email field, let the browser offer a passkey, and show both actions',
       actual: [
-        page.includes('<label for="sign-in-email"'),
-        page.includes('autoComplete="username webauthn"') ||
-          page.includes('autocomplete="username webauthn"'),
-        page.includes('type="email"'),
-        page.includes('Continue'),
-        page.includes('Sign in with a passkey'),
-        page.includes('<h1'),
+        view.has('textbox', 'Email'),
+        view.attribute('textbox', 'Email', 'autocomplete'),
+        view.attribute('textbox', 'Email', 'type'),
+        view.has('button', 'Continue'),
+        view.has('button', 'Sign in with a passkey'),
+        view.count('heading', undefined, { level: 1 }),
       ],
-      expected: [true, true, true, true, true, true],
+      expected: [true, 'username webauthn', 'email', true, true, 1],
     });
   });
 
   test('sends new people to email, not the saved-passkey prompt', () => {
-    const page = html();
+    const view = render();
+    const hintId = view.attribute(
+      'button',
+      'Sign in with a passkey',
+      'aria-describedby',
+    );
+    const hint = view
+      .get('button', 'Sign in with a passkey')
+      .ownerDocument.getElementById(hintId ?? '');
     assert({
       given: 'an idle form',
       should:
         'make email the path for everyone and tie a saved-passkeys-only hint to the passkey button',
       actual: [
-        page.includes('Enter your email and we&#x27;ll send you a link.'),
-        page.includes('aria-describedby="sign-in-passkey-hint"'),
-        page.includes('id="sign-in-passkey-hint"'),
-        page.includes('For returning users.'),
-        page.includes('New here? Use your email.'),
+        view
+          .textContent()
+          .includes("Enter your email and we'll send you a link."),
+        hintId,
+        hint?.textContent,
       ],
-      expected: [true, true, true, true, true],
+      expected: [
+        true,
+        'sign-in-passkey-hint',
+        'For returning users. New here? Use your email.',
+      ],
     });
   });
 
   test('disables both paths while a link is sending', () => {
-    const page = html({ email: 'j@school.edu', pending: 'link' });
+    const view = render({ email: 'j@school.edu', pending: 'link' });
     assert({
       given: 'a pending link request',
       should: 'show progress, announce it, and disable every control',
       actual: [
-        page.includes('Sending…'),
-        page.includes('Sending your sign-in link…'),
-        page.includes('aria-busy="true"'),
-        page.match(/disabled=""/g)?.length,
+        view.has('button', 'Sending…'),
+        view.text('status'),
+        formOf(view)?.getAttribute('aria-busy'),
+        [...view.all('textbox'), ...view.all('button')].map((control) =>
+          control.hasAttribute('disabled'),
+        ),
       ],
-      expected: [true, true, true, 3],
+      expected: [
+        true,
+        'Sending your sign-in link…',
+        'true',
+        [true, true, true],
+      ],
     });
   });
 
   test('announces a waiting passkey ceremony', () => {
-    const page = html({ pending: 'passkey' });
+    const view = render({ pending: 'passkey' });
     assert({
       given: 'a pending passkey ceremony',
       should: 'tell the person to follow the browser prompt',
       actual: [
-        page.includes('Waiting for your passkey…'),
-        page.includes('Follow your browser&#x27;s prompt'),
+        view.has('button', 'Waiting for your passkey…'),
+        view.text('status'),
       ],
-      expected: [true, true],
+      expected: [true, "Follow your browser's prompt to use your passkey."],
     });
   });
 
   test('ties an undeliverable address to the field as an alert', () => {
-    const page = html({ email: 'j@school.edu', notice: 'undeliverable' });
+    const view = render({ email: 'j@school.edu', notice: 'undeliverable' });
     assert({
       given: 'an undeliverable notice',
       should: 'raise an alert the input points at',
       actual: [
-        page.includes('role="alert"'),
-        page.includes('aria-invalid="true"'),
-        page.includes('aria-describedby="sign-in-notice"'),
-        page.includes('We cannot send sign-in emails to this address.'),
+        view.get('alert').id,
+        view.attribute('textbox', 'Email', 'aria-invalid'),
+        view.attribute('textbox', 'Email', 'aria-describedby'),
+        view
+          .text('alert')
+          .includes('We cannot send sign-in emails to this address.'),
       ],
-      expected: [true, true, true, true],
+      expected: ['sign-in-notice', 'true', 'sign-in-notice', true],
     });
   });
 
   test('reports a cancelled passkey quietly, without blaming the address', () => {
-    const page = html({ notice: 'passkey-cancelled' });
+    const view = render({ notice: 'passkey-cancelled' });
+    const statuses = view.all('status').map((status) => status.textContent);
     assert({
       given: 'a cancelled passkey ceremony, which may mean no passkey is saved',
       should:
         'point a new person to email in a status, not an alert, and leave the input valid',
       actual: [
-        page.includes('No passkey used.'),
-        page.includes('New here? Continue with your email.'),
-        page.includes('role="alert"'),
-        page.includes('aria-invalid="true"'),
+        statuses.some(
+          (status) =>
+            status?.includes('No passkey used.') &&
+            status.includes('New here? Continue with your email.'),
+        ),
+        view.has('alert'),
+        view.attribute('textbox', 'Email', 'aria-invalid'),
       ],
-      expected: [true, true, false, false],
+      expected: [true, false, null],
     });
   });
 
@@ -171,15 +199,15 @@ describe('SignInForm', () => {
   });
 
   test('renders a form the browser can post before hydration', () => {
-    const page = html();
+    const view = render();
     assert({
       given: 'the server render',
       should: 'post the address as the email field, and never by GET',
       actual: [
-        page.includes('name="email"'),
-        /<form[^>]*method="get"/i.test(page),
+        view.attribute('textbox', 'Email', 'name'),
+        formOf(view)?.getAttribute('method')?.toLowerCase() === 'get',
       ],
-      expected: [true, false],
+      expected: ['email', false],
     });
   });
 });

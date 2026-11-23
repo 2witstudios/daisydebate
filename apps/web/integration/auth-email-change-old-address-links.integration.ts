@@ -1,3 +1,4 @@
+import { hostWaits } from '@daisy/worker/host';
 import { SQL } from 'bun';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { createId } from '@paralleldrive/cuid2';
@@ -232,7 +233,7 @@ describe('ISSUE-103 no session survives an email change it straddles', () => {
         signIn,
         observer,
         holderPid,
-        { now: Date.now },
+        { waits: hostWaits },
       );
       // 2. The change completes: the address switch commits, then the
       //    revoke-all, which finds no session of the sign-in to remove.

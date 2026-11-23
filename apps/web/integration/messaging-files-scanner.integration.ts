@@ -1,3 +1,4 @@
+import { hostWaits } from '@daisy/worker/host';
 import { requireTestServices } from '@daisy/config';
 import { assertRejects } from '@daisy/errors/testing';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
@@ -19,7 +20,7 @@ const limits = { maxBytes: 1024, serviceMs: 5000 };
 
 test('production INSTREAM scanner proves actual clean, EICAR and recoverable outage classification', async () => {
   const relay = await openFileScannerRelay({ host: '127.0.0.1', port });
-  const scanner = createClamdScanner(relay);
+  const scanner = createClamdScanner(relay, hostWaits);
   try {
     for (const [bytes, expected] of [
       [new TextEncoder().encode('%PDF-1.7\nclean document\n%%EOF'), 'clean'],

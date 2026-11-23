@@ -1,18 +1,20 @@
 import type { Metadata } from 'next';
 import { claimedUsername } from '@daisy/auth';
 import type { SearchParams } from '../../../features/access/decision';
-import { requireAccess } from '../../../lib/access';
+import { requireAccess } from '../../../features/access/page-access';
 import { parseDataRightsQuery } from '../../../features/account/data-rights/notices';
+import { requestIdentity } from '../../../lib/page-reads';
 import {
-  requestIdentity,
   requestFamilyViewer,
   requestFamilyLobbyPermissions,
-  requestAnalytics,
-  requestAudienceSettings,
+} from '../../../features/parental-controls/page-reads';
+import { requestAnalytics } from '../../../features/analytics/page-reads';
+import { requestAudienceSettings } from '../../../features/notifications/page-reads';
+import {
   requestOnboardingAnswers,
   requestOptionalAnswersAdmitted,
-  requestMediaReleaseSettings,
-} from '../../../lib/request-session';
+} from '../../../features/onboarding/page-reads';
+import { requestMediaReleaseSettings } from '../../../features/media-releases/page-reads';
 import { answerEditHrefs } from '../../../ui/onboarding/answer-summary/answer-summary';
 import { SettingsPage } from '../../../ui/settings/preferences/settings-page';
 import {

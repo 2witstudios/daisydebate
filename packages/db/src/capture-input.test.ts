@@ -4,7 +4,7 @@ import {
   captureClipSchema,
   captureReadSchema,
   parseCapture,
-} from './capture-input';
+} from './media-capture';
 
 setupRitewayBun();
 

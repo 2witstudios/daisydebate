@@ -1,5 +1,7 @@
+import type { RoundWorkerStore } from '@daisy/db/stores/round-workers';
+import type { RoundStore } from '@daisy/db/stores/rounds';
 import type { OpenRouter } from '@daisy/ai-voice';
-import type { Database } from '@daisy/db';
+import { deadlineSignal, type Waits } from '@daisy/clock';
 import { createAudioPublication } from '@daisy/media/audio';
 import { createAudioSubscription } from '@daisy/media/subscription';
 import type { BotPublicationScope } from '@daisy/db/bot-publication';
@@ -10,28 +12,14 @@ import { createPeerLineWait } from './peer-line';
 import { createBotPublisher } from './publication';
 import { createBotSeat } from './seat';
 import { createBotSpeaker } from './speaker';
-import type { OneShotTimer, WorkerTimers } from '../../lib/worker-timers';
-
-/** Resolves at a `performance.now()` instant, or at once when `signal` aborts. */
-const waitUntilMonotonic = (due: number, signal: AbortSignal) =>
-  new Promise<void>((resolve) => {
-    if (signal.aborted) return resolve();
-    const done = () => {
-      clearTimeout(timer);
-      signal.removeEventListener('abort', done);
-      resolve();
-    };
-    const timer = setTimeout(done, Math.max(0, due - performance.now()));
-    signal.addEventListener('abort', done, { once: true });
-  });
-type Claim = Awaited<ReturnType<Database['claimRoundBotWorker']>>;
+type Claim = Awaited<ReturnType<RoundWorkerStore['claimRoundBotWorker']>>;
 const ACTIVITY_POLL_MS = 50;
 const MAX_TOKENS = 2000;
 const MAX_ATTEMPTS = 2;
 /** Wraps each owned claim's receipts with its scoped speaker; receipts never await speech. */
 export function createSpeakingBotControl(input: {
   readonly store: Pick<
-    Database,
+    RoundWorkerStore,
     | 'beginRoundBotGeneration'
     | 'finishRoundBotGeneration'
     | 'verifyRoundBotPublication'
@@ -40,8 +28,8 @@ export function createSpeakingBotControl(input: {
     | 'revealRoundBotPhrase'
     | 'watchRoundBotFloor'
     | 'readRoundBotPeerLine'
-    | 'databaseNow'
-  >;
+  > &
+    Pick<RoundStore, 'databaseNow'>;
   readonly voice: () => Pick<OpenRouter, 'completeStreamed' | 'speakPcm'>;
   readonly withProvider: ProviderCall;
   /** Whether a refusal is `withProvider`'s own budget being full. */
@@ -57,9 +45,11 @@ export function createSpeakingBotControl(input: {
   /** The bot seat's own listen-only grant for cross-examination (ISSUE-764). */
   readonly listenToken: Parameters<typeof createBotListening>[0]['listenToken'];
   readonly readPeers: Parameters<typeof createBotListening>[0]['readPeers'];
-  readonly timers: WorkerTimers;
-  /** Wakes a speaker again after a refusal, and after an unanswered question. */
-  readonly oneShot: OneShotTimer;
+  /**
+   * Monotonic time for every seat's timed work: the hearing poll, a
+   * speaker's self-wakes, stall watches, call bounds and paced publication.
+   */
+  readonly waits: Waits;
   readonly nextId: () => string;
   readonly nowMs: () => number;
   readonly callTimeoutMs: number;
@@ -78,8 +68,7 @@ export function createSpeakingBotControl(input: {
     voice: input.voice,
     withProvider: input.withProvider,
     nowMs: input.nowMs,
-    pause: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
-    timer: input.oneShot,
+    waits: input.waits,
     stallMs: input.callTimeoutMs,
     maxTokens: MAX_TOKENS,
     reasoning: input.reasoning,
@@ -89,11 +78,16 @@ export function createSpeakingBotControl(input: {
     botToken: input.botToken,
     connect: createAudioPublication,
     nextId: input.nextId,
-    monotonicNowMs: () => performance.now(),
-    waitUntilMs: waitUntilMonotonic,
+    monotonicNowMs: input.waits.nowMs,
+    waitUntilMs: input.waits.waitUntilMs,
   });
+  /**
+   * A synthesis bound: it aborts `callTimeoutMs` from now, or with the turn.
+   * It is left to run out rather than cleared, since the answer's settlement
+   * still reads it after the call resolves.
+   */
   const bounded = (signal: AbortSignal) =>
-    AbortSignal.any([signal, AbortSignal.timeout(input.callTimeoutMs)]);
+    deadlineSignal(input.waits, input.callTimeoutMs, signal).signal;
   return (
     claim: Claim,
     receipts: { readonly pulse: () => Promise<unknown> },
@@ -111,23 +105,15 @@ export function createSpeakingBotControl(input: {
         ? createPeerLineWait({
             claim,
             readPeerLine: input.store.readRoundBotPeerLine,
-            sleep: (ms, signal) =>
-              waitUntilMonotonic(performance.now() + ms, signal),
-            monotonicNowMs: () => performance.now(),
+            sleep: input.waits.sleep,
+            monotonicNowMs: input.waits.nowMs,
             observed: input.hearingObserved,
           })
         : async () => undefined,
-      timer: input.oneShot,
+      waits: input.waits,
       synthesize: (scope, token, phraseId, text, signal) =>
         generation.synthesize(scope, token, phraseId, text, bounded(signal)),
-      deadline: publication.deadline,
-      lineClosed: publication.lineClosed,
-      tailCut: publication.tailCut,
-      writeAhead: publication.writeAhead,
-      discard: publication.discard,
-      audible: publication.audible,
-      silence: publication.silence,
-      publish: publication.publish,
+      publication,
       nextId: input.nextId,
       maxAttempts: MAX_ATTEMPTS,
       busy: input.providerBusy,
@@ -140,7 +126,7 @@ export function createSpeakingBotControl(input: {
           readPeers: input.readPeers,
           subscribe: createAudioSubscription,
           databaseNow: input.store.databaseNow,
-          monotonicNowMs: () => performance.now(),
+          waits: input.waits,
           playing: speaker.playing,
           onEvent: (event) =>
             speaker.peer(
@@ -163,7 +149,7 @@ export function createSpeakingBotControl(input: {
       publication,
       feed,
       pollMs: ACTIVITY_POLL_MS,
-      timers: input.timers,
+      waits: input.waits,
       failed: input.failed,
     });
   };

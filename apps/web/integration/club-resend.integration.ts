@@ -1,3 +1,4 @@
+import { hostWaits } from '@daisy/worker/host';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createId } from '@paralleldrive/cuid2';
 import { finishedOrBlockedBehind } from '@daisy/db/testing';
@@ -112,7 +113,7 @@ test('concurrent resend decisions wait for the Club fence and enqueue only once'
         ),
       );
       const waited = await finishedOrBlockedBehind(requests, sql, pid, {
-        now: Date.now,
+        waits: hostWaits,
         deadlineMs: 1500,
       });
       release.resolve();

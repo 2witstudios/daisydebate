@@ -145,9 +145,7 @@ test(
       assert({
         given: 'the actual migrated tenant policy catalogue',
         should: 'match the strict isolation manifest including person history',
-        actual: await readTenantIsolationProblems((statement) =>
-          client.unsafe(statement),
-        ),
+        actual: await readTenantIsolationProblems(client),
         expected: [],
       });
     } finally {

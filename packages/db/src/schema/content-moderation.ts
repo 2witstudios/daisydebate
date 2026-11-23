@@ -1,3 +1,4 @@
+import { listedWord } from '../lifecycle-sql';
 import {
   contentModerationQueues,
   contentReportReasons,
@@ -29,12 +30,21 @@ export const contentReports = pgTable(
     reporterUserId: text('reporter_user_id').references(() => users.id, {
       onDelete: 'set null',
     }),
-    targetKind: text('target_kind').notNull(),
+    targetKind: text('target_kind')
+      .$type<(typeof contentReportTargetKinds)[number]>()
+      .notNull(),
     targetId: text('target_id').notNull(),
     feedbackSubject: text('feedback_subject'),
-    reason: text('reason').notNull(),
-    queue: text('queue').notNull(),
-    status: text('status').notNull().default('open'),
+    reason: text('reason')
+      .$type<(typeof contentReportReasons)[number]>()
+      .notNull(),
+    queue: text('queue')
+      .$type<(typeof contentModerationQueues)[number]>()
+      .notNull(),
+    status: text('status')
+      .$type<(typeof contentReportStatuses)[number]>()
+      .notNull()
+      .default('open'),
     resolvedAt: timestampColumn('resolved_at'),
     resolvedByRef: text('resolved_by_ref'),
     createdAt: createdAtColumn(),
@@ -69,11 +79,11 @@ export const contentReports = pgTable(
     ),
     check(
       'content_reports_feedback_subject_check',
-      sql`(${table.targetKind} = 'ballot_feedback') = (${table.feedbackSubject} is not null) and (${isFeedbackSubjectOrNull(table.feedbackSubject)})`,
+      sql`(${table.targetKind} = ${listedWord(contentReportTargetKinds, 'ballot_feedback')}) = (${table.feedbackSubject} is not null) and (${isFeedbackSubjectOrNull(table.feedbackSubject)})`,
     ),
     check(
       'content_reports_resolution_check',
-      sql`(${table.status} = 'open') = (${table.resolvedAt} is null) and (${table.resolvedAt} is null) = (${table.resolvedByRef} is null)`,
+      sql`(${table.status} = ${listedWord(contentReportStatuses, 'open')}) = (${table.resolvedAt} is null) and (${table.resolvedAt} is null) = (${table.resolvedByRef} is null)`,
     ),
   ],
 );

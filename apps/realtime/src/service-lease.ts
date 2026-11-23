@@ -1,7 +1,15 @@
+import type { Waits } from '@daisy/clock';
 import type { OutboxPosition } from '@daisy/db/outbox';
-import { guarded } from '@daisy/observability';
+import { repeatEvery } from '@daisy/worker';
 
-/** Cursor is sampled from the actual synchronous outbox-delivery boundary each renewal. */
+/** How often the realtime liveness lease renews. */
+const SERVICE_LEASE_RENEW_MS = 1000;
+
+/**
+ * A liveness heartbeat, not an exclusive lease: every instance renews its own
+ * row. Cursor is sampled from the actual synchronous outbox-delivery boundary
+ * each renewal.
+ */
 export function startRealtimeServiceLease(input: {
   readonly instanceId: string;
   readonly renew: (lease: {
@@ -12,39 +20,22 @@ export function startRealtimeServiceLease(input: {
   readonly deliveredThrough: () => OutboxPosition;
   /** The renewal's own failure; the log keeps the code, never the content. */
   readonly failed: (error: unknown) => void;
-  readonly timers: {
-    /** The tick answers with its renewal, which never rejects; a host timer ignores it. */
-    readonly setInterval: (tick: () => unknown, ms: number) => unknown;
-    readonly clearInterval: (handle: unknown) => void;
-  };
+  readonly waits: Waits;
 }) {
-  let stopped = false;
-  let work: Promise<void> | null = null;
-  const tick = () => {
-    if (stopped || work) return work;
-    // A cursor read or renewal that throws synchronously is a failed renewal too.
-    work = Promise.try(() =>
+  // A renewal never overlaps another, and a failure sink that throws never
+  // stops the heartbeat (ISSUE-789): repeatEvery contains both.
+  const worker = repeatEvery({
+    waits: input.waits,
+    everyMs: SERVICE_LEASE_RENEW_MS,
+    runOnStart: true,
+    // A cursor read that throws synchronously is a failed renewal too.
+    run: async () =>
       input.renew({
         instanceId: input.instanceId,
         role: 'realtime',
         deliveredThrough: input.deliveredThrough(),
       }),
-    )
-      // A failure sink that throws never rejects the renewal (ISSUE-789).
-      .catch((error: unknown) => void guarded(() => input.failed(error)))
-      .finally(() => {
-        work = null;
-      });
-    return work;
-  };
-  // A renewal never rejects: its failure goes to the sink above.
-  const timer = input.timers.setInterval(tick, 1000);
-  void tick();
-  return {
-    async stop() {
-      stopped = true;
-      input.timers.clearInterval(timer);
-      await work;
-    },
-  };
+    failed: input.failed,
+  });
+  return { stop: () => worker.stop() };
 }

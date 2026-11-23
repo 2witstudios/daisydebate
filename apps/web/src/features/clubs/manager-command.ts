@@ -1,14 +1,17 @@
+import type {
+  BillingStore,
+  ClubSeatManagerCommand,
+} from '@daisy/db/stores/billing';
 import { createAppError } from '@daisy/errors';
 import { subscriptionAccess } from '@daisy/auth/authorization';
-import type { ClubSeatManagerCommand, Database } from '@daisy/db';
 import {
   clubInvitationMailRefusal,
   decideClubSeating,
   type ClubSeatingCommand,
 } from '@daisy/protocol/club-seats';
-import type { MemberCaller } from '../../server/member-boundary';
+import type { MemberCaller } from '../auth/member-boundary';
 
-type Store = ReturnType<Database['clubSeats']>;
+type Store = ReturnType<BillingStore['clubSeats']>;
 
 function toSeatingCommand(
   command: ClubSeatManagerCommand,

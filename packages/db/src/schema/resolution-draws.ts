@@ -1,3 +1,4 @@
+import { listedWord } from '../lifecycle-sql';
 import { twoSideKeys, type TwoSideKey } from '@daisy/protocol/seats';
 import { sql } from 'drizzle-orm';
 import {
@@ -17,10 +18,18 @@ import { rounds } from './rounds';
 import {
   drawPrivateInputsSchema,
   resolutionCategories,
+  resolutionDifficulties,
   resolutionDrawManifestSchema,
 } from '@daisy/protocol/resolution-draw';
 
 const hex64 = (column: PgColumn) => sql`${column} ~ '^[0-9a-f]{64}$'`;
+
+const resolutionSourceKinds = ['bank', 'host'] as const;
+export const resolutionStrikeKinds = [
+  'debater',
+  'timeout',
+  'automatic',
+] as const;
 
 /**
  * Curated resolution bank revisions (FMT-7). Published append-only by one
@@ -45,7 +54,7 @@ export const resolutionBankEntries = pgTable(
       .$type<(typeof resolutionCategories)[number]>()
       .notNull(),
     difficulty: text('difficulty')
-      .$type<'intro' | 'standard' | 'advanced'>()
+      .$type<(typeof resolutionDifficulties)[number]>()
       .notNull(),
     locale: text('locale').notNull(),
     provenance: text('provenance').notNull(),
@@ -69,7 +78,7 @@ export const resolutionBankEntries = pgTable(
     ),
     check(
       'resolution_bank_entries_difficulty_check',
-      oneOf(table.difficulty, ['intro', 'standard', 'advanced']),
+      oneOf(table.difficulty, resolutionDifficulties),
     ),
     check(
       'resolution_bank_entries_text_check',
@@ -96,7 +105,9 @@ export const roundResolutionDraws = pgTable(
       .notNull()
       .unique()
       .references(() => rounds.id, { onDelete: 'cascade' }),
-    sourceKind: text('source_kind').$type<'bank' | 'host'>().notNull(),
+    sourceKind: text('source_kind')
+      .$type<(typeof resolutionSourceKinds)[number]>()
+      .notNull(),
     drawSize: integer('draw_size').notNull(),
     manifest: jsonbColumn('manifest', resolutionDrawManifestSchema).notNull(),
     manifestDigest: text('manifest_digest').notNull(),
@@ -108,7 +119,7 @@ export const roundResolutionDraws = pgTable(
     unique('round_resolution_draws_size_unique').on(table.id, table.drawSize),
     check(
       'round_resolution_draws_source_kind_check',
-      oneOf(table.sourceKind, ['bank', 'host']),
+      oneOf(table.sourceKind, resolutionSourceKinds),
     ),
     check(
       'round_resolution_draws_manifest_match',
@@ -187,7 +198,9 @@ export const roundResolutionStrikes = pgTable(
     drawSize: integer('draw_size').notNull(),
     /** The strike is a pair's: a side of the two-sided preset. */
     side: text('side').$type<TwoSideKey>().notNull(),
-    kind: text('kind').$type<'debater' | 'timeout' | 'automatic'>().notNull(),
+    kind: text('kind')
+      .$type<(typeof resolutionStrikeKinds)[number]>()
+      .notNull(),
     actorId: text('actor_id').references(() => actors.id, {
       onDelete: 'restrict',
     }),
@@ -225,11 +238,11 @@ export const roundResolutionStrikes = pgTable(
     ),
     check(
       'round_resolution_strikes_kind_check',
-      oneOf(table.kind, ['debater', 'timeout', 'automatic']),
+      oneOf(table.kind, resolutionStrikeKinds),
     ),
     check(
       'round_resolution_strikes_debater_check',
-      sql`(${table.kind} = 'debater') = (${table.actorId} is not null and ${table.commandId} is not null)`,
+      sql`(${table.kind} = ${listedWord(resolutionStrikeKinds, 'debater')}) = (${table.actorId} is not null and ${table.commandId} is not null)`,
     ),
   ],
 );

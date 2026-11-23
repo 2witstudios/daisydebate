@@ -1,9 +1,10 @@
+import { openWebDatabase } from '../src/server/database';
+import { hostWaits } from '@daisy/worker/host';
 import { existsSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { randomBytes } from 'node:crypto';
 import { Database as SQLite } from 'bun:sqlite';
 import { requireTestServices } from '@daisy/config';
-import { createDatabase } from '@daisy/db';
 import { createId } from '@paralleldrive/cuid2';
 import { openLocalEvidenceAuthority } from '../src/features/media-capture/local-evidence-authority';
 import { openLocalEvidenceCustody } from '../src/features/media-capture/local-evidence-custody';
@@ -36,7 +37,8 @@ if (import.meta.main) {
     process.stdout.write(JSON.stringify({ kind: 'released' }));
   } else {
     const services = requireTestServices(process.env);
-    const database = createDatabase({
+    const database = openWebDatabase({
+      waits: hostWaits,
       url: services.databaseUrl,
       nextActorId: createId,
     });

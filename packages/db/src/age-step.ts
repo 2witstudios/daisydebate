@@ -4,7 +4,7 @@ import { and, eq, isNull, sql } from 'drizzle-orm';
 import { createAppError } from '@daisy/errors';
 import { idSchema } from '@daisy/protocol/primitives';
 import { instrumented, type DatabaseEventSink } from './instrumented';
-import { exportRows } from './privacy/export-rows';
+import { exportRows, run, query } from './raw-rows';
 import type { PrivacyAdopter } from './privacy/contracts';
 import { accountAge } from './schema/account-age';
 import { accountTerms } from './schema/account-terms';
@@ -15,7 +15,6 @@ import {
 import { users } from './schema/users';
 import { lockOpenAccount } from './lock-open-account';
 import { inTransaction, type TxOpener } from './tx';
-import { run, query } from './raw-rows';
 import { z } from 'zod';
 import { ageBand } from '@daisy/auth';
 import {

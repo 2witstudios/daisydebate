@@ -1,8 +1,8 @@
+import { contactCommandKinds, socialRequestKinds } from '../schema/contacts';
 import { sql } from 'drizzle-orm';
 import { idSchema } from '@daisy/protocol/primitives';
 import type { PrivacyAdopter, PrivacyExport } from '../privacy/contracts';
-import { exportRows } from '../privacy/export-rows';
-import { postgresInt8, run, query } from '../raw-rows';
+import { exportRows, postgresInt8, run, query } from '../raw-rows';
 import { z } from 'zod';
 
 /**
@@ -55,7 +55,7 @@ export const contactsPrivacyAdopter: PrivacyAdopter = {
             actor_id: z.string(),
             request_id: z.string(),
             counterpart_actor_id: z.string(),
-            kind: z.string(),
+            kind: z.enum(contactCommandKinds),
             digest: z.string(),
             created_at: z.date(),
           }),
@@ -70,7 +70,7 @@ export const contactsPrivacyAdopter: PrivacyAdopter = {
             actor_id: z.string(),
             request_id: z.string(),
             counterpart_actor_id: z.string(),
-            kind: z.string(),
+            kind: z.enum(socialRequestKinds),
             unrelated: z.boolean(),
             created_at: z.date(),
           }),

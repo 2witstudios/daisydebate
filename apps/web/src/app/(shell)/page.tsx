@@ -7,13 +7,13 @@ import { HeroBanner } from '../../ui/dashboard/hero-banner/hero-banner';
 import { MemberHero } from '../../ui/dashboard/member-hero/member-hero';
 import { requestActiveRoom } from './active-room';
 import { ResumeRound } from '../../ui/active-room/resume-round';
+import { requestIdentity } from '../../lib/page-reads';
 import {
-  requestIdentity,
   requestCompetitionAgeBand,
   requestOfficialStandingLobbies,
-  requestLeadingLive,
-  requestSeasonGlance,
-} from '../../lib/request-session';
+} from '../../features/lobby/page-reads';
+import { requestLeadingLive } from '../../features/watch/page-reads';
+import { requestSeasonGlance } from '../../features/leaderboard/page-reads';
 import { LiveNow } from '../../ui/dashboard/live-now/live-now';
 import { requestLinkAction } from '../(bare)/sign-in/actions';
 import { requestPricingOpen } from './pricing/releases';

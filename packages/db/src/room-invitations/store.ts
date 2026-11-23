@@ -1,3 +1,5 @@
+import { actorKinds } from '../schema/actors';
+import { listedWord } from '../lifecycle-sql';
 import { createAppError, createRefusal } from '@daisy/errors';
 import {
   settledRoomInvitations,
@@ -6,12 +8,13 @@ import {
   type InviteeFacts,
   type PendingRoomInvitation,
   type RoomInvitationView,
+  roomInvitationStates,
 } from '@daisy/protocol/room-invitations';
 import { type RoomAssemblyState } from '@daisy/protocol/room-contract';
 import { type SeatKind, seatKindSchema } from '@daisy/protocol/seats';
 import { eq, sql } from 'drizzle-orm';
 import { lockAuthorizationActors } from '../authorization';
-import type { authorizationAccountFact } from '../authorization-account';
+import type { authorizationAccountFact } from '../authorization';
 import { instrumented, type DatabaseEventSink } from '../instrumented';
 import { oweNotifications } from '../notifications/owe';
 import { run, query } from '../raw-rows';
@@ -56,8 +59,8 @@ const lapse = async (tx: Tx, roomId: string, now: string) => {
   const lapsed = await query(
     tx,
     z.object({ invitee_actor_id: z.string() }),
-    sql`update room_invitations set state='expired',ended_at=${now}::timestamptz
-      where room_id=${roomId} and state='pending' and expires_at<=${now}::timestamptz
+    sql`update room_invitations set state=${listedWord(roomInvitationStates, 'expired')},ended_at=${now}::timestamptz
+      where room_id=${roomId} and state=${listedWord(roomInvitationStates, 'pending')} and expires_at<=${now}::timestamptz
       returning invitee_actor_id`,
   );
   for (const { invitee_actor_id } of lapsed)
@@ -163,7 +166,7 @@ export const roomInvitationOperations = ({
           tx,
           z.object({ actor_id: z.string(), user_id: z.string() }),
           sql`select a.id as actor_id,u.id as user_id from users u
-            join actors a on a.user_id=u.id and a.kind='human'
+            join actors a on a.user_id=u.id and a.kind=${listedWord(actorKinds, 'human')}
             where lower(u.username)=lower(${input.username}) and u.deleted_at is null`,
         );
         const actorIds = [
@@ -209,7 +212,7 @@ export const roomInvitationOperations = ({
           tx,
           sql`insert into room_invitations(id,room_id,invitee_actor_id,inviter_actor_id,seat,state,expires_at,created_at)
           values(${input.ids.invitation},${room.id},${decision.inviteeActorId},${input.caller.actorId},
-            ${decision.seat},'pending',${decision.expiresAt}::timestamptz,${now}::timestamptz)`,
+            ${decision.seat},${listedWord(roomInvitationStates, 'pending')},${decision.expiresAt}::timestamptz,${now}::timestamptz)`,
         );
         await run(
           tx,
@@ -249,10 +252,10 @@ export const roomInvitationOperations = ({
       requireRetentionBounds(batch);
       await run(
         database,
-        sql`update room_invitations set state='expired',ended_at=expires_at
-        where id in (select id from room_invitations where state='pending'
+        sql`update room_invitations set state=${listedWord(roomInvitationStates, 'expired')},ended_at=expires_at
+        where id in (select id from room_invitations where state=${listedWord(roomInvitationStates, 'pending')}
             and expires_at <= clock_timestamp() order by id limit ${batch.limit})
-          and state='pending' and expires_at <= clock_timestamp()`,
+          and state=${listedWord(roomInvitationStates, 'pending')} and expires_at <= clock_timestamp()`,
       );
       await run(
         database,
@@ -260,7 +263,7 @@ export const roomInvitationOperations = ({
         where (room_id, actor_id) in (
             select h.room_id, h.actor_id from room_seat_holds h
             join room_invitations i on i.room_id=h.room_id
-              and i.invitee_actor_id=h.actor_id and i.state<>'pending'
+              and i.invitee_actor_id=h.actor_id and i.state<>${listedWord(roomInvitationStates, 'pending')}
             where h.until <= clock_timestamp() limit ${batch.limit})
           and until <= clock_timestamp()`,
       );
@@ -352,7 +355,7 @@ export async function settleRoomInvitationsAfter(
     await run(
       tx,
       sql`update room_invitations set state=${invitation.state},ended_at=${now}::timestamptz
-      where id=${invitation.id} and state='pending'`,
+      where id=${invitation.id} and state=${listedWord(roomInvitationStates, 'pending')}`,
     );
     await run(
       tx,
@@ -375,7 +378,7 @@ export async function endMemberRoomInvitations(
   const involved = await query(
     tx,
     z.object({ room_id: z.string() }),
-    sql`select distinct room_id from room_invitations where state='pending'
+    sql`select distinct room_id from room_invitations where state=${listedWord(roomInvitationStates, 'pending')}
       and (invitee_actor_id=${actorId} or inviter_actor_id=${actorId}) order by room_id`,
   );
   if (involved.length === 0) return [];
@@ -390,8 +393,8 @@ export async function endMemberRoomInvitations(
   const ended = await query(
     tx,
     z.object({ room_id: z.string(), invitee_actor_id: z.string() }),
-    sql`update room_invitations set state='expired',ended_at=${now}::timestamptz
-      where state='pending' and (invitee_actor_id=${actorId} or inviter_actor_id=${actorId})
+    sql`update room_invitations set state=${listedWord(roomInvitationStates, 'expired')},ended_at=${now}::timestamptz
+      where state=${listedWord(roomInvitationStates, 'pending')} and (invitee_actor_id=${actorId} or inviter_actor_id=${actorId})
       returning room_id,invitee_actor_id`,
   );
   for (const { room_id, invitee_actor_id } of ended)

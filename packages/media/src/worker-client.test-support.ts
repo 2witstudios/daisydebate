@@ -1,3 +1,4 @@
+import { virtualClock } from '@daisy/clock/testing';
 import { createMediaWorkerAuthentication } from './worker-auth';
 import { createMediaWorkerClient } from './worker-client';
 const scope = {
@@ -12,7 +13,8 @@ const authentication = createMediaWorkerAuthentication({
 /** A worker client against a real local server answering `reply` per call. */
 export function localClient(
   reply: (call: number) => Response,
-  deadlineSignal = () => AbortSignal.timeout(2000),
+  /** A deadline that never passes unless a test supplies one. */
+  deadlineSignal = () => new AbortController().signal,
 ) {
   let calls = 0;
   const server = Bun.serve({
@@ -26,7 +28,7 @@ export function localClient(
       authentication,
       url: `http://127.0.0.1:${server.port}`,
       fetch,
-      nowMs: performance.now,
+      waits: virtualClock(),
       deadlineSignal,
       unavailableRetryMs: [0, 0],
     }),

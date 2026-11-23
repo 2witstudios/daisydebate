@@ -1,3 +1,4 @@
+import { listedWord } from '../lifecycle-sql';
 import { sql } from 'drizzle-orm';
 import {
   boolean,
@@ -31,7 +32,7 @@ export const usageReservations = pgTable(
     roundId: text('round_id')
       .notNull()
       .references(() => rounds.id, { onDelete: 'cascade' }),
-    kind: text('kind').notNull(),
+    kind: text('kind').$type<(typeof usageKinds)[number]>().notNull(),
     source: jsonbColumn('source', usageSourceSchema).notNull(),
     state: jsonbColumn('state', usageStateSchema).notNull(),
     reservedAt: timestampColumn('reserved_at')
@@ -79,7 +80,7 @@ export const usageReservations = pgTable(
         and jsonb_typeof(${table.state}->'refundedAt')='string'
         and isfinite((${table.state}->>'refundedAt')::timestamptz)
         and (${table.state}->>'refundedAt')::timestamptz>=(${table.state}->>'countedAt')::timestamptz
-      when 'credited' then ${table.kind}='ai_round'
+      when 'credited' then ${table.kind}=${listedWord(usageKinds, 'ai_round')}
         and ${table.state}-array['kind','countedAt','countBasis','creditedAt','provenance','providerOutcome']='{}'::jsonb
         and jsonb_typeof(${table.state}->'creditedAt')='string'
         and isfinite((${table.state}->>'creditedAt')::timestamptz)
@@ -125,7 +126,7 @@ export const usageReservations = pgTable(
     check(
       'usage_reservations_binding_check',
       sql`
-      (not ${table.bindsFreeJudge} or (${table.kind}='ai_round' and ${table.source}->>'kind'='lifetime')) and
+      (not ${table.bindsFreeJudge} or (${table.kind}=${listedWord(usageKinds, 'ai_round')} and ${table.source}->>'kind'='lifetime')) and
       (${table.bindingReleasedAt} is null or (${table.bindsFreeJudge} and ${table.state}->>'kind'='released'
         and ${table.bindingReleasedAt}>=${table.reservedAt}))`,
     ),

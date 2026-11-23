@@ -1,3 +1,5 @@
+import { messagingNotificationLevels } from '@daisy/protocol/messaging/preferences';
+import { listedWord } from '../lifecycle-sql';
 import { createAppError } from '@daisy/errors';
 import { createId } from '@paralleldrive/cuid2';
 import { sql, type SQL } from 'drizzle-orm';
@@ -69,7 +71,7 @@ const membersOf = (channelId: SQL) => sql`
  * choose). Mentions are not emailed.
  */
 const wantsConversationEmail = (channel: SQL, actor: SQL) =>
-  sql`coalesce((select s.notification_level='all' and not s.hidden
+  sql`coalesce((select s.notification_level=${listedWord(messagingNotificationLevels, 'all')} and not s.hidden
     from public.messaging_actor_states s
     where s.channel_id=${channel} and s.actor_id=${actor}),true)`;
 

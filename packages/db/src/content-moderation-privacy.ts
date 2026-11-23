@@ -1,3 +1,4 @@
+import { contentReportStatuses } from '@daisy/protocol/content-moderation';
 import { sql } from 'drizzle-orm';
 import type { PrivacyAdopter } from './privacy/contracts';
 import { run, query } from './raw-rows';
@@ -28,7 +29,7 @@ export const contentModerationPrivacyAdopter: PrivacyAdopter = {
         target_kind: z.string(),
         target_id: z.string(),
         reason: z.string(),
-        status: z.string(),
+        status: z.enum(contentReportStatuses),
         created_at: z.string(),
       }),
       sql`select target_kind, target_id, reason, status,

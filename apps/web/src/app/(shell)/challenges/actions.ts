@@ -18,25 +18,33 @@ import {
 } from '../../../features/challenges/forms';
 import { readRoomTemplates } from '../../../features/rooms/read-catalog';
 import { submitRoomCreation } from '../../../features/rooms/create-room-form';
-import { requestIdentity } from '../../../lib/request-session';
+import { requestIdentity } from '../../../lib/page-reads';
 import { activeRoomRead } from '../actions';
 import { post, text } from '../form-post';
-import { moveOn } from '../../../server/form-action';
+import { moveOn } from '../../../features/forms/form-action';
 import { inProcessFetch } from '../../../server/in-process-fetch';
 import { processRoute } from '../../../server/process-app';
+import { challengeComposition } from '../../../features/challenges/composition';
+import { roomComposition } from '../../../features/room-runtime/composition';
 
 const routes = {
-  send: processRoute((all) => all.challenges.send),
-  list: processRoute((all) => all.challenges.list),
-  accept: processRoute((all) => all.challenges.accept),
-  decline: processRoute((all) => all.challenges.decline),
-  cancel: processRoute((all) => all.challenges.cancel),
-  createRoom: processRoute((all) => all.rooms.create),
-  catalog: processRoute((all) => all.rooms.catalog),
+  send: processRoute(challengeComposition, (all) => all.send),
+  list: processRoute(challengeComposition, (all) => all.list),
+  accept: processRoute(challengeComposition, (all) => all.accept),
+  decline: processRoute(challengeComposition, (all) => all.decline),
+  cancel: processRoute(challengeComposition, (all) => all.cancel),
+  createRoom: processRoute(roomComposition, (all) => all.create),
+  catalog: processRoute(roomComposition, (all) => all.catalog),
   readRoom: (roomId: string) =>
-    processRoute((all) => (request) => all.rooms.read(request, roomId)),
+    processRoute(
+      roomComposition,
+      (all) => (request) => all.read(request, roomId),
+    ),
   roomCommands: (roomId: string) =>
-    processRoute((all) => (request) => all.rooms.commands(request, roomId)),
+    processRoute(
+      roomComposition,
+      (all) => (request) => all.commands(request, roomId),
+    ),
 };
 
 const roomVersion = z.object({ version: z.number() });

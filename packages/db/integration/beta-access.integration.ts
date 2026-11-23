@@ -1,8 +1,22 @@
+import { createOnboardingStore } from '../src/stores/onboarding';
+import { openDatabaseResources } from '../src/resources';
+import { hostWaits } from '@daisy/worker/host';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { requireTestServices } from '@daisy/config';
-import { createDatabase } from '../src';
 import { sqlStateOf, withFixture, type Fixture } from './constraint-helpers';
+/** This file's database: the area stores it reads, over one set of resources. */
+const openStores = (
+  options: Parameters<typeof openDatabaseResources>[0] & {
+    readonly nextActorId: () => string;
+  },
+) => {
+  const resources = openDatabaseResources(options);
+  return {
+    ...createOnboardingStore(resources, { nextId: options.nextActorId }),
+    close: resources.close,
+  };
+};
 
 setupRitewayBun();
 
@@ -17,7 +31,7 @@ const provisionalUser = async (fixture: Fixture) => {
 /** The claim inserts the human actor; track it so the purge removes it before its user. */
 const claimAs = async (
   fixture: Fixture,
-  database: ReturnType<typeof createDatabase>,
+  database: ReturnType<typeof openStores>,
   userId: string,
   username: string,
 ) => {
@@ -46,7 +60,11 @@ describe('a username claim enrols the account on the beta list (ADR 0075)', () =
   test('the first claim writes a pending row, its event and the window digest', async () => {
     await withFixture(url, async (fixture) => {
       const userId = await provisionalUser(fixture);
-      const database = createDatabase({ url, nextActorId: createId });
+      const database = openStores({
+        waits: hostWaits,
+        url,
+        nextActorId: createId,
+      });
       try {
         const first = await claimAs(fixture, database, userId, `b-${userId}`);
         const retry = await claimAs(fixture, database, userId, `b-${userId}`);
@@ -103,7 +121,11 @@ describe('a username claim enrols the account on the beta list (ADR 0075)', () =
   test('the runtime role cannot rewrite the audit or the receipts', async () => {
     await withFixture(url, async (fixture) => {
       const userId = await provisionalUser(fixture);
-      const database = createDatabase({ url, nextActorId: createId });
+      const database = openStores({
+        waits: hostWaits,
+        url,
+        nextActorId: createId,
+      });
       try {
         await claimAs(fixture, database, userId, `r-${userId}`);
       } finally {

@@ -7,12 +7,10 @@ import {
   tenantIsolationProblems,
   tenantIsolationFactsSql,
   tenantTableFactsRow,
-} from './tenant-isolation';
-import {
   tenantDefinerFactsSql,
   tenantDefinerFactsRow,
   tenantDefinerProblems,
-} from './tenant-definers';
+} from './tenant-isolation';
 import { readImageSchema, startupSchemaProblems } from './startup-schema';
 import { tenantIsolationManifest } from './tenant-isolation-manifest';
 import {

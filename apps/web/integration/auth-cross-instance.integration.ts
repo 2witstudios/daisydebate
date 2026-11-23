@@ -1,3 +1,4 @@
+import { hostWaits } from '@daisy/worker/host';
 import { afterAll } from 'bun:test';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { systemClock, systemId } from '@daisy/clock';
@@ -12,13 +13,17 @@ import {
 import { answerAdultAge, uniqueName } from './auth-account-helpers';
 import { CLIENT_IP_HEADER } from '@daisy/ingress/client-ip';
 import { createApp } from '../src/server/app';
-import { createRoutes } from '../src/server/routes';
 import {
   buildAuthenticationResponse,
   buildRegistrationResponse,
   createSoftwareCredential,
 } from './webauthn-authenticator';
 import { betaMessagingPolicy } from '../src/features/messaging/beta-policy';
+import { authComposition } from '../src/features/auth/composition';
+import { composer } from '../src/server/composition.test-support';
+import { confirmComposition } from '../src/features/auth/composition';
+import { ageComposition } from '../src/features/account/composition';
+import { usernameComposition } from '../src/features/account/composition';
 
 /**
  * AUTH-6.7 AC1: two application instances over the same PostgreSQL database
@@ -39,13 +44,14 @@ const testApp = createTestApp();
 const rpID = 'localhost';
 
 const instanceB = createApp({
+  waits: hostWaits,
   messagingPolicy: betaMessagingPolicy,
   env: testApp.env,
   fetch: testApp.mailbox.fetch,
   clock: systemClock,
   ids: systemId,
 });
-const routesB = createRoutes(instanceB);
+const routesB = composer(instanceB);
 afterAll(() => instanceB.close());
 
 const routesOf = (instance: 'a' | 'b') =>
@@ -53,9 +59,9 @@ const routesOf = (instance: 'a' | 'b') =>
 
 const requestLink = async (email: string) => {
   const before = testApp.mailbox.mails.length;
-  const response = await testApp.routes.auth.POST(
-    testApp.jsonPost('/api/auth/sign-in/magic-link', { email }),
-  );
+  const response = await testApp
+    .routes(authComposition)
+    .POST(testApp.jsonPost('/api/auth/sign-in/magic-link', { email }));
   const mail = testApp.mailbox.mails[before];
   if (!mail)
     throw new Error(`No mail captured for ${email}: HTTP ${response.status}`);
@@ -63,12 +69,12 @@ const requestLink = async (email: string) => {
 };
 
 const redeemOn = (instance: 'a' | 'b', token: string) =>
-  routesOf(instance).confirm.POST(
+  routesOf(instance)(confirmComposition).POST(
     testApp.formPost({ token, callbackURL: '/lobby' }),
   );
 
 const sessionOn = (instance: 'a' | 'b', cookie: string) =>
-  routesOf(instance).auth.GET(
+  routesOf(instance)(authComposition).GET(
     new Request(`${testApp.origin}/api/auth/get-session`, {
       headers: { cookie, [CLIENT_IP_HEADER]: testApp.newClient() },
     }),
@@ -80,12 +86,16 @@ const signUpOn = async (instance: 'a' | 'b') => {
   const response = await redeemOn(instance, token);
   await testApp.recordAccountIds();
   const cookie = cookieHeader(response);
-  await answerAdultAge(routesOf(instance).age, testApp.jsonPost, cookie);
+  await answerAdultAge(
+    routesOf(instance)(ageComposition),
+    testApp.jsonPost,
+    cookie,
+  );
   return { email, cookie };
 };
 
 const authRouteGet = (instance: 'a' | 'b', path: string, cookie?: string) =>
-  routesOf(instance).auth.GET(
+  routesOf(instance)(authComposition).GET(
     new Request(`${testApp.origin}${path}`, {
       headers: {
         ...(cookie ? { cookie } : {}),
@@ -100,7 +110,7 @@ const authRoutePost = (
   body: unknown,
   cookie?: string,
 ) =>
-  routesOf(instance).auth.POST(
+  routesOf(instance)(authComposition).POST(
     new Request(`${testApp.origin}${path}`, {
       method: 'POST',
       headers: {
@@ -259,7 +269,7 @@ describe('AUTH-6.7 AC1 cross-instance username uniqueness', () => {
     const name = uniqueName();
     const responses = await Promise.all(
       contenders.map(({ cookie }, index) =>
-        routesOf(index % 2 === 0 ? 'a' : 'b').username.POST(
+        routesOf(index % 2 === 0 ? 'a' : 'b')(usernameComposition).POST(
           testApp.jsonPost(
             '/api/account/username',
             { username: name },

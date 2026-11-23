@@ -1,4 +1,4 @@
-import { addMs } from '@daisy/clock';
+import { addMs } from '@daisy/clock/instant';
 import {
   type HydratedRound,
   type HydratedSegment,

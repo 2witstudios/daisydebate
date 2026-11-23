@@ -1,4 +1,4 @@
-import { StatusRegion } from '../../../../ui/components/status-region/status-region';
+import { Announcement } from '../../../../ui/components/announcement/announcement';
 import type { Metadata } from 'next';
 import type { SearchParams } from '../../../../features/access/decision';
 import { accountOf } from '../../../../features/access/account-of';
@@ -7,11 +7,9 @@ import {
   reportNotice,
 } from '../../../../features/content-moderation/submit-report';
 import { recordingViewerOf } from '../../../../features/recording/viewer';
-import {
-  readRecordingHistory,
-  requestIdentity,
-  requestPresentedLink,
-} from '../../../../lib/request-session';
+import { readRecordingHistory } from '../../../../features/recording/page-reads';
+import { requestIdentity } from '../../../../lib/page-reads';
+import { requestPresentedLink } from '../../../../features/audience-link/page-reads';
 import {
   RecordingHistory,
   removalNotices,
@@ -58,13 +56,13 @@ export default async function RecordingPage({
         accountOf(identity) ? (
           <>
             {reported ? (
-              <StatusRegion
+              <Announcement
                 as="p"
-                role="status"
+                kind="progress"
                 className="text-sm text-ink-muted"
               >
                 {reportAnswerText(reported)}
-              </StatusRegion>
+              </Announcement>
             ) : null}
             <ReportForm
               {...screen.reportTarget}

@@ -1,4 +1,4 @@
-import { addMs, instantMs } from '@daisy/clock';
+import { addMs, instantMs } from '@daisy/clock/instant';
 import { refundActionSchema } from './billing-refund';
 import { advanceRefund } from './billing-refund-lifecycle';
 export const at = (seconds: number) =>

@@ -1,5 +1,6 @@
+import type { Waits } from '@daisy/clock';
 import type { OutboxRow } from '@daisy/db/outbox';
-import type { IntervalTimers } from './outbox-drain';
+import { repeatEvery } from '@daisy/worker';
 
 /** How often a node looks for a change, so browsers hear within about a second. */
 const ONLINE_RING_MS = 1_000;
@@ -20,11 +21,11 @@ const statusRows = new Set([
 export function createOnlineRing({
   readRevision,
   ring,
-  timers,
+  waits,
 }: {
   readonly readRevision: () => Promise<number>;
   readonly ring: () => void;
-  readonly timers: IntervalTimers;
+  readonly waits: Waits;
 }) {
   let lastRevision: number | null = null;
   let dirty = false;
@@ -45,7 +46,13 @@ export function createOnlineRing({
     dirty = false;
     ring();
   };
-  const handle = timers.setInterval(() => void tick(), ONLINE_RING_MS);
+  const ticks = repeatEvery({
+    waits,
+    everyMs: ONLINE_RING_MS,
+    run: tick,
+    // A tick contains its own failures; a ring that throws waits for the next.
+    failed: () => undefined,
+  });
   return {
     /** Notes rows from this node's drain; the next tick rings for them. */
     observe(rows: readonly Pick<OutboxRow, 'kind'>[]) {
@@ -53,6 +60,7 @@ export function createOnlineRing({
     },
     /** One tick now, for tests. */
     tick,
-    stop: () => timers.clearInterval(handle),
+    /** Stops the ticks and waits for one in flight. */
+    stop: () => ticks.stop(),
   };
 }

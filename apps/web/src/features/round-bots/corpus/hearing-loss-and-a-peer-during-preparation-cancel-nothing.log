@@ -1,0 +1,26 @@
+0 generate opening
+0 peer speech-start peer
+10 peer end-of-turn peer
+10 generate -> stopped
+10 heard peer@1000
+10 generate peer-turn peer@1000
+210 settle answer 2
+210 tts "One."
+210 tts "Two."
+210 settle tts "One."
+210 settle tts "Two."
+210 verify
+210 verify
+210 token
+210 join TR_0
+210 begin id1 120ms in=0 at=2027-01-15T08:00:00.210Z room
+210 begin id3 260ms in=120 at=2027-01-15T08:00:00.330Z room
+210 reveal id1 room at=2027-01-15T08:00:00.210Z
+210 frames TR_0 x31
+220..280 frames TR_0 x7 every 10ms
+330 close answer 2
+330 abandon answer 2
+330 end id1 whole
+330 reveal id3 room at=2027-01-15T08:00:00.330Z
+590 end id3 whole
+3010 close TR_0

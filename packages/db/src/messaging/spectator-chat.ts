@@ -1,15 +1,19 @@
+import { messagingChannelLifecycles } from '@daisy/protocol/messaging/social';
+import { roomVisibilities } from '@daisy/protocol/room-contract';
+import { messagingChannelKinds } from '../schema/messaging-channels';
+import { listedWord } from '../lifecycle-sql';
 import { createAppError } from '@daisy/errors';
 import { and, eq, sql } from 'drizzle-orm';
 import { readAuthorizationActors } from '../authorization';
 import type { SpectatorChatModeration } from '../content-moderation-ports';
 import { inLiveRoomSql, liveRoomOfR } from '../live-room-sql';
-import { postgresInt8, run, query } from '../raw-rows';
+import { postgresInstantMs, postgresInt8, run, query } from '../raw-rows';
 import { instrumented, type DatabaseEventSink } from '../instrumented';
 import {
   messagingMessages,
   messagingReceipts,
 } from '../schema/messaging-messages';
-import { messageRecord } from './message-record';
+import { messageRecord } from './read-frame';
 import type {
   MessagingCreateSendPlan,
   MessagingMessageRecord,
@@ -57,7 +61,7 @@ const channelOf = async (tx: Tx, roundId: string) => {
     tx,
     z.object({ id: z.string() }),
     sql`select id from messaging_channels
-      where round_id=${roundId} and kind='round_spectator'`,
+      where round_id=${roundId} and kind=${listedWord(messagingChannelKinds, 'round_spectator')}`,
   );
   return row?.id ?? null;
 };
@@ -68,7 +72,7 @@ const openChannel = async (tx: Tx, roundId: string, channelId: string) => {
     tx,
     z.object({ id: z.string() }),
     sql`insert into messaging_channels(id,kind,policy_key,policy_revision,lifecycle,round_id)
-      values(${channelId},'round_spectator','round.spectator',1,'active',${roundId})
+      values(${channelId},${listedWord(messagingChannelKinds, 'round_spectator')},'round.spectator',1,${listedWord(messagingChannelLifecycles, 'active')},${roundId})
       on conflict (round_id,kind) do nothing returning id`,
   );
   if (created[0]) {
@@ -121,7 +125,7 @@ const receiptOf = async (
 
 const audienceRound = (roundId: string, actorId: string) =>
   sql`select r.visibility,r.audience_link_hash,${inLiveRoomSql(liveRoomOfR, actorId)} as in_live_room
-    from rounds r where r.id=${roundId} and r.visibility in ('public','unlisted') and r.room_id is not null`;
+    from rounds r where r.id=${roundId} and r.visibility in (${listedWord(roomVisibilities, 'public')},${listedWord(roomVisibilities, 'unlisted')}) and r.room_id is not null`;
 
 /**
  * Spectator chat over Messaging's own channel, stream and message tables
@@ -193,7 +197,7 @@ export const spectatorChatOperations = ({
         );
         const [last] = await query(
           tx,
-          z.object({ at: z.union([z.string(), z.date()]).nullable() }),
+          z.object({ at: postgresInstantMs.nullable() }),
           sql`select max(created_at) as at from messaging_messages
             where channel_id=${channelId} and author_actor_id=${input.actorId}`,
         );
@@ -217,7 +221,7 @@ export const spectatorChatOperations = ({
               : null,
             banned: banned !== undefined,
             inLiveRoom: round.in_live_room,
-            lastPostAtMs: last?.at ? new Date(last.at).getTime() : null,
+            lastPostAtMs: last?.at ?? null,
           },
           {
             counters: { channelId, ...counters },
@@ -276,7 +280,7 @@ export const spectatorChatOperations = ({
         z.object({ id: z.string() }),
         sql`with due as (
             select m.id,m.channel_id from messaging_messages m
-            join messaging_channels c on c.id=m.channel_id and c.kind='round_spectator'
+            join messaging_channels c on c.id=m.channel_id and c.kind=${listedWord(messagingChannelKinds, 'round_spectator')}
             where m.created_at < ${input.before}::timestamptz limit ${input.limit}
           ), receipts as (
             delete from messaging_receipts x using due
@@ -333,7 +337,7 @@ export const readChatPage = async (
 const spectatorMessage = (messageId: string) =>
   sql`select m.id,m.text,m.channel_id,m.author_actor_id,m.removed_at,a.user_id
     from messaging_messages m
-    join messaging_channels c on c.id=m.channel_id and c.kind='round_spectator'
+    join messaging_channels c on c.id=m.channel_id and c.kind=${listedWord(messagingChannelKinds, 'round_spectator')}
     join actors a on a.id=m.author_actor_id
     where m.id=${messageId}`;
 
@@ -342,7 +346,7 @@ const reportedMessage = (messageId: string, reporterActorId: string) =>
   sql`select m.author_actor_id,r.id as round_id,r.visibility,r.audience_link_hash,
       ${inLiveRoomSql(liveRoomOfR, reporterActorId)} as in_live_room
     from messaging_messages m
-    join messaging_channels c on c.id=m.channel_id and c.kind='round_spectator'
+    join messaging_channels c on c.id=m.channel_id and c.kind=${listedWord(messagingChannelKinds, 'round_spectator')}
     join rounds r on r.id=c.round_id
     where m.id=${messageId}`;
 

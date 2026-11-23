@@ -1,12 +1,8 @@
+import type { Waits } from '@daisy/clock';
+import { pollWork, type LoopPass, type WorkWake } from '@daisy/worker';
+import { LIVE_IDLE_MAX_MS } from '../../lib/worker-idle';
 import { isAppError } from '@daisy/errors';
 import type { AttendanceEvaluation } from '@daisy/db/attendance';
-import type { WorkerTimers } from '../../lib/worker-timers';
-import type { LoopPass } from '../../lib/idle-backoff';
-import {
-  LIVE_IDLE_MAX_MS,
-  startWorkerLoop,
-  type WorkWake,
-} from '../../lib/worker-loop';
 import {
   nextPacing,
   noPacing,
@@ -44,7 +40,7 @@ type MaintenancePorts = {
   readonly finalize: (roundId: string) => Promise<unknown>;
   /** How many Rounds it rated: zero is an idle sweep. */
   readonly rateUnrated: () => Promise<number>;
-  readonly timers: WorkerTimers;
+  readonly waits: Waits;
   /** A Round changed: discover now (ADR 0154). */
   readonly wake?: WorkWake | undefined;
   /** A Round completed: a rating may be owed (ADR 0154). */
@@ -226,17 +222,17 @@ export function startRoundMaintenance(input: MaintenancePorts) {
    */
   const rate = async (): Promise<LoopPass> =>
     stopped ? 'idle' : (await input.rateUnrated()) > 0 ? 'worked' : 'idle';
-  const discovery = startWorkerLoop({
-    run: pulse,
+  const discovery = pollWork({
+    pass: pulse,
     backoff: { busyMs: MAINTENANCE_PULSE_MS, idleMaxMs: LIVE_IDLE_MAX_MS },
-    timers: input.timers,
+    waits: input.waits,
     failed: (error) => input.failed(error, 'discover'),
     wake: input.wake,
   });
-  const rating = startWorkerLoop({
-    run: rate,
+  const rating = pollWork({
+    pass: rate,
     backoff: { busyMs: MAINTENANCE_PULSE_MS, idleMaxMs: LIVE_IDLE_MAX_MS },
-    timers: input.timers,
+    waits: input.waits,
     failed: (error) => input.failed(error, 'rate'),
     wake: input.ratingWake,
   });

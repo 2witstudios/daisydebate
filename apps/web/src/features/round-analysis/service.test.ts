@@ -1,36 +1,10 @@
 import { createAppError } from '@daisy/errors';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
+import { manualWaits } from '../../lib/manual-waits.test-support';
 import { startRoundAnalysisService } from './service';
 
 setupRitewayBun();
 
-/** The next pass is one armed one-shot; a tick fires whatever is armed. */
-const manualTimers = () => {
-  const tasks: (() => Promise<void>)[] = [];
-  const drop = (task: unknown) => {
-    const at = tasks.indexOf(task as () => Promise<void>);
-    if (at >= 0) tasks.splice(at, 1);
-  };
-  return {
-    tick: () => Promise.all([...tasks].map((task) => task())),
-    timers: {
-      now: () => 0,
-      setInterval: (task: () => Promise<void>) => tasks.push(task),
-      clearInterval: () => {
-        tasks.length = 0;
-      },
-      setTimeout: (run: () => unknown) => {
-        const task = async () => {
-          drop(task);
-          await run();
-        };
-        tasks.push(task);
-        return task;
-      },
-      clearTimeout: drop,
-    },
-  };
-};
 const limits = { parallel: 2, scanBatch: 8, scanMs: 100 };
 const seat = (roundParticipantId: string) => ({
   roundId: `round-${roundParticipantId}`,
@@ -40,7 +14,7 @@ const seat = (roundParticipantId: string) => ({
 test('each scan starts at most `parallel` analysis calls and none twice', async () => {
   const started: string[] = [];
   const release: (() => void)[] = [];
-  const { tick, timers } = manualTimers();
+  const { nextPass, waits } = manualWaits();
   const service = startRoundAnalysisService({
     scan: async () => ['a', 'b', 'c'].map(seat),
     analyse: ({ roundParticipantId }) => {
@@ -48,11 +22,11 @@ test('each scan starts at most `parallel` analysis calls and none twice', async 
       return new Promise<void>((resolve) => release.push(resolve));
     },
     limits,
-    timers,
+    waits,
     failed: () => undefined,
   });
   await service.started;
-  await tick();
+  await nextPass();
   const whileBusy = [...started];
   release.forEach((done) => done());
   await service.stop();
@@ -63,11 +37,11 @@ test('each scan starts at most `parallel` analysis calls and none twice', async 
       started.push(roundParticipantId);
     },
     limits,
-    timers,
+    waits,
     failed: () => undefined,
   });
   await again.started;
-  await tick();
+  await nextPass();
   await again.stop();
   assert({
     given: 'three seats needing an analysis, a parallel limit of two',
@@ -80,7 +54,7 @@ test('each scan starts at most `parallel` analysis calls and none twice', async 
 
 test('a full provider waits; other failures are reported', async () => {
   const failures: [string, string][] = [];
-  const { timers } = manualTimers();
+  const { waits } = manualWaits();
   const service = startRoundAnalysisService({
     scan: async () => ['busy', 'broken'].map(seat),
     analyse: async ({ roundParticipantId }) => {
@@ -92,7 +66,7 @@ test('a full provider waits; other failures are reported', async () => {
           );
     },
     limits,
-    timers,
+    waits,
     failed: (error, stage) => failures.push([stage, (error as Error).message]),
   });
   await service.started;

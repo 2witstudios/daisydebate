@@ -1,4 +1,9 @@
-import { messageRequestSettingSchema } from '@daisy/protocol/messaging/social';
+import { storedFriendshipStates } from '@daisy/protocol/friends';
+import { listedWord } from '../lifecycle-sql';
+import {
+  messageRequestSettingSchema,
+  messagingDmRequestStates,
+} from '@daisy/protocol/messaging/social';
 import { createAppError } from '@daisy/errors';
 import { sql } from 'drizzle-orm';
 import { z } from 'zod';
@@ -101,7 +106,7 @@ export const bindMessagingContactFacts =
           array(select case when f.low_actor_id=c.actor_id
               then f.high_actor_id else f.low_actor_id end
             from friendships f
-            where f.state='accepted'
+            where f.state=${listedWord(storedFriendshipStates, 'accepted')}
               and c.actor_id in (f.low_actor_id, f.high_actor_id)
               and f.low_actor_id in (select actor_id from cast_rows)
               and f.high_actor_id in (select actor_id from cast_rows)
@@ -155,7 +160,7 @@ export const createMessagingPairFactsRead =
         tx,
         z.object({ blocked: z.boolean(), open: z.boolean().nullable() }),
         sql`select p.low_blocks_high or p.high_blocks_low as blocked,
-            d.request_state in ('pending','accepted') as open
+            d.request_state in (${listedWord(messagingDmRequestStates, 'pending')},${listedWord(messagingDmRequestStates, 'accepted')}) as open
           from contact_pairs p left join messaging_dm_pairs d
             using (low_actor_id, high_actor_id)
           where p.low_actor_id=${low} and p.high_actor_id=${high}`,

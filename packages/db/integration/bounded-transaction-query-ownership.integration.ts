@@ -1,3 +1,4 @@
+import { hostWaits } from '@daisy/worker/host';
 import { requireTestServices } from '@daisy/config';
 import { assertRejects } from '@daisy/errors/testing';
 import { sql } from 'drizzle-orm';
@@ -51,10 +52,10 @@ async function runMarker(cross: boolean) {
         crossBudgetAfterMarker(client, () => {
           elapsed = 900;
         });
-      const lane = testLane(client, 4);
+      const lane = testLane(client, hostWaits, 4);
       const run = createBoundedTransaction({
         lane,
-        now: () => elapsed,
+        waits: { ...hostWaits, nowMs: () => elapsed },
         executionMs: 900,
       });
       const attempt = run(async (tx) => {
@@ -110,8 +111,8 @@ test('ISSUE-889: observing a query does not execute it', async () => {
     await client.unsafe(`create table ${table}(value int)`);
     try {
       const run = createBoundedTransaction({
-        lane: testLane(client, 4),
-        now: () => elapsed,
+        lane: testLane(client, hostWaits, 4),
+        waits: { ...hostWaits, nowMs: () => elapsed },
         executionMs: 900,
       });
       await assertRejects({

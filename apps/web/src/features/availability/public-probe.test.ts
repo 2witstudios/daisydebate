@@ -1,9 +1,13 @@
+import type { Waits } from '@daisy/clock';
+import { virtualClock } from '@daisy/clock/testing';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import {
   createPublicCheckInProbe,
   PROBE_SESSION_REFRESH_MS,
 } from './public-probe';
 setupRitewayBun();
+/** Time the test sets by hand; no request deadline passes. */
+const timeAt = (nowMs: () => number): Waits => ({ ...virtualClock(), nowMs });
 test('unconfigured public ingress is unhealthy', async () => {
   assert({
     given: 'no isolated configured synthetic participant',
@@ -11,7 +15,7 @@ test('unconfigured public ingress is unhealthy', async () => {
     actual: await createPublicCheckInProbe({
       configuration: null,
       nextId: () => 'a'.repeat(24),
-      nowMs: () => 0,
+      waits: virtualClock(),
       fetch: () => {
         throw new Error('must not call');
       },
@@ -48,7 +52,7 @@ test('public probe validates actual receipt identity rather than a health status
     const probe = createPublicCheckInProbe({
       configuration: config,
       nextId: () => commandId,
-      nowMs: () => 0,
+      waits: virtualClock(),
       fetch: async (request) => {
         path = String(request);
         return Response.json(body);
@@ -85,7 +89,7 @@ test('the probe slides its own session through the public get-session route (ISS
       cookie: 'isolated-fixture-only',
     },
     nextId: () => commandId,
-    nowMs: () => now,
+    waits: timeAt(() => now),
     fetch: async (url, init) => {
       calls.push(
         `${init.method} ${new URL(url).pathname} ${new Headers(init.headers).get('cookie')}`,
@@ -142,7 +146,7 @@ test('a session read that never answers never delays the probe (ISSUE-531)', asy
       cookie: 'isolated-fixture-only',
     },
     nextId: () => commandId,
-    nowMs: () => 0,
+    waits: virtualClock(),
     fetch: async (url) =>
       String(url).endsWith('/get-session')
         ? new Promise<Response>(() => {})
@@ -179,7 +183,7 @@ test('a rejected session stops the probe asking, once reported', async () => {
       cookie: 'isolated-fixture-only',
     },
     nextId: () => 'd'.repeat(24),
-    nowMs: () => now,
+    waits: timeAt(() => now),
     fetch: async (url) => {
       calls.push(new URL(url).pathname);
       return Response.json({ error: { code: 'AUTHENTICATION' } }, { status });
@@ -246,7 +250,7 @@ test('other failures keep sampling every second, as health evidence', async () =
       cookie: 'isolated-fixture-only',
     },
     nextId: () => 'd'.repeat(24),
-    nowMs: () => 0,
+    waits: virtualClock(),
     fetch: async (url) => {
       if (url.endsWith('/check-in')) checkIns += 1;
       return new Response(null, { status: 503 });
@@ -262,5 +266,41 @@ test('other failures keep sampling every second, as health evidence', async () =
     should: 'keep posting check-in, since recovery must be seen at once',
     actual: checkIns,
     expected: 2,
+  });
+});
+
+test('a check-in that never answers ends at its deadline', async () => {
+  const clock = virtualClock();
+  const probe = createPublicCheckInProbe({
+    configuration: {
+      origin: 'http://localhost:13140',
+      roundId: 'a'.repeat(24),
+      segmentId: 'b'.repeat(24),
+      participantId: 'c'.repeat(24),
+      cookie: 'isolated-fixture-only',
+    },
+    nextId: () => 'd'.repeat(24),
+    waits: clock,
+    fetch: (_url, init) =>
+      new Promise<Response>((_, reject) =>
+        init.signal?.addEventListener('abort', () =>
+          reject(init.signal?.reason),
+        ),
+      ),
+  });
+  const sample = probe();
+  await clock.advance(899);
+  let answered = false;
+  void sample.then(() => {
+    answered = true;
+  });
+  await clock.settle();
+  const beforeDeadline = answered;
+  await clock.advance(1);
+  assert({
+    given: 'a check-in request held open past 900ms of probe time',
+    should: 'abort it at the deadline and report unhealthy',
+    actual: { beforeDeadline, sample: await sample },
+    expected: { beforeDeadline: false, sample: false },
   });
 });

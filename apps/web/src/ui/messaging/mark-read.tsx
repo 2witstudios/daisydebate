@@ -1,8 +1,26 @@
 'use client';
-import { useBrowserEffect } from '../edge/browser-sync';
-import { browserFetch } from '../edge/browser-request';
+import { useMemo } from 'react';
+import { useDeliver } from '../edge/use-answer';
+import {
+  browserTransport,
+  type BrowserTransport,
+} from '../edge/browser-request';
 
 import { messagingMarkReadBody } from '../../features/messaging/mark-read';
+
+type ReadMark = { readonly channelId: string; readonly sequence: number };
+
+/** One read mark; a failed attempt leaves the conversation unread. */
+const markRead = (
+  transport: BrowserTransport,
+  { channelId, sequence }: ReadMark,
+) =>
+  transport('/api/messaging/read', {
+    method: 'POST',
+    credentials: 'same-origin',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(messagingMarkReadBody(channelId, sequence)),
+  }).catch(() => undefined);
 
 /**
  * Marks a conversation read through `sequence` once it is on screen. The
@@ -16,13 +34,8 @@ export function MarkConversationRead({
   readonly channelId: string;
   readonly sequence: number;
 }) {
-  useBrowserEffect(() => {
-    void browserFetch('/api/messaging/read', {
-      method: 'POST',
-      credentials: 'same-origin',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify(messagingMarkReadBody(channelId, sequence)),
-    }).catch(() => undefined);
-  }, [channelId, sequence]);
+  // Each conversation and sequence shown is marked once.
+  const mark = useMemo(() => ({ channelId, sequence }), [channelId, sequence]);
+  useDeliver(mark, (shown) => void markRead(browserTransport, shown));
   return null;
 }

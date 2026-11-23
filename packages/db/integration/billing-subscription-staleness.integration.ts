@@ -1,3 +1,7 @@
+import { createAvailabilityStore } from '../src/stores/availability';
+import { createBillingStore } from '../src/stores/billing';
+import { openDatabaseResources } from '../src/resources';
+import { hostWaits } from '@daisy/worker/host';
 import { instantMs } from '@daisy/clock';
 import { SQL } from 'bun';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
@@ -5,12 +9,24 @@ import { requireTestServices } from '@daisy/config';
 import { clubSeatGrants, subscriptionGrants } from '@daisy/auth/authorization';
 import { assertRejects } from '@daisy/errors/testing';
 import { createId } from '@paralleldrive/cuid2';
-import { createDatabase } from '../src/index';
 import {
   withBillingSynchronization,
   renewing,
 } from './billing-synchronization.test-support';
 import { withFixture } from './constraint-helpers';
+/** This file's database: the area stores it reads, over one set of resources. */
+const openStores = (
+  options: Parameters<typeof openDatabaseResources>[0] & {
+    readonly nextActorId: () => string;
+  },
+) => {
+  const resources = openDatabaseResources(options);
+  return {
+    ...createAvailabilityStore(resources),
+    ...createBillingStore(resources, { nextId: options.nextActorId }),
+    close: resources.close,
+  };
+};
 
 setupRitewayBun();
 const { databaseUrl } = requireTestServices(process.env);
@@ -29,7 +45,8 @@ test('actual subscription application, new hints and ambiguous initialization re
         roles.add((await connection`select current_user as role`)[0]!.role);
         return connection;
       };
-      const database = createDatabase({
+      const database = openStores({
+        waits: hostWaits,
         url: databaseUrl,
         client: pool,
         nextActorId: createId,
@@ -158,7 +175,8 @@ test('indexed freshness pages retain missing subscriptions, exclude other modes/
       await connection`set role daisy_web`;
       return connection;
     };
-    const database = createDatabase({
+    const database = openStores({
+      waits: hostWaits,
       url: databaseUrl,
       client: pool,
       nextActorId: createId,

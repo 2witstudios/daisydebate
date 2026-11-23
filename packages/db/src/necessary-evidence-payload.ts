@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import { register as registerTranscriptionRecovery } from './transcription-recovery/register';
 import { eq } from 'drizzle-orm';
 import { z } from 'zod';
@@ -5,7 +6,7 @@ import { createAppError } from '@daisy/errors';
 import { evidenceEnvelopeSchema } from '@daisy/protocol/evidence-envelope';
 import { idSchema } from '@daisy/protocol/primitives';
 import { lockOriginalEvidenceBody } from './necessary-evidence-body';
-import { evidenceLeaseDigest } from './necessary-evidence-policy';
+import { leaseTokenDigest } from './lease';
 import { sampleRoundExecutionTime } from './round-execution-time';
 import { necessaryEvidence } from './schema/necessary-evidence';
 import type { Tx } from './tx';
@@ -45,16 +46,18 @@ export async function adoptCaptureEvidencePayload(tx: Tx, raw: unknown) {
     sealed.ciphertext.byteLength !== encoded.byteLength
   )
     throw createAppError('CONFLICT');
-  const admittedAt = new Date(await sampleRoundExecutionTime(tx));
+  const admittedAtIso = await sampleRoundExecutionTime(tx);
+  const admittedAtMs = instantMs(admittedAtIso);
+  const admittedAt = new Date(admittedAtMs);
   if (
-    sealed.receipt.receivedAtMs > admittedAt.getTime() ||
-    sealed.receipt.expiresAtMs <= admittedAt.getTime()
+    sealed.receipt.receivedAtMs > admittedAtMs ||
+    sealed.receipt.expiresAtMs <= admittedAtMs
   )
     throw createAppError('CONFLICT', 'Original evidence receipt is ineligible');
   if (
     row.executionWorkerId !== claim.workerId ||
     row.executionEpoch !== claim.executionEpoch ||
-    row.leaseDigest !== evidenceLeaseDigest(claim.token)
+    row.leaseDigest !== leaseTokenDigest(claim.token)
   )
     throw createAppError('CONFLICT', 'Evidence execution is stale');
   if (row.state === 'retained') {

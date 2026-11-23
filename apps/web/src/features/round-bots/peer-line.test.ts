@@ -2,7 +2,7 @@ import { instantMs } from '@daisy/clock';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { virtualClock } from '@daisy/clock/testing';
 import { createPeerLineWait } from './peer-line';
-import { scope } from './speaker.test-support';
+import { scope } from './bot-scope.test-support';
 
 setupRitewayBun();
 

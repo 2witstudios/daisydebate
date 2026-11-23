@@ -1,3 +1,5 @@
+import { openWebDatabase } from '../src/server/database';
+import { hostWaits } from '@daisy/worker/host';
 import { decisionRelease as roundDecisionReleasePolicy } from '../src/features/notifications/decision-release';
 import { pinRankedFixturePool } from '@daisy/db/testing';
 import { SQL } from 'bun';
@@ -5,7 +7,6 @@ import { admitParticipants } from '@daisy/db/testing';
 import { createId } from '@paralleldrive/cuid2';
 import { systemId } from '@daisy/clock';
 import { requireTestServices } from '@daisy/config';
-import { createDatabase } from '@daisy/db';
 import { youthRoundLinkedAdults } from '@daisy/db/youth-live';
 import { createRedis, redisKey } from '@daisy/redis';
 import { createBoundedTestClient, testNamespace } from '@daisy/redis/testing';
@@ -20,7 +21,7 @@ import {
 import { roundViewReader } from '../src/features/round-runtime/reads';
 import { createRoomRuntimeOperations } from '../src/features/room-runtime/operations';
 import { foundationSelection } from './foundation-selection.test-support';
-import { aiAdmissionOptions } from '../src/server/round-worker-policy';
+import { aiAdmissionOptions } from '../src/features/round-runtime/worker-policy';
 
 import { drawEntropy } from '../src/features/room-runtime/entropy';
 import { deleteOrphanNotificationSignals } from './notification-signals.test-support';
@@ -28,7 +29,7 @@ const services = requireTestServices(process.env);
 export async function withRoomRuntime(
   run: (context: Awaited<ReturnType<typeof fixture>>) => Promise<void>,
   options: Pick<
-    Parameters<typeof createDatabase>[0],
+    Parameters<typeof openWebDatabase>[0],
     | 'client'
     | 'profile'
     | 'botAdmission'
@@ -51,7 +52,7 @@ export async function withRoomRuntime(
 }
 async function fixture(
   options: Pick<
-    Parameters<typeof createDatabase>[0],
+    Parameters<typeof openWebDatabase>[0],
     | 'client'
     | 'profile'
     | 'botAdmission'
@@ -70,7 +71,8 @@ async function fixture(
   // Refusal-only cases may never issue an adapter command; cleanup still scans its namespace.
   await client.connect();
   const redis = createRedis({ url: services.redisUrl, namespace, client });
-  const store = createDatabase({
+  const store = openWebDatabase({
+    waits: hostWaits,
     decisionRelease: roundDecisionReleasePolicy,
     url: databaseUrl,
     nextActorId: createId,

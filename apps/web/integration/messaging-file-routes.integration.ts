@@ -13,6 +13,7 @@ import {
 import { requireFileScannerPort } from './messaging-files.test-support';
 import { messagingFileProofRuntime } from './messaging-file-runtime.test-support';
 import { nativeFileResponse } from '../src/features/messaging/files/form-response';
+import { messagingComposition } from '../src/features/messaging/composition';
 setupRitewayBun();
 const { databaseUrl } = requireTestServices(process.env);
 const scannerPort = requireFileScannerPort(process.env.CLAMD_TEST_PORT);
@@ -26,7 +27,7 @@ test('mounted native multipart attaches scanned private content and peers downlo
   const now = app.app.clock.now();
   try {
     await seedMessagingRouteDm(client, me, peer, channelId, now);
-    const sent = await routes.messaging.send(
+    const sent = await routes(messagingComposition).send(
       app.jsonPost(
         '/api/messaging/messages',
         {
@@ -50,7 +51,7 @@ test('mounted native multipart attaches scanned private content and peers downlo
       return body;
     };
     const attach = () =>
-      routes.messaging.files.attach(
+      routes(messagingComposition).files.attach(
         new Request(
           `${origin}/api/messaging/channels/${channelId}/messages/${message.id}/attachments`,
           {
@@ -65,7 +66,7 @@ test('mounted native multipart attaches scanned private content and peers downlo
       );
     const attached = await attach(),
       replay = await attach();
-    const list = await routes.messaging.files.list(
+    const list = await routes(messagingComposition).files.list(
       new Request(
         `${origin}/api/messaging/channels/${channelId}/files?messageId=${message.id}`,
         { headers: { cookie: second.cookie } },
@@ -74,7 +75,7 @@ test('mounted native multipart attaches scanned private content and peers downlo
     );
     const metadata = await list.json(),
       file = metadata.files[0];
-    const downloaded = await routes.messaging.files.download(
+    const downloaded = await routes(messagingComposition).files.download(
       new Request(
         `${origin}/api/messaging/channels/${channelId}/files/${file.fileId}?generation=${file.generation}`,
         { headers: { cookie: second.cookie } },
@@ -113,7 +114,7 @@ test('mounted native multipart attaches scanned private content and peers downlo
     await client.unsafe('delete from messaging_dm_pairs where channel_id=$1', [
       channelId,
     ]);
-    const denied = await routes.messaging.files.download(
+    const denied = await routes(messagingComposition).files.download(
       new Request(`${origin}/files?generation=${file.generation}`, {
         headers: { cookie: second.cookie },
       }),

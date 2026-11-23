@@ -234,7 +234,7 @@ peer (`fly ssh`, `fly proxy`, `fly wireguard`), can open a connection to
 this machine's 6PN address that fly-proxy never sees, and can send any
 `Fly-Client-IP` or `X-Forwarded-For` it likes. The trust boundary is
 therefore the one address `AUTH_TRUSTED_PROXIES = "gateway"` resolves to:
-`resolveClientIp` (`apps/web/src/features/auth/abuse/client-ip.ts`) reads a
+`resolveClientIp` (`apps/web/src/server/client-ip.ts`) reads a
 forwarded header only from that peer. A connection that arrives over 6PN
 has its own `fdaa:` address as its socket peer, which is not trusted, so it
 is keyed by that address and its headers are ignored.
@@ -286,7 +286,7 @@ private network (`fly apps create --network`) instead.
 
 Confirm the resolved identity after each deploy by comparing, never by
 recomputing: the log line's `clientIdHash` is keyed by a subkey of
-`BETTER_AUTH_SECRET` (`apps/web/src/features/auth/abuse/client-ip.ts`), so it
+`BETTER_AUTH_SECRET` (`apps/web/src/server/client-ip.ts`), so it
 cannot be reproduced from an address, and the raw address is never
 logged (ADR 0019's loggable fields).
 

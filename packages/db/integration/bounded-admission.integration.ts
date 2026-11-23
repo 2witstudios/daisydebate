@@ -1,3 +1,4 @@
+import { hostWaits } from '@daisy/worker/host';
 import { assertRejects } from '@daisy/errors/testing';
 import { createAppError, isAppError } from '@daisy/errors';
 import { requireTestServices } from '@daisy/config';
@@ -19,11 +20,11 @@ test('invalid budgets reserve no backend and a successful writer releases both s
       reservations++;
       return reserve(options);
     };
-    const lane = testLane(client, 2);
+    const lane = testLane(client, hostWaits, 2);
     const make = (executionMs?: number) =>
       createBoundedTransaction({
         lane,
-        now: performance.now,
+        waits: hostWaits,
         ...(executionMs === undefined ? {} : { executionMs }),
       });
     for (const executionMs of [0, 3001, 1.5, Number.NaN]) {
@@ -73,8 +74,8 @@ test('invalid budgets reserve no backend and a successful writer releases both s
 test('bounded writes reserve recovery capacity and release a refused wait', () =>
   withPool(async (client) => {
     const run = createBoundedTransaction({
-      lane: testLane(client, 4, 0),
-      now: performance.now,
+      lane: testLane(client, hostWaits, 4, 0),
+      waits: hostWaits,
     });
     const holds = [
       Promise.withResolvers<void>(),
@@ -97,8 +98,8 @@ test('bounded writes reserve recovery capacity and release a refused wait', () =
         (error: unknown) => error,
       );
       const noWriter = createBoundedTransaction({
-        lane: testLane(client, 1),
-        now: performance.now,
+        lane: testLane(client, hostWaits, 1),
+        waits: hostWaits,
       });
       const refusedSmall = await noWriter(async () => 'unused').catch(
         (error: unknown) => error,
@@ -126,8 +127,8 @@ test('a late callback cannot commit a real previously acknowledged mutation', ()
   withBoundedRound(async (fixture, _run, roundId, client) => {
     let now = 0;
     const run = createBoundedTransaction({
-      lane: testLane(client, 4),
-      now: () => now,
+      lane: testLane(client, hostWaits, 4),
+      waits: { ...hostWaits, nowMs: () => now },
       executionMs: 3000,
     });
     const [before] =
@@ -168,8 +169,8 @@ test('a late callback cannot commit a real previously acknowledged mutation', ()
 test('waiting bounded writers acquire the actual freed slot in arrival order', () =>
   withPool(async (client) => {
     const run = createBoundedTransaction({
-      lane: testLane(client, 2, 1000),
-      now: performance.now,
+      lane: testLane(client, hostWaits, 2, 1000),
+      waits: hostWaits,
     });
     const hold = Promise.withResolvers<void>();
     const ready = Promise.withResolvers<void>();

@@ -1,4 +1,8 @@
-import { isRoundOver, type RoundStatus } from '@daisy/protocol/round';
+import {
+  isRoundOver,
+  roundStatuses,
+  type RoundStatus,
+} from '@daisy/protocol/round';
 import { and, eq, sql } from 'drizzle-orm';
 import { createAppError } from '@daisy/errors';
 import type { PlatformUsageCredit, UsageEvent } from '@daisy/protocol/billing';
@@ -46,7 +50,10 @@ async function botReservation(tx: Tx, roundId: string) {
 async function terminal(tx: Tx, roundId: string) {
   const [row] = await query(
     tx,
-    z.object({ status: z.string(), platform_ending: z.string().nullable() }),
+    z.object({
+      status: z.enum(roundStatuses),
+      platform_ending: z.string().nullable(),
+    }),
     sql`select status,platform_ending from rounds where id=${roundId}`,
   );
   return row as

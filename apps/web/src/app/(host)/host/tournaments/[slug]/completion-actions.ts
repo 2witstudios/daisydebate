@@ -13,7 +13,7 @@ import {
 } from '../../../../../features/tab/completion-form';
 import { hostRoutes } from '../../../../../features/tab/routes';
 import { runTabCommandForm } from '../../../../../features/tab/command-form-action';
-import { moveOn, stayOn } from '../../../../../server/form-action';
+import { moveOn, stayOn } from '../../../../../features/forms/form-action';
 import { done, type Done } from '../../../../../features/forms/form-state';
 import { POST } from '../../../../api/tab/result-command/route';
 

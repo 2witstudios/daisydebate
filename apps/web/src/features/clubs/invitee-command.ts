@@ -1,8 +1,8 @@
-import type { Database } from '@daisy/db';
+import type { BillingStore } from '@daisy/db/stores/billing';
 import { decideClubSeating } from '@daisy/protocol/club-seats';
-import type { MemberCaller } from '../../server/member-boundary';
+import type { MemberCaller } from '../auth/member-boundary';
 
-type Store = Pick<ReturnType<Database['clubSeats']>, 'answerCommand'>;
+type Store = Pick<ReturnType<BillingStore['clubSeats']>, 'answerCommand'>;
 
 /** Invitation policy is evaluated on the addressed invitee's fresh fenced seating. */
 export function runClubInviteeCommand(

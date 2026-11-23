@@ -1,11 +1,14 @@
+import { virtualClock } from '@daisy/clock/testing';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { fixedClock, sequentialId } from '@daisy/clock';
 import { rejectionOf } from '@daisy/errors/testing';
 import { authTestEnv } from '../features/auth/auth-server.test-support';
 import { createApp } from './app';
-import { createRoutes } from './routes';
 import { betaMessagingPolicy } from '../features/messaging/beta-policy';
 import { dec251ContactsPolicy } from '../features/contacts/request-policy';
+import { roomComposition } from '../features/room-runtime/composition';
+import { roundComposition } from '../features/round-runtime/composition';
+import { composer } from './composition.test-support';
 
 setupRitewayBun();
 
@@ -33,6 +36,7 @@ function recordingFetch() {
 
 const build = (env: Record<string, string>, fetch = recordingFetch().fetch) =>
   createApp({
+    waits: virtualClock(),
     messagingPolicy: betaMessagingPolicy,
     env,
     fetch,
@@ -210,14 +214,14 @@ describe('createApp', () => {
 
 test('Round routes answer from the Round policy, whatever the Room policy says (ISSUE-1132)', async () => {
   const inert = build({ ...baseEnv, ...authTestEnv });
-  const routes = createRoutes(inert);
-  const anonymous = await routes.rounds.read(
+  const routes = composer(inert);
+  const anonymous = await routes(roundComposition).read(
     new Request(`${authTestEnv.PUBLIC_APP_URL}/api/rounds/${'r'.repeat(24)}`, {
       headers: { origin: authTestEnv.PUBLIC_APP_URL },
     }),
     'r'.repeat(24),
   );
-  const rooms = await routes.rooms.list(
+  const rooms = await routes(roomComposition).list(
     new Request(`${authTestEnv.PUBLIC_APP_URL}/api/rooms`),
   );
   await inert.close();
@@ -247,11 +251,11 @@ test('ordinary app configuration activates canonical Room authentication and ori
     ...authTestEnv,
     ROOM_POLICY: policy,
   });
-  const routes = createRoutes(configured);
+  const routes = composer(configured);
   const request = () => new Request(`${authTestEnv.PUBLIC_APP_URL}/api/rooms`);
-  const unavailable = await createRoutes(inert).rooms.list(request());
-  const anonymous = await routes.rooms.list(request());
-  const foreign = await routes.rooms.create(
+  const unavailable = await composer(inert)(roomComposition).list(request());
+  const anonymous = await routes(roomComposition).list(request());
+  const foreign = await routes(roomComposition).create(
     new Request(`${authTestEnv.PUBLIC_APP_URL}/api/rooms`, {
       method: 'POST',
       headers: { origin: 'https://foreign.invalid' },

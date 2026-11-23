@@ -1,4 +1,4 @@
-import { tryInstantMs } from '@daisy/clock';
+import { tryInstantMs } from '@daisy/clock/instant';
 import type { EntitlementGrant } from '@daisy/protocol/entitlements';
 
 export type EntitlementEvaluation = {

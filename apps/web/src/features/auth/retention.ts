@@ -1,4 +1,5 @@
-import type { Database, ProvisionalLinkPurposes } from '@daisy/db';
+import type { MailStore } from '@daisy/db/stores/mail';
+import type { AuthStore, ProvisionalLinkPurposes } from '@daisy/db/stores/auth';
 import {
   DAY_MS,
   retentionAfter,
@@ -7,7 +8,7 @@ import {
 
 /** AUTH-7.5a: expired rows are kept for a 24-hour grace before deletion. */
 export const verificationRetentionTarget = (
-  database: Pick<Database, 'purgeExpiredVerifications'>,
+  database: Pick<MailStore, 'purgeExpiredVerifications'>,
 ): RetentionTarget =>
   retentionAfter('verification', DAY_MS, (batch) =>
     database.purgeExpiredVerifications(batch),
@@ -21,7 +22,7 @@ export const verificationRetentionTarget = (
  * verification rows.
  */
 export const sessionRetentionTarget = (
-  database: Pick<Database, 'purgeExpiredSessions'>,
+  database: Pick<AuthStore, 'purgeExpiredSessions'>,
 ): RetentionTarget =>
   retentionAfter('session', DAY_MS, (batch) =>
     database.purgeExpiredSessions(batch),
@@ -29,7 +30,7 @@ export const sessionRetentionTarget = (
 
 // ISSUE-660(b), orchestrator policy: abandoned accounts expire after 24h.
 export const provisionalUserRetentionTarget = (
-  database: Pick<Database, 'purgeExpiredProvisionalUsers'>,
+  database: Pick<AuthStore, 'purgeExpiredProvisionalUsers'>,
   provisionalLinks: ProvisionalLinkPurposes,
 ): RetentionTarget =>
   retentionAfter(

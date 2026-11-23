@@ -1,3 +1,4 @@
+import { listedWord } from '../lifecycle-sql';
 import { roomInvitationStates } from '@daisy/protocol/room-invitations';
 import { seatKinds, type SeatKind } from '@daisy/protocol/seats';
 import { sql } from 'drizzle-orm';
@@ -27,7 +28,9 @@ export const roomInvitations = pgTable(
       .notNull()
       .references(() => actors.id, { onDelete: 'cascade' }),
     seat: text('seat').$type<SeatKind>().notNull(),
-    state: text('state').notNull(),
+    state: text('state')
+      .$type<(typeof roomInvitationStates)[number]>()
+      .notNull(),
     expiresAt: timestampColumn('expires_at').notNull(),
     endedAt: timestampColumn('ended_at'),
     createdAt: createdAtColumn(),
@@ -35,7 +38,9 @@ export const roomInvitations = pgTable(
   (table) => [
     uniqueIndex('room_invitations_one_pending')
       .on(table.roomId, table.inviteeActorId)
-      .where(sql`${table.state} = 'pending'`),
+      .where(
+        sql`${table.state} = ${listedWord(roomInvitationStates, 'pending')}`,
+      ),
     index('room_invitations_room_idx').on(table.roomId),
     index('room_invitations_invitee_idx').on(table.inviteeActorId),
     index('room_invitations_inviter_idx').on(table.inviterActorId),
@@ -49,7 +54,7 @@ export const roomInvitations = pgTable(
     ),
     check(
       'room_invitations_ended_check',
-      sql`(${table.state} = 'pending') = (${table.endedAt} is null)`,
+      sql`(${table.state} = ${listedWord(roomInvitationStates, 'pending')}) = (${table.endedAt} is null)`,
     ),
     check(
       'room_invitations_distinct',

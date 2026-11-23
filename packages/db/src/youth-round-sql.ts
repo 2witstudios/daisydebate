@@ -1,5 +1,11 @@
+import { listedWord } from './lifecycle-sql';
 import { sql, type SQL } from 'drizzle-orm';
-import { reuseLicensingWordings } from '@daisy/protocol/media-release';
+import { parsedColumn } from './raw-rows';
+import { z } from 'zod';
+import {
+  reuseLicensingWordings,
+  mediaReleaseScopes,
+} from '@daisy/protocol/media-release';
 
 /**
  * Whether the Round with this id is a Youth Round (ADR 0157): Youth when
@@ -9,10 +15,13 @@ import { reuseLicensingWordings } from '@daisy/protocol/media-release';
  * through private and the reuse fence below. The aliases are its own, so an
  * outer `rounds` or `rooms` stays the caller's.
  */
-export const youthRoundSql = (roundId: SQL): SQL<boolean> =>
-  sql<boolean>`exists (select 1 from rounds youth_r
+export const youthRoundSql = (roundId: SQL) =>
+  parsedColumn(
+    z.boolean(),
+    sql`exists (select 1 from rounds youth_r
     where youth_r.id = ${roundId}
-      and (public.daisy_room_is_youth(youth_r.room_id) or youth_r.standing_youth_cast))`;
+      and (public.daisy_room_is_youth(youth_r.room_id) or youth_r.standing_youth_cast))`,
+  );
 
 /**
  * The reuse fence (ADR 0161), the SQL mirror of `reuseFenced` in
@@ -22,13 +31,13 @@ export const youthRoundSql = (roundId: SQL): SQL<boolean> =>
  * Stream this Round ask it; viewing never does. Missing age evidence leaves
  * reuse fenced for anyone lobbies and adult-lobby Rounds that froze a youth cast.
  */
-export const youthReuseFencedSql = (roundId: SQL): SQL<boolean> =>
-  sql<boolean>`(public.daisy_round_reuse_age_unknown(${roundId}) or (${youthRoundSql(roundId)} and (with debaters as (
+export const youthReuseFencedSql = (roundId: SQL): SQL =>
+  sql`(public.daisy_round_reuse_age_unknown(${roundId}) or (${youthRoundSql(roundId)} and (with debaters as (
       select debater_user_id from public.daisy_round_linked_adult_actors(${roundId})
     ) select not exists (select 1 from debaters)
       or exists (select 1 from debaters
         where not exists (select 1 from media_releases reuse_m
-          where reuse_m.user_id = debaters.debater_user_id and reuse_m.scope = 'publish'
+          where reuse_m.user_id = debaters.debater_user_id and reuse_m.scope = ${listedWord(mediaReleaseScopes, 'publish')}
             and reuse_m.wording_version in (${sql.join(
               reuseLicensingWordings.map((version) => sql`${version}`),
               sql`, `,

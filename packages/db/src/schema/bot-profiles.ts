@@ -20,7 +20,10 @@ export const botProfiles = pgTable(
     name: text('name').notNull(),
     persona: text('persona').notNull(),
     voice: text('voice').notNull(),
-    difficulty: text('difficulty').notNull().default('beginner'),
+    difficulty: text('difficulty')
+      .$type<(typeof botDifficulties)[number]>()
+      .notNull()
+      .default('beginner'),
   },
   (table) => [
     check(

@@ -5,7 +5,7 @@ import type {
 } from '@simplewebauthn/server';
 import { appendAudit } from '../audit/store';
 import type { AuditDetail } from '../audit/chain';
-import type { AdminTransaction } from '../db/client';
+import { inTransaction, type AdminTransaction } from '../db/tx';
 import { operatorCredentials, operatorSessions } from '../db/schema';
 import {
   rateLimited,
@@ -158,7 +158,7 @@ async function openSession(
   const previous = isSecret(input.presented)
     ? await findSession(deps.db, sha3(input.presented))
     : null;
-  await deps.db.transaction(async (tx) => {
+  await inTransaction(deps.db, async (tx) => {
     await advanceCounter(tx, { id: input.credentialRowId, ...input.counter });
     if (
       previous &&

@@ -67,15 +67,18 @@ export function partitionAffected(
       (file) => onDisk(file) && prettierExtensions.has(extension(file)),
     ),
     runTurbo: allWorkspaces || changedFiles.some(inWorkspace),
-    runRootScriptsTests:
-      allWorkspaces ||
-      changedFiles.some(
-        (file) =>
-          file.startsWith('scripts/') || file === 'eslint.config.test.ts',
-      ),
-    runEslintConfigTest: changedFiles.some((file) =>
-      file.startsWith('eslint.config'),
-    ),
+    // The root script tests hold repository-wide facts: the round oracle walks
+    // the engine, the start-up gate reads every app's composition, others read
+    // workflows, policy files and decision records. Run only for a change
+    // under scripts/, they let seven main runs fail on a file a PR's own check
+    // never looked at (PR 895), and an engine change merged without its
+    // oracle. Any change runs them.
+    runRootScriptsTests: allWorkspaces || changedFiles.length > 0,
+    // The eslint config tests lint fixtures at real repository paths, so a
+    // source change or deletion can break them as surely as a config change:
+    // PR 918 deleted packages/db/src/index.ts, ran no config tests, and main
+    // went red. Any change runs them.
+    runEslintConfigTest: allWorkspaces || changedFiles.length > 0,
   };
 }
 

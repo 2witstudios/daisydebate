@@ -1,11 +1,12 @@
+import { roomVisibilities } from '@daisy/protocol/room-contract';
 import { createAppError } from '@daisy/errors';
 import { ratingStyles } from '@daisy/protocol/primitives';
-import { twoSideKeys, type TwoSideKey } from '@daisy/protocol/seats';
+import { twoSideKeys, type TwoSideKey, seatKinds } from '@daisy/protocol/seats';
 import { type WinnerOutcome } from '@daisy/protocol/round-outcome';
 import { and, asc, eq, inArray, isNull, sql } from 'drizzle-orm';
-import { lifecycleSqlList } from './lifecycle-sql';
+import { lifecycleSqlList, listedWord } from './lifecycle-sql';
 import { runningRoundStatuses } from '@daisy/protocol/round';
-import { query } from './raw-rows';
+import { parsedColumn, query } from './raw-rows';
 import { z } from 'zod';
 import { instrumented, type DatabaseEventSink } from './instrumented';
 import { readOfficialRatingLadderCatalog } from './official-standing-lobbies';
@@ -23,7 +24,7 @@ import { seasons } from './schema/seasons';
 import { users } from './schema/users';
 import { listSeasonRecords, type SeasonRecord } from './season-record';
 import { factReleasedSql, type SpectatorClock } from './spectator-release-sql';
-import { releasedStandings } from './standings-release';
+import { releasedStandings } from '@daisy/protocol/standings-release';
 import { scopeTransaction } from './tenant-scope';
 import {
   certifiedRatingActors,
@@ -40,7 +41,7 @@ import { inTransaction, type Tx, type TxSource } from './tx';
  */
 
 /** A debater's current state on the ladder in one season. */
-export type StandingRating = {
+type StandingRating = {
   readonly seasonId: string;
   readonly actorId: string;
   /** Null for an actor with no account. */
@@ -185,7 +186,7 @@ export const standingsOperations = ({
       sql`select distinct opponent.actor_id from round_participants judge
       join rounds r on r.id=judge.round_id
       join round_participants opponent on opponent.round_id=r.id and ${isDebatingSeatSql(sql`opponent.seat_kind`)}
-      where judge.actor_id=${viewerActorId} and judge.seat_kind='judge' and r.status in ${lifecycleSqlList(runningRoundStatuses)}
+      where judge.actor_id=${viewerActorId} and judge.seat_kind=${listedWord(seatKinds, 'judge')} and r.status in ${lifecycleSqlList(runningRoundStatuses)}
       and not exists(select 1 from ballots b where b.judge_participant_id=judge.id)`,
     );
     return rows.map((row) => row.actor_id);
@@ -342,11 +343,14 @@ async function readStandingsWithin(
       occurredAt: ratingChanges.occurredAt,
       side: roundParticipants.side,
       winningSide: rounds.winningSide,
-      released: sql<boolean>`${rounds.visibility} = 'public' and ${factReleasedSql(
-        sql`greatest(${ratingChanges.occurredAt}, ${rounds.completedAt})`,
-        rounds,
-        input.clock,
-      )}`,
+      released: parsedColumn(
+        z.boolean(),
+        sql`${rounds.visibility} = ${listedWord(roomVisibilities, 'public')} and ${factReleasedSql(
+          sql`greatest(${ratingChanges.occurredAt}, ${rounds.completedAt})`,
+          rounds,
+          input.clock,
+        )}`,
+      ),
     })
     .from(ratingChanges)
     .innerJoin(rounds, eq(rounds.id, ratingChanges.roundId))

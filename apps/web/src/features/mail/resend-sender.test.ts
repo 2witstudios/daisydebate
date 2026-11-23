@@ -1,5 +1,7 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { instantMs, sequentialId } from '@daisy/clock';
+import type { Waits } from '@daisy/clock';
+import { virtualClock } from '@daisy/clock/testing';
 import { createResendSender } from './resend-sender';
 
 setupRitewayBun();
@@ -36,7 +38,7 @@ const ok = (id = 'msg_1') =>
 const create = (
   responses: Array<Response | Error | 'hang'>,
   timeoutMs = 10_000,
-  elapsed?: () => number,
+  waits: Waits = virtualClock(),
 ) => {
   const { calls, fetchImpl } = scripted(responses);
   return {
@@ -48,7 +50,7 @@ const create = (
       ids: sequentialId('idem'),
       fetch: fetchImpl,
       timeoutMs,
-      ...(elapsed ? { elapsed } : {}),
+      waits,
     }),
   };
 };
@@ -235,13 +237,11 @@ describe('Resend sender', () => {
   });
 
   test('bounds the whole operation by the delivery deadline', async () => {
-    // The injected elapsed clock reads 0 when the send starts and the whole
-    // 60ms budget once the first attempt has timed out: no retry fits.
-    const readings = [0, 60];
-    const { sender, calls } = create(['hang', 'hang'], 60, () =>
-      Number(readings.shift()),
-    );
-    const failure = await failureOf(sender.send(message));
+    // Injected time reads 0 when the send starts and the whole 60ms budget
+    // once the first attempt has timed out: no retry fits.
+    const clock = virtualClock();
+    const { sender, calls } = create(['hang', 'hang'], 60, clock);
+    const failure = await clock.run(failureOf(sender.send(message)));
     assert({
       given: 'a provider that never answers and a spent 60ms budget',
       should: 'give up after one attempt instead of retrying past the deadline',
@@ -282,6 +282,7 @@ test('a resumed invitation checks its deadline immediately before HTTP delivery'
     apiKey: 'test',
     from: 'test@example.test',
     ids: { next: () => 'intent' },
+    waits: virtualClock(),
     nowMs: () => instantMs('2026-11-06T00:00:00.000Z'),
     fetch: async () => {
       calls += 1;
@@ -318,7 +319,7 @@ test('an invitation retry cannot cross its send deadline after a lost response',
     apiKey: 'test',
     from: 'test@example.test',
     ids: { next: () => 'intent' },
-    elapsed: () => 0,
+    waits: virtualClock(),
     nowMs: () => now,
     fetch: async () => {
       calls += 1;

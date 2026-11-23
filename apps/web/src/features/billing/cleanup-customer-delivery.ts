@@ -1,8 +1,11 @@
+import type { BillingStore } from '@daisy/db/stores/billing';
 import { z } from 'zod';
-import type { Database } from '@daisy/db';
 import type { CleanupDeliveryRequest as Request } from './cleanup-delivery-request';
 import type { CleanupVendorPort } from './cleanup-vendor';
-type Store = Pick<ReturnType<Database['billingCleanup']>, 'inspect' | 'record'>;
+type Store = Pick<
+  ReturnType<BillingStore['billingCleanup']>,
+  'inspect' | 'record'
+>;
 type Resources = {
   readonly store: Store;
   readonly port: Pick<CleanupVendorPort, 'customer' | 'deleteCustomer'>;

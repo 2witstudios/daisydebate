@@ -3,10 +3,8 @@ import { headers } from 'next/headers';
 import { systemClock } from '@daisy/clock';
 import { messagingRetainedSchemas } from '@daisy/protocol/messaging/retained';
 import { readMessagingInboxResponse } from '../../../features/messaging/inbox-response';
-import {
-  privateGroupsOffered,
-  requestIdentity,
-} from '../../../lib/request-session';
+import { privateGroupsOffered } from '../../../features/messaging/page-reads';
+import { requestIdentity } from '../../../lib/page-reads';
 import { ConversationList } from '../../../ui/messaging/conversation-list';
 import { InboxProvider } from '../../../ui/messaging/inbox-provider';
 import { RetainedConversationList } from '../../../ui/messaging/retained-list';

@@ -32,7 +32,7 @@ import {
 } from './spectator-release-sql';
 import { operatorWithheldSql } from './broadcast-withheld-sql';
 import type { Tx } from './tx';
-import { run, query } from './raw-rows';
+import { postgresInstantMs, run, query } from './raw-rows';
 import { z } from 'zod';
 
 /** One Broadcast per Round: a repeat keeps the first, policy included. */
@@ -524,7 +524,7 @@ export const readBroadcastRelease = async (
   const rows = await query(
     reader,
     z.object({
-      horizon: z.union([z.string(), z.date()]).nullable(),
+      horizon: postgresInstantMs.nullable(),
       stopped: z.boolean(),
       withheld: z.boolean(),
     }),
@@ -536,10 +536,7 @@ export const readBroadcastRelease = async (
   );
   const [row] = rows;
   return {
-    releasedThroughMs:
-      row?.horizon === null || row?.horizon === undefined
-        ? null
-        : new Date(row.horizon).getTime(),
+    releasedThroughMs: row?.horizon ?? null,
     stop: broadcastStopOf(row?.stopped ?? false, row?.withheld ?? false),
   };
 };
@@ -625,8 +622,8 @@ export const readBroadcastStageHistory = async (
   const segments = await query(
     tx,
     z.object({
-      started_at: z.union([z.string(), z.date()]),
-      ended_at: z.union([z.string(), z.date()]).nullable(),
+      started_at: postgresInstantMs,
+      ended_at: postgresInstantMs.nullable(),
       duration_ms: z.number(),
     }),
     sql`
@@ -637,25 +634,23 @@ export const readBroadcastStageHistory = async (
     tx,
     z.object({
       kind: z.enum(['prep', 'judging']),
-      started_at: z.union([z.string(), z.date()]),
-      ended_at: z.union([z.string(), z.date()]).nullable(),
+      started_at: postgresInstantMs,
+      ended_at: postgresInstantMs.nullable(),
     }),
     sql`
     select kind, started_at, ended_at from broadcast_private_history
     where broadcast_id = ${broadcastId}`,
   );
-  const ms = (at: Date | string | null) =>
-    at === null ? null : new Date(at).getTime();
   return {
     segments: segments.map((row) => ({
-      startedAtMs: new Date(row.started_at).getTime(),
-      endedAtMs: ms(row.ended_at),
+      startedAtMs: row.started_at,
+      endedAtMs: row.ended_at,
       durationMs: row.duration_ms,
     })),
     privateSpans: spans.map((row) => ({
       kind: row.kind,
-      startedAtMs: new Date(row.started_at).getTime(),
-      endedAtMs: ms(row.ended_at),
+      startedAtMs: row.started_at,
+      endedAtMs: row.ended_at,
     })),
   };
 };

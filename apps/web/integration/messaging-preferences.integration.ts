@@ -8,6 +8,7 @@ import {
   closeMountedMessagingPair,
   seedMessagingRouteDm,
 } from './messaging-route.test-support';
+import { messagingComposition } from '../src/features/messaging/composition';
 
 setupRitewayBun();
 const { databaseUrl } = requireTestServices(process.env);
@@ -25,7 +26,7 @@ test('mounted preferences preserve eligible unfollowed history and current unrea
     });
   const scope = { version: 1, channelId };
   const change = () =>
-    routes.messaging.preferences(
+    routes(messagingComposition).preferences(
       app.jsonPost(
         '/api/messaging/preferences',
         { ...scope, ...selections },
@@ -41,7 +42,7 @@ test('mounted preferences preserve eligible unfollowed history and current unrea
       channelId,
       app.app.clock.now(),
     );
-    const sent = await routes.messaging.send(
+    const sent = await routes(messagingComposition).send(
       app.jsonPost(
         '/api/messaging/messages',
         {
@@ -55,7 +56,7 @@ test('mounted preferences preserve eligible unfollowed history and current unrea
     const message = await sent.json();
     const saved = await change(),
       body = await saved.json();
-    const history = await routes.messaging.history(
+    const history = await routes(messagingComposition).history(
       new Request(`${origin}/api/messaging/channels/${channelId}/messages`, {
         headers: { cookie: first.cookie },
       }),
@@ -74,7 +75,7 @@ test('mounted preferences preserve eligible unfollowed history and current unrea
       ],
       expected: [200, 200, 200, { ...selections, readSequence: 0 }, 1],
     });
-    const hidden = await routes.messaging.preferences(
+    const hidden = await routes(messagingComposition).preferences(
       app.jsonPost(
         '/api/messaging/preferences',
         { ...scope, ...selections, hidden: true },
@@ -82,7 +83,7 @@ test('mounted preferences preserve eligible unfollowed history and current unrea
       ),
       'update',
     );
-    const inbox = await routes.messaging.inbox(
+    const inbox = await routes(messagingComposition).inbox(
       new Request(`${origin}/api/messaging/inbox`, {
         headers: { cookie: first.cookie },
       }),
@@ -100,7 +101,7 @@ test('mounted preferences preserve eligible unfollowed history and current unrea
       ],
       expected: [200, false],
     });
-    const marker = await routes.messaging.markRead(
+    const marker = await routes(messagingComposition).markRead(
       app.jsonPost(
         '/api/messaging/read',
         { ...scope, cursor: { channelId, sequence: 1 } },
@@ -115,30 +116,30 @@ test('mounted preferences preserve eligible unfollowed history and current unrea
       actual: [marker.status, progress.state.readSequence, progress.unread],
       expected: [200, 1, 0],
     });
-    const removed = await routes.messaging.remove(
+    const removed = await routes(messagingComposition).remove(
       app.jsonPost(
         '/api/messaging/messages/remove',
         { ...scope, requestId: createId(), messageId: message.id },
         { cookie: second.cookie },
       ),
     );
-    const cleared = await routes.messaging.preferences(
+    const cleared = await routes(messagingComposition).preferences(
       app.jsonPost('/api/messaging/preferences/clear', scope, {
         cookie: first.cookie,
       }),
       'clear',
     );
-    const absent = await routes.messaging.preferences(
+    const absent = await routes(messagingComposition).preferences(
       request(first.cookie),
       'read',
       channelId,
     );
-    const denied = await routes.messaging.preferences(
+    const denied = await routes(messagingComposition).preferences(
       request(first.cookie, createId()),
       'read',
       createId(),
     );
-    const anonymous = await routes.messaging.preferences(
+    const anonymous = await routes(messagingComposition).preferences(
       request(''),
       'read',
       channelId,

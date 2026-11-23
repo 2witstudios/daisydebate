@@ -7,6 +7,7 @@ import {
   lockCaptureRound,
   type CaptureDependencies,
   type CaptureIdentity,
+  requireLiveCaptureLease,
 } from './media-capture-context';
 import { roundParticipants } from './schema/round-participants';
 import { mediaParticipants } from './schema/media-sessions';
@@ -14,7 +15,6 @@ import { actors } from './schema/actors';
 import { roundSegments } from './schema/round-segments';
 import { roundSpeakingIntervals } from './schema/round-speaking-intervals';
 import { rounds } from './schema/rounds';
-import { requireLiveCaptureLease } from './capture-rules';
 import type { Tx } from './tx';
 
 type ReadScope = CaptureIdentity & {

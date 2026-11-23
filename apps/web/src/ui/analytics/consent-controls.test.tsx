@@ -1,8 +1,8 @@
 import type { ReactNode } from 'react';
-import { renderToString } from 'react-dom/server';
 import { AppRouterContext } from 'next/dist/shared/lib/app-router-context.shared-runtime';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import type { Consent } from '../../features/analytics/consent';
+import { renderAccessible } from '../../test-support/rendered/accessible';
 import { ConsentControls } from './consent-controls';
 
 setupRitewayBun();
@@ -18,7 +18,7 @@ const router = {
   prefetch: noop,
 };
 const render = (node: ReactNode) =>
-  renderToString(<AppRouterContext value={router}>{node}</AppRouterContext>);
+  renderAccessible(<AppRouterContext value={router}>{node}</AppRouterContext>);
 
 test('an unreadable stored choice offers no form to overwrite it', () => {
   const available = { analytics: true, replay: false };
@@ -41,9 +41,10 @@ test('an unreadable stored choice offers no form to overwrite it', () => {
     given: 'a readable choice, and a choice a refusal left unreadable',
     should: 'show the form only for the readable one, and say why otherwise',
     actual: [
-      readable.includes('<form'),
-      unreadable.includes('<form'),
-      unreadable.includes('role="status"'),
+      readable.has('button', 'Save choices'),
+      unreadable.has('button', 'Save choices') ||
+        unreadable.has('checkbox', 'Product analytics'),
+      unreadable.has('status'),
     ],
     expected: [true, false, true],
   });

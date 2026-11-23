@@ -1,7 +1,7 @@
-import { identify } from '../../lib/identity';
-import type { WorkerTimers } from '../../lib/worker-timers';
-import { passOf } from '../../lib/idle-backoff';
-import { startWorkerLoop } from '../../lib/worker-loop';
+import { defineComposition } from '../../server/composition';
+import type { Waits } from '@daisy/clock';
+import { passOf, pollWork } from '@daisy/worker';
+import { identify } from '../auth/identity';
 import type { App } from '../../server/app';
 import type { AccountRouteDeps } from '../../server/account-route';
 import { createAudienceReactionRoute } from '../audience-reactions/handler';
@@ -23,7 +23,7 @@ import { createAudienceSnapshotRoute } from './audience-snapshot';
 const NOTIFICATION_SWEEP_EVERY_MS = 15_000;
 
 /** The audience's routes, each from its owning feature. */
-export function composeAudienceRoutes(app: App) {
+function composeAudienceRoutes(app: App) {
   const account: AccountRouteDeps = {
     logger: app.logger,
     reporter: app.reporter,
@@ -81,22 +81,27 @@ export function composeAudienceRoutes(app: App) {
 }
 
 /** Notifications, on every web instance: each event's claim keeps it once. */
-export const startNotificationSweep = (app: App, timers: WorkerTimers) => {
+export const startNotificationSweep = (app: App, waits: Waits) => {
   const sweep = createNotificationSweep({
     store: app.database,
     now: () => app.clock.now(),
     nextId: () => app.ids.next(),
   });
-  return startWorkerLoop({
-    run: () => sweep().then(passOf),
+  return pollWork({
+    pass: () => sweep().then(passOf),
     // A fixed cadence: an event falls due by the spectator clock, not a
     // command, so followers hear within one pass of its release.
     backoff: {
       busyMs: NOTIFICATION_SWEEP_EVERY_MS,
       idleMaxMs: NOTIFICATION_SWEEP_EVERY_MS,
     },
-    timers,
+    waits,
     failed: () =>
       app.logger.log('notifications.sweep_failed', {}, 'Notifications'),
   });
 };
+
+/** audience: its route files bind here (`processRoute`). */
+export const audienceComposition = defineComposition('audience', (app) =>
+  composeAudienceRoutes(app),
+);

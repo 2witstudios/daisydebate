@@ -1,11 +1,17 @@
+import { listedWord } from '../lifecycle-sql';
+import { addMs } from '@daisy/clock';
 import { eq, sql } from 'drizzle-orm';
 import { createAppError } from '@daisy/errors';
 import { sampleRoundExecutionTime } from '../round-execution-time';
-import { nextEpoch } from '../lease-policy';
-import { transcriptionRecoveryContexts as contexts } from '../schema/transcription-recovery';
+import { nextEpoch } from '../lease';
+import {
+  transcriptionRecoveryContexts as contexts,
+  transcriptionRecoveryStatuses,
+} from '../schema/transcription-recovery';
 import { due } from './discover';
 import { lock } from './lock';
-import { claimDigest, type Policy } from './policy';
+import { leaseTokenDigest } from '../lease';
+import type { Policy } from './policy';
 import type { Tx } from '../tx';
 import { query } from '../raw-rows';
 import { z } from 'zod';
@@ -22,10 +28,11 @@ export async function claim(
       tx,
       z.object({ id: z.string() }),
       sql`select c.id from transcription_recovery_contexts c where c.id=${target.contextId} and ${due(options)}
-   and not exists(select 1 from transcription_recovery_contexts live where live.round_id=c.round_id and live.status='leased' and live.lease_expires_at>clock_timestamp())`,
+   and not exists(select 1 from transcription_recovery_contexts live where live.round_id=c.round_id and live.status=${listedWord(transcriptionRecoveryStatuses, 'leased')} and live.lease_expires_at>clock_timestamp())`,
     );
     if (!eligible) return { kind: 'idle' as const };
-    const now = new Date(await sampleRoundExecutionTime(tx));
+    const nowIso = await sampleRoundExecutionTime(tx);
+    const now = new Date(nowIso);
     if (
       owned.members.some(
         (unit) =>
@@ -54,14 +61,14 @@ export async function claim(
         'Recognition claim epoch exhausted',
       ),
       token = options.nextToken();
-    const expiresAt = new Date(now.getTime() + options.leaseMs);
+    const expiresAt = new Date(addMs(nowIso, options.leaseMs));
     await tx
       .update(contexts)
       .set({
         status: 'leased',
         workerId: input.workerId,
         claimEpoch: epoch,
-        leaseDigest: claimDigest(token),
+        leaseDigest: leaseTokenDigest(token),
         leaseExpiresAt: expiresAt,
         lastClaimedAt: now,
         blockedReason: null,

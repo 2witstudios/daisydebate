@@ -28,6 +28,7 @@ test('leaving rename by blur preserves the newly focused editor', async () => {
         if (action.type === 'drive/renaming') setRenaming(action.id);
       },
       drive: {
+        ready: true,
         problem: null,
         folderProblem: null,
         folders: [],

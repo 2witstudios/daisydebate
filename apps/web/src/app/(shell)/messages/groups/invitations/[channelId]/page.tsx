@@ -1,4 +1,4 @@
-import { StatusRegion } from '../../../../../../ui/components/status-region/status-region';
+import { Announcement } from '../../../../../../ui/components/announcement/announcement';
 import { ConversationPane } from '../../../../../../ui/messaging/conversation-pane';
 import { headers } from 'next/headers';
 import { notFound } from 'next/navigation';
@@ -11,7 +11,7 @@ import {
 import { RequestDecision } from '../../../../../../ui/messaging/request-decision';
 import { GET } from '../../../../../api/messaging/groups/[channelId]/invitation/route';
 import { decideInvitationAction } from './actions';
-import { privateGroupsOffered } from '../../../../../../lib/request-session';
+import { privateGroupsOffered } from '../../../../../../features/messaging/page-reads';
 export const metadata = { title: 'Group invitation' };
 export default async function GroupInvitationPage({
   params,
@@ -56,9 +56,9 @@ export default async function GroupInvitationPage({
           />
         </section>
       ) : (
-        <StatusRegion as="p" role="status">
+        <Announcement as="p" kind="progress">
           This invitation is unavailable. Refresh to try again.
-        </StatusRegion>
+        </Announcement>
       )}
     </ConversationPane>
   );

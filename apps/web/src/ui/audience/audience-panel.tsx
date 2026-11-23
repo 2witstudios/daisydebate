@@ -1,5 +1,5 @@
 'use client';
-import { StatusRegion } from '../components/status-region/status-region';
+import { Announcement } from '../components/announcement/announcement';
 import {
   audienceReactionKinds,
   SPECTATOR_CHAT_UNITS,
@@ -76,9 +76,9 @@ function ChatComposer({
             />
           </label>
           {error ? (
-            <StatusRegion as="p" role="alert" className="text-sm text-live">
+            <Announcement as="p" kind="problem" className="text-sm text-live">
               {error}
-            </StatusRegion>
+            </Announcement>
           ) : null}
           <Button type="submit" variant="secondary" disabled={pending}>
             Post
@@ -120,9 +120,9 @@ function ReactionBar({
               </Button>
             ))}
             {error ? (
-              <StatusRegion as="p" role="alert" className="text-sm text-live">
+              <Announcement as="p" kind="problem" className="text-sm text-live">
                 {error}
-              </StatusRegion>
+              </Announcement>
             ) : null}
           </>
         )}

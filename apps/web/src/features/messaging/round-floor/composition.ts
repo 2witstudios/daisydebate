@@ -1,3 +1,4 @@
+import { defineComposition } from '../../../server/composition';
 import type { AuthorizationPrincipal } from '@daisy/auth/authorization';
 import { decideRoundFloor } from '@daisy/auth/round-floor';
 import { roundFloorMetadataOf } from '@daisy/db/messaging';
@@ -6,7 +7,7 @@ import {
   type RoundFloorFact,
 } from '@daisy/protocol/round-floor';
 import type { App } from '../../../server/app';
-import { memberHttpBoundary } from '../../../server/member-boundary';
+import { memberHttpBoundary } from '../../auth/member-boundary';
 import { requireMemberActor } from '../../access/actor';
 import { contextChatFence } from '../context-chat/authority';
 import { createContextChatHandlers } from '../context-chat/handlers';
@@ -22,7 +23,7 @@ import {
 } from '../../spectating/linked-adults';
 
 /** HTTP, embedded forms and retained history all use the same fenced Round authority. */
-export function composeRoundFloorRoutes(app: App) {
+function composeRoundFloorRoutes(app: App) {
   const policy = app.messagingPolicy;
   const linkedAdults = liveLinkedAdults(app);
   const store = (
@@ -78,3 +79,8 @@ export function composeRoundFloorRoutes(app: App) {
     }),
   });
 }
+
+/** round-floor: its route files bind here (`processRoute`). */
+export const roundFloorComposition = defineComposition('round-floor', (app) =>
+  composeRoundFloorRoutes(app),
+);

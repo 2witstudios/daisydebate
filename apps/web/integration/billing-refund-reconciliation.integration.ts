@@ -1,7 +1,8 @@
+import { openWebDatabase } from '../src/server/database';
+import { hostWaits } from '@daisy/worker/host';
 import { SQL } from 'bun';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { requireTestServices } from '@daisy/config';
-import { createDatabase } from '@daisy/db';
 import { completeControlledStripeCleanup } from '@daisy/db/testing';
 import { createId } from '@paralleldrive/cuid2';
 import { withSql, testDatabaseUrl } from './fixtures';
@@ -31,7 +32,8 @@ test(
         roles.add(role!.role);
         return connection;
       };
-      const database = createDatabase({
+      const database = openWebDatabase({
+        waits: hostWaits,
         url: testDatabaseUrl,
         client: pool,
         nextActorId: createId,

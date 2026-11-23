@@ -1,8 +1,8 @@
 'use client';
 
-import { useBrowserEffect } from '../edge/browser-sync';
+import { useDeliver } from '../edge/use-answer';
 import type { ActiveRoom } from '@daisy/protocol/active-room';
-import { useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { departedInSession } from '../../features/rooms/resume-departure';
 import { resumeRoundHrefOf } from '../../features/rooms/resume';
 import {
@@ -52,16 +52,20 @@ export function ResumeRound({
     window.location.reload(),
   );
   const waited = useRef(false);
-  useBrowserEffect(() => {
-    if (resuming === null || ownership.owns === null) return;
-    if (!ownership.owns) waited.current = true;
+  const decided = useMemo(
+    () => ({ resuming, owns: ownership.owns, actorId, roundId }),
+    [resuming, ownership.owns, actorId, roundId],
+  );
+  useDeliver(decided, (now) => {
+    if (now.resuming === null || now.owns === null) return;
+    if (!now.owns) waited.current = true;
     else if (waited.current) window.location.reload();
     else {
-      if (actorId !== null && roundId !== null)
-        markResumeAttempt(actorId, roundId);
-      window.location.replace(resuming);
+      if (now.actorId !== null && now.roundId !== null)
+        markResumeAttempt(now.actorId, now.roundId);
+      window.location.replace(now.resuming);
     }
-  }, [resuming, ownership.owns, actorId, roundId]);
+  });
   return resuming !== null && ownership.owns === false ? (
     <div>
       <TabElsewhere takeOver={ownership.takeOver} />

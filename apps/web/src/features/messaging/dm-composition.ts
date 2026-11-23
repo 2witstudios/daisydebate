@@ -1,4 +1,4 @@
-import type { Database } from '@daisy/db';
+import type { MessagingStore } from '@daisy/db/stores/messaging';
 import type {
   AuthorizationCapability,
   AuthorizationPrincipal,
@@ -9,7 +9,9 @@ import {
   messagingAuthorizationFence,
   type MessagingReadingPolicy,
 } from './authorization-fence';
-type DmQuestion = Parameters<Parameters<Database['messagingDmStore']>[0]>[0];
+type DmQuestion = Parameters<
+  Parameters<MessagingStore['messagingDmStore']>[0]
+>[0];
 
 /**
  * What a DM request step asks the evaluator. Accepting and declining are
@@ -38,7 +40,7 @@ export const dmRequestQuestion = (
 
 /** Request and closed-result capabilities are distinct from ordinary history and posting. */
 export function composeMessagingDmStore(input: {
-  readonly database: Database;
+  readonly database: MessagingStore;
   readonly principal: AuthorizationPrincipal;
   readonly clock: Clock;
   readonly postingPolicy: SocialContactPolicy;

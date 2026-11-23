@@ -1,0 +1,47 @@
+import { redirect } from 'next/navigation';
+import type { Identity } from '@daisy/auth';
+import { createAppError } from '@daisy/errors';
+import {
+  nextDestination,
+  restrictedHref,
+  signInHref,
+  type SearchParams,
+} from './decision';
+import { requestIdentity } from '../../lib/page-reads';
+
+/**
+ * What the sign-in and onboarding pages start from: the validated `?next=`
+ * destination (untrusted input; only a local path survives) and who is
+ * asking, resolved from this request's durable session.
+ */
+export async function readAuthEntry(
+  searchParams: Promise<SearchParams>,
+): Promise<{ readonly destination: string; readonly identity: Identity }> {
+  return {
+    destination: nextDestination(await searchParams),
+    identity: await requestIdentity(),
+  };
+}
+
+type SignedIn = Extract<
+  Identity,
+  { state: 'provisional' | 'waitlisted' | 'member' }
+>;
+
+/**
+ * An onboarding page's entry: the validated destination and a signed-in
+ * account. A session-store outage is a retryable error, not "signed out";
+ * an anonymous visitor signs in first and comes back to `here`; a restricted
+ * account has nothing to onboard into and goes to its own page.
+ */
+export async function readOnboardingEntry(
+  searchParams: Promise<SearchParams>,
+  here: (destination: string) => string,
+): Promise<{ readonly destination: string; readonly identity: SignedIn }> {
+  const { destination, identity } = await readAuthEntry(searchParams);
+  if (identity.state === 'unavailable') throw createAppError('INFRASTRUCTURE');
+  if (identity.state === 'anonymous') redirect(signInHref(here(destination)));
+  if (identity.state === 'restricted')
+    redirect(restrictedHref(await searchParams));
+  return { destination, identity };
+}

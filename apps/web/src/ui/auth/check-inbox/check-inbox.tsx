@@ -53,7 +53,7 @@ export function CheckInbox({
           variant="secondary"
           disabled={resending || resendInMs > 0}
           onClick={resend}
-          className="h-auth-control"
+          size="auth"
         >
           {resendLabel(resendInMs, resending)}
         </Button>

@@ -1,8 +1,11 @@
+import { segmentTypes } from '@daisy/protocol/format';
+import { listedWord } from './lifecycle-sql';
 import { tryInstantMs, instantMs } from '@daisy/clock';
 import { createAppError, createRefusal } from '@daisy/errors';
 import {
   attendanceLedgerFactsSchema,
   type AttendanceLedgerFacts,
+  checkInAttemptStates,
 } from '@daisy/protocol/attendance';
 import { idSchema } from '@daisy/protocol/primitives';
 import { sql } from 'drizzle-orm';
@@ -25,13 +28,13 @@ const iso = (column: string) =>
 export const attendanceLedgerColumns = sql`
     r.rules_snapshot->'segments' as "ruleSegments",
     coalesce((select json_agg(json_build_object('id',s.id,'rulesSegmentKey',s.rules_segment_key,'startedAt',${iso('s.started_at')}) order by s.sequence)
-      from round_segments s where s.round_id=r.id and s.type='speech'),'[]'::json) as speeches,
+      from round_segments s where s.round_id=r.id and s.type=${listedWord(segmentTypes, 'speech')}),'[]'::json) as speeches,
     coalesce((select json_agg(json_build_object('segmentId',a.segment_id,'decision',a.decision,'evidence',a.evidence,
         'effectiveDeadline',${iso('a.effective_deadline')},'settledHorizon',${iso('a.settled_horizon')},'receiptParticipantId',a.receipt_participant_id))
       from round_attendance_adjudications a where a.round_id=r.id),'[]'::json) as adjudications,
     coalesce((select json_agg(json_build_object('segmentId',c.segment_id,'participantId',c.participant_id,'receivedAt',${iso('c.received_at')}))
       from round_check_ins c where c.round_id=r.id),'[]'::json) as receipts,
-    exists(select 1 from round_check_in_attempts p where p.round_id=r.id and p.state='pending') as "pendingWriter"`;
+    exists(select 1 from round_check_in_attempts p where p.round_id=r.id and p.state=${listedWord(checkInAttemptStates, 'pending')}) as "pendingWriter"`;
 
 /** A ledger row as the engine's facts: a row outside its evidence's shape is corruption. */
 export const attendanceLedgerFacts = (row: unknown): AttendanceLedgerFacts => {

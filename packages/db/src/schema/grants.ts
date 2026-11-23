@@ -1,3 +1,4 @@
+import { listedWord } from '../lifecycle-sql';
 import { commandAuthorities, grantScopeKinds } from '@daisy/protocol/lobby';
 import { sql } from 'drizzle-orm';
 import {
@@ -79,8 +80,8 @@ export const grants = pgTable(
     check('grants_scope_kind_check', oneOf(table.scopeKind, grantScopeKinds)),
     check(
       'grants_scope_check',
-      sql`(${table.scopeKind} = 'organization' and ${table.organizationId} is not null and ${table.lobbyId} is null)
-        or (${table.scopeKind} = 'lobby' and ${table.lobbyId} is not null and ${table.organizationId} is null)`,
+      sql`(${table.scopeKind} = ${listedWord(grantScopeKinds, 'organization')} and ${table.organizationId} is not null and ${table.lobbyId} is null)
+        or (${table.scopeKind} = ${listedWord(grantScopeKinds, 'lobby')} and ${table.lobbyId} is not null and ${table.organizationId} is null)`,
     ),
     oneTenantKey('grants', table.organizationId, table.lobbyId),
     check(
@@ -183,15 +184,15 @@ export const actionHistory = pgTable(
     ),
     check(
       'action_history_service_authority',
-      sql`(${table.authority} = 'service') = (${table.serviceId} is not null)`,
+      sql`(${table.authority} = ${listedWord(commandAuthorities, 'service')}) = (${table.serviceId} is not null)`,
     ),
     check(
       'action_history_grant_authority',
-      sql`(${table.authority} = 'grant') = (${table.grantId} is not null)`,
+      sql`(${table.authority} = ${listedWord(commandAuthorities, 'grant')}) = (${table.grantId} is not null)`,
     ),
     check(
       'action_history_relationship_authority',
-      sql`(${table.authority} = 'relationship') = (${table.relation} is not null)`,
+      sql`(${table.authority} = ${listedWord(commandAuthorities, 'relationship')}) = (${table.relation} is not null)`,
     ),
     check(
       'action_history_conflict_in_lobby',

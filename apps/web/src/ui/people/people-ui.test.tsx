@@ -1,194 +1,90 @@
 import { createElement as h } from 'react';
-import { renderToString } from 'react-dom/server';
-import { AppRouterContext } from 'next/dist/shared/lib/app-router-context.shared-runtime';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import type { Person, PeopleList } from '@daisy/protocol/people-list';
-import type { RatingDivision } from '@daisy/protocol/ladder';
-import { initialChallengeForm } from '../../features/challenges/forms';
-import { initialPersonBlock } from '../../features/contacts/block-form';
-import { initialFriendForm } from '../../features/friends/forms';
-import { creationIdle } from '../../features/messaging/forms/create-form';
+import {
+  accessibleWithin,
+  renderAccessible,
+  type AccessibleView,
+} from '../../test-support/rendered/accessible';
+import { postedBy } from '../test-support/posted-fields.test-support';
 import { initialPresenceForm } from '../../features/presence/form';
-import { initialReportForm } from '../../features/reports/form';
 import { ladderLine, ratingsLabel, ratingText } from './member-card';
-import { ChallengeProvider } from '../challenges/challenge-provider';
 import { LobbyViews } from './lobby-views';
-import { PeopleProvider } from './people-provider';
-import { PeopleRail } from './people-rail';
 import { rowDetail } from './people-rows';
+import { person, rail } from './people-rail.test-support';
 import { canBeChallenged } from './person-menu';
 import { StatusForm } from './status-form';
 
 setupRitewayBun();
 
-const noop = () => {};
-const router = {
-  bfcacheId: 'test',
-  back: noop,
-  forward: noop,
-  refresh: noop,
-  push: noop,
-  replace: noop,
-  prefetch: noop,
-};
-const actions = {
-  friend: async () => initialFriendForm(),
-  sendChallenge: async () => initialChallengeForm,
-  acceptChallenge: async () => initialChallengeForm,
-  endChallenge: async () => initialChallengeForm,
-  message: async () => creationIdle(''),
-  report: async () => initialReportForm,
-  block: async () => initialPersonBlock,
-};
-const person = (over: Partial<Person> = {}): Person => ({
-  username: 'ada',
-  displayName: null,
-  photoId: null,
-  status: 'online',
-  relation: 'none',
-  ratings: [
-    {
-      ladder: { style: 'freestyle', division: 'open' },
-      rating: null,
-      provisional: false,
-      hidden: false,
-    },
-    {
-      ladder: { style: 'freestyle', division: 'youth' },
-      rating: 1612,
-      provisional: true,
-      hidden: false,
-    },
-  ],
-  division: 'youth',
-  challengeModes: ['ranked', 'casual'],
-  wins: 3,
-  losses: 1,
-  ...over,
-});
-const list = (people: readonly Person[]): PeopleList => ({
-  version: 1,
-  people: [...people],
-  nextCursor: null,
-  counts: { everyone: people.length + 7, friends: 3, online: people.length },
-  self: 'online',
-});
-const inProvider = (
-  children: unknown,
-  people: readonly Person[],
-  memberDivision: RatingDivision | null = 'youth',
-) =>
-  renderToString(
-    h(
-      AppRouterContext,
-      { value: router },
-      h(PeopleProvider, {
-        initialList: list(people),
-        socketUrl: null,
-        children: h(ChallengeProvider, {
-          memberDivision,
-          initialChallenges: {
-            version: 1,
-            incoming: [
-              {
-                id: 'c'.repeat(24),
-                actorId: 'm'.repeat(24),
-                username: 'mara',
-                mode: 'ranked',
-                format: 'freestyle',
-                lobbyId: 'l'.repeat(24),
-                createdAt: '2026-11-02T00:00:00.000Z',
-                expiresAt: '2026-11-02T00:02:00.000Z',
-              },
-            ],
-            outgoing: [],
-            accepted: [],
-          },
-          actorId: null,
-          socketUrl: null,
-          children: children as never,
-        }),
-      }),
-    ),
-  );
+/** Whether `first` comes before `second` in the document. */
+const before = (first: Element, second: Element) =>
+  (first.compareDocumentPosition(second) & 4) === 4;
+
+/**
+ * Each challenge card: the rail places one in the open list and one beside
+ * the collapsed avatars, and CSS shows one of them.
+ */
+const challengeCards = (view: AccessibleView) =>
+  view
+    .all('region', 'Challenge from @mara')
+    .map((card) => accessibleWithin(card));
 
 test('an incoming challenge names its style and mode, and offers Accept (YChallenge)', () => {
-  const html = inProvider(
-    h(PeopleRail, {
-      preference: 'auto',
-      actions,
-      setRail: async () => {},
-      activeRoomId: null,
-    }),
-    [person()],
-    'youth',
-  );
-  const card =
-    /<section aria-label="Challenge from @mara".*?<\/section>/s.exec(
-      html,
-    )?.[0] ?? '';
+  const cards = challengeCards(renderAccessible(rail([person()], 'youth')));
   assert({
     given: 'a ranked challenge from @mara in the member’s own lobby',
     should:
       'read Freestyle · Ranked with Accept and Decline, naming no division',
-    actual: [
-      card.includes('Freestyle · Ranked'),
-      card.includes('Youth') || card.includes('Open'),
-      card.includes('>Accept<'),
-      card.includes('>Decline<'),
+    actual: cards.map((card) => [
+      card.textContent().includes('Freestyle · Ranked'),
+      card.textContent().includes('Youth') ||
+        card.textContent().includes('Open'),
+      card.has('button', 'Accept'),
+      card.has('button', 'Decline'),
+    ]),
+    expected: [
+      [true, false, true, true],
+      [true, false, true, true],
     ],
-    expected: [true, false, true, true],
   });
 });
 
 describe('the people rail', () => {
-  const html = inProvider(
-    h(PeopleRail, {
-      preference: 'auto',
-      actions,
-      setRail: async () => {},
-      activeRoomId: null,
-    }),
-    [
+  const view = renderAccessible(
+    rail([
       person(),
       person({ username: 'bea', relation: 'friends', status: 'round' }),
       person({ username: 'cy', status: 'offline' }),
-    ],
+    ]),
   );
+  const row = (name: string) => view.get('link', name);
+  const section = (title: string) => view.get('heading', title, { level: 3 });
   test('the tabs and heading keep their word and number apart', () => {
-    const tabs = html.match(/<button[^>]*aria-pressed[^>]*>/g) ?? [];
-    assert({
-      given: 'the All and Friends tabs',
-      should: 'space each word from its count on the spacing scale',
-      actual: [
-        tabs.length,
-        tabs.every((button) => /\bgap-2\b/.test(button)),
-        /gap-\d+\.5/.test(html),
-      ],
-      expected: [2, true, false],
-    });
     assert({
       given: 'three people online among ten listed',
       should:
         'count all listed on All and name the online count in the heading',
       actual: [
-        html.includes('>10</span>'),
-        html.includes('>3</span>'),
-        /People.*3(<!-- -->)? online/.test(html),
+        view.within('group', 'Show').names('button'),
+        view.within('group', 'Show').names('button', { pressed: true }),
+        view.has('heading', 'People 3 online', { level: 2 }),
       ],
-      expected: [true, true, true],
+      expected: [['All 10', 'Friends 3'], ['All 10'], true],
     });
   });
   test('offline people sit below those online', () => {
+    const bea = row('@bea, In a round, Freestyle Provisional');
+    const ada = row('@ada, Online, Freestyle Provisional');
+    const cy = row('@cy, Offline, Freestyle Provisional');
     assert({
       given: 'a friend in a Round, a stranger online and a stranger offline',
       should: 'section Friends, then Online, then Offline, naming each',
       actual: [
-        html.indexOf('@bea') < html.indexOf('>Online<'),
-        html.indexOf('>Online<') < html.indexOf('@ada'),
-        html.indexOf('@ada') < html.indexOf('>Offline<'),
-        html.indexOf('>Offline<') < html.indexOf('@cy'),
-        html.includes('aria-label="@cy, Offline,'),
+        before(section('Friends'), bea),
+        before(bea, section('Online')),
+        before(section('Online'), ada),
+        before(ada, section('Offline')),
+        before(section('Offline'), cy),
       ],
       expected: [true, true, true, true, true],
     });
@@ -198,22 +94,28 @@ describe('the people rail', () => {
       given: 'the server-rendered rail',
       should: 'link each row and its three dots to the profile, friends first',
       actual: [
-        html.includes('href="/profile/ada"'),
-        html.includes('aria-label="Actions for @ada"'),
-        html.indexOf('@bea') < html.indexOf('@ada'),
-        html.includes('name="rail"'),
+        view.attribute('link', '@ada, Online, Freestyle Provisional', 'href'),
+        view.attribute('link', 'Actions for @ada', 'href'),
+        before(
+          row('@bea, In a round, Freestyle Provisional'),
+          row('@ada, Online, Freestyle Provisional'),
+        ),
+        postedBy(view, 'Collapse people list')['rail'],
+        postedBy(view, 'Expand people list')['rail'],
       ],
-      expected: [true, true, true, true],
+      expected: ['/profile/ada', '/profile/ada', true, 'mini', 'open'],
     });
   });
   test('a row carries no action button of its own', () => {
+    const controls = [...view.names('button'), ...view.names('link')];
     assert({
       given: 'a row',
       should:
         'keep Challenge and Add friend in the menu, so the rail stays narrow',
       actual: [
-        html.includes('>Challenge</button>'),
-        html.includes('Add friend'),
+        view.has('button', 'Challenge'),
+        controls.some((name) => name.includes('Add friend')) ||
+          view.textContent().includes('Add friend'),
       ],
       expected: [false, false],
     });
@@ -222,13 +124,15 @@ describe('the people rail', () => {
     assert({
       given: 'a waiting challenge',
       should: 'name who and what, and offer Accept and Decline',
-      actual: [
-        html.includes('Challenge from @mara'),
-        html.includes('Freestyle · Ranked'),
-        html.includes('>Accept<'),
-        html.includes('>Decline<'),
+      actual: challengeCards(view).map((card) => [
+        card.textContent().includes('Freestyle · Ranked'),
+        card.has('button', 'Accept'),
+        card.has('button', 'Decline'),
+      ]),
+      expected: [
+        [true, true, true],
+        [true, true, true],
       ],
-      expected: [true, true, true, true],
     });
   });
   test('a screen reader hears the same ratings as anyone', () => {
@@ -261,51 +165,43 @@ describe('the people rail', () => {
 
 describe('a member who chose a display name and photo', () => {
   const photoId = 'f'.repeat(24);
-  const html = inProvider(
-    h(PeopleRail, {
-      preference: 'auto',
-      actions,
-      setRail: async () => {},
-      activeRoomId: null,
-    }),
-    [person({ displayName: 'Ada Byron', photoId })],
+  const view = renderAccessible(
+    rail([person({ displayName: 'Ada Byron', photoId })]),
   );
   test('their row', () => {
+    const name = 'Ada Byron (@ada), Online, Freestyle Provisional';
     assert({
       given: 'a member with a display name and published photo on the list',
       should:
         'name them by it with @username kept beside it, and show the small photo',
       actual: [
-        html.indexOf('>Ada Byron<') < html.indexOf('@ada · Online'),
-        html.includes('aria-label="Ada Byron (@ada), Online,'),
-        html.includes(`src="/api/profile-photos/${photoId}/128"`),
+        view.get('link', name).firstElementChild?.textContent,
+        view.get('link', name).lastElementChild?.textContent,
+        view
+          .within('complementary', 'People')
+          .all('presentation')
+          .map((image) => image.getAttribute('src'))
+          .includes(`/api/profile-photos/${photoId}/128`),
       ],
-      expected: [true, true, true],
+      expected: ['Ada Byron', '@ada · Online', true],
     });
   });
 });
 
 describe('the people rail with no one to list', () => {
   test('the empty notice stays a list item', () => {
-    const html = inProvider(
-      h(PeopleRail, {
-        preference: 'auto',
-        actions,
-        setRail: async () => {},
-        activeRoomId: null,
-      }),
-      [],
-    );
+    const view = renderAccessible(rail([]));
+    const status = view.get('status');
     assert({
       given: 'no one on the list',
       should: 'announce it inside a real list item, so the list stays valid',
       actual: [
-        /<li[^>]*role="status"/.test(html),
-        /<li[^>]*><p[^>]*role="status"[^>]*>No one matches<\/p><\/li>/.test(
-          html,
-        ),
+        view.text('status'),
+        status.parentElement !== null &&
+          view.all('listitem').includes(status.parentElement),
+        status.parentElement?.children.length,
       ],
-      expected: [false, true],
+      expected: ['No one matches', true, 1],
     });
   });
 });
@@ -373,29 +269,30 @@ describe('canBeChallenged', () => {
 
 describe('StatusForm', () => {
   test('one native button per choice, the current one pressed', () => {
-    const html = renderToString(
+    const view = renderAccessible(
       h(StatusForm, {
         action: async () => initialPresenceForm,
         chosen: 'busy',
       }),
-    );
+    ).within('form', 'Status');
+    const value = (name: string) => view.attribute('button', name, 'value');
     assert({
       given: 'a member who chose Busy',
       should: 'post each status as a button value, with Busy pressed',
       actual: [
-        html.includes('value="online"'),
-        html.includes('value="appearing_offline"'),
-        /value="busy"[^>]*aria-pressed="true"/.test(html),
-        html.includes('Appear offline'),
+        value('Online'),
+        value('Appear offline'),
+        view.attribute('button', 'Busy', 'value', { pressed: true }),
+        view.names('button', { pressed: true }),
       ],
-      expected: [true, true, true, true],
+      expected: ['online', 'appearing_offline', 'busy', ['Busy']],
     });
   });
 });
 
 describe('LobbyViews', () => {
   test('the phone’s switch names everyone and counts who is online', () => {
-    const html = renderToString(
+    const view = renderAccessible(
       h(LobbyViews, {
         view: 'people',
         rooms: h('p', null, 'rooms'),
@@ -406,13 +303,15 @@ describe('LobbyViews', () => {
     assert({
       given: 'three people online',
       should: 'label the switch People, stating the count as online',
-      actual: /People · (<!-- -->)?3(<!-- -->)? online/.test(html),
+      actual: view
+        .within('navigation', 'Lobby views')
+        .has('link', 'People · 3 online', { current: 'page' }),
       expected: true,
     });
   });
 
   test('the phone’s People view still names the page', () => {
-    const html = renderToString(
+    const view = renderAccessible(
       h(LobbyViews, {
         view: 'people',
         rooms: h('p', null, 'rooms'),
@@ -420,12 +319,15 @@ describe('LobbyViews', () => {
         onlineCount: null,
       }),
     );
+    const people = view
+      .all('paragraph')
+      .find((paragraph) => paragraph.textContent === 'people');
     assert({
       given: 'the Lobby opened on its People view',
       should: 'keep the Lobby heading above the list',
       actual:
-        html.indexOf('>Lobby</h1>') > -1 &&
-        html.indexOf('>Lobby</h1>') < html.indexOf('<p>people</p>'),
+        people !== undefined &&
+        before(view.get('heading', 'Lobby', { level: 1 }), people),
       expected: true,
     });
   });

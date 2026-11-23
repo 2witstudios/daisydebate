@@ -1,7 +1,7 @@
 'use client';
 
 import { Button } from '../components/button/button';
-import { StatusRegion } from '../components/status-region/status-region';
+import { Announcement } from '../components/announcement/announcement';
 import {
   chosenStatuses,
   type ChosenStatus,
@@ -62,13 +62,13 @@ function StatusChoice({
 }) {
   return (
     <Button
-      variant="unstyled"
+      variant="row-quiet"
       type="submit"
       name="status"
       value={status}
       aria-pressed={status === current}
       disabled={pending}
-      className="flex min-h-nav-target w-full items-center gap-2 rounded-sm px-3 text-left text-sm font-semibold text-ink-muted hover:bg-surface-overlay hover:text-ink aria-pressed:text-ink"
+      className="w-full font-semibold"
     >
       <span
         aria-hidden="true"
@@ -122,13 +122,13 @@ export function StatusForm({
         />
       ))}
       {notice ? (
-        <StatusRegion
+        <Announcement
           as="p"
-          role="status"
+          kind="progress"
           className="px-3 pb-1 text-xs text-ink-muted"
         >
           {notice}
-        </StatusRegion>
+        </Announcement>
       ) : null}
     </form>
   );

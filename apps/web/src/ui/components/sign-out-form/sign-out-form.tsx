@@ -1,6 +1,7 @@
 'use client';
 
 import { Button } from '../button/button';
+import type { ButtonLook } from '../button/button-class';
 import { clearAccountResumeRecords } from '../../../features/rooms/resume-departure';
 import { clearAccountMediaPreferences } from '../../../features/round-media/account-signout-cleanup';
 
@@ -11,10 +12,14 @@ import { clearAccountMediaPreferences } from '../../../features/round-media/acco
  */
 export function SignOutForm({
   next,
+  look,
   className,
 }: {
   readonly next: string;
-  readonly className: string;
+  /** The look of the place it sits: an action, a menu row, an onboarding target. */
+  readonly look: ButtonLook;
+  /** Layout only. */
+  readonly className?: string;
 }) {
   return (
     <form
@@ -26,7 +31,7 @@ export function SignOutForm({
       }}
     >
       <input type="hidden" name="next" value={next} />
-      <Button variant="unstyled" type="submit" className={className}>
+      <Button {...look} type="submit" className={className}>
         Sign out
       </Button>
     </form>

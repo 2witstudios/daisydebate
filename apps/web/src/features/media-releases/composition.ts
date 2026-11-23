@@ -1,12 +1,13 @@
+import { defineComposition } from '../../server/composition';
 import { nowMs } from '@daisy/clock';
 import type { App } from '../../server/app';
-import { memberHttpBoundary } from '../../server/member-boundary';
+import { memberHttpBoundary } from '../auth/member-boundary';
 import { deriveRecipientSubkey } from '../mail/recipient-key';
 import { composeMediaReleaseHandlers } from './handlers';
 import { deriveReleaseStopSubkey } from './stop-token';
 
 /** The media release routes, built from one app (ADR 0151). */
-export const composeMediaReleaseRoutes = (app: App) =>
+const composeMediaReleaseRoutes = (app: App) =>
   composeMediaReleaseHandlers({
     boundary: memberHttpBoundary(app),
     nowMs: () => nowMs(app.clock),
@@ -16,3 +17,9 @@ export const composeMediaReleaseRoutes = (app: App) =>
       deriveReleaseStopSubkey(app.mailConfig().RECIPIENT_HASH_SECRET),
     store: app.database,
   });
+
+/** media-releases: its route files bind here (`processRoute`). */
+export const mediaReleaseComposition = defineComposition(
+  'media-releases',
+  (app) => composeMediaReleaseRoutes(app),
+);

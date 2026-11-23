@@ -1,3 +1,5 @@
+import { checkInAttemptStates } from '@daisy/protocol/attendance';
+import { listedWord } from './lifecycle-sql';
 import { sql } from 'drizzle-orm';
 import { deleteExpiredBatch, type RetentionBatch } from './retention';
 import { instrumented, type DatabaseEventSink } from './instrumented';
@@ -33,7 +35,7 @@ export const commandRetention = ({
           table: roundCheckInAttempts,
           key: roundCheckInAttempts.attemptId,
           at: roundCheckInAttempts.resolvedAt,
-          eligible: sql`${roundCheckInAttempts.state} <> 'pending'`,
+          eligible: sql`${roundCheckInAttempts.state} <> ${listedWord(checkInAttemptStates, 'pending')}`,
         },
         batch,
       ),

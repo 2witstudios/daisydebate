@@ -1,4 +1,4 @@
-import { isInstantAtOrBefore, isInstantBefore } from '@daisy/clock';
+import { isInstantAtOrBefore, isInstantBefore } from '@daisy/clock/instant';
 export {
   classifyPaymentObservation,
   paymentObservationComplete,
@@ -103,6 +103,14 @@ export const subscriptionLifecycles = [
   'incomplete_expired',
   'trialing',
 ] as const;
+
+/**
+ * A subscription in one of these lifecycles has ended for good, so its owner
+ * may start a new one; any other stored lifecycle still holds the seat.
+ */
+export const isEndedSubscription = (
+  lifecycle: (typeof subscriptionLifecycles)[number],
+) => lifecycle === 'canceled' || lifecycle === 'incomplete_expired';
 
 /** Produced only after the vendor adapter verifies the configured plan and payment. */
 export type SubscriptionEvidence = {

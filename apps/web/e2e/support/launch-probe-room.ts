@@ -1,3 +1,4 @@
+import { hostWaits } from '@daisy/worker/host';
 import { foundationChoice, humanRoundSelection } from './human-round-selection';
 import { createId } from '@paralleldrive/cuid2';
 import {
@@ -194,7 +195,7 @@ export async function createPublicProbeRound(
   const probe = createPublicCheckInProbe({
     configuration,
     nextId: createId,
-    nowMs: () => performance.now(),
+    waits: hostWaits,
     fetch,
   });
   if (!(await probe()))

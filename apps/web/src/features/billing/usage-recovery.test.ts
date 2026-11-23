@@ -44,8 +44,9 @@ test('abandoned usage recovery pages past failures, revisits a full cycle and bo
   await recovery.run();
   await recovery.run();
   await recovery.run();
-  recovery.stop();
-  await recovery.run();
+  const stopped = new AbortController();
+  stopped.abort();
+  await recovery.run(stopped.signal);
   assert({
     given:
       'a persistent first-record failure, a later ready identity and three scheduled pages, followed by stop',
@@ -67,6 +68,7 @@ test('abandoned usage recovery pages past failures, revisits a full cycle and bo
 test('abandoned usage recovery stops between mutations and retains discovery retries', async () => {
   const seen: string[] = [];
   let failScan = true;
+  const stopping = new AbortController();
   const recovery = createUsageRecovery({
     instanceId: 'worker',
     store: {
@@ -86,7 +88,7 @@ test('abandoned usage recovery stops between mutations and retains discovery ret
       },
       releaseAbandonedUsage: async ({ roundId }) => {
         seen.push(roundId);
-        recovery.stop();
+        stopping.abort();
         return { bindingReleased: true };
       },
     },
@@ -94,8 +96,8 @@ test('abandoned usage recovery stops between mutations and retains discovery ret
       seen.push(stage);
     },
   });
-  await recovery.run();
-  await recovery.run();
+  await recovery.run(stopping.signal);
+  await recovery.run(stopping.signal);
   assert({
     given:
       'discovery recovers after an outage and shutdown arrives during the first release',

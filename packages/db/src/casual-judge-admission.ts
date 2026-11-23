@@ -1,12 +1,7 @@
-import { eq } from 'drizzle-orm';
 import { createAppError } from '@daisy/errors';
 import { lockAuthorizationActors } from './authorization';
-import { rounds } from './schema/rounds';
 import { roundHasAiJudge } from './round-ai-judge';
-import {
-  requireAdmissionTarget,
-  requireSponsor,
-} from './round-usage-authority';
+import { lockUsageSponsor } from './usage-sponsor';
 import {
   reserveUsageLocked,
   readAllowanceLocked,
@@ -55,16 +50,7 @@ export function createCasualJudgeAdmission(input: {
       tx: Tx,
       target: { readonly actorId: string; readonly roundId: string },
     ) => {
-      requireAdmissionTarget(target);
-      const [account] = await lockAuthorizationActors(tx, [target.actorId], {
-        maxActors: 1,
-      });
-      const [round] = await tx
-        .select()
-        .from(rounds)
-        .where(eq(rounds.id, target.roundId))
-        .for('no key update');
-      requireSponsor(account ?? null, round, target.actorId);
+      const account = await lockUsageSponsor(tx, target);
       if (!(await roundHasAiJudge(tx, target.roundId)))
         throw createAppError('CONFLICT');
       return reserveUsageLocked(tx, {

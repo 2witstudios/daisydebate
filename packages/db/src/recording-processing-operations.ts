@@ -1,3 +1,4 @@
+import { listedWord } from './lifecycle-sql';
 import { instantMs } from '@daisy/clock';
 import { createAppError } from '@daisy/errors';
 import { broadcastHoldPrefix } from '@daisy/protocol/broadcast-hold';
@@ -10,6 +11,7 @@ import {
   recordingJobStateSchema,
   type RecordingBuildProgress,
   type RecordingJobState,
+  recordingJobStatuses,
 } from '@daisy/protocol/recording-processing';
 import {
   and,
@@ -31,7 +33,7 @@ import { recordingCaptures } from './schema/recording-captures';
 import { recordingProcessingJobs as jobs } from './schema/recording-processing-jobs';
 import { recordings } from './schema/recordings';
 import type { Tx } from './tx';
-import { run, query } from './raw-rows';
+import { parsedColumn, run, query } from './raw-rows';
 import { z } from 'zod';
 
 const stateColumns = (state: RecordingJobState) => ({
@@ -76,7 +78,7 @@ export const openRecordingJobIfEgressRecorded = async (
       tx,
       sql`insert into recording_processing_jobs
         (recording_id, hold_prefix, status, state)
-      values (${recordingId}, ${broadcastHoldPrefix(broadcastId)}, 'waiting', ${JSON.stringify(recordingJobStateSchema.parse({ status: 'waiting' }))}::text::jsonb)
+      values (${recordingId}, ${broadcastHoldPrefix(broadcastId)}, ${listedWord(recordingJobStatuses, 'waiting')}, ${JSON.stringify(recordingJobStateSchema.parse({ status: 'waiting' }))}::text::jsonb)
       on conflict (recording_id) do nothing`,
     );
 };
@@ -377,7 +379,9 @@ export const listUnsettledRecordingJobs = (
       recordingId: jobs.recordingId,
       state: jobs.state,
       lifecycle: recordings.lifecycle,
-      sourcesInUse: sql<boolean>`(
+      sourcesInUse: parsedColumn(
+        z.boolean(),
+        sql`(
         exists (select 1 from ${broadcasts}
           where ${broadcasts.roundId} = ${recordings.roundId}
             and ${broadcasts.completedAt} is null
@@ -386,6 +390,7 @@ export const listUnsettledRecordingJobs = (
           where ${recordingCaptures.recordingId} = ${recordings.id}
             and ${recordingCaptures.endedAt} is null)
       )`,
+      ),
     })
     .from(jobs)
     .innerJoin(recordings, eq(recordings.id, jobs.recordingId))

@@ -1,3 +1,4 @@
+import { listedWord } from '../lifecycle-sql';
 import { acceptedCommandColumns } from './command-columns';
 import { sql } from 'drizzle-orm';
 import { check, index, pgTable, text, uniqueIndex } from 'drizzle-orm/pg-core';
@@ -32,10 +33,12 @@ export const roundCommandTypes = [
  * protocol `commandId` keys the row, the payload digest detects a retry
  * with a different body, and `result` is replayed to the caller. A dedupe
  * record, not event sourcing. Exactly one principal is set: an actor or a
- * service. `interrupt` is present because a rule ECS cannot receive a
+ * service. `interrupt` is present because a rule the engine cannot receive a
  * command for is a rule it can never exercise; the log records the legal
  * action, not the mechanism that triggered it.
  */
+export type RoundCommandType = (typeof roundCommandTypes)[number];
+
 export const roundCommands = pgTable(
   'round_commands',
   {
@@ -47,7 +50,7 @@ export const roundCommands = pgTable(
       onDelete: 'restrict',
     }),
     serviceId: text('service_id'),
-    ...acceptedCommandColumns(),
+    ...acceptedCommandColumns<typeof roundCommandTypes>(),
   },
   (table) => [
     uniqueIndex('round_commands_id_round_unique').on(
@@ -76,7 +79,7 @@ export const roundCommands = pgTable(
     check('round_commands_type_check', oneOf(table.type, roundCommandTypes)),
     check(
       'round_commands_attendance_principal_check',
-      sql`${table.type} <> 'adjudicate' or (${table.actorId} is null and ${table.serviceId} ~ '^round-attendance:[a-z0-9]{24}$')`,
+      sql`${table.type} <> ${listedWord(roundCommandTypes, 'adjudicate')} or (${table.actorId} is null and ${table.serviceId} ~ '^round-attendance:[a-z0-9]{24}$')`,
     ),
   ],
 );

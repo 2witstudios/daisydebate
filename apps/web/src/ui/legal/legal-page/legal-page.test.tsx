@@ -1,6 +1,6 @@
 import { createElement as h } from 'react';
-import { renderToString } from 'react-dom/server';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
+import { renderAccessible } from '../../../test-support/rendered/accessible';
 import {
   privacyDocument,
   termsDocument,
@@ -11,48 +11,71 @@ setupRitewayBun();
 
 describe('LegalPage', () => {
   test('the terms', () => {
-    const html = renderToString(h(LegalPage, { document: termsDocument }));
+    const view = renderAccessible(h(LegalPage, { document: termsDocument }));
+    const whoCanJoin =
+      termsDocument.sections.find((section) => section.id === 'who-can-join')
+        ?.heading ?? '';
     assert({
       given: 'the terms document',
       should:
         'show one h1 with the version, a contents link and a section for every heading',
       actual: [
-        html.match(/<h1 /g)?.length,
-        html.includes(`Version ${termsDocument.version}.`),
-        html.includes('href="#who-can-join"'),
-        html.match(/<section /g)?.length,
-        html.includes('id="who-can-join-heading"'),
+        view.count('heading', undefined, { level: 1 }),
+        view.textContent().includes(`Version ${termsDocument.version}.`),
+        view
+          .within('navigation', 'Contents')
+          .attribute('link', whoCanJoin, 'href'),
+        view.count('region'),
+        view.attribute('region', whoCanJoin, 'id'),
       ],
-      expected: [1, true, true, termsDocument.sections.length, true],
+      expected: [
+        1,
+        true,
+        '#who-can-join',
+        termsDocument.sections.length,
+        'who-can-join',
+      ],
     });
   });
 
   test('the privacy policy', () => {
-    const html = renderToString(h(LegalPage, { document: privacyDocument }));
+    const view = renderAccessible(h(LegalPage, { document: privacyDocument }));
     assert({
       given: 'the privacy document',
       should: 'name itself and list its sections in a contents list',
       actual: [
-        html.includes('Privacy policy'),
-        (html.match(/href="#/g) ?? []).length,
+        view.textContent().includes('Privacy policy'),
+        view
+          .within('navigation', 'Contents')
+          .all('link')
+          .filter((link) => link.getAttribute('href')?.startsWith('#')).length,
       ],
       expected: [true, privacyDocument.sections.length],
     });
   });
 
   test('an extra control closes the page', () => {
-    const html = renderToString(
+    const view = renderAccessible(
       h(LegalPage, {
         document: privacyDocument,
         extra: h('p', null, 'Change your analytics choices'),
       }),
     );
+    const lastSection = view.all('region').at(-1);
+    const control = view
+      .all('paragraph')
+      .find((p) => p.textContent === 'Change your analytics choices');
     assert({
       given: 'a document and the control it points at',
       should: 'render the control after the last section',
       actual:
-        html.indexOf('Change your analytics choices') >
-        html.lastIndexOf('<section'),
+        control !== undefined &&
+        lastSection !== undefined &&
+        Boolean(
+          lastSection.compareDocumentPosition(control) &
+          lastSection.DOCUMENT_POSITION_FOLLOWING,
+        ) &&
+        !lastSection.contains(control),
       expected: true,
     });
   });

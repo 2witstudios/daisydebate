@@ -146,6 +146,11 @@ definition revision that same Round pins.
 
 ### 6. Postgres is truth; ECS is execution
 
+> Superseded in part by [ADR 0911](0911-round-engine-step-function.md): execution is
+> `stepRound(state, rules, event)`, a pure function, and ids are minted only in its
+> projection. There is no ECS store; read "ECS" below as that step function. The rest of
+> this section stands.
+
 `advanceRoundClock` owns time-only interval transitions over immutable plain
 lifecycle, checkpoint and sequence-indexed segment values. Commands compose the
 same opening and closing primitives; closing always clears the interaction

@@ -1,3 +1,4 @@
+import { listedWord } from '../lifecycle-sql';
 import { drawMethods, drawStatuses } from '@daisy/protocol/lobby';
 import { sql } from 'drizzle-orm';
 import {
@@ -95,11 +96,11 @@ export const draws = pgTable(
     check('draws_method_check', oneOf(table.method, drawMethods)),
     check(
       'draws_published_consistent',
-      sql`(${table.status} = 'published') = (${table.publishedAt} is not null)`,
+      sql`(${table.status} = ${listedWord(drawStatuses, 'published')}) = (${table.publishedAt} is not null)`,
     ),
     check(
       'draws_engine_when_computed',
-      sql`(${table.method} = 'computed') = (${table.engineVersion} is not null)`,
+      sql`(${table.method} = ${listedWord(drawMethods, 'computed')}) = (${table.engineVersion} is not null)`,
     ),
     jsonbIsObject('draws', table.inputs),
   ],

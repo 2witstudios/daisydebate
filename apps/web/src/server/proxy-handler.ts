@@ -1,7 +1,7 @@
 import { roundMediaOrigins } from '../features/round-media/browser-policy';
 import { recordingPlaybackOrigin } from '../features/recording/browser-policy';
 import { broadcastPlaybackOrigin } from '../features/spectating/browser-policy';
-import { createHash } from 'node:crypto';
+import { sha256Base64 } from '@daisy/digest';
 import { NextResponse, type NextRequest } from 'next/server';
 import type { IdGenerator } from '@daisy/clock';
 import { isValidTraceparent } from '@daisy/observability';
@@ -20,10 +20,7 @@ const styleAttributeSources = [
   'position:absolute;height:100%;width:100%;left:0;top:0;right:0;bottom:0;color:transparent',
   'color:transparent',
 ]
-  .map(
-    (style) =>
-      `'sha256-${createHash('sha256').update(style).digest('base64')}'`,
-  )
+  .map((style) => `'sha256-${sha256Base64(style)}'`)
   .join(' ');
 
 /** What the proxy reads from validated server configuration. */

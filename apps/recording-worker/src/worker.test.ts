@@ -1,3 +1,4 @@
+import { virtualClock } from '@daisy/clock/testing';
 import type { RecordingJobState } from '@daisy/protocol/recording-processing';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { RecordingVerificationError } from './build-recording';
@@ -5,10 +6,24 @@ import {
   afterBuildFailure,
   progressIsNews,
   retryDelayMs,
-  runWorker,
+  startRecordingSlot,
 } from './worker';
 
 setupRitewayBun();
+
+/** Runs a slot on virtual time until `stopped` holds, then stops it. */
+const runWorker = async ({
+  stopped,
+  ...deps
+}: Omit<Parameters<typeof startRecordingSlot>[0], 'waits'> & {
+  readonly stopped: () => boolean;
+}) => {
+  const clock = virtualClock();
+  const slot = startRecordingSlot({ ...deps, waits: clock });
+  for (let step = 0; step < 5_000 && !stopped(); step += 1)
+    await clock.advance(100);
+  await clock.run(slot.stop());
+};
 
 const NOW = 1_000_000;
 const built: RecordingJobState = {
@@ -48,7 +63,6 @@ const runOne = async (
   await runWorker({
     owner: 'w',
     now: over.now ?? (() => NOW),
-    sleep: () => new Promise((resolve) => setTimeout(resolve, 0)),
     stopped: () => claimed >= 2,
     report: (event) => calls.reported.push(event),
     workDirOf: (id, owner) => `/work/${id}-${owner}`,
@@ -232,7 +246,6 @@ describe('a run that died with its process', () => {
     await runWorker({
       owner: 'w',
       now: () => NOW,
-      sleep: () => new Promise((resolve) => setTimeout(resolve, 0)),
       stopped: () => claims >= 1,
       report: () => {},
       workDirOf: () => '/work',
@@ -404,7 +417,6 @@ test('a failed Recording is stripped by what history proved, and says it is done
   await runWorker({
     owner: 'w',
     now: () => 1000,
-    sleep: async () => {},
     stopped: () => claims >= 2,
     report: () => {},
     build: async () => {

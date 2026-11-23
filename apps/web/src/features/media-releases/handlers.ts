@@ -1,4 +1,4 @@
-import type { Database } from '@daisy/db';
+import type { MediaReleaseStore } from '@daisy/db/stores/media-releases';
 import { createAppError } from '@daisy/errors';
 import { CLIENT_IP_HEADER } from '@daisy/ingress/client-ip';
 import { idSchema } from '@daisy/protocol/primitives';
@@ -14,7 +14,7 @@ import {
   runMemberRoute,
   type BudgetedMemberBoundary,
   type MemberCaller,
-} from '../../server/member-boundary';
+} from '../auth/member-boundary';
 import { consumeOrThrow, type RateRule } from '../../server/rate-limit';
 import { recipientKey } from '../mail/recipient-key';
 import { isReleaseLinkToken, releaseLinkDigest } from './link-token';
@@ -56,7 +56,10 @@ export type MediaReleaseRouteDependencies = {
   readonly recipientSubkey: () => string;
   readonly stopSubkey: () => string;
   readonly nowMs: () => number;
-  readonly store: Pick<Database, 'mediaReleases' | 'mediaReleaseClubs'>;
+  readonly store: Pick<
+    MediaReleaseStore,
+    'mediaReleases' | 'mediaReleaseClubs'
+  >;
 };
 
 /**

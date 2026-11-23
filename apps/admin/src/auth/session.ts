@@ -1,3 +1,4 @@
+import { inTransaction } from '../db/tx';
 import type { OperatorFact } from '../authorization/authorize-operator';
 import type { AuditDetail } from '../audit/chain';
 import type { AuthDeps } from './attempts';
@@ -35,7 +36,7 @@ async function revoke(
   detail: AuditDetail,
 ): Promise<void> {
   const now = deps.clock.now();
-  await deps.db.transaction(async (tx) => {
+  await inTransaction(deps.db, async (tx) => {
     const revoked = await revokeSessions(tx, {
       operatorId: input.operatorId,
       only: input.sessionId,

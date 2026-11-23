@@ -1,15 +1,14 @@
 'use client';
 
-import { useBrowserEffect } from '../../edge/browser-sync';
+import { useNavigation } from '../../edge/use-navigation';
 import { navigateDocument } from '../../edge/browser-navigation';
 import { useReducer } from 'react';
 import { useRouter } from 'next/navigation';
+import { useMovedOn } from '../../form-action/use-moved-on';
 import { destinationOf } from '../../../features/forms/form-state';
 import { authClient } from '../../../lib/auth-client';
 import { useFormAction, type FormAction } from '../../form-action/form-action';
 import { SavePasskey } from '../save-passkey/save-passkey';
-import { browserDocument } from '../../round-media/browser-document';
-import { replaceRoute } from '../../round-media/replace-route';
 import {
   declineUnavailable,
   initialDecline,
@@ -61,14 +60,13 @@ export function PasskeyOffer({
     declineUnavailable,
   );
   const router = useRouter();
-  useBrowserEffect(() => {
-    if (state.step === 'done') navigateDocument(destination);
-  }, [state.step, destination]);
+  useNavigation(
+    router,
+    state.step === 'done' ? destination : undefined,
+    (_router, saved) => navigateDocument(saved),
+  );
   const declinedTo = destinationOf(declined);
-  useBrowserEffect(() => {
-    if (declinedTo !== undefined)
-      replaceRoute(router, browserDocument(), declinedTo);
-  }, [declinedTo, router]);
+  useMovedOn(declinedTo);
 
   if (state.step === 'done') return null;
   const pending = state.saving || declining || declinedTo !== undefined;

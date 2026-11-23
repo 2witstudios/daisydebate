@@ -1,10 +1,13 @@
-import type { Database, MessagingUnreadEmailDelivery } from '@daisy/db';
+import type {
+  MessagingStore,
+  MessagingUnreadEmailDelivery,
+} from '@daisy/db/stores/messaging';
 import { renderEmailLayout } from '../mail/layout';
 import type { EmailMessage } from '../mail/types';
 import { createAwayMailDelivery } from '../notifications/email/away-mail';
 
 type Store = Pick<
-  Database,
+  MessagingStore,
   | 'claimMessagingUnreadEmails'
   | 'readMessagingUnreadEmailDelivery'
   | 'settleMessagingUnreadEmail'

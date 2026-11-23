@@ -1,7 +1,10 @@
 'use client';
 
-import { useBrowserEffect, useBrowserLayoutEffect } from '../edge/browser-sync';
-import { StatusRegion } from '../components/status-region/status-region';
+import { useDeliver } from '../edge/use-answer';
+import { useDocumentEvent } from '../edge/use-dom-events';
+import { useFocusOnChange } from '../edge/use-focus';
+import { useMediaChange } from '../edge/use-dom-events';
+import { Announcement } from '../components/announcement/announcement';
 import { Button } from '../components/button/button';
 import { useCallback, useReducer, useRef } from 'react';
 import {
@@ -40,6 +43,9 @@ export type InitialDrive = {
   readonly folders: readonly FolderRow[];
   readonly recent: readonly RecentDocument[];
 };
+
+/** Where Files and the document become one pane at a time. */
+const NARROW = '(width < 901px)';
 
 /**
  * The document manager (ADR 0111): the member's tree, search, tabs and editor as
@@ -125,62 +131,49 @@ export function ManagerWorkspace({
       movingFocus.current = false;
     }
   }, []);
-  useBrowserLayoutEffect(() => {
-    if (
-      state.navigation.focus !== null &&
-      window.matchMedia('(width < 901px)').matches
-    )
+  useFocusOnChange(state.navigation, () => {
+    if (state.navigation.focus !== null && window.matchMedia(NARROW).matches)
       focusPane(state.navigation.focus);
-  }, [state.navigation, focusPane]);
-  useBrowserEffect(() => {
-    const narrow = window.matchMedia('(width < 901px)');
-    const remember = (event: FocusEvent) => {
-      if (event.target === document.body) return;
-      lastFocused.current = workspace.current?.contains(event.target as Node)
-        ? (event.target as HTMLElement)
-        : null;
-    };
-    const outside = (event: PointerEvent) => {
-      if (!workspace.current?.contains(event.target as Node))
-        lastFocused.current = null;
-    };
-    const crossed = () => {
-      if (!narrow.matches) return;
-      const visible =
-        state.navigation.pane === 'document' ? 'document' : 'files';
-      const hidden =
-        visible === 'document' ? filesPane.current : documentPane.current;
-      const active = document.activeElement;
-      // A top-layer menu survives display:none and otherwise reappears in its
-      // old step when Files returns. Close it before handing focus across.
-      for (const popover of hidden?.querySelectorAll<HTMLElement>(
-        ':popover-open',
-      ) ?? [])
-        popover.hidePopover();
-      // CSS may already have blurred the hidden control to BODY before this
-      // media-query event. Remember only focus this manager actually owned.
-      if (
-        hidden?.contains(active) ||
-        (active === document.body &&
-          lastFocused.current !== null &&
-          hidden?.contains(lastFocused.current))
-      )
-        focusPane(visible);
-    };
-    document.addEventListener('focusin', remember);
-    document.addEventListener('pointerdown', outside);
-    narrow.addEventListener('change', crossed);
-    return () => {
-      document.removeEventListener('focusin', remember);
-      document.removeEventListener('pointerdown', outside);
-      narrow.removeEventListener('change', crossed);
-    };
-  }, [state.navigation.pane, focusPane]);
+  });
+  useDocumentEvent('focusin', (event) => {
+    if (event.target === document.body) return;
+    lastFocused.current = workspace.current?.contains(event.target as Node)
+      ? (event.target as HTMLElement)
+      : null;
+  });
+  useDocumentEvent('pointerdown', (event) => {
+    if (!workspace.current?.contains(event.target as Node))
+      lastFocused.current = null;
+  });
+  useMediaChange(NARROW, (narrow) => {
+    if (!narrow) return;
+    const visible = state.navigation.pane === 'document' ? 'document' : 'files';
+    const hidden =
+      visible === 'document' ? filesPane.current : documentPane.current;
+    const active = document.activeElement;
+    // A top-layer menu survives display:none and otherwise reappears in its
+    // old step when Files returns. Close it before handing focus across.
+    for (const popover of hidden?.querySelectorAll<HTMLElement>(
+      ':popover-open',
+    ) ?? [])
+      popover.hidePopover();
+    // CSS may already have blurred the hidden control to BODY before this
+    // media-query event. Remember only focus this manager actually owned.
+    if (
+      hidden?.contains(active) ||
+      (active === document.body &&
+        lastFocused.current !== null &&
+        hidden?.contains(lastFocused.current))
+    )
+      focusPane(visible);
+  });
   const opened = useRef(false);
-  useBrowserEffect(() => {
-    if (openId === null || opened.current) return;
+  // A linked document opens once the drive has started; before then an open does nothing.
+  const linked = drive.ready ? openId : null;
+  useDeliver(linked, (id) => {
+    if (id === null || opened.current) return;
     opened.current = true;
-    drive.open(openId, 'your document', 'link');
+    drive.open(id, 'your document', 'link');
   });
   const choose = (choice: PaletteChoice) => {
     dispatch({ type: 'palette/close' });
@@ -198,14 +191,14 @@ export function ManagerWorkspace({
       {[...new Set([problem ?? notice, drive.problem, pageNotice])]
         .filter(Boolean)
         .map((message) => (
-          <StatusRegion
+          <Announcement
             as="p"
             key={message}
-            role="alert"
+            kind="problem"
             className="border-b border-border px-4 py-2 text-sm"
           >
             {message}
-          </StatusRegion>
+          </Announcement>
         ))}
       <RecoveredDrafts
         documents={loadedDocuments(state.opened)}
@@ -254,11 +247,12 @@ export function ManagerWorkspace({
             save={save}
             leading={
               <Button
-                variant="unstyled"
+                variant="icon"
                 type="button"
                 ref={backToFiles}
                 aria-label="Back to Files"
-                className="flex h-full w-tab-strip shrink-0 cursor-pointer items-center justify-center border-r border-border compact:hidden"
+                size="strip"
+                className="border-r border-border compact:hidden"
                 onClick={() => dispatch({ type: 'pane/files' })}
               >
                 <Icon name="chevronLeft" size={16} />

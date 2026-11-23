@@ -1,11 +1,33 @@
+import { createRoundStore } from '../src/stores/rounds';
+import { openDatabaseResources } from '../src/resources';
+import { hostWaits } from '@daisy/worker/host';
 import { roundDecisionReleasePolicy } from '@daisy/protocol/round-decision-release';
 import { createId } from '@paralleldrive/cuid2';
 import { requireTestServices } from '@daisy/config';
 import { type RoundProjection } from '@daisy/protocol/runtime';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { createDatabase } from '../src';
 import { validConfig, validRules } from './round-fixtures';
 import { withFixture } from './constraint-helpers';
+/** This file's database: the area stores it reads, over one set of resources. */
+const openStores = (
+  options: Parameters<typeof openDatabaseResources>[0] & {
+    readonly roundTime?: NonNullable<
+      Parameters<typeof createRoundStore>[1]
+    >['roundTime'];
+    readonly decisionRelease?: NonNullable<
+      Parameters<typeof createRoundStore>[1]
+    >['decisionRelease'];
+  },
+) => {
+  const resources = openDatabaseResources(options);
+  return {
+    ...createRoundStore(resources, {
+      roundTime: options.roundTime,
+      decisionRelease: options.decisionRelease,
+    }),
+    close: resources.close,
+  };
+};
 
 setupRitewayBun();
 
@@ -99,10 +121,10 @@ test('one write closes a speech and opens the next under the one-open-row index'
       ],
       effects: [],
     };
-    const database = createDatabase({
+    const database = openStores({
+      waits: hostWaits,
       decisionRelease: roundDecisionReleasePolicy,
       url,
-      nextActorId: createId,
     });
     try {
       await database.executeRoundTick({
@@ -143,10 +165,10 @@ test('hydration orders closed segments by their schedule sequence', async () => 
         duration_ms: 240_000,
       });
     }
-    const database = createDatabase({
+    const database = openStores({
+      waits: hostWaits,
       decisionRelease: roundDecisionReleasePolicy,
       url,
-      nextActorId: createId,
     });
     try {
       const round = await database.getRound(roundId);

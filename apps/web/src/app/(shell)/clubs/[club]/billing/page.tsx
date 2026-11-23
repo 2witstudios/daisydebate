@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
-import { requireAccess } from '../../../../../lib/access';
-import { requestNow } from '../../../../../lib/request-session';
+import { requireAccess } from '../../../../../features/access/page-access';
+import { requestNow } from '../../../../../lib/page-reads';
 import type { SearchParams } from '../../../../../features/access/decision';
 import {
   clubBillingViewSchema,
@@ -38,11 +38,15 @@ export default async function ClubBilling({
   if (!clubId.test(club)) notFound();
   const [view, seating] = await Promise.all([
     readOwnRoute(
-      billingRoute,
+      (request) => billingRoute(request, { params: Promise.resolve({ club }) }),
       `/api/clubs/${club}/billing`,
       clubBillingViewSchema,
     ),
-    readOwnRoute(seatsRoute, `/api/clubs/${club}/seats`, clubSeatsViewSchema),
+    readOwnRoute(
+      (request) => seatsRoute(request, { params: Promise.resolve({ club }) }),
+      `/api/clubs/${club}/seats`,
+      clubSeatsViewSchema,
+    ),
   ]);
   if (!view || !seating) notFound();
   const query = await searchParams;

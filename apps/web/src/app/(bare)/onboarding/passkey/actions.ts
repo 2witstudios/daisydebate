@@ -3,7 +3,7 @@
 import { headers } from 'next/headers';
 import { returnableDestination } from '../../../../features/auth/redirect';
 import { afterPasskey } from '../answers';
-import { moveOn } from '../../../../server/form-action';
+import { moveOn } from '../../../../features/forms/form-action';
 import type { DeclineState } from '../../../../ui/auth/onboarding/decline-offer';
 
 /**

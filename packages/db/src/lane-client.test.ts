@@ -1,7 +1,8 @@
+import { virtualClock } from '@daisy/clock/testing';
 import { SQL } from 'bun';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { laneClient } from './lane-client';
-import { createLaneGate } from './workload-admission';
+import { createLaneGate } from './workload';
 
 setupRitewayBun();
 
@@ -10,7 +11,11 @@ const inertPool = () => new SQL('postgres://lane@127.0.0.1:1/lane');
 test('pool lifecycle members are not reachable through a lane', () => {
   const client = laneClient(
     inertPool(),
-    createLaneGate('social', { connections: 1, queue: 0, maxWaitMs: 1 }),
+    createLaneGate(
+      'social',
+      { connections: 1, queue: 0, maxWaitMs: 1 },
+      virtualClock(),
+    ),
   );
   const refused = (member: 'listen' | 'close') => {
     try {
@@ -46,7 +51,11 @@ const bunSqlMembers = (): PropertyKey[] => {
 test('every Bun SQL member is either admitted through the lane or refused', () => {
   const client = laneClient(
     inertPool(),
-    createLaneGate('social', { connections: 1, queue: 0, maxWaitMs: 1 }),
+    createLaneGate(
+      'social',
+      { connections: 1, queue: 0, maxWaitMs: 1 },
+      virtualClock(),
+    ),
   );
   const reach = (member: PropertyKey) => {
     const value: unknown = Reflect.get(client, member);
@@ -78,11 +87,11 @@ test('every Bun SQL member is either admitted through the lane or refused', () =
 });
 
 test('distributed transactions and NOTIFY cannot run past a full lane', async () => {
-  const gate = createLaneGate('social', {
-    connections: 1,
-    queue: 0,
-    maxWaitMs: 1,
-  });
+  const gate = createLaneGate(
+    'social',
+    { connections: 1, queue: 0, maxWaitMs: 1 },
+    virtualClock(),
+  );
   const raw: string[] = [];
   const members = [
     'beginDistributed',
@@ -132,7 +141,11 @@ test('distributed transactions and NOTIFY cannot run past a full lane', async ()
 test('a lane client is not a thenable and has no symbol members', async () => {
   const client = laneClient(
     inertPool(),
-    createLaneGate('social', { connections: 1, queue: 0, maxWaitMs: 1 }),
+    createLaneGate(
+      'social',
+      { connections: 1, queue: 0, maxWaitMs: 1 },
+      virtualClock(),
+    ),
   );
   const returned = await (async () => client)();
   assert({

@@ -73,7 +73,7 @@ async function outageRun(input: {
   const nowMs = clock.nowMs;
   const app = webApp(nowMs, nowMs() - 1000);
   const stop = new AbortController();
-  const client = signedCaptureClient(app.fetch, nowMs);
+  const client = signedCaptureClient(app.fetch, clock);
   const silenced = new AbortController();
   const running = runCaptureSession(
     {
@@ -211,7 +211,7 @@ test('two seats held through almost the whole budget lose nothing', async () => 
     if (op === 'release') return Response.json(null);
     return Response.json({ duplicate: false, revision: log.length });
   };
-  const client = signedCaptureClient(fetchWeb, clock);
+  const client = signedCaptureClient(fetchWeb, time);
   let emit: ((frame: never) => void) | undefined;
   const stop = new AbortController();
   const running = runCaptureSession(

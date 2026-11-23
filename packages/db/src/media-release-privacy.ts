@@ -1,9 +1,11 @@
+import { releaseWithdrawers } from '@daisy/protocol/media-release';
+import { organizationKinds } from '@daisy/protocol/lobby';
+import { listedWord, listedWords } from './lifecycle-sql';
 import { sql } from 'drizzle-orm';
 import type { PrivacyAdopter } from './privacy/contracts';
-import { exportRows } from './privacy/export-rows';
+import { exportRows, query, run } from './raw-rows';
 import { scopeTransaction } from './tenant-scope';
 import type { Tx } from './tx';
-import { query, run } from './raw-rows';
 import { z } from 'zod';
 
 const page = 100;
@@ -23,7 +25,7 @@ async function eachClub(
       const clubs = await query(
         tx,
         z.object({ id: z.string() }),
-        sql`select id from organizations where kind in ('school', 'family')
+        sql`select id from organizations where kind in ${listedWords(organizationKinds, ['school', 'family'])}
           and id > ${after} order by id limit ${page}`,
       );
       for (const club of clubs) {
@@ -58,7 +60,7 @@ export const mediaReleasePrivacyAdopter: PrivacyAdopter = {
     await run(
       tx,
       sql`update media_releases set withdrawn_at = clock_timestamp(),
-          withdrawn_by = 'erasure'
+          withdrawn_by = ${listedWord(releaseWithdrawers, 'erasure')}
         where user_id = ${subject.userId} and withdrawn_at is null`,
     );
     await run(

@@ -1,24 +1,24 @@
 'use client';
-import { useBrowserEffect } from '../edge/browser-sync';
-import { browserFetch } from '../edge/browser-request';
-import { delay, scheduleTick } from '../edge/browser-time';
-import { useRef, useState } from 'react';
-import { Room, RoomEvent, Track, type RemoteTrack } from 'livekit-client';
 import {
-  applyStageSubscriptions,
-  seatMedia,
-  subscribesTo,
-  type StageParticipant,
-} from './stage-subscriptions';
-import type { StageRoomHandle } from './stage-connection';
-import { drawableStageAnswer, type StageAnswer } from './stage-answer';
-import { createStageConnection } from './stage-connector';
-import { mayStartRecording, whenFontsSettle } from './stage-fonts';
-import { startStagePoll } from './stage-poll';
-import { stageWatchStart, watchedStage } from './stage-watch';
-import { StageView, type StageLink } from './stage-view';
+  browserTransport,
+  type BrowserTransport,
+} from '../edge/browser-request';
+import { pause } from '../edge/browser-waits';
+import { browserScheduler } from '../edge/browser-time';
+import { useDriver, useResource } from '../edge/use-driver';
+import { useCallback, useRef } from 'react';
+import { Room, RoomEvent, Track, type RemoteTrack } from 'livekit-client';
+import { seatMedia } from './stage-subscriptions';
+import { drawableStageAnswer } from './stage-answer';
+import { whenFontsSettle } from './stage-fonts';
+import {
+  createStageRoomDriver,
+  stageRoomStart,
+  type StageMediaEvents,
+  type StageMediaRoom,
+} from './stage-driver';
+import { StageView } from './stage-view';
 
-const POLL_MS = 1000;
 const READ_TIMEOUT_MS = 3000;
 const SITE_LINK = 'daisydebate.com';
 /** Long enough for self-hosted faces; short enough that a lost one costs no speech. */
@@ -37,24 +37,29 @@ const loadFrameFaces = () => {
   );
 };
 
-/** The LiveKit room the stage joins, under the observer token and without retries of its own. */
-type StageMediaRoom = StageRoomHandle & { readonly room: Room };
-
-/** One read of the stage: its HTTP status (null for no answer) and its snapshot, if readable. */
-type StageRead = {
-  readonly status: number | null;
-  readonly next: StageAnswer | null;
-};
+/** The stage's own read, under its credential; no answer reads as null. */
+const readStage = (
+  fetch: BrowserTransport,
+  {
+    captureId,
+    credential,
+  }: { readonly captureId: string; readonly credential: string },
+) =>
+  fetch(`/api/stage/${captureId}`, {
+    headers: { 'x-stage-credential': credential },
+    cache: 'no-store',
+    signal: AbortSignal.timeout(READ_TIMEOUT_MS),
+  }).catch(() => null);
 
 /** Fills its seat, so the 540p top layer reaches the frame close to one to one. */
 function StageTile({ track }: { readonly track: RemoteTrack | undefined }) {
   const video = useRef<HTMLVideoElement>(null);
-  useBrowserEffect(() => {
+  useResource(track, (shown) => {
     const element = video.current;
-    if (!track || !element) return undefined;
-    track.attach(element);
-    return () => void track.detach(element);
-  }, [track]);
+    if (!shown || !element) return null;
+    shown.attach(element);
+    return { dispose: () => void shown.detach(element) };
+  });
   return (
     <video
       ref={video}
@@ -67,6 +72,70 @@ function StageTile({ track }: { readonly track: RemoteTrack | undefined }) {
 }
 
 /**
+ * The LiveKit room the stage joins, under the observer token and without
+ * retries of its own, reporting by the stage's names. Voices play from the
+ * document body.
+ */
+const liveKitRoom = (events: StageMediaEvents<RemoteTrack>): StageMediaRoom => {
+  const room = new Room({ adaptiveStream: false, dynacast: false });
+  room.on(RoomEvent.TrackSubscribed, (track, _pub, participant) =>
+    events.subscribed(
+      participant.identity,
+      track,
+      track.kind === Track.Kind.Video,
+    ),
+  );
+  room.on(RoomEvent.TrackUnsubscribed, (track, _pub, participant) =>
+    events.unsubscribed(
+      participant.identity,
+      track,
+      track.kind === Track.Kind.Video,
+    ),
+  );
+  room.on(RoomEvent.Reconnecting, events.resuming);
+  room.on(RoomEvent.Reconnected, events.resumed);
+  room.on(RoomEvent.Disconnected, events.disconnected);
+  return {
+    // One attempt per read: the poll is the retry, so attempts never stack.
+    connect: (url, token) =>
+      room.connect(url, token, { autoSubscribe: false, maxRetries: 0 }),
+    disconnect: () => room.disconnect(),
+    participants: () => [...room.remoteParticipants.values()],
+  };
+};
+
+/** The stage of one capture on the browser's transport, timers, fonts and LiveKit. */
+const startStage = (capture: {
+  readonly captureId: string;
+  readonly credential: string;
+}) =>
+  createStageRoomDriver<RemoteTrack>({
+    read: async () => {
+      // A web tier that is gone may never answer, so a read cannot wait for it.
+      const answer = await readStage(browserTransport, capture);
+      // A body cut off mid-read is no new answer; the next read tries again.
+      const next = answer?.ok
+        ? drawableStageAnswer(await answer.json().catch(() => null))
+        : null;
+      return { status: answer?.status ?? null, next };
+    },
+    every: browserScheduler.every,
+    now: () => performance.now(),
+    createRoom: liveKitRoom,
+    play: (track) => void document.body.appendChild(track.attach()),
+    release: (track) => track.detach().forEach((element) => element.remove()),
+    fontsSettled: () =>
+      whenFontsSettle({
+        load: loadFrameFaces,
+        wait: pause,
+        limitMs: FONT_WAIT_MS,
+      }),
+    // Egress waits for exactly these lines (awaitStartSignal) and stops on the end.
+    // eslint-disable-next-line no-console
+    signal: (line) => console.log(line),
+  });
+
+/**
  * Connects under the observer token and rejoins when the Round's room rotates or the
  * media server cannot be reached: the link shows reconnecting until a room is joined.
  */
@@ -74,130 +143,15 @@ export function StageRoom(props: {
   readonly captureId: string;
   readonly credential: string;
 }) {
-  const [stage, setStage] = useState<StageAnswer | null>(null);
-  const [link, setLink] = useState<StageLink>('reconnecting');
-  const [cameras, setCameras] = useState<ReadonlyMap<string, RemoteTrack>>(
-    new Map(),
+  const { captureId, credential } = props;
+  const start = useCallback(
+    () => startStage({ captureId, credential }),
+    [captureId, credential],
   );
-  const [participants, setParticipants] = useState<readonly StageParticipant[]>(
-    [],
+  const [{ stage, link, cameras, participants }] = useDriver(
+    stageRoomStart<RemoteTrack>,
+    start,
   );
-  const started = useRef(false);
-  const watch = useRef(stageWatchStart);
-  const identities = useRef<readonly string[]>([]);
-  useBrowserEffect(() => {
-    const connection = createStageConnection<StageMediaRoom>({
-      createRoom: () => {
-        const room = new Room({ adaptiveStream: false, dynacast: false });
-        const media: StageMediaRoom = {
-          room,
-          // One attempt per read: the poll is the retry, so attempts never stack.
-          connect: (url, token) =>
-            room.connect(url, token, { autoSubscribe: false, maxRetries: 0 }),
-          disconnect: () => room.disconnect(),
-        };
-        room.on(RoomEvent.TrackSubscribed, (track, _pub, participant) => {
-          if (!subscribesTo(identities.current, participant.identity)) return;
-          if (track.kind === Track.Kind.Video)
-            setCameras((all) => new Map(all).set(participant.identity, track));
-          else document.body.appendChild(track.attach());
-        });
-        room.on(RoomEvent.TrackUnsubscribed, (track, _pub, participant) => {
-          // A room the stage let go may still unsubscribe; the tiles belong to the held one.
-          if (track.kind !== Track.Kind.Video)
-            track.detach().forEach((element) => element.remove());
-          else if (connection.joinedRoom() === media)
-            setCameras((all) => {
-              const rest = new Map(all);
-              rest.delete(participant.identity);
-              return rest;
-            });
-        });
-        room.on(RoomEvent.Reconnecting, () =>
-          connection.on({ type: 'resuming', room: media }),
-        );
-        room.on(RoomEvent.Reconnected, () =>
-          connection.on({ type: 'resumed', room: media }),
-        );
-        room.on(RoomEvent.Disconnected, () => {
-          if (connection.dropped(media)) setCameras(new Map());
-        });
-        return media;
-      },
-      onLink: setLink,
-    });
-    /** One whole answer, body included, so the poll can order it; never rejects. */
-    const read = async (): Promise<StageRead> => {
-      // A web tier that is gone may never answer, so a read cannot wait for it.
-      const answer = await browserFetch(`/api/stage/${props.captureId}`, {
-        headers: { 'x-stage-credential': props.credential },
-        cache: 'no-store',
-        signal: AbortSignal.timeout(READ_TIMEOUT_MS),
-      }).catch(() => null);
-      // A body cut off mid-read is no new answer; the next read tries again.
-      const next = answer?.ok
-        ? drawableStageAnswer(await answer.json().catch(() => null))
-        : null;
-      return { status: answer?.status ?? null, next };
-    };
-    const apply = ({ status, next }: StageRead) => {
-      watch.current = watchedStage(watch.current, status, performance.now());
-      if (watch.current.ended) {
-        // Egress stops on exactly this line. Nothing else can stop it with the web gone.
-        // eslint-disable-next-line no-console
-        console.log('END_RECORDING');
-        stop();
-        connection.close();
-        return;
-      }
-      if (next) show(next);
-    };
-    const show = (next: StageAnswer) => {
-      setStage(next);
-      identities.current = next.debaterIdentities;
-      const present = connection.joinedRoom()?.room;
-      setParticipants([...(present?.remoteParticipants.values() ?? [])]);
-      if (present)
-        applyStageSubscriptions(
-          present.remoteParticipants.values(),
-          next.debaterIdentities,
-          next.phase,
-        );
-      // Not awaited: a connect may take seconds, and the watch must keep reading.
-      if (next.room) void connection.offer(next.room);
-    };
-    // apply() runs only after a read settles, so the poll has returned by then.
-    const stop = startStagePoll({
-      read,
-      apply,
-      every: (tick) => {
-        return scheduleTick(tick, POLL_MS);
-      },
-    });
-    return () => {
-      stop();
-      connection.close();
-    };
-  }, [props.captureId, props.credential]);
-  const shown = stage !== null;
-  useBrowserEffect(() => {
-    if (!shown || started.current) return undefined;
-    started.current = true;
-    let mounted = true;
-    void whenFontsSettle({
-      load: loadFrameFaces,
-      wait: (ms) => new Promise((done) => delay(done, ms)),
-      limitMs: FONT_WAIT_MS,
-    }).then(() => {
-      if (!mayStartRecording({ mounted, ended: watch.current.ended })) return;
-      // Egress waits for exactly this line before it records (awaitStartSignal).
-      // eslint-disable-next-line no-console
-      console.log('START_RECORDING');
-    });
-    return () => {
-      mounted = false;
-    };
-  }, [shown]);
   if (!stage) return null;
   return (
     <StageView

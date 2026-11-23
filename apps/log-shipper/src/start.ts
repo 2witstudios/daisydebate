@@ -1,6 +1,8 @@
 import { connect } from '@nats-io/transport-node';
-import { nowMs, systemClock, systemId } from '@daisy/clock';
+import { systemClock, systemId } from '@daisy/clock';
 import { createLogger } from '@daisy/logger';
+import { pollWork, repeatEvery } from '@daisy/worker';
+import { hostWaits } from '@daisy/worker/host';
 import { createClickHouseSink } from './clickhouse-sink';
 import { readShipperConfig, subscriptionsFor } from './config';
 import { createNatsHealth } from './health';
@@ -55,23 +57,6 @@ for (const { subject, queue } of subscriptionsFor(config.SHIPPER_APPS))
   });
 logger.log('logship.started', {}, 'Log shipper started');
 
-let stopping = false;
-// Set by the signal handler while the loop awaits, so it is read fresh.
-const stoppingNow = () => stopping;
-// Resolves on SIGTERM or SIGINT, so a backoff sleep of up to 30 s never
-// eats the shutdown budget before the drain.
-let wake: () => void = () => undefined;
-const stopped = new Promise<void>((resolve) => {
-  wake = resolve;
-});
-const stop = () => {
-  stopping = true;
-  wake();
-  setTimeout(() => process.exit(0), SHUTDOWN_DEADLINE_MS).unref();
-};
-process.once('SIGTERM', stop);
-process.once('SIGINT', stop);
-
 const beat = async () => {
   try {
     await sink.insertHeartbeat(health.heartbeat(systemClock.now(), buffer));
@@ -79,25 +64,36 @@ const beat = async () => {
     // The missing heartbeat is itself the signal the admin page shows.
   }
 };
-let delay = FLUSH_INTERVAL_MS;
-let lastBeat = 0;
-while (!stoppingNow()) {
-  await Promise.race([Bun.sleep(delay), stopped]);
-  if (stoppingNow()) break;
-  const result = await flush({ buffer, sink, logger, maxBatch: MAX_BATCH });
-  delay =
-    result === 'failed'
-      ? Math.min(delay * 2, MAX_BACKOFF_MS)
-      : FLUSH_INTERVAL_MS;
-  const now = nowMs(systemClock);
-  if (now - lastBeat >= HEARTBEAT_INTERVAL_MS) {
-    lastBeat = now;
-    await beat();
-  }
-}
+// Flushes each second while ClickHouse accepts; a refused flush doubles the
+// wait up to 30 s, and the next one that is accepted resets it.
+const flushing = pollWork({
+  waits: hostWaits,
+  backoff: { busyMs: FLUSH_INTERVAL_MS, idleMaxMs: MAX_BACKOFF_MS },
+  pass: async () =>
+    (await flush({ buffer, sink, logger, maxBatch: MAX_BATCH })) === 'failed'
+      ? 'idle'
+      : 'worked',
+  failed: () => undefined,
+});
+const heartbeat = repeatEvery({
+  waits: hostWaits,
+  everyMs: HEARTBEAT_INTERVAL_MS,
+  runOnStart: true,
+  run: beat,
+  failed: () => undefined,
+});
+
 // Shutdown: stop receiving, send what is buffered while ClickHouse accepts
 // it, then close. Fly's kill_timeout bounds the whole drain.
-await nats.drain();
-while ((await flush({ buffer, sink, logger, maxBatch: MAX_BATCH })) === 'sent');
-await sink.close();
-process.exit(0);
+const stop = async () => {
+  void hostWaits.sleep(SHUTDOWN_DEADLINE_MS).then(() => process.exit(0));
+  await Promise.all([flushing.stop(), heartbeat.stop()]);
+  await nats.drain();
+  while (
+    (await flush({ buffer, sink, logger, maxBatch: MAX_BATCH })) === 'sent'
+  );
+  await sink.close();
+  process.exit(0);
+};
+process.once('SIGTERM', () => void stop());
+process.once('SIGINT', () => void stop());

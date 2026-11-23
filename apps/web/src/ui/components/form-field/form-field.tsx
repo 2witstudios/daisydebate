@@ -1,4 +1,4 @@
-import { StatusRegion } from '../status-region/status-region';
+import { Announcement } from '../announcement/announcement';
 import type { ReactNode } from 'react';
 import {
   errorClass,
@@ -37,8 +37,8 @@ export function FormField({
 /** The refusal under a form: shown as an alert, absent when there is none. */
 export function FormError({ error }: { readonly error: string | undefined }) {
   return error === undefined ? null : (
-    <StatusRegion as="p" role="alert" className={errorClass}>
+    <Announcement as="p" kind="problem" className={errorClass}>
       {error}
-    </StatusRegion>
+    </Announcement>
   );
 }

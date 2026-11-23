@@ -1,12 +1,13 @@
+import { necessaryEvidenceStates } from '@daisy/protocol/necessary-evidence';
 import { roundStatus } from '@daisy/protocol/round';
-import { lifecycleSql } from '../lifecycle-sql';
+import { lifecycleSql, listedWord } from '../lifecycle-sql';
 import { sql } from 'drizzle-orm';
 /** Distinct eligible original-content Rounds. Custody refusal is handled outside this metadata-only query. */
 export const missingRounds = sql`select r.id as round_id,chosen.id as evidence_id,
  coalesce((select max(s.enrolled_at) from transcription_recovery_sources s join necessary_evidence e on e.id=s.evidence_id where e.original_round_id=r.id),
  (select min(e.created_at) from necessary_evidence e where e.original_round_id=r.id)) as turn_at from rounds r cross join lateral (
   select e.id from necessary_evidence e left join transcription_recovery_enrollment_offers offered on offered.evidence_id=e.id where e.round_id=r.id and e.original_round_id=r.id
-   and e.state='retained' and e.payload_accepted_at is not null and e.expires_at>clock_timestamp()
+   and e.state=${listedWord(necessaryEvidenceStates, 'retained')} and e.payload_accepted_at is not null and e.expires_at>clock_timestamp()
    and e.original_subject_actor_ids is not null and e.original_speaker is not null and e.authority_id is not null
    and not exists(select 1 from transcription_recovery_sources s where s.evidence_id=e.id)
    and not exists(select 1 from necessary_evidence_erasure_requests p where p.actor_id=any(e.original_subject_actor_ids))

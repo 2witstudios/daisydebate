@@ -4,7 +4,7 @@ import { accounts, passkeys, sessions, verifications } from './schema/auth';
 import { users } from './schema/users';
 import { instrumented, type DatabaseEventSink } from './instrumented';
 import { deleteExpiredBatch, type RetentionBatch } from './retention';
-import { isUniqueViolation } from './unique-violation';
+import { isUniqueViolation } from './raw-rows';
 import { inTransaction, type TxSource } from './tx';
 
 /** What an email-change completion did; `stale` changed nothing. */

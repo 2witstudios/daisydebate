@@ -1,6 +1,8 @@
+import { hostWaits } from '@daisy/worker/host';
 import { instantMs } from '@daisy/clock';
 import { SQL } from 'bun';
-import { createDatabase } from '@daisy/db';
+import { openDatabaseResources } from '@daisy/db/resources';
+import { createRoundStore } from '@daisy/db/stores/rounds';
 import { validRules } from '@daisy/db/testing';
 import { createId } from '@paralleldrive/cuid2';
 
@@ -18,7 +20,11 @@ export async function withHistoricalSeat(
     readonly closeEligibility: () => Promise<void>;
   }) => Promise<void>,
 ) {
-  const db = createDatabase({ url: databaseUrl, nextActorId: createId });
+  const resources = openDatabaseResources({
+    url: databaseUrl,
+    waits: hostWaits,
+  });
+  const db = createRoundStore(resources);
   const fixture = new SQL(databaseUrl);
   const roundId = createId(),
     actorId = createId(),
@@ -74,7 +80,7 @@ export async function withHistoricalSeat(
   } finally {
     await fixture`delete from rounds where id=${roundId}`;
     await fixture`delete from actors where id=${actorId}`;
-    await db.close();
+    await resources.close();
     await fixture.close();
   }
 }

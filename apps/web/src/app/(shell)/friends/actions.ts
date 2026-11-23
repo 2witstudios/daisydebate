@@ -16,11 +16,12 @@ import {
 } from '../../../features/friends/forms';
 import { inProcessFetch } from '../../../server/in-process-fetch';
 import { processRoute } from '../../../server/process-app';
+import { friendComposition } from '../../../features/friends/composition';
 
 const routes = {
-  request: processRoute((all) => all.friends.request),
-  respond: processRoute((all) => all.friends.respond),
-  remove: processRoute((all) => all.friends.remove),
+  request: processRoute(friendComposition, (all) => all.request),
+  respond: processRoute(friendComposition, (all) => all.respond),
+  remove: processRoute(friendComposition, (all) => all.remove),
 };
 
 /**

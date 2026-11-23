@@ -8,6 +8,7 @@ import {
   createRoomHttpFixture,
   withHumanJudgeHttpRound,
 } from './room-http.test-support';
+import { roundComposition } from '../src/features/round-runtime/composition';
 requireTestServices(process.env);
 setupRitewayBun();
 const http = createRoomHttpFixture();
@@ -23,7 +24,7 @@ test('real authenticated Round responses and JSON and server-action form replays
       // Only the judge's own read names their seat; the seated host's does not.
       const asJudge = roundViewSchema.parse(
         await (
-          await routes.rounds.read(
+          await routes(roundComposition).read(
             new Request(`${f.origin}/api/rounds/${roundId}`, {
               headers: headers(judge),
             }),
@@ -43,7 +44,7 @@ test('real authenticated Round responses and JSON and server-action form replays
       });
       const own = roundViewSchema.parse(
         await (
-          await routes.rounds.read(
+          await routes(roundComposition).read(
             new Request(`${f.origin}/api/rounds/${roundId}`, {
               headers: headers(guest),
             }),
@@ -61,7 +62,7 @@ test('real authenticated Round responses and JSON and server-action form replays
         command: { type: 'forfeit', participantId: seat.id },
       };
       const post = (body: object = envelope) =>
-        routes.rounds.commands(
+        routes(roundComposition).commands(
           f.jsonPost(`/api/rounds/${roundId}/commands`, body, {
             cookie: guest,
           }),
@@ -84,7 +85,7 @@ test('real authenticated Round responses and JSON and server-action form replays
         form.set(name, value);
       const native = await submitRoundForm(
         (path, init) =>
-          routes.rounds.commands(
+          routes(roundComposition).commands(
             f.jsonPost(path, JSON.parse(String(init.body)), { cookie: guest }),
             roundId!,
           ),

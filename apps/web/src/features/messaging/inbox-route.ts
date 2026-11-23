@@ -12,10 +12,7 @@ import { parseValidated } from '../../server/http';
 import { composeMessagingInbox } from './inbox-composition';
 import { unreadConversationsOf } from './inbox-view';
 import { requireMemberActor } from '../access/actor';
-import {
-  memberHttpBoundary,
-  runEvaluatedRoute,
-} from '../../server/member-boundary';
+import { memberHttpBoundary, runEvaluatedRoute } from '../auth/member-boundary';
 const inboxOf = (app: App, principal: AuthorizationPrincipal) =>
   composeMessagingInbox({
     database: app.database,

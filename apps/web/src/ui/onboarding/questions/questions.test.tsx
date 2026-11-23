@@ -1,6 +1,9 @@
-import { renderToString } from 'react-dom/server';
 import { createElement as h } from 'react';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
+import {
+  renderAccessible,
+  type AccessibleView,
+} from '../../../test-support/rendered/accessible';
 import {
   emptyAnswers,
   type OnboardingAnswers,
@@ -11,6 +14,7 @@ import {
   TopicsStep,
   type QuestionStepProps,
 } from './questions';
+import { postedBy } from '../../test-support/posted-fields.test-support';
 
 setupRitewayBun();
 
@@ -19,7 +23,7 @@ const render = (
   answers: Partial<OnboardingAnswers> = {},
   overrides: Partial<QuestionStepProps> = {},
 ) =>
-  renderToString(
+  renderAccessible(
     h(step, {
       answers: { ...emptyAnswers, ...answers },
       action: () => undefined,
@@ -28,31 +32,40 @@ const render = (
       skip: null,
       ...overrides,
     }),
-  ).replaceAll('<!-- -->', '');
+  );
 
-/** Every input as `name=value` with `*` when it renders checked. */
-const inputs = (html: string) =>
-  [...html.matchAll(/<input ([^>]*)>/g)]
-    .map((match) => match[1] as string)
-    .filter((attributes) => !attributes.includes('type="hidden"'))
-    .map((attributes) => {
-      const name = /name="([^"]+)"/.exec(attributes)?.[1];
-      const value = /value="([^"]+)"/.exec(attributes)?.[1];
-      const type = /type="([^"]+)"/.exec(attributes)?.[1];
-      return `${type}:${name}=${value ?? ''}${attributes.includes('checked') ? '*' : ''}`;
-    });
+const inDocumentOrder = (a: Element, b: Element) =>
+  a.compareDocumentPosition(b) & a.DOCUMENT_POSITION_FOLLOWING ? -1 : 1;
+
+/** Every control a member answers with, as `type:name=value`, `*` when checked. */
+const inputs = (view: AccessibleView) =>
+  ['checkbox', 'radio', 'textbox']
+    .flatMap((role) => view.all(role))
+    .sort(inDocumentOrder)
+    .map(
+      (input) =>
+        `${input.getAttribute('type')}:${input.getAttribute('name')}=${input.getAttribute('value') ?? ''}${input.hasAttribute('checked') ? '*' : ''}`,
+    );
+
+/** Every control on the step, answers and buttons alike. */
+const controls = (view: AccessibleView) =>
+  ['checkbox', 'radio', 'textbox', 'button'].flatMap((role) => view.all(role));
+
+/** The step a form's Next button posts, in a hidden field no role reaches. */
+const hiddenStep = (view: AccessibleView, title: string) =>
+  postedBy(view.within('form', title), 'Next').step;
 
 describe('AboutStep', () => {
   test('wants are many, club is one, and a club name waits for “I have a club”', () => {
-    const html = render(AboutStep, { wants: ['debate', 'watch'], club: 'own' });
+    const view = render(AboutStep, { wants: ['debate', 'watch'], club: 'own' });
     assert({
       given: 'a member who wants to debate and watch, on their own',
       should:
-        'render four checkboxes and three radios with the saved ones checked, and the club-name field present but shown only once joining is picked',
+        'render four checkboxes and three radios with the saved ones checked, and the club-name field present (CSS shows it once joining is picked: see markup-contracts)',
       actual: [
-        inputs(html),
-        html.includes('onboarding-club-reveal'),
-        html.includes('Club name'),
+        inputs(view),
+        view.has('textbox', 'Club name'),
+        view.attribute('textbox', 'Club name', 'name'),
       ],
       expected: [
         [
@@ -66,13 +79,13 @@ describe('AboutStep', () => {
           'text:clubName=',
         ],
         true,
-        true,
+        'clubName',
       ],
     });
   });
 
   test('a saved club name shows again', () => {
-    const html = render(AboutStep, {
+    const view = render(AboutStep, {
       club: 'joining',
       clubName: 'Nova Academy',
     });
@@ -80,23 +93,23 @@ describe('AboutStep', () => {
       given: 'a member whose club is joining, with a saved name',
       should: 'carry the name in the field, checked radio and all',
       actual: [
-        html.includes('value="Nova Academy"'),
-        inputs(html).filter((input) => input === 'radio:club=joining*').length,
+        view.attribute('textbox', 'Club name', 'value') === 'Nova Academy',
+        inputs(view).filter((input) => input === 'radio:club=joining*').length,
       ],
       expected: [true, 1],
     });
   });
 
   test('the form', () => {
-    const html = render(AboutStep);
+    const view = render(AboutStep);
     assert({
       given: 'the about step',
       should: 'post the step name, say "I want to" and say 6 of 8',
       actual: [
-        html.includes('<input type="hidden" name="step" value="about"/>'),
-        html.includes('I want to'),
-        html.includes('6 of 8'),
-        html.includes('>Next</button>'),
+        hiddenStep(view, 'About you') === 'about',
+        view.has('group', 'I want to'),
+        view.textContent().includes('6 of 8'),
+        view.has('button', 'Next'),
       ],
       expected: [true, true, true, true],
     });
@@ -106,34 +119,36 @@ describe('AboutStep', () => {
     assert({
       given: 'a post that was refused or never arrived',
       should: 'say the answers were not saved',
-      actual: render(AboutStep, {}, { refused: true }).includes(
-        'Your answers weren’t saved. Try again.',
-      ),
+      actual: render(AboutStep, {}, { refused: true })
+        .textContent()
+        .includes('Your answers weren’t saved. Try again.'),
       expected: true,
     });
   });
 
   test('while posting', () => {
-    const html = render(AboutStep, {}, { pending: true });
+    const view = render(AboutStep, {}, { pending: true });
     assert({
       given: 'a post on the way',
       should: 'disable every choice, the club name and the submit',
       actual: [
-        (html.match(/disabled=""/g) ?? []).length,
-        html.includes('aria-busy="true"'),
+        controls(view).length,
+        controls(view).filter((control) => control.hasAttribute('disabled'))
+          .length,
+        view.attribute('form', 'About you', 'aria-busy'),
       ],
-      expected: [9, true],
+      expected: [9, 9, 'true'],
     });
   });
 });
 
 describe('ExperienceStep', () => {
   test('one level, and leagues as chips with an open field', () => {
-    const html = render(ExperienceStep, {
+    const view = render(ExperienceStep, {
       experience: 'circuit',
       leagues: ['NSDA', 'PhD League'],
     });
-    const leagues = inputs(html).filter((input) =>
+    const leagues = inputs(view).filter((input) =>
       input.startsWith('checkbox:leagues='),
     );
     assert({
@@ -142,12 +157,12 @@ describe('ExperienceStep', () => {
       should:
         'check both, offer the catalog’s other leagues as unchecked chips and an open field beside them, and ask no match length',
       actual: [
-        inputs(html).filter((input) => input.startsWith('radio:experience=')),
+        inputs(view).filter((input) => input.startsWith('radio:experience=')),
         leagues.filter((league) => league.endsWith('*')),
         leagues.map((league) => league.replace(/\*$/, '').split('=')[1]),
-        inputs(html).includes('text:leagueOther='),
-        html.includes('Leagues you’ve been affiliated with'),
-        html.includes('formats'),
+        inputs(view).includes('text:leagueOther='),
+        view.has('group', 'Leagues you’ve been affiliated with'),
+        view.textContent().includes('formats'),
       ],
       expected: [
         [
@@ -186,15 +201,15 @@ describe('ExperienceStep', () => {
 
 describe('TopicsStep', () => {
   test('twelve topics and a count', () => {
-    const html = render(TopicsStep, { topics: ['law', 'ethics'] });
+    const view = render(TopicsStep, { topics: ['law', 'ethics'] });
     assert({
       given: 'a member who picked two topics',
       should: 'render twelve checkboxes, say 2 selected and offer Finish',
       actual: [
-        inputs(html).length,
-        inputs(html).filter((input) => input.endsWith('*')),
-        html.includes('2 selected'),
-        html.includes('>Finish</button>'),
+        inputs(view).length,
+        inputs(view).filter((input) => input.endsWith('*')),
+        view.textContent().includes('2 selected'),
+        view.has('button', 'Finish'),
       ],
       expected: [
         12,
@@ -219,9 +234,11 @@ describe('a step opened to change one answer (ISSUE-324)', () => {
         'label the submit Save and show no step count when editing, and keep Next with "6 of 8" during onboarding',
       actual: [
         editing.map(
-          (html) => html.includes('>Save<') && !/\d of \d/.test(html),
+          (view) =>
+            view.has('button', 'Save') && !/\d of \d/.test(view.textContent()),
         ),
-        onboarding.includes('>Next<') && /\d of \d/.test(onboarding),
+        onboarding.has('button', 'Next') &&
+          /\d of \d/.test(onboarding.textContent()),
       ],
       expected: [[true, true, true], true],
     });

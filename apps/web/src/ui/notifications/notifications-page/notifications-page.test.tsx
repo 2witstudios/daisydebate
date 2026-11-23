@@ -1,8 +1,8 @@
 import { idle } from '../../../features/forms/form-state';
 import { AppRouterContext } from 'next/dist/shared/lib/app-router-context.shared-runtime';
 import { createElement as h } from 'react';
-import { renderToString } from 'react-dom/server';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
+import { renderAccessible } from '../../../test-support/rendered/accessible';
 import { getNotifications } from '../../../features/notifications/get-notifications';
 import { NotificationsPage } from './notifications-page';
 
@@ -22,7 +22,7 @@ const render = (
   params: Record<string, string>,
   items: Parameters<typeof getNotifications>[1] = [],
 ) =>
-  renderToString(
+  renderAccessible(
     h(
       AppRouterContext,
       { value: {} as never },
@@ -40,30 +40,29 @@ const render = (
 
 describe('NotificationsPage', () => {
   test('nothing stored', () => {
-    const html = render({});
+    const view = render({});
     assert({
       given: 'no stored notifications',
       should: 'say so, with no sample row and no mark-all control',
       actual: [
-        html.includes('all caught up'),
-        html.includes('Nothing here.'),
-        html.includes('Mark all'),
+        view.textContent().includes('all caught up'),
+        view.textContent().includes('Nothing here.'),
+        view.names('button').filter((name) => name.includes('Mark all')),
       ],
-      expected: [true, true, false],
+      expected: [true, true, []],
     });
   });
 
   test('a stored notification', () => {
-    const html = render({}, stored);
+    const view = render({}, stored);
     assert({
       given: 'one unread stored notification',
       should: 'count it and link it',
       actual: [
-        html.includes('1 unread.'),
-        html.includes('A stored notification'),
-        html.includes('href="/lobby"'),
+        view.textContent().includes('1 unread.'),
+        view.attribute('link', 'A stored notification', 'href'),
       ],
-      expected: [true, true, true],
+      expected: [true, '/lobby'],
     });
   });
 });

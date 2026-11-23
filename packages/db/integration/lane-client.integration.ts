@@ -1,8 +1,9 @@
+import { hostWaits } from '@daisy/worker/host';
 import { requireTestServices } from '@daisy/config';
 import { SQL } from 'bun';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { laneClient } from '../src/lane-client';
-import { createLaneGate } from '../src/workload-admission';
+import { createLaneGate } from '../src/workload';
 
 setupRitewayBun();
 const { databaseUrl } = requireTestServices(process.env);
@@ -12,11 +13,15 @@ const pool = (max: number) => new SQL(databaseUrl, { max });
 test('the lane admits at most two of four actual tagged, raw and values queries', async () => {
   const backend = pool(4);
   const observer = pool(2);
-  const gate = createLaneGate('social', {
-    connections: 2,
-    queue: 8,
-    maxWaitMs: 5000,
-  });
+  const gate = createLaneGate(
+    'social',
+    {
+      connections: 2,
+      queue: 8,
+      maxWaitMs: 5000,
+    },
+    hostWaits,
+  );
   const client = laneClient(backend, gate);
   const barrier = 59281;
   let pending: Promise<unknown>[] = [];
@@ -63,11 +68,15 @@ test('the lane admits at most two of four actual tagged, raw and values queries'
 
 test('a reserved connection and a transaction hold exactly one lane slot until release', async () => {
   const backend = pool(2);
-  const gate = createLaneGate('competitive', {
-    connections: 1,
-    queue: 1,
-    maxWaitMs: 1000,
-  });
+  const gate = createLaneGate(
+    'competitive',
+    {
+      connections: 1,
+      queue: 1,
+      maxWaitMs: 1000,
+    },
+    hostWaits,
+  );
   const client = laneClient(backend, gate);
   try {
     const reserved = await client.reserve();
@@ -96,11 +105,15 @@ test('a reserved connection and a transaction hold exactly one lane slot until r
 
 test('two networks queued on a lane take alternating turns in PostgreSQL', async () => {
   const backend = pool(2);
-  const gate = createLaneGate('social', {
-    connections: 1,
-    queue: 8,
-    maxWaitMs: 3000,
-  });
+  const gate = createLaneGate(
+    'social',
+    {
+      connections: 1,
+      queue: 8,
+      maxWaitMs: 3000,
+    },
+    hostWaits,
+  );
   let network = 'flood';
   const client = laneClient(backend, gate, () => network);
   const held = await gate.admit(1);

@@ -187,6 +187,8 @@
 @custom-variant short-viewport (@media (max-height: 36rem));
 /* A viewport too narrow for the extended rail. */
 @custom-variant icon-rail (@media (width < 1101px));
+/* The current page's own control: a nav tab, a document tab. */
+@custom-variant current (&[aria-current="page"]);
 
 @theme inline {
   --color-forest: var(--forest);

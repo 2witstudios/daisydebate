@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import { describe, test } from 'riteway/bun';
 import { setupRitewayBun, assert } from 'riteway/bun';
 import {
@@ -109,7 +110,7 @@ describe('expectedEvents', async () => {
 });
 
 describe('selectReconcilableMerges', async () => {
-  const now = new Date('2026-09-20T12:00:00.000Z').getTime();
+  const now = instantMs('2026-09-20T12:00:00.000Z');
   const hours = (count: number) => count * 60 * 60 * 1000;
 
   test('ignores merges younger than the grace period', async () => {

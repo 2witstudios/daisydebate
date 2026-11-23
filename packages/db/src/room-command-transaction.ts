@@ -1,9 +1,10 @@
 import type { SQL } from 'bun';
+import { deadlineSignal, type Waits } from '@daisy/clock';
 import { drizzle } from 'drizzle-orm/bun-sql/postgres';
 import { createAppError, isAppError } from '@daisy/errors';
 import { RUNTIME_SESSION } from './session-bounds';
-import { createLaneGate } from './workload-admission';
-import { inTransaction, type Tx } from './tx';
+import { createLaneGate } from './workload';
+import { inTransaction, type TransactionRunner, type Tx } from './tx';
 
 /**
  * Room preparation on the competitive lane (ADR 0088). It may wait on
@@ -12,19 +13,23 @@ import { inTransaction, type Tx } from './tx';
  * writers, and excess is refused at once, before any SQL, with the
  * capacity family.
  */
-export function roomCommandTransaction(competitive: SQL, budget: number) {
-  const gate = createLaneGate('competitive', {
-    connections: budget,
-    queue: 0,
-    maxWaitMs: 1,
-  });
+export function roomCommandTransaction(
+  competitive: SQL,
+  budget: number,
+  waits: Waits,
+): TransactionRunner {
+  const gate = createLaneGate(
+    'competitive',
+    { connections: budget, queue: 0, maxWaitMs: 1 },
+    waits,
+  );
   return async <T>(run: (tx: Tx) => Promise<T>): Promise<T> => {
     const leave = await gate.admit();
     try {
+      const bound = deadlineSignal(waits, RUNTIME_SESSION.lock_timeout);
       const reserved = await competitive
-        .reserve({
-          signal: AbortSignal.timeout(RUNTIME_SESSION.lock_timeout),
-        })
+        .reserve({ signal: bound.signal })
+        .finally(bound.clear)
         .catch((error: unknown) => {
           if (isAppError(error)) throw error;
           throw createAppError(

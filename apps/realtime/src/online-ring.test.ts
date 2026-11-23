@@ -1,12 +1,8 @@
+import { virtualClock } from '@daisy/clock/testing';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { createOnlineRing } from './online-ring';
 
 setupRitewayBun();
-
-const timers = {
-  setInterval: () => 0 as unknown as ReturnType<typeof setInterval>,
-  clearInterval: () => {},
-};
 
 const setup = (revisions: readonly (number | Error)[]) => {
   const queue = [...revisions];
@@ -20,7 +16,8 @@ const setup = (revisions: readonly (number | Error)[]) => {
     ring: () => {
       rings += 1;
     },
-    timers,
+    // Time never moves here: each test ticks by hand.
+    waits: virtualClock(),
   });
   return { onlineRing, rings: () => rings };
 };

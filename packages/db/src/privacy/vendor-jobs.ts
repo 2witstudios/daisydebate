@@ -1,9 +1,12 @@
+import { retriedJobStatuses } from '../schema/columns';
+import { listedWord } from '../lifecycle-sql';
+import { tryCanonicalInstantMs } from '@daisy/clock';
 import { sql } from 'drizzle-orm';
 import { createAppError } from '@daisy/errors';
 import { idSchema } from '@daisy/protocol/primitives';
 import { retriedJob } from '../retried-job';
 import { privacyJobs } from '../schema/privacy-jobs';
-import { privacyVendors, type PrivacyVendor } from './planner';
+import { privacyVendors, type PrivacyVendor } from '../schema/privacy-jobs';
 import type { Tx } from '../tx';
 import { query } from '../raw-rows';
 import { z } from 'zod';
@@ -32,10 +35,8 @@ export async function duePrivacyJobs(
     readonly vendors?: readonly PrivacyVendor[];
   },
 ): Promise<readonly DuePrivacyJob[]> {
-  const due = new Date(input.now);
   if (
-    !Number.isFinite(due.getTime()) ||
-    due.toISOString() !== input.now ||
+    tryCanonicalInstantMs(input.now) === undefined ||
     !Number.isSafeInteger(input.limit) ||
     input.limit < 1 ||
     input.limit > MAX_DUE_BATCH
@@ -58,7 +59,7 @@ export async function duePrivacyJobs(
       attempts: z.number(),
     }),
     sql`select id, vendor, attempts from privacy_jobs
-    where status = 'pending' and retry_at <= ${input.now}::timestamptz ${scope}
+    where status = ${listedWord(retriedJobStatuses, 'pending')} and retry_at <= ${input.now}::timestamptz ${scope}
     order by retry_at, id limit ${input.limit}`,
   );
   // A row the database checks admit is malformed: refuse before delivery.
@@ -87,7 +88,7 @@ export async function owedPrivacyJobs(
     z.object({ owed: z.number() }),
     sql`select count(*)::int as owed
     from privacy_jobs
-    where status = 'pending' ${scope}`,
+    where status = ${listedWord(retriedJobStatuses, 'pending')} ${scope}`,
   );
   return rows[0]?.owed ?? 0;
 }
@@ -110,7 +111,7 @@ export async function deliverPrivacyJob(
     database,
     z.object({ subjectRef: z.string(), attempts: z.number() }),
     sql`select subject_ref as "subjectRef", attempts from privacy_jobs
-    where id = ${input.jobId} and vendor = ${input.vendor} and status = 'pending'
+    where id = ${input.jobId} and vendor = ${input.vendor} and status = ${listedWord(retriedJobStatuses, 'pending')}
     and retry_at <= ${input.now}::timestamptz`,
   );
   const [row] = rows;
@@ -143,15 +144,13 @@ function checkJobInput(input: {
   now: string;
   retryAt: string;
 }) {
-  const now = new Date(input.now);
-  const retryAt = new Date(input.retryAt);
+  const now = tryCanonicalInstantMs(input.now);
+  const retryAt = tryCanonicalInstantMs(input.retryAt);
   if (
     !idSchema.safeParse(input.jobId).success ||
     !privacyVendors.includes(input.vendor) ||
-    !Number.isFinite(now.getTime()) ||
-    now.toISOString() !== input.now ||
-    !Number.isFinite(retryAt.getTime()) ||
-    retryAt.toISOString() !== input.retryAt ||
+    now === undefined ||
+    retryAt === undefined ||
     retryAt <= now
   )
     throw createAppError('VALIDATION');

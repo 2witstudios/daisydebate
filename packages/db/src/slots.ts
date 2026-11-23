@@ -10,7 +10,6 @@
 import type { SQL } from 'bun';
 import { z } from 'zod';
 import { sessionLocks } from './locks';
-import { quoteIdentifier } from './identifiers';
 import { query } from './raw-rows';
 
 const passwordPattern = /^[a-z0-9-]{1,64}$/;
@@ -152,4 +151,16 @@ export async function withSlotLock<T>(
   } finally {
     await sessionLocks.slotAdmin.release(admin);
   }
+}
+/**
+ * Identifiers in CREATE/DROP/COMMENT statements cannot be bound as
+ * parameters, so every database name is checked against a strict allowlist
+ * before it is quoted into SQL (ADR 0034).
+ */
+const identifierPattern = /^[a-z_][a-z0-9_]{0,62}$/;
+
+export function quoteIdentifier(name: string): string {
+  if (!identifierPattern.test(name))
+    throw new Error('Invalid database identifier');
+  return `"${name}"`;
 }

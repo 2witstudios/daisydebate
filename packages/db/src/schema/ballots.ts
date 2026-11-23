@@ -1,3 +1,4 @@
+import { listedWord } from '../lifecycle-sql';
 import { ballotScoresRecordSchema } from '@daisy/protocol/ballot-schema';
 import { daisyBallotDefinitionIds } from '@daisy/protocol/ballot-definition';
 import { type SideKey } from '@daisy/protocol/seats';
@@ -154,11 +155,11 @@ export const ballots = pgTable(
     check('ballots_decision_check', oneOf(table.decision, ballotDecisions)),
     check(
       'ballots_winner_check',
-      sql`(${table.winner} is not null) = (${table.decision} = 'win') and (${isSideKeyOrNull(table.winner)})`,
+      sql`(${table.winner} is not null) = (${table.decision} = ${listedWord(ballotDecisions, 'win')}) and (${isSideKeyOrNull(table.winner)})`,
     ),
     check(
       'ballots_ranking_check',
-      sql`(${table.ranking} is not null) = (${table.decision} = 'ranking') and (${table.ranking} is null or jsonb_typeof(${table.ranking}) = 'array')`,
+      sql`(${table.ranking} is not null) = (${table.decision} = ${listedWord(ballotDecisions, 'ranking')}) and (${table.ranking} is null or jsonb_typeof(${table.ranking}) = 'array')`,
     ),
     // Every ballot names its frozen content; stored sources additionally pin the real version above.
     check(

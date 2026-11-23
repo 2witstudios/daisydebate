@@ -1,7 +1,7 @@
 'use client';
 
 import { Button } from '../components/button/button';
-import { StatusRegion } from '../components/status-region/status-region';
+import { Announcement } from '../components/announcement/announcement';
 import { useState, useSyncExternalStore, type Dispatch } from 'react';
 import { flushSync } from 'react-dom';
 import { generateJSON, generateText } from '@tiptap/core';
@@ -95,35 +95,25 @@ function RecoveredDraft({
         />
       </details>
       <div className="flex flex-wrap gap-2">
-        <Button
-          variant="unstyled"
-          type="button"
-          onClick={restore}
-          className="cursor-pointer px-3 py-1 text-sm text-ink"
-        >
+        <Button variant="ghost" size="small" type="button" onClick={restore}>
           Restore {choiceLabel}
         </Button>
         <Button
-          variant="unstyled"
+          variant="ghost"
+          size="small"
           type="button"
           onClick={() => void copy()}
-          className="cursor-pointer px-3 py-1 text-sm text-ink"
         >
           Copy recovered {choiceLabel}
         </Button>
-        <Button
-          variant="unstyled"
-          type="button"
-          onClick={discard}
-          className="cursor-pointer px-3 py-1 text-sm text-ink-muted"
-        >
+        <Button variant="ghost" size="small" type="button" onClick={discard}>
           Discard recovered {choiceLabel}
         </Button>
       </div>
       {copied ? (
-        <StatusRegion as="p" role="status">
+        <Announcement as="p" kind="progress">
           {copied}
-        </StatusRegion>
+        </Announcement>
       ) : null}
       {manualText !== null ? (
         <label className="flex flex-col gap-1 text-sm">
@@ -156,9 +146,9 @@ function DeletedDocumentNotice({
   readonly problem: string | null;
 }) {
   return (
-    <StatusRegion
+    <Announcement
       as="div"
-      role="alert"
+      kind="problem"
       className="flex items-center gap-3 p-3 text-sm"
     >
       <p className="min-w-0 flex-1">
@@ -168,25 +158,15 @@ function DeletedDocumentNotice({
         It becomes a new Untitled document.
         {problem ? ` ${problem}` : ''}
       </p>
-      <Button
-        variant="unstyled"
-        type="button"
-        onClick={saveAsNew}
-        className="h-room-target cursor-pointer rounded-sm bg-accent px-3 font-strong text-accent-ink"
-      >
+      <Button variant="primary" size="room" type="button" onClick={saveAsNew}>
         Save as a new document
       </Button>
       {deleted ? (
-        <Button
-          variant="unstyled"
-          type="button"
-          onClick={discard}
-          className="h-room-target cursor-pointer px-3 underline"
-        >
+        <Button variant="text-link" size="room" type="button" onClick={discard}>
           Discard
         </Button>
       ) : null}
-    </StatusRegion>
+    </Announcement>
   );
 }
 

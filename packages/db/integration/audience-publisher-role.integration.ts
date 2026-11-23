@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import { requireTestServices } from '@daisy/config';
 import { createId } from '@paralleldrive/cuid2';
 import type { RecordingStatus } from '@daisy/protocol/recording';
@@ -106,8 +107,9 @@ test('the state stays while a viewer may wait for the Recording, no longer', asy
     const format = await f.format();
     const actor = await f.actor();
     const store = createAudiencePublisherStore(databaseUrl);
-    const now = new Date('2026-11-04T12:00:00.000Z');
-    const stopped = new Date(now.getTime() - 20 * 60_000);
+    const nowMs = instantMs('2026-11-04T12:00:00.000Z');
+    const now = new Date(nowMs);
+    const stopped = new Date(nowMs - 20 * 60_000);
     try {
       const overWith = async (
         status: RecordingStatus | null,
@@ -150,7 +152,7 @@ test('the state stays while a viewer may wait for the Recording, no longer', asy
         await f.sql`delete from broadcasts where id=${broadcastId}`;
         return rows.find((row) => row.broadcastId === broadcastId)?.over;
       };
-      const justNow = new Date(now.getTime() - 60_000);
+      const justNow = new Date(nowMs - 60_000);
       assert({
         given: 'a Broadcast stopped 20 minutes ago, by its Recording status',
         should: 'keep it only while the Recording may still arrive',

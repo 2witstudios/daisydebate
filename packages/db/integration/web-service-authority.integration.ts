@@ -1,3 +1,4 @@
+import { hostWaits } from '@daisy/worker/host';
 import { requireTestServices } from '@daisy/config';
 import { assertRejects } from '@daisy/errors/testing';
 import { createId } from '@paralleldrive/cuid2';
@@ -17,10 +18,14 @@ test('held web authority lets its own lease renew and still fences the lease row
   withFixture(url, async (fixture) =>
     withPool(async (client) => {
       const instanceId = createId();
-      const leases = availabilityOperations(fixture.sql, fixture.sql);
+      const leases = availabilityOperations(
+        fixture.sql,
+        fixture.sql,
+        hostWaits,
+      );
       const run = createBoundedTransaction({
-        lane: testLane(client, 4),
-        now: performance.now,
+        lane: testLane(client, hostWaits, 4),
+        waits: hostWaits,
       });
       await leases.renewServiceInstance({ instanceId, role: 'web' });
       const held = Promise.withResolvers<number>();
@@ -41,7 +46,7 @@ test('held web authority lets its own lease renew and still fences the lease row
           renewal,
           fixture.sql,
           pid,
-          { now: performance.now, deadlineMs: 1000 },
+          { waits: hostWaits, deadlineMs: 1000 },
         );
         if (renewed === 'blocked') release.resolve();
         await renewal;
@@ -51,7 +56,7 @@ test('held web authority lets its own lease renew and still fences the lease row
           deletion,
           fixture.sql,
           pid,
-          { now: performance.now, deadlineMs: 1000 },
+          { waits: hostWaits, deadlineMs: 1000 },
         );
         release.resolve();
         await holder;
@@ -76,12 +81,13 @@ test('a lapsed web lease refuses with its typed reason, not its message (ISSUE-1
     withPool(async (client) => {
       const instanceId = createId();
       const run = createBoundedTransaction({
-        lane: testLane(client, 4),
-        now: performance.now,
+        lane: testLane(client, hostWaits, 4),
+        waits: hostWaits,
       });
       await availabilityOperations(
         fixture.sql,
         fixture.sql,
+        hostWaits,
       ).renewServiceInstance({ instanceId, role: 'web' });
       try {
         await fixture.sql`update service_instances set renewed_at=clock_timestamp()-interval '4 seconds' where instance_id=${instanceId}`;
@@ -102,7 +108,7 @@ test('a lapsed web lease refuses with its typed reason, not its message (ISSUE-1
 test('a renewal of a lease another role holds writes nothing and is refused', async () =>
   withFixture(url, async (fixture) => {
     const instanceId = createId();
-    const leases = availabilityOperations(fixture.sql, fixture.sql);
+    const leases = availabilityOperations(fixture.sql, fixture.sql, hostWaits);
     try {
       await fixture.sql`insert into service_instances(instance_id,role,renewed_at,delivered_through,delivered_through_txid)
         values(${instanceId},'realtime',clock_timestamp()-interval '1 hour',0,'0'::xid8)`;

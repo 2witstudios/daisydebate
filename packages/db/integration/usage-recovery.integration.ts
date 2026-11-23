@@ -1,13 +1,28 @@
-import { roundDecisionReleasePolicy } from '@daisy/protocol/round-decision-release';
+import { createAvailabilityStore } from '../src/stores/availability';
+import { createBillingStore } from '../src/stores/billing';
+import { openDatabaseResources } from '../src/resources';
+import { hostWaits } from '@daisy/worker/host';
 import { createId } from '@paralleldrive/cuid2';
 import { requireTestServices } from '@daisy/config';
 import { canReleaseFreeJudgeBinding } from '@daisy/auth/authorization';
 import { assertRejects } from '@daisy/errors/testing';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { createDatabase } from '../src/index';
 import { lockAuthorizationActors } from '../src/authorization';
 import { finishedOrBlockedBehind } from '../src/testing';
 import { withFreeBundle, withHeldCommit } from './usage-ledger.test-support';
+/** This file's database: the area stores it reads, over one set of resources. */
+const openStores = (
+  options: Parameters<typeof openDatabaseResources>[0] & {
+    readonly nextActorId: () => string;
+  },
+) => {
+  const resources = openDatabaseResources(options);
+  return {
+    ...createAvailabilityStore(resources),
+    ...createBillingStore(resources, { nextId: options.nextActorId }),
+    close: resources.close,
+  };
+};
 
 setupRitewayBun();
 const { databaseUrl } = requireTestServices(process.env);
@@ -15,8 +30,8 @@ const { databaseUrl } = requireTestServices(process.env);
 test('production usage recovery rediscovers abandoned bundles with current service authority and terminal replay identities', async () => {
   await withFreeBundle(
     async ({ f, actorId, roundId, replacement, admission }) => {
-      const store = createDatabase({
-        decisionRelease: roundDecisionReleasePolicy,
+      const store = openStores({
+        waits: hostWaits,
         url: databaseUrl,
         client: f.sql,
         nextActorId: createId,
@@ -99,8 +114,8 @@ test('production usage recovery rediscovers abandoned bundles with current servi
 
 test('recovery loses service authority while waiting on the account fence', async () => {
   await withFreeBundle(async ({ f, run, actorId, roundId }) => {
-    const store = createDatabase({
-      decisionRelease: roundDecisionReleasePolicy,
+    const store = openStores({
+      waits: hostWaits,
       url: databaseUrl,
       client: f.sql,
       nextActorId: createId,
@@ -130,7 +145,7 @@ test('recovery loses service authority while waiting on the account fence', asyn
               'a current recovery service and a held account authority fence',
             should: 'wait behind that real PostgreSQL fence',
             actual: await finishedOrBlockedBehind(release, f.sql, pid, {
-              now: performance.now,
+              waits: hostWaits,
               deadlineMs: 1000,
             }),
             expected: 'blocked',

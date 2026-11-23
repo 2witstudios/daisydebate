@@ -8,6 +8,7 @@ import {
   withMediaRound,
   captureWorkerScope,
 } from './round-media.test-support';
+import { mediaCaptureComposition } from '../src/features/media-capture/composition';
 
 setupRitewayBun();
 requireTestServices(process.env);
@@ -31,7 +32,7 @@ test('the application composition binds signed capture to its real database and 
       const path = `/api/internal/media/${f.roundId}/capture/${operation}`;
       const body = JSON.stringify({ ...scope, ...extra });
       const signed = authentication.sign({ method: 'POST', path, body });
-      return app.routes.mediaCapture.handle(
+      return app.routes(mediaCaptureComposition).handle(
         new Request(`https://daisy.test${path}`, {
           method: 'POST',
           body,
@@ -40,6 +41,7 @@ test('the application composition binds signed capture to its real database and 
             'x-daisy-media-timestamp': signed.timestamp,
           },
         }),
+        operation,
       );
     };
     const claimed = await call('lease', { leaseMs: 30_000 });

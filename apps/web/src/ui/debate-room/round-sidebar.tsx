@@ -111,7 +111,7 @@ export function RoundSidebar({
       >
         {sidebarTabs.map((tab) => (
           <Button
-            variant="unstyled"
+            variant="tab"
             key={tab}
             id={tabId(tab)}
             type="button"
@@ -125,12 +125,6 @@ export function RoundSidebar({
             }
             tabIndex={state.sidebar === tab ? 0 : -1}
             onClick={() => dispatch({ type: 'sidebar/tab', tab })}
-            className={cn(
-              'inline-flex cursor-pointer items-center justify-center gap-1 border-b-2 text-sm',
-              state.sidebar === tab
-                ? 'border-accent font-strong text-ink'
-                : 'border-transparent text-ink-muted hover:text-ink',
-            )}
           >
             {sidebarNames[tab]}
             <Badge count={unseen(tab)} />

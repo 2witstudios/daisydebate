@@ -1,3 +1,4 @@
+import { virtualClock } from '@daisy/clock/testing';
 import { assertRejects } from '@daisy/errors/testing';
 import { createOpenRouter } from '@daisy/ai-voice';
 import { sampleRoundAnalysisReport as report } from '@daisy/protocol/round-analysis-testing';
@@ -161,6 +162,7 @@ test('only affirmative provider nonservice is observed as definite failure', asy
     const f = harness({
       provider: () =>
         createOpenRouter({
+          waits: virtualClock(),
           apiKey: 'fixture',
           fetch: async () => new Response('', { status }),
         }),

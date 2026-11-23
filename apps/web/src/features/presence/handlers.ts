@@ -14,7 +14,7 @@ import { parseValidated, readJson } from '../../server/http';
 import {
   runEvaluatedRoute,
   type MemberBoundary,
-} from '../../server/member-boundary';
+} from '../auth/member-boundary';
 
 const MAX_BODY_BYTES = 1024;
 

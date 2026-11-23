@@ -1,3 +1,4 @@
+import { hostWaits } from '@daisy/worker/host';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createId } from '@paralleldrive/cuid2';
 import { requireTestServices } from '@daisy/config';
@@ -6,7 +7,7 @@ import { sql } from 'drizzle-orm';
 import { createBoundedTransaction } from '../src/bounded-transaction';
 import { testLane } from '../src/testing-lane';
 import { advanceUsageLocked } from '../src/usage-ledger';
-import { causeChainMember } from '../src/capacity-refusal';
+import { causeChainMember } from '../src/raw-rows';
 import { withBoundedRound } from './bounded-transaction.test-support';
 import {
   admissionSponsor,
@@ -28,8 +29,8 @@ test('unrestored known failure stays spent and terminal under daisy_web without 
       return connection;
     };
     const runtime = createBoundedTransaction({
-      lane: testLane(client, 4),
-      now: performance.now,
+      lane: testLane(client, hostWaits, 4),
+      waits: hostWaits,
     });
     const admission = testBotAdmission(runtime, 4, 1);
     const original = await admission.reserve({ actorId, roundId });
@@ -118,8 +119,8 @@ test('runtime inserts enforce strict count basis and chronology independently of
       return connection;
     };
     const runtime = createBoundedTransaction({
-      lane: testLane(client, 4),
-      now: performance.now,
+      lane: testLane(client, hostWaits, 4),
+      waits: hostWaits,
     });
     const base = {
       kind: 'definite_failure',

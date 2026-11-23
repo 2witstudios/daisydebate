@@ -1,4 +1,4 @@
-import type { Database } from '@daisy/db';
+import type { MediaCaptureStore } from '@daisy/db/stores/media-capture';
 import { isAppError } from '@daisy/errors';
 import { evidenceEnvelopeSchema } from '@daisy/protocol/evidence-envelope';
 import { idSchema } from '@daisy/protocol/primitives';
@@ -15,7 +15,7 @@ import {
 } from './necessary-evidence-authentication';
 import { createStoredEvidenceRestore } from './necessary-evidence-restore';
 type Store = Pick<
-  ReturnType<Database['createMediaCaptureOperations']>,
+  ReturnType<MediaCaptureStore['createMediaCaptureOperations']>,
   | 'readCaptureEvidencePayload'
   | 'loadCaptureEvidencePayload'
   | 'reserveCaptureEvidence'

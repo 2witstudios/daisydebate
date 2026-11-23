@@ -1,4 +1,4 @@
-import { instantMs } from '@daisy/clock';
+import { instantMs, type Waits } from '@daisy/clock';
 import { createAppError } from '@daisy/errors';
 import { idSchema } from '@daisy/protocol/primitives';
 import { leaseReply } from '@daisy/protocol/capture-worker-replies';
@@ -14,7 +14,8 @@ export type WorkerTransportDependencies = {
   readonly url: string;
   readonly authentication: ReturnType<typeof createMediaWorkerAuthentication>;
   readonly fetch: (url: string, init: RequestInit) => Promise<Response>;
-  readonly nowMs: () => number;
+  /** The time calls are stamped and retry pauses wait on (R4.7). */
+  readonly waits: Waits;
   readonly deadlineSignal: () => AbortSignal;
   /**
    * Pauses before each retry of a 503, the server's temporary refusal (such as
@@ -55,19 +56,13 @@ function controlOrigin(value: string) {
  * A pause the call's own deadline or caller can cut short; either then
  * refuses as it would before a request.
  */
-async function pause(ms: number, signal: AbortSignal, caller?: AbortSignal) {
-  if (ms > 0 && !signal.aborted)
-    await new Promise<void>((done) => {
-      const timer = setTimeout(done, ms);
-      signal.addEventListener(
-        'abort',
-        () => {
-          clearTimeout(timer);
-          done();
-        },
-        { once: true },
-      );
-    });
+async function pause(
+  waits: Waits,
+  ms: number,
+  signal: AbortSignal,
+  caller?: AbortSignal,
+) {
+  if (ms > 0 && !signal.aborted) await waits.sleep(ms, signal);
   aborted(signal, caller);
 }
 function parsed<T>(schema: z.ZodType<T>, raw: unknown): T {
@@ -103,7 +98,7 @@ export function createSignedWorkerCall(input: WorkerTransportDependencies) {
         return await attempt(operation, payload, schema, signal, caller);
       } catch (error) {
         if (!isRefusedForNow(error)) throw error;
-        await pause(pauseMs, signal, caller);
+        await pause(input.waits, pauseMs, signal, caller);
       }
     return attempt(operation, payload, schema, signal, caller);
   };
@@ -118,7 +113,7 @@ export function createSignedWorkerCall(input: WorkerTransportDependencies) {
     const path = `/api/internal/media/${scope.roundId}/capture/${operation}`;
     const body = JSON.stringify({ ...payload, ...scope });
     const signed = input.authentication.sign({ method: 'POST', path, body });
-    const sentAtMs = input.nowMs();
+    const sentAtMs = input.waits.nowMs();
     if (!Number.isFinite(sentAtMs)) throw unavailable();
     let response: Response;
     try {
@@ -145,7 +140,7 @@ export function createSignedWorkerCall(input: WorkerTransportDependencies) {
     aborted(signal, caller);
     if (!response.ok) await refuse(response, signal, caller);
     const raw = await readReply(response, signal, caller);
-    const receivedAtMs = input.nowMs();
+    const receivedAtMs = input.waits.nowMs();
     if (!Number.isFinite(receivedAtMs) || receivedAtMs < sentAtMs)
       throw unavailable();
     return { value: parsed(schema, raw), sentAtMs, receivedAtMs };

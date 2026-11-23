@@ -16,12 +16,13 @@ const asking = (answers: ResourceRead<LiveTranscriptRead>[]) => {
       reads++;
       return answers.shift()!;
     },
-    schedule: (attempt) => {
+    after: (attempt) => {
       pending = attempt;
       return () => {
         pending = null;
       };
     },
+    waitMs: () => 0,
     settled: (value) => settled.push(value),
   });
   const fire = async () => {
@@ -92,10 +93,11 @@ test('a thrown read asks again', async () => {
   let pending: (() => void) | null = null;
   askForTranscriptSeed({
     read: () => Promise.reject(new Error('no timeout API')),
-    schedule: (attempt) => {
+    after: (attempt) => {
       pending = attempt;
       return () => {};
     },
+    waitMs: () => 0,
     settled: (value) => settled.push(value),
   });
   const first = pending!;

@@ -1,4 +1,4 @@
-import type { Database } from '@daisy/db';
+import type { MediaCaptureStore } from '@daisy/db/stores/media-capture';
 import { isAppError } from '@daisy/errors';
 import { z } from 'zod';
 import { idSchema } from '@daisy/protocol/primitives';
@@ -15,7 +15,7 @@ import {
   type PreparedEvidenceBody,
 } from './necessary-evidence-authentication';
 type Store = Pick<
-  ReturnType<Database['createMediaCaptureOperations']>,
+  ReturnType<MediaCaptureStore['createMediaCaptureOperations']>,
   'loadCaptureEvidencePayload' | 'readCaptureEvidencePayload'
 >;
 const refused = (reason: EvidenceRefusal['reason']): EvidenceRefusal => ({

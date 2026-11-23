@@ -1,6 +1,8 @@
 import { SQL } from 'bun';
 import { drizzle } from 'drizzle-orm/bun-sql';
 import { sql } from 'drizzle-orm';
+import { parsedColumn } from './raw-rows';
+import { z } from 'zod';
 import { accountAge } from './schema/account-age';
 import { actors } from './schema/actors';
 import { accountBetaAccess } from './schema/beta-access';
@@ -12,7 +14,7 @@ import { users } from './schema/users';
 import { roundStatus, emptyRuntimeCheckpointFor } from '@daisy/protocol/round';
 import { type RoundRules } from '@daisy/protocol/format';
 import { type SideSeat } from '@daisy/protocol/seats';
-import { frozenJudgingFor } from './round-judging-freeze';
+import { frozenJudgingFor } from '@daisy/protocol/ballot-definition';
 import { columnsOfSeat } from './seat-columns';
 import { inTransaction } from './tx';
 
@@ -58,7 +60,7 @@ export type DevSeed = {
  * the lifecycle CHECK never refuses the reset.
  * The version marker's `updated_at` moves only when the version changes.
  * This is the only path `bun db:seed` writes through; it is not part of
- * `createDatabase()`, because no running application seeds.
+ * any store, because no running application seeds.
  */
 /** A birth month every seeded member is an adult for. */
 const SEEDED_BIRTH_MONTH = '1990-01';
@@ -130,8 +132,8 @@ export async function applyDevSeed({
       }
       const [previous] = await tx
         .select({
-          createdAt: sql<string>`${rounds.createdAt}::text`,
-          updatedAt: sql<string>`${rounds.updatedAt}::text`,
+          createdAt: parsedColumn(z.string(), sql`${rounds.createdAt}::text`),
+          updatedAt: parsedColumn(z.string(), sql`${rounds.updatedAt}::text`),
         })
         .from(rounds)
         .where(sql`${rounds.id} = ${seed.round.id}`);

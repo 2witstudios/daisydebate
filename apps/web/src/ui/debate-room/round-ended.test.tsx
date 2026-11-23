@@ -1,6 +1,6 @@
-import { renderToStaticMarkup } from 'react-dom/server';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { mockNextRouter } from '../../lib/testing/mock-router';
+import { renderAccessible } from '../../test-support/rendered/accessible';
 import { asCompleted, judge, view } from './live-round.test-support';
 
 setupRitewayBun();
@@ -15,7 +15,7 @@ test('a live room whose Round completed points to its result', () => {
       judge,
     ],
   };
-  const html = renderToStaticMarkup(
+  const page = renderAccessible(
     <LiveJudgeRoom
       renderedAtMs={0}
       actorId="a"
@@ -33,10 +33,10 @@ test('a live room whose Round completed points to its result', () => {
     given: 'a judge’s live room once the Round completes',
     should: 'say the round is over and link its result page, without media',
     actual: [
-      html.includes('This round is over.'),
-      html.includes(`href="/rounds/${view.id}"`),
-      html.includes('aria-label="Live camera and sound"'),
+      page.textContent().includes('This round is over.'),
+      page.all('link').map((link) => link.getAttribute('href')),
+      page.has('region', 'Live camera and sound'),
     ],
-    expected: [true, true, false],
+    expected: [true, [`/rounds/${view.id}`], false],
   });
 });

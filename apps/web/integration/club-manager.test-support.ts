@@ -1,5 +1,6 @@
+import { openWebDatabase } from '../src/server/database';
+import { hostWaits } from '@daisy/worker/host';
 import { createId } from '@paralleldrive/cuid2';
-import { createDatabase } from '@daisy/db';
 import { clubSeatGrants } from '@daisy/auth/authorization';
 import type { SubscriptionEvidence } from '@daisy/protocol/billing';
 import { noopErrorReporter } from '@daisy/observability';
@@ -15,11 +16,11 @@ import { createClubSeatCommands } from '../src/features/clubs/invitation-resend'
 export async function withClub(
   work: (input: {
     sql: Parameters<Parameters<typeof withSql>[0]>[0];
-    database: ReturnType<typeof createDatabase>;
+    database: ReturnType<typeof openWebDatabase>;
     owner: { userId: string; actorId: string };
     organizationId: string;
     paid: SubscriptionEvidence;
-    store: ReturnType<ReturnType<typeof createDatabase>['clubSeats']>;
+    store: ReturnType<ReturnType<typeof openWebDatabase>['clubSeats']>;
     seats: ReturnType<typeof createClubSeatCommands>;
     post: (command: unknown) => Promise<Response>;
     person: () => Promise<{ userId: string; actorId: string; email: string }>;
@@ -31,7 +32,8 @@ export async function withClub(
   }) => Promise<void>,
 ) {
   await withSql(async (sql) => {
-    const database = createDatabase({
+    const database = openWebDatabase({
+      waits: hostWaits,
       url: testDatabaseUrl,
       nextActorId: createId,
     });
@@ -102,6 +104,7 @@ export async function withClub(
           headers: { origin, 'content-type': 'application/json' },
           body: JSON.stringify(command),
         }),
+        organizationId,
       );
     const answerPost = (
       subject: { userId: string; actorId: string },
@@ -127,6 +130,7 @@ export async function withClub(
             body: JSON.stringify({ answer }),
           },
         ),
+        `${organizationId}.${invitationId}`,
       );
     try {
       await sql`insert into users(id,username,email_verified) values(${owner.userId},${owner.userId},true)`;

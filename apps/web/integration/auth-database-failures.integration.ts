@@ -1,9 +1,10 @@
+import { openWebDatabase } from '../src/server/database';
+import { hostWaits } from '@daisy/worker/host';
 import { spyOn } from 'bun:test';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { validRules } from '@daisy/db/testing';
 import { noopErrorReporter } from '@daisy/observability';
-import { createDatabase } from '@daisy/db';
 import type { RecordedLogs } from '../src/features/auth/log-leaks.test-support';
 import { createAuthRouteHandlers } from '../src/features/auth/handlers';
 import { counts, emptyCounts, fixtureEmail, removeAccount } from './fixtures';
@@ -19,7 +20,11 @@ type ReportedFailure = { event: string; fields: unknown; message: string };
 test('delivery failure surfaces a safe retryable error and cleanup still leaves no fixture rows', async () => {
   const email = fixtureEmail();
   const sent: SentMessages = [];
-  const database = createDatabase({ url, nextActorId: createId });
+  const database = openWebDatabase({
+    waits: hostWaits,
+    url,
+    nextActorId: createId,
+  });
   const auth = createTestAuthServer(database.authAdapter, {
     sent,
     deliveryFailure: new Error('resend unavailable'),
@@ -63,7 +68,8 @@ test('delivery failure surfaces a safe retryable error and cleanup still leaves 
 
 test('pool lifecycle closes and the app failure boundary reports without SQL material', async () => {
   const failures: ReportedFailure[] = [];
-  const database = createDatabase({
+  const database = openWebDatabase({
+    waits: hostWaits,
     url,
     eventSink: (event, fields, message) =>
       failures.push({ event, fields, message }),
@@ -135,7 +141,11 @@ test('pool lifecycle closes and the app failure boundary reports without SQL mat
 test('a persistence failure inside Better Auth leaks no SQL, parameters, token or email', async () => {
   const email = fixtureEmail();
   const recorded: RecordedLogs = [];
-  const database = createDatabase({ url, nextActorId: createId });
+  const database = openWebDatabase({
+    waits: hostWaits,
+    url,
+    nextActorId: createId,
+  });
   const auth = createTestAuthServer(database.authAdapter, {
     sent: [],
     recordedLogs: recorded,

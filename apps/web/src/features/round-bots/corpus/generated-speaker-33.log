@@ -1,0 +1,124 @@
+0 peer barge-in peer
+0 peer end-of-turn peer
+0 heard peer@1000
+0 generate peer-turn peer@1000
+0 settle answer 1
+0 tts "One."
+0 tts "Two."
+0 tts "Three."
+0 settle tts "One."
+0 settle tts "Two."
+0 settle tts "Three."
+0 peer end-of-turn peer
+0 peer speech-start peer
+0 verify
+40 settle tts "Three." -> Error
+50 abandon answer 1
+1857 peer end-of-turn peer
+1857 heard peer@3000
+1857 generate peer-turn peer@3000
+1857 settle answer 2
+1857 tts "One."
+1857 tts "Two."
+1857 tts "Three."
+1857 settle tts "One."
+1857 settle tts "Two."
+1857 settle tts "Three."
+1857 tts "Four."
+1857 settle tts "Four."
+1857 verify
+1857 verify
+1857 token
+1857 join TR_0
+1857 begin id7 120ms in=0 at=2027-01-15T08:00:01.857Z room
+1857 begin id9 260ms in=120 at=2027-01-15T08:00:01.977Z room
+1857 reveal id7 room at=2027-01-15T08:00:01.857Z
+1857 begin id11 80ms in=380 at=2027-01-15T08:00:02.237Z room
+1857 frames TR_0 x31
+1867..1927 frames TR_0 x7 every 10ms
+1977 tts "Five."
+1977 settle tts "Five."
+1977 end id7 whole
+1977 reveal id9 room at=2027-01-15T08:00:01.977Z
+1977 begin id14 400ms in=340 at=2027-01-15T08:00:02.317Z room
+1977 frames TR_0 x5
+1987..2007 frames TR_0 x3 every 10ms
+2237 end id9 whole
+2237 reveal id11 room at=2027-01-15T08:00:02.237Z
+2237 begin id16 120ms in=480 at=2027-01-15T08:00:02.717Z room
+2237 frames TR_0 x23
+2247..2307 frames TR_0 x7 every 10ms
+2317 abandon answer 2
+2317 reveal id14 room at=2027-01-15T08:00:02.317Z
+2317 reveal -> CONFLICT/bot-room-changed
+2317 clear TR_0 queued=300
+2317 end id14 cut 0ms ""
+2517 heard peer@3000
+2517 generate peer-turn peer@3000
+2517 settle answer 3
+2517 tts "One."
+2517 settle tts "One."
+2517 verify
+2517 close TR_0
+2517 verify
+2517 token
+2517 join TR_1
+2517 begin id18 120ms in=0 at=2027-01-15T08:00:02.517Z room
+2517 reveal id18 room at=2027-01-15T08:00:02.517Z
+2517 frames TR_1 x12
+2537 end id11 whole
+2637 end id18 whole
+2703 tts "Two."
+2703 settle tts "Two."
+2703 begin id21 260ms in=0 at=2027-01-15T08:00:02.703Z room
+2703 reveal id21 room at=2027-01-15T08:00:02.703Z
+2703 frames TR_1 x26
+2889 tts "Three."
+2889 settle tts "Three."
+2889 begin id23 80ms in=74 at=2027-01-15T08:00:02.963Z room
+2889 frames TR_1 x8
+2963 end id21 whole
+2963 reveal id23 room at=2027-01-15T08:00:02.963Z
+3043 end id23 whole
+3075 tts "Four."
+3155 tts "Four." -> CONFLICT
+3155 abandon answer 3
+3355 heard peer@3000
+3355 generate peer-turn peer@3000
+3355 settle answer 4
+3355 tts "One."
+3355 settle tts "One."
+3355 verify
+3355 begin id27 120ms in=0 at=2027-01-15T08:00:03.355Z room
+3355 reveal id27 room at=2027-01-15T08:00:03.355Z
+3355 frames TR_1 x12
+3475 end id27 whole
+3541 tts "Two."
+3541 settle tts "Two."
+3541 begin id29 260ms in=0 at=2027-01-15T08:00:03.541Z room
+3541 reveal id29 room at=2027-01-15T08:00:03.541Z
+3541 frames TR_1 x26
+3727 tts "Three."
+3727 settle tts "Three."
+3727 begin id31 80ms in=74 at=2027-01-15T08:00:03.801Z room
+3727 frames TR_1 x8
+3801 end id29 whole
+3801 reveal id31 room at=2027-01-15T08:00:03.801Z
+3881 end id31 whole
+3913 tts "Four."
+3913 settle tts "Four."
+3913 begin id33 400ms in=0 at=2027-01-15T08:00:03.913Z room
+3913 reveal id33 room at=2027-01-15T08:00:03.913Z
+3913 frames TR_1 x31
+3923..4003 frames TR_1 x9 every 10ms
+4099 tts "Five."
+4099 settle tts "Five."
+4099 begin id35 120ms in=214 at=2027-01-15T08:00:04.313Z room
+4099 frames TR_1 x9
+4103..4123 frames TR_1 x3 every 10ms
+4313 close answer 4
+4313 abandon answer 4
+4313 end id33 whole
+4313 reveal id35 room at=2027-01-15T08:00:04.313Z
+4433 end id35 whole
+11857 close TR_1

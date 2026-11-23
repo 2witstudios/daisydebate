@@ -1,8 +1,10 @@
+import { createRoundStore } from '../src/stores/rounds';
+import { openDatabaseResources } from '../src/resources';
+import { hostWaits } from '@daisy/worker/host';
 import { judgedRound } from './judged-round.test-support';
 import { SQL } from 'bun';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { createDatabase } from '../src';
 import { appendOutboxEvent } from '../src/outbox';
 import { createTestOnlyOperations } from '../src/test-only-operations';
 import { drizzle } from 'drizzle-orm/bun-sql';
@@ -14,6 +16,26 @@ import { at, roundAuthoring, digest, withFixture } from './constraint-helpers';
 import { requireTestServices } from '@daisy/config';
 import { emptyRuntimeCheckpointFor } from '@daisy/protocol/round';
 import { validRules } from './round-fixtures';
+/** This file's database: the area stores it reads, over one set of resources. */
+const openStores = (
+  options: Parameters<typeof openDatabaseResources>[0] & {
+    readonly roundTime?: NonNullable<
+      Parameters<typeof createRoundStore>[1]
+    >['roundTime'];
+    readonly decisionRelease?: NonNullable<
+      Parameters<typeof createRoundStore>[1]
+    >['decisionRelease'];
+  },
+) => {
+  const resources = openDatabaseResources(options);
+  return {
+    ...createRoundStore(resources, {
+      roundTime: options.roundTime,
+      decisionRelease: options.decisionRelease,
+    }),
+    close: resources.close,
+  };
+};
 
 setupRitewayBun();
 
@@ -104,7 +126,10 @@ test('appendOutboxEvent stores payload as a real jsonb object, not a double-enco
 });
 
 test('a non-object jsonb write fails with a typed VALIDATION error before any row is written (ISSUE-24)', async () => {
-  const database = createDatabase({ url, nextActorId: createId });
+  const database = openStores({
+    waits: hostWaits,
+    url,
+  });
   const fixture = new SQL(url);
   const id = createId();
   try {

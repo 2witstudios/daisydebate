@@ -1,9 +1,12 @@
+import { createAvailabilityStore } from '../src/stores/availability';
+import { createBillingStore } from '../src/stores/billing';
+import { openDatabaseResources } from '../src/resources';
+import { hostWaits } from '@daisy/worker/host';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { requireTestServices } from '@daisy/config';
 import { clubSeatGrants, subscriptionGrants } from '@daisy/auth/authorization';
 import { createId } from '@paralleldrive/cuid2';
 import { assertRejects } from '@daisy/errors/testing';
-import { createDatabase } from '../src/index';
 import { lockAuthorizationActors } from '../src/authorization';
 import { finishedOrBlockedBehind } from '../src/testing';
 import { withHeldCommit } from './usage-ledger.test-support';
@@ -11,6 +14,19 @@ import {
   withBillingSynchronization,
   renewing,
 } from './billing-synchronization.test-support';
+/** This file's database: the area stores it reads, over one set of resources. */
+const openStores = (
+  options: Parameters<typeof openDatabaseResources>[0] & {
+    readonly nextActorId: () => string;
+  },
+) => {
+  const resources = openDatabaseResources(options);
+  return {
+    ...createAvailabilityStore(resources),
+    ...createBillingStore(resources, { nextId: options.nextActorId }),
+    close: resources.close,
+  };
+};
 
 setupRitewayBun();
 const { databaseUrl } = requireTestServices(process.env);
@@ -18,7 +34,8 @@ const { databaseUrl } = requireTestServices(process.env);
 test('the public billing store recovers an early receipt after mapping and discovers missed-event work without an in-memory queue', async () =>
   withBillingSynchronization(
     async ({ fixture, pool, customerId, vendorCustomerId, paid }) => {
-      const database = createDatabase({
+      const database = openStores({
+        waits: hostWaits,
         url: databaseUrl,
         client: pool,
         nextActorId: createId,
@@ -124,7 +141,8 @@ test('the public billing store recovers an early receipt after mapping and disco
 test('a billing worker that loses service authority during an account lock wait rolls back all payment writes', async () =>
   withBillingSynchronization(
     async ({ fixture, pool, run, customerId, userId, actorId, paid }) => {
-      const database = createDatabase({
+      const database = openStores({
+        waits: hostWaits,
         url: databaseUrl,
         client: pool,
         nextActorId: createId,
@@ -153,7 +171,7 @@ test('a billing worker that loses service authority during an account lock wait 
                 'a current worker with a verified payment waiting on the canonical account fence',
               should: 'reach the actual PostgreSQL lock',
               actual: await finishedOrBlockedBehind(pending, fixture.sql, pid, {
-                now: performance.now,
+                waits: hostWaits,
                 deadlineMs: 500,
               }),
               expected: 'blocked',

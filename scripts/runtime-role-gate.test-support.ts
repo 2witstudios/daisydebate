@@ -12,7 +12,7 @@ export const REFUSAL =
 export const START_IMPORT =
   "import { startProductionServer } from './listen-first';\n";
 export const DB_IMPORT =
-  "import { refuseSchemaAlteringRole } from '@daisy/db';\n";
+  "import { refuseSchemaAlteringRole } from '@daisy/db/startup';\n";
 export const CALL = 'const { server, started } = startProductionServer({\n';
 export const ROUTE_READ =
   "      return readFileSync('/proc/net/route', 'utf8');\n";
@@ -38,7 +38,7 @@ export const ONE_CALL =
 export const OVERRIDDEN =
   "start.ts's startProductionServer call must set refuseRole once by a plain key, with no spread or computed key that could override it (ISSUE-206, ISSUE-218)";
 export const NOT_FROM_DB =
-  'start.ts must import refuseSchemaAlteringRole from @daisy/db and use it only as the refuseRole (ISSUE-206)';
+  'start.ts must import refuseSchemaAlteringRole from @daisy/db/startup and use it only as the refuseRole (ISSUE-206)';
 export const unparsed = (diagnostic: string, line: number) =>
   `start.ts does not parse: ${diagnostic} (line ${line}); the gate cannot be checked (ISSUE-221)`;
 export const unresolved = (specifier: string) =>

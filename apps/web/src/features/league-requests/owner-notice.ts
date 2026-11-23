@@ -1,4 +1,4 @@
-import type { Database } from '@daisy/db';
+import type { LeagueRequestsStore } from '@daisy/db/stores/league-requests';
 import { createAppError } from '@daisy/errors';
 import type { EmailMessage } from '../mail/types';
 import { retryOrFail } from '../mail/retry-policy';
@@ -6,7 +6,7 @@ import { runMailQueue } from '../mail/run-queue';
 import { renderLeagueRequestEmail } from './owner-email';
 
 type Store = Pick<
-  Database,
+  LeagueRequestsStore,
   | 'claimLeagueRequestNotices'
   | 'readLeagueRequestNotice'
   | 'settleLeagueRequestNotice'

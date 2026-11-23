@@ -1,4 +1,4 @@
-import { renderToStaticMarkup } from 'react-dom/server';
+import { renderAccessible } from '../../test-support/rendered/accessible';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { InboxEmpty } from './inbox-empty';
 
@@ -8,23 +8,25 @@ test('nothing open prompts for a conversation', () => {
   assert({
     given: 'conversations in the list and none open',
     should: 'prompt for one',
-    actual: renderToStaticMarkup(<InboxEmpty hasConversations />).includes(
-      'Pick a conversation</h2>',
+    actual: renderAccessible(<InboxEmpty hasConversations />).has(
+      'heading',
+      'Pick a conversation',
+      { level: 2 },
     ),
     expected: true,
   });
 });
 
 test('an empty inbox offers one clear way to start a conversation', () => {
-  const html = renderToStaticMarkup(<InboxEmpty hasConversations={false} />);
+  const view = renderAccessible(<InboxEmpty hasConversations={false} />);
   assert({
     given: 'an inbox with no conversations',
     should: 'title the state and link the one action that fills it',
     actual: [
-      html.includes('No messages yet</h2>'),
-      html.includes('href="/messages/new"'),
-      html.includes('>New message</a>'),
+      view.has('heading', 'No messages yet', { level: 2 }),
+      view.attribute('link', 'New message', 'href'),
+      view.count('link'),
     ],
-    expected: [true, true, true],
+    expected: [true, '/messages/new', 1],
   });
 });

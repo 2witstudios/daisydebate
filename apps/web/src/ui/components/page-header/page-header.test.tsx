@@ -1,13 +1,13 @@
-import { renderToString } from 'react-dom/server';
 import { createElement as h } from 'react';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
+import { renderAccessible } from '../../../test-support/rendered/accessible';
 import { PageHeader } from './page-header';
 
 setupRitewayBun();
 
 describe('PageHeader', () => {
   test('title, lede and actions', () => {
-    const html = renderToString(
+    const view = renderAccessible(
       h(PageHeader, {
         title: 'Judge',
         lede: 'Click to judge.',
@@ -18,11 +18,11 @@ describe('PageHeader', () => {
       given: 'a title, a lede and actions',
       should: 'render one h1, the lede and the actions',
       actual: [
-        html.match(/<h1 /g)?.length,
-        html.includes('Click to judge.'),
-        html.includes('<b>Offer</b>'),
+        view.count('heading', undefined, { level: 1 }),
+        view.text('paragraph'),
+        view.textContent().includes('Offer'),
       ],
-      expected: [1, true, true],
+      expected: [1, 'Click to judge.', true],
     });
   });
 
@@ -30,8 +30,10 @@ describe('PageHeader', () => {
     assert({
       given: 'a title alone',
       should: 'render no paragraph',
-      actual: renderToString(h(PageHeader, { title: 'Judge' })).includes('<p '),
-      expected: false,
+      actual: renderAccessible(h(PageHeader, { title: 'Judge' })).count(
+        'paragraph',
+      ),
+      expected: 0,
     });
   });
 });

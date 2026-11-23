@@ -1,5 +1,6 @@
+import { hostWaits } from '@daisy/worker/host';
 import { SQL } from 'bun';
-import { createRealtimeDatabase } from '@daisy/db';
+import { openRealtimeDatabase } from '../src/database';
 import { systemId, type Clock } from '@daisy/clock';
 import { testNamespace } from '@daisy/redis/testing';
 import { createRealtimeApp } from '../src/app';
@@ -13,9 +14,10 @@ export async function authorityResources(
   afterCatchup?: () => Promise<void>,
 ) {
   const client = new SQL(services.databaseUrl, { max: 1 });
-  const database = createRealtimeDatabase({
+  const database = openRealtimeDatabase({
     url: services.databaseUrl,
     client,
+    waits: hostWaits,
   });
   const resources = createRealtimeApp({
     database: {
@@ -39,6 +41,7 @@ export async function authorityResources(
       REALTIME_MAX_SUBSCRIPTIONS: String(maxSubscriptions),
     },
     clock,
+    waits: hostWaits,
   });
   try {
     await client.unsafe('set role daisy_realtime');

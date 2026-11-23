@@ -183,13 +183,18 @@ jobs:
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
           bun-version: '1.4.2'
+      # The guard hashes migrations through @daisy/digest, the one hashing home.
+      - run: bun install --frozen-lockfile
       - run: bun migrations:check
 
   integration:
     needs: quick-check
     name: Infrastructure contracts (${{ matrix.shard }}/4)
     runs-on: ubuntu-24.04
-    timeout-minutes: 20
+    # The slowest balanced shard takes about 15 minutes (12 of suites, 3 of
+    # setup); this is that plus a third, and never below 25. Rebalance with
+    # scripts/refresh-integration-timings.ts before raising it.
+    timeout-minutes: 25
     # Each matrix job owns its service containers. Files and workspaces remain
     # serial within a worker because their cleanup inspects global test state.
     strategy:

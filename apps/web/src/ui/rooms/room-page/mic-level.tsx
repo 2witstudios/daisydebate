@@ -1,7 +1,7 @@
 'use client';
 
-import { useBrowserEffect } from '../../edge/browser-sync';
-import { startTick, stopTick } from '../../edge/browser-time';
+import { useResource } from '../../edge/use-driver';
+import { useTick } from '../../edge/use-tick';
 import { useState } from 'react';
 
 const BAR_COUNT = 5;
@@ -18,34 +18,39 @@ export function micBars(rms: number): number {
 /** Reads the checked microphone's local preview; never connects to speakers or a transport. */
 export function MicLevel({ stream }: { readonly stream: MediaStream | null }) {
   const [lit, setLit] = useState(0);
-  useBrowserEffect(() => {
-    if (!stream) return;
+  const meter = useResource(stream, (checked) => {
+    if (!checked) return null;
     const context = new AudioContext();
-    const source = context.createMediaStreamSource(stream);
+    const source = context.createMediaStreamSource(checked);
     const analyser = context.createAnalyser();
     analyser.fftSize = 1024;
     source.connect(analyser);
     const samples = new Float32Array(analyser.fftSize);
-    const timer = startTick(() => {
-      analyser.getFloatTimeDomainData(samples);
-      setLit(
-        micBars(
+    void context.resume().catch(() => {});
+    return {
+      level: () => {
+        analyser.getFloatTimeDomainData(samples);
+        return micBars(
           Math.sqrt(
             samples.reduce((sum, sample) => sum + sample * sample, 0) /
               samples.length,
           ),
-        ),
-      );
-    }, 100);
-    void context.resume().catch(() => {});
-    return () => {
-      stopTick(timer);
-      source.disconnect();
-      analyser.disconnect();
-      void context.close().catch(() => {});
-      setLit(0);
+        );
+      },
+      dispose: () => {
+        source.disconnect();
+        analyser.disconnect();
+        void context.close().catch(() => {});
+        setLit(0);
+      },
     };
-  }, [stream]);
+  });
+  useTick(
+    () => {
+      if (meter) setLit(meter.level());
+    },
+    meter === null ? null : 100,
+  );
   return (
     <span aria-hidden="true" className="flex h-6 items-end gap-1">
       {heights.map((height, index) => (

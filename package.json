@@ -21,9 +21,6 @@
     },
     "@typescript-eslint/typescript-estree": {
       "minimatch": "11.0.9"
-    },
-    "jsonpath": {
-      "underscore": "1.13.8"
     }
   },
   "scripts": {
@@ -52,6 +49,8 @@
     "github:rules": "bun scripts/github-rules.ts",
     "staging:security-probe": "bun scripts/staging-security-probe.ts",
     "invariants": "bun scripts/invariants.ts",
+    "oracle:sabotage": "bun scripts/heavy.ts bun scripts/round-oracle-sabotage.ts",
+    "bots:sabotage": "bun scripts/heavy.ts bun scripts/bots-sabotage.ts",
     "evidence": "bun scripts/evidence.ts",
     "review:evidence": "bun scripts/review-evidence.ts",
     "migrations:check": "bun scripts/check-migrations.ts",
@@ -126,6 +125,7 @@
     "@eslint/js": "9.39.5",
     "@types/bun": "1.4.2",
     "@typescript/native-preview": "7.0.0-dev.20260707.2",
+    "drizzle-orm": "1.0.0-rc.4",
     "eslint": "9.39.5",
     "eslint-config-next": "16.3.5",
     "eslint-plugin-better-tailwindcss": "4.7.0",
@@ -153,6 +153,7 @@
     "@daisy/media": "workspace:*",
     "@daisy/protocol": "workspace:*",
     "@daisy/redis": "workspace:*",
+    "@daisy/worker": "workspace:*",
     "@livekit/rtc-node": "1.2.0",
     "zod": "4.6.6"
   },

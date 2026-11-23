@@ -1,6 +1,6 @@
 import { createElement as h } from 'react';
-import { renderToString } from 'react-dom/server';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
+import { renderAccessible } from '../../../test-support/rendered/accessible';
 import {
   ClearFilters,
   FilterFooter,
@@ -16,15 +16,15 @@ describe('filter form parts', () => {
     assert({
       given: 'a clear href',
       should: 'render a Clear link',
-      actual: /href="\/tournaments\?tab=live"[^>]*>Clear</.test(
-        renderToString(h(ClearFilters, { href: '/tournaments?tab=live' })),
-      ),
-      expected: true,
+      actual: renderAccessible(
+        h(ClearFilters, { href: '/tournaments?tab=live' }),
+      ).attribute('link', 'Clear', 'href'),
+      expected: '/tournaments?tab=live',
     });
   });
 
   test('the footer shows the count, extra controls and a submit Apply', () => {
-    const html = renderToString(
+    const view = renderAccessible(
       h(FilterFooter, {
         count: 4,
         noun: 'room',
@@ -34,19 +34,15 @@ describe('filter form parts', () => {
     assert({
       given: 'a footer with an extra control',
       should: 'render count, extra and Apply in order',
-      actual: [
-        html.indexOf('4 rooms') < html.indexOf('extra'),
-        html.indexOf('extra') < html.indexOf('Apply'),
-        /<button type="submit"[^>]*>Apply</.test(html),
-      ],
-      expected: [true, true, true],
+      actual: [view.textContent(), view.attribute('button', 'Apply', 'type')],
+      expected: ['4 roomsextraApply', 'submit'],
     });
   });
 });
 
 describe('filter controls', () => {
   test('a named select, a search field and the filters count', () => {
-    const select = renderToString(
+    const select = renderAccessible(
       h(FilterSelect, {
         name: 'sort',
         label: 'Sort by',
@@ -57,47 +53,49 @@ describe('filter controls', () => {
         ],
       }),
     );
-    const search = renderToString(
+    const sort = [
+      select.attribute('combobox', 'Sort by', 'name'),
+      select.within('combobox', 'Sort by').count('option'),
+    ];
+    const search = renderAccessible(
       h(SearchField, {
         defaultValue: 'cup',
         maxLength: 80,
         placeholder: 'Search',
         label: 'Search things',
       }),
-    );
+    ).attribute('searchbox', 'Search things', 'maxlength');
     assert({
       given: 'a select, a search field and two counts of filters',
       should: 'name the controls and show the badge only when something is set',
       actual: [
-        /<select name="sort" aria-label="Sort by"/.test(select),
-        select.match(/<option/g)?.length,
-        /maxlength="80"/i.test(search),
-        search.includes('aria-label="Search things"'),
-        renderToString(h(FiltersLabel, { active: 2 })).includes('>2<'),
-        renderToString(h(FiltersLabel, { active: 0 })).includes(
-          'rounded-round',
-        ),
+        sort,
+        search,
+        renderAccessible(h(FiltersLabel, { active: 2 })).textContent(),
+        renderAccessible(h(FiltersLabel, { active: 0 })).textContent(),
       ],
-      expected: [true, 2, true, true, true, false],
+      expected: [['sort', 2], '80', 'Filters2', 'Filters'],
     });
   });
 });
 
 describe('filter form tail details', () => {
   test('Clear renders nothing without a target, and the count pluralizes', () => {
+    const clear = renderAccessible(h(ClearFilters, { href: null }));
+    const nothing = [clear.count('link'), clear.textContent()];
     assert({
       given: 'no clear target and counts of one and two',
       should: 'render nothing for Clear and singular or plural nouns',
       actual: [
-        renderToString(h(ClearFilters, { href: null })),
-        renderToString(h(FilterFooter, { count: 1, noun: 'room' })).includes(
-          '1 room<',
-        ),
-        renderToString(h(FilterFooter, { count: 2, noun: 'room' })).includes(
-          '2 rooms<',
-        ),
+        nothing,
+        renderAccessible(
+          h(FilterFooter, { count: 1, noun: 'room' }),
+        ).textContent(),
+        renderAccessible(
+          h(FilterFooter, { count: 2, noun: 'room' }),
+        ).textContent(),
       ],
-      expected: ['', true, true],
+      expected: [[0, ''], '1 roomApply', '2 roomsApply'],
     });
   });
 });

@@ -2,7 +2,6 @@ import type { PreapprovalResult } from '@daisy/protocol/beta-preapproval';
 import { signOperatorRequest } from '@daisy/auth/operator-signature';
 import { noopErrorReporter } from '@daisy/observability';
 import { createOperatorApi, type OperatorApiDependencies } from './router';
-import { nodeOperatorCrypto } from './node-crypto';
 
 export const now = 1_793_000_000_000;
 export const target = 'u'.repeat(24);
@@ -34,7 +33,6 @@ export const api = (overrides: Partial<OperatorApiDependencies> = {}) => {
       ['k20261026', keyOf(1)],
       ['k20261101', keyOf(2)],
     ]),
-    crypto: nodeOperatorCrypto,
     nowMs: () => now,
     admitNonce: async ({ nonce }) => {
       calls.nonces.push(nonce);
@@ -158,7 +156,6 @@ export const signed = (input: {
       body,
     },
     input.key ?? keyOf(1),
-    nodeOperatorCrypto,
   );
   const search = new URLSearchParams(query).toString();
   return new Request(

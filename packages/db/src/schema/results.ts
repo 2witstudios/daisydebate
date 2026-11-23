@@ -1,3 +1,4 @@
+import { listedWord } from '../lifecycle-sql';
 import { resultCompetitionRecordSchema } from '@daisy/protocol/lobby/result-record';
 import {
   administrativeResultReasons,
@@ -127,13 +128,13 @@ export const results = pgTable(
     check('results_kind_check', oneOf(table.kind, resultKinds)),
     check(
       'results_administrative_reason_check',
-      sql`case when ${table.kind} = 'administrative'
+      sql`case when ${table.kind} = ${listedWord(resultKinds, 'administrative')}
         then ${table.administrativeReason} is not null and ${oneOf(table.administrativeReason, administrativeResultReasons)}
         else ${table.administrativeReason} is null end`,
     ),
     check(
       'results_decided_has_round',
-      sql`${table.kind} <> 'decided' or ${table.roundId} is not null`,
+      sql`${table.kind} <> ${listedWord(resultKinds, 'decided')} or ${table.roundId} is not null`,
     ),
     check(
       'results_correction_has_reason',

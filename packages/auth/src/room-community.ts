@@ -1,4 +1,4 @@
-import { tryInstantMs } from '@daisy/clock';
+import { tryInstantMs } from '@daisy/clock/instant';
 import { isOpenRoomStatus } from '@daisy/protocol/room-contract';
 import {
   roomCommunityPolicySchema,

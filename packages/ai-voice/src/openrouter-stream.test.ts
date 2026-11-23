@@ -25,7 +25,11 @@ const request = { model: 'm', messages: [], maxTokens: 10 } as const;
 /** Streams an answer and reports the text handed on, then the outcome. */
 const streamed = async (fetch: Fetch, signal?: AbortSignal) => {
   const heard: string[] = [];
-  const outcome = await createOpenRouter({ apiKey: 'k', fetch })
+  const outcome = await createOpenRouter({
+    apiKey: 'k',
+    fetch,
+    waits: virtualClock(),
+  })
     .completeStreamed({ ...request, ...(signal ? { signal } : {}) }, (text) =>
       heard.push(text),
     )
@@ -140,7 +144,7 @@ test('a stream may run longer than the adapter timeout, which bounds only its st
       apiKey: 'k',
       fetch: async () => new Response(slow),
       timeoutMs: 50,
-      sleep: clock.sleep,
+      waits: clock,
     }).completeStreamed(request, (text) => heard.push(text)),
   );
   assert({
@@ -159,7 +163,7 @@ test('a stream may run longer than the adapter timeout, which bounds only its st
           ),
         ),
       timeoutMs: 30,
-      sleep: clock.sleep,
+      waits: clock,
     })
       .completeStreamed(request, () => undefined)
       .then(

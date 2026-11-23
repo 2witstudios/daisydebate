@@ -1,5 +1,6 @@
+import { openWebDatabase } from '../src/server/database';
+import { hostWaits } from '@daisy/worker/host';
 import { SQL } from 'bun';
-import { createDatabase } from '@daisy/db';
 import { createMessagingTestFixture } from '@daisy/db/testing';
 import { createId } from '@paralleldrive/cuid2';
 import type { AuthorizationPrincipal } from '@daisy/auth/authorization';
@@ -8,7 +9,11 @@ import { contactPairFence } from '../src/features/contacts/authorization';
 export async function openMessagingFixture(databaseUrl: string) {
   const client = new SQL(databaseUrl);
   const fixture = await createMessagingTestFixture(client);
-  const database = createDatabase({ url: databaseUrl, nextActorId: createId });
+  const database = openWebDatabase({
+    waits: hostWaits,
+    url: databaseUrl,
+    nextActorId: createId,
+  });
   const principal = {
     kind: 'user' as const,
     userId: fixture.userId,

@@ -1,4 +1,4 @@
-import { nextWaitMs, type IdleBackoff } from '../../lib/idle-backoff';
+import { nextWaitMs, type IdleBackoff } from '@daisy/worker';
 type Snapshot = {
   readonly status: string;
   readonly segments: readonly { readonly id: string; readonly type: string }[];

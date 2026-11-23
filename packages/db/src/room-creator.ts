@@ -1,31 +1,22 @@
-import type { CompetitionType } from '@daisy/protocol/round';
 import {
-  mayDebate,
+  membershipStatuses,
+  organizationKinds,
+  grantScopeKinds,
+  permissions,
+} from '@daisy/protocol/lobby';
+import { listedWord } from './lifecycle-sql';
+import {
   type DebaterEligibility,
-  type LobbyAgeRule,
+  isMinorAgeBand,
 } from '@daisy/protocol/lobby/eligibility';
 import { sql } from 'drizzle-orm';
 import { clubOrganizationKinds } from './billing-owner-lock';
-import {
-  isMinorAgeBand,
-  readGuardianLobbyIds,
-} from './guardians/lobby-permissions';
+import { readGuardianLobbyIds } from './guardians/lobby-permissions';
 import { readCompetitionAgeBand } from './ladder-division-band';
 import { query } from './raw-rows';
 import { currentTenantScope, scopeTransaction } from './tenant-scope';
 import type { Tx } from './tx';
 import { z } from 'zod';
-
-export const mayHostStandingRoom = (
-  creator: DebaterEligibility & { readonly clubStaff: boolean },
-  lobby: {
-    readonly lobbyId: string;
-    readonly ageRule: LobbyAgeRule;
-    readonly competitionType: CompetitionType;
-  },
-): boolean =>
-  (creator.clubStaff && lobby.ageRule === 'under-18') ||
-  mayDebate(creator, lobby);
 
 /**
  * Who creates a Room, as its lobby is decided: their competition age band and
@@ -54,11 +45,11 @@ export async function readRoomCreator(
         select 1 from memberships m join organizations o on o.id = m.organization_id
         join grants g on g.organization_id = o.id and g.user_id = m.user_id
         join role_permissions p on p.role_id = g.role_id
-        where m.user_id = ${userId} and m.status = 'active'
-          and o.kind = 'school' and o.closed_at is null
-          and g.scope_kind = 'organization' and g.revoked_at is null
+        where m.user_id = ${userId} and m.status = ${listedWord(membershipStatuses, 'active')}
+          and o.kind = ${listedWord(organizationKinds, 'school')} and o.closed_at is null
+          and g.scope_kind = ${listedWord(grantScopeKinds, 'organization')} and g.revoked_at is null
           and (g.expires_at is null or g.expires_at > clock_timestamp())
-          and p.permission = 'school.roster.manage'
+          and p.permission = ${listedWord(permissions, 'school.roster.manage')}
       ) as staff`,
   );
   await scopeTransaction(tx, scope);

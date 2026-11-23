@@ -1,17 +1,27 @@
-import { roundDecisionReleasePolicy } from '@daisy/protocol/round-decision-release';
+import { createFormatsStore } from '../src/stores/formats';
+import { createSpectatingStore } from '../src/stores/spectating';
+import { WORKLOAD_PROFILES, openDatabaseResources } from '../src/resources';
+import { hostWaits } from '@daisy/worker/host';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { isCapacityRefusal } from '../src/capacity';
 import { requireTestServices } from '@daisy/config';
-import { WORKLOAD_PROFILES, createDatabase } from '../src';
 import { afterAll } from 'bun:test';
+/** This file's database: the area stores it reads, over one set of resources. */
+const openStores = (options: Parameters<typeof openDatabaseResources>[0]) => {
+  const resources = openDatabaseResources(options);
+  return {
+    ...createFormatsStore(resources),
+    ...createSpectatingStore(resources),
+    close: resources.close,
+  };
+};
 
 setupRitewayBun();
 
 /** With no audience lane, an operation on it refuses and any other reaches the client. */
-const database = createDatabase({
-  decisionRelease: roundDecisionReleasePolicy,
+const database = openStores({
+  waits: hostWaits,
   url: requireTestServices(process.env).databaseUrl,
-  nextActorId: () => 'a'.repeat(24),
   profile: {
     ...WORKLOAD_PROFILES.web,
     lanes: Object.fromEntries(

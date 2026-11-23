@@ -7,7 +7,7 @@ import {
   clipDigests,
   requireLiveCaptureLease,
   sealIntegrity,
-} from './capture-rules';
+} from './media-capture-context';
 
 setupRitewayBun();
 

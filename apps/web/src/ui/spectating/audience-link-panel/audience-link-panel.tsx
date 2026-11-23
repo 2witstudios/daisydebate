@@ -1,10 +1,9 @@
 'use client';
 
-import { StatusRegion } from '../../components/status-region/status-region';
+import { Announcement } from '../../components/announcement/announcement';
 import { Button } from '../../components/button/button';
 import type { AudienceLinkAnswer } from '../../../features/audience-link/submit-issue';
 import { Panel } from '../../components/panel/panel';
-import { buttonClass } from '../../components/button/button-class';
 import { useFormAction } from '../../form-action/form-action';
 import { CopyableUrlField } from '../../watch/copy-link/copyable-url-field';
 
@@ -35,29 +34,32 @@ export function AudienceLinkPanel({
           Recording, and they need no account.
         </p>
         {answer.kind === 'issued' ? (
-          <StatusRegion as="div" role="status" className="flex flex-col gap-2">
+          <Announcement
+            as="div"
+            kind="progress"
+            className="flex flex-col gap-2"
+          >
             <CopyableUrlField url={answer.url} label="Round link" />
             <p className="text-sm text-ink-muted">
               Copy it now. It is shown only this once.
             </p>
-          </StatusRegion>
+          </Announcement>
         ) : null}
         {answer.kind === 'refused' ? (
-          <StatusRegion as="p" role="alert">
+          <Announcement as="p" kind="problem">
             That link could not be made.
-          </StatusRegion>
+          </Announcement>
         ) : null}
         {answer.kind === 'unavailable' ? (
-          <StatusRegion as="p" role="alert">
+          <Announcement as="p" kind="problem">
             Links are unavailable right now. Try again in a moment.
-          </StatusRegion>
+          </Announcement>
         ) : null}
         <form action={formAction}>
           <Button
-            variant="unstyled"
+            variant={hasLink ? 'secondary' : 'primary'}
             type="submit"
             disabled={pending}
-            className={buttonClass(hasLink ? 'secondary' : 'primary')}
           >
             {hasLink ? 'Replace link' : 'Create link'}
           </Button>

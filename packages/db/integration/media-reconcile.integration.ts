@@ -3,15 +3,18 @@ import {
   mediaRoomFate,
   nextRoomVacancy,
 } from '@daisy/debate-engine';
-import type { MediaReconcileFence } from '../src/media-reconcile-contracts';
-import { mediaTestHuman } from './media-session.test-support';
+import type { MediaReconcileFence } from '../src/media-reconcile-store';
+import {
+  mediaTestHuman,
+  mediaTestStore,
+  mediaTestTick,
+} from './media-session.test-support';
 import { admitsPrincipalAccess } from '@daisy/auth/authorization';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';
 import { requireTestServices } from '@daisy/config';
 import { createId } from '@paralleldrive/cuid2';
 import { withFixture } from './constraint-helpers';
-import { mediaTestStore, mediaTestTick } from './media-session.test-support';
 setupRitewayBun();
 const { databaseUrl } = requireTestServices(process.env);
 

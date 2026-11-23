@@ -1,5 +1,7 @@
+import { roomVisibilities } from '@daisy/protocol/room-contract';
+import { recordingStatuses } from '@daisy/protocol/recording';
 import { overRoundStatuses } from '@daisy/protocol/round';
-import { lifecycleSqlList } from './lifecycle-sql';
+import { lifecycleSqlList, listedWord } from './lifecycle-sql';
 import { SQL } from 'bun';
 import { sql } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/bun-sql';
@@ -7,8 +9,7 @@ import { audienceSnapshotReads } from './audience-snapshot-reads';
 import { run, query } from './raw-rows';
 import { spectatorTimelineReads } from './spectator-timeline-reads';
 import { z } from 'zod';
-
-export { audienceStateKey } from './audience-state-key';
+import { sha3Hex } from '@daisy/digest';
 
 export type PublishingBroadcast = {
   readonly broadcastId: string;
@@ -54,7 +55,7 @@ export const createAudiencePublisherStore = (url: string) => {
             coalesce(
               case when r.status in ${lifecycleSqlList(overRoundStatuses)}
                   and coalesce(b.stopped_at,b.completed_at) is not null
-                  and (rc.status is null or rc.status in ('ready','failed','taken_down','removing','removed'))
+                  and (rc.status is null or rc.status in (${listedWord(recordingStatuses, 'ready')},${listedWord(recordingStatuses, 'failed')},${listedWord(recordingStatuses, 'taken_down')},${listedWord(recordingStatuses, 'removing')},${listedWord(recordingStatuses, 'removed')}))
                 then greatest(coalesce(b.stopped_at,b.completed_at),coalesce(rc.updated_at,b.created_at))
                   + make_interval(secs => ${input.settledKeepMs / 1000}::double precision)
                 else coalesce(b.stopped_at,b.completed_at)
@@ -65,7 +66,7 @@ export const createAudiencePublisherStore = (url: string) => {
           join rounds r on r.id=b.round_id
           left join recordings rc on rc.round_id=b.round_id
           where b.audience_state_withdrawn_at is null
-            and r.visibility in ('public','unlisted')
+            and r.visibility in (${listedWord(roomVisibilities, 'public')},${listedWord(roomVisibilities, 'unlisted')})
           order by b.created_at limit ${input.limit}`,
       );
       return rows.map((row) => ({
@@ -90,3 +91,13 @@ export const createAudiencePublisherStore = (url: string) => {
     close: () => client.close(),
   };
 };
+
+/**
+ * The key a Round's published state lives under: its feed key and, on an unlisted
+ * Round, its current link. Replacing the link moves the state, so the old link's
+ * holder has no address for what happens next (ADR 0109).
+ */
+export const audienceStateKey = (
+  feedKey: string,
+  linkHash: string | null,
+): string => sha3Hex(`${feedKey}:${linkHash ?? 'public'}`);

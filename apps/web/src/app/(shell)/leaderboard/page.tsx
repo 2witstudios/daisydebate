@@ -9,11 +9,11 @@ import {
   lobbyHref,
   parseLadderQuery,
 } from '../../../features/leaderboard/query';
+import { requestLadder } from '../../../features/leaderboard/page-reads';
 import {
-  requestLadder,
   requestOfficialStandingLobbies,
   requestLandingLobby,
-} from '../../../lib/request-session';
+} from '../../../features/lobby/page-reads';
 import { Segmented } from '../../../ui/components/segmented/segmented';
 import { Leaderboard } from '../../../ui/leaderboard/leaderboard';
 

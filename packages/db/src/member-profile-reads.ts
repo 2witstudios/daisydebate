@@ -1,9 +1,13 @@
 import { roundStatus } from '@daisy/protocol/round';
 import { createAppError } from '@daisy/errors';
-import type { RoundOutcome } from '@daisy/protocol/round-outcome';
+import {
+  roundOutcomeSchema,
+  type RoundOutcome,
+} from '@daisy/protocol/round-outcome';
 import type { RoundStatus } from '@daisy/protocol/round';
 import type { SeatRef } from '@daisy/protocol/seats';
 import { and, count, desc, eq, isNotNull, sql } from 'drizzle-orm';
+import { parsedColumn } from './raw-rows';
 import { instrumented, type DatabaseEventSink } from './instrumented';
 import { debating, historyRows, type HistoryRow } from './member-history-rows';
 import { sharedAccount, type Account, type Caller } from './room-command-facts';
@@ -40,7 +44,10 @@ export type RecordGroup = {
 };
 
 /** A Round row's outcome, selected and grouped as the protocol RoundOutcome. */
-const outcome = sql<RoundOutcome | null>`${roundOutcomeSql('rounds')}`;
+const outcome = parsedColumn(
+  roundOutcomeSchema.nullable(),
+  sql`${roundOutcomeSql('rounds')}`,
+);
 
 export type MemberProfileRead = {
   readonly member: MemberRow;

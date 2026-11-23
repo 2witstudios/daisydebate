@@ -1,9 +1,9 @@
-import type { Database } from '@daisy/db';
+import type { OperatorAccountsStore } from '@daisy/db/stores/operator-accounts';
 import { createAppError } from '@daisy/errors';
 import { ageAdmitted } from '@daisy/auth/authorization';
 import { decideBetaAccessChange } from '@daisy/protocol/beta-access';
 
-type Store = Pick<Database, 'betaAccessCommand'>;
+type Store = Pick<OperatorAccountsStore, 'betaAccessCommand'>;
 type Input = Parameters<Store['betaAccessCommand']>[0];
 type Session = Parameters<Parameters<Store['betaAccessCommand']>[1]>[0];
 type Fresh = Extract<Awaited<ReturnType<Session['load']>>, { kind: 'fresh' }>;

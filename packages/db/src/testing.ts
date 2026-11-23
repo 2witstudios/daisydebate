@@ -1,6 +1,7 @@
-import { query } from './raw-rows';
+import { postgresInstantMs, query } from './raw-rows';
 import { z } from 'zod';
 import { SQL } from 'bun';
+import type { Waits } from '@daisy/clock';
 import { sql } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/bun-sql';
 import {
@@ -12,7 +13,7 @@ export { daisyOrganizationId, publicLobbyId } from './daisy-reference';
 export { validRules } from './testing-rules';
 export { seedRatingSeason } from './testing-rating-season';
 export { completeControlledStripeCleanup } from './testing-billing';
-export { completeControlledBillingPurchase } from './testing-billing-purchase';
+export { completeControlledBillingPurchase } from './testing-billing';
 export { fundTestClub } from './testing-club';
 export { atFinalJudgingStage, syntheticCaseMap } from './testing-judging';
 
@@ -55,28 +56,28 @@ const describeXidHolders = async (client: SQL): Promise<string> => {
  * There is no server-side wakeup for xmin advancing, so this polls the
  * condition itself. Past `deadlineMs` it rejects naming every xid holder in
  * the cluster, so a stuck foreign transaction is reported, not a timeout.
- * The caller injects the clock (`now`, in milliseconds).
+ * The caller injects the time it polls and gives up on (`waits`).
  */
 export async function waitForOutboxFinality(
   client: SQL,
   txid: string,
   {
-    now,
+    waits,
     deadlineMs = 3000,
-  }: { readonly now: () => number; readonly deadlineMs?: number },
+  }: { readonly waits: Waits; readonly deadlineMs?: number },
 ): Promise<void> {
-  const deadline = now() + deadlineMs;
+  const deadline = waits.nowMs() + deadlineMs;
   for (;;) {
     const [row]: Array<{ final: boolean }> = await client.unsafe(
       'select pg_snapshot_xmin(pg_current_snapshot()) > $1::xid8 as final',
       [txid],
     );
     if (row?.final) return;
-    if (now() >= deadline)
+    if (waits.nowMs() >= deadline)
       throw new Error(
         `Outbox txid ${txid} is still not final after ${deadlineMs} ms; xid holders: ${await describeXidHolders(client)}`,
       );
-    await Bun.sleep(POLL_INTERVAL_MS);
+    await waits.sleep(POLL_INTERVAL_MS);
   }
 }
 
@@ -86,23 +87,23 @@ export async function waitForOutboxFinality(
  * reporting a backend blocked on a lock `holderPid` holds
  * (`pg_blocking_pids`, not a timer). Past `deadlineMs` it rejects, so work
  * that neither finishes nor blocks fails loudly instead of hanging the
- * suite. The caller injects the clock (`now`, in milliseconds).
+ * suite. The caller injects the time it polls and gives up on (`waits`).
  */
 export async function finishedOrBlockedBehind(
   work: Promise<unknown>,
   observer: SQL,
   holderPid: number,
   {
-    now,
+    waits,
     deadlineMs = 5000,
-  }: { readonly now: () => number; readonly deadlineMs?: number },
+  }: { readonly waits: Waits; readonly deadlineMs?: number },
 ): Promise<'finished' | 'blocked'> {
   const completion = { finished: false };
   void work.then(
     () => (completion.finished = true),
     () => (completion.finished = true),
   );
-  const deadline = now() + deadlineMs;
+  const deadline = waits.nowMs() + deadlineMs;
   for (;;) {
     if (completion.finished) return 'finished';
     const [row]: Array<{ waiting: number }> = await observer.unsafe(
@@ -110,11 +111,11 @@ export async function finishedOrBlockedBehind(
       [holderPid],
     );
     if ((row?.waiting ?? 0) > 0) return 'blocked';
-    if (now() >= deadline)
+    if (waits.nowMs() >= deadline)
       throw new Error(
         `Work neither finished nor blocked behind pid ${holderPid} within ${deadlineMs} ms`,
       );
-    await Bun.sleep(POLL_INTERVAL_MS);
+    await waits.sleep(POLL_INTERVAL_MS);
   }
 }
 
@@ -135,12 +136,12 @@ export {
   approveBetaAccess,
   removeUnowedBetaDigests,
 } from './beta-access-testing';
-export { refuseCapacity } from './capacity-refusal';
+export { refuseCapacity } from './raw-rows';
 export {
   eraseRoomAccountClosure,
   exportRoomAccountClosure,
 } from './testing-room-account-closure';
-export { refuseFinalSpeech } from './bot-generation-rules';
+export { refuseFinalSpeech } from './bot-generation';
 
 /** The database boundary's failure wrapper, for composing refusal telemetry across packages. */
 export { instrumented } from './instrumented';
@@ -155,7 +156,7 @@ export async function readSpectatorHorizon(
   try {
     const rows = await query(
       drizzle({ client }),
-      z.object({ horizon: z.union([z.date(), z.string()]).nullable() }),
+      z.object({ horizon: postgresInstantMs.nullable() }),
       sql`select ${spectatorHorizonSql(
         {
           id: sql`r.id`,
@@ -166,8 +167,7 @@ export async function readSpectatorHorizon(
         clock,
       )} as horizon from rounds r where r.id=${roundId}`,
     );
-    const horizon = rows[0]?.horizon ?? null;
-    return horizon === null ? null : new Date(horizon).getTime();
+    return rows[0]?.horizon ?? null;
   } finally {
     await client.close();
   }

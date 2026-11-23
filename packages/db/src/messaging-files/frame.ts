@@ -1,21 +1,24 @@
+import type { PgUpdateSetSource } from 'drizzle-orm/pg-core';
 import { tryInstantMs, instantMs, addMs } from '@daisy/clock';
 import { and, eq, gt, ne, sql } from 'drizzle-orm';
+import { parsedColumn, postgresInt8 } from '../raw-rows';
 import { createAppError } from '@daisy/errors';
 import { idSchema } from '@daisy/protocol/primitives';
 import { messagingChannels } from '../schema/messaging-channels';
 import { appendStream } from '../messaging/stream';
 import { messagingMessages } from '../schema/messaging-messages';
 import { messagingFiles } from '../schema/messaging-files';
-import { requireFilePolicy } from './policy';
-import { requireReservation } from './reservation-input';
 import { createFileListing } from './message-files';
 import type {
   FileFrame,
   FileReservation,
   FileScope,
   FileToken,
+  FilePolicy,
+  FileReserveCommand,
 } from './records';
 import type { Tx } from '../tx';
+import { createMessagingFileSchemas } from '@daisy/protocol/messaging/files';
 
 type Row = typeof messagingFiles.$inferSelect;
 const reservation = (row: Row): FileReservation => {
@@ -41,7 +44,7 @@ export const fileDeletionValues = {
   requestId: null,
   messageId: null,
   generation: sql`${messagingFiles.generation} + 1`,
-};
+} satisfies PgUpdateSetSource<typeof messagingFiles>;
 /** Caller holds canonical account/pair/channel locks. Never opens a transaction. */
 export function channelFileFrame(
   tx: Tx,
@@ -158,8 +161,11 @@ export function channelFileFrame(
       }
       const [quota] = await tx
         .select({
-          bytes: sql<string>`coalesce(sum(${messagingFiles.reservedBytes}),0)`,
-          count: sql<string>`count(*)`,
+          bytes: parsedColumn(
+            postgresInt8,
+            sql`coalesce(sum(${messagingFiles.reservedBytes}),0)`,
+          ),
+          count: parsedColumn(postgresInt8, sql`count(*)`),
         })
         .from(messagingFiles)
         .where(
@@ -177,7 +183,7 @@ export function channelFileFrame(
       // Every reservation counts, deleted or not, so removing a file never
       // refills the day.
       const [today] = await tx
-        .select({ count: sql<string>`count(*)` })
+        .select({ count: parsedColumn(postgresInt8, sql`count(*)`) })
         .from(messagingFiles)
         .where(
           and(
@@ -278,7 +284,7 @@ export function channelFileFrame(
       await live(row, now);
       if (row.lifecycle !== 'quarantined') throw createAppError('CONFLICT');
       const [count] = await tx
-        .select({ value: sql<string>`count(*)` })
+        .select({ value: parsedColumn(postgresInt8, sql`count(*)`) })
         .from(messagingFiles)
         .where(
           and(
@@ -307,4 +313,55 @@ export function channelFileFrame(
       if (row.lifecycle === 'attached') await changed();
     },
   };
+}
+
+export function requireFilePolicy(policy: FilePolicy | undefined): FilePolicy {
+  if (
+    !policy ||
+    Object.values(policy).some(
+      (value) => !Number.isSafeInteger(value) || value <= 0,
+    ) ||
+    policy.maxFileBytes > policy.maxStoredBytes
+  )
+    throw createAppError('INFRASTRUCTURE');
+  const keys: readonly (keyof FilePolicy)[] = [
+    'maxFileBytes',
+    'maxStoredBytes',
+    'maxStoredFiles',
+    'maxFilesPerMessage',
+    'reservationMs',
+    'accessMs',
+    'maxFilenameUnits',
+    'maxImagePixels',
+    'serviceMs',
+    'maxUploadsPerDay',
+  ];
+  if (
+    keys.some((key) => !Number.isSafeInteger(policy[key]) || policy[key] <= 0)
+  )
+    throw createAppError('INFRASTRUCTURE');
+  return policy;
+}
+
+function requireReservation(
+  command: FileReserveCommand,
+  channelId: string,
+  now: string,
+  policy: FilePolicy,
+): void {
+  const valid = createMessagingFileSchemas(policy).reserve.safeParse({
+    version: 1,
+    channelId,
+    requestId: command.requestId,
+    filename: command.filename,
+    mime: command.mime,
+    bytes: command.bytes,
+  });
+  if (
+    !valid.success ||
+    !idSchema.safeParse(command.id).success ||
+    !idSchema.safeParse(command.objectKey).success ||
+    tryInstantMs(now) === undefined
+  )
+    throw createAppError('VALIDATION');
 }

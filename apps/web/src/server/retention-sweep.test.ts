@@ -200,6 +200,7 @@ describe('retention sweep run', () => {
     const { logged, logger } = recorder();
     const later = target('retention.later', [1]);
     let calls = 0;
+    const stopping = new AbortController();
     const sweep = createRetentionSweep({
       targets: [
         {
@@ -208,7 +209,7 @@ describe('retention sweep run', () => {
           maxBatches: 10,
           purge: async () => {
             calls += 1;
-            sweep.stop();
+            stopping.abort();
             return 3;
           },
         },
@@ -217,7 +218,7 @@ describe('retention sweep run', () => {
       clock: fixedClock(now),
       logger,
     });
-    const results = await sweep.run();
+    const results = await sweep.run(stopping.signal);
     assert({
       given: 'a stop requested while the first target’s first full batch runs',
       should:

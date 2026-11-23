@@ -1,7 +1,8 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { refuseCapacity } from '@daisy/db/testing';
 import { createBotGeneration } from './generation';
-import { scope } from './speaker.test-support';
+import { inertWaits } from '../../lib/manual-waits.test-support';
+import { scope } from './bot-scope.test-support';
 setupRitewayBun();
 
 /** Synthesizes one phrase through a generation over the given store and a fixed voice. */
@@ -21,8 +22,7 @@ const synthesizeOne = (
       }) as never,
     withProvider: (_signal, work) => work(),
     nowMs: () => 0,
-    pause: async () => undefined,
-    timer: { setTimeout: () => null, clearTimeout: () => undefined },
+    waits: inertWaits,
     stallMs: 1000,
     maxTokens: 100,
     reasoning: 'none',
@@ -83,6 +83,35 @@ function streamedGeneration(
   const signals: AbortSignal[] = [];
   /** The stall watches now armed. */
   const watches: { run: () => void; ms: number }[] = [];
+  let clock = 0;
+  /**
+   * A stall watch (`stallMs` long) stays armed until it is run or
+   * cancelled; any other wait is a pause between usage records, recorded
+   * and over at once.
+   */
+  const waitUntilMs = (dueMs: number, signal?: AbortSignal) =>
+    new Promise<void>((resolve) => {
+      const ms = dueMs - clock;
+      if (ms !== 9000) {
+        pauses.push(ms);
+        return resolve();
+      }
+      if (signal?.aborted) return resolve();
+      const watch = {
+        ms,
+        run: () => {
+          clock = Math.max(clock, dueMs);
+          end();
+        },
+      };
+      const end = () => {
+        const at = watches.indexOf(watch);
+        if (at >= 0) watches.splice(at, 1);
+        resolve();
+      };
+      signal?.addEventListener('abort', end, { once: true });
+      watches.push(watch);
+    });
   const finished: string[] = [];
   const requests: Record<string, unknown>[] = [];
   let hear: (text: string) => void = () => undefined;
@@ -156,18 +185,10 @@ function streamedGeneration(
       return work();
     },
     nowMs: () => 1000,
-    pause: async (ms) => {
-      pauses.push(ms);
-    },
-    timer: {
-      setTimeout: (run, ms) => {
-        watches.push({ run, ms });
-        return run;
-      },
-      clearTimeout: (handle) => {
-        const at = watches.findIndex((watch) => watch.run === handle);
-        if (at >= 0) watches.splice(at, 1);
-      },
+    waits: {
+      nowMs: () => clock,
+      waitUntilMs,
+      sleep: (ms, signal) => waitUntilMs(clock + Math.max(0, ms), signal),
     },
     stallMs: 9000,
     maxTokens: 100,

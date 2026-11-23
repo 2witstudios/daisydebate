@@ -1,3 +1,4 @@
+import { hostWaits } from '@daisy/worker/host';
 import { createOpenRouter } from '../src/openrouter';
 
 const key = process.env.OPENROUTER_API_KEY;
@@ -5,7 +6,7 @@ if (!key)
   throw new Error(
     'OPENROUTER_API_KEY capability is required for the real PCM proof',
   );
-const provider = createOpenRouter({ apiKey: key, fetch });
+const provider = createOpenRouter({ apiKey: key, fetch, waits: hostWaits });
 const output = await provider.speakPcm({
   model: 'deepgram/aura-2',
   voice: 'aura-2-thalia-en',

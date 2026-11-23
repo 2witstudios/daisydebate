@@ -1,14 +1,24 @@
+import { createAvailabilityStore } from '../src/stores/availability';
+import { openDatabaseResources } from '../src/resources';
+import { hostWaits } from '@daisy/worker/host';
 import { addMs } from '@daisy/clock';
 import { completedRound } from './round-analysis.test-support';
 import { SQL } from 'bun';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { requireTestServices } from '@daisy/config';
 import { createId } from '@paralleldrive/cuid2';
-import { createDatabase } from '../src/index';
 import { createBoundedTransaction } from '../src/bounded-transaction';
 import { createLane } from '../src/workload';
 import { createBillingEconomicsReader } from '../src/billing-economics';
 import { withFixture } from './constraint-helpers';
+/** This file's database: the area stores it reads, over one set of resources. */
+const openStores = (options: Parameters<typeof openDatabaseResources>[0]) => {
+  const resources = openDatabaseResources(options);
+  return {
+    ...createAvailabilityStore(resources),
+    close: resources.close,
+  };
+};
 
 const { databaseUrl } = requireTestServices(process.env);
 setupRitewayBun();
@@ -93,18 +103,23 @@ test('historical analysis cannot inherit a later request source and received out
         reserved_at: requested,
       });
       pool = new SQL(databaseUrl, { max: 6 });
-      const db = createDatabase({
+      const db = openStores({
+        waits: hostWaits,
         url: databaseUrl,
         client: pool,
-        nextActorId: createId,
       });
       const run = createBoundedTransaction({
-        lane: createLane('control', pool, {
-          connections: 6,
-          queue: 16,
-          maxWaitMs: 1000,
-        }),
-        now: performance.now,
+        lane: createLane(
+          'control',
+          pool,
+          {
+            connections: 6,
+            queue: 16,
+            maxWaitMs: 1000,
+          },
+          { waits: hostWaits },
+        ),
+        waits: hostWaits,
       });
       await db.renewServiceInstance({ instanceId, role: 'web' });
       const reserve = pool.reserve.bind(pool);

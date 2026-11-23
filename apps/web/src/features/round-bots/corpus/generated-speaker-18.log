@@ -1,0 +1,77 @@
+0 peer end-of-turn peer
+0 heard peer@1000
+0 generate peer-turn peer@1000
+0 settle answer 1
+0 peer barge-in peer
+350 tts "One."
+350 tts "Two."
+350 tts "Three."
+350 settle tts "One."
+350 settle tts "Two."
+350 settle tts "Three."
+350 verify
+390 settle tts "Three." -> Error
+1138 peer barge-in peer
+2415 peer speech-start peer
+2415 peer barge-in peer
+2415 peer end-of-turn peer
+2415 abandon answer 1
+2415 heard peer@2000
+2415 generate peer-turn peer@2000
+2415 generate -> conflict
+2615 heard peer@2000
+2615 generate peer-turn peer@2000
+2615 settle answer 3
+2715 tts "One."
+2715 settle tts "One."
+2715 verify
+2715 verify
+2715 token
+2715 join TR_0
+2715 begin id7 120ms in=0 at=2027-01-15T08:00:02.715Z room
+2795 begin -> Error
+2876 tts "Two."
+2876 settle tts "Two."
+2895 begin id7 120ms in=0 at=2027-01-15T08:00:02.715Z room
+2895 begin id10 260ms in=120 at=2027-01-15T08:00:03.015Z room
+2895 reveal id7 room at=2027-01-15T08:00:02.895Z
+2895 frames TR_0 x31
+2905..2965 frames TR_0 x7 every 10ms
+3015 end id7 whole
+3015 reveal id10 room at=2027-01-15T08:00:03.015Z
+3137 tts "Three."
+3137 settle tts "Three."
+3137 begin id12 80ms in=138 at=2027-01-15T08:00:03.275Z room
+3165 frames TR_0 x8
+3275 failed generate Error
+3275 close answer 3
+3275 abandon answer 3
+3275 end id10 whole
+3275 end -> CONFLICT/bot-room-changed
+3275 reveal id12 room at=2027-01-15T08:00:03.275Z
+3355 end id12 whole
+11275 generate unanswered
+11275 settle answer 4
+11375 tts "One."
+11375 settle tts "One."
+11375 verify
+11375 begin id14 120ms in=0 at=2027-01-15T08:00:11.375Z room
+11375 reveal id14 room at=2027-01-15T08:00:11.375Z
+11375 frames TR_0 x12
+11495 end id14 whole
+11536 tts "Two."
+11536 settle tts "Two."
+11536 begin id16 260ms in=0 at=2027-01-15T08:00:11.536Z room
+11536 reveal id16 room at=2027-01-15T08:00:11.536Z
+11536 frames TR_0 x26
+11796 end id16 whole
+11797 tts "Three."
+11797 settle tts "Three."
+11797 failed generate Error
+11797 close answer 4
+11797 abandon answer 4
+11797 begin id18 80ms in=0 at=2027-01-15T08:00:11.797Z room
+11797 reveal id18 room at=2027-01-15T08:00:11.797Z
+11797 frames TR_0 x8
+11877 end id18 whole
+12415 close TR_0

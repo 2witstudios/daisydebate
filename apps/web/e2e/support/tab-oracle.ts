@@ -1,4 +1,4 @@
-import { systemClock } from '@daisy/clock';
+import { addMs, systemClock } from '@daisy/clock';
 import { idSchema } from '@daisy/protocol/primitives';
 import { roomViewSchema } from '@daisy/protocol/room-read';
 import { sameSeat, type SeatRef } from '@daisy/protocol/seats';
@@ -133,9 +133,7 @@ export async function scheduleTournament(
     type: 'add-time-slot',
     lobbyId,
     name: 'Oracle morning',
-    startsAt: new Date(
-      new Date(systemClock.now()).getTime() + 3_600_000,
-    ).toISOString(),
+    startsAt: addMs(systemClock.now(), 3_600_000),
   });
   const wording = 'Cities should expand public transit.';
   await add({
@@ -479,9 +477,7 @@ export async function createOracleLeague(
     organizationId: aggregate.id,
     lobbyId: standingLobby.id,
     name: 'Oracle league season',
-    startsAt: new Date(
-      new Date(systemClock.now()).getTime() - 86_400_000,
-    ).toISOString(),
+    startsAt: addMs(systemClock.now(), -86_400_000),
     endsAt: null,
     counting: 'sanction',
     countsLobbyRooms: false,

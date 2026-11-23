@@ -1,10 +1,19 @@
+import { createOperatorAccountsStore } from '../src/stores/operator-accounts';
+import { openDatabaseResources } from '../src/resources';
+import { hostWaits } from '@daisy/worker/host';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { requireTestServices } from '@daisy/config';
 import { createAppError } from '@daisy/errors';
-import { createId } from '@paralleldrive/cuid2';
-import { createDatabase } from '../src';
 import { withFixture } from './constraint-helpers';
 import { command, pendingAccount } from './operator-accounts.test-support';
+/** This file's database: the area stores it reads, over one set of resources. */
+const openStores = (options: Parameters<typeof openDatabaseResources>[0]) => {
+  const resources = openDatabaseResources(options);
+  return {
+    ...createOperatorAccountsStore(resources),
+    close: resources.close,
+  };
+};
 
 setupRitewayBun();
 const { databaseUrl: url } = requireTestServices(process.env);
@@ -12,7 +21,7 @@ const { databaseUrl: url } = requireTestServices(process.env);
 test('Beta access sessions require settlement and bound writers, while replay needs no writer or live check', async () => {
   await withFixture(url, async (f) => {
     const account = await pendingAccount(f);
-    const db = createDatabase({ url, nextActorId: createId });
+    const db = openStores({ waits: hostWaits, url });
     const input = command(account.userId, 'approved', 1);
     const decision = {
       kind: 'changed',

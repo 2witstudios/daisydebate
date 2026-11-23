@@ -1,12 +1,14 @@
 import { processRoute } from '../../../../../server/process-app';
+import { recordingComposition } from '../../../../../features/recording/composition';
 
 type Params = Awaited<
   RouteContext<'/api/recordings/[recordingId]/download'>['params']
 >;
 
 export const runtime = 'nodejs';
-export const GET = processRoute.withParams<Params>(
+export const GET = processRoute.withParams(
+  recordingComposition,
   (routes) =>
-    (request, { recordingId }) =>
-      routes.recordings.download(request, recordingId),
+    (request, { recordingId }: Params) =>
+      routes.download(request, recordingId),
 );

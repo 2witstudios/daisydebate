@@ -1,4 +1,6 @@
-import { roundDecisionReleasePolicy } from '@daisy/protocol/round-decision-release';
+import { createRatingStore } from '../src/stores/ratings';
+import { openDatabaseResources } from '../src/resources';
+import { hostWaits } from '@daisy/worker/host';
 import {
   ratingEligibility,
   ratingCompetition,
@@ -15,11 +17,18 @@ import {
   type RatingPlanFacts,
   type RatingState,
 } from '@daisy/protocol/ratings';
-import { frozenJudgingFor } from '../src/round-judging-freeze';
-import { createDatabase, type Database } from '../src';
+import { frozenJudgingFor } from '@daisy/protocol/ballot-definition';
 import type { RatingDecision } from '../src/rating-facts';
 import { withFixture, type Fixture } from './constraint-helpers';
 import { validRules } from './round-fixtures';
+/** This file's database: the area stores it reads, over one set of resources. */
+const openStores = (options: Parameters<typeof openDatabaseResources>[0]) => {
+  const resources = openDatabaseResources(options);
+  return {
+    ...createRatingStore(resources),
+    close: resources.close,
+  };
+};
 
 /** Fixtures for the rating adapter suite (RATE-1.3). */
 
@@ -195,12 +204,12 @@ export const ledgerOf = async (fixture: Fixture, roundId: string) =>
 
 type RatingContext = {
   readonly fixture: Fixture;
-  readonly database: Database;
+  readonly database: ReturnType<typeof openStores>;
   /** Rates a round through the adapter with the stub decision. */
   readonly rate: (
     roundId: string,
     decide?: RatingDecision,
-  ) => ReturnType<Database['rateRound']>;
+  ) => ReturnType<ReturnType<typeof openStores>['rateRound']>;
   /**
    * A completed round between two new debaters on a new format, in an
    * active season opened by the first call.
@@ -228,10 +237,9 @@ export const withRatings = (
   body: (context: RatingContext) => Promise<void>,
 ) =>
   withFixture(url, async (fixture) => {
-    const database = createDatabase({
-      decisionRelease: roundDecisionReleasePolicy,
+    const database = openStores({
+      waits: hostWaits,
       url,
-      nextActorId: createId,
     });
     const rounds: string[] = [];
     const actors: string[] = [];

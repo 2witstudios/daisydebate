@@ -1,0 +1,21 @@
+{
+  "name": "@daisy/worker",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./host": "./src/host.ts"
+  },
+  "scripts": {
+    "typecheck": "tsgo --noEmit",
+    "test": "bun test src",
+    "test:integration": "bun ../../scripts/test-integration.ts"
+  },
+  "dependencies": {
+    "@daisy/clock": "workspace:*"
+  },
+  "devDependencies": {
+    "riteway": "9.3.0"
+  }
+}

@@ -1,4 +1,4 @@
-import { renderToStaticMarkup } from 'react-dom/server';
+import { renderAccessible } from '../../test-support/rendered/accessible';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { InboxRow } from './inbox-row';
 setupRitewayBun();
@@ -13,28 +13,30 @@ const entry = {
   unread: false,
 };
 const render = (value: Parameters<typeof InboxRow>[0]['entry']) =>
-  renderToStaticMarkup(<InboxRow entry={value} now={now} />);
+  renderAccessible(<InboxRow entry={value} now={now} />);
 test('an inbox row names the other party, previews the newest message and shows its age', () => {
-  const html = render(entry);
+  const view = render(entry);
   assert({
     given: 'a read conversation whose newest message is your own',
     should: 'link the name to the conversation with a "You:" preview and age',
     actual: [
-      html.includes(`href="/messages/${channelId}"`),
-      html.includes('kelvin</a>'),
-      html.includes('You: Good round'),
-      html.includes('>45m</time>'),
-      html.includes('unread'),
+      view.attribute('link', 'kelvin', 'href'),
+      view.text('link', 'kelvin'),
+      view.textContent().includes('You: Good round'),
+      view.text('time'),
+      view.textContent().includes('unread'),
     ],
-    expected: [true, true, true, true, false],
+    expected: [`/messages/${channelId}`, 'kelvin', true, '45m', false],
   });
   assert({
     given: 'an unread conversation',
     should: 'name its unread state in the link itself',
-    actual: render({ ...entry, unread: true }).includes(
-      'aria-label="kelvin, unread"',
+    actual: render({ ...entry, unread: true }).attribute(
+      'link',
+      'kelvin, unread',
+      'href',
     ),
-    expected: true,
+    expected: `/messages/${channelId}`,
   });
 });
 test('requests and groups say what they are', () => {
@@ -48,21 +50,20 @@ test('requests and groups say what they are', () => {
     given: 'an incoming request',
     should: 'name the sender for screen readers and open the request',
     actual: [
-      incoming.includes('aria-label="Message request from kelvin, unread"'),
-      incoming.includes(`href="/messages/requests/${channelId}"`),
-      incoming.includes('Practice tonight?'),
+      incoming.attribute('link', 'Message request from kelvin, unread', 'href'),
+      incoming.textContent().includes('Practice tonight?'),
     ],
-    expected: [true, true, true],
+    expected: [`/messages/requests/${channelId}`, true],
   });
   const sent = render({ ...entry, kind: 'outgoing_request', preview: null });
   assert({
     given: 'a sent request without an introduction',
     should: 'open its status and say it awaits a reply',
     actual: [
-      sent.includes(`href="/messages/requests/${channelId}/status"`),
-      sent.includes('Waiting for a reply.'),
+      sent.attribute('link', 'Sent request to kelvin', 'href'),
+      sent.textContent().includes('Waiting for a reply.'),
     ],
-    expected: [true, true],
+    expected: [`/messages/requests/${channelId}/status`, true],
   });
   const group = render({
     ...entry,
@@ -75,43 +76,48 @@ test('requests and groups say what they are', () => {
     should:
       'fall back to a neutral name, leaving membership to the conversation',
     actual: [
-      group.includes('Untitled group'),
-      group.includes('No messages yet.'),
-      group.includes('/manage'),
+      group.attribute('link', 'Group Untitled group', 'href'),
+      group.textContent().includes('No messages yet.'),
+      group
+        .all('link')
+        .map((link) => link.getAttribute('href'))
+        .some((href) => href?.includes('/manage')),
     ],
-    expected: [true, true, false],
+    expected: [`/messages/${channelId}`, true, false],
   });
   assert({
     given: 'a conversation whose counterpart erased their account',
     should: 'never invent a name',
-    actual: render({ ...entry, title: null }).includes('Deleted account'),
-    expected: true,
+    actual: render({ ...entry, title: null }).text('link', 'Deleted account'),
+    expected: 'Deleted account',
   });
 });
 test('the open conversation says so and goes nowhere new', () => {
-  const open = renderToStaticMarkup(
+  const open = renderAccessible(
     <InboxRow entry={entry} now={now} current inert />,
   );
   assert({
     given: 'the row of the open conversation',
-    should: 'mark it current and fill it, while other rows stay plain',
+    should: 'mark it current, while other rows stay plain',
     actual: [
-      open.includes('aria-current="page"'),
-      open.includes('bg-accent-soft'),
-      render(entry).includes('aria-current'),
+      open.has('link', 'kelvin', { current: 'page' }),
+      render(entry).has('link', 'kelvin', { current: false }),
     ],
-    expected: [true, true, false],
+    expected: [true, true],
   });
 });
 test('a group invitation reveals nothing about the group', () => {
-  const html = render({ channelId, kind: 'incoming_invitation' });
+  const view = render({ channelId, kind: 'incoming_invitation' });
   assert({
     given: 'a pending invitation',
     should: 'link only to the invitation decision',
     actual: [
-      html.includes(`href="/messages/groups/invitations/${channelId}"`),
-      html.includes('Group invitation</a>'),
+      view.all('link').map((link) => link.getAttribute('href')),
+      view.names('link'),
     ],
-    expected: [true, true],
+    expected: [
+      [`/messages/groups/invitations/${channelId}`],
+      ['Group invitation'],
+    ],
   });
 });

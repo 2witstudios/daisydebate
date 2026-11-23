@@ -8,16 +8,15 @@ import { roomCreateOperations } from './room-create-operations';
 import { roomWriteOperations } from './room-write-operations';
 import { roomLifecycleOperations } from './room-lifecycle-operations';
 import { resolutionBankOperations } from './resolution-bank-operations';
-import type { roomCommandTransaction } from './room-command-transaction';
+import type { TransactionRunner, TxSource } from './tx';
 import { roomInvitationOperations } from './room-invitations/store';
-import type { TxSource } from './tx';
 /** One canonical durable Room command/projection adapter. */
 export const roomCommandOperations = (input: {
   readonly database: TxSource;
   readonly eventSink?: DatabaseEventSink | undefined;
   readonly botAdmission?: RoundBotAdmission | undefined;
   readonly judgeAdmission?: CasualJudgeAdmission | undefined;
-  readonly commandTransaction: ReturnType<typeof roomCommandTransaction>;
+  readonly commandTransaction: TransactionRunner;
 }) => ({
   ...commandRetention(input),
   ...roomReadOperations(input),

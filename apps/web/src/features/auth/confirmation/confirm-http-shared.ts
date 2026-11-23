@@ -1,4 +1,4 @@
-import type { OperationName } from '../../ops/operation-names';
+import type { OperationName } from '../../../server/operation-names';
 import { createAppError } from '@daisy/errors';
 import type { Logger } from '@daisy/logger';
 import type { ErrorReporter } from '@daisy/observability';

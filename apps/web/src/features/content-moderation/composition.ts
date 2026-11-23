@@ -1,9 +1,10 @@
-import { identify } from '../../lib/identity';
+import { defineComposition } from '../../server/composition';
+import { identify } from '../auth/identity';
 import type { App } from '../../server/app';
 import { createReportHandler } from './report-handler';
 
 /** The participant's one moderation route: filing a report. */
-export function composeContentModerationRoutes(app: App) {
+function composeContentModerationRoutes(app: App) {
   return {
     report: {
       POST: createReportHandler({
@@ -18,3 +19,9 @@ export function composeContentModerationRoutes(app: App) {
     },
   };
 }
+
+/** content-moderation: its route files bind here (`processRoute`). */
+export const contentModerationComposition = defineComposition(
+  'content-moderation',
+  (app) => composeContentModerationRoutes(app),
+);

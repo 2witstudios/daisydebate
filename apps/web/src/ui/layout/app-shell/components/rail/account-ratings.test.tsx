@@ -1,7 +1,7 @@
-import { ladderCopyIn } from '../../../../test-support/ladder-copy.test-support';
+import { ladderCopyInView } from '../../../../test-support/ladder-copy.test-support';
 import { createElement as h } from 'react';
-import { renderToString } from 'react-dom/server';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
+import { renderAccessible } from '../../../../../test-support/rendered/accessible';
 import { noLadderReason } from '../../../../../features/play/ladder-division-words';
 import type { MemberStanding } from '../../../../../features/ratings/read-member';
 import {
@@ -34,7 +34,7 @@ const openStanding = (overrides: Partial<MemberStanding> = {}) =>
 
 const render = async (
   ratings: Parameters<typeof AccountRatings>[0]['ratings'],
-) => renderToString(await AccountRatings({ ratings }));
+) => renderAccessible(await AccountRatings({ ratings }));
 
 describe('ratingText', () => {
   test('shows the rating, its provisional state, unrated and hidden', () => {
@@ -105,7 +105,7 @@ describe('railSeason', () => {
 
 describe('AccountRatings', () => {
   test('one Rating, naming no ladder, style or division (YHomeActive)', async () => {
-    const html = await render(
+    const view = await render(
       Promise.resolve({
         state: 'ready',
         division: 'youth',
@@ -115,40 +115,47 @@ describe('AccountRatings', () => {
         ],
       }),
     );
+    const text = view.textContent();
     assert({
       given: 'a youth member rated provisionally on their own ladder',
       should:
         'title the section with the season, show the Rating starred, and name no ladder, style or division',
       actual: [
-        html.includes('Ranked · Fall 2026'),
-        html.includes('>Rating</dt>'),
-        html.includes('1530*'),
-        html.includes('title="Provisional rating"'),
-        ladderCopyIn(html) ?? (html.includes('Youth') || html.includes('Open')),
+        view.within('region', 'Ratings').has('heading', 'Ranked · Fall 2026'),
+        view.text('term'),
+        view.text('definition', 'Provisional rating'),
+        ladderCopyInView(view) ??
+          ['Youth', 'Open', 'Freestyle'].some((word) => text.includes(word)),
       ],
-      expected: [true, true, true, true, false],
+      expected: [true, 'Rating', '1530*', false],
     });
   });
 
   test('says no season is active, that ranked needs an age, and that ratings are unavailable when the read failed', async () => {
-    const none = await render(
-      Promise.resolve({ state: 'ready', division: 'open', standings: [] }),
-    );
-    const noAge = await render(
-      Promise.resolve({
-        state: 'ready',
-        division: null,
-        standings: [openStanding(), standing({})],
-      }),
-    );
-    const failed = await render(Promise.resolve({ state: 'unavailable' }));
+    const none = (
+      await render(
+        Promise.resolve({ state: 'ready', division: 'open', standings: [] }),
+      )
+    ).textContent();
+    const noAge = (
+      await render(
+        Promise.resolve({
+          state: 'ready',
+          division: null,
+          standings: [openStanding(), standing({})],
+        }),
+      )
+    ).textContent();
+    const failed = (
+      await render(Promise.resolve({ state: 'unavailable' }))
+    ).textContent();
     assert({
       given:
         'a read with no standings, a member with no ladder, and a failed read',
       should: 'say each plainly, without a blank section',
       actual: [
         none.includes('No season is active.'),
-        noAge.includes(noLadderReason.replaceAll("'", '&#x27;')),
+        noAge.includes(noLadderReason),
         failed.includes('Ratings are unavailable right now.'),
       ],
       expected: [true, true, true],
@@ -156,16 +163,16 @@ describe('AccountRatings', () => {
   });
 
   test('the skeleton names the section and says it is loading, with no ratings in it', () => {
-    const html = renderToString(h(RatingsSkeleton));
+    const view = renderAccessible(h(RatingsSkeleton));
     assert({
       given: 'a rating still being read',
       should: 'mark the section busy and tell screen readers it is loading',
       actual: [
-        html.includes('aria-busy="true"'),
-        html.includes('Loading your ratings'),
-        html.includes('Unrated'),
+        view.attribute('region', 'Ratings', 'aria-busy'),
+        view.textContent().includes('Loading your ratings'),
+        view.textContent().includes('Unrated'),
       ],
-      expected: [true, true, false],
+      expected: ['true', true, false],
     });
   });
 });

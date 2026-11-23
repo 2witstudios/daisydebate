@@ -1,4 +1,5 @@
-import { instantMs } from '@daisy/clock';
+import { billingModes } from './billing-mode';
+import { instantMs } from '@daisy/clock/instant';
 import { z } from 'zod';
 import { idSchema } from './primitives';
 
@@ -108,7 +109,7 @@ export const refundActionSchema = z
   .strictObject({
     id: idSchema,
     userId: idSchema,
-    mode: z.enum(['test', 'live']),
+    mode: z.enum(billingModes),
     customerId: vendorId('cus'),
     chargeId: vendorId('ch'),
     invoiceId: vendorId('in'),

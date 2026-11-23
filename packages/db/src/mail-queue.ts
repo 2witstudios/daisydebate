@@ -1,10 +1,8 @@
 import { createAppError } from '@daisy/errors';
 import { sql, type SQL } from 'drizzle-orm';
 import type { PgColumn, PgTable } from 'drizzle-orm/pg-core';
-import { requireLeaseMs } from './lease-policy';
-import { run, query } from './raw-rows';
-import { isUniqueViolation } from './unique-violation';
-import { agentLeaseDigest } from './round-agent-lease';
+import { requireLeaseMs, leaseExpiresIn, leaseTokenDigest } from './lease';
+import { run, query, isUniqueViolation } from './raw-rows';
 import type { mailJobColumns } from './schema/columns';
 import { inTransaction, type TxOpener, type Tx } from './tx';
 import { z } from 'zod';
@@ -111,8 +109,8 @@ export const mailQueue = (
             sql`update ${table} set
                 last_error_code = ${unknownIfHeld(sql`last_error_code`)},
                 state = 'leased', attempts = attempts + 1,
-                lease_token_digest = ${agentLeaseDigest(token)},
-                lease_expires_at = clock_timestamp() + ${input.leaseMs} * interval '1 millisecond'
+                lease_token_digest = ${leaseTokenDigest(token)},
+                lease_expires_at = ${leaseExpiresIn(input.leaseMs)}
               where id = ${id}
               returning ${returning}`,
           );
@@ -144,7 +142,7 @@ export const mailQueue = (
         z.object({ id: z.string() }),
         sql`update ${table} set ${moved}, lease_token_digest = null, lease_expires_at = null
           where id = ${input.id} and state = 'leased'
-            and lease_token_digest = ${agentLeaseDigest(input.token)}
+            and lease_token_digest = ${leaseTokenDigest(input.token)}
           returning id`,
       );
       return settled.length === 1;
@@ -169,7 +167,7 @@ export const mailQueue = (
             next_attempt_at = ${input.until}::timestamptz,
             lease_token_digest = null, lease_expires_at = null
           where id = ${input.id} and state = 'leased'
-            and lease_token_digest = ${agentLeaseDigest(input.token)}
+            and lease_token_digest = ${leaseTokenDigest(input.token)}
           returning id`,
       );
       return moved.length === 1;

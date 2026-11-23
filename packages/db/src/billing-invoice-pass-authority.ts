@@ -16,7 +16,7 @@ import {
 } from './billing-cleanup-authority';
 import type { CleanupInvoiceRequest } from './billing-invoice-pass-retention';
 import { billingPaymentObservations } from './schema/billing-payment-observations';
-import { paymentObservationFromRow } from './billing-payment-observation-record';
+import { paymentObservationFromRow } from './billing-payment-observation-write';
 import { readFrozenBillingOffer } from './billing-frozen-offer';
 import type { Tx } from './tx';
 

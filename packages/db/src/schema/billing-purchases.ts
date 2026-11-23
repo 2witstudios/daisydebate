@@ -1,3 +1,4 @@
+import { billingModes } from '@daisy/protocol/billing-mode';
 import { purchaseStateSchema } from '@daisy/protocol/billing';
 import { sql } from 'drizzle-orm';
 import {
@@ -26,7 +27,7 @@ export const billingPurchases = pgTable(
     }),
     /** Seats bought: always 1 for Premium, the Club plan's seat count otherwise. */
     quantity: integer('quantity').notNull().default(1),
-    mode: text('mode').notNull(),
+    mode: text('mode').$type<(typeof billingModes)[number]>().notNull(),
     priceId: text('price_id').notNull(),
     vendorCustomerId: text('vendor_customer_id'),
     returnOrigin: text('return_origin').notNull(),
@@ -70,7 +71,7 @@ export const billingPurchases = pgTable(
       .where(
         sql`${table.state}->>'kind' in ('creating','unknown','open','complete')`,
       ),
-    check('billing_purchases_mode_check', oneOf(table.mode, ['test', 'live'])),
+    check('billing_purchases_mode_check', oneOf(table.mode, billingModes)),
     check(
       'billing_purchases_identity_check',
       sql`${table.id} ~ '^[a-z0-9]{24}$'

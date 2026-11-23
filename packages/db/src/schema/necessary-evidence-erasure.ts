@@ -1,6 +1,9 @@
+import { listedWord } from '../lifecycle-sql';
 import { sql } from 'drizzle-orm';
 import { pgTable, text, integer, check, index } from 'drizzle-orm/pg-core';
 import { timestampColumn, oneOf } from './columns';
+export const evidenceErasurePhases = ['pending', 'propagated'] as const;
+
 /** Evidence-owned erasure propagation/routing outlives aggregates until confirmed anti-resurrection retirement. */
 export const necessaryEvidenceErasureRequests = pgTable(
   'necessary_evidence_erasure_requests',
@@ -11,7 +14,7 @@ export const necessaryEvidenceErasureRequests = pgTable(
       .notNull()
       .default(sql`clock_timestamp()`),
     phase: text('phase')
-      .$type<'pending' | 'propagated'>()
+      .$type<(typeof evidenceErasurePhases)[number]>()
       .notNull()
       .default('pending'),
     propagatedAt: timestampColumn('propagated_at'),
@@ -36,11 +39,11 @@ export const necessaryEvidenceErasureRequests = pgTable(
     ),
     check(
       'necessary_evidence_erasure_phase_check',
-      oneOf(table.phase, ['pending', 'propagated']),
+      oneOf(table.phase, evidenceErasurePhases),
     ),
     check(
       'necessary_evidence_erasure_propagation_check',
-      sql`(${table.phase}='propagated')=(${table.propagatedAt} is not null)`,
+      sql`(${table.phase}=${listedWord(evidenceErasurePhases, 'propagated')})=(${table.propagatedAt} is not null)`,
     ),
     check(
       'necessary_evidence_erasure_execution_check',

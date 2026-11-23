@@ -1,4 +1,4 @@
-import type { OperationName } from '../features/ops/operation-names';
+import type { OperationName } from './operation-names';
 import { createAppError, isAppError, toPublicError } from '@daisy/errors';
 import {
   capacityRefusalFields,
@@ -19,7 +19,7 @@ import type { Identity } from '@daisy/auth';
 import type { RefusalReason } from '@daisy/protocol/refusal-reason';
 import type { Logger } from '@daisy/logger';
 import { type ZodType } from 'zod';
-import { CLIENT_ID_HASH_HEADER } from '../features/auth/abuse/client-ip';
+import { CLIENT_ID_HASH_HEADER } from './client-ip';
 import { isReportedFailure } from './request-failure';
 
 /** Plain data on an outage minted from an identity a refusal made unavailable. */

@@ -3,6 +3,7 @@ import { createAppError } from '@daisy/errors';
 import { publicationStopError } from '@daisy/media/audio';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { speakingFailureCause } from './speaking-failure';
+import { inertWaits } from '../../lib/manual-waits.test-support';
 setupRitewayBun();
 
 /** The adapter's own error for an answer of `status`, as the bot sees it. */
@@ -10,6 +11,7 @@ const refusedWith = (status: number) =>
   createOpenRouter({
     apiKey: 'key',
     fetch: async () => new Response('{}', { status }),
+    waits: inertWaits,
   })
     .completeStreamed(
       { model: 'm', messages: [], maxTokens: 1, reasoning: 'none' },

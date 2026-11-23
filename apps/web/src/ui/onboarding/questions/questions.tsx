@@ -132,7 +132,7 @@ function StepForm({
           <Notice
             tone="gold"
             icon="alert"
-            role="status"
+            announced
             title="Your answers weren’t saved. Try again."
           />
         ) : null}

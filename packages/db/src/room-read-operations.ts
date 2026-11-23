@@ -1,5 +1,5 @@
 import { readAuthorizedRound } from './round-read-authority';
-import { roundOutcomeForAudience } from './round-outcome-audience';
+import { roundOutcomeForAudience } from '@daisy/protocol/round-outcome-audience';
 import type { RoundRoomAuthority } from './round-room-authority';
 import { loadRoomDirection } from './tab/room-direction';
 import { fenceTabAccountRead } from './tab/account-read-fence';
@@ -10,16 +10,13 @@ import {
   type ReadOpeningTopic,
 } from './round-opening-read';
 import { discoverRooms, type RoomDiscoveryFact } from './room-discovery';
-import type { roomCommandTransaction } from './room-command-transaction';
+import type { TransactionRunner } from './tx';
 import type { CasualJudgeAdmission } from './casual-judge-admission';
 import type { AllowanceDecision } from '@daisy/protocol/billing';
 import { readEntitlementGrants } from './entitlement-grants';
-import { mayDebate } from '@daisy/protocol/lobby/eligibility';
+import { mayDebate, isMinorAgeBand } from '@daisy/protocol/lobby/eligibility';
 import { readCompetitionAgeBand } from './ladder-division-band';
-import {
-  isMinorAgeBand,
-  readGuardianLobbyIds,
-} from './guardians/lobby-permissions';
+import { readGuardianLobbyIds } from './guardians/lobby-permissions';
 import {
   roomListQuerySchema,
   type RoomListQuery,
@@ -38,7 +35,6 @@ import type {
 } from '@daisy/protocol/room-contract';
 
 import { createAppError } from '@daisy/errors';
-import { botDifficulties } from '@daisy/protocol/room-read';
 
 import { instrumented, type DatabaseEventSink } from './instrumented';
 import { actors } from './schema/actors';
@@ -50,7 +46,7 @@ import { rooms } from './schema/rooms';
 import { rounds } from './schema/rounds';
 import { roomRatingPoolReader } from './ladder-season';
 import type { LobbyRatingSelection } from './standings';
-import { roundViewFor } from './round-view-projection';
+import { roundViewFor } from '@daisy/protocol/round-viewer';
 import { formats } from './schema/formats';
 
 import { loadFormatCatalogue } from './format-catalogue';
@@ -79,7 +75,7 @@ export const roomReadOperations = ({
   readonly database: TxSource;
   readonly judgeAdmission?: CasualJudgeAdmission | undefined;
   readonly eventSink?: DatabaseEventSink | undefined;
-  readonly commandTransaction: ReturnType<typeof roomCommandTransaction>;
+  readonly commandTransaction: TransactionRunner;
 }) => ({
   async readLaunchedRound(
     roundId: string,
@@ -306,8 +302,7 @@ export const roomReadOperations = ({
               ? {
                   ...bot,
                   persona: row.persona,
-                  difficulty:
-                    row.difficulty as (typeof botDifficulties)[number],
+                  difficulty: row.difficulty,
                 }
               : bot;
           }),

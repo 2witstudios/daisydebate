@@ -1,3 +1,5 @@
+import { seatKinds } from '@daisy/protocol/seats';
+import { listedWord } from '../lifecycle-sql';
 import { sql } from 'drizzle-orm';
 import {
   boolean,
@@ -47,7 +49,7 @@ export const roundParticipants = pgTable(
   (table) => [
     uniqueIndex('round_participants_fixed_actor_unique')
       .on(table.roundId, table.actorId)
-      .where(sql`${table.seatKind}<>'judge'`),
+      .where(sql`${table.seatKind}<>${listedWord(seatKinds, 'judge')}`),
     uniqueIndex('round_participants_rating_actor_unique').on(
       table.roundId,
       table.ratingActorId,
@@ -63,7 +65,7 @@ export const roundParticipants = pgTable(
         sql`coalesce(${table.side},'')`,
         table.slot,
       )
-      .where(sql`${table.seatKind}<>'judge'`),
+      .where(sql`${table.seatKind}<>${listedWord(seatKinds, 'judge')}`),
     unique('round_participants_assignment_identity_unique').on(
       table.id,
       table.roundId,

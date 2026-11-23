@@ -1,3 +1,6 @@
+import { actorKinds } from './schema/actors';
+import { seatKinds } from '@daisy/protocol/seats';
+import { listedWord } from './lifecycle-sql';
 import { closeAbandonedBotLines } from './bot-phrases';
 import { pending as transcriptionRecoveryPending } from './transcription-recovery/pending';
 import { readCaptureShortfall } from './capture-shortfall';
@@ -29,7 +32,7 @@ import {
   closeUnresolvedStreams,
   lockFinalizationStreams,
 } from './transcript-finalization-streams';
-import { finalizationState } from './transcript-finalization-state';
+import { finalizationState } from '@daisy/protocol/transcript-finalization';
 import { roundTranscriptFreezes } from './schema/round-transcript-freezes';
 import { roundTranscripts } from './schema/transcript-segments';
 import { rounds } from './schema/rounds';
@@ -80,7 +83,7 @@ async function planFrozenJudging(
     tx,
     z.object({ humanJudges: z.boolean() }),
     sql`select exists(select 1 from round_participants p join actors a on a.id=p.actor_id
-    where p.round_id=${request.roundId} and p.seat_kind='judge' and public.daisy_round_participant_is_current(p.id) and a.kind='human') as "humanJudges"`,
+    where p.round_id=${request.roundId} and p.seat_kind=${listedWord(seatKinds, 'judge')} and public.daisy_round_participant_is_current(p.id) and a.kind=${listedWord(actorKinds, 'human')}) as "humanJudges"`,
   );
   if (!judges) throw createAppError('INVARIANT');
   const plan = request.planJudging({
@@ -110,7 +113,7 @@ async function planFrozenJudging(
     tx,
     sql`insert into round_judging_jobs (round_id,freeze_revision,judge_participant_id,status,attempts,generation_deadline_at)
     select ${request.roundId},1,p.id,'queued',0,(select frozen_at from round_transcript_freezes where round_id=${request.roundId})+${plan.aiJudgingBudgetMs}*interval '1 millisecond' from round_participants p join actors a on a.id=p.actor_id join ai_judge_profiles j on j.actor_id=a.id
-    where p.round_id=${request.roundId} and p.seat_kind='judge' and public.daisy_round_participant_is_current(p.id) and a.kind='bot'
+    where p.round_id=${request.roundId} and p.seat_kind=${listedWord(seatKinds, 'judge')} and public.daisy_round_participant_is_current(p.id) and a.kind=${listedWord(actorKinds, 'bot')}
     on conflict (round_id,judge_participant_id) do nothing`,
   );
   await notifyWork(tx, 'judging');

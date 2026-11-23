@@ -1,3 +1,4 @@
+import { hostWaits } from '@daisy/worker/host';
 import { afterAll, setDefaultTimeout } from 'bun:test';
 import { SQL } from 'bun';
 import { createId } from '@paralleldrive/cuid2';
@@ -15,9 +16,9 @@ import { systemClock, systemId } from '@daisy/clock';
 import { CLIENT_IP_HEADER } from '@daisy/ingress/client-ip';
 import { createApp } from '../src/server/app';
 import type { AfterResponseLimits } from '../src/features/auth/after-response';
-import { createRoutes } from '../src/server/routes';
 import { authTestEnv } from '../src/features/auth/auth-server.test-support';
 import { createMailbox, removeMailRecords } from './mailbox';
+import { composer } from '../src/server/composition.test-support';
 
 /**
  * The one fixture module for the web integration suites (ISSUE-11): the
@@ -114,6 +115,7 @@ export function createTestApp(
   // The suite's log output: kept for assertions, never printed.
   const logLines: string[] = [];
   const app = createApp({
+    waits: hostWaits,
     env,
     fetch: wrapFetch ? wrapFetch(mailbox.fetch) : mailbox.fetch,
     clock,
@@ -248,7 +250,7 @@ export function createTestApp(
   });
   return {
     app,
-    routes: createRoutes(app),
+    routes: composer(app),
     env,
     origin: appOrigin,
     mailbox,
