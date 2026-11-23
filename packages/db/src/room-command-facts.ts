@@ -18,8 +18,6 @@ import { createAppError, createRefusal } from '@daisy/errors';
 import {
   authorizationAccountFact,
   authorizationAccountRow,
-} from './authorization-account';
-import {
   lockAuthorizationActors,
   loadAuthorizationAccount,
 } from './authorization';

@@ -14,7 +14,7 @@ import { type RoomAssemblyState } from '@daisy/protocol/room-contract';
 import { type SeatKind, seatKindSchema } from '@daisy/protocol/seats';
 import { eq, sql } from 'drizzle-orm';
 import { lockAuthorizationActors } from '../authorization';
-import type { authorizationAccountFact } from '../authorization-account';
+import type { authorizationAccountFact } from '../authorization';
 import { instrumented, type DatabaseEventSink } from '../instrumented';
 import { oweNotifications } from '../notifications/owe';
 import { run, query } from '../raw-rows';
