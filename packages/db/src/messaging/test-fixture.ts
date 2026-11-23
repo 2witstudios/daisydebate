@@ -12,7 +12,7 @@ import { runPrivacyErasure, runPrivacyExport } from '../privacy/operations';
 import { deliverPrivacyJob } from '../privacy';
 import { accountAgePrivacyAdopter } from '../account-age';
 import { admitParticipants } from '../beta-access-testing';
-import { socialPrivacyAdoption } from '../social-privacy-composition';
+import { socialPrivacyAdoption } from '../privacy/subject-rights';
 import { notificationPrivacyAdopter } from '../notifications/privacy';
 
 /** Isolated integration data only; never collection or production policy authority. */

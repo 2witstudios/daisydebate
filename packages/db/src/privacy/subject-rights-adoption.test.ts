@@ -1,7 +1,7 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { subjectRightsAdoption } from './adoption';
+import { subjectRightsAdoption } from './subject-rights';
 import type { PrivacyAdopter } from './contracts';
 
 setupRitewayBun();

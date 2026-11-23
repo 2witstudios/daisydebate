@@ -6,17 +6,10 @@ import {
   type PrivacyAdopter,
   type PrivacySubject,
 } from './contracts';
+import { privacyVendors, type PrivacyVendor } from '../schema/privacy-jobs';
 
-export const privacyVendors = [
-  'sentry',
-  'posthog',
-  'beehiiv',
-  'resend',
-  'object-storage',
-  'messaging-typing',
-  'stripe',
-] as const;
-export type PrivacyVendor = (typeof privacyVendors)[number];
+export { privacyVendors, type PrivacyVendor } from '../schema/privacy-jobs';
+
 /** Every feature's subject-rights step, in the order they run. */
 export type PrivacyAdoption = readonly PrivacyAdopter[];
 

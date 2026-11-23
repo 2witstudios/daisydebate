@@ -50,8 +50,7 @@ import {
 } from './challenges/store';
 import { friendshipReadOperations } from './friends/reads';
 import { createReportStore, reportOperations } from './reports/store';
-import { moderationOperations } from './moderation/store';
-import { moderationReactions } from './moderation-composition';
+import { moderationOperations, moderationReactions } from './moderation/store';
 import { peopleListOperations } from './presence/people-list';
 import { memberCardOperations } from './member-cards';
 import { publicProfileOperations } from './public-profile-operations';
@@ -215,7 +214,7 @@ export {
   type WorkloadProfile,
 } from './workload';
 export type { DatabaseEventSink } from './instrumented';
-export type { RestrictionRules } from './moderation-composition';
+export type { RestrictionRules } from './moderation/store';
 export type { SocialRequestLimits } from './contacts/request-budget';
 export type {
   ProvisionalLinkPurposes,
