@@ -65,7 +65,10 @@ export const test = base.extend<{
 }>({
   roundCommands: [false, { option: true }],
   liveRoom: async ({ browser, roundCommands }, provide) => {
-    const accounts = await createRoomLaunchAccounts(browser, 2);
+    // The room fills every other seat with bots: the host needs bot debates (ADR 0921).
+    const accounts = await createRoomLaunchAccounts(browser, 2, {
+      botDebates: true,
+    });
     let launched: string | undefined;
     let finished = false;
     try {
