@@ -180,6 +180,8 @@ async function deadline(shell: Shell) {
   return localInstant(shell.state, instantMs(read.segmentDueAt));
 }
 
+/** One claim's publisher. */
+export type BotPublisher = ReturnType<ReturnType<typeof createBotPublisher>>;
 /**
  * A claim's publisher (ADR 0122): the interpreter of `stepPublisher`. It
  * holds the audio track, the phrase's audio and the pending waits, performs

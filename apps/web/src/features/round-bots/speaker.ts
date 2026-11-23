@@ -26,7 +26,7 @@ import {
 import type { PhraseSource } from './phrase-source';
 import { createSelfWake } from './self-wake';
 import { unlessAborted } from './abortable';
-import type { BotSpeechJob, PhraseOutcome } from './publication';
+import type { BotPublisher, BotSpeechJob } from './publication';
 
 /** A provider answer held in memory until its usage and authority settle. */
 type Answer<T> = {
@@ -112,29 +112,21 @@ export function createBotSpeaker(input: {
     text: string,
     signal: AbortSignal,
   ) => Promise<Answer<BotSpeechJob>>;
-  /** The monotonic instant the claim's segment is due, read once per speech. */
-  readonly deadline: () => Promise<number>;
-  /** Whether the publisher closed this line, so a retry needs a new one. */
-  readonly lineClosed: (phraseId: string) => boolean;
   /**
-   * Whether this line, reported played whole, had its queued tail cut since by
-   * a later clear (the next phrase's stop, refusal or failure).
+   * The claim's publisher (`publication.ts`): what the speaker asks of it,
+   * and the two facts it reads back about the lines it closed.
    */
-  readonly tailCut: (phraseId: string) => boolean;
-  /** Whether audio already handed over is still playing out of the queue. */
-  readonly audible: () => boolean;
-  /** Drops whatever is still queued, at once. */
-  readonly silence: () => void;
-  /** Authorizes a phrase while the one before it plays (ADR 0122). */
-  readonly writeAhead: (job: BotSpeechJob) => void;
-  /** Forgets phrases authorized ahead that will not be said. */
-  readonly discard: () => void;
-  /** Plays one phrase and authors its line; never plays past `stopAtMs`. */
-  readonly publish: (
-    job: BotSpeechJob,
-    signal: AbortSignal,
-    stopAtMs: number,
-  ) => Promise<PhraseOutcome>;
+  readonly publication: Pick<
+    BotPublisher,
+    | 'deadline'
+    | 'lineClosed'
+    | 'tailCut'
+    | 'audible'
+    | 'silence'
+    | 'writeAhead'
+    | 'discard'
+    | 'publish'
+  >;
   readonly nextId: () => string;
   readonly maxAttempts: number;
   /**
@@ -179,7 +171,7 @@ export function createBotSpeaker(input: {
     if (!isPublishing(state) || phraseAt(state, index)?.status !== 'settled')
       return;
     if (!answer) return;
-    if (needsLine(state, index, input.lineClosed))
+    if (needsLine(state, index, input.publication.lineClosed))
       record({
         type: 'line',
         generation: state.generation,
@@ -188,7 +180,7 @@ export function createBotSpeaker(input: {
       });
     const lineId = phraseAt(state, index)?.lineId;
     if (lineId !== null && lineId !== undefined)
-      input.writeAhead({ ...answer.value, phraseId: lineId });
+      input.publication.writeAhead({ ...answer.value, phraseId: lineId });
   };
   const buyVoice = (
     phrases: PhraseSource,
@@ -315,7 +307,7 @@ export function createBotSpeaker(input: {
     const stopAtMs = stopAt(state);
     if (!phraseAt(state, index) || !answer || stopAtMs === null)
       throw createAppError('CONFLICT', STOPPED);
-    if (needsLine(state, index, input.lineClosed))
+    if (needsLine(state, index, input.publication.lineClosed))
       record({
         type: 'line',
         generation: state.generation,
@@ -327,7 +319,7 @@ export function createBotSpeaker(input: {
       throw createAppError('CONFLICT', STOPPED);
     record({ type: 'publishing', active: true });
     try {
-      return await input.publish(
+      return await input.publication.publish(
         { ...answer.value, phraseId: lineId },
         signal,
         stopAtMs,
@@ -337,13 +329,13 @@ export function createBotSpeaker(input: {
     }
   };
   const stepBackIfTailCut = () => {
-    if (tailWasCut(state, input.tailCut))
+    if (tailWasCut(state, input.publication.tailCut))
       record({ type: 'tail-cut', generation: state.generation });
   };
   const dropAhead = () => {
     goods.voicing.abort();
     record({ type: 'drop-ahead', generation: state.generation });
-    input.discard();
+    input.publication.discard();
   };
   const resetProgress = () => {
     dropAhead();
@@ -372,7 +364,7 @@ export function createBotSpeaker(input: {
     }
     const { phrases } = current.generated.value;
     work('publish');
-    record({ type: 'deadline', atMs: await input.deadline() });
+    record({ type: 'deadline', atMs: await input.publication.deadline() });
     for (;;) {
       const text =
         phrases.ready(state.turn.cursor) ??
@@ -440,7 +432,7 @@ export function createBotSpeaker(input: {
       case 'cut': {
         const writing = isPublishing(state);
         cancel();
-        if (!writing) input.silence();
+        if (!writing) input.publication.silence();
         return;
       }
       case 'restart':
@@ -448,7 +440,7 @@ export function createBotSpeaker(input: {
       case 'drop':
         return state.run.status === 'idle' ? resetProgress() : undefined;
       case 'silence':
-        return input.silence();
+        return input.publication.silence();
       case 'retry-soon':
         return state.duty.status === 'over'
           ? undefined
@@ -529,7 +521,7 @@ export function createBotSpeaker(input: {
           return apply({
             type: 'peer-spoke',
             peer: activity.peer,
-            audible: isPublishing(state) || input.audible(),
+            audible: isPublishing(state) || input.publication.audible(),
             bought: hasBought(state),
           });
         case 'end-of-turn':
@@ -541,7 +533,7 @@ export function createBotSpeaker(input: {
           });
       }
     },
-    playing: () => isPublishing(state) || input.audible(),
+    playing: () => isPublishing(state) || input.publication.audible(),
     async stop() {
       const current = running;
       selfWake.stop();
