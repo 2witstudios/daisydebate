@@ -1,3 +1,5 @@
+import { seatKinds } from '@daisy/protocol/seats';
+import { listedLiteral } from './lifecycle-sql';
 import type { SQL } from 'bun';
 
 /**
@@ -12,8 +14,12 @@ export async function loanRoundAssignmentInterface(client: SQL) {
     returns boolean language sql stable as $$
       select exists(select 1 from public.round_participants where id=target_participant_id)
     $$`);
-  await client`create view round_judge_slots as select round_id,slot,id participant_id from round_participants where seat_kind='judge'`;
-  await client`create view round_finalization_judge_assignments as select f.round_id,p.id participant_id from round_finalizations f join round_participants p on p.round_id=f.round_id and p.seat_kind='judge'`;
+  await client.unsafe(
+    `create view round_judge_slots as select round_id,slot,id participant_id from round_participants where seat_kind=${listedLiteral(seatKinds, 'judge')}`,
+  );
+  await client.unsafe(
+    `create view round_finalization_judge_assignments as select f.round_id,p.id participant_id from round_finalizations f join round_participants p on p.round_id=f.round_id and p.seat_kind=${listedLiteral(seatKinds, 'judge')}`,
+  );
   await client`create table round_source_voids(round_id text)`;
   await client`grant select on round_judge_slots,round_finalization_judge_assignments,round_source_voids to daisy_web`;
   return async () => {

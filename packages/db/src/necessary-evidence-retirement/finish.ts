@@ -1,3 +1,4 @@
+import { addMs } from '@daisy/clock';
 import { eq } from 'drizzle-orm';
 import type { z } from 'zod';
 import { necessaryEvidence } from '../schema/necessary-evidence';
@@ -13,7 +14,8 @@ export async function finish(
   retryMs: number | null,
 ) {
   const row = await lock(tx, input.identity.evidenceId);
-  const now = new Date(await sampleRoundExecutionTime(tx));
+  const nowIso = await sampleRoundExecutionTime(tx);
+  const now = new Date(nowIso);
   if (
     !row ||
     row.state !== 'retiring' ||
@@ -32,7 +34,7 @@ export async function finish(
     .set({
       ...(retryMs === null
         ? { state: 'retired' as const }
-        : { nextAttemptAt: new Date(now.getTime() + retryMs) }),
+        : { nextAttemptAt: new Date(addMs(nowIso, retryMs)) }),
       leaseDigest: null,
       leaseExpiresAt: null,
     })

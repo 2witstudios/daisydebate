@@ -71,7 +71,8 @@ export const broadcasts = pgTable(
     audienceStateWithdrawnAt: timestampColumn('audience_state_withdrawn_at'),
     finalMediaEndAt: timestampColumn('final_media_end_at'),
     stoppedAt: timestampColumn('stopped_at'),
-    stopReason: text('stop_reason'),
+    stopReason:
+      text('stop_reason').$type<(typeof broadcastFeedEndReasons)[number]>(),
     /**
      * An operator's stop also holds the video back from the audience. Removing or
      * taking down the Recording ends the feed alone: the Recording's own state hides

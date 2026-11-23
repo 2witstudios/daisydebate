@@ -27,6 +27,18 @@ export function tryInstantMs(value: unknown): number | undefined {
   return Number.isFinite(milliseconds) ? milliseconds : undefined;
 }
 
+/**
+ * Read an instant only in its canonical UTC form, exactly as
+ * `toISOString()` writes it (`2026-11-22T10:00:00.000Z`), or refuse it.
+ */
+export function tryCanonicalInstantMs(value: unknown): number | undefined {
+  const milliseconds = tryInstantMs(value);
+  return milliseconds !== undefined &&
+    new Date(milliseconds).toISOString() === value
+    ? milliseconds
+    : undefined;
+}
+
 /** Require a zoned ISO instant and return its epoch milliseconds. */
 export function instantMs(value: string): number {
   const milliseconds = tryInstantMs(value);
@@ -43,6 +55,22 @@ export function addMs(instant: string, durationMs: number): string {
   if (!Number.isSafeInteger(durationMs))
     throw new RangeError('Expected a whole millisecond duration');
   return new Date(instantMs(instant) + durationMs).toISOString();
+}
+
+/**
+ * Add whole milliseconds to a zoned instant and return the UTC ISO instant,
+ * or undefined when the input is not an instant, the duration is not whole,
+ * or the sum falls outside the range a timestamp can hold.
+ */
+export function tryAddMs(
+  instant: string,
+  durationMs: number,
+): string | undefined {
+  const start = tryInstantMs(instant);
+  if (start === undefined || !Number.isSafeInteger(durationMs))
+    return undefined;
+  const sum = start + durationMs;
+  return Math.abs(sum) <= 8.64e15 ? new Date(sum).toISOString() : undefined;
 }
 
 const instantDifference = (left: unknown, right: unknown) => {

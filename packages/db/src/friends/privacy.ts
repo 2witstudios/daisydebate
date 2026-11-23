@@ -1,3 +1,5 @@
+import { storedFriendshipStates } from '@daisy/protocol/friends';
+import { listedWord } from '../lifecycle-sql';
 import { sql } from 'drizzle-orm';
 import { idSchema } from '@daisy/protocol/primitives';
 import type { PrivacyAdopter, PrivacyExport } from '../privacy/contracts';
@@ -44,7 +46,7 @@ export const friendsPrivacyAdopter: PrivacyAdopter = {
             }),
             sql`select f.low_actor_id, f.high_actor_id,
               f.requester_actor_id, f.requested_at, f.accepted_at,
-              case when f.state='pending' and
+              case when f.state=${listedWord(storedFriendshipStates, 'pending')} and
                 ${guardianWaitingLabel(sql`f`)} = 'waiting-for-guardian'
                 then 'waiting-for-guardian' else f.state end as state
               from friendships f where ${actorId} in (f.low_actor_id, f.high_actor_id)

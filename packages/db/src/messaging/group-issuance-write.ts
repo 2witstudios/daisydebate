@@ -57,7 +57,7 @@ export async function writeGroupIssuance(
       state: 'pending',
       invitedAt: now,
       decidedAt: null,
-    };
+    } satisfies Partial<typeof messagingGroupInvitations.$inferInsert>;
     const [changed] = await tx
       .insert(messagingGroupInvitations)
       .values({

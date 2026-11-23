@@ -1,3 +1,6 @@
+import { storedFriendshipStates } from '@daisy/protocol/friends';
+import { guardianLinkStatuses } from '@daisy/protocol/guardians';
+import { listedWord } from '../lifecycle-sql';
 import { and, eq, sql } from 'drizzle-orm';
 import { z } from 'zod';
 import {
@@ -37,9 +40,9 @@ export async function readWaitingFriendApprovals(
       join actors other on other.id=case when approval.low_actor_id=child.id
         then approval.high_actor_id else approval.low_actor_id end
       join users other_user on other_user.id=other.user_id and other_user.deleted_at is null
-      where l.guardian_user_id=${guardianUserId} and l.status='active'
+      where l.guardian_user_id=${guardianUserId} and l.status=${listedWord(guardianLinkStatuses, 'active')}
         and public.daisy_is_protection_guardian(child.id)
-        and f.state='pending' and ${liveGuardianHold(sql`approval`)}
+        and f.state=${listedWord(storedFriendshipStates, 'pending')} and ${liveGuardianHold(sql`approval`)}
         and child_user.username is not null and other_user.username is not null
       order by f.requested_at desc, approval.id
       limit 100`,

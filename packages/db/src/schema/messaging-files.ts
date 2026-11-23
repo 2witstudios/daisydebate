@@ -1,3 +1,5 @@
+import { listedWord } from '../lifecycle-sql';
+import { messagingFileLifecycles } from '@daisy/protocol/messaging/files';
 import { sql } from 'drizzle-orm';
 import {
   bigint,
@@ -35,7 +37,9 @@ export const messagingFiles = pgTable(
     authorityRevision: bigint('authority_revision', {
       mode: 'number',
     }).notNull(),
-    lifecycle: text('lifecycle').notNull(),
+    lifecycle: text('lifecycle')
+      .$type<(typeof messagingFileLifecycles)[number]>()
+      .notNull(),
     createdAt: timestampColumn('created_at').notNull(),
     expiresAt: timestampColumn('expires_at').notNull(),
     deletedAt: timestampColumn('deleted_at'),
@@ -58,13 +62,7 @@ export const messagingFiles = pgTable(
     }),
     check(
       'messaging_files_lifecycle',
-      oneOf(t.lifecycle, [
-        'reserved',
-        'quarantined',
-        'attached',
-        'deleting',
-        'deleted',
-      ]),
+      oneOf(t.lifecycle, messagingFileLifecycles),
     ),
     check(
       'messaging_files_bytes',
@@ -80,15 +78,15 @@ export const messagingFiles = pgTable(
     ),
     check(
       'messaging_files_metadata',
-      sql`(${t.lifecycle} in ('reserved','quarantined','attached') and ${t.filename} is not null and ${t.filename} ~ '[^[:space:]]' and ${t.mime} is not null and ${t.mime} in ('image/png','image/jpeg','image/webp','application/pdf') and ${t.requestId} is not null and ${t.deletedAt} is null) or (${t.lifecycle} in ('deleting','deleted') and ${t.filename} is null and ${t.mime} is null and ${t.requestId} is null and ${t.messageId} is null)`,
+      sql`(${t.lifecycle} in (${listedWord(messagingFileLifecycles, 'reserved')},${listedWord(messagingFileLifecycles, 'quarantined')},${listedWord(messagingFileLifecycles, 'attached')}) and ${t.filename} is not null and ${t.filename} ~ '[^[:space:]]' and ${t.mime} is not null and ${t.mime} in ('image/png','image/jpeg','image/webp','application/pdf') and ${t.requestId} is not null and ${t.deletedAt} is null) or (${t.lifecycle} in (${listedWord(messagingFileLifecycles, 'deleting')},${listedWord(messagingFileLifecycles, 'deleted')}) and ${t.filename} is null and ${t.mime} is null and ${t.requestId} is null and ${t.messageId} is null)`,
     ),
     check(
       'messaging_files_association',
-      sql`(${t.lifecycle} = 'attached' and ${t.messageId} is not null and ${t.storedBytes} is not null) or (${t.lifecycle} <> 'attached' and ${t.messageId} is null)`,
+      sql`(${t.lifecycle} = ${listedWord(messagingFileLifecycles, 'attached')} and ${t.messageId} is not null and ${t.storedBytes} is not null) or (${t.lifecycle} <> ${listedWord(messagingFileLifecycles, 'attached')} and ${t.messageId} is null)`,
     ),
     check(
       'messaging_files_ack',
-      sql`(${t.lifecycle} = 'deleted') = (${t.deletedAt} is not null)`,
+      sql`(${t.lifecycle} = ${listedWord(messagingFileLifecycles, 'deleted')}) = (${t.deletedAt} is not null)`,
     ),
   ],
 );

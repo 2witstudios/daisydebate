@@ -1,51 +1,94 @@
 import { existsSync, readFileSync } from 'node:fs';
 import ts from 'typescript';
+import { bindingOf, type ReadModule } from './source-bindings';
 import {
-  bindingOf,
-  literalValues,
-  writtenStatuses,
-  type ReadModule,
-} from './lifecycle-write-values';
-import { roomStatuses } from '@daisy/protocol/room-contract';
-import { roundStatuses } from '@daisy/protocol/round';
+  loadStoredVocabularies,
+  type StoredVocabularies,
+  type Vocabulary,
+} from './stored-vocabularies';
 
-const tables = {
-  rooms: new Set<string>(roomStatuses),
-  rounds: new Set<string>(roundStatuses),
-};
-type LifecycleTable = keyof typeof tables;
+/**
+ * A stored vocabulary word spelled in SQL text or a Drizzle call, where the
+ * compiler cannot check it, is read from its list instead (RECON-3.11).
+ * Every column a CHECK constrains with `oneOf` counts, in both databases.
+ * A literal in a Drizzle call (`eq`, `inArray`, `.set`, `.values`) or
+ * compared with a typed field stays legal: every such column carries its
+ * list's union (schema-vocabularies.test.ts), so the compiler checks it.
+ * A canonical `.sql` function file (pinned byte for byte to an installed
+ * function) cannot import a list, so there the rule is membership: each word
+ * compared with or written to a stored column must be in that column's list.
+ */
 type Source = { readonly path: string; readonly text: string };
+type StoredColumn = {
+  readonly table: string;
+  readonly column: string;
+  readonly words: Vocabulary;
+};
 
-const isLifecycleTable = (name: string): name is LifecycleTable =>
-  Object.hasOwn(tables, name);
+const storedVocabularies = await loadStoredVocabularies();
 
 const productionSource = (path: string) =>
   /^(?:apps|packages)\/[^/]+\/src\/.*\.(?:tsx?|sql)$/.test(path) &&
-  !/\.(?:test|test-support)\.tsx?$/.test(path);
+  !/\.(?:test|test-support)\.tsx?$/.test(path) &&
+  // An applied migration is history; it is never rewritten.
+  !/\/migrations\//.test(path);
 
-const statusColumn = (node: ts.Expression, readModule: ReadModule) => {
-  const table =
-    (ts.isPropertyAccessExpression(node) && node.name.text === 'status') ||
-    (ts.isElementAccessExpression(node) &&
-      ts.isStringLiteralLike(node.argumentExpression) &&
-      node.argumentExpression.text === 'status')
-      ? node.expression
-      : undefined;
-  if (!table || !ts.isIdentifier(table)) return undefined;
-  if (isLifecycleTable(table.text)) return table.text;
-  const binding = bindingOf(table, readModule);
-  if (
-    !binding ||
-    !ts.isCallExpression(binding) ||
-    !ts.isIdentifier(binding.expression) ||
-    binding.expression.text !== 'alias'
-  )
-    return undefined;
-  const base = binding.arguments[0];
-  return base && ts.isIdentifier(base) && isLifecycleTable(base.text)
-    ? base.text
-    : undefined;
-};
+const escape = (word: string) => word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+const quoted = "'(?:''|[^'])*'";
+const equality = '(?:[<>]=?|=|<>|!=|is\\s+(?:not\\s+)?distinct\\s+from)';
+const unquote = (word: string) => word.slice(1, -1).replaceAll("''", "'");
+
+const patterns = new WeakMap<
+  StoredVocabularies,
+  {
+    readonly comparison: RegExp;
+    readonly caseWhen: RegExp;
+    readonly arrayText: RegExp;
+    readonly insert: RegExp;
+  }
+>();
+function patternsOf(vocabularies: StoredVocabularies) {
+  const known = patterns.get(vocabularies);
+  if (known) return known;
+  const columns = [
+    ...new Set(
+      [...vocabularies.sql.values()].flatMap((byColumn) => [
+        ...byColumn.keys(),
+      ]),
+    ),
+  ]
+    .sort((left, right) => right.length - left.length)
+    .map(escape)
+    .join('|');
+  // A column, qualified or not, optionally cast (`r.status::text`).
+  const column = `((?:[a-z_]\\w*\\s*\\.\\s*)?\\b(?:${columns})\\b)(?:\\s*::\\s*\\w+)?`;
+  const tables = [...vocabularies.sql.keys()].map(escape).join('|');
+  const built = {
+    comparison: new RegExp(
+      [
+        `${column}\\s*(?:${equality}\\s*|(?:not\\s+)?in\\s*\\(\\s*|${equality}\\s*(?:any|all)\\s*\\(\\s*array\\s*\\[\\s*)(${quoted}(?:\\s*,\\s*${quoted})*)`,
+        `(${quoted})\\s*${equality}\\s*${column}`,
+      ].join('|'),
+      'gi',
+    ),
+    // `case <column> when 'a' then … when 'b' then … end`
+    caseWhen: new RegExp(
+      `\\bcase\\s+${column}((?:\\s*\\bwhen\\s+${quoted}\\s+then\\b(?:(?!\\bwhen\\b|\\bend\\b)[\\s\\S])*)+)`,
+      'gi',
+    ),
+    // `<column> = any('{a,b}')`, an array literal's text
+    arrayText: new RegExp(
+      `${column}\\s*${equality}\\s*(?:any|all)\\s*\\(\\s*'\\{([^}']*)\\}'`,
+      'gi',
+    ),
+    insert: new RegExp(
+      `\\binsert\\s+into\\s+(?:public\\.)?(${tables})\\s*\\(([^)]+)\\)\\s*values\\s*((?:\\([^()]+\\)(?:\\s*,\\s*)?)+)`,
+      'gi',
+    ),
+  };
+  patterns.set(vocabularies, built);
+  return built;
+}
 
 const trackedTables = (sql: string) => {
   const aliases = new Map<string, string>();
@@ -57,76 +100,174 @@ const trackedTables = (sql: string) => {
   return aliases;
 };
 
-const quoted = "'(?:''|[^'])*'";
-const column = '((?:[a-z_]\\w*\\s*\\.\\s*)?status)';
-const equality = '(?:[<>]=?|=|<>|!=|is\\s+(?:not\\s+)?distinct\\s+from)';
-const comparison = new RegExp(
-  [
-    `${column}\\s*(?:${equality}\\s*|(?:not\\s+)?in\\s*\\(\\s*|${equality}\\s*(?:any|all)\\s*\\(\\s*array\\s*\\[\\s*)(${quoted}(?:\\s*,\\s*${quoted})*)`,
-    `(${quoted})\\s*${equality}\\s*${column}`,
-  ].join('|'),
-  'gi',
-);
+type Found = {
+  readonly table: string;
+  readonly column: string;
+  readonly word: string;
+  /** Where the word's comparison starts in the statement's text. */
+  readonly at: number;
+};
 
-const unquote = (word: string) => word.slice(1, -1).replaceAll("''", "'");
+/**
+ * `spelled`: SQL built in TypeScript, where a stored word is banned (it can
+ * come from its list). `outside`: a canonical `.sql` function file, which a
+ * test pins byte for byte to an installed function and which cannot import a
+ * list, so a word there must be a member of its column's list instead.
+ */
+type Rule = 'spelled' | 'outside';
 
-function sqlLiterals(sql: string, fileSql: string, schema?: LifecycleTable) {
+function sqlLiterals(
+  sql: string,
+  fileSql: string,
+  vocabularies: StoredVocabularies,
+  rule: Rule = 'spelled',
+): readonly Found[] {
+  const { comparison, caseWhen, arrayText, insert } = patternsOf(vocabularies);
+  // Comments and identifier quotes become spaces, so every offset still
+  // points into the original text.
   const clean = sql
-    .replaceAll(/--[^\n]*|\/\*[\s\S]*?\*\//g, '')
-    .replaceAll(/"([a-z_]\w*)"/gi, '$1');
+    .replaceAll(/--[^\n]*|\/\*[\s\S]*?\*\//g, (comment) =>
+      comment.replaceAll(/[^\n]/g, ' '),
+    )
+    .replaceAll(/"([a-z_]\w*)"/gi, ' $1 ');
   const local = trackedTables(clean);
   const outer = trackedTables(fileSql);
   const inferred = [...new Set(local.values())];
   const inferredTable = inferred.length === 1 ? inferred[0] : undefined;
-  const found = new Set<string>();
-  for (const [, left, rightWords, leftWord, right] of clean.matchAll(
-    comparison,
-  )) {
-    const qualifier = (left ?? right)?.split('.')[0]?.trim().toLowerCase();
+  const found = new Map<string, Found>();
+  const add = (table: string, column: string, word: string, at: number) => {
+    const words = vocabularies.sql.get(table)?.get(column);
+    if (words && words.has(word) === (rule === 'spelled'))
+      found.set(`${table}.${column}:${word}:${at}`, {
+        table,
+        column,
+        word,
+        at,
+      });
+  };
+  const compared = [
+    ...[...clean.matchAll(comparison)].map((match) => ({
+      reference: match[1] ?? match[4] ?? '',
+      words: [...(match[2] ?? match[3] ?? '').matchAll(/'(?:''|[^'])*'/g)].map(
+        (item) => unquote(item[0]),
+      ),
+      at: match.index,
+    })),
+    ...[...clean.matchAll(caseWhen)].map((match) => ({
+      reference: match[1] ?? '',
+      words: [...(match[2] ?? '').matchAll(/\bwhen\s+('(?:''|[^'])*')/gi)].map(
+        (item) => unquote(item[1] ?? "''"),
+      ),
+      at: match.index,
+    })),
+    ...[...clean.matchAll(arrayText)].map((match) => ({
+      reference: match[1] ?? '',
+      words: (match[2] ?? '')
+        .split(',')
+        .map((word) => word.trim().replace(/^"|"$/g, ''))
+        .filter(Boolean),
+      at: match.index,
+    })),
+  ];
+  for (const { reference: raw, words, at } of compared) {
+    const reference = raw.replaceAll(/\s+/g, '').toLowerCase();
+    const [qualifier, column] = reference.includes('.')
+      ? reference.split('.')
+      : [undefined, reference];
+    if (!column) continue;
     const table =
-      qualifier === 'status'
-        ? (schema ?? inferredTable)
-        : qualifier === 'table'
-          ? schema
-          : qualifier === undefined
-            ? undefined
-            : (local.get(qualifier) ??
-              outer.get(qualifier) ??
-              (qualifier === 'round'
-                ? 'rounds'
-                : qualifier === 'room'
-                  ? 'rooms'
-                  : qualifier));
-    if (!table || !isLifecycleTable(table)) continue;
-    for (const item of (rightWords ?? leftWord ?? '').matchAll(
-      /'(?:''|[^'])*'/g,
-    )) {
-      const word = unquote(item[0]);
-      if (tables[table].has(word)) found.add(word);
-    }
+      qualifier === undefined
+        ? inferredTable
+        : (local.get(qualifier) ??
+          outer.get(qualifier) ??
+          (qualifier === 'round'
+            ? 'rounds'
+            : qualifier === 'room'
+              ? 'rooms'
+              : qualifier));
+    if (!table) continue;
+    for (const word of words) add(table, column, word, at);
   }
 
   // INSERT names the destination columns separately from each row of values.
-  for (const [, table, columns, values] of clean.matchAll(
-    /\binsert\s+into\s+(?:public\.)?(rooms|rounds)\s*\(([^)]+)\)\s*values\s*((?:\([^()]+\)(?:\s*,\s*)?)+)/gi,
-  )) {
-    if (!table || !columns || !values || !isLifecycleTable(table)) continue;
-    const statusIndex = columns
-      .split(',')
-      .findIndex((name) => name.trim() === 'status');
+  for (const match of clean.matchAll(insert)) {
+    const [, table, columns, values] = match;
+    if (!table || !columns || !values) continue;
+    const names = columns.split(',').map((name) => name.trim().toLowerCase());
     for (const [, tuple] of values.matchAll(/\(([^()]+)\)/g)) {
-      const value = tuple?.split(',')[statusIndex]?.trim();
-      if (value?.startsWith("'") && tables[table].has(unquote(value)))
-        found.add(unquote(value));
+      const cells = tuple?.split(',') ?? [];
+      names.forEach((name, index) => {
+        const value = cells[index]?.trim();
+        if (value?.startsWith("'"))
+          add(table.toLowerCase(), name, unquote(value), match.index);
+      });
     }
   }
-  return [...found];
+  return [...found.values()];
+}
+
+/** The stored column `node` names: `table.key`, an alias of a table, or a schema callback's `table`. */
+function storedColumn(
+  node: ts.Expression,
+  readModule: ReadModule,
+  vocabularies: StoredVocabularies,
+): StoredColumn | undefined {
+  const key = ts.isPropertyAccessExpression(node)
+    ? node.name.text
+    : ts.isElementAccessExpression(node) &&
+        ts.isStringLiteralLike(node.argumentExpression)
+      ? node.argumentExpression.text
+      : undefined;
+  if (key === undefined) return undefined;
+  const owner = (
+    node as ts.PropertyAccessExpression | ts.ElementAccessExpression
+  ).expression;
+  if (!ts.isIdentifier(owner)) return undefined;
+  const lookup = (exportName: string) => {
+    const table = vocabularies.drizzle.get(exportName);
+    const words = table?.columns.get(key);
+    if (!table || !words) return undefined;
+    const column = [...(vocabularies.sql.get(table.table) ?? [])].find(
+      ([, set]) => set === words,
+    )?.[0];
+    return column ? { table: table.table, column, words } : undefined;
+  };
+  const direct = lookup(owner.text);
+  if (direct) return direct;
+  const binding = bindingOf(owner, readModule);
+  if (
+    binding &&
+    ts.isCallExpression(binding) &&
+    ts.isIdentifier(binding.expression) &&
+    binding.expression.text === 'alias'
+  ) {
+    const base = binding.arguments[0];
+    return base && ts.isIdentifier(base) ? lookup(base.text) : undefined;
+  }
+  // A schema file's `(table) => [...]` extras: the enclosing pgTable export.
+  for (let at: ts.Node | undefined = owner.parent; at; at = at.parent) {
+    if (
+      ts.isArrowFunction(at) &&
+      at.parameters.some(
+        (parameter) =>
+          ts.isIdentifier(parameter.name) && parameter.name.text === owner.text,
+      ) &&
+      ts.isCallExpression(at.parent) &&
+      ts.isIdentifier(at.parent.expression) &&
+      at.parent.expression.text === 'pgTable' &&
+      ts.isVariableDeclaration(at.parent.parent) &&
+      ts.isIdentifier(at.parent.parent.name)
+    )
+      return lookup(at.parent.parent.name.text);
+  }
+  return undefined;
 }
 
 const sqlTemplate = (
   template: ts.TemplateLiteral | ts.StringLiteral,
   source: ts.SourceFile,
   readModule: ReadModule,
+  vocabularies: StoredVocabularies,
 ): string => {
   if (ts.isStringLiteralLike(template)) return template.text;
   const fragment = (expression: ts.Expression): string => {
@@ -136,10 +277,10 @@ const sqlTemplate = (
       ts.isTaggedTemplateExpression(expression) &&
       expression.tag.getText(source) === 'sql'
     )
-      return sqlTemplate(expression.template, source, readModule);
-    const table = statusColumn(expression, readModule);
-    return table
-      ? `${table}.status`
+      return sqlTemplate(expression.template, source, readModule, vocabularies);
+    const stored = storedColumn(expression, readModule, vocabularies);
+    return stored
+      ? `${stored.table}.${stored.column}`
       : expression.getText(source).replaceAll(/[^\w.]/g, '_');
   };
   return (
@@ -150,23 +291,10 @@ const sqlTemplate = (
   );
 };
 
-const tableWrite = (callee: ts.Expression, source: ts.SourceFile) => {
-  if (
-    !ts.isPropertyAccessExpression(callee) ||
-    !ts.isCallExpression(callee.expression)
-  )
-    return undefined;
-  const builder = callee.expression;
-  if (!ts.isPropertyAccessExpression(builder.expression)) return undefined;
-  const name = `${builder.expression.name.text}.${callee.name.text}`;
-  return name === 'insert.values' || name === 'update.set'
-    ? builder.arguments[0]?.getText(source)
-    : undefined;
-};
-
 export function lifecycleLiteralIssues(
   { path, text }: Source,
   readSource: (path: string) => string | undefined = () => undefined,
+  vocabularies: StoredVocabularies = storedVocabularies,
 ): readonly string[] {
   if (!productionSource(path)) return [];
   const issues: string[] = [];
@@ -186,60 +314,44 @@ export function lifecycleLiteralIssues(
     parsed.set(target, module);
     return module;
   };
-  const report = (node: ts.Node, values: readonly string[]) => {
+  const report = (node: ts.Node, found: readonly Found[]) => {
     const line =
       source.getLineAndCharacterOfPosition(node.getStart(source)).line + 1;
-    for (const value of values)
+    for (const { table, column, word } of found)
       issues.push(
-        `${path}:${line}: read lifecycle status '${value}' from @daisy/protocol`,
+        `${path}:${line}: '${word}' is a ${table}.${column} word; read it from its vocabulary list`,
       );
   };
   if (path.endsWith('.sql')) {
-    report(source, sqlLiterals(text, text));
+    const line = (at: number) => text.slice(0, at).split('\n').length;
+    for (const { table, column, word, at } of sqlLiterals(
+      text,
+      text,
+      vocabularies,
+      'outside',
+    ))
+      issues.push(
+        `${path}:${line(at)}: '${word}' is not a ${table}.${column} word; a canonical function file may compare or write only its list's words`,
+      );
     return issues;
   }
-  const schema = path.endsWith('/schema/rooms.ts')
-    ? 'rooms'
-    : path.endsWith('/schema/rounds.ts')
-      ? 'rounds'
-      : undefined;
   const templates: { readonly node: ts.Node; readonly sql: string }[] = [];
   function visit(node: ts.Node) {
     if (ts.isTaggedTemplateExpression(node)) {
       templates.push({
         node,
-        sql: sqlTemplate(node.template, source, readModule),
+        sql: sqlTemplate(node.template, source, readModule, vocabularies),
       });
     }
     if (ts.isCallExpression(node)) {
-      const [first, second] = node.arguments;
+      const [first] = node.arguments;
       const name = node.expression.getText(source);
-      const destination = tableWrite(node.expression, source);
-      if (first && destination && isLifecycleTable(destination))
-        report(
-          node,
-          writtenStatuses(first, readModule).filter((word) =>
-            tables[destination].has(word),
-          ),
-        );
       if ((name === 'sql.raw' || name.endsWith('.unsafe')) && first) {
         if (ts.isStringLiteralLike(first) || ts.isTemplateExpression(first))
-          templates.push({ node, sql: sqlTemplate(first, source, readModule) });
-      } else if (
-        first &&
-        second &&
-        /^(?:eq|ne|inArray|notInArray|lt|lte|gt|gte)$/.test(name)
-      ) {
-        const table =
-          statusColumn(first, readModule) ?? statusColumn(second, readModule);
-        if (table && isLifecycleTable(table))
-          report(
+          templates.push({
             node,
-            [
-              ...literalValues(first, readModule),
-              ...literalValues(second, readModule),
-            ].filter((word) => tables[table].has(word)),
-          );
+            sql: sqlTemplate(first, source, readModule, vocabularies),
+          });
       }
     }
     ts.forEachChild(node, visit);
@@ -247,7 +359,7 @@ export function lifecycleLiteralIssues(
   visit(source);
   const fileSql = templates.map(({ sql }) => sql).join('\n');
   for (const { node, sql } of templates)
-    report(node, sqlLiterals(sql, fileSql, schema));
+    report(node, sqlLiterals(sql, fileSql, vocabularies));
   return issues;
 }
 
@@ -287,13 +399,17 @@ if (import.meta.main) {
   let count = 0;
   for (const path of paths) {
     const text = readSource(path);
-    if (text === undefined || !/\bstatus\b|\.(?:insert|update)\(/.test(text))
-      continue;
+    if (text === undefined) continue;
     for (const issue of lifecycleLiteralIssues({ path, text }, readSource)) {
       console.error(issue);
       count += 1;
     }
   }
-  console.log(`${count} literal(s) in Round and Room lifecycle SQL`);
+  let columns = 0;
+  for (const byColumn of storedVocabularies.sql.values())
+    columns += byColumn.size;
+  console.log(
+    `${count} stored vocabulary word(s) spelled in SQL text, over ${columns} CHECK-constrained columns`,
+  );
   process.exitCode = count === 0 ? 0 : 1;
 }

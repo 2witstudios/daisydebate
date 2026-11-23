@@ -98,7 +98,7 @@ const documentColumns = {
   updatedAt: documents.updatedAt,
 };
 
-const now = () => sql<Date>`statement_timestamp()`;
+const now = () => sql`statement_timestamp()`;
 
 /** A swapped row saved; otherwise a present document conflicts, an absent one is missing. */
 export const documentSaveOutcome = (

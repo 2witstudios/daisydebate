@@ -26,7 +26,7 @@ export const memberInterests = pgTable(
     userId: text('user_id')
       .notNull()
       .references(() => users.id, { onDelete: 'cascade' }),
-    interest: text('interest').notNull(),
+    interest: text('interest').$type<(typeof wantChoices)[number]>().notNull(),
   },
   (table) => [
     primaryKey({ columns: [table.userId, table.interest] }),
@@ -44,7 +44,9 @@ export const memberTopics = pgTable(
     userId: text('user_id')
       .notNull()
       .references(() => users.id, { onDelete: 'cascade' }),
-    topic: text('topic').notNull(),
+    topic: text('topic')
+      .$type<(typeof interestCategoryChoices)[number]>()
+      .notNull(),
   },
   (table) => [
     primaryKey({ columns: [table.userId, table.topic] }),
@@ -65,10 +67,10 @@ export const memberOnboarding = pgTable(
     userId: text('user_id')
       .primaryKey()
       .references(() => users.id, { onDelete: 'cascade' }),
-    club: text('club'),
+    club: text('club').$type<(typeof clubChoices)[number]>(),
     /** The club a member has or is starting, as they named it. Personal and private. */
     clubName: text('club_name'),
-    experience: text('experience'),
+    experience: text('experience').$type<(typeof experienceChoices)[number]>(),
     completedAt: timestampColumn('completed_at'),
     createdAt: createdAtColumn(),
     updatedAt: updatedAtColumn(),

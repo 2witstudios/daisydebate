@@ -1,3 +1,8 @@
+import {
+  messagingDmRequestStates,
+  messagingGroupInvitationStates,
+} from '@daisy/protocol/messaging/social';
+import { listedWord } from '../lifecycle-sql';
 import { sql } from 'drizzle-orm';
 import { createAppError, isAppError } from '@daisy/errors';
 import {
@@ -148,11 +153,11 @@ async function scanCandidates(tx: Tx, scope: MessagingInboxScope) {
         case when led.invited then 0 else 1 end as rank,
         case when led.invited then ${LEAD_ACTIVITY}::timestamptz
           else date_trunc('milliseconds', coalesce(
-            case when pair.request_state = 'pending' then pair.requested_at end,
+            case when pair.request_state = ${listedWord(messagingDmRequestStates, 'pending')} then pair.requested_at end,
             last.created_at, channel.created_at))
         end as activity,
         case when pair.channel_id is null then channel.title else counterpart.username end as title,
-        case when pair.request_state = 'pending' then pair.introduction else last.text end as line
+        case when pair.request_state = ${listedWord(messagingDmRequestStates, 'pending')} then pair.introduction else last.text end as line
       from (
         select channel_id from public.messaging_dm_pairs
         where low_actor_id = ${scope.actorId} or high_actor_id = ${scope.actorId}
@@ -161,7 +166,7 @@ async function scanCandidates(tx: Tx, scope: MessagingInboxScope) {
         where actor_id = ${scope.actorId} and revoked_at is null
         union
         select channel_id from public.messaging_group_invitations
-        where invitee_actor_id = ${scope.actorId} and state = 'pending'
+        where invitee_actor_id = ${scope.actorId} and state = ${listedWord(messagingGroupInvitationStates, 'pending')}
         union
         select channel_id from public.messaging_actor_states
         where actor_id = ${scope.actorId}
@@ -183,7 +188,7 @@ async function scanCandidates(tx: Tx, scope: MessagingInboxScope) {
       cross join lateral (
         select pair.channel_id is null
           and exists (select 1 from public.messaging_group_invitations i
-            where i.channel_id = candidate.channel_id and i.invitee_actor_id = ${scope.actorId} and i.state = 'pending')
+            where i.channel_id = candidate.channel_id and i.invitee_actor_id = ${scope.actorId} and i.state = ${listedWord(messagingGroupInvitationStates, 'pending')})
           and not exists (select 1 from public.messaging_group_grants g
             where g.channel_id = candidate.channel_id and g.actor_id = ${scope.actorId} and g.revoked_at is null)
           as invited

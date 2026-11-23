@@ -1,3 +1,11 @@
+import {
+  organizationKinds,
+  membershipStatuses,
+  grantScopeKinds,
+  permissions,
+} from '@daisy/protocol/lobby';
+import { guardianLinkStatuses } from '@daisy/protocol/guardians';
+import { listedWord } from './lifecycle-sql';
 import { runningRoundStatuses } from '@daisy/protocol/round';
 import { sql } from 'drizzle-orm';
 import { query } from './raw-rows';
@@ -46,19 +54,19 @@ const readStudentLiveRoundCandidates = async (
     tx,
     z.object({ user_id: z.string() }),
     sql`select g.minor_user_id as user_id from guardian_links g
-      where g.guardian_user_id = ${adultUserId} and g.status = 'active'`,
+      where g.guardian_user_id = ${adultUserId} and g.status = ${listedWord(guardianLinkStatuses, 'active')}`,
   );
   const schools = await query(
     tx,
     z.object({ organization_id: z.string(), owner: z.boolean() }),
     sql`select o.id as organization_id, true as owner from organizations o
-        where o.kind = 'school' and o.closed_at is null
+        where o.kind = ${listedWord(organizationKinds, 'school')} and o.closed_at is null
           and o.owner_user_id = ${adultUserId}
       union
       select m.organization_id, false as owner from memberships m
         join organizations o on o.id = m.organization_id
-        where m.user_id = ${adultUserId} and m.status = 'active'
-          and o.kind = 'school' and o.closed_at is null
+        where m.user_id = ${adultUserId} and m.status = ${listedWord(membershipStatuses, 'active')}
+          and o.kind = ${listedWord(organizationKinds, 'school')} and o.closed_at is null
           and o.owner_user_id is distinct from ${adultUserId}`,
   );
   const members: string[] = [];
@@ -71,10 +79,10 @@ const readStudentLiveRoundCandidates = async (
         z.object({ staff: z.boolean() }),
         sql`select exists (select 1 from grants g
           where g.organization_id = ${organizationId} and g.user_id = ${adultUserId}
-            and g.scope_kind = 'organization' and g.revoked_at is null
+            and g.scope_kind = ${listedWord(grantScopeKinds, 'organization')} and g.revoked_at is null
             and (g.expires_at is null or g.expires_at > clock_timestamp())
             and exists (select 1 from role_permissions p
-              where p.role_id = g.role_id and p.permission = 'school.roster.manage')) as staff`,
+              where p.role_id = g.role_id and p.permission = ${listedWord(permissions, 'school.roster.manage')})) as staff`,
       );
       if (staff?.staff !== true) continue;
     }
@@ -82,7 +90,7 @@ const readStudentLiveRoundCandidates = async (
       tx,
       z.object({ user_id: z.string() }),
       sql`select m.user_id from memberships m
-        where m.organization_id = ${organizationId} and m.status = 'active'`,
+        where m.organization_id = ${organizationId} and m.status = ${listedWord(membershipStatuses, 'active')}`,
     );
     members.push(...found.map((row) => row.user_id));
   }

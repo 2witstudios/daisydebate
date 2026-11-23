@@ -1,3 +1,4 @@
+import { listedWord } from '../lifecycle-sql';
 import { sql } from 'drizzle-orm';
 import {
   check,
@@ -10,6 +11,14 @@ import {
 } from 'drizzle-orm/pg-core';
 import { oneOf, timestampColumn } from './columns';
 import { transcriptionRecoveryContexts } from './transcription-recovery';
+const transcriptionRecoveryOutcomes = [
+  'admitted',
+  'candidate',
+  'provider_failure',
+  'quality_review',
+  'uncertain',
+] as const;
+
 /** Conservative paid-call admission, not proof that the vendor received or billed a request. No candidate text. */
 export const transcriptionRecoveryAttempts = pgTable(
   'transcription_recovery_attempts',
@@ -22,13 +31,7 @@ export const transcriptionRecoveryAttempts = pgTable(
     claimEpoch: integer('claim_epoch').notNull(),
     ordinal: integer('ordinal').notNull(),
     outcome: text('outcome')
-      .$type<
-        | 'admitted'
-        | 'candidate'
-        | 'provider_failure'
-        | 'quality_review'
-        | 'uncertain'
-      >()
+      .$type<(typeof transcriptionRecoveryOutcomes)[number]>()
       .notNull(),
     admittedAt: timestampColumn('admitted_at').notNull(),
     completedAt: timestampColumn('completed_at'),
@@ -48,21 +51,15 @@ export const transcriptionRecoveryAttempts = pgTable(
     ),
     check(
       'transcription_recovery_attempt_outcome_check',
-      oneOf(table.outcome, [
-        'admitted',
-        'candidate',
-        'provider_failure',
-        'quality_review',
-        'uncertain',
-      ]),
+      oneOf(table.outcome, transcriptionRecoveryOutcomes),
     ),
     check(
       'transcription_recovery_attempt_candidate_check',
-      sql`(${table.candidateDigest} is null and ${table.candidateBytes} is null and ${table.outcome} not in ('candidate','quality_review')) or (${table.candidateDigest} is not null and ${table.candidateDigest} ~ '^[a-f0-9]{64}$' and ${table.candidateBytes} is not null and ${table.candidateBytes} between 0 and 65536 and ${table.outcome} in ('candidate','quality_review','uncertain'))`,
+      sql`(${table.candidateDigest} is null and ${table.candidateBytes} is null and ${table.outcome} not in (${listedWord(transcriptionRecoveryOutcomes, 'candidate')},${listedWord(transcriptionRecoveryOutcomes, 'quality_review')})) or (${table.candidateDigest} is not null and ${table.candidateDigest} ~ '^[a-f0-9]{64}$' and ${table.candidateBytes} is not null and ${table.candidateBytes} between 0 and 65536 and ${table.outcome} in (${listedWord(transcriptionRecoveryOutcomes, 'candidate')},${listedWord(transcriptionRecoveryOutcomes, 'quality_review')},${listedWord(transcriptionRecoveryOutcomes, 'uncertain')}))`,
     ),
     check(
       'transcription_recovery_attempt_time_check',
-      sql`(${table.outcome}='admitted' and ${table.completedAt} is null) or (${table.outcome}<>'admitted' and ${table.completedAt} is not null and ${table.completedAt}>=${table.admittedAt})`,
+      sql`(${table.outcome}=${listedWord(transcriptionRecoveryOutcomes, 'admitted')} and ${table.completedAt} is null) or (${table.outcome}<>${listedWord(transcriptionRecoveryOutcomes, 'admitted')} and ${table.completedAt} is not null and ${table.completedAt}>=${table.admittedAt})`,
     ),
   ],
 );

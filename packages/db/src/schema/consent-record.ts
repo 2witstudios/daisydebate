@@ -1,3 +1,4 @@
+import { consentChoices } from '@daisy/protocol/analytics-consent';
 import { check, integer, pgTable, text } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
 import { users } from './users';
@@ -12,20 +13,16 @@ export const consentRecord = pgTable(
       .references(() => users.id, { onDelete: 'cascade' }),
     version: integer('version').notNull(),
     necessary: text('necessary').notNull(),
-    analytics: text('analytics').notNull(),
-    replay: text('replay').notNull(),
+    analytics: text('analytics')
+      .$type<(typeof consentChoices)[number]>()
+      .notNull(),
+    replay: text('replay').$type<(typeof consentChoices)[number]>().notNull(),
     recordedAt: timestampColumn('recorded_at').notNull(),
   },
   (t) => [
     check('consent_record_version', sql`${t.version} = 1`),
     check('consent_record_necessary', sql`${t.necessary} = 'granted'`),
-    check(
-      'consent_record_analytics',
-      oneOf(t.analytics, ['granted', 'denied', 'unanswered']),
-    ),
-    check(
-      'consent_record_replay',
-      oneOf(t.replay, ['granted', 'denied', 'unanswered']),
-    ),
+    check('consent_record_analytics', oneOf(t.analytics, consentChoices)),
+    check('consent_record_replay', oneOf(t.replay, consentChoices)),
   ],
 );

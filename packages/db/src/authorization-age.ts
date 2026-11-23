@@ -1,3 +1,4 @@
+import { tryCanonicalInstantMs } from '@daisy/clock';
 import { sql } from 'drizzle-orm';
 import { createAppError } from '@daisy/errors';
 import { idSchema } from '@daisy/protocol/primitives';
@@ -39,17 +40,15 @@ function knownBand(
 }
 function checkedInstant(input: AgeInput) {
   if (typeof input.now !== 'string') throw createAppError('VALIDATION');
-  const instant = new Date(input.now);
-  const validTime =
-    Number.isFinite(instant.getTime()) && instant.toISOString() === input.now;
+  const milliseconds = tryCanonicalInstantMs(input.now);
   if (
     !idSchema.safeParse(input.userId).success ||
     !idSchema.safeParse(input.actorId).success ||
     !positive(input.accountRevision) ||
-    !validTime
+    milliseconds === undefined
   )
     throw createAppError('VALIDATION');
-  return instant;
+  return new Date(milliseconds);
 }
 function projection(
   row: Record<string, unknown>,

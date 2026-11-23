@@ -1,3 +1,4 @@
+import { listedWord } from '../lifecycle-sql';
 import {
   leagueSchoolStatuses,
   type LeagueSchoolStatus,
@@ -54,7 +55,9 @@ export const leagueSchools = pgTable(
     // Each membership period is its own row; only one may be open at once.
     uniqueIndex('league_schools_open_pair_unique')
       .on(table.leagueId, table.schoolId)
-      .where(sql`${table.status} <> 'ended'`),
+      .where(
+        sql`${table.status} <> ${listedWord(leagueSchoolStatuses, 'ended')}`,
+      ),
     foreignKey({
       name: 'league_schools_league_fk',
       columns: [table.leagueId, table.leagueKind],
@@ -76,9 +79,9 @@ export const leagueSchools = pgTable(
     ),
     check(
       'league_schools_state_check',
-      sql`(${table.status} = 'invited' and ${table.joinedAt} is null and ${table.joinedByUserId} is null and ${table.endedAt} is null and ${table.endedByUserId} is null)
-    or (${table.status} = 'active' and ${table.joinedAt} is not null and ${table.joinedByUserId} is not null and ${table.endedAt} is null and ${table.endedByUserId} is null)
-    or (${table.status} = 'ended' and (${table.joinedAt} is null) = (${table.joinedByUserId} is null) and ${table.endedAt} is not null and ${table.endedByUserId} is not null)`,
+      sql`(${table.status} = ${listedWord(leagueSchoolStatuses, 'invited')} and ${table.joinedAt} is null and ${table.joinedByUserId} is null and ${table.endedAt} is null and ${table.endedByUserId} is null)
+    or (${table.status} = ${listedWord(leagueSchoolStatuses, 'active')} and ${table.joinedAt} is not null and ${table.joinedByUserId} is not null and ${table.endedAt} is null and ${table.endedByUserId} is null)
+    or (${table.status} = ${listedWord(leagueSchoolStatuses, 'ended')} and (${table.joinedAt} is null) = (${table.joinedByUserId} is null) and ${table.endedAt} is not null and ${table.endedByUserId} is not null)`,
     ),
     check(
       'league_schools_time_check',

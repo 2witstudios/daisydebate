@@ -1,3 +1,4 @@
+import { listedWord } from '../lifecycle-sql';
 import { sql } from 'drizzle-orm';
 import {
   check,
@@ -48,7 +49,7 @@ export const mediaReleaseRequests = pgTable(
     recipientHash: text('recipient_hash').notNull(),
     requestedAt: timestampColumn('requested_at').notNull(),
     expiresAt: timestampColumn('expires_at').notNull(),
-    outcome: text('outcome'),
+    outcome: text('outcome').$type<(typeof releaseRequestOutcomes)[number]>(),
     resolvedAt: timestampColumn('resolved_at'),
     sends: integer('sends').notNull().default(0),
     lastSentAt: timestampColumn('last_sent_at'),
@@ -103,7 +104,9 @@ export const mediaReleaseLinks = pgTable(
   {
     id: text('id').primaryKey(),
     tokenDigest: text('token_digest').notNull().unique(),
-    purpose: text('purpose').notNull(),
+    purpose: text('purpose')
+      .$type<(typeof releaseLinkPurposes)[number]>()
+      .notNull(),
     requestId: text('request_id')
       .notNull()
       .references(() => mediaReleaseRequests.id, { onDelete: 'cascade' }),
@@ -143,19 +146,23 @@ export const mediaReleases = pgTable(
     userId: text('user_id')
       .notNull()
       .references(() => users.id, { onDelete: 'cascade' }),
-    scope: text('scope').notNull(),
-    source: text('source').notNull(),
+    scope: text('scope').$type<(typeof mediaReleaseScopes)[number]>().notNull(),
+    source: text('source')
+      .$type<(typeof mediaReleaseSources)[number]>()
+      .notNull(),
     /** The parent's request this signature answered; a club's has none. */
     requestId: text('request_id').references(() => mediaReleaseRequests.id, {
       onDelete: 'set null',
     }),
     signerName: text('signer_name'),
-    signerRelation: text('signer_relation'),
+    signerRelation:
+      text('signer_relation').$type<(typeof guardianRelations)[number]>(),
     signerEmail: text('signer_email'),
     wordingVersion: text('wording_version').notNull(),
     signedAt: timestampColumn('signed_at').notNull(),
     withdrawnAt: timestampColumn('withdrawn_at'),
-    withdrawnBy: text('withdrawn_by'),
+    withdrawnBy:
+      text('withdrawn_by').$type<(typeof releaseWithdrawers)[number]>(),
     withdrawalNote: text('withdrawal_note'),
   },
   (table) => [
@@ -166,7 +173,7 @@ export const mediaReleases = pgTable(
     ),
     check(
       'media_releases_parent_check',
-      sql`(${table.source} = 'parent') = (${table.signerName} is not null and ${table.signerRelation} is not null and ${table.signerEmail} is not null)
+      sql`(${table.source} = ${listedWord(mediaReleaseSources, 'parent')}) = (${table.signerName} is not null and ${table.signerRelation} is not null and ${table.signerEmail} is not null)
         and (${table.signerName} is null or char_length(${table.signerName}) between 1 and ${sql.raw(String(mediaReleasePolicy.nameMaxLength))})
         and (${table.signerRelation} is null or ${oneOf(table.signerRelation, guardianRelations)})
         and (${table.signerEmail} is null or ${emailNormalized(table.signerEmail)})`,
@@ -282,11 +289,13 @@ export const mediaReleaseMails = pgTable(
   'media_release_mails',
   {
     id: text('id').primaryKey(),
-    kind: text('kind').notNull(),
+    kind: text('kind')
+      .$type<(typeof mediaReleaseMailKinds)[number]>()
+      .notNull(),
     requestId: text('request_id')
       .notNull()
       .references(() => mediaReleaseRequests.id, { onDelete: 'cascade' }),
-    ...mailJobColumns(),
+    ...mailJobColumns<typeof mediaReleaseMailErrorCodes>(),
   },
   (table) => [
     check(

@@ -1,8 +1,14 @@
 import { processRoute } from '../../../../../server/process-app';
 import { audienceComposition } from '../../../../../features/spectating/audience-composition';
 
+type Params = Awaited<
+  RouteContext<'/api/rounds/[roundId]/reactions'>['params']
+>;
+
 export const runtime = 'nodejs';
-export const POST = processRoute(
+export const POST = processRoute.withParams(
   audienceComposition,
-  (routes) => routes.reaction,
+  (routes) =>
+    (request, { roundId }: Params) =>
+      routes.reaction(request, roundId),
 );

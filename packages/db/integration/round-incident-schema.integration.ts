@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import { readRoundIncidentRate } from '../src/round-incident-rate';
 import { requireTestServices } from '@daisy/config';
 import { runtimeCheckpointSchema } from '@daisy/protocol/round';
@@ -8,7 +9,9 @@ import { rejectedBy, withFixture } from './constraint-helpers';
 setupRitewayBun();
 const { databaseUrl: url } = requireTestServices(process.env);
 
-const started = new Date('2026-11-01T05:30:00.123Z');
+const startedMs = instantMs('2026-11-01T05:30:00.123Z');
+
+const started = new Date(startedMs);
 
 test('due_at follows returned airtime, in any session time zone', async () => {
   await withFixture(url, async (fixture) => {
@@ -28,7 +31,7 @@ test('due_at follows returned airtime, in any session time zone', async () => {
         'select due_at from round_segments where id = $1',
         [id],
       );
-      return new Date(row.due_at).getTime() - started.getTime();
+      return row.due_at.getTime() - startedMs;
     };
     const fresh = await dueMs();
     await fixture.sql.unsafe(

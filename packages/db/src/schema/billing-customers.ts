@@ -1,3 +1,4 @@
+import { billingModes } from '@daisy/protocol/billing-mode';
 import { billingSyncStateSchema } from '@daisy/protocol/billing';
 import { sql } from 'drizzle-orm';
 import { check, index, pgTable, text, uniqueIndex } from 'drizzle-orm/pg-core';
@@ -24,7 +25,7 @@ export const billingCustomers = pgTable(
       onDelete: 'restrict',
     }),
     vendorCustomerId: text('vendor_customer_id').notNull(),
-    mode: text('mode').notNull(),
+    mode: text('mode').$type<(typeof billingModes)[number]>().notNull(),
     synchronization: jsonbColumn(
       'synchronization',
       billingSyncStateSchema,
@@ -46,7 +47,7 @@ export const billingCustomers = pgTable(
       table.vendorCustomerId,
     ),
     index('billing_customers_closed_idx').on(table.closedAt, table.id),
-    check('billing_customers_mode_check', oneOf(table.mode, ['test', 'live'])),
+    check('billing_customers_mode_check', oneOf(table.mode, billingModes)),
     check(
       'billing_customers_vendor_check',
       sql`${table.vendorCustomerId} ~ '^cus_[A-Za-z0-9]+$' and length(${table.vendorCustomerId}) <= 255`,

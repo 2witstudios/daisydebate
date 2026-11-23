@@ -1,6 +1,12 @@
+import { listedWord } from '../lifecycle-sql';
 import { sql } from 'drizzle-orm';
 import { index, pgTable, text, uniqueIndex } from 'drizzle-orm/pg-core';
-import { mailJobChecks, mailJobColumns, timestampColumn } from './columns';
+import {
+  mailJobChecks,
+  mailJobColumns,
+  timestampColumn,
+  mailJobStates,
+} from './columns';
 import { users } from './users';
 
 export const messagingUnreadEmailErrorCodes = [
@@ -30,12 +36,12 @@ export const messagingUnreadEmails = pgTable(
       .references(() => users.id, { onDelete: 'cascade' }),
     /** When its first unread message arrived: the longest wait counts from here. */
     firstOwedAt: timestampColumn('first_owed_at').notNull(),
-    ...mailJobColumns(),
+    ...mailJobColumns<typeof messagingUnreadEmailErrorCodes>(),
   },
   (table) => [
     uniqueIndex('messaging_unread_emails_one_queued')
       .on(table.userId)
-      .where(sql`${table.state} = 'queued'`),
+      .where(sql`${table.state} = ${listedWord(mailJobStates, 'queued')}`),
     index('messaging_unread_emails_due_idx').on(
       table.state,
       table.nextAttemptAt,

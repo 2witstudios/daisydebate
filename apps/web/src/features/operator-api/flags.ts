@@ -1,8 +1,8 @@
+import { sha3Hex } from '@daisy/digest';
 import {
   authorize,
   type AuthorizationPrincipal,
 } from '@daisy/auth/authorization';
-import type { OperatorCrypto } from '@daisy/auth/operator-signature';
 import type { Database } from '@daisy/db';
 import { createAppError } from '@daisy/errors';
 import {
@@ -31,7 +31,6 @@ export function mayControlFlags(
 export async function changeFlag(
   deps: {
     readonly store: Pick<Database, 'flagCommand'>;
-    readonly crypto: OperatorCrypto;
     readonly nextId: () => string;
     readonly nowMs: () => number;
   },
@@ -75,7 +74,7 @@ export async function changeFlag(
       adminAuditHead: command.data.adminAuditHead,
       key,
       change,
-      requestDigest: deps.crypto.sha3Hex(
+      requestDigest: sha3Hex(
         JSON.stringify([
           principal.serviceId,
           principal.operatorRef,

@@ -1,3 +1,4 @@
+import { listedWord, listedWords } from '../lifecycle-sql';
 import {
   consentMethods,
   consentRoles,
@@ -60,8 +61,8 @@ export const guardianConsentEvidence = pgTable(
     ),
     check(
       'guardian_evidence_notice_check',
-      sql`(${table.role} = 'guardian' and ${table.noticeKind} = 'parental-consent' and ${table.method} <> 'confirmed-link')
-        or (${table.role} = 'child' and ${table.noticeKind} = 'child-confirmation' and ${table.method} = 'confirmed-link')`,
+      sql`(${table.role} = 'guardian' and ${table.noticeKind} = 'parental-consent' and ${table.method} <> ${listedWord(consentMethods, 'confirmed-link')})
+        or (${table.role} = 'child' and ${table.noticeKind} = 'child-confirmation' and ${table.method} = ${listedWord(consentMethods, 'confirmed-link')})`,
     ),
     check(
       'guardian_evidence_version_check',
@@ -107,7 +108,9 @@ export const guardianLinks = pgTable(
     ),
     uniqueIndex('guardian_links_open_pair_unique')
       .on(table.guardianUserId, table.minorUserId)
-      .where(sql`${table.status} in ('requested', 'active')`),
+      .where(
+        sql`${table.status} in ${listedWords(guardianLinkStatuses, ['requested', 'active'])}`,
+      ),
     index('guardian_links_guardian_user_idx').on(table.guardianUserId),
     index('guardian_links_minor_user_idx').on(table.minorUserId),
     index('guardian_links_guardian_evidence_idx').on(
@@ -156,10 +159,10 @@ export const guardianLinks = pgTable(
     ),
     check(
       'guardian_links_state_check',
-      sql`(${table.status} in ('active', 'ended')) = (${table.activatedAt} is not null)
+      sql`(${table.status} in ${listedWords(guardianLinkStatuses, ['active', 'ended'])}) = (${table.activatedAt} is not null)
         and (${table.activatedAt} is null) = (${table.activation} is null)
-        and (coalesce(${table.activation} = 'child-confirmed', false)) = (${table.childConfirmationId} is not null)
-        and (${table.status} in ('refused', 'cancelled', 'ended')) = (${table.closedAt} is not null)
+        and (coalesce(${table.activation} = ${listedWord(guardianLinkActivations, 'child-confirmed')}, false)) = (${table.childConfirmationId} is not null)
+        and (${table.status} in ${listedWords(guardianLinkStatuses, ['refused', 'cancelled', 'ended'])}) = (${table.closedAt} is not null)
         and (${notBefore(table.activatedAt, table.createdAt)})
         and (${notBefore(table.closedAt, table.createdAt)})
         and (${notBefore(table.closedAt, table.activatedAt)})`,
@@ -223,11 +226,11 @@ export const childAccountRequests = pgTable(
     ),
     check(
       'child_requests_state_check',
-      sql`(${table.status} = 'open') = (${table.closedAt} is null)
-        and (${table.status} = 'claimed') = (${table.claimedUserId} is not null)
-        and ((${table.status} in ('open', 'linked')) = (num_nonnulls(${table.firstName}, ${table.birthMonth}, ${table.email}) = 3))
+      sql`(${table.status} = ${listedWord(guardianInvitationStatuses, 'open')}) = (${table.closedAt} is null)
+        and (${table.status} = ${listedWord(guardianInvitationStatuses, 'claimed')}) = (${table.claimedUserId} is not null)
+        and ((${table.status} in ${listedWords(guardianInvitationStatuses, ['open', 'linked'])}) = (num_nonnulls(${table.firstName}, ${table.birthMonth}, ${table.email}) = 3))
         and (num_nonnulls(${table.firstName}, ${table.birthMonth}, ${table.email}) in (0, 3))
-        and (${table.requestedLinkId} is null or ${table.status} in ('linked', 'cancelled'))
+        and (${table.requestedLinkId} is null or ${table.status} in ${listedWords(guardianInvitationStatuses, ['linked', 'cancelled'])})
         and ${table.claimedUserId} is distinct from ${table.guardianUserId}
         and ${table.expiresAt} > ${table.createdAt}
         and (${notBefore(table.closedAt, table.createdAt)})`,

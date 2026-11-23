@@ -53,7 +53,7 @@ export function createMediaCaptureHandlers(input: {
 }) {
   const relays = new Map([['heard', input.heard]]);
   return {
-    handle: (request: Request) =>
+    handle: (request: Request, operation: string) =>
       handleOperation(
         input.logger,
         request,
@@ -76,7 +76,6 @@ export function createMediaCaptureHandlers(input: {
           });
           // Authentication parsed the exact signed JSON object and refused conflicting scope.
           const payload = { ...JSON.parse(body), roundId: principal.roundId };
-          const operation = url.pathname.split('/').at(-1);
           try {
             if (operation === 'evidence') {
               // Original authority/provenance is never rewritten to a successor request scope.

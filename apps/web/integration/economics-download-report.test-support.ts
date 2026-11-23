@@ -1,3 +1,4 @@
+import { sha256Hex } from '@daisy/digest';
 import { writeFile, readdir, readFile, stat } from 'node:fs/promises';
 import { join } from 'node:path';
 import { createId } from '@paralleldrive/cuid2';
@@ -95,9 +96,7 @@ export async function collectDownloadObservation(input: {
         endsAt: await f.store.databaseNow(),
       },
       volume,
-      privateReportSha256: new Bun.CryptoHasher('sha256')
-        .update(bytes)
-        .digest('hex'),
+      privateReportSha256: sha256Hex(bytes),
     };
   } finally {
     await f.sql`delete from service_instances where instance_id=${instanceId}`;

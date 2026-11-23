@@ -1,4 +1,6 @@
 import { and, eq, gte, inArray, isNull, lt, or, sql } from 'drizzle-orm';
+import { parsedColumn } from './raw-rows';
+import { z } from 'zod';
 import { createAppError } from '@daisy/errors';
 import type {
   AllowanceDecision,
@@ -74,18 +76,21 @@ async function readQuotedUse(
     );
     const [row] = await tx
       .select({
-        period: sql<number>`count(*) filter (where ${inSource})::int`,
-        daily: sql<number>`count(*) filter (where ${inDay})::int`,
+        period: parsedColumn(
+          z.number().int(),
+          sql`count(*) filter (where ${inSource})::int`,
+        ),
+        daily: parsedColumn(
+          z.number().int(),
+          sql`count(*) filter (where ${inDay})::int`,
+        ),
       })
       .from(usageReservations)
       .where(
         and(
           eq(usageReservations.actorId, actorId),
           eq(usageReservations.kind, reservation.kind),
-          inArray(
-            sql<string>`${usageReservations.state}->>'kind'`,
-            usageHoldingStates,
-          ),
+          inArray(sql`${usageReservations.state}->>'kind'`, usageHoldingStates),
           or(inSource, inDay),
         ),
       );

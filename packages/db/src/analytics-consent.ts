@@ -1,3 +1,6 @@
+import { privacyVendors } from './privacy/planner';
+import { retriedJobStatuses } from './schema/columns';
+import { listedWord } from './lifecycle-sql';
 import { tryInstantMs } from '@daisy/clock';
 import { eq, sql } from 'drizzle-orm';
 import {
@@ -68,8 +71,8 @@ export const analyticsConsentOperations = (database: TxOpener) => ({
           tx,
           sql`insert into privacy_jobs
         (id,subject_ref,vendor,status,attempts,created_at,retry_at)
-        values (${input.deletionJobId},${input.userId},'posthog','pending',0,${input.now}::timestamptz,${input.now}::timestamptz)
-        on conflict (subject_ref,vendor) do update set id=excluded.id,status='pending',attempts=0,
+        values (${input.deletionJobId},${input.userId},${listedWord(privacyVendors, 'posthog')},${listedWord(retriedJobStatuses, 'pending')},0,${input.now}::timestamptz,${input.now}::timestamptz)
+        on conflict (subject_ref,vendor) do update set id=excluded.id,status=${listedWord(retriedJobStatuses, 'pending')},attempts=0,
         created_at=excluded.created_at,retry_at=excluded.retry_at,succeeded_at=null`,
         );
     });

@@ -1,8 +1,15 @@
 import { processRoute } from '../../../../../../server/process-app';
 import { clubComposition } from '../../../../../../features/clubs/composition';
+
+type Params = Awaited<
+  RouteContext<'/api/clubs/[club]/billing/seats'>['params']
+>;
+
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
-export const POST = processRoute(
+export const POST = processRoute.withParams(
   clubComposition,
-  (routes) => routes.billing.seats,
+  (routes) =>
+    (request, { club }: Params) =>
+      routes.billing.seats(request, club),
 );

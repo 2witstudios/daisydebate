@@ -1,3 +1,6 @@
+import { storedFriendshipStates } from '@daisy/protocol/friends';
+import { actorKinds } from '../schema/actors';
+import { listedWord } from '../lifecycle-sql';
 import type { AgeBand, RatingDivision } from '@daisy/protocol/ladder';
 import type { CompetitionType } from '@daisy/protocol/round';
 import { ageBands, divisionOfAgeBand } from '@daisy/protocol/ladder';
@@ -102,11 +105,11 @@ const visibleFrom = (
     and p.high_actor_id = greatest(a.id, ${viewerId})
   left join friendships f on f.low_actor_id = least(a.id, ${viewerId})
     and f.high_actor_id = greatest(a.id, ${viewerId})
-  where a.kind = 'human' and a.id <> ${viewerId}
+  where a.kind = ${listedWord(actorKinds, 'human')} and a.id <> ${viewerId}
     and ${admittedParticipant(sql`u.id`, at, admittedAgeBands)}
     and not coalesce(p.low_blocks_high or p.high_blocks_low, false)`;
 
-const isFriend = sql`coalesce(f.state = 'accepted', false)`;
+const isFriend = sql`coalesce(f.state = ${listedWord(storedFriendshipStates, 'accepted')}, false)`;
 
 /** Appearing offline reads exactly as holding no lease, so nothing tells which. */
 const isOnline = (ids: readonly string[]) =>

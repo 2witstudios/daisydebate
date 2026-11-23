@@ -26,10 +26,25 @@ export const messageRequestSettingSchema = z.strictObject({
   setting: z.enum(messageRequestSettings),
 });
 
+/** A DM request's lifecycle: asked, then answered once. */
+export const messagingDmRequestStates = [
+  'pending',
+  'accepted',
+  'declined',
+  'cancelled',
+] as const;
+/** A group invitation's lifecycle: sent, then answered or withdrawn once. */
+export const messagingGroupInvitationStates = [
+  'pending',
+  'accepted',
+  'declined',
+  'cancelled',
+] as const;
+
 export const messagingDmResultSchema = z.strictObject({
   version: z.literal(1),
   channelId: idSchema,
-  state: z.enum(['pending', 'accepted', 'declined', 'cancelled']),
+  state: z.enum(messagingDmRequestStates),
 });
 export const messagingDmDecisionResultSchema = messagingDmResultSchema.extend({
   state: z.enum(['accepted', 'declined', 'cancelled']),
@@ -39,7 +54,7 @@ export const messagingGroupInvitationResultSchema = z.strictObject({
   version: z.literal(1),
   channelId: idSchema,
   generation: z.number().int().positive().safe(),
-  state: z.enum(['pending', 'accepted', 'declined', 'cancelled']),
+  state: z.enum(messagingGroupInvitationStates),
 });
 
 /**

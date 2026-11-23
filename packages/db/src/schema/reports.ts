@@ -1,3 +1,4 @@
+import { listedWord } from '../lifecycle-sql';
 import {
   reportOutcomes,
   reportSurfaces,
@@ -23,11 +24,13 @@ export const reports = pgTable(
       onDelete: 'restrict',
     }),
     subjectActorId: contactActorColumn('subject_actor_id'),
-    reason: text('reason').notNull(),
-    surface: text('surface').notNull(),
+    reason: text('reason')
+      .$type<(typeof storedReportReasons)[number]>()
+      .notNull(),
+    surface: text('surface').$type<(typeof reportSurfaces)[number]>().notNull(),
     createdAt: timestampColumn('created_at').notNull(),
     closedAt: timestampColumn('closed_at'),
-    outcome: text('outcome'),
+    outcome: text('outcome').$type<(typeof reportOutcomes)[number]>(),
     operatorRef: text('operator_ref'),
     purgeAfter: timestampColumn('purge_after'),
   },
@@ -41,12 +44,12 @@ export const reports = pgTable(
     uniqueIndex('reports_one_open_per_pair')
       .on(table.reporterActorId, table.subjectActorId)
       .where(
-        sql`${table.closedAt} is null and ${table.surface} <> 'guardian-link'`,
+        sql`${table.closedAt} is null and ${table.surface} <> ${listedWord(reportSurfaces, 'guardian-link')}`,
       ),
     uniqueIndex('reports_one_open_guardian_link_per_pair')
       .on(table.reporterActorId, table.subjectActorId)
       .where(
-        sql`${table.closedAt} is null and ${table.surface} = 'guardian-link'`,
+        sql`${table.closedAt} is null and ${table.surface} = ${listedWord(reportSurfaces, 'guardian-link')}`,
       ),
     check(
       'reports_distinct',
@@ -56,7 +59,7 @@ export const reports = pgTable(
     check('reports_surface_check', oneOf(table.surface, reportSurfaces)),
     check(
       'reports_guardian_link_check',
-      sql`(${table.surface} = 'guardian-link') = (${table.reason} = 'not-my-parent')`,
+      sql`(${table.surface} = ${listedWord(reportSurfaces, 'guardian-link')}) = (${table.reason} = ${listedWord(storedReportReasons, 'not-my-parent')})`,
     ),
     check(
       'reports_outcome_check',

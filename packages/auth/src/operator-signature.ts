@@ -1,3 +1,4 @@
+import { hmacSha256Base64url, sha256Hex, sha3Hex } from '@daisy/digest';
 import { idSchema } from '@daisy/protocol/primitives';
 import {
   matchOperatorRoute,
@@ -13,8 +14,8 @@ import {
 /**
  * The signed internal operator API's request signature (ADR 0079). The
  * admin app signs and the participant app verifies with this one module.
- * Pure: time, keys, nonces and the hash primitives are injected; nothing
- * here reads a clock, the environment or the network.
+ * Pure: time, keys and nonces are injected and the hashes come from
+ * `@daisy/digest`; nothing here reads a clock, the environment or the network.
  *
  * Canonical string, UTF-8 lines joined by `\n`, no trailing newline:
  *
@@ -44,15 +45,6 @@ export type OperatorRequestParts = {
   readonly body: Uint8Array;
 };
 
-/** The hash primitives, injected at the edge (`node:crypto` in each app). */
-export type OperatorCrypto = {
-  /** Base64url HMAC-SHA256 of the UTF-8 text under the key. */
-  readonly hmacSha256: (key: Uint8Array, text: string) => string;
-  readonly sha256Hex: (bytes: Uint8Array) => string;
-  /** SHA3-256 of the UTF-8 text, for comparing fixed-format secrets. */
-  readonly sha3Hex: (text: string) => string;
-};
-
 const rfc3986 = (value: string) =>
   encodeURIComponent(value).replace(
     /[!'()*]/g,
@@ -62,7 +54,6 @@ const rfc3986 = (value: string) =>
 /** The canonical string, or null when any part breaks the grammar. */
 export function canonicalOperatorRequest(
   parts: OperatorRequestParts,
-  crypto: Pick<OperatorCrypto, 'sha256Hex'>,
 ): string | null {
   const route = matchOperatorRoutePolicy(parts.method, parts.path);
   if (!route) return null;
@@ -93,20 +84,19 @@ export function canonicalOperatorRequest(
     parts.timestamp,
     parts.nonce,
     parts.operatorRef,
-    crypto.sha256Hex(parts.body),
+    sha256Hex(parts.body),
   ].join('\n');
 }
 
-const mac = (crypto: OperatorCrypto, key: Uint8Array, canonical: string) =>
-  `v1=${crypto.hmacSha256(key, canonical)}`;
+const mac = (key: Uint8Array, canonical: string) =>
+  `v1=${hmacSha256Base64url(key, canonical)}`;
 
 /** The headers a signed request carries; throws on a request outside the grammar. */
 export function signOperatorRequest(
   parts: OperatorRequestParts,
   key: Uint8Array,
-  crypto: OperatorCrypto,
 ): Readonly<Record<string, string>> {
-  const canonical = canonicalOperatorRequest(parts, crypto);
+  const canonical = canonicalOperatorRequest(parts);
   if (canonical === null)
     throw new Error('Operator request outside the grammar');
   return {
@@ -114,7 +104,7 @@ export function signOperatorRequest(
     [operatorHeaders.timestamp]: parts.timestamp,
     [operatorHeaders.nonce]: parts.nonce,
     [operatorHeaders.operator]: parts.operatorRef,
-    [operatorHeaders.signature]: mac(crypto, key, canonical),
+    [operatorHeaders.signature]: mac(key, canonical),
   };
 }
 
@@ -134,8 +124,8 @@ export type OperatorVerification =
     };
 
 /** Fixed-format signatures compared as SHA3-256 digests, the repository's rule. */
-const sameSecret = (crypto: OperatorCrypto, left: string, right: string) =>
-  crypto.sha3Hex(left) === crypto.sha3Hex(right);
+const sameSecret = (left: string, right: string) =>
+  sha3Hex(left) === sha3Hex(right);
 
 const allowedHeaders = new Set<string>(Object.values(operatorHeaders));
 
@@ -175,7 +165,6 @@ export function verifyOperatorRequest(input: {
   readonly body: Uint8Array;
   readonly keys: ReadonlyMap<string, Uint8Array>;
   readonly nowMs: number;
-  readonly crypto: OperatorCrypto;
 }): OperatorVerification {
   if (!matchOperatorRoute(input.method, input.path))
     return { ok: false, reason: 'route' };
@@ -195,13 +184,13 @@ export function verifyOperatorRequest(input: {
     operatorRef: header(operatorHeaders.operator),
     body: input.body,
   };
-  const canonical = canonicalOperatorRequest(parts, input.crypto);
+  const canonical = canonicalOperatorRequest(parts);
   const signature = header(operatorHeaders.signature);
   if (canonical === null || !/^v1=[A-Za-z0-9_-]{43}$/.test(signature))
     return { ok: false, reason: 'grammar' };
   const key = input.keys.get(parts.keyId);
   if (!key) return { ok: false, reason: 'key' };
-  if (!sameSecret(input.crypto, mac(input.crypto, key, canonical), signature))
+  if (!sameSecret(mac(key, canonical), signature))
     return { ok: false, reason: 'signature' };
   if (Math.abs(input.nowMs - Number(parts.timestamp)) > operatorLimits.skewMs)
     return { ok: false, reason: 'skew' };

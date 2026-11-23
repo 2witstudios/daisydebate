@@ -67,13 +67,14 @@ describe('readRecordingBucket', () => {
 /** The S3 wire protocol's list, read and delete, enough to exercise the real client. */
 const s3Double = (keys: readonly string[]) => {
   const objects = new Set(keys);
+  const objectPath = new URLPattern({ pathname: '/:bucket/:key+' });
   const server = Bun.serve({
     port: 0,
     hostname: '127.0.0.1',
     fetch: (request) => {
       const url = new URL(request.url);
       const key = decodeURIComponent(
-        url.pathname.split('/').slice(2).join('/'),
+        objectPath.exec(url)?.pathname.groups['key'] ?? '',
       );
       if (request.method === 'DELETE') {
         objects.delete(key);

@@ -1,3 +1,4 @@
+import { messagingGroupInvitationStates } from '@daisy/protocol/messaging/social';
 import { sql } from 'drizzle-orm';
 import { z } from 'zod';
 import { createAppError } from '@daisy/errors';
@@ -13,7 +14,7 @@ const invitationRow = z.object({
   invitedByActorId: idSchema,
   inviteeActorId: idSchema,
   generation: z.coerce.number().int().positive().safe(),
-  state: z.string(),
+  state: z.enum(messagingGroupInvitationStates),
 });
 export type InboxDiscovery = Awaited<ReturnType<typeof discoverInboxFacts>>;
 type Pair = { readonly low: string; readonly high: string };
@@ -32,7 +33,7 @@ export async function discoverInboxFacts(
             invitedByActorId: z.string(),
             inviteeActorId: z.string(),
             generation: postgresInt8,
-            state: z.string(),
+            state: z.enum(messagingGroupInvitationStates),
           }),
           sql`
           select channel_id as "channelId", invited_by_actor_id as "invitedByActorId",

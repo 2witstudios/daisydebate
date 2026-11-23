@@ -7,6 +7,8 @@ import { and, eq, ne, sql } from 'drizzle-orm';
 import { closedStreamGaps, streamKey } from './capture-gaps';
 import { roundSpeakingIntervals } from './schema/round-speaking-intervals';
 import { transcriptSegments } from './schema/transcript-segments';
+import { z } from 'zod';
+import { parsedColumn } from './raw-rows';
 import type { Tx } from './tx';
 
 /** How much speech a Round owed and lost, read once its streams have closed. */
@@ -17,7 +19,10 @@ export async function readCaptureShortfall(
 ) {
   const [spoken] = await tx
     .select({
-      ms: sql<number>`coalesce(sum(extract(epoch from ${roundSpeakingIntervals.endedAt} - ${roundSpeakingIntervals.startedAt})), 0)::float8 * 1000`,
+      ms: parsedColumn(
+        z.number(),
+        sql`coalesce(sum(extract(epoch from ${roundSpeakingIntervals.endedAt} - ${roundSpeakingIntervals.startedAt})), 0)::float8 * 1000`,
+      ),
     })
     .from(roundSpeakingIntervals)
     .where(eq(roundSpeakingIntervals.roundId, roundId));

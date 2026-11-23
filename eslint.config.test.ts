@@ -1,6 +1,7 @@
 import { registerClockDigestTests } from './eslint.config-clock-digest.test-support';
 import { registerHostTimeTests } from './eslint.config-host-time.test-support';
 import { registerProcessEdgeTests } from './eslint.config-process.test-support';
+import { registerRequestPathTests } from './eslint.config-request-path.test-support';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {
   repositoryEslint,
@@ -17,6 +18,7 @@ import {
 setupRitewayBun();
 registerProcessEdgeTests();
 registerClockDigestTests();
+registerRequestPathTests();
 registerHostTimeTests();
 
 describe('repository ESLint configuration', () => {
@@ -30,7 +32,7 @@ describe('repository ESLint configuration', () => {
       should: 'reject the four pathname splits',
       actual: result?.messages.map(({ message }) => message),
       expected: Array<string>(4).fill(
-        'Use Next.js route params or pass the bound value to the server action.',
+        'Take the id from the route params (processRoute.withParams) or pass the bound value; never split or match a request path.',
       ),
     });
   });
@@ -725,7 +727,6 @@ describe('unit tests run on virtual time (ADR 0164)', () => {
 
 describe('database statement and lock boundaries', () => {
   test('reserves each raw database form for its owning module', async () => {
-    const db = 'packages/db/src';
     const boundaryCases = [
       [
         'tx.ts',
@@ -750,17 +751,63 @@ describe('database statement and lock boundaries', () => {
       ],
       ['locks.ts', "export const statement = 'pg_advisory_unlock';"],
       ['locks.ts', 'export const probe = /pg_advisory_lock/;'],
+      // RECON-3.2: a typed fragment asserts a column nobody parsed.
+      ['raw-rows.ts', 'export const held = sql<boolean>`true`;'],
+      ['raw-rows.ts', 'export const held = drizzle.sql<number>`1`;'],
+      ['raw-rows.ts', 'export const held: SQL<boolean> = sql`true`;'],
+      ['raw-rows.ts', 'export const read = (held: SQL<number>) => held;'],
+      ['raw-rows.ts', 'export const held = sql`true`.mapWith(Boolean);'],
+      ['raw-rows.ts', "export const held = fragment['mapWith'](Number);"],
     ] as const;
-    const cases: Problems[] = boundaryCases.flatMap(([home, code]) => [
-      [code, `${db}/feature/probe.ts`, 1],
-      [code, `${db}/${home}`, 0],
-      [code, 'packages/db/integration/probe.integration.ts', 0],
-    ]);
+    // The participant database's package and the admin app's own database
+    // (RECON-3.2: the admin app kept 17 transactions, 2 raw statements and a
+    // raw audit lock outside the bans).
+    const roots = [
+      {
+        source: 'packages/db/src',
+        homes: 'packages/db/src',
+        suite: 'packages/db/integration/probe.integration.ts',
+      },
+      {
+        source: 'apps/admin/src',
+        homes: 'apps/admin/src/db',
+        suite: 'apps/admin/integration/probe.integration.ts',
+      },
+    ];
+    const cases: Problems[] = roots.flatMap((root) =>
+      boundaryCases.flatMap(([home, code]): Problems[] => [
+        [code, `${root.source}/feature/probe.ts`, 1],
+        [code, `${root.homes}/${home}`, 0],
+        [code, root.suite, 0],
+      ]),
+    );
     const { actual, expected } = table(cases);
     assert({
       given:
-        'each direct DB form in a feature, its owning module, and an integration suite',
+        'each direct DB form in a feature, its owning module, and an integration suite, in each database tree',
       should: 'require the owning boundary within DB source',
+      actual: await actual,
+      expected,
+    });
+  });
+
+  test('an untyped or unknown SQL fragment stays legal', async () => {
+    const { actual, expected } = table([
+      ['export const held = sql`true`;', 'packages/db/src/feature/probe.ts', 0],
+      [
+        'export const held: SQL<unknown> = sql`true`;',
+        'packages/db/src/feature/probe.ts',
+        0,
+      ],
+      [
+        'export const held: SQL = sql`true`;',
+        'apps/admin/src/feature/probe.ts',
+        0,
+      ],
+    ]);
+    assert({
+      given: 'a fragment that asserts no column type',
+      should: 'pass the boundary',
       actual: await actual,
       expected,
     });

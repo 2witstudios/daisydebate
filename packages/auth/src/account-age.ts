@@ -37,10 +37,10 @@ export function accountAgeFact({
     return { state: 'unknown' };
   try {
     const band = ageBand(source.birthMonth, instant);
-    const deadline = new Date(instant.getTime());
-    deadline.setUTCDate(1);
-    deadline.setUTCMonth(deadline.getUTCMonth() + 1);
-    deadline.setUTCHours(0, 0, 0, 0);
+    // The first instant of the next UTC month.
+    const deadline = new Date(
+      Date.UTC(instant.getUTCFullYear(), instant.getUTCMonth() + 1, 1),
+    );
     return {
       state: 'known',
       actorId: account.actorId,

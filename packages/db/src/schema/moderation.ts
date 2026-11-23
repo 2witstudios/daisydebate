@@ -1,3 +1,4 @@
+import { listedWord, listedWords } from '../lifecycle-sql';
 import { moderationKinds } from '@daisy/protocol/moderation';
 import { sql } from 'drizzle-orm';
 import { check, index, pgTable, text } from 'drizzle-orm/pg-core';
@@ -18,7 +19,7 @@ export const moderationActions = pgTable(
     userId: text('user_id')
       .notNull()
       .references(() => users.id, { onDelete: 'cascade' }),
-    kind: text('kind').notNull(),
+    kind: text('kind').$type<(typeof moderationKinds)[number]>().notNull(),
     startsAt: timestampColumn('starts_at').notNull(),
     endsAt: timestampColumn('ends_at'),
     liftedAt: timestampColumn('lifted_at'),
@@ -30,11 +31,11 @@ export const moderationActions = pgTable(
     check('moderation_actions_kind_check', oneOf(table.kind, moderationKinds)),
     check(
       'moderation_actions_ends_check',
-      sql`(${table.kind} = 'suspension') = (${table.endsAt} is not null)`,
+      sql`(${table.kind} = ${listedWord(moderationKinds, 'suspension')}) = (${table.endsAt} is not null)`,
     ),
     check(
       'moderation_actions_lifted_check',
-      sql`${table.liftedAt} is null or ${table.kind} in ('suspension', 'ban')`,
+      sql`${table.liftedAt} is null or ${table.kind} in ${listedWords(moderationKinds, ['suspension', 'ban'])}`,
     ),
     check(
       'moderation_actions_ends_after_start_check',
@@ -46,7 +47,7 @@ export const moderationActions = pgTable(
     ),
     check(
       'moderation_actions_acknowledged_check',
-      sql`${table.acknowledgedAt} is null or ${table.kind} = 'warning'`,
+      sql`${table.acknowledgedAt} is null or ${table.kind} = ${listedWord(moderationKinds, 'warning')}`,
     ),
   ],
 );

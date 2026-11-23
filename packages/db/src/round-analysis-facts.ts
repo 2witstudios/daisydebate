@@ -1,3 +1,4 @@
+import { roundStatuses } from '@daisy/protocol/round';
 import { createAppError } from '@daisy/errors';
 import {
   analysisWorkSchema,
@@ -11,7 +12,7 @@ const instant = z
   .union([z.date(), z.string()])
   .transform((value) => new Date(value).toISOString());
 const factsSchema = z.object({
-  status: z.string(),
+  status: z.enum(roundStatuses),
   completed_at: instant.nullable(),
   frozen: z.boolean(),
   lines: z.coerce.number().int().nonnegative(),

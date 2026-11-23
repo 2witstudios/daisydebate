@@ -1,3 +1,6 @@
+import { lobbyKinds } from '@daisy/protocol/lobby';
+import { settingScopeKinds } from '@daisy/protocol/setting-keys';
+import { listedWord } from './lifecycle-sql';
 import { createId } from '@paralleldrive/cuid2';
 import { sql } from 'drizzle-orm';
 import { z } from 'zod';
@@ -28,9 +31,9 @@ export async function prepareTournamentLobbyBackfill(tx: Tx) {
         null::text as parent_id
       from public.lobbies lobby
       left join public.settings setting
-        on setting.scope_kind = 'lobby' and setting.lobby_id = lobby.id
+        on setting.scope_kind = ${listedWord(settingScopeKinds, 'lobby')} and setting.lobby_id = lobby.id
         and setting.key = 'entry.age_division'
-      where lobby.kind = 'tournament'
+      where lobby.kind = ${listedWord(lobbyKinds, 'tournament')}
   `,
   );
   const groups = await query(
@@ -40,7 +43,7 @@ export async function prepareTournamentLobbyBackfill(tx: Tx) {
     select legacy.league_id as "leagueId", legacy.age_rule as "ageRule",
       array_agg(legacy.tournament_id order by legacy.tournament_id) as tournaments,
       array(select parent.id from public.lobbies parent where
-        parent.owner_organization_id = legacy.league_id and parent.kind = 'standing'
+        parent.owner_organization_id = legacy.league_id and parent.kind = ${listedWord(lobbyKinds, 'standing')}
         and parent.age_rule = legacy.age_rule order by parent.id) as candidates
     from pg_temp.tournament_lobby_backfill legacy
     where legacy.league_id is not null
@@ -63,7 +66,7 @@ export async function prepareTournamentLobbyBackfill(tx: Tx) {
         tx,
         sql`
         insert into public.lobbies (id, kind, owner_organization_id, name, handle, age_rule)
-        values (${parentId}, 'standing', ${leagueId}, ${name},
+        values (${parentId}, ${listedWord(lobbyKinds, 'standing')}, ${leagueId}, ${name},
           ${`historical-${parentId}`}, ${ageRule}::public.lobby_age_rule)
       `,
       );

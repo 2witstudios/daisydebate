@@ -1,3 +1,4 @@
+import { transcriptCompletenesses } from '@daisy/protocol/round-transcript';
 import { frozenCaptureGapsSchema } from '@daisy/protocol/capture-gap';
 import { sql } from 'drizzle-orm';
 import {
@@ -23,7 +24,7 @@ export const roundTranscriptFreezes = pgTable(
       .notNull()
       .default(sql`clock_timestamp()`),
     completeness: text('completeness')
-      .$type<'complete' | 'incomplete'>()
+      .$type<(typeof transcriptCompletenesses)[number]>()
       .notNull(),
     /** Speech the played segments owed, for the published capture coverage. */
     expectedSpeechMs: integer('expected_speech_ms').notNull().default(0),
@@ -51,7 +52,7 @@ export const roundTranscriptFreezes = pgTable(
     ),
     check(
       'round_transcript_freezes_completeness_check',
-      oneOf(table.completeness, ['complete', 'incomplete']),
+      oneOf(table.completeness, transcriptCompletenesses),
     ),
     jsonbIsObject('round_transcript_freezes', table.captureGaps),
   ],

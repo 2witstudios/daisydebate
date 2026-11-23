@@ -1,3 +1,5 @@
+import { actorKinds } from './schema/actors';
+import { listedWord } from './lifecycle-sql';
 import { and, eq, sql } from 'drizzle-orm';
 import { createAppError } from '@daisy/errors';
 import { idSchema } from '@daisy/protocol/primitives';
@@ -37,7 +39,7 @@ export async function lockRefundAccount(tx: Tx, userId: string) {
   const [actor] = await query(
     tx,
     z.object({ id: z.string() }),
-    sql`select id from actors where user_id=${userId} and kind='human'`,
+    sql`select id from actors where user_id=${userId} and kind=${listedWord(actorKinds, 'human')}`,
   );
   if (!actor || typeof actor.id !== 'string')
     throw createAppError('AUTHORIZATION');

@@ -1,3 +1,4 @@
+import { listedWord, listedWords } from '../lifecycle-sql';
 import { sql } from 'drizzle-orm';
 import { check, index, pgTable, text } from 'drizzle-orm/pg-core';
 import {
@@ -5,6 +6,7 @@ import {
   mailJobColumns,
   oneOf,
   timestampColumn,
+  mailJobStates,
 } from './columns';
 import { users } from './users';
 import { betaPreapprovals } from './beta-preapprovals';
@@ -36,7 +38,9 @@ export const mailIntents = pgTable(
   'mail_intents',
   {
     id: text('id').primaryKey(),
-    purpose: text('purpose').notNull(),
+    purpose: text('purpose')
+      .$type<(typeof mailIntentPurposes)[number]>()
+      .notNull(),
     recipientUserId: text('recipient_user_id').references(() => users.id, {
       onDelete: 'cascade',
     }),
@@ -52,7 +56,7 @@ export const mailIntents = pgTable(
     dedupeKey: text('dedupe_key').notNull().unique(),
     /** A digest's UTC window start: the accounts it counts joined in this window. */
     windowStart: timestampColumn('window_start'),
-    ...mailJobColumns(),
+    ...mailJobColumns<typeof mailIntentErrorCodes>(),
   },
   (table) => [
     check(
@@ -61,11 +65,11 @@ export const mailIntents = pgTable(
     ),
     check(
       'mail_intents_preapproval_recipient_check',
-      sql`(${table.purpose} = 'beta-invitation' and (${table.preapprovalId} is not null or ${table.state} in ('sent', 'failed', 'cancelled'))) or (${table.purpose} <> 'beta-invitation' and ${table.preapprovalId} is null)`,
+      sql`(${table.purpose} = ${listedWord(mailIntentPurposes, 'beta-invitation')} and (${table.preapprovalId} is not null or ${table.state} in ${listedWords(mailJobStates, ['sent', 'failed', 'cancelled'])})) or (${table.purpose} <> ${listedWord(mailIntentPurposes, 'beta-invitation')} and ${table.preapprovalId} is null)`,
     ),
     check(
       'mail_intents_club_invitation_check',
-      sql`(${table.purpose} = 'club-seat-invitation' and (${table.clubSeatInvitationId} is not null or ${table.state} in ('sent', 'failed', 'cancelled'))) or (${table.purpose} <> 'club-seat-invitation' and ${table.clubSeatInvitationId} is null)`,
+      sql`(${table.purpose} = ${listedWord(mailIntentPurposes, 'club-seat-invitation')} and (${table.clubSeatInvitationId} is not null or ${table.state} in ${listedWords(mailJobStates, ['sent', 'failed', 'cancelled'])})) or (${table.purpose} <> ${listedWord(mailIntentPurposes, 'club-seat-invitation')} and ${table.clubSeatInvitationId} is null)`,
     ),
     index('mail_intents_club_invitation_idx').on(table.clubSeatInvitationId),
     /** A club's daily invitation-mail count reads one purpose's recent rows (ADR 0148). */
@@ -75,11 +79,11 @@ export const mailIntents = pgTable(
     ),
     check(
       'mail_intents_recipient_check',
-      sql`(${table.purpose} = 'beta-approved') = (${table.recipientUserId} is not null)`,
+      sql`(${table.purpose} = ${listedWord(mailIntentPurposes, 'beta-approved')}) = (${table.recipientUserId} is not null)`,
     ),
     check(
       'mail_intents_window_check',
-      sql`(${table.purpose} = 'beta-requests-digest') = (${table.windowStart} is not null)`,
+      sql`(${table.purpose} = ${listedWord(mailIntentPurposes, 'beta-requests-digest')}) = (${table.windowStart} is not null)`,
     ),
     ...mailJobChecks('mail_intents', table, mailIntentErrorCodes),
     index('mail_intents_preapproval_idx').on(table.preapprovalId),

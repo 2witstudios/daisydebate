@@ -1,6 +1,7 @@
 import { clientEdgeRules } from './eslint.config-client-edge.mjs';
 import { hostTimeRules } from './eslint.config-host-time.mjs';
 import { clockDigestRules } from './eslint.config-clock-digest.mjs';
+import { requestPathRules } from './eslint.config-request-path.mjs';
 import js from '@eslint/js';
 import ts from 'typescript';
 import tseslint from 'typescript-eslint';
@@ -311,8 +312,6 @@ const processEdgeLoads = [
   },
 ];
 
-const memberNamed = (name) =>
-  `:matches([computed=false][property.name="${name}"], [computed=true][property.value="${name}"], [computed=true][property.type="TemplateLiteral"][property.expressions.length=0][property.quasis.0.value.cooked="${name}"])`;
 const processEntries = [
   'apps/web/src/{proxy,instrumentation}.ts',
   'apps/web/src/server/start.ts',
@@ -609,10 +608,41 @@ const dbAdvisoryLockRestrictions = [
     message: 'Take the named advisory lock from the database lock registry.',
   },
 ];
+// A selected SQL fragment is parsed by `parsedColumn`; a type argument on
+// `sql` or a typed `SQL<T>` asserts a column type nobody read.
+dbRawStatementRestrictions.push(
+  {
+    selector:
+      "TaggedTemplateExpression[typeArguments]:matches([tag.name='sql'], [tag.property.name='sql'])",
+    message:
+      'Parse a selected fragment with parsedColumn(schema, sql`…`); a fragment only embedded in SQL takes no type argument.',
+  },
+  {
+    selector:
+      "TSTypeReference:matches([typeName.name='SQL'], [typeName.right.name='SQL']) > TSTypeParameterInstantiation > :not(TSUnknownKeyword)",
+    message:
+      'An SQL fragment is SQL (unknown) until parsedColumn parses it; do not assert its type.',
+  },
+  {
+    selector:
+      "MemberExpression:matches([property.name='mapWith'], [property.value='mapWith'])",
+    message: 'Parse a selected fragment with parsedColumn.',
+  },
+);
 const dbBoundaryRestrictions = {
   'tx.ts': dbOpeningRestrictions,
   'raw-rows.ts': dbRawStatementRestrictions,
   'locks.ts': dbAdvisoryLockRestrictions,
+};
+/**
+ * Every source tree that opens PostgreSQL: the participant database's
+ * package and the admin app's own database (ADR 0077). Each keeps the same
+ * three homes, and the restrictions hold everywhere else in the tree.
+ */
+const dbBoundaryRoots = ['packages/db/src', 'apps/admin/src/db'];
+const dbBoundaryTrees = {
+  'packages/db/src': 'packages/db/src',
+  'apps/admin/src/db': 'apps/admin/src',
 };
 
 const dbNativeRowsPlugin = {
@@ -1219,6 +1249,7 @@ export default [
     ],
   },
   ...clockDigestRules,
+  requestPathRules,
   clientEdgeRules,
   hostTimeRules,
   js.configs.recommended,
@@ -1582,31 +1613,35 @@ export default [
       ],
     },
   },
-  {
-    files: ['packages/db/src/**/*.ts'],
-    ignores: Object.keys(dbBoundaryRestrictions).map(
-      (home) => `packages/db/src/${home}`,
-    ),
-    rules: {
-      'no-restricted-syntax': [
-        'error',
-        ...repoSyntaxRestrictions,
-        ...Object.values(dbBoundaryRestrictions).flat(),
-      ],
-    },
-  },
-  ...Object.keys(dbBoundaryRestrictions).map((home) => ({
-    files: [`packages/db/src/${home}`],
-    rules: {
-      'no-restricted-syntax': [
-        'error',
-        ...repoSyntaxRestrictions,
-        ...Object.entries(dbBoundaryRestrictions).flatMap(
-          ([owner, restrictions]) => (owner === home ? [] : restrictions),
-        ),
-      ],
-    },
-  })),
+  ...dbBoundaryRoots.flatMap((root) => {
+    const tree = dbBoundaryTrees[root];
+    const homes = Object.keys(dbBoundaryRestrictions);
+    return [
+      {
+        files: [`${tree}/**/*.{ts,tsx}`],
+        ignores: homes.map((home) => `${root}/${home}`),
+        rules: {
+          'no-restricted-syntax': [
+            'error',
+            ...repoSyntaxRestrictions,
+            ...Object.values(dbBoundaryRestrictions).flat(),
+          ],
+        },
+      },
+      ...homes.map((home) => ({
+        files: [`${root}/${home}`],
+        rules: {
+          'no-restricted-syntax': [
+            'error',
+            ...repoSyntaxRestrictions,
+            ...Object.entries(dbBoundaryRestrictions).flatMap(
+              ([owner, restrictions]) => (owner === home ? [] : restrictions),
+            ),
+          ],
+        },
+      })),
+    ];
+  }),
   {
     files: ['packages/db/src/**/*.ts'],
     ignores: [
@@ -1665,11 +1700,6 @@ export default [
         'error',
         ...repoSyntaxRestrictions,
         ...processEdgeLoads,
-        {
-          selector: `CallExpression > MemberExpression.callee${memberNamed('split')} > MemberExpression.object${memberNamed('pathname')}`,
-          message:
-            'Use Next.js route params or pass the bound value to the server action.',
-        },
       ],
     },
   },

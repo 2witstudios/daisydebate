@@ -29,26 +29,27 @@ async function prepare(
   const original = await f.store.getRound(roundId);
   if (!original) throw new Error('Actual launched evidence Round missing');
   const [clock] = await f.sql`select clock_timestamp() as now`;
-  const end = new Date(clock!.now.getTime() - 1000),
-    start = new Date(
-      end.getTime() -
-        original.rules.segments.reduce((ms, rule) => ms + rule.durationMs, 0),
-    );
+  const endMs = clock!.now.getTime() - 1000,
+    startMs =
+      endMs -
+      original.rules.segments.reduce((ms, rule) => ms + rule.durationMs, 0);
+  const end = new Date(endMs),
+    start = new Date(startMs);
   // Historical local crypto/storage fixture, not a played/heard-media journey.
-  await f.sql`update rounds set status=${lifecycle},current_stage=${lifecycle === 'active' ? 'awaiting_ballot' : null},winning_side=${lifecycle === 'completed' ? 'affirmative' : null},started_at=${start},completed_at=${lifecycle === 'completed' ? end : null},final_segment_ended_at=${end},transcript_admission_cutoff=${new Date(end.getTime() + 120000)},attendance_resolution_cutoff_at=${new Date(end.getTime() + 3600000)},version=greatest(version,2) where id=${roundId}`;
+  await f.sql`update rounds set status=${lifecycle},current_stage=${lifecycle === 'active' ? 'awaiting_ballot' : null},winning_side=${lifecycle === 'completed' ? 'affirmative' : null},started_at=${start},completed_at=${lifecycle === 'completed' ? end : null},final_segment_ended_at=${end},transcript_admission_cutoff=${new Date(endMs + 120000)},attendance_resolution_cutoff_at=${new Date(endMs + 3600000)},version=greatest(version,2) where id=${roundId}`;
   const [seat] =
     await f.sql`select id from round_participants where round_id=${roundId} and seat_kind='side' and side='affirmative'`;
   const segmentId = createId(),
     sessionId = createId(),
     workerId = createId(),
     intervalId = createId();
-  let offset = start.getTime();
+  let offset = startMs;
   for (const [sequence, rule] of original.rules.segments.entries()) {
     const began = new Date(offset);
     offset += rule.durationMs;
     await f.sql`insert into round_segments(id,round_id,sequence,type,rules_segment_key,started_at,ended_at,duration_ms) values(${sequence === 0 ? segmentId : createId()},${roundId},${sequence},${rule.type},${rule.key},${began},${new Date(offset)},${rule.durationMs})`;
   }
-  await f.sql`insert into round_speaking_intervals(id,round_id,segment_id,round_participant_id,started_at,ended_at,started_version,ended_version) values(${intervalId},${roundId},${segmentId},${seat!.id},${start},${new Date(start.getTime() + original.rules.segments[0]!.durationMs)},1,2)`;
+  await f.sql`insert into round_speaking_intervals(id,round_id,segment_id,round_participant_id,started_at,ended_at,started_version,ended_version) values(${intervalId},${roundId},${segmentId},${seat!.id},${start},${new Date(startMs + original.rules.segments[0]!.durationMs)},1,2)`;
   await f.sql`insert into media_sessions(id,round_id,room_name) values(${sessionId},${roundId},${createId()})`;
   const capture = f.store.createMediaCaptureOperations({
     admission: captureAdmissionPolicy,
@@ -70,7 +71,7 @@ async function prepare(
     workerId,
     leaseMs: 15000,
   });
-  const at = start.getTime() + 100;
+  const at = startMs + 100;
   const frameClock = createFrameClock({
     sentAtMs: 0,
     receivedAtMs: 0,
@@ -92,7 +93,7 @@ async function prepare(
     intervalId,
     historyVersion: 2,
     historyReadAt: end.toISOString(),
-    segmentStartedAtMs: start.getTime(),
+    segmentStartedAtMs: startMs,
     startOffsetMs: 100,
     durationMs: 10,
     before: new Date(Math.floor(evidence.window.beforeMs)).toISOString(),

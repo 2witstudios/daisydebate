@@ -86,7 +86,7 @@ test('accepted engine commands persist speaking grants and historical closure wi
       roundParticipantId: hostSeat.id,
       expectedVersion: 2,
       before: new Date(speech.started_at).toISOString(),
-      after: new Date(new Date(speech.started_at).getTime() + 1).toISOString(),
+      after: new Date(speech.started_at.getTime() + 1).toISOString(),
     };
     assert({
       given:

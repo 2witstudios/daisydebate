@@ -1,4 +1,4 @@
-import { createHmac } from 'node:crypto';
+import { hmacSha256Base64 } from '@daisy/digest';
 import { afterAll } from 'bun:test';
 import { createId } from '@paralleldrive/cuid2';
 import { createTestApp, webhookSecret, withSql } from './fixtures';
@@ -8,9 +8,7 @@ import { confirmComposition } from '../src/features/auth/composition';
 import { mailWebhookComposition } from '../src/features/mail/composition';
 
 const sign = (id: string, timestamp: string, body: string) =>
-  `v1,${createHmac('sha256', Buffer.from(webhookSecret.slice(6), 'base64'))
-    .update(`${id}.${timestamp}.${body}`)
-    .digest('base64')}`;
+  `v1,${hmacSha256Base64(Buffer.from(webhookSecret.slice(6), 'base64'), `${id}.${timestamp}.${body}`)}`;
 
 /** A provider delivery exactly as Resend would sign it (payload holds the recipient). */
 export const providerEvent = (

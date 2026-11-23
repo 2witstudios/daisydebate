@@ -1,10 +1,12 @@
+import { instantMs } from '@daisy/clock';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { captureAdmissionPolicy } from './capture-policy';
 
 setupRitewayBun();
 
 test('capture admission preserves strict capture time and inclusive receipt lag', () => {
-  const closedAt = new Date('2026-11-02T10:00:01.000Z');
+  const closedAtMs = instantMs('2026-11-02T10:00:01.000Z');
+  const closedAt = new Date(closedAtMs);
   const session = {
     endedAt: closedAt,
     unsafeAt: null,
@@ -12,8 +14,8 @@ test('capture admission preserves strict capture time and inclusive receipt lag'
   };
   const admits = (captureOffset: number, receiptOffset: number) =>
     captureAdmissionPolicy.sessionAdmits(session, {
-      capturedUntil: new Date(closedAt.getTime() + captureOffset),
-      receivedAt: new Date(closedAt.getTime() + receiptOffset),
+      capturedUntil: new Date(closedAtMs + captureOffset),
+      receivedAt: new Date(closedAtMs + receiptOffset),
       sttLagMs: 100,
     });
   assert({

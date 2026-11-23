@@ -1,3 +1,6 @@
+import { entitlementSources } from '@daisy/protocol/entitlements';
+import { organizationKinds, membershipStatuses } from '@daisy/protocol/lobby';
+import { listedWord } from './lifecycle-sql';
 import { instantMs } from '@daisy/clock';
 import { createAppError } from '@daisy/errors';
 import { idSchema } from '@daisy/protocol/primitives';
@@ -56,7 +59,7 @@ async function readClub(tx: Tx, organizationId: string) {
       owner_user_id: z.string().nullable(),
     }),
     sql`select id, kind, name, handle, owner_user_id from organizations
-      where id=${organizationId} and closed_at is null and kind in ('school','family')`,
+      where id=${organizationId} and closed_at is null and kind in (${listedWord(organizationKinds, 'school')},${listedWord(organizationKinds, 'family')})`,
   );
   return row && typeof row.owner_user_id === 'string'
     ? {
@@ -104,7 +107,7 @@ export function createClubSeatReads(input: {
           z.object({ id: z.string() }),
           sql`select id from organizations where handle=${handle}
             and owner_user_id=${subject.userId} and closed_at is null
-            and kind in ('school','family')`,
+            and kind in (${listedWord(organizationKinds, 'school')},${listedWord(organizationKinds, 'family')})`,
         );
         return row ? String(row.id) : null;
       });
@@ -158,7 +161,7 @@ export function createClubSeatReads(input: {
           tx,
           z.object({ user_id: z.string() }),
           sql`select user_id from memberships where organization_id=${organizationId}
-            and status='active' order by user_id limit 500`,
+            and status=${listedWord(membershipStatuses, 'active')} order by user_id limit 500`,
         );
         const seated = new Set(seats.map((seat) => seat.userId));
         const people = await Promise.all(
@@ -275,7 +278,7 @@ export function createClubSeatReads(input: {
           sql`select s.organization_id from club_seats s
             where s.user_id=${subject.userId} and exists (
               select 1 from account_entitlement_grants g
-              where g.user_id=s.user_id and g.source='organization_seat'
+              where g.user_id=s.user_id and g.source=${listedWord(entitlementSources, 'organization_seat')}
                 and g.organization_id=s.organization_id
                 and g.starts_at <= now() and g.expires_at > now())`,
         );

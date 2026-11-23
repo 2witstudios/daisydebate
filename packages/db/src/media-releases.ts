@@ -1,3 +1,6 @@
+import { mediaReleaseMailKinds } from './schema/media-releases';
+import { organizationKinds, membershipStatuses } from '@daisy/protocol/lobby';
+import { listedWord, listedWords } from './lifecycle-sql';
 import { instantMs } from '@daisy/clock';
 import { createAppError } from '@daisy/errors';
 import {
@@ -23,6 +26,9 @@ import {
   type ReleaseStanding,
   type ResendRefusal,
   type SignDecision,
+  releaseWithdrawers,
+  releaseRequestOutcomes,
+  mediaReleaseSources,
 } from '@daisy/protocol/media-release';
 import { sql } from 'drizzle-orm';
 import type { BoundedTransaction } from './bounded-transaction';
@@ -285,7 +291,7 @@ export function createMediaReleases(input: {
           sql`insert into media_release_requests
           (id, user_id, recipient_email, recipient_hash, requested_at, expires_at, outcome, resolved_at)
           values (${requestId}, ${child.userId}, ${email.data}, ${recipientHash(email.data)},
-            ${now.toISOString()}, ${releaseRequestExpiry(now.getTime())}, 'signed', ${now.toISOString()})`,
+            ${now.toISOString()}, ${releaseRequestExpiry(now.getTime())}, ${listedWord(releaseRequestOutcomes, 'signed')}, ${now.toISOString()})`,
         );
         await persistSignature(tx, child.userId, requestId, decision, now);
         return { kind: 'done', requestId };
@@ -310,8 +316,8 @@ export function createMediaReleases(input: {
                 where k.organization_id = o.id and k.user_id = ${userId}
                   and k.asked_at > clock_timestamp() - interval '7 days') as asked_at
             from memberships m join organizations o on o.id = m.organization_id
-            where m.user_id = ${userId} and m.status = 'active'
-              and o.kind in ('school', 'family') and o.closed_at is null
+            where m.user_id = ${userId} and m.status = ${listedWord(membershipStatuses, 'active')}
+              and o.kind in ${listedWords(organizationKinds, ['school', 'family'])} and o.closed_at is null
             order by o.name, o.id`,
         );
         return {
@@ -544,7 +550,7 @@ export function createMediaReleases(input: {
         await runStatement(
           tx,
           sql`update media_releases set withdrawn_at = clock_timestamp(),
-              withdrawn_by = 'parent', withdrawal_note = ${decision.note}
+              withdrawn_by = ${listedWord(releaseWithdrawers, 'parent')}, withdrawal_note = ${decision.note}
             where id in ${sql`(${sql.join(
               decision.withdraw.map((id) => sql`${id}`),
               sql`, `,
@@ -604,7 +610,7 @@ export function createMediaReleases(input: {
           await runStatement(
             tx,
             sql`update media_releases set withdrawn_at = clock_timestamp(),
-                withdrawn_by = 'parent' where id = ${decision.releaseId}`,
+                withdrawn_by = ${listedWord(releaseWithdrawers, 'parent')} where id = ${decision.releaseId}`,
           );
         }
         await consume(tx, facts.linkId);
@@ -636,14 +642,14 @@ export function createMediaReleases(input: {
                   z.object({ request_id: z.string() }),
                   sql`select l.request_id from media_release_links l
                     join media_release_requests q on q.id = l.request_id
-                    where l.token_digest = ${by.digest} and q.outcome = 'signed'`,
+                    where l.token_digest = ${by.digest} and q.outcome = ${listedWord(releaseRequestOutcomes, 'signed')}`,
                 )
               : []
             : await query(
                 tx,
                 z.object({ request_id: z.string() }),
                 sql`select distinct r.request_id from media_releases r
-                  where r.signer_email = ${by.email} and r.source = 'parent'
+                  where r.signer_email = ${by.email} and r.source = ${listedWord(mediaReleaseSources, 'parent')}
                     and r.withdrawn_at is null and r.request_id is not null
                   limit 10`,
               );
@@ -653,7 +659,7 @@ export function createMediaReleases(input: {
             tx,
             z.object({ n: z.number() }),
             sql`select count(*)::int as n from media_release_mails
-              where request_id = ${requestId} and kind = 'manage_link'
+              where request_id = ${requestId} and kind = ${listedWord(mediaReleaseMailKinds, 'manage_link')}
                 and created_at > clock_timestamp() - interval '1 hour'`,
           );
           if ((recent?.n ?? 0) === 0)
@@ -677,7 +683,7 @@ export function createMediaReleases(input: {
         // Its open requests end now, so no reminder or resend reaches it.
         await runStatement(
           tx,
-          sql`update media_release_requests set outcome = 'stopped',
+          sql`update media_release_requests set outcome = ${listedWord(releaseRequestOutcomes, 'stopped')},
               resolved_at = clock_timestamp()
             where recipient_hash = ${recipientHash} and outcome is null`,
         );

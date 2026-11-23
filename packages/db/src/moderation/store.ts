@@ -1,3 +1,6 @@
+import { moderationKinds } from '@daisy/protocol/moderation';
+import { actorKinds } from '../schema/actors';
+import { listedWord } from '../lifecycle-sql';
 import { and, eq, sql } from 'drizzle-orm';
 import { createAppError } from '@daisy/errors';
 import type { ModerationNotice } from '@daisy/protocol/moderation';
@@ -130,7 +133,7 @@ async function liftModeration(
     tx,
     z.object({ userId: z.string(), actorId: z.string() }),
     sql`select m.user_id as "userId", a.id as "actorId"
-    from moderation_actions m join actors a on a.user_id = m.user_id and a.kind = 'human'
+    from moderation_actions m join actors a on a.user_id = m.user_id and a.kind = ${listedWord(actorKinds, 'human')}
     where m.id = ${input.actionId}`,
   );
   if (!row) throw createAppError('NOT_FOUND');
@@ -222,7 +225,7 @@ export const moderationOperations = ({
         database,
         z.object({ endsAt: z.union([z.string(), z.date()]).nullable() }),
         sql`
-        select case when bool_or(m.kind = 'ban') then null else max(m.ends_at) end as "endsAt"
+        select case when bool_or(m.kind = ${listedWord(moderationKinds, 'ban')}) then null else max(m.ends_at) end as "endsAt"
         from moderation_actions m
         where m.user_id = ${input.userId} and ${mActionInForce(new Date(input.now))}`,
       );
@@ -245,7 +248,7 @@ export const moderationOperations = ({
           }),
           sql`
           select id, kind, starts_at as "startsAt" from moderation_actions
-          where user_id = ${scope.userId} and kind = 'warning' and acknowledged_at is null
+          where user_id = ${scope.userId} and kind = ${listedWord(moderationKinds, 'warning')} and acknowledged_at is null
           order by starts_at desc limit 5`,
         );
         return rows.map((row) => ({ ...row, startsAt: iso(row.startsAt) }));
@@ -265,7 +268,7 @@ export const moderationOperations = ({
           tx,
           sql`update moderation_actions
           set acknowledged_at = ${new Date(input.now)}
-          where id = ${input.id} and user_id = ${scope.userId} and kind = 'warning' and acknowledged_at is null`,
+          where id = ${input.id} and user_id = ${scope.userId} and kind = ${listedWord(moderationKinds, 'warning')} and acknowledged_at is null`,
         );
       }),
     );

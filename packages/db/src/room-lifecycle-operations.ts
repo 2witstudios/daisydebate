@@ -1,4 +1,7 @@
 import { and, asc, desc, eq, sql } from 'drizzle-orm';
+import { parsedColumn } from './raw-rows';
+import { openRoomStatuses } from '@daisy/protocol/room-contract';
+import { z } from 'zod';
 import { maxHostedRooms, type HostedRoom } from '@daisy/protocol/hosted-rooms';
 import { type ActiveRoomFacts } from '@daisy/protocol/active-room';
 import {
@@ -68,8 +71,14 @@ export const roomLifecycleOperations = ({
           .select({
             id: rooms.id,
             title: rooms.title,
-            status: sql<HostedRoom['status']>`${rooms.status}`,
-            seated: sql<boolean>`exists (select 1 from ${roomParticipants} where ${roomParticipants.roomId} = ${rooms.id} and ${roomParticipants.actorId} = ${caller.actorId})`,
+            status: parsedColumn(
+              z.enum(openRoomStatuses),
+              sql`${rooms.status}`,
+            ),
+            seated: parsedColumn(
+              z.boolean(),
+              sql`exists (select 1 from ${roomParticipants} where ${roomParticipants.roomId} = ${rooms.id} and ${roomParticipants.actorId} = ${caller.actorId})`,
+            ),
           })
           .from(rooms)
           .where(and(eq(rooms.hostActorId, caller.actorId), roomIsOpen()))

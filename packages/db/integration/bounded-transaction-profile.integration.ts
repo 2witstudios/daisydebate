@@ -1,3 +1,4 @@
+import { postgresInstantMs } from '../src/raw-rows';
 import { hostWaits } from '@daisy/worker/host';
 import { instantMs } from '@daisy/clock';
 import { testLane } from '../src/testing-lane';
@@ -37,8 +38,7 @@ test('the attendance execution slice exposes the first setup receipt and fits re
       actual: {
         receipt:
           typeof result.received === 'string' &&
-          instantMs(result.received) <=
-            new Date(result.after as string).getTime(),
+          instantMs(result.received) <= postgresInstantMs.parse(result.after),
         statement: result.statement,
         idle: result.idle,
       },
