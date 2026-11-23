@@ -4,7 +4,7 @@ import { ShellLink as Link } from '../../shell-link';
 import { DaisyLogo } from '../../../../components/daisy-mark/daisy-mark';
 import { Icon } from '../../../../components/icon/icon';
 import { NavItem } from '../../../../components/nav-item/nav-item';
-import { navItemClass } from '../../../../components/nav-item/nav-item-class';
+import { navItemShape } from '../../../../components/nav-item/nav-item-class';
 import { cn } from '../../../../cn';
 import type { RailPreference } from '../../rail-preference';
 import type { ShellAccount, ShellRatings } from '../../account';
@@ -55,10 +55,10 @@ function ToggleItem({
     <li className="icon-rail:hidden">
       <form action={toggleRail}>
         <Button
-          variant="unstyled"
+          variant="row"
           type="submit"
           title={extended ? undefined : name}
-          className={navItemClass(false, extended)}
+          className={navItemShape(false, extended)}
         >
           <Icon name={extended ? 'railMinimize' : 'railExpand'} size={20} />
           <span className={extended ? 'icon-rail:sr-only' : 'sr-only'}>

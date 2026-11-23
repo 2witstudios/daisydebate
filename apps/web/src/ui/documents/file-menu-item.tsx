@@ -3,7 +3,7 @@ import type { ReactNode } from 'react';
 import { Icon, type IconName } from '../components/icon/icon';
 
 const itemClass =
-  'flex min-h-dense-target w-full cursor-pointer items-center gap-2 rounded-sm px-2 text-left text-sm text-ink no-underline hover:bg-surface-overlay hover:no-underline';
+  'min-h-dense-target w-full gap-2 rounded-sm px-2 text-sm text-ink no-underline hover:bg-surface-overlay hover:no-underline';
 const dangerClass = `${itemClass} text-live`;
 
 export function FileMenuItem({
@@ -23,7 +23,7 @@ export function FileMenuItem({
 }) {
   return (
     <Button
-      variant="unstyled"
+      variant="row"
       type="button"
       disabled={disabled}
       role="menuitem"

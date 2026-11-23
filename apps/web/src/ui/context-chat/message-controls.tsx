@@ -221,11 +221,11 @@ export function ContextChatMessageControls({
           </Announcement>
         ) : null}
         <Button
-          variant="unstyled"
+          variant="text"
           id={submitId}
           type="submit"
           disabled={pending || locked || (kind === 'edit' && editingLocked)}
-          className="min-h-room-target cursor-pointer self-start font-strong"
+          className="min-h-room-target self-start"
         >
           {pending
             ? 'Submitting…'

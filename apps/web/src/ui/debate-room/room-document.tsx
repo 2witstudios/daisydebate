@@ -55,10 +55,10 @@ export function RoomDocument({
         empty={
           <div className="flex min-h-0 flex-1 items-center justify-center p-6">
             <Button
-              variant="unstyled"
+              variant="compact"
               type="button"
               onClick={onNew}
-              className="h-room-target cursor-pointer rounded-sm bg-accent px-4 text-sm font-strong text-accent-ink hover:bg-accent-strong"
+              className="h-room-target rounded-sm bg-accent px-4 font-strong text-accent-ink hover:bg-accent-strong"
             >
               New document
             </Button>

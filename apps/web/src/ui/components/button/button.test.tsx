@@ -1,7 +1,8 @@
-import { renderToString } from 'react-dom/server';
+import { renderToStaticMarkup, renderToString } from 'react-dom/server';
 import { createElement as h } from 'react';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { Button } from './button';
+import { buttonClass, type ButtonVariant } from './button-class';
 
 setupRitewayBun();
 
@@ -33,10 +34,11 @@ describe('Button', () => {
   });
 });
 
-test('an unstyled submitter keeps native defaults and attributes', () => {
+test('a submitter keeps its form, command value and the classes its site adds', () => {
   const html = renderToString(
     h(Button, {
-      variant: 'unstyled',
+      variant: 'text',
+      type: 'submit',
       name: 'intent',
       value: 'save',
       form: 'settings',
@@ -45,17 +47,52 @@ test('an unstyled submitter keeps native defaults and attributes', () => {
     }),
   );
   assert({
-    given: 'a form-associated button without an explicit type',
-    should: 'retain the native submit default, command value and exact classes',
+    given: 'a text submitter associated with another form',
+    should:
+      'submit that form with its command, the variant look and the site ink',
     actual: [
-      '<button',
+      'type="submit"',
       'name="intent"',
       'value="save"',
       'form="settings"',
-      'class="text-ink"',
+      `class="${buttonClass('text')} text-ink"`,
       'Save</button>',
-      'type=',
     ].map((part) => html.includes(part)),
-    expected: [true, true, true, true, true, true, false],
+    expected: [true, true, true, true, true, true],
+  });
+});
+
+const variants = [
+  'primary',
+  'secondary',
+  'ghost',
+  'on-media',
+  'compact',
+  'icon',
+  'row',
+  'chip',
+  'pill',
+  'tab',
+  'text',
+  'quiet',
+  'touch',
+] as const satisfies readonly ButtonVariant[];
+
+test('every variant renders its own look and is a plain button by default', () => {
+  const rendered = variants.map((variant) =>
+    renderToStaticMarkup(h(Button, { variant, children: variant })),
+  );
+  assert({
+    given: 'each named variant without a type',
+    should: 'render a type="button" with that variant’s classes, each distinct',
+    actual: [
+      rendered.every((html, index) =>
+        html.startsWith(
+          `<button type="button" class="${buttonClass(variants[index]!)}">`,
+        ),
+      ),
+      new Set(variants.map((variant) => buttonClass(variant))).size,
+    ],
+    expected: [true, variants.length],
   });
 });

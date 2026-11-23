@@ -12,7 +12,7 @@ import { RoundClock } from './round-clock';
 import { toneInk } from './side-tone';
 
 const button =
-  'inline-flex h-room-target shrink-0 cursor-pointer items-center justify-center gap-2 rounded-sm border px-4 text-sm font-strong whitespace-nowrap transition-colors disabled:cursor-not-allowed disabled:opacity-60';
+  'h-room-target shrink-0 gap-2 rounded-sm border px-4 font-strong whitespace-nowrap transition-colors disabled:opacity-60';
 const quiet = `${button} border-border-strong bg-transparent text-ink hover:bg-surface-raised`;
 const primary = `${button} border-transparent bg-accent text-accent-ink hover:bg-accent-strong`;
 
@@ -37,7 +37,7 @@ function PhaseActions({
     return (
       <>
         <Button
-          variant="unstyled"
+          variant="compact"
           type="button"
           disabled
           className={cn(primary, grow)}
@@ -49,7 +49,7 @@ function PhaseActions({
   if (round.phase === 'own-speech')
     return (
       <Button
-        variant="unstyled"
+        variant="compact"
         type="button"
         disabled
         className={cn(primary, grow)}
@@ -73,7 +73,7 @@ function TechIssue({
 }) {
   return (
     <Button
-      variant="unstyled"
+      variant="compact"
       type="button"
       disabled
       className={cn(quiet, wide && 'h-12')}

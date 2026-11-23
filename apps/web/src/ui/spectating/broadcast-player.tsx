@@ -124,11 +124,11 @@ export function BroadcastPlayer({
       ) : null}
       {captions.length > 0 ? (
         <Button
-          variant="unstyled"
+          variant="text"
           type="button"
           aria-pressed={showCaptions}
           onClick={() => setShowCaptions((shown) => !shown)}
-          className="self-start text-sm font-strong"
+          className="self-start text-sm"
         >
           Captions
         </Button>

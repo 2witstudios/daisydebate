@@ -110,10 +110,10 @@ function ForfeitLeave({
       <input type="hidden" name="confirmed" value="true" />
       <FormError error={roundFormFields(answer).error} />
       <Button
-        variant="unstyled"
+        variant="compact"
         type="submit"
         disabled={pending}
-        className={`${action} bg-live text-background`}
+        className="h-room-target rounded-sm bg-live px-4 font-strong text-background"
       >
         {forfeit.type === 'leave' ? 'Leave round' : 'Leave and forfeit'}
       </Button>

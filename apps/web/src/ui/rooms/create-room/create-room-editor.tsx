@@ -20,7 +20,6 @@ import {
   roomVisibilityChoices,
 } from '../../../features/rooms/room-visibility';
 import { controlClass } from '../../components/form-field/form-field-class';
-import { buttonClass } from '../../components/button/button-class';
 import { FormError } from '../../components/form-field/form-field';
 import { DraftSettings } from './draft-settings';
 import { DraftPreview } from './draft-preview';
@@ -382,11 +381,10 @@ export function CreateRoomEditor({
         </section>
         <div className="create-room-actions">
           <Button
-            variant="unstyled"
+            variant="primary"
             type="submit"
             name="intent"
             value="create"
-            className={buttonClass('primary')}
             disabled={pending}
           >
             {pending ? 'Creating…' : 'Create room'}

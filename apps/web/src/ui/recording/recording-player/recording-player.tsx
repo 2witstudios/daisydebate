@@ -86,10 +86,10 @@ export function RecordingPlayer({ media }: { readonly media: Watchable }) {
             {media.speeches.map((speech) => (
               <li key={`${speech.startMs}-${speech.speaker}`}>
                 <Button
-                  variant="unstyled"
+                  variant="row"
                   type="button"
                   onClick={() => seek(speech.startMs)}
-                  className="flex w-full justify-between gap-3 py-2 text-left text-sm text-ink"
+                  className="w-full justify-between gap-3 py-2 text-sm text-ink"
                 >
                   <span>{speech.speaker}</span>
                   <span className="text-ink-muted tabular-nums">

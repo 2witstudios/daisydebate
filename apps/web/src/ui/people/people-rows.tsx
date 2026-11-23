@@ -266,10 +266,10 @@ export function PersonList({
       {list.nextCursor ? (
         <li>
           <Button
-            variant="unstyled"
+            variant="quiet"
             type="button"
             onClick={loadMore}
-            className="min-h-nav-target w-full text-sm font-semibold text-ink-muted hover:text-ink"
+            className="w-full"
           >
             Show more
           </Button>

@@ -22,7 +22,11 @@ export type UpgradeAlternative =
 const action =
   'inline-flex min-h-room-target items-center justify-center gap-2 rounded-sm border px-4 text-sm leading-tight font-strong whitespace-nowrap transition-colors duration-120 ease-standard';
 const primary = `${action} border-transparent bg-accent text-accent-ink hover:bg-accent-strong`;
-const quiet = `${action} cursor-pointer border-transparent bg-transparent text-ink hover:bg-accent-soft`;
+const quietTone =
+  'border-transparent bg-transparent text-ink hover:bg-accent-soft';
+const quiet = `${action} cursor-pointer ${quietTone}`;
+/** The second action as a button: `compact` lays it out, this is the rest. */
+const quietButton = `min-h-room-target gap-2 rounded-sm border px-4 leading-tight font-strong whitespace-nowrap transition-colors duration-120 ease-standard ${quietTone}`;
 
 /**
  * A free account's upgrade moment (PYL-11): small, in place, and shown only
@@ -64,9 +68,9 @@ export function UpgradePanel({
           </a>
         ) : (
           <Button
-            variant="unstyled"
+            variant="compact"
             type="button"
-            className={quiet}
+            className={quietButton}
             onClick={() =>
               alternative.kind === 'dialog'
                 ? requestDialog(alternative.titleId)

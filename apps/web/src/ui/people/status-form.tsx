@@ -62,13 +62,13 @@ function StatusChoice({
 }) {
   return (
     <Button
-      variant="unstyled"
+      variant="row"
       type="submit"
       name="status"
       value={status}
       aria-pressed={status === current}
       disabled={pending}
-      className="flex min-h-nav-target w-full items-center gap-2 rounded-sm px-3 text-left text-sm font-semibold text-ink-muted hover:bg-surface-overlay hover:text-ink aria-pressed:text-ink"
+      className="min-h-nav-target w-full gap-2 rounded-sm px-3 text-sm font-semibold text-ink-muted hover:bg-surface-overlay hover:text-ink aria-pressed:text-ink"
     >
       <span
         aria-hidden="true"

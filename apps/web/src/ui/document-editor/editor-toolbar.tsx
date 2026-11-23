@@ -57,7 +57,7 @@ const toneIcon = { dark: 'moon', light: 'sun' } as const;
 
 const tool = (on: boolean) =>
   cn(
-    'flex size-dense-target shrink-0 cursor-pointer items-center justify-center rounded-sm transition-colors',
+    'size-dense-target shrink-0 rounded-sm transition-colors',
     on ? 'bg-surface-overlay text-ink' : 'text-ink-muted hover:text-ink',
   );
 
@@ -120,7 +120,7 @@ export function EditorToolbar({
       >
         {formats.map((f, index) => (
           <Button
-            variant="unstyled"
+            variant="icon"
             key={f.id}
             aria-label={f.label}
             aria-pressed={Boolean(active.formats[f.id])}
@@ -139,7 +139,7 @@ export function EditorToolbar({
       </span>
       <div role="group" aria-label="Text size" className="flex shrink-0 gap-px">
         <Button
-          variant="unstyled"
+          variant="icon"
           type="button"
           aria-label="Smaller text"
           disabled={textSize === textSizes[0]}
@@ -149,7 +149,7 @@ export function EditorToolbar({
           A−
         </Button>
         <Button
-          variant="unstyled"
+          variant="icon"
           type="button"
           aria-label="Larger text"
           disabled={textSize === textSizes.at(-1)}
@@ -162,7 +162,7 @@ export function EditorToolbar({
       <div role="group" aria-label="Page tone" className="flex shrink-0 gap-px">
         {(['dark', 'light'] as const).map((tone) => (
           <Button
-            variant="unstyled"
+            variant="icon"
             key={tone}
             type="button"
             aria-label={tone === 'dark' ? 'Dark page' : 'Light page'}

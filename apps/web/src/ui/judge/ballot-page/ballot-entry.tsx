@@ -7,7 +7,6 @@ import type { RoundBallotRead } from '@daisy/protocol/round-ballot-read';
 import type { FormFields } from '../../../features/forms/form-state';
 import type { BallotDisplay } from '../../../features/round-ballots/presentation';
 import type { BallotPlan } from '../../../features/judge/ballot-plan';
-import { buttonClass } from '../../components/button/button-class';
 import { BallotFields } from './ballot-form';
 export const roundBallotErrorId = 'round-ballot-refusal';
 type EntryProps = {
@@ -91,12 +90,7 @@ function RetryBallot({
           ([name]) => !name.startsWith('$ACTION_'),
         )}
       />
-      <Button
-        variant="unstyled"
-        type="submit"
-        disabled={pending}
-        className={buttonClass('primary')}
-      >
+      <Button variant="primary" type="submit" disabled={pending}>
         {pending ? 'Retrying…' : 'Retry original ballot'}
       </Button>
     </form>

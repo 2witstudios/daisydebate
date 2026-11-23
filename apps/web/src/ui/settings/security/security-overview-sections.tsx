@@ -2,7 +2,6 @@
 
 import { Announcement } from '../../components/announcement/announcement';
 import { Button } from '../../components/button/button';
-import { buttonClass } from '../../components/button/button-class';
 import { SignOutForm } from '../../components/sign-out-form/sign-out-form';
 import { Notice } from '../../auth/notice/notice';
 import { PasskeyRowView } from './passkey-row';
@@ -150,10 +149,7 @@ export function SecurityOverviewSections({
               ? 'Signing out…'
               : 'Sign out of all other sessions'}
           </Button>
-          <SignOutForm
-            next="/settings/security"
-            className={buttonClass('ghost')}
-          />
+          <SignOutForm next="/settings/security" variant="ghost" />
         </div>
       </section>
     </>

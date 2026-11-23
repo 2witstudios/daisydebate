@@ -57,7 +57,7 @@ export function renderThemeSwitcher({
         const checked = value === preference;
         return (
           <Button
-            variant="unstyled"
+            variant="tab"
             key={value}
             type="button"
             role="radio"

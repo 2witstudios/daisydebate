@@ -20,7 +20,6 @@ import { firstName } from '../../ballot/ballot-labels';
 import { RankingChoice } from '../../ballot/ranking-choice/ranking-choice';
 import { ScoreSheet } from '../../ballot/score-sheet/score-sheet';
 import { WinnerChoice } from '../../ballot/winner-choice/winner-choice';
-import { buttonClass } from '../../components/button/button-class';
 import { FormError, FormField } from '../../components/form-field/form-field';
 import { DecisionChoice } from './decision-choice';
 
@@ -305,11 +304,10 @@ function SubmitRow({
   return (
     <div className="flex flex-wrap items-center gap-4">
       <Button
-        variant="unstyled"
+        variant="primary"
         type="submit"
         disabled={pending || waiting}
         aria-describedby={waiting ? OPENS_ID : undefined}
-        className={buttonClass('primary')}
       >
         {pending ? 'Submitting…' : 'Submit ballot'}
       </Button>

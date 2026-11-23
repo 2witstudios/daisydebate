@@ -110,31 +110,31 @@ export function ConsentForm({
         <div className="flex flex-wrap gap-3">
           {banner ? (
             <Button
-              variant="unstyled"
+              variant="secondary"
+              type="submit"
               name="choice"
               value="accept"
               disabled={state === 'saving'}
-              className={buttonClass('secondary')}
             >
               Accept optional
             </Button>
           ) : (
             <Button
-              variant="unstyled"
+              variant="secondary"
+              type="submit"
               name="choice"
               value="save"
               disabled={state === 'saving'}
-              className={buttonClass('secondary')}
             >
               Save choices
             </Button>
           )}
           <Button
-            variant="unstyled"
+            variant="secondary"
+            type="submit"
             name="choice"
             value="deny"
             disabled={state === 'saving'}
-            className={buttonClass('secondary')}
           >
             Reject optional
           </Button>

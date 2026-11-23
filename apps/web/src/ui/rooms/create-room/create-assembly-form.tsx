@@ -21,7 +21,6 @@ import {
 import { defaultChoice } from '../../../features/rooms/format-browser';
 import { FormError } from '../../components/form-field/form-field';
 import { controlClass } from '../../components/form-field/form-field-class';
-import { buttonClass } from '../../components/button/button-class';
 import { useFocusAfterAnswer } from '../../form-action/form-action';
 import { useMovedOn } from '../../form-action/use-moved-on';
 import { CreateRoomEditor } from './create-room-editor';
@@ -63,12 +62,7 @@ export function CreateAssemblyFields({
         <Announcement as="p" kind="progress">
           No formats are available yet.
         </Announcement>
-        <Button
-          variant="unstyled"
-          type="submit"
-          disabled
-          className={buttonClass('primary')}
-        >
+        <Button variant="primary" type="submit" disabled>
           Create room
         </Button>
       </div>

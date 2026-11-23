@@ -22,9 +22,9 @@ import type { PersonActions } from '../people/person-actions';
 import { useChallenges } from './challenge-provider';
 
 const stageAccept =
-  'min-h-nav-target rounded-sm bg-stage-accent px-4 text-sm font-bold text-stage-accent-ink disabled:opacity-60';
+  'min-h-nav-target rounded-sm bg-stage-accent px-4 font-bold text-stage-accent-ink disabled:opacity-60';
 const stageDecline =
-  'min-h-nav-target rounded-sm px-3 text-sm font-semibold text-stage-ink-muted hover:text-stage-ink';
+  'min-h-nav-target rounded-sm px-3 font-semibold text-stage-ink-muted hover:text-stage-ink';
 
 function IncomingCard({
   offer,
@@ -79,7 +79,7 @@ function IncomingCard({
         <form action={accept}>
           <input type="hidden" name="challengeId" value={offer.id} />
           <Button
-            variant="unstyled"
+            variant="compact"
             type="submit"
             disabled={accepting || next !== undefined}
             className={stageAccept}
@@ -91,7 +91,7 @@ function IncomingCard({
           <input type="hidden" name="command" value="decline" />
           <input type="hidden" name="challengeId" value={offer.id} />
           <Button
-            variant="unstyled"
+            variant="compact"
             type="submit"
             disabled={declining}
             className={stageDecline}
@@ -137,12 +137,7 @@ function OutgoingCard({
       <form action={post} onSubmit={() => noteCancelled(offer.id)}>
         <input type="hidden" name="command" value="cancel" />
         <input type="hidden" name="challengeId" value={offer.id} />
-        <Button
-          variant="unstyled"
-          type="submit"
-          disabled={pending}
-          className="min-h-nav-target text-sm font-semibold text-ink-muted hover:text-ink"
-        >
+        <Button variant="quiet" type="submit" disabled={pending}>
           Cancel
         </Button>
       </form>
@@ -170,12 +165,7 @@ function EndedCard({
       <Announcement as="p" kind="progress" className="text-sm">
         Your challenge to @{username} ended.
       </Announcement>
-      <Button
-        variant="unstyled"
-        type="button"
-        onClick={() => dismissEnded(id)}
-        className="min-h-nav-target text-sm font-semibold text-ink-muted hover:text-ink"
-      >
+      <Button variant="quiet" type="button" onClick={() => dismissEnded(id)}>
         Dismiss
       </Button>
     </section>

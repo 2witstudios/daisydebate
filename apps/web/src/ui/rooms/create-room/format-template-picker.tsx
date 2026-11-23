@@ -6,7 +6,6 @@ import { useId, useState, useSyncExternalStore } from 'react';
 import type { RoomTemplate } from '../../../features/rooms/read-catalog';
 import { FormField } from '../../components/form-field/form-field';
 import { controlClass } from '../../components/form-field/form-field-class';
-import { buttonClass } from '../../components/button/button-class';
 import { clockDuration } from '../../../features/rooms/duration-input';
 import {
   formatFamilyLabel,
@@ -115,12 +114,12 @@ function FormatBrowserDialog({
             >
               {tabs.map((option) => (
                 <Button
-                  variant="unstyled"
+                  variant="chip"
                   type="button"
                   key={option.key}
                   aria-pressed={option.key === tab}
                   onClick={() => setTab(option.key)}
-                  className="min-h-room-target rounded-round border border-border px-3 text-sm font-strong aria-pressed:border-accent aria-pressed:bg-accent aria-pressed:text-accent-ink"
+                  className="min-h-room-target rounded-round border-border px-3 text-sm font-strong aria-pressed:bg-accent aria-pressed:text-accent-ink"
                 >
                   {option.label}
                 </Button>
@@ -133,11 +132,11 @@ function FormatBrowserDialog({
           >
             {listed.map((choice) => (
               <Button
-                variant="unstyled"
+                variant="chip"
                 type="button"
                 key={`${choice.formatId}:${choice.formatVersion}`}
                 aria-pressed={draft === serialize(choice)}
-                className="rounded-lg border border-border p-3 text-left hover:bg-surface-raised aria-pressed:border-accent aria-pressed:bg-surface-raised"
+                className="rounded-lg border-border p-3 text-left hover:bg-surface-raised aria-pressed:bg-surface-raised"
                 onClick={() => setDraft(serialize(choice))}
               >
                 <span className="block">{choice.label}</span>
@@ -243,10 +242,9 @@ export function FormatTemplatePicker({
       {choices.length > 0 ? (
         <>
           <Button
-            variant="unstyled"
+            variant="secondary"
             type="button"
             hidden={!interactive}
-            className={buttonClass('secondary')}
             onClick={() => {
               setDraft(value);
               setBrowsing(true);

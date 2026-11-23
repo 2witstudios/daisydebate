@@ -11,7 +11,7 @@ import { freezePostRoundCall } from '@daisy/protocol/post-round-call';
 import { isJudgeSeat } from '@daisy/protocol/seats';
 import { type RoomView } from '@daisy/protocol/room-contract';
 import { AssemblyCommandFields } from './assembly-command-fields';
-import { buttonClass } from '../../components/button/button-class';
+import type { ButtonVariant } from '../../components/button/button-class';
 import { PopoverDialog } from '../../components/popover/popover-dialog';
 import {
   ownSeat,
@@ -87,6 +87,7 @@ function CommandForm({
   enabled,
   expectedConsentVersion = null,
   noticeVersion = null,
+  variant,
   className,
 }: {
   readonly type: Control;
@@ -97,7 +98,9 @@ function CommandForm({
   readonly enabled: boolean;
   readonly expectedConsentVersion?: number | null;
   readonly noticeVersion?: string | null;
-  readonly className: string;
+  /** The ready control's look where it stands. */
+  readonly variant: ButtonVariant;
+  readonly className?: string;
 }) {
   return (
     <AssemblyCommandForm action={action}>
@@ -113,7 +116,7 @@ function CommandForm({
         <input type="hidden" name="noticeVersion" value={noticeVersion} />
       ) : null}
       <Button
-        variant="unstyled"
+        variant={variant}
         type="submit"
         disabled={!enabled}
         className={className}
@@ -169,11 +172,10 @@ function ReadyConfirm({
           {call ? <p className="text-sm">{postRoundCallText}</p> : null}
           <div className="flex flex-wrap justify-end gap-2">
             <Button
-              variant="unstyled"
+              variant="secondary"
               type="button"
               popoverTarget={confirmId}
               popoverTargetAction="hide"
-              className={buttonClass('secondary')}
             >
               Cancel
             </Button>
@@ -222,15 +224,14 @@ export function ReadyControl({
         version: view.version,
         commandId: commandIds['start-round'],
         action,
-        className: `${buttonClass('primary')} w-full`,
+        variant: 'primary',
+        className: 'w-full',
       })
     : null;
   const start = startForm;
   if (!ready)
     return start ? <div className="flex flex-col">{start}</div> : null;
   const own = ownSeat(view, actorId);
-  const full = (variant: 'primary' | 'secondary') =>
-    `${buttonClass(variant)} w-full`;
   // A Ready standing from another tab still needs this tab's devices: their
   // Turn on comes first, and the host's Start waits on it.
   const needsDevices =
@@ -241,11 +242,11 @@ export function ReadyControl({
       <div className="flex flex-col gap-2">
         {needsDevices ? (
           <Button
-            variant="unstyled"
+            variant="primary"
             type="button"
             onClick={turnOn}
             disabled={!turnOn}
-            className={full('primary')}
+            className="w-full"
           >
             Turn on camera and mic
           </Button>
@@ -260,9 +261,8 @@ export function ReadyControl({
           commandId: commandIds.unready,
           action,
           expectedConsentVersion: own?.consentVersion ?? null,
-          className: start
-            ? `${buttonClass('ghost')} w-full`
-            : full('secondary'),
+          variant: start ? 'ghost' : 'secondary',
+          className: 'w-full',
         })}
       </div>
     );
@@ -270,16 +270,16 @@ export function ReadyControl({
   if (ready.blocker === 'devices')
     return (
       <Button
-        variant="unstyled"
+        variant="primary"
         type="button"
         onClick={turnOn}
         disabled={!turnOn}
-        className={full('primary')}
+        className="w-full"
       >
         Turn on camera and mic
       </Button>
     );
-  const readyForm = (className: string) =>
+  const readyForm = (variant: ButtonVariant, className?: string) =>
     CommandForm({
       type: 'ready',
       label: 'I’m ready',
@@ -289,12 +289,13 @@ export function ReadyControl({
       action,
       expectedConsentVersion: own?.consentVersion ?? null,
       noticeVersion: view.captureNotice?.version ?? null,
-      className,
+      variant,
+      ...(className === undefined ? {} : { className }),
     });
   const confirm = ReadyConfirm({
     view,
     waiverAction,
-    ready: readyForm(buttonClass('primary')),
+    ready: readyForm('primary'),
   });
   const askable = ready.enabled || ready.blocker === 'waiver';
   return (
@@ -302,17 +303,17 @@ export function ReadyControl({
       {confirm && askable ? (
         <>
           <Button
-            variant="unstyled"
+            variant="primary"
             type="button"
             popoverTarget={confirmId}
-            className={full('primary')}
+            className="w-full"
           >
             I’m ready
           </Button>
           {confirm}
         </>
       ) : (
-        readyForm(full('primary'))
+        readyForm('primary', 'w-full')
       )}
       {ready.reason && !askable ? (
         <Announcement as="p" kind="progress" className="text-sm text-ink-muted">

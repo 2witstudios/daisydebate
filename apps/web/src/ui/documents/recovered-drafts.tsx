@@ -96,26 +96,26 @@ function RecoveredDraft({
       </details>
       <div className="flex flex-wrap gap-2">
         <Button
-          variant="unstyled"
+          variant="compact"
           type="button"
           onClick={restore}
-          className="cursor-pointer px-3 py-1 text-sm text-ink"
+          className="px-3 py-1 text-ink"
         >
           Restore {choiceLabel}
         </Button>
         <Button
-          variant="unstyled"
+          variant="compact"
           type="button"
           onClick={() => void copy()}
-          className="cursor-pointer px-3 py-1 text-sm text-ink"
+          className="px-3 py-1 text-ink"
         >
           Copy recovered {choiceLabel}
         </Button>
         <Button
-          variant="unstyled"
+          variant="compact"
           type="button"
           onClick={discard}
-          className="cursor-pointer px-3 py-1 text-sm text-ink-muted"
+          className="px-3 py-1 text-ink-muted"
         >
           Discard recovered {choiceLabel}
         </Button>
@@ -169,19 +169,19 @@ function DeletedDocumentNotice({
         {problem ? ` ${problem}` : ''}
       </p>
       <Button
-        variant="unstyled"
+        variant="compact"
         type="button"
         onClick={saveAsNew}
-        className="h-room-target cursor-pointer rounded-sm bg-accent px-3 font-strong text-accent-ink"
+        className="h-room-target rounded-sm bg-accent px-3 font-strong text-accent-ink"
       >
         Save as a new document
       </Button>
       {deleted ? (
         <Button
-          variant="unstyled"
+          variant="compact"
           type="button"
           onClick={discard}
-          className="h-room-target cursor-pointer px-3 underline"
+          className="h-room-target px-3 underline"
         >
           Discard
         </Button>

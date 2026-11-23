@@ -55,11 +55,7 @@ export function CaptureChoice({
               version={view.version}
               commandId={commandId}
             />
-            <Button
-              variant="unstyled"
-              type="submit"
-              className="self-start text-sm font-strong"
-            >
+            <Button variant="text" type="submit" className="self-start text-sm">
               Turn off broadcast and recording
             </Button>
           </AssemblyCommandForm>
@@ -116,11 +112,7 @@ export function CaptureChoice({
           />
           Record this round
         </label>
-        <Button
-          variant="unstyled"
-          type="submit"
-          className="self-start text-sm font-strong"
-        >
+        <Button variant="text" type="submit" className="self-start text-sm">
           Save broadcast and recording
         </Button>
       </div>

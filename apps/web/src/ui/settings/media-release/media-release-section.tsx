@@ -93,10 +93,10 @@ function AskForm({
               </FormField>
             </div>
             <Button
-              variant="unstyled"
+              variant="primary"
               type="submit"
               disabled={pending}
-              className={`${buttonClass('primary')} max-compact:w-full`}
+              className="max-compact:w-full"
             >
               <Icon name="send" size={18} />
               Send request
@@ -131,12 +131,7 @@ function ActionButton({
     <ActionForm action={action} label={label}>
       {({ error, pending }) => (
         <>
-          <Button
-            variant="unstyled"
-            type="submit"
-            disabled={pending}
-            className={buttonClass(variant)}
-          >
+          <Button variant={variant} type="submit" disabled={pending}>
             {icon ? <Icon name={icon} size={18} /> : null}
             {children}
           </Button>
@@ -224,10 +219,9 @@ export function MediaReleaseSection({
                     </select>
                   )}
                   <Button
-                    variant="unstyled"
+                    variant="secondary"
                     type="submit"
                     disabled={pending || view.clubs.every((club) => club.asked)}
-                    className={buttonClass('secondary')}
                   >
                     {view.clubs.every((club) => club.asked)
                       ? 'Club asked'

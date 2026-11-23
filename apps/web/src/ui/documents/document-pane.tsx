@@ -77,19 +77,19 @@ function DocumentTabs({
             )}
           >
             <Button
-              variant="unstyled"
+              variant="tab"
               type="button"
               aria-current={tab.id === active ? 'page' : undefined}
-              className="h-full cursor-pointer pr-1 pl-3 text-sm whitespace-nowrap"
+              className="h-full pr-1 pl-3 text-sm whitespace-nowrap"
               onClick={() => dispatch({ type: 'tabs/activate', id: tab.id })}
             >
               {tab.title}
             </Button>
             <Button
-              variant="unstyled"
+              variant="icon"
               type="button"
               aria-label={`Close ${tab.title}`}
-              className="flex size-dense-target cursor-pointer items-center justify-center rounded-sm opacity-60 hover:opacity-100"
+              className="size-dense-target rounded-sm opacity-60 hover:opacity-100"
               onClick={() => close(tab.id)}
             >
               <Icon name="close" size={12} />
@@ -98,12 +98,12 @@ function DocumentTabs({
         ))}
         {onNew ? (
           <Button
-            variant="unstyled"
+            variant="icon"
             type="button"
             ref={newDocument}
             aria-label="New document"
             title="New document"
-            className="flex h-full w-tab-strip shrink-0 cursor-pointer items-center justify-center text-ink-muted hover:bg-surface-overlay hover:text-ink"
+            className="h-full w-tab-strip shrink-0 text-ink-muted hover:bg-surface-overlay hover:text-ink"
             onClick={onNew}
           >
             <Icon name="plus" size={14} />
@@ -185,10 +185,10 @@ export function DocumentPane({
         >
           <p>{active.title} did not open.</p>
           <Button
-            variant="unstyled"
+            variant="compact"
             type="button"
             onClick={() => onRetry?.(active.id, active.title)}
-            className="h-room-target cursor-pointer rounded-sm border border-border px-3 hover:bg-surface-raised"
+            className="h-room-target rounded-sm border border-border px-3 hover:bg-surface-raised"
           >
             Try again
           </Button>

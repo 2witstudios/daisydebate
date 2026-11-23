@@ -202,11 +202,7 @@ function Removal({
         <input type="checkbox" name="confirm" className="size-4" />
         {words.confirm}
       </label>
-      <Button
-        variant="unstyled"
-        type="submit"
-        className={`${buttonClass('secondary')} self-start`}
-      >
+      <Button variant="secondary" type="submit" className="self-start">
         {words.submit}
       </Button>
     </form>

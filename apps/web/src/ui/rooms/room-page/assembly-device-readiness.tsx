@@ -26,7 +26,6 @@ import type { RoomRead } from '../../../features/rooms/read-assembly';
 import type { submitAssembly } from '../../../features/rooms/submit-assembly';
 import { StartControl, ReadyControl } from './assembly-readiness';
 import { createLocalCommandAction } from '../../../features/rooms/local-command-action';
-import { buttonClass } from '../../components/button/button-class';
 import { ownSeat, type LocalReadiness } from './assembly-controls';
 import { CameraPreview, DeviceChoice } from './device-check';
 import { RoomSyncContext } from './room-sync-context';
@@ -203,10 +202,9 @@ function GatheringWithDevices({
             >
               <p className="text-sm text-live">Ready didn’t go through.</p>
               <Button
-                variant="unstyled"
+                variant="secondary"
                 type="button"
                 onClick={() => void consent.retry()}
-                className={buttonClass('secondary')}
               >
                 Try again
               </Button>

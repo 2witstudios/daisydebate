@@ -245,11 +245,11 @@ export function ManagerWorkspace({
             save={save}
             leading={
               <Button
-                variant="unstyled"
+                variant="icon"
                 type="button"
                 ref={backToFiles}
                 aria-label="Back to Files"
-                className="flex h-full w-tab-strip shrink-0 cursor-pointer items-center justify-center border-r border-border compact:hidden"
+                className="h-full w-tab-strip shrink-0 border-r border-border compact:hidden"
                 onClick={() => dispatch({ type: 'pane/files' })}
               >
                 <Icon name="chevronLeft" size={16} />

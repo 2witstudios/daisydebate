@@ -160,14 +160,11 @@ export function SearchableGroups({
           >
             {[{ id: 'all', label: 'All' }, ...statuses].map((status) => (
               <Button
-                variant="unstyled"
+                variant={filter.status === status.id ? 'primary' : 'secondary'}
                 key={status.id}
                 type="button"
                 aria-pressed={filter.status === status.id}
                 onClick={() => setFilter({ ...filter, status: status.id })}
-                className={buttonClass(
-                  filter.status === status.id ? 'primary' : 'secondary',
-                )}
               >
                 {status.label} {count(status.id)}
               </Button>

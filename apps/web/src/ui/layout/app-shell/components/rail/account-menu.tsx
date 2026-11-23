@@ -4,6 +4,7 @@ import { Avatar } from '../../../../components/avatar/avatar';
 import { Icon } from '../../../../components/icon/icon';
 import { SignOutForm } from '../../../../components/sign-out-form/sign-out-form';
 import {
+  navFlyoutItemShape,
   navFlyoutLinkClass,
   navItemClass,
 } from '../../../../components/nav-item/nav-item-class';
@@ -117,7 +118,8 @@ export function AccountMenu({
         </Link>
         <SignOutForm
           next="/"
-          className={cn(navFlyoutLinkClass, 'w-full text-left')}
+          variant="row"
+          className={cn(navFlyoutItemShape, 'w-full')}
         />
       </div>
     </DismissibleDetails>

@@ -8,16 +8,6 @@ import {
   type RefObject,
 } from 'react';
 
-/** Focuses the control after a render that requests it. */
-export function useFocusWhen(
-  ref: RefObject<HTMLElement | null>,
-  condition: boolean,
-): void {
-  useEffect(() => {
-    if (condition) ref.current?.focus();
-  }, [condition, ref]);
-}
-
 /** Focus is on nothing a member can use: `<body>`, or a control since disabled or removed. */
 export const focusLost = () => {
   const active = document.activeElement;

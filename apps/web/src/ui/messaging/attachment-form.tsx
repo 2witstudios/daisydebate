@@ -38,7 +38,7 @@ export function AttachmentForm({
           required
         />
       </label>
-      <Button variant="unstyled" type="submit">
+      <Button variant="secondary" type="submit">
         Attach file
       </Button>
     </form>

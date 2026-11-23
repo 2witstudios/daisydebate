@@ -80,14 +80,14 @@ export function TranscriptFollow({
       </div>
       {following ? null : (
         <Button
-          variant="unstyled"
+          variant="pill"
           type="button"
           onClick={() => {
             // This button goes away with the click, so focus moves to the lines.
             scroller.current?.focus();
             follow.latest(scroller.current);
           }}
-          className="absolute right-4 bottom-3 h-room-target cursor-pointer rounded-round border border-border-strong bg-surface-raised px-4 text-sm font-strong shadow-2"
+          className="absolute right-4 bottom-3 h-room-target border-border-strong bg-surface-raised px-4 text-sm font-strong shadow-2"
         >
           Latest
         </Button>

@@ -21,7 +21,7 @@ export type PanelProps = {
 
 const pill = (on: boolean, ink: string) =>
   cn(
-    'inline-flex h-room-target cursor-pointer items-center gap-1 rounded-round border px-3 text-xs font-strong',
+    'inline-flex h-room-target items-center gap-1 px-3 text-xs font-strong',
     on
       ? cn('border-transparent bg-surface-overlay', ink)
       : 'border-border text-ink-muted',
@@ -50,7 +50,7 @@ export function AgentPanel({ round, state, dispatch, clock }: PanelProps) {
         >
           {agents.map((a) => (
             <Button
-              variant="unstyled"
+              variant="pill"
               key={a.id}
               type="button"
               aria-pressed={a.id === agent.id}
@@ -85,10 +85,10 @@ export function AgentPanel({ round, state, dispatch, clock }: PanelProps) {
       <div className="flex flex-wrap gap-1 px-2 pb-2">
         {(round.agentPrompts[agent.id] ?? []).map((prompt) => (
           <Button
-            variant="unstyled"
+            variant="pill"
             key={prompt}
             type="button"
-            className="h-room-target cursor-not-allowed rounded-round border border-border-strong px-3 text-xs opacity-60"
+            className="h-room-target border-border-strong px-3 text-xs opacity-60"
             disabled
           >
             {prompt}
@@ -101,7 +101,7 @@ export function AgentPanel({ round, state, dispatch, clock }: PanelProps) {
 }
 
 const listRow =
-  'flex h-room-target w-full cursor-pointer items-center gap-2 rounded-sm px-2 text-left text-sm hover:bg-surface-raised';
+  'h-room-target w-full gap-2 rounded-sm px-2 text-sm hover:bg-surface-raised';
 
 /** Channels and direct messages; a thread opens in their place. */
 export function ChatPanel({ round, state, dispatch, clock }: PanelProps) {
@@ -117,11 +117,11 @@ export function ChatPanel({ round, state, dispatch, clock }: PanelProps) {
       <>
         <div className="flex shrink-0 items-center gap-1 border-b border-border pr-4 pl-1">
           <Button
-            variant="unstyled"
+            variant="icon"
             type="button"
             aria-label="Back to channels"
             onClick={() => dispatch({ type: 'channel/list' })}
-            className="flex size-room-target cursor-pointer items-center justify-center rounded-sm hover:bg-surface-raised"
+            className="size-room-target rounded-sm hover:bg-surface-raised"
           >
             <Icon name="chevronLeft" size={16} />
           </Button>
@@ -145,7 +145,7 @@ export function ChatPanel({ round, state, dispatch, clock }: PanelProps) {
         </h2>
         {round.channels.map((c) => (
           <Button
-            variant="unstyled"
+            variant="row"
             key={c.id}
             type="button"
             className={listRow}

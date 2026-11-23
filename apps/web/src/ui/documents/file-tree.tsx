@@ -22,8 +22,7 @@ const row = (current: boolean) =>
       ? 'bg-accent text-accent-ink'
       : 'text-ink file-row-idle hover:bg-surface-overlay',
   );
-const rowMain =
-  'flex h-full min-w-0 flex-1 cursor-pointer items-center gap-1 pl-1 text-left text-sm';
+const rowMain = 'h-full min-w-0 flex-1 gap-1 pl-1 text-sm';
 
 /** A name being typed in its own row: Enter or leaving keeps it, Esc does not. */
 function RenameField({
@@ -118,7 +117,7 @@ function NodeRow({
       ) : (
         <>
           <Button
-            variant="unstyled"
+            variant="row"
             type="button"
             ref={rowButton}
             aria-expanded={expanded}
@@ -188,9 +187,9 @@ function Contents({
       {next ? (
         <li>
           <Button
-            variant="unstyled"
+            variant="compact"
             type="button"
-            className="h-dense-target cursor-pointer px-2 text-sm text-ink-muted underline"
+            className="h-dense-target px-2 text-ink-muted underline"
             onClick={() => drive.more(folderId, next)}
           >
             Show more
@@ -280,11 +279,11 @@ export function FileTree({
             {heading.title}
           </h2>
           <Button
-            variant="unstyled"
+            variant="icon"
             type="button"
             aria-label="New"
             title="New"
-            className="flex size-dense-target shrink-0 cursor-pointer items-center justify-center rounded-sm text-ink-muted hover:bg-surface-overlay hover:text-ink"
+            className="size-dense-target shrink-0 rounded-sm text-ink-muted hover:bg-surface-overlay hover:text-ink"
             onClick={() => dispatch({ type: 'palette/open', mode: 'create' })}
           >
             <Icon name="plus" size={16} />
@@ -292,10 +291,10 @@ export function FileTree({
         </div>
       ) : null}
       <Button
-        variant="unstyled"
+        variant="row"
         type="button"
         aria-keyshortcuts="Meta+K Control+K"
-        className="mx-2 mb-2 flex h-dense-target shrink-0 cursor-pointer items-center gap-2 rounded-sm bg-surface-overlay px-2 text-sm text-ink-muted hover:text-ink"
+        className="mx-2 mb-2 h-dense-target shrink-0 gap-2 rounded-sm bg-surface-overlay px-2 text-sm text-ink-muted hover:text-ink"
         onClick={() => dispatch({ type: 'palette/open', mode: 'search' })}
       >
         <Icon name="search" size={14} />
@@ -312,9 +311,9 @@ export function FileTree({
               {drive.recent.map((document) => (
                 <li key={document.id}>
                   <Button
-                    variant="unstyled"
+                    variant="row"
                     type="button"
-                    className="flex h-dense-target w-full min-w-0 cursor-pointer items-center gap-1 rounded-sm px-2 text-left text-sm text-ink hover:bg-surface-overlay"
+                    className="h-dense-target w-full min-w-0 gap-1 rounded-sm px-2 text-sm text-ink hover:bg-surface-overlay"
                     onClick={() => drive.open(document.id, document.title)}
                   >
                     <Icon name="file" size={14} />

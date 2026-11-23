@@ -1,10 +1,10 @@
 import { Announcement } from '../../components/announcement/announcement';
 import Link from 'next/link';
+import { buttonClass } from '../../components/button/button-class';
 import { SignOutForm } from '../../components/sign-out-form/sign-out-form';
 import { SIGN_OUT_FAILED_NOTICE } from '../../components/sign-out-form/sign-out-notice';
 
-export const accountExitLink =
-  'inline-flex min-h-onboarding-touch items-center justify-center rounded-round border border-border px-6 text-md font-strong no-underline hover:no-underline';
+export const accountExitLink = `${buttonClass('touch')} border border-border`;
 
 /**
  * The account's way out (ISSUE-691, plan BETA §5): a native form, so it
@@ -34,7 +34,8 @@ export function AccountExit({
         </Link>
         <SignOutForm
           next={returnTo}
-          className={`${accountExitLink} bg-transparent`}
+          variant="touch"
+          className="border border-border bg-transparent"
         />
       </div>
     </div>

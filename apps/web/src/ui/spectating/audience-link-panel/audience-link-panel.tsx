@@ -4,7 +4,6 @@ import { Announcement } from '../../components/announcement/announcement';
 import { Button } from '../../components/button/button';
 import type { AudienceLinkAnswer } from '../../../features/audience-link/submit-issue';
 import { Panel } from '../../components/panel/panel';
-import { buttonClass } from '../../components/button/button-class';
 import { useFormAction } from '../../form-action/form-action';
 import { CopyableUrlField } from '../../watch/copy-link/copyable-url-field';
 
@@ -58,10 +57,9 @@ export function AudienceLinkPanel({
         ) : null}
         <form action={formAction}>
           <Button
-            variant="unstyled"
+            variant={hasLink ? 'secondary' : 'primary'}
             type="submit"
             disabled={pending}
-            className={buttonClass(hasLink ? 'secondary' : 'primary')}
           >
             {hasLink ? 'Replace link' : 'Create link'}
           </Button>

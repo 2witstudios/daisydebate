@@ -142,12 +142,12 @@ export function FileMenu({
   return (
     <>
       <Button
-        variant="unstyled"
+        variant="icon"
         ref={trigger}
         type="button"
         popoverTarget={id}
         aria-label={`Actions for ${label}`}
-        className="mr-px flex size-dense-target shrink-0 cursor-pointer items-center justify-center rounded-sm file-action"
+        className="mr-px size-dense-target shrink-0 rounded-sm file-action"
       >
         <Icon name="dots" size={14} />
       </Button>

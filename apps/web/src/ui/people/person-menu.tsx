@@ -42,7 +42,6 @@ import {
   reportFormUnavailable,
 } from '../../features/reports/form';
 import { cn } from '../cn';
-import { buttonClass } from '../components/button/button-class';
 import { useFormAction } from '../form-action/form-action';
 import { announceShellNavigation } from '../layout/app-shell/shell-link';
 import { useMovedOn } from '../form-action/use-moved-on';
@@ -53,10 +52,13 @@ import { usePeople } from './people-provider';
 import type { PersonActions } from './person-actions';
 import { publicNameLabel } from '../profile/public-name';
 
-const item =
-  'flex min-h-nav-target w-full items-center rounded-sm px-2 text-left text-sm text-ink no-underline hover:bg-surface-overlay hover:no-underline disabled:cursor-default disabled:text-ink-muted';
+/** A menu entry; as a button the `row` variant lays it out. */
+const itemShape =
+  'min-h-nav-target rounded-sm px-2 text-sm no-underline hover:bg-surface-overlay hover:no-underline disabled:text-ink-muted';
+const item = `${itemShape} w-full text-ink`;
+const back = `${itemShape} self-start text-ink-muted`;
 const chip =
-  'min-h-nav-target flex-1 rounded-sm border border-border-strong px-1 text-sm font-semibold text-ink aria-pressed:border-accent aria-pressed:bg-accent aria-pressed:text-accent-ink disabled:cursor-not-allowed disabled:opacity-50';
+  'min-h-nav-target flex-1 rounded-sm border-border-strong px-1 text-sm font-semibold text-ink aria-pressed:bg-accent aria-pressed:text-accent-ink disabled:opacity-50';
 
 const modeLabels: Readonly<Record<CompetitionType, string>> = {
   ranked: 'Ranked',
@@ -94,12 +96,7 @@ function FriendItem({
     <form action={post}>
       <input type="hidden" name="intent" value={intent} />
       <input type="hidden" name="username" value={username} />
-      <Button
-        variant="unstyled"
-        type="submit"
-        disabled={pending}
-        className={item}
-      >
+      <Button variant="row" type="submit" disabled={pending} className={item}>
         {label}
       </Button>
     </form>
@@ -129,12 +126,7 @@ function CancelChallengeItem({
     <form action={post} onSubmit={() => noteCancelled(challengeId)}>
       <input type="hidden" name="command" value="cancel" />
       <input type="hidden" name="challengeId" value={challengeId} />
-      <Button
-        variant="unstyled"
-        type="submit"
-        disabled={pending}
-        className={item}
-      >
+      <Button variant="row" type="submit" disabled={pending} className={item}>
         Cancel challenge
       </Button>
     </form>
@@ -160,7 +152,7 @@ function MessageItem({
       <input type="hidden" name="recipients" value={username} />
       <input type="hidden" name="introduction" value="" />
       <Button
-        variant="unstyled"
+        variant="row"
         type="submit"
 
         disabled={pending || next !== undefined}
@@ -203,12 +195,7 @@ function BlockItem({
   return (
     <form action={post}>
       <input type="hidden" name="username" value={username} />
-      <Button
-        variant="unstyled"
-        type="submit"
-        disabled={pending}
-        className={item}
-      >
+      <Button variant="row" type="submit" disabled={pending} className={item}>
         Block
       </Button>
       {notice ? (
@@ -273,7 +260,7 @@ function ChallengeView({
       <div role="group" aria-label="Mode" className="flex gap-1">
         {competitionTypes.map((value) => (
           <Button
-            variant="unstyled"
+            variant="chip"
             key={value}
             type="button"
             aria-pressed={mode === value}
@@ -299,19 +286,14 @@ function ChallengeView({
         </Announcement>
       ) : null}
       <Button
-        variant="unstyled"
+        variant="primary"
         type="submit"
         disabled={pending}
-        className={cn(buttonClass('primary'), 'w-full')}
+        className="w-full"
       >
         Send challenge
       </Button>
-      <Button
-        variant="unstyled"
-        type="button"
-        onClick={onBack}
-        className={cn(item, 'w-auto self-start text-ink-muted')}
-      >
+      <Button variant="row" type="button" onClick={onBack} className={back}>
         Back
       </Button>
     </form>
@@ -347,7 +329,7 @@ function ReportView({
       <div role="group" aria-label="Reason" className="flex flex-col gap-1">
         {reportReasons.map((value) => (
           <Button
-            variant="unstyled"
+            variant="chip"
             key={value}
             type="button"
             aria-pressed={reason === value}
@@ -364,19 +346,14 @@ function ReportView({
         </Announcement>
       ) : null}
       <Button
-        variant="unstyled"
+        variant="primary"
         type="submit"
         disabled={pending || reason === null}
-        className={cn(buttonClass('primary'), 'w-full')}
+        className="w-full"
       >
         Send report
       </Button>
-      <Button
-        variant="unstyled"
-        type="button"
-        onClick={onBack}
-        className={cn(item, 'w-auto self-start text-ink-muted')}
-      >
+      <Button variant="row" type="button" onClick={onBack} className={back}>
         Back
       </Button>
     </form>
@@ -463,7 +440,7 @@ export function PersonMenu({
               />
             ) : canBeChallenged(member) && member.challengeModes.length > 0 ? (
               <Button
-                variant="unstyled"
+                variant="row"
                 type="button"
 
                 onClick={() => setView('challenge')}
@@ -500,12 +477,15 @@ export function PersonMenu({
               />
             ) : null}
             <MessageItem action={actions.message} username={username} />
-            <Link href={`/profile/${username}`} className={item}>
+            <Link
+              href={`/profile/${username}`}
+              className={cn('flex items-center', item)}
+            >
               Profile
             </Link>
             <hr className="my-1 border-border" />
             <Button
-              variant="unstyled"
+              variant="row"
               type="button"
 
               disabled={reported}

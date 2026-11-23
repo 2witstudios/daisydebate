@@ -37,12 +37,7 @@ export function LadderError({
       <Icon name="alert" size={28} className="text-ink-faint" />
       <h2 className="text-lg font-bold">The ladder could not load</h2>
       {onRetry ? (
-        <Button
-          variant="unstyled"
-          type="button"
-          onClick={onRetry}
-          className={buttonClass('secondary')}
-        >
+        <Button variant="secondary" type="button" onClick={onRetry}>
           Try again
         </Button>
       ) : (

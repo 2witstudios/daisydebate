@@ -26,7 +26,7 @@ export const opensInPlace = (click: Click): boolean =>
   !click.altKey;
 
 const closeClass =
-  'flex size-nav-target shrink-0 cursor-pointer items-center justify-center rounded-round text-ink-muted hover:bg-surface-overlay hover:text-ink';
+  'size-nav-target shrink-0 rounded-round text-ink-muted hover:bg-surface-overlay hover:text-ink';
 
 /**
  * Play over the Lobby: a link to `/play` that, once hydrated, opens the same
@@ -66,7 +66,7 @@ export function PlayDialog({ children }: { readonly children: ReactNode }) {
             Play
           </h2>
           <Button
-            variant="unstyled"
+            variant="icon"
             type="submit"
             aria-label="Close"
             className={closeClass}

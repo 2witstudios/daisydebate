@@ -71,9 +71,9 @@ export function LiveTranscript({
       <p>{labels[transcriptState(synced.value)]}</p>
       {synced.freshness !== 'stale' ? null : holder.outdated() ? (
         <Button
-          variant="unstyled"
+          variant="text"
           type="button"
-          className="cursor-pointer font-strong underline"
+          className="underline"
           onClick={() => window.location.reload()}
         >
           Reload

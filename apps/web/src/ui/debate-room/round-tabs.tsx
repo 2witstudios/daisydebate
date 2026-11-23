@@ -57,14 +57,14 @@ export function RoundTabs({
         const dot = panel === 'channels' && !current && unread > 0;
         return (
           <Button
-            variant="unstyled"
+            variant="tab"
             key={panel}
             type="button"
             aria-current={current ? 'page' : undefined}
             aria-label={dot ? `${name}, ${unread} unread` : undefined}
             onClick={() => dispatch({ type: 'phone/panel', panel })}
             className={cn(
-              'relative flex h-12 cursor-pointer flex-col items-center justify-center gap-px text-xs',
+              'relative flex h-12 flex-col justify-center gap-px text-xs',
               current ? 'font-strong text-accent' : 'text-ink-muted',
             )}
           >

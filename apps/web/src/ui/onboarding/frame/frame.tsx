@@ -1,11 +1,11 @@
 import { DialogRegion } from '../../components/dialog/dialog-region';
 import { Button } from '../../components/button/button';
+import { buttonClass } from '../../components/button/button-class';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 import { numberedSteps } from '../../../features/onboarding/steps';
 
-const touch =
-  'inline-flex min-h-onboarding-touch items-center justify-center rounded-round px-6 text-md font-strong no-underline hover:no-underline';
+const touch = buttonClass('touch');
 const primary = `${touch} bg-accent text-accent-ink hover:bg-accent-strong`;
 
 export type OnboardingFrameProps = {
@@ -91,11 +91,11 @@ export function NextButton({
 }) {
   return (
     <Button
-      variant="unstyled"
+      variant="touch"
       type="submit"
       disabled={pending}
       aria-busy={pending || undefined}
-      className={`${primary} cursor-pointer border-0 disabled:cursor-wait disabled:opacity-60`}
+      className="border-0 bg-accent text-accent-ink hover:bg-accent-strong disabled:cursor-wait disabled:opacity-60"
     >
       {children}
     </Button>
@@ -104,7 +104,7 @@ export function NextButton({
 
 /** The Skip control's look: a quiet underlined button inside its form. */
 export const skipClass =
-  'inline-flex min-h-onboarding-touch cursor-pointer items-center border-0 bg-transparent px-3 text-base font-strong text-ink-muted underline underline-offset-4 hover:text-ink';
+  'inline-flex min-h-onboarding-touch items-center border-0 bg-transparent px-3 text-base text-ink-muted underline underline-offset-4 hover:text-ink';
 
 /** Back (a link to the previous step) and Next, under a rule. */
 export function StepFooter({

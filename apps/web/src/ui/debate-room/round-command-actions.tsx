@@ -82,11 +82,11 @@ export function CommandForm({
         <input type="hidden" name="confirmed" value="true" />
       ) : null}
       <Button
-        variant="unstyled"
+        variant="compact"
         id={`${control}-${intent.type}`}
         type="submit"
         disabled={pending || !intent.enabled}
-        className="inline-flex h-room-target cursor-pointer items-center justify-center rounded-sm border border-border-strong px-4 text-sm font-strong whitespace-nowrap hover:bg-surface-raised disabled:cursor-not-allowed disabled:opacity-60"
+        className="h-room-target rounded-sm border border-border-strong px-4 font-strong whitespace-nowrap hover:bg-surface-raised disabled:opacity-60"
       >
         {confirmation ? `Confirm ${intent.label.toLowerCase()}` : intent.label}
       </Button>

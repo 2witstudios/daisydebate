@@ -127,10 +127,10 @@ export function BrandSheetView({
           </label>
         ))}
         <Button
-          variant="unstyled"
+          variant="compact"
           type="button"
           onClick={onReset}
-          className="rounded-sm border border-border-strong px-4 py-2 text-sm font-semibold"
+          className="rounded-sm border border-border-strong px-4 py-2 font-semibold"
         >
           Reset to committed
         </Button>

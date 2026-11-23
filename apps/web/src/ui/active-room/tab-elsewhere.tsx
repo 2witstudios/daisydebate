@@ -9,7 +9,7 @@ export function TabElsewhere({ takeOver }: { readonly takeOver: () => void }) {
       <Announcement as="p" kind="progress">
         This Round is open in another tab.
       </Announcement>
-      <Button variant="unstyled" type="button" onClick={takeOver}>
+      <Button variant="secondary" type="button" onClick={takeOver}>
         Use this tab
       </Button>
     </>

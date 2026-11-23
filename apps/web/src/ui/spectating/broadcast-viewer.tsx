@@ -132,12 +132,7 @@ function StateInsteadOfPlayer({
           icon="alert"
           title="The video could not be played"
           actions={
-            <Button
-              variant="unstyled"
-              type="button"
-              onClick={onRetry}
-              className="font-strong"
-            >
+            <Button variant="text" type="button" onClick={onRetry}>
               Try again
             </Button>
           }

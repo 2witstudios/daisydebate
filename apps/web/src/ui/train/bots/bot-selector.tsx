@@ -8,7 +8,6 @@ import type { TrainLanding } from '../../../features/train/bots';
 import { ActionForm } from '../../form-action/action-form';
 import { BotPortrait } from '../../components/bot-portrait/bot-portrait';
 import { Badge } from '../../components/badge/badge';
-import { buttonClass } from '../../components/button/button-class';
 import { Icon } from '../../components/icon/icon';
 import { cn } from '../../cn';
 import { TrainPage } from '../train-page/train-page';
@@ -154,10 +153,10 @@ export function BotSelectorPage({
                       ) : null}
                       <input type="hidden" name="bot" value={chosen.actorId} />
                       <Button
-                        variant="unstyled"
+                        variant="primary"
                         type="submit"
                         disabled={pending}
-                        className={cn(buttonClass('primary'), link, 'w-full')}
+                        className={cn(link, 'w-full')}
                       >
                         Start practice
                       </Button>

@@ -3,7 +3,6 @@
 import { Button } from '../../components/button/button';
 import { Dialog } from '../../components/dialog/dialog';
 import { useState, type ReactNode } from 'react';
-import { buttonClass } from '../../components/button/button-class';
 
 /**
  * A header button that opens a modal dialog over the pre-round Room: the
@@ -28,11 +27,10 @@ export function RoomDialog({
   return (
     <>
       <Button
-        variant="unstyled"
+        variant="secondary"
         type="button"
         aria-haspopup="dialog"
         onClick={() => setOpen(true)}
-        className={buttonClass('secondary')}
       >
         {label}
       </Button>

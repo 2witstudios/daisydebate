@@ -34,7 +34,7 @@ export function SkipForm({
   return (
     <form action={post} aria-busy={pending}>
       <Button
-        variant="unstyled"
+        variant="text"
         type="submit"
         disabled={pending}
         className={skipClass}

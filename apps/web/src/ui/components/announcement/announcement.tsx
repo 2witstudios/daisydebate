@@ -10,7 +10,7 @@ type AnnouncementTag = 'p' | 'span' | 'div' | 'section';
  * - `problem`: something failed or needs the member now (it did not save,
  *   the room closed). It interrupts (role=alert).
  */
-export type AnnouncementKind = 'progress' | 'problem';
+type AnnouncementKind = 'progress' | 'problem';
 
 const roleOf = {
   progress: 'status',

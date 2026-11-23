@@ -42,10 +42,10 @@ export function UnacknowledgedCommand({
         )}
       />
       <Button
-        variant="unstyled"
+        variant="compact"
         type="submit"
         disabled={pending}
-        className="inline-flex h-room-target items-center rounded-sm border border-border-strong px-4 text-sm font-strong disabled:opacity-60"
+        className="h-room-target rounded-sm border border-border-strong px-4 font-strong disabled:opacity-60"
       >
         {pending ? 'Retrying…' : 'Retry command'}
       </Button>
