@@ -183,12 +183,12 @@
       "entry": [
         "src/start.ts",
         "integration/**/*.integration.ts",
-        // Executed by the shutdown proof through its replacement ffmpeg script.
+        // Executed by the process suite through its replacement ffmpeg script.
         "integration/stalled-encoder.test-support.ts",
       ],
     },
     "apps/audience-publisher": {
-      "entry": ["src/start.ts"],
+      "entry": ["src/start.ts", "integration/**/*.integration.ts"],
     },
     "apps/media-worker": {
       // Bun.resolveSync selects the isolated native subprocess entries; the
