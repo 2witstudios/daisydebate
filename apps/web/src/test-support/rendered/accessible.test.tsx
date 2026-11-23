@@ -123,6 +123,17 @@ describe('accessible: what it leaves out', () => {
     });
   });
 
+  test('a closed dialog is named by its title when asked for', () => {
+    assert({
+      given: 'a closed dialog labelled by its heading',
+      should: 'find it, hidden, by that name',
+      actual: accessible(
+        '<dialog aria-labelledby="t"><h2 id="t">Report ada</h2></dialog>',
+      ).has('dialog', 'Report ada', { hidden: true }),
+      expected: true,
+    });
+  });
+
   test('a hidden element is found when asked for', () => {
     assert({
       given: 'hidden: true',
@@ -218,13 +229,18 @@ describe('accessible: scope and states', () => {
     });
   });
 
-  test('a fresh read replaces the last one', () => {
-    accessible('<button>Old</button>');
+  test('each read is its own document', () => {
+    const first = accessible(
+      '<label for="q">Search people</label><input id="q">',
+    );
+    const second = accessible(
+      '<label for="q">Search rooms</label><input id="q">',
+    );
     assert({
-      given: 'a second read',
-      should: 'see only its own output',
-      actual: accessible('<button>New</button>').names('button'),
-      expected: ['New'],
+      given: 'two reads that reuse an id',
+      should: 'resolve each label in its own output, and keep the first whole',
+      actual: [first.names('textbox'), second.names('textbox')],
+      expected: [['Search people'], ['Search rooms']],
     });
   });
 

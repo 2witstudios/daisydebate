@@ -6,5 +6,8 @@
  * TypeScript cannot reach it through the package's exports.
  */
 declare module 'dom-accessibility-api' {
-  export function computeAccessibleName(root: Element): string;
+  export function computeAccessibleName(
+    root: Element,
+    options?: { readonly hidden?: boolean },
+  ): string;
 }

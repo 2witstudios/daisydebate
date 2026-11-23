@@ -32,26 +32,26 @@ type Name = string | RegExp;
 /** The states a role query may also ask for (`checked`, `pressed`, `expanded`, `level`, …). */
 type States = Omit<ByRoleOptions, 'name' | 'queryFallbacks'>;
 
-const window = new Window({
-  url: 'https://daisy.test/',
-  settings: {
-    disableJavaScriptEvaluation: true,
-    disableJavaScriptFileLoading: true,
-    disableCSSFileLoading: true,
-    disableIframePageLoading: true,
-    navigation: { disableMainFrameNavigation: true },
-  },
-});
-let current: HTMLElement | null = null;
-
-/** A fresh container in the one shared document, holding only this output. */
+/**
+ * Each read gets a document of its own, so ids (`aria-labelledby`, `label
+ * for`) resolve within that output alone and a view read earlier stays whole
+ * after the next render.
+ */
 const mount = (html: string): HTMLElement => {
-  current?.remove();
-  const container = window.document.createElement('div');
+  const { document } = new Window({
+    url: 'https://daisy.test/',
+    settings: {
+      disableJavaScriptEvaluation: true,
+      disableJavaScriptFileLoading: true,
+      disableCSSFileLoading: true,
+      disableIframePageLoading: true,
+      navigation: { disableMainFrameNavigation: true },
+    },
+  });
+  const container = document.createElement('div');
   container.innerHTML = html;
-  window.document.body.append(container);
-  current = container as unknown as HTMLElement;
-  return current;
+  document.body.append(container);
+  return container as unknown as HTMLElement;
 };
 
 const describe = (role: Role, name: Name | undefined, states: States) => {
@@ -63,12 +63,22 @@ const describe = (role: Role, name: Name | undefined, states: States) => {
   return wanted.join(' ');
 };
 
-const nameOf = (element: Element) => computeAccessibleName(element);
+/**
+ * The accessible name. Asked about hidden elements, it reads hidden content
+ * too (accname step 2A skipped), so a closed dialog is named by its title.
+ */
+const nameOf = (element: Element, hidden = false) =>
+  computeAccessibleName(element, { hidden });
+
+const named = (element: Element, name: Name, hidden: boolean) => {
+  const actual = nameOf(element, hidden);
+  return typeof name === 'string' ? actual === name : name.test(actual);
+};
 
 /** What the page offers for that role, for the failure message. */
 const offered = (container: HTMLElement, role: Role, states: States) => {
   const names = queryAllByRole(container, role, states).map(
-    (element) => `"${nameOf(element)}"`,
+    (element) => `"${nameOf(element, states.hidden === true)}"`,
   );
   return names.length === 0
     ? `nothing has role ${String(role)}`
@@ -109,11 +119,12 @@ const collapse = (text: string | null) =>
   (text ?? '').replace(/\s+/g, ' ').trim();
 
 const viewOf = (container: HTMLElement): AccessibleView => {
-  const all = (role: Role, name?: Name, states: States = {}) =>
-    queryAllByRole(container, role, {
-      ...states,
-      ...(name === undefined ? {} : { name }),
-    });
+  const all = (role: Role, name?: Name, states: States = {}) => {
+    const found = queryAllByRole(container, role, states);
+    return name === undefined
+      ? found
+      : found.filter((element) => named(element, name, states.hidden === true));
+  };
   const get = (role: Role, name?: Name, states: States = {}) => {
     const found = all(role, name, states);
     if (found.length === 1) return found[0]!;
@@ -139,7 +150,10 @@ const viewOf = (container: HTMLElement): AccessibleView => {
     get,
     has,
     count: (role, name, states) => all(role, name, states).length,
-    names: (role, states) => all(role, undefined, states).map(nameOf),
+    names: (role, states = {}) =>
+      all(role, undefined, states).map((element) =>
+        nameOf(element, states.hidden === true),
+      ),
     text: (role, name, states) => collapse(get(role, name, states).textContent),
     attribute: (role, name, attribute, states) =>
       get(role, name, states).getAttribute(attribute),
