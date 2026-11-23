@@ -30,7 +30,9 @@ test('every CHECK-constrained column carries its vocabulary type', () => {
       })),
     expected: [],
   });
-});
+  // Each test compiles the schema with the TypeScript checker; a slow
+  // runner needs more than the default.
+}, 60_000);
 
 test('a CHECK over a column typed string is refused', () => {
   const file = join(packageRoot, 'src', 'schema', 'vocabulary-probe.ts');
@@ -69,4 +71,6 @@ export const typedProbes = pgTable(
     actual: verdict('typedProbes'),
     expected: [{ exact: true, role: 'vocabulary' }],
   });
-});
+  // Each test compiles the schema with the TypeScript checker; a slow
+  // runner needs more than the default.
+}, 60_000);
