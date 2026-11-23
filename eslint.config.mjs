@@ -1498,7 +1498,6 @@ export default [
       'packages/clock/**/*.ts',
       'packages/observability/**/*.ts',
       'scripts/**/*.ts',
-      'apps/web/scripts/**/*.ts',
       '**/integration/**/*.ts',
     ],
     rules: {
@@ -1508,6 +1507,22 @@ export default [
         exportStarRestriction,
         bareToThrowRestriction,
         ...unboundServerRestrictions,
+      ],
+    },
+  },
+  // An app's scripts are the same CLI glue, and reach the app's own
+  // database: an advisory lock comes from the registry in
+  // `@daisy/db/locks`, never a literal key (RECON-3.3).
+  {
+    files: ['apps/*/scripts/**/*.{ts,tsx}'],
+    rules: {
+      'no-restricted-syntax': [
+        'error',
+        ...refusalMintRestrictions,
+        exportStarRestriction,
+        bareToThrowRestriction,
+        ...unboundServerRestrictions,
+        ...dbAdvisoryLockRestrictions,
       ],
     },
   },

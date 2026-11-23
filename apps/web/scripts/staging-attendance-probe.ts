@@ -1,4 +1,5 @@
 import { SQL } from 'bun';
+import { sessionLocks } from '@daisy/db/locks';
 import { writeFile } from 'node:fs/promises';
 import { createPublicProbeRound } from '../e2e/support/launch-probe-room';
 import { createStagingAttendanceMember } from './staging-attendance-member';
@@ -13,9 +14,11 @@ async function main() {
   const sql = new SQL(url, { max: 1, idleTimeout: 0 });
   let stage = 'database';
   try {
-    const [db] =
-      await sql`select current_database() as name,pg_try_advisory_lock(906,3) as held`;
-    if (db?.name !== 'daisy_debate_staging' || !db.held)
+    const [db] = await sql`select current_database() as name`;
+    if (
+      db?.name !== 'daisy_debate_staging' ||
+      !(await sessionLocks.stagingAttendanceRepair.tryTake(sql))
+    )
       throw new Error('Staging attendance database or repair lock mismatch');
     stage = 'members';
     const members = [];

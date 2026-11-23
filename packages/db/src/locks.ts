@@ -157,6 +157,20 @@ export const sessionLocks = {
       await admin`select pg_advisory_unlock(hashtextextended(${name}, 0))`;
     },
   },
+  /**
+   * The guarded staging attendance repair: one run at a time, held by its
+   * single-connection client until it closes. The key is the `(906, 3)` pair
+   * the repair took before the registry.
+   */
+  stagingAttendanceRepair: {
+    tryTake: async (session: SQL): Promise<boolean> => {
+      const [row] = await query(
+        session`select pg_try_advisory_lock(906, 3) as held`,
+        z.object({ held: z.boolean() }),
+      );
+      return row?.held === true;
+    },
+  },
   /** The availability sampler: one elected producer session. */
   availabilitySampler: {
     key: samplerLockKey,

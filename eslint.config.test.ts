@@ -795,6 +795,34 @@ describe('database statement and lock boundaries', () => {
     });
   });
 
+  test('an app script takes its advisory lock from the registry (RECON-3.3)', async () => {
+    const literal =
+      'export const held = sql`select pg_try_advisory_lock(906,3) as held`;';
+    const { actual, expected } = table([
+      [literal, 'apps/web/scripts/staging-probe.ts', 1],
+      [literal, 'apps/web/scripts/auth-load/probe.ts', 1],
+      [literal, 'apps/web/scripts/probe.test.ts', 1],
+      [literal, 'apps/admin/scripts/probe.ts', 1],
+      [
+        "export const statement = 'SELECT PG_ADVISORY_LOCK(1)';",
+        'apps/web/scripts/probe.ts',
+        1,
+      ],
+      [
+        "import { sessionLocks } from '@daisy/db/locks';\nexport const take = sessionLocks.stagingAttendanceRepair.tryTake;",
+        'apps/web/scripts/probe.ts',
+        0,
+      ],
+    ]);
+    assert({
+      given:
+        'a literal advisory lock, in any spelling, in an app script, and a registry lock',
+      should: 'fail the literal and pass the registry lock',
+      actual: await actual,
+      expected,
+    });
+  });
+
   test('an untyped or unknown SQL fragment stays legal', async () => {
     const { actual, expected } = table([
       ['export const held = sql`true`;', 'packages/db/src/feature/probe.ts', 0],
