@@ -1308,7 +1308,7 @@ describe('browser edges', () => {
   test('refuses a memoised value whose fields only re-fire the job', async () => {
     assert({
       given:
-        'memoised values with a field the handler never reads, by destructure, by member and with no parameter',
+        'memoised values with a field the handler never reads: by destructure, by member, with no parameter, as an array, from a block body and through a named handler',
       should: 'report each, and allow a value whose every field the job reads',
       actual: await Promise.all([
         probe(
@@ -1322,6 +1322,17 @@ describe('browser edges', () => {
              useDeliver(shown, (value) => value.reader.read());
              const moved = useMemo(() => ({ path }), [path]);
              useAnswer(moved, () => refresh());
+             const pair = useMemo(() => [reader, path] as const, [reader, path]);
+             useDeliver(pair, ([r]) => r.read());
+             const block = useMemo(() => {
+               return { reader, path };
+             }, [reader, path]);
+             useDeliver(block, ({ reader }) => reader.read());
+             const bag = useMemo(() => ({ reader, seed }), [reader, seed]);
+             function handle(value: { reader: Reader }) {
+               value.reader.read();
+             }
+             useDeliver(bag, handle);
            }`,
         ),
         probe(
@@ -1334,7 +1345,7 @@ describe('browser edges', () => {
            }`,
         ),
       ]),
-      expected: [3, 0],
+      expected: [6, 0],
     });
   });
 

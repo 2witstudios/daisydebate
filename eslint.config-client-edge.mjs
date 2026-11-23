@@ -221,16 +221,29 @@ const browserEdge = {
         .find((candidate) => candidate.name === first.name);
       return variable !== undefined && variable.references.length === 0;
     };
-    /** The object literal a same-scope `useMemo(() => ({ … }))` binding holds. */
-    const memoisedObject = (node) => {
-      if (node?.type !== 'Identifier') return null;
+    /** The variable an identifier names, searched from its scope outward. */
+    const variableOf = (node) => {
       let scope = sourceCode.getScope(node);
-      let variable = null;
-      while (scope && variable === null) {
-        variable = scope.set.get(node.name) ?? null;
+      while (scope) {
+        const variable = scope.set.get(node.name);
+        if (variable) return variable;
         scope = scope.upper;
       }
-      const init = variable?.defs[0]?.node?.init;
+      return null;
+    };
+    const unwrap = (node) =>
+      node?.type === 'TSAsExpression' ||
+      node?.type === 'TSSatisfiesExpression' ||
+      node?.type === 'TSNonNullExpression'
+        ? unwrap(node.expression)
+        : node;
+    /**
+     * The object or array literal a same-scope `useMemo` binding holds: an
+     * arrow returning it directly, or a block whose only statement returns it.
+     */
+    const memoisedLiteral = (node) => {
+      if (node?.type !== 'Identifier') return null;
+      const init = variableOf(node)?.defs[0]?.node?.init;
       if (
         init?.type !== 'CallExpression' ||
         init.callee.type !== 'Identifier' ||
@@ -238,30 +251,75 @@ const browserEdge = {
       )
         return null;
       const factory = init.arguments[0];
-      if (factory?.type !== 'ArrowFunctionExpression') return null;
-      return factory.body.type === 'ObjectExpression' ? factory.body : null;
+      if (
+        factory?.type !== 'ArrowFunctionExpression' &&
+        factory?.type !== 'FunctionExpression'
+      )
+        return null;
+      let body = factory.body;
+      if (body.type === 'BlockStatement') {
+        const [only, ...rest] = body.body;
+        if (rest.length > 0 || only?.type !== 'ReturnStatement') return null;
+        body = only.argument;
+      }
+      body = unwrap(body);
+      return body?.type === 'ObjectExpression' ||
+        body?.type === 'ArrayExpression'
+        ? body
+        : null;
+    };
+    /** The function a handler argument is: inline, or a same-scope binding. */
+    const handlerFunction = (node) => {
+      if (
+        node?.type === 'ArrowFunctionExpression' ||
+        node?.type === 'FunctionExpression'
+      )
+        return node;
+      if (node?.type !== 'Identifier') return null;
+      const definition = variableOf(node)?.defs[0];
+      if (definition?.node?.type === 'FunctionDeclaration')
+        return definition.node;
+      const init = definition?.node?.init;
+      return init?.type === 'ArrowFunctionExpression' ||
+        init?.type === 'FunctionExpression'
+        ? init
+        : null;
+    };
+    /** The fields (keys, or indices of an array) of a literal. */
+    const literalFields = (literal) => {
+      if (literal.type === 'ArrayExpression')
+        return literal.elements.some(
+          (e) => e === null || e.type === 'SpreadElement',
+        )
+          ? null
+          : literal.elements.map((_, index) => String(index));
+      const fields = [];
+      for (const property of literal.properties) {
+        if (property.type !== 'Property') return null;
+        const name = memberName(property.key, property.computed);
+        if (name === undefined) return null;
+        fields.push(String(name));
+      }
+      return fields;
     };
     /** The fields of a memoised value that the handler never reads. */
-    const unreadFields = (object, handler) => {
-      if (
-        handler?.type !== 'ArrowFunctionExpression' &&
-        handler?.type !== 'FunctionExpression'
-      )
-        return [];
-      const fields = [];
-      for (const property of object.properties) {
-        if (property.type !== 'Property') return [];
-        const name = memberName(property.key, property.computed);
-        if (name === undefined) return [];
-        fields.push(name);
-      }
+    const unreadFields = (literal, handler) => {
+      const fields = literalFields(literal);
+      if (fields === null || handler === null) return [];
       const [first] = handler.params;
       if (first === undefined) return fields;
       let read;
       if (first.type === 'ObjectPattern') {
         if (first.properties.some((p) => p.type === 'RestElement')) return [];
         read = new Set(
-          first.properties.map((p) => memberName(p.key, p.computed)),
+          first.properties.map((p) => String(memberName(p.key, p.computed))),
+        );
+      } else if (first.type === 'ArrayPattern') {
+        if (first.elements.some((e) => e?.type === 'RestElement')) return [];
+        read = new Set(
+          first.elements.flatMap((e, index) =>
+            e === null ? [] : [String(index)],
+          ),
         );
       } else if (first.type === 'Identifier') {
         const variable = sourceCode
@@ -273,9 +331,11 @@ const browserEdge = {
           if (
             parent?.type === 'MemberExpression' &&
             parent.object === reference.identifier
-          )
-            read.add(memberName(parent.property, parent.computed));
-          else return [];
+          ) {
+            const name = memberName(parent.property, parent.computed);
+            if (name === undefined) return [];
+            read.add(String(name));
+          } else return [];
         }
       } else return [];
       return fields.filter((field) => !read.has(field));
@@ -291,9 +351,9 @@ const browserEdge = {
         report(value, 'dependencyKey');
       // An answer's arrival is itself the news; every other hook hands its
       // job the value to act on.
-      const object = memoisedObject(value);
-      if (object !== null) {
-        const unread = unreadFields(object, handler);
+      const literal = memoisedLiteral(value);
+      if (literal !== null) {
+        const unread = unreadFields(literal, handlerFunction(handler));
         if (unread.length > 0)
           context.report({
             node: value,

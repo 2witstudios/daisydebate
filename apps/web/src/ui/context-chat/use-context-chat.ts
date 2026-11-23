@@ -216,11 +216,16 @@ export function useContextChat({
       !('unavailable' in message) &&
       !authors.some((author) => author.actorId === message.authorActorId),
   );
-  // Each shown history read that names an author the thread does not know
-  // asks for a refresh once (`history` is null while the chat is hidden).
-  const unresolvedRead = unknownAuthor ? history : null;
-  useDeliver(unresolvedRead, (read) => {
-    if (read !== null) send({ type: 'refresh-requested' });
+  // Each change version of the shown history that names an author the
+  // thread does not know asks for one refresh (`history` is null while the
+  // chat is hidden). Keyed on the version, not the read: a refresh answers
+  // with a new history object, and an author the reader may never name
+  // (deleted, an unnamed judge) must not ask again for the same version.
+  const unresolvedVersion = unknownAuthor
+    ? (history?.changeVersion ?? null)
+    : null;
+  useDeliver(unresolvedVersion, (version) => {
+    if (version !== null) send({ type: 'refresh-requested' });
   });
   const expired = chat?.expired ?? false;
   const notice =
