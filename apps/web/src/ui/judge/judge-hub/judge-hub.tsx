@@ -41,6 +41,12 @@ export function JudgeHub({ assigned }: JudgeHubProps) {
         >
           Refresh assignments
         </Link>
+        <Link
+          href="/guides/judging"
+          className={cn(buttonClass('ghost'), linkButton)}
+        >
+          Judging guides
+        </Link>
       </div>
     </div>
   );

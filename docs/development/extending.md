@@ -57,6 +57,25 @@ Direct single-agent work may proceed without `pu`.
 4. Route handlers must not contain domain rules; the engine owns invariants.
 5. Extend `apps/web/e2e` if the route adds user-visible contracts.
 
+## Writing a guide
+
+Public reading lives in `apps/web/src/features/guides`: Guides (using Daisy),
+Learn (debating and judging craft) and Stories (what is new). Content is typed
+TypeScript, like Help's topics, never a markdown or MDX pipeline.
+
+1. Add the article to its collection's module in `content/`, or add a
+   collection module and list it in `library.ts`.
+2. Write links as `[label](/path)`; the article graph test fails on a link
+   that reaches no page or article.
+3. List in `sources` every repository file a Guide's product claims were
+   checked against, and set `updated` to the day you checked. Learn articles
+   cite sources only when they state product behaviour.
+4. Link a Learn article and the Guide where its skill shows up, both ways, in
+   `related` or in the copy.
+5. A guide for a feature behind a release flag takes that flag as its
+   `release` (or its collection's), so it is found exactly where the feature
+   is and is not found elsewhere.
+
 ## Organizing feature internals
 
 Keep top-level feature names flat. Within a growing feature, group modules by

@@ -159,6 +159,12 @@ export function BallotPage({
       >
         View Round
       </MediaPageLink>
+      <Link
+        href="/guides/judging/understanding-a-ballot"
+        className="inline-flex min-h-10 items-center text-base font-strong"
+      >
+        Understanding a Daisy ballot
+      </Link>
       <BallotEvidence view={view} />
     </div>
   );
