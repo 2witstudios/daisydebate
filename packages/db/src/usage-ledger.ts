@@ -90,10 +90,7 @@ async function readQuotedUse(
         and(
           eq(usageReservations.actorId, actorId),
           eq(usageReservations.kind, reservation.kind),
-          inArray(
-            sql`${usageReservations.state}->>'kind'`,
-            usageHoldingStates,
-          ),
+          inArray(sql`${usageReservations.state}->>'kind'`, usageHoldingStates),
           or(inSource, inDay),
         ),
       );

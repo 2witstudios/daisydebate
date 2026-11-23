@@ -29,7 +29,7 @@ export const seasons = pgTable(
     activationKey: text('activation_key'),
     startsAt: timestampColumn('starts_at').notNull(),
     endsAt: timestampColumn('ends_at'),
-    status: text('status').notNull(),
+    status: text('status').$type<(typeof seasonStatuses)[number]>().notNull(),
     createdAt: createdAtColumn(),
     updatedAt: updatedAtColumn(),
     version: versionColumn(),

@@ -1,3 +1,4 @@
+import { roomVisibilities } from '@daisy/protocol/room-contract';
 import { SPECTATOR_MARGIN_MS } from '@daisy/protocol/broadcast';
 import { type NotificationKind } from '@daisy/protocol/notifications';
 import { isDebatingSeatSql } from '../seat-columns';
@@ -118,7 +119,7 @@ export const watchNotificationOperations = ({
         database,
         z.object({
           round_id: z.string(),
-          visibility: z.string(),
+          visibility: z.enum(roomVisibilities),
           on_air: z.boolean(),
         }),
         sql`select b.round_id,r.visibility,(b.completed_at is null and b.stopped_at is null) as on_air
@@ -135,7 +136,7 @@ export const watchNotificationOperations = ({
         database,
         z.object({
           round_id: z.string(),
-          visibility: z.string(),
+          visibility: z.enum(roomVisibilities),
         }),
         sql`select rc.round_id,r.visibility
           from recordings rc join rounds r on r.id=rc.round_id

@@ -1,3 +1,7 @@
+import {
+  messagingDmRequestStates,
+  messagingGroupInvitationStates,
+} from '@daisy/protocol/messaging/social';
 import { sql } from 'drizzle-orm';
 import {
   bigint,
@@ -15,6 +19,19 @@ import { oneOf, timestampColumn } from './columns';
 import { messagingChannels } from './messaging-channels';
 import { contactPairs } from './contacts';
 
+export const messagingGroupRoles = ['manager', 'member'] as const;
+const messagingSocialCommandKinds = [
+  'dm.request',
+  'dm.decide',
+  'group.create',
+  'group.invite',
+  'group.decide',
+  'group.remove',
+  'group.leave',
+  'group.transfer',
+  'group.archive',
+] as const;
+
 /** Messaging's accepted/requested DM pair is not a friendship producer. */
 export const messagingDmPairs = pgTable(
   'messaging_dm_pairs',
@@ -24,7 +41,9 @@ export const messagingDmPairs = pgTable(
     channelId: text('channel_id').notNull(),
     channelKind: text('channel_kind').notNull().default('dm'),
     requestSenderActorId: text('request_sender_actor_id').notNull(),
-    requestState: text('request_state').notNull(),
+    requestState: text('request_state')
+      .$type<(typeof messagingDmRequestStates)[number]>()
+      .notNull(),
     introduction: text('introduction'),
     requestedAt: timestampColumn('requested_at').notNull(),
     decidedAt: timestampColumn('decided_at'),
@@ -48,12 +67,7 @@ export const messagingDmPairs = pgTable(
     ),
     check(
       'messaging_dm_pairs_request_state',
-      oneOf(table.requestState, [
-        'pending',
-        'accepted',
-        'declined',
-        'cancelled',
-      ]),
+      oneOf(table.requestState, messagingDmRequestStates),
     ),
     check(
       'messaging_dm_pairs_request_time',
@@ -78,7 +92,7 @@ export const messagingGroupGrants = pgTable(
     channelId: text('channel_id').notNull(),
     channelKind: text('channel_kind').notNull().default('private_group'),
     actorId: messagingActorColumn('actor_id'),
-    role: text('role').notNull(),
+    role: text('role').$type<(typeof messagingGroupRoles)[number]>().notNull(),
     generation: bigint('generation', { mode: 'number' }).notNull(),
     grantedAt: timestampColumn('granted_at').notNull(),
     revokedAt: timestampColumn('revoked_at'),
@@ -96,7 +110,7 @@ export const messagingGroupGrants = pgTable(
     ),
     check(
       'messaging_group_grants_role',
-      oneOf(table.role, ['manager', 'member']),
+      oneOf(table.role, messagingGroupRoles),
     ),
     check(
       'messaging_group_grants_time',
@@ -123,7 +137,9 @@ export const messagingGroupInvitations = pgTable(
     inviteeActorId: messagingActorColumn('invitee_actor_id'),
     invitedByActorId: messagingActorColumn('invited_by_actor_id'),
     generation: bigint('generation', { mode: 'number' }).notNull(),
-    state: text('state').notNull(),
+    state: text('state')
+      .$type<(typeof messagingGroupInvitationStates)[number]>()
+      .notNull(),
     invitedAt: timestampColumn('invited_at').notNull(),
     decidedAt: timestampColumn('decided_at'),
   },
@@ -150,7 +166,7 @@ export const messagingGroupInvitations = pgTable(
     ),
     check(
       'messaging_group_invitations_state',
-      oneOf(table.state, ['pending', 'accepted', 'declined', 'cancelled']),
+      oneOf(table.state, messagingGroupInvitationStates),
     ),
     check(
       'messaging_group_invitations_time',
@@ -173,7 +189,9 @@ export const messagingSocialCommands = pgTable(
       () => actors.id,
       { onDelete: 'restrict' },
     ),
-    kind: text('kind').notNull(),
+    kind: text('kind')
+      .$type<(typeof messagingSocialCommandKinds)[number]>()
+      .notNull(),
     digest: text('digest'),
     resultChannelId: text('result_channel_id').references(
       () => messagingChannels.id,
@@ -195,17 +213,7 @@ export const messagingSocialCommands = pgTable(
     ),
     check(
       'messaging_social_commands_kind',
-      oneOf(table.kind, [
-        'dm.request',
-        'dm.decide',
-        'group.create',
-        'group.invite',
-        'group.decide',
-        'group.remove',
-        'group.leave',
-        'group.transfer',
-        'group.archive',
-      ]),
+      oneOf(table.kind, messagingSocialCommandKinds),
     ),
   ],
 );

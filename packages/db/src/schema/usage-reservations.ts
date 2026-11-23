@@ -31,7 +31,7 @@ export const usageReservations = pgTable(
     roundId: text('round_id')
       .notNull()
       .references(() => rounds.id, { onDelete: 'cascade' }),
-    kind: text('kind').notNull(),
+    kind: text('kind').$type<(typeof usageKinds)[number]>().notNull(),
     source: jsonbColumn('source', usageSourceSchema).notNull(),
     state: jsonbColumn('state', usageStateSchema).notNull(),
     reservedAt: timestampColumn('reserved_at')

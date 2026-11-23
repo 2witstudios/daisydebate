@@ -1,3 +1,4 @@
+import { messagingNotificationLevels } from '@daisy/protocol/messaging/preferences';
 import { sql } from 'drizzle-orm';
 import {
   bigint,
@@ -21,6 +22,14 @@ import { rounds } from './rounds';
 import { rooms } from './rooms';
 import { messagingChannelLifecycles } from '@daisy/protocol/messaging/social';
 
+const messagingChannelKinds = [
+  'dm',
+  'private_group',
+  'round_floor',
+  'round_spectator',
+  'room_community',
+] as const;
+
 /**
  * Social channels and separate contextual conversations: a Round's floor and
  * spectator chat, and a Room's chat. Each contextual kind is constrained to
@@ -30,10 +39,14 @@ export const messagingChannels = pgTable(
   'messaging_channels',
   {
     id: text('id').primaryKey(),
-    kind: text('kind').notNull(),
+    kind: text('kind')
+      .$type<(typeof messagingChannelKinds)[number]>()
+      .notNull(),
     policyKey: text('policy_key').notNull(),
     policyRevision: integer('policy_revision').notNull(),
-    lifecycle: text('lifecycle').notNull(),
+    lifecycle: text('lifecycle')
+      .$type<(typeof messagingChannelLifecycles)[number]>()
+      .notNull(),
     /** The exact Round of a floor or spectator conversation; social kinds have none. */
     roundId: text('round_id').references(() => rounds.id, {
       onDelete: 'cascade',
@@ -63,16 +76,7 @@ export const messagingChannels = pgTable(
       table.roomId,
       table.kind,
     ),
-    check(
-      'messaging_channels_kind',
-      oneOf(table.kind, [
-        'dm',
-        'private_group',
-        'round_floor',
-        'round_spectator',
-        'room_community',
-      ]),
-    ),
+    check('messaging_channels_kind', oneOf(table.kind, messagingChannelKinds)),
     check(
       'messaging_channels_round',
       sql`(${table.kind} in ('round_floor', 'round_spectator')) = (${table.roundId} is not null)`,
@@ -133,7 +137,9 @@ export const messagingActorStates = pgTable(
     actorId: messagingActorColumn('actor_id'),
     following: boolean('following').notNull(),
     hidden: boolean('hidden').notNull(),
-    notificationLevel: text('notification_level').notNull(),
+    notificationLevel: text('notification_level')
+      .$type<(typeof messagingNotificationLevels)[number]>()
+      .notNull(),
     readSequence: bigint('read_sequence', { mode: 'number' })
       .notNull()
       .default(0),
@@ -143,7 +149,7 @@ export const messagingActorStates = pgTable(
     primaryKey({ columns: [table.channelId, table.actorId] }),
     check(
       'messaging_actor_states_notification',
-      oneOf(table.notificationLevel, ['all', 'mentions', 'none']),
+      oneOf(table.notificationLevel, messagingNotificationLevels),
     ),
     check(
       'messaging_actor_states_read',

@@ -1,3 +1,4 @@
+import { billingModes } from '@daisy/protocol/billing-mode';
 import { sql } from 'drizzle-orm';
 import { readDatabaseTime } from './database-clock';
 import { eraseBillingReceipts } from './billing-inbox';
@@ -37,7 +38,7 @@ export const billingPrivacyAdopter: PrivacyAdopter = {
       z.object({
         id: z.string(),
         vendor_customer_id: z.string(),
-        mode: z.string(),
+        mode: z.enum(billingModes),
         closed_at: z.string().nullable(),
         created_at: z.string(),
       }),
@@ -77,7 +78,7 @@ export const billingPrivacyAdopter: PrivacyAdopter = {
       tx,
       z.object({
         id: z.string(),
-        mode: z.string(),
+        mode: z.enum(billingModes),
         price_id: z.string(),
         vendor_customer_id: z.string().nullable(),
         return_origin: z.string(),
@@ -93,7 +94,7 @@ export const billingPrivacyAdopter: PrivacyAdopter = {
       tx,
       z.object({
         id: z.string(),
-        mode: z.string(),
+        mode: z.enum(billingModes),
         vendor_customer_id: z.string(),
         vendor_charge_id: z.string(),
         vendor_invoice_id: z.string(),
@@ -119,7 +120,7 @@ export const billingPrivacyAdopter: PrivacyAdopter = {
       tx,
       z.object({
         id: z.string(),
-        mode: z.string(),
+        mode: z.enum(billingModes),
         vendor_customer_id: z.string(),
         vendor_invoice_id: z.string(),
         kind: z.string(),

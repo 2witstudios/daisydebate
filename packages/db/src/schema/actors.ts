@@ -23,7 +23,7 @@ export const actors = pgTable(
   'actors',
   {
     id: text('id').primaryKey(),
-    kind: text('kind').notNull(),
+    kind: text('kind').$type<(typeof actorKinds)[number]>().notNull(),
     userId: text('user_id').references(() => users.id, {
       onDelete: 'restrict',
     }),

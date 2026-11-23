@@ -1,3 +1,4 @@
+import { audienceReactionKinds } from '@daisy/protocol/audience';
 import { sql } from 'drizzle-orm';
 import { inLiveRoomSql, liveRoomOfR } from './live-room-sql';
 import type { RoundAudienceAdmission } from './messaging/spectator-chat';
@@ -19,7 +20,7 @@ export const readReactionTotals = async (
   (
     await query(
       tx,
-      z.object({ kind: z.string(), count: postgresInt8 }),
+      z.object({ kind: z.enum(audienceReactionKinds), count: postgresInt8 }),
       sql`select ar.kind,count(*) as count
         from audience_reactions ar
         where ar.round_id=${input.roundId}
@@ -141,7 +142,7 @@ export const audienceReactionPrivacyAdopter: PrivacyAdopter = {
         tx,
         z.object({
           round_id: z.string(),
-          kind: z.string(),
+          kind: z.enum(audienceReactionKinds),
           created_at: z.date(),
         }),
         sql`select round_id,kind,created_at from audience_reactions

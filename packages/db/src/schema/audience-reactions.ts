@@ -20,7 +20,9 @@ export const audienceReactions = pgTable(
     userId: text('user_id')
       .notNull()
       .references(() => users.id, { onDelete: 'cascade' }),
-    kind: text('kind').notNull(),
+    kind: text('kind')
+      .$type<(typeof audienceReactionKinds)[number]>()
+      .notNull(),
     spacedAt: timestampColumn('spaced_at').notNull(),
     createdAt: timestampColumn('created_at').notNull(),
   },

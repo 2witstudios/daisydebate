@@ -91,7 +91,9 @@ export const emailSuppressions = pgTable(
   'email_suppression',
   {
     recipientHash: text('recipient_hash').primaryKey(),
-    reason: text('reason').notNull(),
+    reason: text('reason')
+      .$type<(typeof emailSuppressionReasons)[number]>()
+      .notNull(),
     providerMessageId: text('provider_message_id').notNull(),
     createdAt: createdAtColumn(),
   },

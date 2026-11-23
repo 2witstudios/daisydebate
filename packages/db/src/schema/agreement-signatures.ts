@@ -30,7 +30,9 @@ export const agreementSignatures = pgTable(
     userId: text('user_id')
       .notNull()
       .references(() => users.id, { onDelete: 'cascade' }),
-    agreement: text('agreement').notNull(),
+    agreement: text('agreement')
+      .$type<(typeof agreementKinds)[number]>()
+      .notNull(),
     version: text('version').notNull(),
     words: text('words').notNull(),
     seasonId: text('season_id').references(() => seasons.id, {

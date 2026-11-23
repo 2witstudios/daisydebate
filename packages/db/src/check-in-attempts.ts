@@ -1,3 +1,4 @@
+import { checkInAttemptStates } from '@daisy/protocol/attendance';
 import {
   sampleRoundExecutionTime,
   type RoundTimeSource,
@@ -77,7 +78,7 @@ export function checkInAttemptLifecycle(
       // (ISSUE-618). A single statement's snapshot would still see 'pending'.
       const [held] = await query(
         control,
-        z.object({ state: z.string() }),
+        z.object({ state: z.enum(checkInAttemptStates) }),
         sql`select state from round_check_in_attempts where attempt_id=${attempt.attemptId}
      and backend_pid=${metadata.writer.pid} and backend_started_at=${metadata.writer.backendStart}::timestamptz for update`,
       );

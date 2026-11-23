@@ -28,8 +28,12 @@ export const accountEntitlementGrants = pgTable(
     userId: text('user_id')
       .notNull()
       .references(() => users.id, { onDelete: 'cascade' }),
-    entitlement: text('entitlement').notNull(),
-    source: text('source').notNull(),
+    entitlement: text('entitlement')
+      .$type<(typeof accountEntitlementKinds)[number]>()
+      .notNull(),
+    source: text('source')
+      .$type<(typeof entitlementSources)[number]>()
+      .notNull(),
     startsAt: timestampColumn('starts_at'),
     expiresAt: timestampColumn('expires_at'),
     hostingVersionId: text('hosting_version_id'),

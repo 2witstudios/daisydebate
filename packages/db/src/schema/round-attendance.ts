@@ -1,3 +1,7 @@
+import {
+  attendanceDecisions,
+  checkInAttemptStates,
+} from '@daisy/protocol/attendance';
 import { sql } from 'drizzle-orm';
 import {
   check,
@@ -70,7 +74,7 @@ export const roundAttendanceAdjudications = pgTable(
       .references(() => rounds.id, { onDelete: 'cascade' }),
     commandId: text('command_id').notNull(),
     decision: text('decision')
-      .$type<'attended' | 'none' | 'forfeit' | 'abandoned'>()
+      .$type<(typeof attendanceDecisions)[number]>()
       .notNull(),
     /** Why this decision holds: settled history, an on-time receipt, or the cutoff. */
     evidence: text('evidence')
@@ -126,7 +130,7 @@ export const roundAttendanceAdjudications = pgTable(
     index('round_attendance_adjudications_round_idx').on(table.roundId),
     check(
       'round_attendance_adjudications_decision_check',
-      oneOf(table.decision, ['attended', 'none', 'forfeit', 'abandoned']),
+      oneOf(table.decision, attendanceDecisions),
     ),
   ],
 );
@@ -147,7 +151,7 @@ export const roundCheckInAttempts = pgTable(
     actorId: text('actor_id').references(() => actors.id),
     serviceId: text('service_id'),
     state: text('state')
-      .$type<'pending' | 'committed' | 'aborted'>()
+      .$type<(typeof checkInAttemptStates)[number]>()
       .notNull()
       .default('pending'),
     resolvedAt: timestampColumn('resolved_at'),
@@ -168,7 +172,7 @@ export const roundCheckInAttempts = pgTable(
     index('round_check_in_attempts_resolved_idx').on(table.resolvedAt),
     check(
       'round_check_in_attempts_state_check',
-      oneOf(table.state, ['pending', 'committed', 'aborted']),
+      oneOf(table.state, checkInAttemptStates),
     ),
     check(
       'round_check_in_attempts_resolved_check',

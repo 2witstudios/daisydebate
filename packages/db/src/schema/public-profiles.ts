@@ -76,9 +76,12 @@ export const profilePhotos = pgTable(
     actorId: text('actor_id')
       .notNull()
       .references(() => actors.id, { onDelete: 'cascade' }),
-    status: text('status').notNull(),
+    status: text('status')
+      .$type<(typeof profilePhotoStatuses)[number]>()
+      .notNull(),
     /** What the automated check answered; null when no check was configured. */
-    checkVerdict: text('check_verdict'),
+    checkVerdict:
+      text('check_verdict').$type<(typeof photoCheckVerdicts)[number]>(),
     /** Where its renditions are stored; never shown to anyone. */
     objectPrefix: text('object_prefix').notNull(),
     createdAt: createdAtColumn(),

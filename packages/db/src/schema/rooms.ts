@@ -3,6 +3,7 @@ import { ladders } from './ladders';
 import {
   openRoomStatuses,
   roomStatuses,
+  roomVisibilities,
   type RoomView,
 } from '@daisy/protocol/room-contract';
 import { competitionTypes, type CompetitionType } from '@daisy/protocol/round';
@@ -83,7 +84,9 @@ export const rooms = pgTable(
     title: text('title').notNull(),
     /** Null exactly while a draw Room has not revealed its resolution. */
     topic: text('topic'),
-    visibility: text('visibility').$type<RoomView['visibility']>().notNull(),
+    visibility: text('visibility')
+      .$type<(typeof roomVisibilities)[number]>()
+      .notNull(),
     version: versionColumn(),
     changeVersion: integer('change_version').notNull().default(1),
     formatId: text('format_id')
@@ -253,10 +256,7 @@ export const rooms = pgTable(
       'rooms_ranked_sides_open_check',
       sql`${table.competitionType} <> 'ranked' or ${table.status} not in ${lifecycleSqlList(openRoomStatuses)} or ${table.teamOneSide} is null`,
     ),
-    check(
-      'rooms_visibility_check',
-      oneOf(table.visibility, ['public', 'unlisted', 'private']),
-    ),
+    check('rooms_visibility_check', oneOf(table.visibility, roomVisibilities)),
     check(
       'rooms_ranked_public_check',
       sql`${table.competitionType} <> 'ranked' or ${table.visibility} = 'public'`,

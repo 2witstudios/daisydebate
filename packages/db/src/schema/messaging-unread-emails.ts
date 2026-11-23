@@ -30,7 +30,7 @@ export const messagingUnreadEmails = pgTable(
       .references(() => users.id, { onDelete: 'cascade' }),
     /** When its first unread message arrived: the longest wait counts from here. */
     firstOwedAt: timestampColumn('first_owed_at').notNull(),
-    ...mailJobColumns(),
+    ...mailJobColumns<typeof messagingUnreadEmailErrorCodes>(),
   },
   (table) => [
     uniqueIndex('messaging_unread_emails_one_queued')

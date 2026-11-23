@@ -1,3 +1,4 @@
+import { roomStatuses } from '@daisy/protocol/room-contract';
 import { sql } from 'drizzle-orm';
 import { query } from '../raw-rows';
 import type {
@@ -67,7 +68,7 @@ export async function notifyFixtureChanges(
     });
     const [room] = await query(
       tx,
-      z.object({ status: z.string() }),
+      z.object({ status: z.enum(roomStatuses) }),
       sql`select r.status from fixtures f join rooms r on r.id=f.room_id where f.id=${fixture.id}`,
     );
     if (room?.status === 'ready') {

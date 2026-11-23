@@ -1,3 +1,4 @@
+import type { PgUpdateSetSource } from 'drizzle-orm/pg-core';
 import { tryInstantMs, instantMs, addMs } from '@daisy/clock';
 import { and, eq, gt, ne, sql } from 'drizzle-orm';
 import { parsedColumn, postgresInt8 } from '../raw-rows';
@@ -42,7 +43,7 @@ export const fileDeletionValues = {
   requestId: null,
   messageId: null,
   generation: sql`${messagingFiles.generation} + 1`,
-};
+} satisfies PgUpdateSetSource<typeof messagingFiles>;
 /** Caller holds canonical account/pair/channel locks. Never opens a transaction. */
 export function channelFileFrame(
   tx: Tx,

@@ -71,7 +71,10 @@ export const roomLifecycleOperations = ({
           .select({
             id: rooms.id,
             title: rooms.title,
-            status: parsedColumn(z.enum(openRoomStatuses), sql`${rooms.status}`),
+            status: parsedColumn(
+              z.enum(openRoomStatuses),
+              sql`${rooms.status}`,
+            ),
             seated: parsedColumn(
               z.boolean(),
               sql`exists (select 1 from ${roomParticipants} where ${roomParticipants.roomId} = ${rooms.id} and ${roomParticipants.actorId} = ${caller.actorId})`,

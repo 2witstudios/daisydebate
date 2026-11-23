@@ -19,7 +19,7 @@ export const privacyJobs = pgTable(
     subjectRef: text('subject_ref')
       .notNull()
       .references(() => users.id),
-    vendor: text('vendor').notNull(),
+    vendor: text('vendor').$type<(typeof privacyVendors)[number]>().notNull(),
     billingCleanup: jsonbColumnNullable(
       'billing_cleanup',
       billingCleanupSchema,

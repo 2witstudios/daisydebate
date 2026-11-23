@@ -1,3 +1,4 @@
+import type { RoundCommandType } from './schema/round-commands';
 import type { DecisionReleasePolicy } from '@daisy/protocol/round-decision-release';
 import { instantMs } from '@daisy/clock';
 import { freezeRoundFinalization } from './round-finalization-writer';
@@ -240,7 +241,7 @@ export async function insertCommandRow(
     readonly commandId: string;
     readonly actorId: string | null;
     readonly serviceId: string | null;
-    readonly type: string;
+    readonly type: RoundCommandType;
     readonly payloadDigest: string;
     readonly result: z.infer<typeof jsonObjectSchema>;
   } | null,

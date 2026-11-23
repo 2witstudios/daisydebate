@@ -11,6 +11,25 @@ import { createdAtColumn, oneOf, timestampColumn } from './columns';
 import { rounds } from './rounds';
 import { necessaryEvidence } from './necessary-evidence';
 
+const transcriptionRecoveryStatuses = [
+  'collecting',
+  'queued',
+  'leased',
+  'retry',
+  'blocked',
+  'selected',
+  'erased',
+  'expired',
+] as const;
+const transcriptionRecoveryBlockedReasons = [
+  'provider',
+  'budget',
+  'quality',
+  'privacy',
+  'expired',
+  'unreceived',
+] as const;
+
 /** Private recognition work. No provisional text, PCM or provider reply is stored here. */
 export const transcriptionRecoveryContexts = pgTable(
   'transcription_recovery_contexts',
@@ -28,16 +47,7 @@ export const transcriptionRecoveryContexts = pgTable(
     lastSequence: bigint('last_sequence', { mode: 'number' }).notNull(),
     units: integer('units').notNull(),
     status: text('status')
-      .$type<
-        | 'collecting'
-        | 'queued'
-        | 'leased'
-        | 'retry'
-        | 'blocked'
-        | 'selected'
-        | 'erased'
-        | 'expired'
-      >()
+      .$type<(typeof transcriptionRecoveryStatuses)[number]>()
       .notNull(),
     lastSourceAt: timestampColumn('last_source_at').notNull(),
     nextAttemptAt: timestampColumn('next_attempt_at').notNull().defaultNow(),
@@ -49,9 +59,10 @@ export const transcriptionRecoveryContexts = pgTable(
     attempts: integer('attempts').notNull().default(0),
     model: text('model'),
     policyDigest: text('policy_digest'),
-    blockedReason: text('blocked_reason').$type<
-      'provider' | 'budget' | 'quality' | 'privacy' | 'expired' | 'unreceived'
-    >(),
+    blockedReason:
+      text('blocked_reason').$type<
+        (typeof transcriptionRecoveryBlockedReasons)[number]
+      >(),
     selectedRevision: integer('selected_revision'),
     selectedDigest: text('selected_digest'),
     selectedAt: timestampColumn('selected_at'),
@@ -66,16 +77,7 @@ export const transcriptionRecoveryContexts = pgTable(
     index('transcription_recovery_due_idx').on(table.nextAttemptAt, table.id),
     check(
       'transcription_recovery_status_check',
-      oneOf(table.status, [
-        'collecting',
-        'queued',
-        'leased',
-        'retry',
-        'blocked',
-        'selected',
-        'erased',
-        'expired',
-      ]),
+      oneOf(table.status, transcriptionRecoveryStatuses),
     ),
     check(
       'transcription_recovery_source_check',
@@ -93,7 +95,7 @@ export const transcriptionRecoveryContexts = pgTable(
     ),
     check(
       'transcription_recovery_blocked_check',
-      sql`(${table.status}='blocked')=(${table.blockedReason} is not null) and (${table.blockedReason} is null or ${oneOf(table.blockedReason, ['provider', 'budget', 'quality', 'privacy', 'expired', 'unreceived'])})`,
+      sql`(${table.status}='blocked')=(${table.blockedReason} is not null) and (${table.blockedReason} is null or ${oneOf(table.blockedReason, transcriptionRecoveryBlockedReasons)})`,
     ),
     check(
       'transcription_recovery_selection_check',

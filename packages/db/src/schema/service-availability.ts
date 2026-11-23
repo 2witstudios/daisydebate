@@ -8,12 +8,13 @@ import {
   text,
 } from 'drizzle-orm/pg-core';
 import { oneOf, timestampColumn, xid8Column } from './columns';
+const serviceRoles = ['web', 'realtime'] as const;
 
 export const serviceInstances = pgTable(
   'service_instances',
   {
     instanceId: text('instance_id').primaryKey(),
-    role: text('role').$type<'web' | 'realtime'>().notNull(),
+    role: text('role').$type<(typeof serviceRoles)[number]>().notNull(),
     renewedAt: timestampColumn('renewed_at')
       .notNull()
       .default(sql`statement_timestamp()`),
@@ -22,10 +23,7 @@ export const serviceInstances = pgTable(
   },
   (table) => [
     index('service_instances_renewed_idx').on(table.renewedAt),
-    check(
-      'service_instances_role_check',
-      oneOf(table.role, ['web', 'realtime']),
-    ),
+    check('service_instances_role_check', oneOf(table.role, serviceRoles)),
     check(
       'service_instances_cursor_check',
       sql`(${table.role}='web' and ${table.deliveredThrough} is null and ${table.deliveredThroughTxid} is null) or (${table.role}='realtime' and ${table.deliveredThrough} is not null and ${table.deliveredThrough} >= 0 and ${table.deliveredThroughTxid} is not null and ${table.deliveredThroughTxid}::text ~ '^[0-9]+$')`,

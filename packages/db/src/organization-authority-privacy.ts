@@ -1,3 +1,4 @@
+import { membershipStatuses } from '@daisy/protocol/lobby';
 import { createAppError } from '@daisy/errors';
 import { sql } from 'drizzle-orm';
 import type { PrivacyAdopter } from './privacy/contracts';
@@ -91,7 +92,7 @@ export const organizationAuthorityPrivacyAdopter: PrivacyAdopter = {
           tx,
           z.object({
             organization_id: z.string(),
-            status: z.string(),
+            status: z.enum(membershipStatuses),
             joined_at: z.date().nullable(),
             ended_at: z.date().nullable(),
           }),

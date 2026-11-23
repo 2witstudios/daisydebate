@@ -23,11 +23,13 @@ export const reports = pgTable(
       onDelete: 'restrict',
     }),
     subjectActorId: contactActorColumn('subject_actor_id'),
-    reason: text('reason').notNull(),
-    surface: text('surface').notNull(),
+    reason: text('reason')
+      .$type<(typeof storedReportReasons)[number]>()
+      .notNull(),
+    surface: text('surface').$type<(typeof reportSurfaces)[number]>().notNull(),
     createdAt: timestampColumn('created_at').notNull(),
     closedAt: timestampColumn('closed_at'),
-    outcome: text('outcome'),
+    outcome: text('outcome').$type<(typeof reportOutcomes)[number]>(),
     operatorRef: text('operator_ref'),
     purgeAfter: timestampColumn('purge_after'),
   },

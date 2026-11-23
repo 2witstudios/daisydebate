@@ -27,7 +27,9 @@ export const roomInvitations = pgTable(
       .notNull()
       .references(() => actors.id, { onDelete: 'cascade' }),
     seat: text('seat').$type<SeatKind>().notNull(),
-    state: text('state').notNull(),
+    state: text('state')
+      .$type<(typeof roomInvitationStates)[number]>()
+      .notNull(),
     expiresAt: timestampColumn('expires_at').notNull(),
     endedAt: timestampColumn('ended_at'),
     createdAt: createdAtColumn(),

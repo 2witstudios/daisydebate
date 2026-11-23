@@ -1,10 +1,14 @@
+import { mailJobStates } from '../schema/columns';
 import { appendStream } from './stream';
 import { sql } from 'drizzle-orm';
 import { z } from 'zod';
 import { queueObservationPurge } from '../observation-purge-jobs';
 import { createAppError } from '@daisy/errors';
 import { idSchema } from '@daisy/protocol/primitives';
-import { messageRequestSettingSchema } from '@daisy/protocol/messaging/social';
+import {
+  messageRequestSettingSchema,
+  messagingGroupInvitationStates,
+} from '@daisy/protocol/messaging/social';
 import { eraseSubjectFiles, exportSubjectFiles } from '../messaging-files';
 import {
   deleteAbandonedChannels,
@@ -363,7 +367,7 @@ export function createMessagingPrivacyAdopter(): PrivacyAdopter {
             invitee_actor_id: z.string(),
             invited_by_actor_id: z.string(),
             generation: postgresInt8,
-            state: z.string(),
+            state: z.enum(messagingGroupInvitationStates),
             invited_at: z.date(),
             decided_at: z.date().nullable(),
           }),
@@ -396,7 +400,7 @@ export function createMessagingPrivacyAdopter(): PrivacyAdopter {
       const unreadEmails = await query(
         tx,
         z.object({
-          state: z.string(),
+          state: z.enum(mailJobStates),
           attempts: z.int(),
           last_error_code: z.string().nullable(),
           first_owed_at: z.date(),

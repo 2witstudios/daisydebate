@@ -1,3 +1,4 @@
+import { judgingJobStatuses } from '@daisy/protocol/round-panel-completion';
 import { ballotRecordSchema } from '@daisy/protocol/ballot-schema';
 import { caseMapSchema } from '@daisy/protocol/case-map';
 import {
@@ -46,9 +47,7 @@ export const roundJudgingJobs = pgTable(
     commandId: text('command_id'),
     judgeParticipantId: text('judge_participant_id').notNull(),
     status: text('status')
-      .$type<
-        'queued' | 'leased' | 'recovering' | 'blocked' | 'succeeded' | 'failed'
-      >()
+      .$type<(typeof judgingJobStatuses)[number]>()
       .notNull(),
     leaseTokenDigest: text('lease_token_digest'),
     leaseExpiresAt: timestampColumn('lease_expires_at'),
@@ -154,14 +153,7 @@ export const roundJudgingJobs = pgTable(
     ),
     check(
       'round_judging_jobs_status_check',
-      oneOf(table.status, [
-        'queued',
-        'leased',
-        'recovering',
-        'blocked',
-        'succeeded',
-        'failed',
-      ]),
+      oneOf(table.status, judgingJobStatuses),
     ),
     check(
       'round_judging_jobs_recovery_check',

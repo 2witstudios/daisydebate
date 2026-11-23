@@ -1,3 +1,4 @@
+import { messagingFileLifecycles } from '@daisy/protocol/messaging/files';
 import { sql } from 'drizzle-orm';
 import {
   bigint,
@@ -35,7 +36,9 @@ export const messagingFiles = pgTable(
     authorityRevision: bigint('authority_revision', {
       mode: 'number',
     }).notNull(),
-    lifecycle: text('lifecycle').notNull(),
+    lifecycle: text('lifecycle')
+      .$type<(typeof messagingFileLifecycles)[number]>()
+      .notNull(),
     createdAt: timestampColumn('created_at').notNull(),
     expiresAt: timestampColumn('expires_at').notNull(),
     deletedAt: timestampColumn('deleted_at'),
@@ -58,13 +61,7 @@ export const messagingFiles = pgTable(
     }),
     check(
       'messaging_files_lifecycle',
-      oneOf(t.lifecycle, [
-        'reserved',
-        'quarantined',
-        'attached',
-        'deleting',
-        'deleted',
-      ]),
+      oneOf(t.lifecycle, messagingFileLifecycles),
     ),
     check(
       'messaging_files_bytes',

@@ -29,12 +29,21 @@ export const contentReports = pgTable(
     reporterUserId: text('reporter_user_id').references(() => users.id, {
       onDelete: 'set null',
     }),
-    targetKind: text('target_kind').notNull(),
+    targetKind: text('target_kind')
+      .$type<(typeof contentReportTargetKinds)[number]>()
+      .notNull(),
     targetId: text('target_id').notNull(),
     feedbackSubject: text('feedback_subject'),
-    reason: text('reason').notNull(),
-    queue: text('queue').notNull(),
-    status: text('status').notNull().default('open'),
+    reason: text('reason')
+      .$type<(typeof contentReportReasons)[number]>()
+      .notNull(),
+    queue: text('queue')
+      .$type<(typeof contentModerationQueues)[number]>()
+      .notNull(),
+    status: text('status')
+      .$type<(typeof contentReportStatuses)[number]>()
+      .notNull()
+      .default('open'),
     resolvedAt: timestampColumn('resolved_at'),
     resolvedByRef: text('resolved_by_ref'),
     createdAt: createdAtColumn(),

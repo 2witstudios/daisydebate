@@ -1,3 +1,4 @@
+import { tournamentJudgeStatuses } from '@daisy/protocol/lobby';
 import { sql } from 'drizzle-orm';
 import type { PrivacyAdopter } from './privacy/contracts';
 import { exportRows } from './privacy/export-rows';
@@ -92,7 +93,7 @@ export const tournamentRecordPrivacyAdopter: PrivacyAdopter = {
           z.object({
             id: z.string(),
             lobby_id: z.string(),
-            status: z.string(),
+            status: z.enum(tournamentJudgeStatuses),
             chair_qualified: z.boolean(),
             created_at: z.date(),
           }),

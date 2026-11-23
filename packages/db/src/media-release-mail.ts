@@ -2,6 +2,7 @@ import { instantMs } from '@daisy/clock';
 import { createAppError } from '@daisy/errors';
 import {
   mediaReleasePolicy,
+  releaseRequestOutcomes,
   type ReleaseLinkPurpose,
 } from '@daisy/protocol/media-release';
 import { sql } from 'drizzle-orm';
@@ -111,7 +112,7 @@ export function mediaReleaseMailOperations({
               request_id: z.string(),
               recipient_email: z.string(),
               expires_at: z.union([z.string(), z.date()]),
-              outcome: z.string().nullable(),
+              outcome: z.enum(releaseRequestOutcomes).nullable(),
               username: z.string().nullable(),
             }),
             sql`select m.kind, m.request_id, q.recipient_email, q.expires_at,

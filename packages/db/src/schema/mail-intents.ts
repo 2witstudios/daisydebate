@@ -36,7 +36,9 @@ export const mailIntents = pgTable(
   'mail_intents',
   {
     id: text('id').primaryKey(),
-    purpose: text('purpose').notNull(),
+    purpose: text('purpose')
+      .$type<(typeof mailIntentPurposes)[number]>()
+      .notNull(),
     recipientUserId: text('recipient_user_id').references(() => users.id, {
       onDelete: 'cascade',
     }),
@@ -52,7 +54,7 @@ export const mailIntents = pgTable(
     dedupeKey: text('dedupe_key').notNull().unique(),
     /** A digest's UTC window start: the accounts it counts joined in this window. */
     windowStart: timestampColumn('window_start'),
-    ...mailJobColumns(),
+    ...mailJobColumns<typeof mailIntentErrorCodes>(),
   },
   (table) => [
     check(

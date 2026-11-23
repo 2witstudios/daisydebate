@@ -12,6 +12,9 @@ import {
 import { actors } from './actors';
 import { oneOf, timestampColumn } from './columns';
 
+export const socialRequestKinds = ['dm', 'friend'] as const;
+export const contactCommandKinds = ['contact.block'] as const;
+
 /**
  * Contacts: the Social base Messaging and Friends both build on (ADR 0072,
  * ADR 0061). It owns the canonical member pair and its blocks, and the
@@ -57,7 +60,7 @@ export const socialRequests = pgTable(
     actorId: contactActorColumn('actor_id'),
     requestId: text('request_id').notNull(),
     counterpartActorId: contactActorColumn('counterpart_actor_id'),
-    kind: text('kind').notNull(),
+    kind: text('kind').$type<(typeof socialRequestKinds)[number]>().notNull(),
     unrelated: boolean('unrelated').notNull(),
     createdAt: timestampColumn('created_at').notNull(),
   },
@@ -70,7 +73,7 @@ export const socialRequests = pgTable(
     index('social_requests_counterpart_actor_idx').on(table.counterpartActorId),
     // The DEC-259 sweep deletes by age alone, across every actor.
     index('social_requests_created_idx').on(table.createdAt),
-    check('social_requests_kind', oneOf(table.kind, ['dm', 'friend'])),
+    check('social_requests_kind', oneOf(table.kind, socialRequestKinds)),
     check(
       'social_requests_distinct',
       sql`${table.actorId} <> ${table.counterpartActorId}`,
@@ -135,7 +138,7 @@ export const contactCommands = pgTable(
     actorId: contactActorColumn('actor_id'),
     requestId: text('request_id').notNull(),
     counterpartActorId: contactActorColumn('counterpart_actor_id'),
-    kind: text('kind').notNull(),
+    kind: text('kind').$type<(typeof contactCommandKinds)[number]>().notNull(),
     digest: text('digest').notNull(),
     createdAt: timestampColumn('created_at').notNull(),
   },
@@ -144,7 +147,7 @@ export const contactCommands = pgTable(
     index('contact_commands_counterpart_actor_idx').on(
       table.counterpartActorId,
     ),
-    check('contact_commands_kind', oneOf(table.kind, ['contact.block'])),
+    check('contact_commands_kind', oneOf(table.kind, contactCommandKinds)),
     check('contact_commands_digest', sql`${table.digest} ~ '^[0-9a-f]{64}$'`),
   ],
 );

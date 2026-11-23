@@ -2,6 +2,22 @@ import { z } from 'zod';
 import { idSchema } from './primitives';
 
 /** The closed vocabulary a check-in refusal answers with. */
+/** What attendance decides for a Round seat. */
+export const attendanceDecisions = [
+  'attended',
+  'none',
+  'forfeit',
+  'abandoned',
+] as const;
+
+/** A check-in attempt's lifecycle: pending until committed or aborted. */
+export const checkInAttemptStates = [
+  'pending',
+  'committed',
+  'aborted',
+] as const;
+export type CheckInAttemptState = (typeof checkInAttemptStates)[number];
+
 export const attendanceRefusalSchema = z.enum([
   'attendance-terminal',
   'attendance-finalized',
@@ -86,7 +102,7 @@ const attendanceAdjudicationFactSchema = z.discriminatedUnion('evidence', [
   z.object({
     segmentId: z.string(),
     evidence: z.literal('settled_availability'),
-    decision: z.enum(['attended', 'none', 'forfeit', 'abandoned']),
+    decision: z.enum(attendanceDecisions),
     effectiveDeadline: z.string(),
     settledHorizon: z.string(),
   }),

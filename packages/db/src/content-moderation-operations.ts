@@ -12,11 +12,12 @@ import {
   PROFILE_PHOTO_REVIEWS_MAX,
   contentModerationCommandResultSchema,
   contentReportSchema,
+  contentReportStatuses,
+  type ContentModerationAction,
+  type ContentModerationQueue,
   type broadcastStopReasons,
   type recordingLegalRemovalReasons,
   type recordingTakedownReasons,
-  type ContentModerationAction,
-  type ContentModerationQueue,
 } from '@daisy/protocol/content-moderation';
 import { operatorCommandReceiptSchema } from '@daisy/protocol/operator';
 import { feedbackSubjectOf } from '@daisy/protocol/ballot-schema';
@@ -132,7 +133,7 @@ const reportRow = z.object({
   target_kind: z.string(),
   target_id: z.string(),
   reason: z.string(),
-  status: z.string(),
+  status: z.enum(contentReportStatuses),
   // The keyset position, kept to the microsecond as stored.
   created_at: z.iso.datetime({ precision: 6 }),
   resolved_at: instant.nullable(),

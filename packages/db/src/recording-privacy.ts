@@ -1,5 +1,8 @@
 import { addMs } from '@daisy/clock';
-import { RECORDING_EVIDENCE_HOLD_MS } from '@daisy/protocol/recording';
+import {
+  RECORDING_EVIDENCE_HOLD_MS,
+  recordingStatuses,
+} from '@daisy/protocol/recording';
 import { transitionRecording } from '@daisy/protocol/recording-lifecycle';
 import { sql } from 'drizzle-orm';
 import type { PrivacyAdopter } from './privacy/contracts';
@@ -63,7 +66,7 @@ export const recordingPrivacyAdopter: PrivacyAdopter = {
         id: z.string(),
         round_id: z.string(),
         recording_class: z.string(),
-        status: z.string(),
+        status: z.enum(recordingStatuses),
         created_at: z.string(),
       }),
       sql`select id,round_id,recording_class,status,

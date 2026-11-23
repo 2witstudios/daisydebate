@@ -51,14 +51,16 @@ export async function writeMessagingGroupCreation(
     (actorId) => actorId !== scope.actorId,
   );
   await tx.insert(messagingGroupInvitations).values(
-    invitees.map((inviteeActorId) => ({
-      channelId: command.channelId,
-      inviteeActorId,
-      invitedByActorId: scope.actorId,
-      generation: 1,
-      state: 'pending',
-      invitedAt: now,
-    })),
+    invitees.map(
+      (inviteeActorId): typeof messagingGroupInvitations.$inferInsert => ({
+        channelId: command.channelId,
+        inviteeActorId,
+        invitedByActorId: scope.actorId,
+        generation: 1,
+        state: 'pending',
+        invitedAt: now,
+      }),
+    ),
   );
   await tx.insert(messagingSocialCommands).values({
     actorId: scope.actorId,

@@ -1,3 +1,4 @@
+import { billingModes } from '@daisy/protocol/billing-mode';
 import { sql } from 'drizzle-orm';
 import {
   check,
@@ -41,7 +42,7 @@ export const tournamentHostingPurchases = pgTable(
     tier: text('tier').$type<PaidHostingTier>().notNull(),
     /** USD cents charged: the tier's price, or the difference from the tier held. */
     amount: integer('amount').notNull(),
-    mode: text('mode').$type<'test' | 'live'>().notNull(),
+    mode: text('mode').$type<(typeof billingModes)[number]>().notNull(),
     state: text('state')
       .$type<TournamentHostingPurchaseState>()
       .notNull()
@@ -76,7 +77,7 @@ export const tournamentHostingPurchases = pgTable(
     ),
     check(
       'tournament_hosting_purchases_mode_check',
-      oneOf(table.mode, ['test', 'live']),
+      oneOf(table.mode, billingModes),
     ),
     check(
       'tournament_hosting_purchases_amount_check',

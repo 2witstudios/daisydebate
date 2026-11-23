@@ -10,6 +10,14 @@ import {
 } from 'drizzle-orm/pg-core';
 import { oneOf, timestampColumn } from './columns';
 import { transcriptionRecoveryContexts } from './transcription-recovery';
+const transcriptionRecoveryOutcomes = [
+  'admitted',
+  'candidate',
+  'provider_failure',
+  'quality_review',
+  'uncertain',
+] as const;
+
 /** Conservative paid-call admission, not proof that the vendor received or billed a request. No candidate text. */
 export const transcriptionRecoveryAttempts = pgTable(
   'transcription_recovery_attempts',
@@ -22,13 +30,7 @@ export const transcriptionRecoveryAttempts = pgTable(
     claimEpoch: integer('claim_epoch').notNull(),
     ordinal: integer('ordinal').notNull(),
     outcome: text('outcome')
-      .$type<
-        | 'admitted'
-        | 'candidate'
-        | 'provider_failure'
-        | 'quality_review'
-        | 'uncertain'
-      >()
+      .$type<(typeof transcriptionRecoveryOutcomes)[number]>()
       .notNull(),
     admittedAt: timestampColumn('admitted_at').notNull(),
     completedAt: timestampColumn('completed_at'),
@@ -48,13 +50,7 @@ export const transcriptionRecoveryAttempts = pgTable(
     ),
     check(
       'transcription_recovery_attempt_outcome_check',
-      oneOf(table.outcome, [
-        'admitted',
-        'candidate',
-        'provider_failure',
-        'quality_review',
-        'uncertain',
-      ]),
+      oneOf(table.outcome, transcriptionRecoveryOutcomes),
     ),
     check(
       'transcription_recovery_attempt_candidate_check',

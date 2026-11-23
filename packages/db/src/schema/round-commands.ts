@@ -36,6 +36,8 @@ export const roundCommandTypes = [
  * command for is a rule it can never exercise; the log records the legal
  * action, not the mechanism that triggered it.
  */
+export type RoundCommandType = (typeof roundCommandTypes)[number];
+
 export const roundCommands = pgTable(
   'round_commands',
   {
@@ -47,7 +49,7 @@ export const roundCommands = pgTable(
       onDelete: 'restrict',
     }),
     serviceId: text('service_id'),
-    ...acceptedCommandColumns(),
+    ...acceptedCommandColumns<typeof roundCommandTypes>(),
   },
   (table) => [
     uniqueIndex('round_commands_id_round_unique').on(

@@ -29,7 +29,9 @@ export const recordingProcessingJobs = pgTable(
       .references(() => recordings.id, { onDelete: 'restrict' }),
     /** Where the sources wait in the hold bucket; fixed when the job is opened. */
     holdPrefix: text('hold_prefix').notNull(),
-    status: text('status').$type<RecordingJobState['status']>().notNull(),
+    status: text('status')
+      .$type<(typeof recordingJobStatuses)[number]>()
+      .notNull(),
     state: jsonbColumn('state', recordingJobStateSchema).notNull(),
     /**
      * Runs claimed since the job was last queued, counted at the claim so one that

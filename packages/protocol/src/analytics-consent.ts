@@ -1,6 +1,8 @@
 import { z } from 'zod';
 
-const choice = z.enum(['granted', 'denied', 'unanswered']);
+/** One consent category's answer; `unanswered` counts as denied. */
+export const consentChoices = ['granted', 'denied', 'unanswered'] as const;
+const choice = z.enum(consentChoices);
 /** Stable regardless of which vendors a deployment enables (ADR 0036). */
 export const analyticsConsentSchema = z.strictObject({
   version: z.literal(1),

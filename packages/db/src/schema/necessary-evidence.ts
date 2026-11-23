@@ -1,3 +1,4 @@
+import { necessaryEvidenceStates } from '@daisy/protocol/necessary-evidence';
 import { sql } from 'drizzle-orm';
 import { captureEvidenceSpeakerSchema } from '@daisy/protocol/capture-evidence-speaker';
 import {
@@ -46,7 +47,7 @@ export const necessaryEvidence = pgTable(
     captureEpoch: integer('capture_epoch').notNull(),
     bindingDigest: text('binding_digest').notNull(),
     state: text('state')
-      .$type<'acquiring' | 'retained' | 'retiring' | 'retired'>()
+      .$type<(typeof necessaryEvidenceStates)[number]>()
       .notNull()
       .default('acquiring'),
     retirementReason: text('retirement_reason').$type<
@@ -95,7 +96,7 @@ export const necessaryEvidence = pgTable(
     index('necessary_evidence_due_idx').on(table.nextAttemptAt, table.id),
     check(
       'necessary_evidence_state_check',
-      oneOf(table.state, ['acquiring', 'retained', 'retiring', 'retired']),
+      oneOf(table.state, necessaryEvidenceStates),
     ),
     check(
       'necessary_evidence_retirement_check',

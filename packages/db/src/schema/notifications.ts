@@ -97,7 +97,7 @@ export const notifications = pgTable(
     userId: text('user_id')
       .notNull()
       .references(() => users.id, { onDelete: 'cascade' }),
-    kind: text('kind').notNull(),
+    kind: text('kind').$type<(typeof notificationKinds)[number]>().notNull(),
     roundId: text('round_id').references(() => rounds.id, {
       onDelete: 'cascade',
     }),
@@ -325,7 +325,7 @@ export const notificationDigests = pgTable(
       .references(() => users.id, { onDelete: 'cascade' }),
     /** When its first notification was owed: the longest wait counts from here. */
     firstOwedAt: timestampColumn('first_owed_at').notNull(),
-    ...mailJobColumns(),
+    ...mailJobColumns<typeof notificationDigestErrorCodes>(),
   },
   (table) => [
     uniqueIndex('notification_digests_one_queued')

@@ -18,7 +18,7 @@ export const moderationActions = pgTable(
     userId: text('user_id')
       .notNull()
       .references(() => users.id, { onDelete: 'cascade' }),
-    kind: text('kind').notNull(),
+    kind: text('kind').$type<(typeof moderationKinds)[number]>().notNull(),
     startsAt: timestampColumn('starts_at').notNull(),
     endsAt: timestampColumn('ends_at'),
     liftedAt: timestampColumn('lifted_at'),

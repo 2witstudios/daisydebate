@@ -167,8 +167,12 @@ export const jsonbIsObject = (table: string, column: PgColumn) =>
  * A retried delivery job's lifecycle (vendor deletion, observation purge):
  * pending until one confirmed success, with its attempts and next retry.
  */
+/** A retried job is pending until one confirmed success. */
+export const retriedJobStatuses = ['pending', 'succeeded'] as const;
+export type RetriedJobStatus = (typeof retriedJobStatuses)[number];
+
 export const retriedJobColumns = () => ({
-  status: text('status').notNull().default('pending'),
+  status: text('status').$type<RetriedJobStatus>().notNull().default('pending'),
   attempts: integer('attempts').notNull().default(0),
   createdAt: timestampColumn('created_at').notNull(),
   retryAt: timestampColumn('retry_at').notNull(),
@@ -182,10 +186,7 @@ export const retriedJobChecks = (
     readonly succeededAt: PgColumn;
   },
 ) => [
-  check(
-    `${table}_status_valid`,
-    oneOf(columns.status, ['pending', 'succeeded']),
-  ),
+  check(`${table}_status_valid`, oneOf(columns.status, retriedJobStatuses)),
   check(`${table}_attempts_nonnegative`, sql`${columns.attempts} >= 0`),
   check(
     `${table}_success_consistent`,
@@ -194,7 +195,7 @@ export const retriedJobChecks = (
 ];
 
 /** A queued mail job's five states: owed, held by a worker, or ended one of three ways. */
-const mailJobStates = [
+export const mailJobStates = [
   'queued',
   'leased',
   'sent',
@@ -207,13 +208,17 @@ const mailJobStates = [
  * is written, sent later by a worker under a lease, retried with backoff, and
  * ended sent, failed or cancelled. `mailQueue` is its one writer.
  */
-export const mailJobColumns = () => ({
-  state: text('state').notNull().default('queued'),
+export const mailJobColumns = <const Codes extends readonly string[]>() => ({
+  state: text('state')
+    .$type<(typeof mailJobStates)[number]>()
+    .notNull()
+    .default('queued'),
   attempts: integer('attempts').notNull().default(0),
   leaseTokenDigest: text('lease_token_digest'),
   leaseExpiresAt: timestampColumn('lease_expires_at'),
   nextAttemptAt: timestampColumn('next_attempt_at').notNull(),
-  lastErrorCode: text('last_error_code'),
+  /** One of the table's own codes (`mailJobChecks`' list); typed per table. */
+  lastErrorCode: text('last_error_code').$type<Codes[number]>(),
   createdAt: createdAtColumn(),
   completedAt: timestampColumn('completed_at'),
 });

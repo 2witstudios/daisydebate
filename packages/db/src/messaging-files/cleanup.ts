@@ -1,3 +1,4 @@
+import { messagingFileLifecycles } from '@daisy/protocol/messaging/files';
 import { tryInstantMs } from '@daisy/clock';
 import { and, eq, sql } from 'drizzle-orm';
 import { createAppError } from '@daisy/errors';
@@ -82,7 +83,7 @@ export async function exportSubjectFiles(tx: Tx, actorId: string) {
       stored_bytes: postgresInt8.nullable(),
       generation: postgresInt8,
       authority_revision: postgresInt8,
-      lifecycle: z.string(),
+      lifecycle: z.enum(messagingFileLifecycles),
       created_at: z.date(),
       expires_at: z.date(),
       deleted_at: z.date().nullable(),

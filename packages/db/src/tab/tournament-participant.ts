@@ -186,15 +186,15 @@ function loadSchedule(tx: Tx, lobbyId: string, roundId?: string) {
       published: parsedColumn(
         z.boolean(),
         exists(
-        tx
-          .select({ id: draws.id })
-          .from(draws)
-          .where(
-            and(
-              eq(draws.tabRoundId, tabRounds.id),
-              eq(draws.status, 'published'),
+          tx
+            .select({ id: draws.id })
+            .from(draws)
+            .where(
+              and(
+                eq(draws.tabRoundId, tabRounds.id),
+                eq(draws.status, 'published'),
+              ),
             ),
-          ),
         ),
       ),
       startsAt: timeSlots.startsAt,

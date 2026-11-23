@@ -1,3 +1,4 @@
+import { actorKinds } from './schema/actors';
 import { roundJudgingSchema } from '@daisy/protocol/ballot-definition';
 import { currentRoundParticipant } from './round-current-participant';
 import { createAppError } from '@daisy/errors';
@@ -75,7 +76,7 @@ export async function readJudgingPanelFacts(
     z.object({
       slot: z.number(),
       id: z.string().nullable(),
-      kind: z.string().nullable(),
+      kind: z.enum(actorKinds).nullable(),
     }),
     sql`select s.slot,p.id,a.kind from round_judge_slots s
     left join round_participants p on p.id=s.participant_id

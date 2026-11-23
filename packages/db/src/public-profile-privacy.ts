@@ -1,3 +1,4 @@
+import { profilePhotoStatuses } from '@daisy/protocol/public-profile';
 import { sql } from 'drizzle-orm';
 import { idSchema } from '@daisy/protocol/primitives';
 import type { PrivacyAdopter, PrivacyExport } from './privacy/contracts';
@@ -59,7 +60,7 @@ export const publicProfilePrivacyAdopter: PrivacyAdopter = {
           tx,
           z.object({
             id: z.string(),
-            status: z.string(),
+            status: z.enum(profilePhotoStatuses),
             check_verdict: z.string().nullable(),
             created_at: z.date(),
             decided_at: z.date().nullable(),
