@@ -17,7 +17,7 @@ const freeAlways = [
   'AI judging on every ranked Round',
   'Tournaments, ballots and results',
   'Watch live and public Recordings',
-  'One bot Round with its AI judge, and one analysis, to try them',
+  'One Round analysis, to try it',
 ];
 
 /** The family answer points at Start a Club, so it waits for Club to open. */
@@ -80,9 +80,8 @@ export function PricingPage({
           name="Premium"
           price={formatUsd(prices.premiumMonthlyCents)}
           period={monthlyPeriodText}
-          summary="Practise as much as you want, with feedback on every Round."
+          summary="Feedback on every Round you debate, and your casual Rounds on video."
           features={[
-            'Unlimited bot Rounds',
             'Unlimited AI judging on casual Rounds',
             'Analysis whenever you ask',
             'Record and broadcast your casual Rounds',

@@ -28,9 +28,8 @@ from `requireFlagAdmission` inside its canonical account-fenced transaction.
   bounded vendor I/O prevents disclosing a session after closure wins. Portal
   operations do not read the new-purchase release flag.
 - `GET /api/billing/settings` returns only the current member's projection.
-  Bot debates remaining come from the existing locked allowance quote and its
-  exact source/period. Reserved and unknown use count under the ledger's
-  existing rules; unavailable reads never invent a zero or free reset.
+  It carries no usage counters (PYL-10): the plan, its price and its dates.
+  Bot debates are no part of the page or the offer (ADR 0921).
 - `/settings/billing` renders ordinary POST forms without client JavaScript.
   Return query values are fixed notices only. The display Flag reader is new
   for each settings call; the durable purchase transaction independently

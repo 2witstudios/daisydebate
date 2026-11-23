@@ -46,16 +46,19 @@ test('a free host past their AI-judged Round sees the upgrade panel in place', (
   });
 });
 
-test('a free host whose AI judge comes with the bot Round is told so', () => {
-  const html = render('with-bot', 1, 'casual').text('status');
+test('a free host whose AI judge comes with a bot Round is not told about bots', () => {
+  const view = render('with-bot', 1, 'casual');
+  const html = view.text('status');
   assert({
-    given: 'a casual host who has not used the free bot Round',
-    should: 'say the free AI-judged Round comes with it, not that it is used',
+    given: 'a casual host whose free AI judge is bundled with a free bot Round',
+    should:
+      'show the Premium AI judging panel, with no bot Round and no "used" claim (BCS-7)',
     actual: [
-      html.includes('comes with your free bot Round'),
+      html.includes('AI judging on casual Rounds is Premium'),
+      /\bbots?\b/i.test(view.textContent()),
       html.includes('You’ve used'),
     ],
-    expected: [true, false],
+    expected: [true, false, false],
   });
 });
 
@@ -88,12 +91,7 @@ test('the host is told plainly what judging is available', () => {
         .includes('fair-use ceiling'),
       /\d/.test(text('fair-use', 1, 'casual')),
     ],
-    expected: [
-      true,
-      'Your one free bot debate includes an optional AI judge.',
-      true,
-      false,
-    ],
+    expected: [true, 'An AI judge is free on this round.', true, false],
   });
   assert({
     given: 'an entitled casual host, a non-host, and a Room with no judge seat',

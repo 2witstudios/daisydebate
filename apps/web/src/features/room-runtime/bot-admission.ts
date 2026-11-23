@@ -5,11 +5,13 @@ import {
   type RoomView,
 } from '@daisy/protocol/room-contract';
 import type { BotAdmissionStatus } from '@daisy/db/round-bot-admission';
-/** Economic metadata is scoped to the current host; it grants no competitive authority. */
+/** Release and economic metadata are scoped to the current host; it grants no competitive authority. */
 export async function roomBotAdmission(
   state: RoomAssemblyState,
   actorId: string,
   read: (actorId: string) => Promise<BotAdmissionStatus | null>,
+  /** Whether bot debates are released for this host (`bot-debates`). */
+  released: () => Promise<boolean>,
 ): Promise<RoomView['botAdmission']> {
   if (
     state.hostActorId !== actorId ||
@@ -21,6 +23,8 @@ export async function roomBotAdmission(
   // Casual judging has its own allowance; this projection names bot debates only.
   if (!castSeatsBotDebater(state)) return null;
   try {
+    // Release comes before allowance: nothing to buy while it is unreleased.
+    if (!(await released())) return { kind: 'coming-soon' };
     const status = await read(actorId);
     // Only the decision reaches the Room, never a count (PYL-10).
     return status

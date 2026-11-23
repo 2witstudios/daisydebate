@@ -81,6 +81,8 @@ export const roomRefusalSchema = z.enum([
   'draw-unavailable',
   /** Live bot-debater capacity is full; a later Launch may succeed (ISSUE-773). */
   'bots-busy',
+  /** Bot debates are not released for this host's account: the flag wins over entitlement. */
+  'bot-debates-coming-soon',
   /** A casual AI judge needs a host holding the entitlement (WATCH-16). */
   'ai-judge-premium',
   /** A casual broadcast or recording needs a host holding the entitlement (WATCH-8). */
@@ -173,6 +175,8 @@ const roomViewFields = z.strictObject({
   botAdmission: z
     .union([
       z.strictObject({ kind: z.literal('unavailable') }),
+      /** Bot debates are not released for the host: nothing to buy, nothing to wait for. */
+      z.strictObject({ kind: z.literal('coming-soon') }),
       z.strictObject({
         kind: z.literal('allowance'),
         refusal: z.enum(botAdmissionRefusals).nullable(),

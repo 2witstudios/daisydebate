@@ -54,7 +54,7 @@ function InvitationBody({
             <li className="flex flex-col">
               <strong>A Premium seat, paid by the club</strong>
               <span className="text-ink-muted">
-                Unlimited bot Rounds, AI judging and analysis. Nothing to pay.
+                AI judging, analysis and recording. Nothing to pay.
               </span>
             </li>
             <li className="flex flex-col">

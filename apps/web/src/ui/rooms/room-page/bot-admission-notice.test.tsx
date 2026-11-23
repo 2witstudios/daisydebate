@@ -32,21 +32,30 @@ test('a bot-debater cast that can start says nothing and never counts', () => {
   });
 });
 
-test('a free account past its one bot Round sees the upgrade panel in place', () => {
+test('a free account past its one bot Round is pointed to a person, never to Premium', () => {
   const view = render(allowance('free-limit-reached'));
   const html = view.text('status');
   assert({
     given: 'a free host starting a second bot Round',
     should:
-      'show the Premium panel with Get Premium and Find a person, and no number',
+      'say the free bot Round is used and link Find a person, with no Premium offer and no number',
     actual: [
       html.includes('Your free bot Round is used'),
-      html.includes('Premium gives you unlimited bot Rounds.'),
-      view.attribute('link', 'Get Premium', 'href'),
+      /premium|unlimited/i.test(view.textContent()),
       view.attribute('link', 'Find a person', 'href'),
+      view.names('link'),
       /\d/.test(view.textContent()),
     ],
-    expected: [true, true, '/premium', '/play', false],
+    expected: [true, false, '/play', ['Find a person'], false],
+  });
+});
+
+test('a host without the bot-debates release reads coming soon and nothing to buy', () => {
+  assert({
+    given: 'a bot-debater cast whose host has bot debates unreleased',
+    should: 'say only that bot debates are coming soon, with no link',
+    actual: said({ kind: 'coming-soon' }),
+    expected: ['Bot debates are coming soon.', []],
   });
 });
 

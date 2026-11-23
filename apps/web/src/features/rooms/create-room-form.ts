@@ -112,6 +112,7 @@ const refusals: Readonly<Record<RoomCreateRefusal, string>> = {
   // A created Room's form sends no cast, so neither reaches a person here.
   'actor-ineligible': settingsRefusal,
   'seat-unavailable': settingsRefusal,
+  'bot-debates-coming-soon': settingsRefusal,
   forbidden: 'Your account cannot create rooms right now.',
   'rate-limited':
     'You are creating rooms too quickly. Wait a moment and try again.',

@@ -7,7 +7,7 @@ import {
 import { isFiltered, lobbyHref } from '../../features/lobby/discovery-query';
 import type { StandingLobbyChoice } from '@daisy/protocol/lobby/eligibility';
 import { lobbySections, type LobbyViewer } from '../../features/lobby/rows';
-import { openRoomHref, playOptions } from '../../features/play/options';
+import { openRoomHref, type PlayOption } from '../../features/play/options';
 import { YourRoom, type ActiveRoomSummary } from '../active-room/your-room';
 import { buttonClass } from '../components/button/button-class';
 import { PageHeader } from '../components/page-header/page-header';
@@ -36,6 +36,8 @@ export type LobbyProps = {
   readonly now: number;
   /** Who reads the Lobby: which seats are theirs and which live Rounds they may watch. */
   readonly viewer: LobbyViewer;
+  /** The Play dialog's choices for this viewer (`playOptionsFor`). */
+  readonly playOptions: readonly PlayOption[];
 };
 
 const emptyClass =
@@ -99,6 +101,7 @@ export function Lobby({
   activeRoom,
   now,
   viewer,
+  playOptions,
 }: LobbyProps) {
   const sections = lobbySections(now, rooms, viewer);
   const { cursor } = query;

@@ -190,12 +190,12 @@ describe('DebateStep', () => {
       (href) => !href.startsWith('/onboarding/'),
     );
     assert({
-      given: 'Practise a debate, Watch a debate and How ratings work',
+      given: 'Find a casual round, Watch a debate and How ratings work',
       should:
         'point at existing routes, How ratings work at Help’s ratings answer, which every member can reach',
       actual: [links, links.filter((href) => !resolves(href))],
       expected: [
-        [destinationHref('train'), destinationHref('watch'), '/help#ratings'],
+        [destinationHref('lobby'), destinationHref('watch'), '/help#ratings'],
         [],
       ],
     });

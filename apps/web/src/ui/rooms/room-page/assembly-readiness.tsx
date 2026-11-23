@@ -190,7 +190,7 @@ function ReadyConfirm({
 function startBlocked(view: View, actorId: string, local: LocalReadiness) {
   const admissionBlocked =
     view.botAdmission !== null &&
-    (view.botAdmission.kind === 'unavailable' ||
+    (view.botAdmission.kind !== 'allowance' ||
       view.botAdmission.refusal !== null);
   return (
     !view.capabilities.canStart ||

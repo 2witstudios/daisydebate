@@ -1,6 +1,5 @@
 import { Announcement } from '../../components/announcement/announcement';
 import type { RoomView } from '@daisy/protocol/room-contract';
-import { UpgradePanel } from '../../components/upgrade-panel/upgrade-panel';
 
 const refusals = {
   'not-eligible': 'because access is unavailable.',
@@ -11,8 +10,9 @@ const refusals = {
 } as const;
 
 /**
- * Whether a bot debater can start, never how many are left (PYL-10). A free
- * account that has used its one bot Round sees the upgrade panel in place.
+ * Whether a bot debater can start, never how many are left (PYL-10). Bot
+ * debates are no part of any offer: unreleased they are coming soon, and a
+ * used free bot Round points to a person, never to Premium.
  */
 export function BotAdmissionNotice({
   admission,
@@ -26,17 +26,26 @@ export function BotAdmissionNotice({
         A round with a bot debater can’t start right now: bots are unavailable.
       </Announcement>
     );
+  if (admission.kind === 'coming-soon')
+    return (
+      <Announcement as="p" kind="progress" className="text-sm text-ink-muted">
+        Bot debates are coming soon.
+      </Announcement>
+    );
   const { refusal } = admission;
   if (refusal === null) return null;
   if (refusal === 'free-limit-reached')
     return (
-      <UpgradePanel
-        title="Your free bot Round is used"
-        alternative={{ kind: 'link', label: 'Find a person', href: '/play' }}
+      <Announcement
+        as="div"
+        kind="progress"
+        className="flex flex-col gap-1 text-sm text-ink-muted"
       >
-        Premium gives you unlimited bot Rounds. Or debate a person: that’s
-        always free.
-      </UpgradePanel>
+        <p>Your free bot Round is used. Debating a person is always free.</p>
+        <a href="/play" className="underline">
+          Find a person
+        </a>
+      </Announcement>
     );
   return (
     <Announcement

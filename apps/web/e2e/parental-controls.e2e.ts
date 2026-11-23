@@ -26,7 +26,7 @@ import {
 import { expect, openPage, test } from './support/fixtures';
 import { claimUsername } from './support/forms';
 import { settleLeftRounds } from './support/settle-left-round';
-import { aiCast, readRoomBotRoster } from './support/ai-cast';
+import { aiJudgeIn, readRoomBotRoster } from './support/ai-cast';
 import {
   assignSeat,
   readyOwnSeat,
@@ -619,9 +619,7 @@ test('a 14-year-old plays Youth and gets their guardian’s waiver to play Open 
       username: youthOpponent.username,
     };
     members.push(youthGuest);
-    const { aiJudge } = aiCast({
-      bots: await readRoomBotRoster(child.request),
-    });
+    const aiJudge = aiJudgeIn(await readRoomBotRoster(child.request));
     await assignSeat(youthHost, youthSeated, {
       seat: judgeSeat(),
       actorId: aiJudge.actorId,
