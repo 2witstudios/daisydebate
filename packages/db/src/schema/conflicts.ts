@@ -1,3 +1,4 @@
+import { listedWord, listedWords } from '../lifecycle-sql';
 import {
   conflictBases,
   conflictHandlings,
@@ -64,7 +65,7 @@ export const conflicts = pgTable(
     check('conflicts_handling_check', oneOf(table.handling, conflictHandlings)),
     check(
       'conflicts_confirmer_check',
-      sql`${table.confirmedByUserId} is null or (${table.handling} = 'second_confirms' and ${table.confirmedByUserId} <> ${table.userId})`,
+      sql`${table.confirmedByUserId} is null or (${table.handling} = ${listedWord(conflictHandlings, 'second_confirms')} and ${table.confirmedByUserId} <> ${table.userId})`,
     ),
   ],
 );
@@ -119,17 +120,17 @@ export const pendingCommands = pgTable(
     ),
     check(
       'pending_commands_settled_consistent',
-      sql`(${table.status} <> 'pending') = (${table.settledAt} is not null)`,
+      sql`(${table.status} <> ${listedWord(pendingCommandStatuses, 'pending')}) = (${table.settledAt} is not null)`,
     ),
     // A person settles it, except a lapse, which nobody does.
     check(
       'pending_commands_settler_check',
-      sql`(${table.status} in ('confirmed', 'declined', 'withdrawn')) = (${table.settledByUserId} is not null)`,
+      sql`(${table.status} in ${listedWords(pendingCommandStatuses, ['confirmed', 'declined', 'withdrawn'])}) = (${table.settledByUserId} is not null)`,
     ),
     check(
       'pending_commands_second_person',
-      sql`case when ${table.status} in ('confirmed', 'declined') then ${table.settledByUserId} <> ${table.proposerUserId}
-        when ${table.status} = 'withdrawn' then ${table.settledByUserId} = ${table.proposerUserId}
+      sql`case when ${table.status} in ${listedWords(pendingCommandStatuses, ['confirmed', 'declined'])} then ${table.settledByUserId} <> ${table.proposerUserId}
+        when ${table.status} = ${listedWord(pendingCommandStatuses, 'withdrawn')} then ${table.settledByUserId} = ${table.proposerUserId}
         else true end`,
     ),
     nonEmpty('pending_commands_type_nonempty', table.type),

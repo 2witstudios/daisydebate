@@ -104,6 +104,7 @@ export async function withClub(
           headers: { origin, 'content-type': 'application/json' },
           body: JSON.stringify(command),
         }),
+        organizationId,
       );
     const answerPost = (
       subject: { userId: string; actorId: string },
@@ -129,6 +130,7 @@ export async function withClub(
             body: JSON.stringify({ answer }),
           },
         ),
+        `${organizationId}.${invitationId}`,
       );
     try {
       await sql`insert into users(id,username,email_verified) values(${owner.userId},${owner.userId},true)`;

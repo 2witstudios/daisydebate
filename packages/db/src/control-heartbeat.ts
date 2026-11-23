@@ -1,5 +1,7 @@
 import { sql } from 'drizzle-orm';
 import type { PgColumn } from 'drizzle-orm/pg-core';
+import { z } from 'zod';
+import { parsedColumn } from './raw-rows';
 
 /** Past this with no heartbeat, the stage ends its own Egress (ADR 0099). */
 const STALE = sql.raw(`interval '10 seconds'`);
@@ -13,4 +15,7 @@ export const controlHeartbeat = () => ({
 export const heartbeatStale = (table: {
   readonly controlHeartbeatAt: PgColumn;
 }) =>
-  sql<boolean>`coalesce(${table.controlHeartbeatAt} < clock_timestamp() - ${STALE}, false)`;
+  parsedColumn(
+    z.boolean(),
+    sql`coalesce(${table.controlHeartbeatAt} < clock_timestamp() - ${STALE}, false)`,
+  );

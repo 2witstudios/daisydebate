@@ -1,3 +1,4 @@
+import { tryInstantMs } from '@daisy/clock';
 import { and, eq, isNotNull } from 'drizzle-orm';
 import { createAppError } from '@daisy/errors';
 import { messagingChannels } from '../schema/messaging-channels';
@@ -63,8 +64,9 @@ export async function writeGroupInvitationDecision(
   fact: MessagingGroupInvitationFact,
   command: Command,
 ) {
-  const now = new Date(command.now);
-  if (!Number.isFinite(now.getTime())) throw createAppError('VALIDATION');
+  const nowMs = tryInstantMs(command.now);
+  if (nowMs === undefined) throw createAppError('VALIDATION');
+  const now = new Date(nowMs);
   const changed = await tx
     .update(messagingGroupInvitations)
     .set({ state: outcomes[command.decision], decidedAt: now })

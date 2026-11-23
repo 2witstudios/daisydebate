@@ -1,3 +1,4 @@
+import { sha256Bytes } from '@daisy/digest';
 export const canonicalCeremony = {
   origin: 'http://localhost:4800',
   rpId: 'localhost',
@@ -34,7 +35,7 @@ const b64 = (bytes: ArrayBuffer | Uint8Array | number[]) =>
     bytes instanceof ArrayBuffer ? new Uint8Array(bytes) : bytes,
   ).toString('base64url');
 const sha256 = async (bytes: Uint8Array<ArrayBuffer>) =>
-  new Uint8Array(await crypto.subtle.digest('SHA-256', bytes));
+  Uint8Array.from(sha256Bytes(bytes));
 const u32 = (value: number) => [
   (value >>> 24) & 255,
   (value >>> 16) & 255,

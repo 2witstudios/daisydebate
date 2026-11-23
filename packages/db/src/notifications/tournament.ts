@@ -1,3 +1,10 @@
+import {
+  tournamentJudgeStatuses,
+  fixtureStatuses,
+  entryStatuses,
+  releaseThings,
+} from '@daisy/protocol/lobby';
+import { listedWord } from '../lifecycle-sql';
 import type { TournamentNotificationKind } from '@daisy/protocol/notifications';
 import { sql } from 'drizzle-orm';
 import { oweNotifications } from './owe';
@@ -16,12 +23,12 @@ export const fixtureNotificationPeople = (tx: Tx, fixtureId: string) =>
     }),
     sql`
     select a.user_id as "userId",a.id as "actorId",null::text as "judgeId"
-    from fixture_entries fe join entry_members em on em.entry_id=fe.entry_id and em.entry_status='accepted'
+    from fixture_entries fe join entry_members em on em.entry_id=fe.entry_id and em.entry_status=${listedWord(tournamentJudgeStatuses, 'accepted')}
       join actors a on a.id=em.actor_id join users u on u.id=a.user_id and u.deleted_at is null
     where fe.fixture_id=${fixtureId}
     union
     select a.user_id,a.id,j.id from fixture_judges fj
-      join tournament_judges j on j.id=fj.tournament_judge_id and j.status='accepted'
+      join tournament_judges j on j.id=fj.tournament_judge_id and j.status=${listedWord(tournamentJudgeStatuses, 'accepted')}
       join actors a on a.id=j.actor_id join users u on u.id=a.user_id and u.deleted_at is null
     where fj.fixture_id=${fixtureId}`,
   );
@@ -82,7 +89,7 @@ export async function notifyTournamentRelease(
     tx,
     z.object({ id: z.string() }),
     sql`select f.id from fixtures f where f.tab_round_id=${release.tabRoundId}
-    and f.lobby_id=${release.lobbyId} and f.status='published'
+    and f.lobby_id=${release.lobbyId} and f.status=${listedWord(fixtureStatuses, 'published')}
     ${release.fixtureId ? sql`and f.id=${release.fixtureId}` : sql``}
     ${release.thing === 'decision' ? sql`and exists(select 1 from results r where r.fixture_id=f.id)` : sql``}`,
   );
@@ -95,8 +102,8 @@ export async function notifyTournamentRelease(
             tx,
             z.object({ userId: z.string(), actorId: z.string() }),
             sql`select a.user_id as "userId", a.id as "actorId"
-          from fixture_entries fe join entries e on e.id=fe.entry_id and e.status='accepted'
-          join entry_members em on em.entry_id=e.id and em.entry_status='accepted' join actors a on a.id=em.actor_id
+          from fixture_entries fe join entries e on e.id=fe.entry_id and e.status=${listedWord(entryStatuses, 'accepted')}
+          join entry_members em on em.entry_id=e.id and em.entry_status=${listedWord(entryStatuses, 'accepted')} join actors a on a.id=em.actor_id
           where fe.fixture_id=${fixture.id} and e.responsible_kind='self'`,
           )
         : release.audience === 'competitors'
@@ -132,7 +139,7 @@ export async function notifyAvailableFixtureResult(
   const openings = await query(
     tx,
     z.object({ audience: z.string() }),
-    sql`select audience from releases where lobby_id=${result.lobbyId} and tab_round_id=${result.tabRoundId} and thing='decision'`,
+    sql`select audience from releases where lobby_id=${result.lobbyId} and tab_round_id=${result.tabRoundId} and thing=${listedWord(releaseThings, 'decision')}`,
   );
   for (const opening of openings)
     await notifyTournamentRelease(

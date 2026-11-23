@@ -616,7 +616,7 @@ test('a reveal dates its line at the audio start it was given, never later than 
     const stale = phrase();
     for (const line of [earlier, future, stale])
       await operations.beginBotPhrase(claim.scope, claim.token, line, room);
-    const startedAt = new Date(new Date(now).getTime() - 800).toISOString();
+    const startedAt = new Date(now.getTime() - 800).toISOString();
     await operations.revealBotPhrase(
       claim.scope,
       claim.token,
@@ -629,14 +629,14 @@ test('a reveal dates its line at the audio start it was given, never later than 
       claim.token,
       future,
       room,
-      new Date(new Date(now).getTime() + 60_000).toISOString(),
+      new Date(now.getTime() + 60_000).toISOString(),
     );
     await operations.revealBotPhrase(
       claim.scope,
       claim.token,
       stale,
       room,
-      new Date(new Date(now).getTime() - 600_000).toISOString(),
+      new Date(now.getTime() - 600_000).toISOString(),
     );
     const rows =
       await fixture.sql`select bot_phrase_id, created_at, created_at <= clock_timestamp() as said, created_at >= clock_timestamp()-interval '2.5 seconds' as recent from utterances where bot_phrase_id in (${earlier.phraseId}, ${future.phraseId}, ${stale.phraseId})`;
@@ -717,7 +717,7 @@ test('a reveal that lands after its phrase played, just before the segment is du
         claim.token,
         late,
         room,
-        new Date(new Date(now).getTime() - 700).toISOString(),
+        new Date(now.getTime() - 700).toISOString(),
       );
       assert({
         given:

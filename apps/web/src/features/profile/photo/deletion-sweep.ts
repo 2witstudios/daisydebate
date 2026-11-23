@@ -1,6 +1,6 @@
 import { repeatEvery } from '@daisy/worker';
 import type { Waits } from '@daisy/clock';
-import type { Clock } from '@daisy/clock';
+import { addMs, type Clock } from '@daisy/clock';
 import type { PhotoDeletion } from '@daisy/db';
 import type { Logger } from '@daisy/logger';
 import { createScheduledWorker } from '../../ops/scheduled-worker';
@@ -13,10 +13,7 @@ const RETRY_MAX_MS = 3_600_000;
 
 /** A failed deletion waits a minute, doubling, at most an hour. */
 export const photoDeletionRetryAt = (now: string, attempts: number): string =>
-  new Date(
-    new Date(now).getTime() +
-      Math.min(RETRY_MS * 2 ** Math.max(0, attempts), RETRY_MAX_MS),
-  ).toISOString();
+  addMs(now, Math.min(RETRY_MS * 2 ** Math.max(0, attempts), RETRY_MAX_MS));
 
 export type PhotoDeletionStore = {
   readonly due: (input: {

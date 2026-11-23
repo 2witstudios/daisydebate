@@ -1,10 +1,11 @@
+import { listedWord } from './lifecycle-sql';
 import { createAppError } from '@daisy/errors';
 import { and, eq, sql } from 'drizzle-orm';
 import type { CaptureStream } from './media-capture-context';
 import { leadSeatOf } from '@daisy/protocol/format-seating';
 import { speakingEndMs } from '@daisy/protocol/segment-end';
 import { type SeatGrantFacts } from '@daisy/protocol/capture-verdict';
-import { seatKindSchema } from '@daisy/protocol/seats';
+import { seatKindSchema, seatKinds } from '@daisy/protocol/seats';
 import { seatOfColumns } from './seat-columns';
 import { rounds } from './schema/rounds';
 import { roundSpeakingIntervals } from './schema/round-speaking-intervals';
@@ -95,7 +96,7 @@ export async function readSeatGrants(
     join round_participants p on p.id=i.round_participant_id and p.round_id=i.round_id
     join actors a on a.id=p.actor_id
     left join round_segments s on s.round_id=i.round_id and s.id=i.segment_id
-    where i.round_id=${input.roundId} and p.seat_kind<>'judge'
+    where i.round_id=${input.roundId} and p.seat_kind<>${listedWord(seatKinds, 'judge')}
       and (i.ended_at is null or i.ended_at>i.started_at)
       ${one ? sql`and i.segment_id=${input.segmentId} and i.round_participant_id=${input.roundParticipantId}` : sql``}
     order by i.segment_id, i.round_participant_id`,

@@ -11,7 +11,9 @@ export const presenceSettings = pgTable(
   'presence_settings',
   {
     actorId: contactActorColumn('actor_id').primaryKey(),
-    chosenStatus: text('chosen_status').notNull(),
+    chosenStatus: text('chosen_status')
+      .$type<(typeof chosenStatuses)[number]>()
+      .notNull(),
     updatedAt: timestampColumn('updated_at').notNull(),
   },
   (table) => [

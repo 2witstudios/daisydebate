@@ -1,3 +1,5 @@
+import { storedFriendshipStates } from '@daisy/protocol/friends';
+import { listedWord } from '../lifecycle-sql';
 import { and, eq, sql } from 'drizzle-orm';
 import { friendships } from '../schema/friends';
 import type { ContactPairKey } from '../contacts/reactions';
@@ -25,7 +27,7 @@ const acceptedFriendship = (pair: ContactPairKey) =>
   sql`exists(select 1 from ${friendships}
     where ${friendships.lowActorId} = ${pair.lowActorId}
       and ${friendships.highActorId} = ${pair.highActorId}
-      and ${friendships.state} = 'accepted')`;
+      and ${friendships.state} = ${listedWord(storedFriendshipStates, 'accepted')})`;
 
 /** What Friends registers with Contacts (ADR 0072). */
 export const friendContactReactions = {

@@ -1,3 +1,4 @@
+import { listedWord } from '../lifecycle-sql';
 import { lobbyKinds, tournamentStatuses } from '@daisy/protocol/lobby';
 import { lobbyAgeRules } from '@daisy/protocol/lobby/eligibility';
 import { sql } from 'drizzle-orm';
@@ -94,7 +95,7 @@ export const lobbies = pgTable(
     ),
     check(
       'lobbies_age_rule_source',
-      sql`case when ${table.kind} = 'tournament' and ${table.ownerOrganizationId} is not null
+      sql`case when ${table.kind} = ${listedWord(lobbyKinds, 'tournament')} and ${table.ownerOrganizationId} is not null
         then ${table.standingLobbyId} is not null and ${table.ageRule} is null
         else ${table.standingLobbyId} is null and ${table.ageRule} is not null end`,
     ),
@@ -105,7 +106,7 @@ export const lobbies = pgTable(
     ),
     check(
       'lobbies_standing_is_organization_owned',
-      sql`${table.kind} <> 'standing' or ${table.ownerOrganizationId} is not null`,
+      sql`${table.kind} <> ${listedWord(lobbyKinds, 'standing')} or ${table.ownerOrganizationId} is not null`,
     ),
     nonEmpty('lobbies_name_nonempty', table.name),
     nonEmpty('lobbies_handle_nonempty', table.handle),

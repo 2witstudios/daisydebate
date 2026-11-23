@@ -19,7 +19,7 @@ const toSeasonRecord = (row: typeof seasons.$inferSelect): SeasonRecord => ({
   lobbyId: row.lobbyId,
   startsAt: row.startsAt.toISOString(),
   endsAt: row.endsAt?.toISOString() ?? null,
-  status: row.status as SeasonRecord['status'],
+  status: row.status,
   version: row.version,
 });
 

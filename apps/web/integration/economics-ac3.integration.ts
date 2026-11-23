@@ -1,3 +1,4 @@
+import { sha256Hex } from '@daisy/digest';
 import {
   mkdtemp,
   writeFile,
@@ -294,9 +295,7 @@ test('actual composed AI workers observe increasing beta workload separately fro
             events: observer.events,
             capacity,
             report,
-            privateReportSha256: new Bun.CryptoHasher('sha256')
-              .update(await readFile(file))
-              .digest('hex'),
+            privateReportSha256: sha256Hex(await readFile(file)),
             limits,
             units:
               'simultaneous complete() provider requests in this single TEST web process',

@@ -68,11 +68,7 @@ export async function writeGroupManagement(
   const plan = planGroupManagement({
     ...scope,
     lifecycle: groupLifecycleOf(fact.lifecycle),
-    grants: grants.map((grant) => {
-      if (grant.role !== 'manager' && grant.role !== 'member')
-        throw createAppError('INFRASTRUCTURE');
-      return { ...grant, role: grant.role };
-    }),
+    grants,
     now: command.now,
   });
   for (const change of plan.changes) {

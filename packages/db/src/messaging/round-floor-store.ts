@@ -1,3 +1,7 @@
+import { messagingChannelKinds } from '../schema/messaging-channels';
+import { messagingChannelLifecycles } from '@daisy/protocol/messaging/social';
+import { actorKinds } from '../schema/actors';
+import { listedWord } from '../lifecycle-sql';
 import { addMs } from '@daisy/clock';
 import { createAppError } from '@daisy/errors';
 import { isRoundOver } from '@daisy/protocol/round';
@@ -54,7 +58,7 @@ const roundFloorOwner = (
     const [created] = await query(
       tx,
       z.object({ id: z.string() }),
-      sql`insert into messaging_channels(id,kind,policy_key,policy_revision,lifecycle,round_id) values(${channelId},'round_floor','round.floor',1,'active',${ownerId}) on conflict (round_id,kind) do nothing returning id`,
+      sql`insert into messaging_channels(id,kind,policy_key,policy_revision,lifecycle,round_id) values(${channelId},${listedWord(messagingChannelKinds, 'round_floor')},'round.floor',1,${listedWord(messagingChannelLifecycles, 'active')},${ownerId}) on conflict (round_id,kind) do nothing returning id`,
     );
     return created !== undefined;
   },
@@ -63,7 +67,7 @@ const roundFloorOwner = (
     const rows = await query(
       tx,
       z.object({ actorId: z.string(), label: z.string() }),
-      sql`select distinct a.id as "actorId",u.username as label from messaging_messages m join actors a on a.id=m.author_actor_id and a.kind='human' join users u on u.id=a.user_id and u.deleted_at is null join rounds r on r.id=${ownerId} left join round_participants p on p.round_id=r.id and p.actor_id=a.id where m.channel_id=${channelId} and m.text is not null and m.removed_at is null and (${isDebatingSeatSql(sql`p.seat_kind`)} or (p.seat_kind is null and r.created_by_actor_id=a.id)) order by a.id`,
+      sql`select distinct a.id as "actorId",u.username as label from messaging_messages m join actors a on a.id=m.author_actor_id and a.kind=${listedWord(actorKinds, 'human')} join users u on u.id=a.user_id and u.deleted_at is null join rounds r on r.id=${ownerId} left join round_participants p on p.round_id=r.id and p.actor_id=a.id where m.channel_id=${channelId} and m.text is not null and m.removed_at is null and (${isDebatingSeatSql(sql`p.seat_kind`)} or (p.seat_kind is null and r.created_by_actor_id=a.id)) order by a.id`,
     );
     return rows;
   },

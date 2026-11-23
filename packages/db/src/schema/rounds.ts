@@ -1,4 +1,5 @@
-import { lifecycleSql, lifecycleSqlList } from '../lifecycle-sql';
+import { roomVisibilities } from '@daisy/protocol/room-contract';
+import { lifecycleSql, lifecycleSqlList, listedWord } from '../lifecycle-sql';
 import {
   competitionTypes,
   type CompetitionType,
@@ -89,7 +90,7 @@ export const rounds = pgTable(
     }),
     /** The host took over from a restricted one, and names no human judge (DEC-331). */
     hostInherited: boolean('host_inherited').notNull().default(false),
-    visibility: text('visibility').$type<'public' | 'unlisted' | 'private'>(),
+    visibility: text('visibility').$type<(typeof roomVisibilities)[number]>(),
     /** The Room’s effective lobby age rule at Start, kept for audience and reuse. */
     standingAgeRule: lobbyAgeRule('standing_age_rule'),
     /** Whether the cast needed Youth media protection at Start. */
@@ -273,7 +274,7 @@ export const rounds = pgTable(
       ),
       check(
         'rounds_visibility_check',
-        sql`${table.visibility} is null or ${oneOf(table.visibility, ['public', 'unlisted', 'private'])}`,
+        sql`${table.visibility} is null or ${oneOf(table.visibility, roomVisibilities)}`,
       ),
       check(
         'rounds_room_freeze_complete',
@@ -354,11 +355,11 @@ export const rounds = pgTable(
       ),
       check(
         'rounds_ranked_ladder_check',
-        sql`${table.competitionType} <> 'ranked' or ${table.ladderId} is not null or ${table.status} in ${lifecycleSqlList([roundStatus.completed, roundStatus.abandoned])}`,
+        sql`${table.competitionType} <> ${listedWord(competitionTypes, 'ranked')} or ${table.ladderId} is not null or ${table.status} in ${lifecycleSqlList([roundStatus.completed, roundStatus.abandoned])}`,
       ),
       check(
         'rounds_ranked_has_preset_check',
-        sql`(${table.competitionType} = 'ranked') = (${table.presetVersion} is not null)`,
+        sql`(${table.competitionType} = ${listedWord(competitionTypes, 'ranked')}) = (${table.presetVersion} is not null)`,
       ),
       foreignKey({
         name: 'rounds_definition_revision_fk',

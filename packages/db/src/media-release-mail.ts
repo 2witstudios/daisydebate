@@ -1,8 +1,11 @@
+import { listedWord } from './lifecycle-sql';
 import { instantMs } from '@daisy/clock';
 import { createAppError } from '@daisy/errors';
 import {
   mediaReleasePolicy,
+  releaseRequestOutcomes,
   type ReleaseLinkPurpose,
+  mediaReleaseSources,
 } from '@daisy/protocol/media-release';
 import { sql } from 'drizzle-orm';
 import { z } from 'zod';
@@ -111,7 +114,7 @@ export function mediaReleaseMailOperations({
               request_id: z.string(),
               recipient_email: z.string(),
               expires_at: z.union([z.string(), z.date()]),
-              outcome: z.string().nullable(),
+              outcome: z.enum(releaseRequestOutcomes).nullable(),
               username: z.string().nullable(),
             }),
             sql`select m.kind, m.request_id, q.recipient_email, q.expires_at,
@@ -156,7 +159,7 @@ export function mediaReleaseMailOperations({
               }),
               sql`select scope, signer_name, signer_relation, signed_at, wording_version
                 from media_releases
-                where request_id = ${mail.request_id} and source = 'parent'
+                where request_id = ${mail.request_id} and source = ${listedWord(mediaReleaseSources, 'parent')}
                   and signer_email = ${mail.recipient_email} and withdrawn_at is null`,
             );
             const publish = held.find((row) => row.scope === 'publish');

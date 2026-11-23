@@ -112,7 +112,7 @@ test('only this service exact zero-judge receipt replays', async () => {
   });
   for (const [label, row] of [
     ['another Round', commandRow({ roundId: 'otherroun1b2c3d4e5f6g7h8' })],
-    ['another command type', commandRow({ type: 'abandon' })],
+    ['another command type', commandRow({ type: 'forfeit' })],
     ['an actor principal', commandRow({ actorId: 'actoraaaa1b2c3d4e5f6g7h8' })],
     ['another service', commandRow({ serviceId: 'round-runtime:x' })],
     ['no service', commandRow({ serviceId: null })],

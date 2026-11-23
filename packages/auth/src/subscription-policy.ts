@@ -1,4 +1,4 @@
-import { tryInstantMs, instantMs } from '@daisy/clock/instant';
+import { instantMs, tryAddMs, tryInstantMs } from '@daisy/clock/instant';
 import type {
   EntitlementGrant,
   PremiumEntitlementKind,
@@ -48,14 +48,10 @@ function renewalPeriod(
     instantMs(previous.endsAt) !== instantMs(renewal.startsAt)
   )
     return null;
-  const end = new Date(instantMs(previous.endsAt) + graceMs);
-  return Number.isFinite(end.getTime())
-    ? {
-        kind: 'renewal_failed',
-        period: previous,
-        graceEndsAt: end.toISOString(),
-      }
-    : null;
+  const graceEndsAt = tryAddMs(previous.endsAt, graceMs);
+  return graceEndsAt === undefined
+    ? null
+    : { kind: 'renewal_failed', period: previous, graceEndsAt };
 }
 function verifiedAccessPeriod(
   evidence: SubscriptionEvidence,

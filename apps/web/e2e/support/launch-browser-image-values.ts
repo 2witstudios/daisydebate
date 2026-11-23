@@ -1,9 +1,9 @@
-import { createHash, type Hash } from 'node:crypto';
+import { sha256Hex } from '@daisy/digest';
 
 /** Launch-owned content identity and JSON shape checks for untrusted metadata. */
-export const sha256Digest = (hash: Hash) => `sha256:${hash.digest('hex')}`;
+export const sha256Digest = (hex: string) => `sha256:${hex}`;
 export const sha256 = (bytes: Uint8Array | string) =>
-  sha256Digest(createHash('sha256').update(bytes));
+  sha256Digest(sha256Hex(bytes));
 export const isDigest = (value: unknown): value is string =>
   typeof value === 'string' && /^sha256:[a-f0-9]{64}$/.test(value);
 export const same = (actual: unknown, expected: unknown) =>

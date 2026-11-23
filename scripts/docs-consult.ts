@@ -1,4 +1,4 @@
-import { createHash } from 'node:crypto';
+import { sha256Hex } from '@daisy/digest';
 import {
   type ConsultOptions,
   replayAttempt,
@@ -36,9 +36,7 @@ export function conversationIdFor(
   pipeline: DocumentPipeline,
   attempt = 0,
 ): string {
-  const digest = createHash('sha256')
-    .update(`${idempotencyKey}:${pipeline}:${attempt}`)
-    .digest('hex');
+  const digest = sha256Hex(`${idempotencyKey}:${pipeline}:${attempt}`);
   return `d${digest.slice(0, 31)}`;
 }
 

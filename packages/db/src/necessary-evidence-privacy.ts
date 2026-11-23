@@ -1,3 +1,4 @@
+import { evidenceErasurePhases } from './schema/necessary-evidence-erasure';
 import { sql } from 'drizzle-orm';
 import type { PrivacyAdopter } from './privacy/contracts';
 import { run, query } from './raw-rows';
@@ -19,7 +20,7 @@ export const necessaryEvidencePrivacyAdopter: PrivacyAdopter = {
       z.object({
         actor_id: z.string(),
         user_id: z.string(),
-        phase: z.string(),
+        phase: z.enum(evidenceErasurePhases),
         requested_at: z.string(),
         propagated_at: z.string().nullable(),
       }),

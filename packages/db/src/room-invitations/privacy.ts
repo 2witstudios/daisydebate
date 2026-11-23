@@ -1,3 +1,4 @@
+import { roomInvitationStates } from '@daisy/protocol/room-invitations';
 import { idSchema } from '@daisy/protocol/primitives';
 import { sql } from 'drizzle-orm';
 import type { PrivacyAdopter, PrivacyExport } from '../privacy/contracts';
@@ -35,7 +36,7 @@ export const roomInvitationsPrivacyAdopter: PrivacyAdopter = {
           z.object({
             room_id: z.string(),
             seat: z.string(),
-            state: z.string(),
+            state: z.enum(roomInvitationStates),
             received: z.boolean(),
             expires_at: z.date(),
             ended_at: z.date().nullable(),

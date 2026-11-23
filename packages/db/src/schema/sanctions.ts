@@ -1,3 +1,4 @@
+import { listedWord, listedWords } from '../lifecycle-sql';
 import { sanctionStatuses, seasonCountings } from '@daisy/protocol/lobby';
 import { sql } from 'drizzle-orm';
 import {
@@ -83,8 +84,8 @@ export const sanctions = pgTable(
     check('sanctions_status_check', oneOf(table.status, sanctionStatuses)),
     check(
       'sanctions_decided_consistent',
-      sql`case when ${table.status} = 'requested' then ${table.decidedAt} is null
-        when ${table.status} in ('approved', 'declined') then ${table.decidedAt} is not null
+      sql`case when ${table.status} = ${listedWord(sanctionStatuses, 'requested')} then ${table.decidedAt} is null
+        when ${table.status} in ${listedWords(sanctionStatuses, ['approved', 'declined'])} then ${table.decidedAt} is not null
         else true end`,
     ),
     versionPositive('sanctions', table.version),

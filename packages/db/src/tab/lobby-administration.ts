@@ -256,7 +256,7 @@ const load = async (
       ? {
           id: season.id,
           organizationId: season.organizationId,
-          status: season.status as 'active' | 'closed',
+          status: season.status,
           startsAt: season.startsAt.toISOString(),
           version: season.version,
         }

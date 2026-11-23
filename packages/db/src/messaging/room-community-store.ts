@@ -1,3 +1,8 @@
+import { messagingChannelKinds } from '../schema/messaging-channels';
+import { messagingChannelLifecycles } from '@daisy/protocol/messaging/social';
+import { actorKinds } from '../schema/actors';
+import { seatKinds } from '@daisy/protocol/seats';
+import { listedWord } from '../lifecycle-sql';
 import { addMs } from '@daisy/clock';
 import { createAppError } from '@daisy/errors';
 import { isOpenRoomStatus } from '@daisy/protocol/room-contract';
@@ -69,7 +74,7 @@ const roomCommunityOwner = (
     const [created] = await query(
       tx,
       z.object({ id: z.string() }),
-      sql`insert into messaging_channels(id,kind,policy_key,policy_revision,lifecycle,room_id) values(${channelId},'room_community','room.community',1,'active',${ownerId}) on conflict (room_id,kind) do nothing returning id`,
+      sql`insert into messaging_channels(id,kind,policy_key,policy_revision,lifecycle,room_id) values(${channelId},${listedWord(messagingChannelKinds, 'room_community')},'room.community',1,${listedWord(messagingChannelLifecycles, 'active')},${ownerId}) on conflict (room_id,kind) do nothing returning id`,
     );
     return created !== undefined;
   },
@@ -93,9 +98,9 @@ const roomCommunityOwner = (
       tx,
       z.object({ actorId: z.string(), label: z.string(), judge: z.boolean() }),
       sql`select a.id as "actorId",u.username as label,
-          exists(select 1 from room_participants p where p.room_id=${ownerId} and p.actor_id=a.id and p.seat_kind='judge') as judge
+          exists(select 1 from room_participants p where p.room_id=${ownerId} and p.actor_id=a.id and p.seat_kind=${listedWord(seatKinds, 'judge')}) as judge
         from actors a join users u on u.id=a.user_id and u.deleted_at is null
-        where a.kind='human' and a.id in (
+        where a.kind=${listedWord(actorKinds, 'human')} and a.id in (
           select recent.author_actor_id from (select m.author_actor_id from messaging_messages m where m.channel_id=${channelId} and m.text is not null and m.removed_at is null order by m.sequence desc limit ${AUTHOR_LABELS}) recent
           union
           select m.author_actor_id from messaging_messages m where m.channel_id=${channelId} and m.text is not null and m.removed_at is null and m.author_actor_id=any(${wanted})

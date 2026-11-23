@@ -1,3 +1,4 @@
+import { listedWord } from '../lifecycle-sql';
 import { check, index, pgTable, text, uniqueIndex } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
 import { billingCleanupSchema } from '@daisy/protocol/billing';
@@ -7,6 +8,7 @@ import {
   retriedJobColumns,
   jsonbColumnNullable,
   jsonbIsObject,
+  retriedJobStatuses,
 } from './columns';
 import { users } from './users';
 import { privacyVendors } from '../privacy/planner';
@@ -19,7 +21,7 @@ export const privacyJobs = pgTable(
     subjectRef: text('subject_ref')
       .notNull()
       .references(() => users.id),
-    vendor: text('vendor').notNull(),
+    vendor: text('vendor').$type<(typeof privacyVendors)[number]>().notNull(),
     billingCleanup: jsonbColumnNullable(
       'billing_cleanup',
       billingCleanupSchema,
@@ -33,17 +35,17 @@ export const privacyJobs = pgTable(
     ),
     index('privacy_jobs_pending_vendor_due_idx')
       .on(table.vendor, table.retryAt, table.id)
-      .where(sql`${table.status}='pending'`),
+      .where(sql`${table.status}=${listedWord(retriedJobStatuses, 'pending')}`),
     check('privacy_jobs_vendor_valid', oneOf(table.vendor, privacyVendors)),
     jsonbIsObject('privacy_jobs', table.billingCleanup),
     check(
       'privacy_jobs_billing_cleanup_scope',
       sql`${table.billingCleanup} is null or
-      coalesce((${table.vendor}='stripe' and ${table.billingCleanup}->>'jobId'=${table.id}
+      coalesce((${table.vendor}=${listedWord(privacyVendors, 'stripe')} and ${table.billingCleanup}->>'jobId'=${table.id}
         and case ${table.billingCleanup}->>'kind'
-          when 'acknowledged' then ${table.status}='succeeded'
-          when 'scanning' then ${table.status}='pending'
-          when 'deleting' then ${table.status}='pending'
+          when 'acknowledged' then ${table.status}=${listedWord(retriedJobStatuses, 'succeeded')}
+          when 'scanning' then ${table.status}=${listedWord(retriedJobStatuses, 'pending')}
+          when 'deleting' then ${table.status}=${listedWord(retriedJobStatuses, 'pending')}
           else false end),false)`,
     ),
     ...retriedJobChecks('privacy_jobs', table),

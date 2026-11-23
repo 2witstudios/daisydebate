@@ -1,4 +1,4 @@
-import { sha3Hex } from '@daisy/digest';
+import { hmacSha256Base64, sha3Hex } from '@daisy/digest';
 import { hostWaits } from '@daisy/worker/host';
 import { SQL } from 'bun';
 import { systemId } from '@daisy/clock';
@@ -84,16 +84,7 @@ export async function transcriptProofFixture(
       crypto.getRandomValues(new Uint8Array(32)),
     ).toString('base64url');
     await sql`insert into session (id,user_id,token,expires_at) values (${sessionId},${user.id},${token},now()+interval '15 minutes')`;
-    const key = await crypto.subtle.importKey(
-      'raw',
-      new TextEncoder().encode(secret),
-      { name: 'HMAC', hash: 'SHA-256' },
-      false,
-      ['sign'],
-    );
-    const signature = Buffer.from(
-      await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(token)),
-    ).toString('base64');
+    const signature = hmacSha256Base64(secret, token);
     return {
       // Better Call 1.4.0's installed signed-cookie wire format. No cookie cache.
       cookie: `__Secure-better-auth.session_token=${encodeURIComponent(`${token}.${signature}`)}`,

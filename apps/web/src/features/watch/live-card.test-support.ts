@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import type { LiveBroadcastPage } from '@daisy/db';
 import { SPECTATOR_MARGIN_MS } from '@daisy/protocol/broadcast';
 import { twoSides } from '@daisy/protocol/seats';
@@ -5,7 +6,8 @@ import { liveCardOf, type LiveCard } from './live-card';
 
 type LiveRow = LiveBroadcastPage['rows'][number];
 
-const started = new Date('2026-11-02T00:00:00.000Z');
+const startedMs = instantMs('2026-11-02T00:00:00.000Z');
+const started = new Date(startedMs);
 
 /** A live Round as the listing read returns it: 30 s into its first speech. */
 export const liveRow = (over: Partial<LiveRow> = {}): LiveRow => ({
@@ -45,8 +47,7 @@ export const liveRow = (over: Partial<LiveRow> = {}): LiveRow => ({
     ],
   } as never,
   startedAt: started,
-  horizon: null,
-  horizonMs: started.getTime() + 30_000 + SPECTATOR_MARGIN_MS,
+  horizonMs: startedMs + 30_000 + SPECTATOR_MARGIN_MS,
   seats: [
     {
       roundId: 'abcdefghijklmnopqrstuvwx',

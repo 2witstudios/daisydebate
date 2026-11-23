@@ -1,3 +1,4 @@
+import { sha256Hex } from '@daisy/digest';
 /**
  * Row rewrites in a new migration (ISSUE-788): statements that touch rows a
  * database may already hold. CI's fresh databases hold none, so each needs a
@@ -65,8 +66,7 @@ const judgeCountRewriteProven = (input: RewriteInput) =>
   input.history?.path === judgeCountProof.path &&
   input.history.predecessorFingerprint === judgeCountProof.predecessor &&
   input.history.proofFiles.includes(judgeCountProof.proof) &&
-  `sha256:${new Bun.CryptoHasher('sha256').update(input.sql).digest('hex')}` ===
-    judgeCountProof.sqlDigest;
+  `sha256:${sha256Hex(input.sql)}` === judgeCountProof.sqlDigest;
 
 export function findRewriteProblems(
   input: RewriteInput,

@@ -1,3 +1,4 @@
+import { listedWord } from '../lifecycle-sql';
 import { sql } from 'drizzle-orm';
 import { storedFriendshipStates } from '@daisy/protocol/friends';
 import {
@@ -42,7 +43,7 @@ export const friendships = pgTable(
     check('friendships_state', oneOf(table.state, storedFriendshipStates)),
     check(
       'friendships_time',
-      sql`(${table.state} = 'pending' and ${table.acceptedAt} is null) or (${table.state} = 'accepted' and ${table.acceptedAt} is not null and ${table.acceptedAt} >= ${table.requestedAt})`,
+      sql`(${table.state} = ${listedWord(storedFriendshipStates, 'pending')} and ${table.acceptedAt} is null) or (${table.state} = ${listedWord(storedFriendshipStates, 'accepted')} and ${table.acceptedAt} is not null and ${table.acceptedAt} >= ${table.requestedAt})`,
     ),
     foreignKey({
       name: 'friendships_contact_fk',

@@ -126,7 +126,3 @@ export const audienceRoute = (
       return work(input);
     },
   );
-
-/** The Round id a `/api/rounds/<id>/...` route was called with. */
-export const roundIdOf = (request: Request) =>
-  new URL(request.url).pathname.split('/')[3] ?? '';

@@ -33,6 +33,7 @@ import { agentRuns } from './schema/agent-runs';
 import { botProfiles } from './schema/bot-profiles';
 import { readOrderedRoundUtterances } from './round-utterance-projection';
 import { utterances } from './schema/utterances';
+import { parsedColumn, postgresInt8 } from './raw-rows';
 
 type WorkerContext = Awaited<ReturnType<typeof verifyLockedBotWorker>>;
 type GenerationResult = {
@@ -140,7 +141,10 @@ export function createBotGenerationOperations(input: {
               open();
               const [total] = await tx
                 .select({
-                  characters: sql<number>`coalesce(sum(${agentRuns.characters}),0)`,
+                  characters: parsedColumn(
+                    postgresInt8,
+                    sql`coalesce(sum(${agentRuns.characters}),0)`,
+                  ),
                 })
                 .from(agentRuns)
                 .where(

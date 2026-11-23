@@ -3,7 +3,7 @@ import {
   type PreapprovalCommand,
 } from '@daisy/protocol/beta-preapproval';
 import { and, asc, eq, isNull } from 'drizzle-orm';
-import type { AdminExecutor, AdminTransaction } from '../../db/client';
+import type { AdminTransaction, AdminTx } from '../../db/tx';
 import { auditEvents, pendingCommands } from '../../db/schema';
 
 /**
@@ -49,7 +49,7 @@ export async function openPendingCommand(
  * two never leaves an earlier time that would abandon a PUT still valid.
  */
 export async function markSigned(
-  db: AdminExecutor,
+  db: AdminTx,
   commandId: string,
   signedAt: string,
 ): Promise<void> {
@@ -92,7 +92,7 @@ export type OpenCommand = PendingCommand & { readonly lastSignedAt: string };
 
 /** Oldest first: the commands whose outcome is still unknown. */
 export async function openCommands(
-  db: AdminExecutor,
+  db: AdminTx,
   limit: number,
 ): Promise<readonly OpenCommand[]> {
   const rows = await db
@@ -130,7 +130,7 @@ export async function openCommands(
 
 /** The anchor the command first carried: the chain head after its intent. */
 export async function intentAnchor(
-  db: AdminExecutor,
+  db: AdminTx,
   commandId: string,
 ): Promise<string | null> {
   const [row] = await db

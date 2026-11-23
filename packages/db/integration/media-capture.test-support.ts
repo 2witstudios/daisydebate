@@ -17,14 +17,16 @@ export async function historicalCapture(
 ) {
   const durationMs = shape.durationMs ?? 1000;
   const [clock] = await fixture.sql`select clock_timestamp() as now`;
-  const end = new Date(clock!.now.getTime() - endedAgoMs);
-  const start = new Date(end.getTime() - durationMs);
+  const endMs = clock!.now.getTime() - endedAgoMs;
+  const startMs = endMs - durationMs;
+  const end = new Date(endMs);
+  const start = new Date(startMs);
   const seat = shape.bot
     ? await createBotSeat(fixture, roundId, 'negative')
     : await fixture.seat(roundId, 'affirmative');
   await fixture.sql.unsafe(
     "update rounds set status='completed',winning_side='affirmative',started_at=$2,completed_at=$3,final_segment_ended_at=$3,transcript_admission_cutoff=$4,attendance_resolution_cutoff_at=$3::timestamptz+interval '60 minutes' where id=$1",
-    [roundId, start, end, new Date(end.getTime() + 120000)],
+    [roundId, start, end, new Date(endMs + 120000)],
   );
   const segmentId = createId();
   const sessionId = createId();
@@ -68,8 +70,8 @@ export async function historicalCapture(
     startOffsetMs: 100,
     durationMs: 100,
     text: 'Synthetic captured words',
-    before: new Date(start.getTime() + 99).toISOString(),
-    after: new Date(start.getTime() + 201).toISOString(),
+    before: new Date(startMs + 99).toISOString(),
+    after: new Date(startMs + 201).toISOString(),
   };
   return { store, lease, stream, clip, start, end };
 }

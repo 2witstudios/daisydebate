@@ -1,3 +1,4 @@
+import { sha256Hex } from '@daisy/digest';
 import { resolve } from 'node:path';
 
 import { findRewriteProblems } from './migration-rewrites';
@@ -231,14 +232,11 @@ export function parseSnapshotLink(tag: string, json: string): SnapshotLink {
  * under the migrations folder at the replaced base, whatever its layout.
  */
 export const migrationsFingerprint = (files: readonly TreeFile[]): string => {
-  const hasher = new Bun.CryptoHasher('sha256');
-  hasher.update(
-    [...files]
-      .sort((a, b) => (a.path < b.path ? -1 : 1))
-      .map(({ path, blob }) => `${blob} ${path}`)
-      .join('\n'),
-  );
-  return `sha256:${hasher.digest('hex')}`;
+  const listing = [...files]
+    .sort((a, b) => (a.path < b.path ? -1 : 1))
+    .map(({ path, blob }) => `${blob} ${path}`)
+    .join('\n');
+  return `sha256:${sha256Hex(listing)}`;
 };
 
 export const baselinesPath = 'policy/migration-baselines.json';

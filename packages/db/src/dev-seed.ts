@@ -1,6 +1,8 @@
 import { SQL } from 'bun';
 import { drizzle } from 'drizzle-orm/bun-sql';
 import { sql } from 'drizzle-orm';
+import { parsedColumn } from './raw-rows';
+import { z } from 'zod';
 import { accountAge } from './schema/account-age';
 import { actors } from './schema/actors';
 import { accountBetaAccess } from './schema/beta-access';
@@ -130,8 +132,8 @@ export async function applyDevSeed({
       }
       const [previous] = await tx
         .select({
-          createdAt: sql<string>`${rounds.createdAt}::text`,
-          updatedAt: sql<string>`${rounds.updatedAt}::text`,
+          createdAt: parsedColumn(z.string(), sql`${rounds.createdAt}::text`),
+          updatedAt: parsedColumn(z.string(), sql`${rounds.updatedAt}::text`),
         })
         .from(rounds)
         .where(sql`${rounds.id} = ${seed.round.id}`);

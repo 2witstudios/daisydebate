@@ -1,3 +1,5 @@
+import { instantMs } from '@daisy/clock';
+import { sha256Hex } from '@daisy/digest';
 import { requireTestServices } from '@daisy/config';
 import { assertRejects } from '@daisy/errors/testing';
 import { createId } from '@paralleldrive/cuid2';
@@ -107,9 +109,7 @@ const command = (change: object) => ({
   commandId: createId(),
   serviceId: 'daisy-admin',
   operatorRef: 'o'.repeat(24),
-  requestDigest: new Bun.CryptoHasher('sha256')
-    .update(createId())
-    .digest('hex'),
+  requestDigest: sha256Hex(createId()),
   adminAuditHead: head,
   live: () => true,
   change: change as never,
@@ -665,7 +665,7 @@ test('a text change waiting on a lock is timed after the lock is released', asyn
       assert({
         given: 'a name change that waited on a row another transaction held',
         should: 'carry a change time after that transaction released the row',
-        actual: new Date(row.at).getTime() >= new Date(releasedAt).getTime(),
+        actual: row.at.getTime() >= instantMs(releasedAt),
         expected: true,
       });
     } finally {

@@ -1,4 +1,9 @@
 import {
+  contentReportStatuses,
+  contentReportTargetKinds,
+} from '@daisy/protocol/content-moderation';
+import { listedWord } from './lifecycle-sql';
+import {
   recordingLifecycleSchema,
   recordingEligibilitySchema,
   recordingClasses,
@@ -72,9 +77,9 @@ export const recordingUnderOpenReport = async (
     tx,
     z.object({ reported: z.boolean() }),
     sql`select exists(
-      select 1 from recordings rec join content_reports c on c.status='open' and (
-        (c.target_kind='recording' and c.target_id=rec.id)
-        or (c.target_kind='round' and c.target_id=rec.round_id))
+      select 1 from recordings rec join content_reports c on c.status=${listedWord(contentReportStatuses, 'open')} and (
+        (c.target_kind=${listedWord(contentReportTargetKinds, 'recording')} and c.target_id=rec.id)
+        or (c.target_kind=${listedWord(contentReportTargetKinds, 'round')} and c.target_id=rec.round_id))
       where rec.id=${id}) as reported`,
   );
   return row?.reported ?? false;

@@ -1,4 +1,3 @@
-import { sha3Hex } from '@daisy/digest';
 import {
   preapprovalCommandSchema,
   type PreapprovalPage,
@@ -6,10 +5,7 @@ import {
   type invitationStates,
 } from '@daisy/protocol/beta-preapproval';
 import { decideBetaAccessChange } from '@daisy/protocol/beta-access';
-import {
-  verifyOperatorRequest,
-  type OperatorCrypto,
-} from '@daisy/auth/operator-signature';
+import { verifyOperatorRequest } from '@daisy/auth/operator-signature';
 import type {
   BetaAccessCommandResult,
   BetaAccessState,
@@ -20,7 +16,6 @@ import {
   operatorAccountsQuerySchema,
   type OperatorAccountsPage,
 } from '@daisy/protocol/operator';
-import { createHash, createHmac } from 'node:crypto';
 
 /**
  * A stand-in for the participant app's operator API (ADR 0079) that the
@@ -59,14 +54,6 @@ const refusal = (status: number, code: string) =>
   json(status, { error: { code } });
 
 class LostResponse extends Error {}
-
-/** node:crypto, as the participant app verifies, so a mismatch shows. */
-const participantCrypto: OperatorCrypto = {
-  hmacSha256: (key, text) =>
-    createHmac('sha256', key).update(text, 'utf8').digest('base64url'),
-  sha256Hex: (bytes) => createHash('sha256').update(bytes).digest('hex'),
-  sha3Hex,
-};
 
 const parsedBody = (bytes: Uint8Array): unknown =>
   bytes.byteLength === 0 ? null : JSON.parse(new TextDecoder().decode(bytes));
@@ -219,7 +206,6 @@ export function createOperatorApiStub(input: {
       body: bytes,
       keys: new Map([[input.keyId, input.key]]),
       nowMs: input.nowMs(),
-      crypto: participantCrypto,
     });
     if (!verified.ok || nonces.has(verified.nonce)) return null;
     nonces.add(verified.nonce);

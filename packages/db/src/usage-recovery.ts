@@ -1,3 +1,5 @@
+import { usageKinds } from '@daisy/protocol/billing';
+import { listedWord } from './lifecycle-sql';
 import { and, asc, eq, gt, sql } from 'drizzle-orm';
 import { createAppError } from '@daisy/errors';
 import { roundStatus } from '@daisy/protocol/round';
@@ -44,8 +46,8 @@ export function usageRecoveryOperations(run: BoundedTransaction) {
                 ? []
                 : [gt(rounds.id, input.afterId)]),
               sql`exists(select 1 from usage_reservations u where u.round_id=${rounds.id}
-              and u.actor_id=${actors.id} and u.kind in ('ai_round','casual_ai_judge')
-              and (u.state->>'kind'='reserved' or (u.kind='ai_round' and u.binds_free_judge
+              and u.actor_id=${actors.id} and u.kind in (${listedWord(usageKinds, 'ai_round')},${listedWord(usageKinds, 'casual_ai_judge')})
+              and (u.state->>'kind'='reserved' or (u.kind=${listedWord(usageKinds, 'ai_round')} and u.binds_free_judge
                 and u.binding_released_at is null and u.state->>'kind'='released')))`,
             ),
           )

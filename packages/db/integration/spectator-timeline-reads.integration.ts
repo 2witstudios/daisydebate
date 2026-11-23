@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import { resolveRoomConfiguration } from '@daisy/debate-engine';
 import { formatDefinitionSchema } from '@daisy/protocol/format';
 import { formatSettingsSchema } from '@daisy/protocol/format-settings';
@@ -13,7 +14,8 @@ import { withFixture, type Fixture } from './constraint-helpers';
 setupRitewayBun();
 const { databaseUrl } = requireTestServices(process.env);
 const started = new Date('2026-11-02T00:00:00.000Z');
-const spoken = new Date('2026-11-02T00:00:30.000Z');
+const spokenMs = instantMs('2026-11-02T00:00:30.000Z');
+const spoken = new Date(spokenMs);
 const later = new Date('2026-11-02T00:01:00.000Z');
 
 const withLiveRound = async (
@@ -138,11 +140,11 @@ test('a line on a segment still open past the last heartbeat waits, like its med
   await withLiveRound('ranked', async (read, { client, roundId }) => {
     const id = createId();
     await client`insert into broadcasts (id,round_id,feed_key,release_policy,egress_id,egress_started_at,control_heartbeat_at)
-      values (${id},${roundId},${createId()},jsonb_build_object('kind','delay','seconds',60),'EG',${new Date(spoken.getTime() - 1000)},${new Date(spoken.getTime() - 1000)})`;
+      values (${id},${roundId},${createId()},jsonb_build_object('kind','delay','seconds',60),'EG',${new Date(spokenMs - 1000)},${new Date(spokenMs - 1000)})`;
     const unheard = captions(await read(margin(spoken)));
     await client`update broadcasts set control_heartbeat_at=${spoken} where id=${id}`;
     const heard = captions(await read(margin(spoken)));
-    await client`update broadcasts set control_heartbeat_at=${new Date(spoken.getTime() - 1000)} where id=${id}`;
+    await client`update broadcasts set control_heartbeat_at=${new Date(spokenMs - 1000)} where id=${id}`;
     await client`update round_segments set ended_at=${later} where round_id=${roundId}`;
     const closed = captions(await read(margin(spoken)));
     await client`delete from broadcasts where id=${id}`;

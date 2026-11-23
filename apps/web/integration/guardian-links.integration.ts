@@ -434,14 +434,15 @@ test('resend recovers an invitation to a provisional holder using the original p
   const email = `${createId()}@example.test`;
   const unusedEmail = `${createId()}@example.test`;
   const child = { userId: createId(), actorId: createId() };
-  const requestedAt = new Date(at.getTime() - 60_000);
+  const requestedAtMs = at.getTime() - 60_000;
+  const requestedAt = new Date(requestedAtMs);
   await withRolledBackDatabase(databaseUrl, {
     seed: async (sql) => {
       const [parent] = await createBots(sql, ['Parent']);
       if (!parent) throw new Error('Missing parent fixture');
       await sql`update users set email=${`${parent.userId}@example.test`} where id=${parent.userId}`;
       await sql`insert into users (id, email, email_verified, created_at)
-        values (${child.userId}, ${email}, true, ${new Date(requestedAt.getTime() - 1000)})`;
+        values (${child.userId}, ${email}, true, ${new Date(requestedAtMs - 1000)})`;
       return parent;
     },
     work: async (db, parent, sql) => {
@@ -484,7 +485,7 @@ test('resend recovers an invitation to a provisional holder using the original p
         ],
       });
 
-      const onboardedAt = new Date(requestedAt.getTime() + 1000).toISOString();
+      const onboardedAt = new Date(requestedAtMs + 1000).toISOString();
       await ageStepOperations({
         database: db,
         eventSink: undefined,
@@ -508,7 +509,7 @@ test('resend recovers an invitation to a provisional holder using the original p
       const linkId = attached?.requestedLinkId;
       if (!linkId) throw new Error('Resend did not attach a link');
       const privateExport = await exportParent();
-      const confirmedAt = new Date(requestedAt.getTime() + 2000).toISOString();
+      const confirmedAt = new Date(requestedAtMs + 2000).toISOString();
       const confirmed = await submitGuardianCommand(store, child, confirmedAt, {
         version: 1,
         type: 'confirm-parent',

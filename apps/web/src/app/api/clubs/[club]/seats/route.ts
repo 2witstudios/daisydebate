@@ -1,5 +1,16 @@
 import { processRoute } from '../../../../../server/process-app';
+
+type Params = Awaited<RouteContext<'/api/clubs/[club]/seats'>['params']>;
+
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
-export const GET = processRoute((routes) => routes.billing.clubs.seats.GET);
-export const POST = processRoute((routes) => routes.billing.clubs.seats.POST);
+export const GET = processRoute.withParams<Params>(
+  (routes) =>
+    (request, { club }) =>
+      routes.billing.clubs.seats.GET(request, club),
+);
+export const POST = processRoute.withParams<Params>(
+  (routes) =>
+    (request, { club }) =>
+      routes.billing.clubs.seats.POST(request, club),
+);

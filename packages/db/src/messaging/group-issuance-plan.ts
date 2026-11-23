@@ -1,3 +1,4 @@
+import { tryInstantMs } from '@daisy/clock';
 import { createAppError } from '@daisy/errors';
 type Previous = {
   readonly inviteeActorId: string;
@@ -10,9 +11,9 @@ function validateLimits(input: {
   maxMembers: number;
   maxPendingInvitations: number;
 }) {
-  const time = new Date(input.now).getTime();
+  const time = tryInstantMs(input.now);
   if (
-    !Number.isFinite(time) ||
+    time === undefined ||
     !Number.isSafeInteger(input.maxMembers) ||
     input.maxMembers < 1 ||
     !Number.isSafeInteger(input.maxPendingInvitations) ||

@@ -165,11 +165,6 @@ export function createBillingSynchronization(input: {
           const owner = ownerOfLocked(locked);
           const subscription = await currentSubscription(tx, owner);
           if (!subscription) return null;
-          if (
-            locked.customer.mode !== 'test' &&
-            locked.customer.mode !== 'live'
-          )
-            throw createAppError('VALIDATION');
           const offer = await readFrozenBillingOffer(tx, {
             owner,
             mode: locked.customer.mode,

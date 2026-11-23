@@ -1,3 +1,4 @@
+import { usageKinds } from '@daisy/protocol/billing';
 import { sql } from 'drizzle-orm';
 import type { PrivacyAdopter } from './privacy/contracts';
 import { run, query } from './raw-rows';
@@ -21,7 +22,7 @@ export const usagePrivacyAdopter: PrivacyAdopter = {
       z.object({
         id: z.string(),
         round_id: z.string(),
-        kind: z.string(),
+        kind: z.enum(usageKinds),
         source: z.json(),
         state: z.json(),
         binds_free_judge: z.boolean(),

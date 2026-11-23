@@ -1,3 +1,5 @@
+import { transcriptionRecoveryStatuses } from '../schema/transcription-recovery';
+import { listedWord } from '../lifecycle-sql';
 import { sql } from 'drizzle-orm';
 import type { Tx } from '../tx';
 import { query } from '../raw-rows';
@@ -12,9 +14,9 @@ export async function pending(tx: Tx, roundId: string): Promise<boolean> {
       where e.original_round_id=${roundId}
       and not exists(select 1 from transcription_recovery_sources s
         join transcription_recovery_contexts c on c.id=s.context_id
-        where s.evidence_id=e.id and c.round_id=${roundId} and c.status='selected'))
+        where s.evidence_id=e.id and c.round_id=${roundId} and c.status=${listedWord(transcriptionRecoveryStatuses, 'selected')}))
     or exists(select 1 from transcription_recovery_contexts c
-      where c.round_id=${roundId} and c.status<>'selected') as pending`,
+      where c.round_id=${roundId} and c.status<>${listedWord(transcriptionRecoveryStatuses, 'selected')}) as pending`,
   );
   return row?.pending !== false;
 }

@@ -1,3 +1,4 @@
+import { listedWord } from '../lifecycle-sql';
 import {
   BIO_MAX,
   DISPLAY_NAME_MAX,
@@ -76,9 +77,12 @@ export const profilePhotos = pgTable(
     actorId: text('actor_id')
       .notNull()
       .references(() => actors.id, { onDelete: 'cascade' }),
-    status: text('status').notNull(),
+    status: text('status')
+      .$type<(typeof profilePhotoStatuses)[number]>()
+      .notNull(),
     /** What the automated check answered; null when no check was configured. */
-    checkVerdict: text('check_verdict'),
+    checkVerdict:
+      text('check_verdict').$type<(typeof photoCheckVerdicts)[number]>(),
     /** Where its renditions are stored; never shown to anyone. */
     objectPrefix: text('object_prefix').notNull(),
     createdAt: createdAtColumn(),
@@ -102,7 +106,7 @@ export const profilePhotos = pgTable(
     // Live rows have no end; a terminal row has one.
     check(
       'profile_photos_ended_check',
-      sql`(${table.status} in ('in_review','published')) = (${table.endedAt} is null)`,
+      sql`(${table.status} in (${listedWord(profilePhotoStatuses, 'in_review')},${listedWord(profilePhotoStatuses, 'published')})) = (${table.endedAt} is null)`,
     ),
     check(
       'profile_photos_delete_after_check',
@@ -116,14 +120,20 @@ export const profilePhotos = pgTable(
     index('profile_photos_actor_idx').on(table.actorId),
     uniqueIndex('profile_photos_one_published')
       .on(table.actorId)
-      .where(sql`${table.status} = 'published'`),
+      .where(
+        sql`${table.status} = ${listedWord(profilePhotoStatuses, 'published')}`,
+      ),
     uniqueIndex('profile_photos_one_in_review')
       .on(table.actorId)
-      .where(sql`${table.status} = 'in_review'`),
+      .where(
+        sql`${table.status} = ${listedWord(profilePhotoStatuses, 'in_review')}`,
+      ),
     uniqueIndex('profile_photos_object_prefix_unique').on(table.objectPrefix),
     index('profile_photos_review_queue_idx')
       .on(table.createdAt, table.id)
-      .where(sql`${table.status} = 'in_review'`),
+      .where(
+        sql`${table.status} = ${listedWord(profilePhotoStatuses, 'in_review')}`,
+      ),
     index('profile_photos_deletion_idx')
       .on(table.deleteAfter, table.id)
       .where(sql`${table.endedAt} is not null`),

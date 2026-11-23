@@ -1,9 +1,9 @@
+import { sha256Hex } from '@daisy/digest';
 import { checkLivekit, checkMediaWorker } from './doctor-media';
 import { checkTenantIsolation } from './doctor-tenant-isolation';
 import { puLauncherProblem, readPuLauncher } from './doctor-launcher';
 import { SQL, RedisClient } from 'bun';
 import { readServerConfig } from '@daisy/config';
-import { createHash } from 'node:crypto';
 import { existsSync } from 'node:fs';
 import { readdir, readFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
@@ -80,9 +80,7 @@ export async function readCommittedMigrationHashes(): Promise<
     .sort();
   return Promise.all(
     tags.map(async (tag) =>
-      createHash('sha256')
-        .update(await readFile(resolve(migrations, tag, 'migration.sql')))
-        .digest('hex'),
+      sha256Hex(await readFile(resolve(migrations, tag, 'migration.sql'))),
     ),
   );
 }

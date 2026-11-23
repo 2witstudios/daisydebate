@@ -1,3 +1,5 @@
+import { betaAccessStates } from '@daisy/protocol/beta-access';
+import { listedWord } from './lifecycle-sql';
 import type { AgeBand } from '@daisy/protocol/ladder';
 import { createAppError } from '@daisy/errors';
 import type { RoundCommandAuthority } from '@daisy/protocol/round-command';
@@ -29,7 +31,7 @@ export const admittedParticipant = (
   admittedAgeBands: readonly AgeBand[],
 ) => sql`(
   exists (select 1 from account_beta_access access
-    where access.user_id = ${userId} and access.state = 'approved')
+    where access.user_id = ${userId} and access.state = ${listedWord(betaAccessStates, 'approved')})
   and not ${restrictionInForce(userId, at)}
   and (select public.daisy_age_band(age.birth_month, age.version, age.recorded_at, ${at}::timestamptz)
     from account_age age where age.user_id = ${userId})

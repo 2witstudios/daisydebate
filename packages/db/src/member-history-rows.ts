@@ -18,7 +18,7 @@ import {
   type SeatColumns,
 } from './seat-columns';
 import type { Tx } from './tx';
-import { query as queryRows } from './raw-rows';
+import { parsedColumn, query as queryRows } from './raw-rows';
 import { z } from 'zod';
 
 /** A competitor's seat: a side's or an unsided speaker's. */
@@ -123,9 +123,10 @@ export async function namedSeats(
       kind: actors.kind,
       username: users.username,
       closedAt: users.deletedAt,
-      botName: sql<
-        string | null
-      >`coalesce(${botProfiles.name}, ${aiJudgeProfiles.name})`,
+      botName: parsedColumn(
+        z.string().nullable(),
+        sql`coalesce(${botProfiles.name}, ${aiJudgeProfiles.name})`,
+      ),
     })
     .from(roundParticipants)
     .innerJoin(actors, eq(actors.id, roundParticipants.actorId))

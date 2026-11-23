@@ -1,3 +1,4 @@
+import { sha256Hex } from '@daisy/digest';
 import { hostWaits } from '@daisy/worker/host';
 import { fixtureJudgingProgression } from './judging-progression.test-support';
 import { instantMs } from '@daisy/clock';
@@ -5,7 +6,7 @@ import { SQL } from 'bun';
 import { judgingPolicy } from '@daisy/protocol/judging-policy';
 import { atFinalJudgingStage } from '../src/testing-judging';
 import { readFile } from 'node:fs/promises';
-import { createHash, randomBytes } from 'node:crypto';
+import { randomBytes } from 'node:crypto';
 import { drizzle } from 'drizzle-orm/bun-sql';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createId } from '@paralleldrive/cuid2';
@@ -245,12 +246,9 @@ test(
                 return (
                   seededRow.existingId ??
                   'm' +
-                    createHash('sha256')
-                      .update(
-                        `casual_judge_usage:${seededRow.roundId}:${seededRow.actorId}`,
-                      )
-                      .digest('hex')
-                      .slice(0, 23)
+                    sha256Hex(
+                      `casual_judge_usage:${seededRow.roundId}:${seededRow.actorId}`,
+                    ).slice(0, 23)
                 );
               }),
             ],

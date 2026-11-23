@@ -1,5 +1,7 @@
+import type { PgUpdateSetSource } from 'drizzle-orm/pg-core';
 import { tryInstantMs, instantMs, addMs } from '@daisy/clock';
 import { and, eq, gt, ne, sql } from 'drizzle-orm';
+import { parsedColumn, postgresInt8 } from '../raw-rows';
 import { createAppError } from '@daisy/errors';
 import { idSchema } from '@daisy/protocol/primitives';
 import { messagingChannels } from '../schema/messaging-channels';
@@ -41,7 +43,7 @@ export const fileDeletionValues = {
   requestId: null,
   messageId: null,
   generation: sql`${messagingFiles.generation} + 1`,
-};
+} satisfies PgUpdateSetSource<typeof messagingFiles>;
 /** Caller holds canonical account/pair/channel locks. Never opens a transaction. */
 export function channelFileFrame(
   tx: Tx,
@@ -158,8 +160,11 @@ export function channelFileFrame(
       }
       const [quota] = await tx
         .select({
-          bytes: sql<string>`coalesce(sum(${messagingFiles.reservedBytes}),0)`,
-          count: sql<string>`count(*)`,
+          bytes: parsedColumn(
+            postgresInt8,
+            sql`coalesce(sum(${messagingFiles.reservedBytes}),0)`,
+          ),
+          count: parsedColumn(postgresInt8, sql`count(*)`),
         })
         .from(messagingFiles)
         .where(
@@ -177,7 +182,7 @@ export function channelFileFrame(
       // Every reservation counts, deleted or not, so removing a file never
       // refills the day.
       const [today] = await tx
-        .select({ count: sql<string>`count(*)` })
+        .select({ count: parsedColumn(postgresInt8, sql`count(*)`) })
         .from(messagingFiles)
         .where(
           and(
@@ -278,7 +283,7 @@ export function channelFileFrame(
       await live(row, now);
       if (row.lifecycle !== 'quarantined') throw createAppError('CONFLICT');
       const [count] = await tx
-        .select({ value: sql<string>`count(*)` })
+        .select({ value: parsedColumn(postgresInt8, sql`count(*)`) })
         .from(messagingFiles)
         .where(
           and(

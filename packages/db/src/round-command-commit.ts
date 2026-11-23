@@ -7,6 +7,7 @@ import {
   writeProjectionWithPhaseSignal,
 } from './round-projection-writer';
 import { writeSpeakingProjection } from './round-speaking-writer';
+import type { RoundCommandType } from './schema/round-commands';
 import type { Tx } from './tx';
 
 /**
@@ -25,7 +26,7 @@ export async function commitRoundCommand(
       readonly commandId: string;
       readonly actorId: string | null;
       readonly serviceId: string | null;
-      readonly type: string;
+      readonly type: RoundCommandType;
       readonly payloadDigest: string;
     };
   },

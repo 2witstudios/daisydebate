@@ -86,7 +86,7 @@ export const allowedWorkspaceDependencies: Record<string, readonly string[]> = {
   'log-shipper': ['clock', 'config', 'logger', 'worker'],
   protocol: ['clock'],
   // ADR 0048: pure capability evaluation consumes portable vocabulary only.
-  auth: ['clock', 'errors', 'protocol'],
+  auth: ['clock', 'digest', 'errors', 'protocol'],
   errors: ['protocol'],
   db: ['clock', 'config', 'digest', 'errors', 'protocol', 'worker'],
   redis: ['clock', 'config', 'digest', 'errors', 'protocol', 'worker'],

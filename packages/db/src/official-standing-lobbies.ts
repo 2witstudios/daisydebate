@@ -1,6 +1,8 @@
-import type { LobbyAgeRule } from '@daisy/protocol/lobby/eligibility';
+import { lobbyAgeRules } from '@daisy/protocol/lobby/eligibility';
 import { roomChain } from '@daisy/protocol/setting-resolution';
 import { and, asc, eq, isNull, sql } from 'drizzle-orm';
+import { parsedColumn } from './raw-rows';
+import { z } from 'zod';
 import { alias } from 'drizzle-orm/pg-core';
 import { standingLadderSetting } from './league-room-selection';
 import { ladders } from './schema/ladders';
@@ -22,7 +24,7 @@ export const readOfficialStandingLobbies = (db: Pick<Tx, 'select'>) =>
       id: lobbies.id,
       name: lobbies.name,
       handle: lobbies.handle,
-      ageRule: sql<LobbyAgeRule>`${lobbies.ageRule}`,
+      ageRule: parsedColumn(z.enum(lobbyAgeRules), sql`${lobbies.ageRule}`),
       organizationId: organizations.id,
     })
     .from(lobbies)
@@ -41,7 +43,7 @@ export async function readOfficialRatingLadderCatalog(db: Pick<Tx, 'select'>) {
         name: ladders.name,
         lobbyId: lobbies.id,
         lobbyName: lobbies.name,
-        ageRule: sql<LobbyAgeRule>`${lobbies.ageRule}`,
+        ageRule: parsedColumn(z.enum(lobbyAgeRules), sql`${lobbies.ageRule}`),
         openedAt: lobbies.createdAt,
       },
       organizationId: organizations.id,

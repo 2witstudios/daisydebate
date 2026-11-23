@@ -1,4 +1,4 @@
-import { createHmac } from 'node:crypto';
+import { hmacSha256Hex } from '@daisy/digest';
 import { resolve } from 'node:path';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
@@ -73,7 +73,7 @@ const signedWith = (secret: string, post: IncidentsPost) => {
   const timestamp = post.headers.get('x-pagespace-timestamp');
   return (
     post.headers.get('x-pagespace-signature') ===
-    `v0=${createHmac('sha256', secret).update(`v0:${timestamp}:${post.body}`).digest('hex')}`
+    `v0=${hmacSha256Hex(secret, `v0:${timestamp}:${post.body}`)}`
   );
 };
 

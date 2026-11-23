@@ -9,6 +9,7 @@ import { lockCleanupRecord } from './billing-cleanup-authority';
 import { readDatabaseTime } from './database-clock';
 import { privacyJobs } from './schema/privacy-jobs';
 import { enqueuePrivacyJob } from './privacy/enqueue-job';
+import { parsedColumn } from './raw-rows';
 
 const batch = 32;
 const passSchema = z
@@ -40,7 +41,10 @@ export function createBillingCleanupRechecks(input: {
         const rows = await tx
           .select({
             id: privacyJobs.id,
-            execution: sql<unknown>`case when vendor='stripe' and status='succeeded' then billing_cleanup else null end`,
+            execution: parsedColumn(
+              billingCleanupSchema.nullable(),
+              sql`case when vendor='stripe' and status='succeeded' then billing_cleanup else null end`,
+            ),
           })
           .from(privacyJobs)
           .where(
@@ -55,14 +59,12 @@ export function createBillingCleanupRechecks(input: {
           page = rows.slice(0, batch);
         const eligible = page.flatMap((row) => {
           if (row.execution === null) return [];
-          const parsed = billingCleanupSchema.safeParse(row.execution);
           if (
-            !parsed.success ||
-            parsed.data.kind !== 'acknowledged' ||
-            parsed.data.jobId !== row.id
+            row.execution.kind !== 'acknowledged' ||
+            row.execution.jobId !== row.id
           )
             throw createAppError('INVARIANT');
-          return instantMs(parsed.data.nextAt) <= now
+          return instantMs(row.execution.nextAt) <= now
             ? [{ jobId: row.id }]
             : [];
         });
