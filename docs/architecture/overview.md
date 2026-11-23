@@ -131,14 +131,19 @@ package; this map lists only packages that exist today.
 
 ## Database public API
 
-`@daisy/db` owns the shared connection pool and `Database` composition.
-Import feature contracts through explicit subpaths: `rooms`, `rounds`,
-`profile`, `documents`, `ratings`, `attendance` and `outbox`.
-Ballot and frozen transcript contracts use `round-ballot` and
-`frozen-transcript`; messaging contracts use the existing messaging subpaths.
-Each entry names its exports explicitly; raw Drizzle handles and persistence
-operations remain internal. Messaging store composition lives with messaging
-and receives the same opaque database handle as the other areas.
+`@daisy/db` owns connections, lanes and their lifetime, and stores; it has no
+root ([ADR 0918](../decisions/0918-database-stores-and-process-composition.md)).
+A process opens its resources once with `openDatabaseResources` from
+`@daisy/db/resources` and composes the area stores it uses, each from
+`@daisy/db/stores/<area>` (`createRoundStore(resources, options)`); a
+consumer names the narrow store type it needs. A cross-area need (contact
+reactions, restriction reactions, moderation ports) is an argument the
+composition passes. Feature contracts are imported from their own subpaths
+(`rounds`, `profile`, `documents`, `ratings`, `attendance`, `outbox`,
+`round-ballot`, `frozen-transcript`, the messaging subpaths). No subpath
+exposes a raw Drizzle handle or a persistence operation that takes one. A
+module of the package that exports a function touches storage; a pure rule
+belongs to the protocol or the owning feature (`scripts/database-decisions.ts`).
 
 ## Layering rules
 

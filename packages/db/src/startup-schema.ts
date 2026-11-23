@@ -5,11 +5,9 @@ import { fileURLToPath } from 'node:url';
 import {
   tenantIsolationProblems,
   type TenantTableFacts,
-} from './tenant-isolation';
-import {
   tenantDefinerProblems,
   type TenantDefinerFacts,
-} from './tenant-definers';
+} from './tenant-isolation';
 import type { TenantIsolationManifest } from './tenant-isolation-manifest';
 
 export type MigrationStamp = {

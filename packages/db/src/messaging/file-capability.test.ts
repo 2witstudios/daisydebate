@@ -1,7 +1,7 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';
 import type { FileFrame } from '../messaging-files';
-import { scopeFileFrame } from './file-capability';
+import { scopeFileFrame } from './file-store';
 setupRitewayBun();
 test('a file read frame cannot admit or mutate an upload', async () => {
   let invoked = 0;

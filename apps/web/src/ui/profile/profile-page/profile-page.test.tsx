@@ -1,8 +1,11 @@
 import type { MatchHistoryEntry } from '@daisy/protocol/member-profile';
 import type { ProfileView } from '../../../features/profile/read-profile';
 import { createElement as h } from 'react';
-import { renderToString } from 'react-dom/server';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
+import {
+  renderAccessible,
+  type AccessibleView,
+} from '../../../test-support/rendered/accessible';
 import { ProfilePage } from './profile-page';
 
 setupRitewayBun();
@@ -42,27 +45,33 @@ const profile = (overrides: Partial<ProfileView> = {}): ProfileView => ({
 });
 
 const render = (value: ProfileView, paged = false) =>
-  renderToString(h(ProfilePage, { profile: value, paged }));
+  renderAccessible(h(ProfilePage, { profile: value, paged }));
+
+/** Whether a piece of the page reads exactly this text. */
+const shows = (view: AccessibleView, text: string) =>
+  view.all('generic').some((element) => element.textContent === text);
+
+/** The sources of the page's decorative images (the avatar photo). */
+const photos = (view: AccessibleView) =>
+  view.all('presentation').map((image) => image.getAttribute('src'));
+
+const title = 'This house would ban homework';
 
 describe('ProfilePage', () => {
   test('a history row opens the page its reader may open', () => {
     const roundId = 'r'.repeat(24);
-    const own = render(profile({ me: true }));
-    const stranger = render(profile());
+    const own = render(profile({ me: true })).attribute('link', title, 'href');
+    const stranger = render(profile()).attribute('link', title, 'href');
     assert({
       given: 'their own row, and a stranger\u2019s row',
       should: 'link the seat to the Round, and the stranger to its public page',
-      actual: [
-        own.includes(`href="/rounds/${roundId}"`),
-        stranger.includes(`href="/rounds/${roundId}"`),
-        stranger.includes(`href="/watch/${roundId}"`),
-      ],
-      expected: [true, false, true],
+      actual: [own, stranger],
+      expected: [`/rounds/${roundId}`, `/watch/${roundId}`],
     });
   });
 
   test('no Round in the history names a ladder (ADR 0162)', () => {
-    const html = render(
+    const text = render(
       profile({
         history: [
           entry({
@@ -72,37 +81,37 @@ describe('ProfilePage', () => {
           entry({ roundId: 'b'.repeat(24) }),
         ],
       }),
-    );
+    ).textContent();
     assert({
       given: 'a ranked Youth Round and a casual Round in the history',
       should: 'chip neither row with a ladder',
       actual: [
-        html.includes('Youth – Freestyle'),
-        html.includes('text-hue-plum'),
-        html.includes('Open – Freestyle'),
+        text.includes('Youth – Freestyle'),
+        text.includes('Open – Freestyle'),
       ],
-      expected: [false, false, false],
+      expected: [false, false],
     });
   });
 
   test('someone else’s profile', () => {
-    const html = render(profile());
+    const view = render(profile());
+    const text = view.textContent();
     assert({
       given: 'a member seen by someone else',
       should:
         'name them once with their join month and record, list the Round with a link, and offer no edit link or rating',
       actual: [
-        html.match(/<h1 /g)?.length,
-        html.includes('>@debater-a<'),
-        html.includes('Member since September 2026'),
-        html.includes('aria-label="Record"'),
-        html.includes('No ruling'),
-        html.includes(`href="/watch/${'r'.repeat(24)}"`),
-        html.includes('href="/profile/debater-b"'),
-        html.includes('>Won<'),
-        html.includes('AI judge'),
-        html.includes('>Edit profile<'),
-        /rating|elo/i.test(html),
+        view.count('heading', undefined, { level: 1 }),
+        view.has('heading', '@debater-a', { level: 1 }),
+        text.includes('Member since September 2026'),
+        view.has('region', 'Record'),
+        text.includes('No ruling'),
+        view.attribute('link', title, 'href'),
+        view.attribute('link', '@debater-b', 'href'),
+        shows(view, 'Won'),
+        text.includes('AI judge'),
+        text.includes('Edit profile'),
+        /rating|elo/i.test(text),
       ],
       expected: [
         1,
@@ -110,8 +119,8 @@ describe('ProfilePage', () => {
         true,
         true,
         false,
-        true,
-        true,
+        `/watch/${'r'.repeat(24)}`,
+        '/profile/debater-b',
         true,
         true,
         false,
@@ -121,7 +130,7 @@ describe('ProfilePage', () => {
   });
 
   test('your own profile', () => {
-    const html = render(
+    const view = render(
       profile({
         me: true,
         history: [entry({ visibility: 'private', result: 'no-ruling' })],
@@ -132,17 +141,17 @@ describe('ProfilePage', () => {
       should:
         'mark it as theirs, offer Edit profile, and show the Round as private with no ruling',
       actual: [
-        html.includes('>You<'),
-        html.includes('href="/settings#profile"'),
-        html.includes('>private<'),
-        html.includes('>No ruling<'),
+        shows(view, 'You'),
+        view.attribute('link', 'Edit profile', 'href'),
+        shows(view, 'private'),
+        shows(view, 'No ruling'),
       ],
-      expected: [true, true, true, true],
+      expected: [true, '/settings#profile', true, true],
     });
   });
 
   test('results and opponents', () => {
-    const html = render(
+    const view = render(
       profile({
         record: { wins: 0, losses: 1 },
         history: [
@@ -169,20 +178,21 @@ describe('ProfilePage', () => {
       should:
         'show no ruling, the forfeit, the AI opponent and the closed account by name',
       actual: [
-        html.includes('No ruling'),
-        html.includes('>Lost<'),
-        html.includes('By forfeit'),
-        html.includes('Socrates (AI)'),
-        /@gone-debater<\/a> \(closed\)/.test(html),
-        html.includes('AI and human judges'),
+        view.textContent().includes('No ruling'),
+        shows(view, 'Lost'),
+        view.textContent().includes('By forfeit'),
+        view.textContent().includes('Socrates (AI)'),
+        view.has('link', '@gone-debater'),
+        view.textContent().includes('@gone-debater (closed)'),
+        view.textContent().includes('AI and human judges'),
       ],
-      expected: [true, true, true, true, true, true],
+      expected: [true, true, true, true, true, true, true],
     });
   });
 
   test('the public profile', () => {
     const photoId = 'f'.repeat(24);
-    const html = render(
+    const view = render(
       profile({
         shown: {
           profileId: 'p'.repeat(24),
@@ -192,27 +202,43 @@ describe('ProfilePage', () => {
         },
       }),
     );
+    const handle = view
+      .all('paragraph')
+      .find((paragraph) => paragraph.textContent === '@debater-a');
     assert({
       given: 'a member with a display name, bio and published photo',
       should:
         'head the page with the display name, keep @username beneath it, and show the bio and the large photo',
       actual: [
-        /<h1[^>]*>Ada Byron<\/h1>/.test(html),
-        html.indexOf('Ada Byron') < html.indexOf('>@debater-a<'),
-        html.includes('>@debater-a<'),
-        html.includes('Negative, always.'),
-        html.includes(`src="/api/profile-photos/${photoId}/512"`),
+        view.has('heading', 'Ada Byron', { level: 1 }),
+        handle !== undefined &&
+          Boolean(
+            view
+              .get('heading', 'Ada Byron', { level: 1 })
+              .compareDocumentPosition(handle) & 4,
+          ),
+        handle !== undefined,
+        view.textContent().includes('Negative, always.'),
+        photos(view),
       ],
-      expected: [true, true, true, true, true],
+      expected: [
+        true,
+        true,
+        true,
+        true,
+        [`/api/profile-photos/${photoId}/512`],
+      ],
     });
   });
 
   test('reports', () => {
     const reports = h('p', null, 'REPORTS');
     const shows = (value: ProfileView) =>
-      renderToString(
+      renderAccessible(
         h(ProfilePage, { profile: value, paged: false, reports }),
-      ).includes('REPORTS');
+      )
+        .textContent()
+        .includes('REPORTS');
     assert({
       given: 'report controls for someone else, the owner and a closed account',
       should: 'show them only toward a live account that is not the viewer’s',
@@ -226,7 +252,7 @@ describe('ProfilePage', () => {
   });
 
   test('a closed account', () => {
-    const html = render(
+    const view = render(
       profile({
         closed: true,
         shown: {
@@ -242,33 +268,52 @@ describe('ProfilePage', () => {
       should:
         'keep its username and public record, mark it closed, and show no display name, bio or photo',
       actual: [
-        html.includes('>@debater-a<'),
-        html.includes('>Closed<'),
-        html.includes('This account is closed'),
-        html.includes('Member since'),
-        html.includes('aria-label="Record"'),
-        html.includes(`href="/watch/${'r'.repeat(24)}"`),
-        html.includes('Ada Byron'),
-        html.includes('Negative, always.'),
-        html.includes('/api/profile-photos/'),
+        view.has('heading', '@debater-a', { level: 1 }),
+        shows(view, 'Closed'),
+        view.textContent().includes('This account is closed'),
+        view.textContent().includes('Member since'),
+        view.has('region', 'Record'),
+        view.attribute('link', title, 'href'),
+        view.textContent().includes('Ada Byron'),
+        view.textContent().includes('Negative, always.'),
+        photos(view),
       ],
-      expected: [true, true, true, false, true, true, false, false, false],
+      expected: [
+        true,
+        true,
+        true,
+        false,
+        true,
+        `/watch/${'r'.repeat(24)}`,
+        false,
+        false,
+        [],
+      ],
     });
   });
 
   test('pages', () => {
-    const first = render(profile({ nextBefore: 'c'.repeat(24) }));
+    const first = render(profile({ nextBefore: 'c'.repeat(24) })).within(
+      'navigation',
+      'Match history pages',
+    );
+    const firstPages = [
+      first.attribute('link', 'Older rounds', 'href') ===
+        `/profile/debater-a?before=${'c'.repeat(24)}`,
+      first.textContent().includes('Newest rounds'),
+    ];
     const older = render(profile({ history: [] }), true);
+    const pages = older.within('navigation', 'Match history pages');
     assert({
       given: 'a first page with older Rounds, and an older page with none',
       should:
         'link to the older page, then back to the newest and say there are no older Rounds',
       actual: [
-        first.includes(`href="/profile/debater-a?before=${'c'.repeat(24)}"`),
-        first.includes('Newest rounds'),
-        older.includes('href="/profile/debater-a"'),
-        older.includes('No older rounds.'),
-        older.includes('Older rounds'),
+        ...firstPages,
+        pages.attribute('link', 'Newest rounds', 'href') ===
+          '/profile/debater-a',
+        older.textContent().includes('No older rounds.'),
+        pages.textContent().includes('Older rounds'),
       ],
       expected: [true, false, true, true, false],
     });
@@ -279,17 +324,19 @@ describe('ProfilePage', () => {
       given: 'no listed Rounds, for a visitor and for the owner',
       should: 'say there are no public Rounds, or none yet',
       actual: [
-        render(profile({ history: [] })).includes('No public rounds yet.'),
-        render(profile({ history: [], me: true })).includes(
-          'You have no completed rounds yet.',
-        ),
+        render(profile({ history: [] }))
+          .textContent()
+          .includes('No public rounds yet.'),
+        render(profile({ history: [], me: true }))
+          .textContent()
+          .includes('You have no completed rounds yet.'),
       ],
       expected: [true, true],
     });
   });
 
   test('someone live in a public Round', () => {
-    const live = renderToString(
+    const live = renderAccessible(
       h(ProfilePage, {
         profile: profile(),
         paged: false,
@@ -299,8 +346,8 @@ describe('ProfilePage', () => {
     assert({
       given: 'a member live in a public Round',
       should: 'lead to it',
-      actual: live.includes('href="/watch/their-round"'),
-      expected: true,
+      actual: live.attribute('link', 'Watch live: Friday night', 'href'),
+      expected: '/watch/their-round',
     });
   });
 });

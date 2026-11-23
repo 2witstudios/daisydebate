@@ -1,5 +1,5 @@
-import { ladderCopyIn } from '../test-support/ladder-copy.test-support';
-import { renderToString } from 'react-dom/server';
+import { ladderCopyInView } from '../test-support/ladder-copy.test-support';
+import { renderAccessible } from '../../test-support/rendered/accessible';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { noLadderReason } from '../../features/play/ladder-division-words';
 import type { MemberStanding } from '../../features/ratings/read-member';
@@ -21,61 +21,62 @@ const standing = (
   ...over,
 });
 
-/** React escapes apostrophes; the copy is compared as the page reads it. */
-const text = (html: string) => html.replaceAll('&#x27;', "'");
-
 describe('RankedLadders', () => {
   test('one Rating, naming no ladder, style or division (YRanked, generic copy)', () => {
-    const youth = text(
-      renderToString(
-        <RankedLadders
-          standings={[standing('open'), standing('youth', { rating: 1512 })]}
-          division="youth"
-        />,
-      ),
+    const youth = renderAccessible(
+      <RankedLadders
+        standings={[standing('open'), standing('youth', { rating: 1512 })]}
+        division="youth"
+      />,
     );
-    const adult = text(
-      renderToString(
-        <RankedLadders
-          standings={[
-            standing('open', { rating: 1490, provisional: true }),
-            standing('youth'),
-          ]}
-          division="open"
-        />,
-      ),
+    const youthFacts = [
+      youth.has('link', 'Rating'),
+      youth.textContent().includes('Fall 2026'),
+      youth.textContent().includes('1512'),
+    ];
+    const youthCopy = ladderCopyInView(youth);
+    const youthText = youth.textContent();
+    const youthItems = youth.count('listitem');
+    const adult = renderAccessible(
+      <RankedLadders
+        standings={[
+          standing('open', { rating: 1490, provisional: true }),
+          standing('youth'),
+        ]}
+        division="open"
+      />,
     );
+    const adultText = adult.textContent();
     assert({
       given: 'a youth member rated 1512 and an adult provisional at 1490',
       should:
         'show one Rating card each with the season and rating, and no ladder, style or division copy',
       actual: [
-        youth.includes('>Rating</a>'),
-        youth.includes('Fall 2026'),
-        youth.includes('1512'),
-        adult.includes('1490*'),
-        adult.includes('Provisional'),
-        [youth, adult].some(
-          (html) =>
-            ladderCopyIn(html) !== null ||
-            html.includes('Youth') ||
-            html.includes('Open') ||
-            html.includes('Your ladder'),
-        ),
-        (youth.match(/<li/g) ?? []).length,
+        ...youthFacts,
+        adultText.includes('1490*'),
+        adultText.includes('Provisional'),
+        youthCopy !== null ||
+          ladderCopyInView(adult) !== null ||
+          [youthText, adultText].some(
+            (text) =>
+              text.includes('Youth') ||
+              text.includes('Open') ||
+              text.includes('Your ladder'),
+          ),
+        youthItems,
       ],
       expected: [true, true, true, true, true, false, 1],
     });
   });
 
   test('no age on record', () => {
-    const html = text(
-      renderToString(<RankedLadders standings={[]} division={null} />),
+    const view = renderAccessible(
+      <RankedLadders standings={[]} division={null} />,
     );
     assert({
       given: 'a member with no age on record',
       should: 'show the age prompt',
-      actual: html.includes(noLadderReason),
+      actual: view.textContent().includes(noLadderReason),
       expected: true,
     });
   });

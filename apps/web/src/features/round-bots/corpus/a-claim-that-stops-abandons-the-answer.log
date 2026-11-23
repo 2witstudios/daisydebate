@@ -1,0 +1,16 @@
+0 generate opening
+0 settle answer 1
+0 tts "One."
+0 settle tts "One."
+0 verify
+0 verify
+0 token
+0 join TR_0
+0 begin id1 120ms in=0 at=2027-01-15T08:00:00.000Z room
+0 reveal id1 room at=2027-01-15T08:00:00.000Z
+0 frames TR_0 x12
+50 abandon answer 1
+50 clear TR_0 queued=70
+50 end id1 cut 50ms ""
+50 close TR_0
+50 stopped

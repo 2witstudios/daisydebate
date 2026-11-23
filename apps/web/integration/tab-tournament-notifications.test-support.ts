@@ -1,5 +1,5 @@
+import { openWebDatabase, type WebDatabase } from '../src/server/database';
 import { hostWaits } from '@daisy/worker/host';
-import { createDatabase, type Database } from '@daisy/db';
 import {
   notificationPreferencesSchema,
   notificationShellSchema,
@@ -13,7 +13,7 @@ import type { World } from './tab-tournament.test-support';
 /** The real notification reader, running as the web role on the script's committed database. */
 export async function withTournamentNotificationReader<T>(
   world: World,
-  work: (store: Database) => Promise<T>,
+  work: (store: WebDatabase) => Promise<T>,
 ): Promise<T> {
   if (!world.runtimeDatabaseUrl)
     throw new Error(
@@ -23,7 +23,7 @@ export async function withTournamentNotificationReader<T>(
     max: 3,
     connection: { role: 'daisy_web' },
   });
-  const store = createDatabase({
+  const store = openWebDatabase({
     waits: hostWaits,
     url: world.runtimeDatabaseUrl,
     client,

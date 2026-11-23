@@ -18,8 +18,8 @@ import {
 import { hydrateRoundRows, type RoundHydration } from './round-hydration';
 import {
   requireFencedParticipants,
-  requireSameCommand,
-} from './round-command-replay';
+  storedRoundCommand,
+} from './round-command-record';
 import {
   lockedRoundVersion,
   appendRoundPhaseChanged,
@@ -111,18 +111,14 @@ export async function changeLockedRoundJudge(
   const now = (await readDatabaseTime(tx)).toISOString();
   requireAdmittedPrincipal(input.admits, accounts, input.actorId);
   input.authorize({ round, room, slot, now });
-  const [previous] = await tx
-    .select()
-    .from(roundCommands)
-    .where(eq(roundCommands.commandId, input.commandId));
+  const previous = await storedRoundCommand(tx, input.commandId, {
+    roundId: input.roundId,
+    actorId: input.actorId,
+    serviceId: null,
+    type: 'change_judge',
+    payloadDigest: input.payloadDigest,
+  });
   if (previous) {
-    requireSameCommand(previous, {
-      roundId: input.roundId,
-      actorId: input.actorId,
-      serviceId: null,
-      type: 'change_judge',
-      payloadDigest: input.payloadDigest,
-    });
     const receipt = roundJudgeAssignmentReceiptSchema.parse(previous.result);
     if (receipt.slot !== input.slot)
       throw createRefusal('CONFLICT', 'command-conflict');

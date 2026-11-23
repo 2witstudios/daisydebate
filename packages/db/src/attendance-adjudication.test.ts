@@ -1,14 +1,14 @@
 import { assertRejects } from '@daisy/errors/testing';
 import type { RoundProjection } from '@daisy/protocol/runtime';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import type { NextAttendanceWindow } from './attendance-adjudication';
+import type { NextAttendanceWindow } from './attendance-evaluator';
 import {
   adjudicationColumns,
   adjudicationCommand,
   requireAttendanceTarget,
   requireResolutionProjection,
   type AttendanceResolution,
-} from './attendance-adjudication';
+} from './attendance-evaluator';
 
 setupRitewayBun();
 

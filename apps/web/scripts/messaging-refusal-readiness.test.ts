@@ -11,16 +11,27 @@ const hostRoot = (child: unknown) => {
   return { host: state.current, select };
 };
 
+/** useDriver's holder, as the view's hook after its memoized driver start. */
+const holderOf = (driver: unknown) => ({ read: () => ({ driver }) });
+const startMemo = [() => {}, []] as unknown;
+
 const mounted = () => {
   const element: Record<string, unknown> = {};
   const refresh = () => {};
-  const reference = { current: { stop: () => {}, refused: () => {} } };
   const transition = {
     memoizedState: false as unknown,
     queue: { dispatch: null as unknown, lastRenderedReducer: () => {} },
     next: {
       memoizedState: (() => {}) as unknown,
-      next: { memoizedState: reference as unknown },
+      next: {
+        memoizedState: startMemo,
+        next: {
+          memoizedState: holderOf({
+            stop: () => {},
+            refused: () => {},
+          }) as unknown,
+        },
+      },
     },
   };
   const memo = {
@@ -83,11 +94,12 @@ test('queue/start/ref/pending reasons preserve the existing fail-closed predicat
   sample.transition.next.memoizedState = false;
   values.push(committedRefusalState(sample.element, true).diagnostic.reason);
   sample.transition.next.memoizedState = () => {};
-  sample.transition.next.next.memoizedState = { current: null };
+  sample.transition.next.next.next.memoizedState = holderOf(null);
   values.push(committedRefusalState(sample.element, true).diagnostic.reason);
-  sample.transition.next.next.memoizedState = {
-    current: { stop: () => {}, refused: () => {} },
-  };
+  sample.transition.next.next.next.memoizedState = holderOf({
+    stop: () => {},
+    refused: () => {},
+  });
   sample.transition.memoizedState = true;
   const pending = committedRefusalState(sample.element, true);
   values.push(pending.diagnostic.reason);

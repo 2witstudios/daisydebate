@@ -1,8 +1,9 @@
-import { checkBillingPage, type BillingPage } from './billing-pagination';
 import { and, asc, eq, gt, isNull, sql } from 'drizzle-orm';
 import type { BoundedTransaction } from './bounded-transaction';
 import { billingCustomers } from './schema/billing-customers';
 import { billingWebhookEvents } from './schema/billing-webhook-events';
+import { createAppError } from '@daisy/errors';
+import { idSchema } from '@daisy/protocol/primitives';
 
 /** Page over durable identities, not only recently received events; claims recheck all authority/time. */
 export function createBillingDiscovery(run: BoundedTransaction) {
@@ -64,4 +65,21 @@ export function createBillingDiscovery(run: BoundedTransaction) {
       });
     },
   };
+}
+
+export type BillingPage = {
+  readonly mode: 'test' | 'live';
+  readonly afterId?: string;
+  readonly limit: number;
+};
+
+export function checkBillingPage(input: BillingPage) {
+  if (
+    !['test', 'live'].includes(input.mode) ||
+    !Number.isSafeInteger(input.limit) ||
+    input.limit < 1 ||
+    input.limit > 100 ||
+    (input.afterId !== undefined && !idSchema.safeParse(input.afterId).success)
+  )
+    throw createAppError('VALIDATION');
 }

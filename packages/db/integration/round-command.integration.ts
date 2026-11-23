@@ -1,11 +1,33 @@
+import { createRoundStore } from '../src/stores/rounds';
+import { openDatabaseResources } from '../src/resources';
 import { hostWaits } from '@daisy/worker/host';
 import { roundDecisionReleasePolicy } from '@daisy/protocol/round-decision-release';
 import { createId } from '@paralleldrive/cuid2';
 import { requireTestServices } from '@daisy/config';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';
-import { createDatabase } from '../src';
 import { withFixture } from './constraint-helpers';
+/** This file's database: the area stores it reads, over one set of resources. */
+const openStores = (
+  options: Parameters<typeof openDatabaseResources>[0] & {
+    readonly roundTime?: NonNullable<
+      Parameters<typeof createRoundStore>[1]
+    >['roundTime'];
+    readonly decisionRelease?: NonNullable<
+      Parameters<typeof createRoundStore>[1]
+    >['decisionRelease'];
+  },
+) => {
+  const resources = openDatabaseResources(options);
+  return {
+    ...createRoundStore(resources, {
+      roundTime: options.roundTime,
+      decisionRelease: options.decisionRelease,
+    }),
+    close: resources.close,
+  };
+};
+
 setupRitewayBun();
 const { databaseUrl: url } = requireTestServices(process.env);
 
@@ -17,11 +39,10 @@ test('concurrent identical commands commit once and replay before stale-version 
       [actorId],
     );
     const roundId = await fixture.round({ created_by_actor_id: actorId });
-    const db = createDatabase({
+    const db = openStores({
       waits: hostWaits,
       decisionRelease: roundDecisionReleasePolicy,
       url,
-      nextActorId: createId,
     });
     const commandId = createId();
     fixture.track('round_commands', commandId);

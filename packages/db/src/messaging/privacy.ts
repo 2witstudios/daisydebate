@@ -21,10 +21,9 @@ import {
   retainedChannelsOf,
   survivingDms,
 } from './retained-dm';
-import { exportRows } from '../privacy/export-rows';
+import { exportRows, postgresInt8, run, query } from '../raw-rows';
 import type { PrivacyAdopter, PrivacyExport } from '../privacy';
 import type { Tx } from '../tx';
-import { postgresInt8, run, query } from '../raw-rows';
 
 function omitPrivateColumns(
   row: Record<string, unknown>,

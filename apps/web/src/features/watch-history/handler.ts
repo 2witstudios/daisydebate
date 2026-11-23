@@ -1,5 +1,6 @@
+import type { WatchHistoryStore } from '@daisy/db/stores/watch-history';
+import type { SpectatingStore } from '@daisy/db/stores/spectating';
 import type { Clock } from '@daisy/clock';
-import type { Database } from '@daisy/db';
 import { watchHistoryUpdateSchema } from '@daisy/protocol/audience';
 import {
   accountRoute,
@@ -18,12 +19,10 @@ export const createWatchHistoryRoute =
   (
     deps: AccountRouteDeps & {
       readonly store: Pick<
-        Database,
-        | 'recordWatched'
-        | 'forgetWatched'
-        | 'clearWatchHistory'
-        | 'readRoundAudienceLink'
-      >;
+        WatchHistoryStore,
+        'recordWatched' | 'forgetWatched' | 'clearWatchHistory'
+      > &
+        Pick<SpectatingStore, 'readRoundAudienceLink'>;
       readonly clock: Pick<Clock, 'now'>;
     },
   ) =>

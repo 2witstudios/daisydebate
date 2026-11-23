@@ -1,5 +1,5 @@
 import { createElement as h } from 'react';
-import { renderToString } from 'react-dom/server';
+import { renderAccessible } from '../../../test-support/rendered/accessible';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { StreamThisRound } from './stream-this-round';
 
@@ -7,43 +7,53 @@ setupRitewayBun();
 
 const feedUrl = 'https://public.example/live/b1/master.m3u8';
 const render = (mode: 'ranked' | 'casual') =>
-  renderToString(h(StreamThisRound, { feedUrl, mode }));
+  renderAccessible(h(StreamThisRound, { feedUrl, mode })).within(
+    'region',
+    'Stream this Round',
+  );
 
 describe('StreamThisRound', () => {
   test('the feed and the steps work before hydration', () => {
-    const html = render('casual');
+    const view = render('casual');
+    const feed = view.get('textbox', 'Official feed URL') as HTMLInputElement;
+    const steps = view
+      .within('list')
+      .all('listitem')
+      .map((step) => step.textContent);
     assert({
       given: 'a server render',
       should:
         'show the feed in a field to copy by hand, name OBS settings, and offer no dead Copy button',
       actual: [
-        html.includes('Stream this Round'),
-        html.includes(`value="${feedUrl}"`),
-        html.includes('readOnly') || html.includes('readonly'),
-        html.includes('then Media (Media Source in older versions)'),
-        html.includes('Local File'),
-        html.includes('>Copy<'),
+        view.textContent().includes('Stream this Round'),
+        feed.value,
+        feed.readOnly,
+        steps.some((step) =>
+          step?.includes('then Media (Media Source in older versions)'),
+        ),
+        steps.some((step) => step?.includes('Local File')),
+        view.has('button', 'Copy'),
       ],
-      expected: [true, true, true, true, true, false],
+      expected: [true, feedUrl, true, true, true, false],
     });
   });
 
   test('the steps say what OBS does at a break and at the end', () => {
-    const html = render('casual');
+    const text = render('casual').textContent();
     assert({
       given: 'behaviour measured on OBS 32.1.2',
       should:
         'tell a streamer how to clear a jumping picture and how the end looks',
       actual: [
-        html.includes('delete the source and add it again'),
-        html.includes('about') && html.includes('two minutes'),
+        text.includes('delete the source and add it again'),
+        text.includes('about two minutes'),
       ],
       expected: [true, true],
     });
   });
 
   test('no stream key, and nothing that looks like one-click push', () => {
-    const text = render('ranked').toLowerCase();
+    const text = render('ranked').textContent().toLowerCase();
     assert({
       given: 'the panel',
       should: 'say no key is needed, and never offer a push to a platform',
@@ -64,13 +74,13 @@ describe('StreamThisRound', () => {
       should:
         'give ranked the content policy link and integrity as the only reason, and neither to casual',
       actual: [
-        ranked.includes('href="/content-policy"'),
-        ranked.includes('integrity'),
-        /betting|cheat|coach/i.test(ranked),
-        casual.includes('/content-policy'),
-        casual.includes('integrity'),
+        ranked.attribute('link', 'ranked content policy', 'href'),
+        ranked.textContent().includes('integrity'),
+        /betting|cheat|coach/i.test(ranked.textContent()),
+        casual.count('link'),
+        casual.textContent().includes('integrity'),
       ],
-      expected: [true, true, false, false, false],
+      expected: ['/content-policy', true, false, 0, false],
     });
   });
 });

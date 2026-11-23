@@ -1,10 +1,10 @@
+import { openWebDatabase } from '../src/server/database';
 import { hostWaits } from '@daisy/worker/host';
 import { requireTestServices } from '@daisy/config';
 import {
   createMessagingTestFixture,
   seedMessagingTestDm,
 } from '@daisy/db/testing';
-import { createDatabase } from '@daisy/db';
 import { createId } from '@paralleldrive/cuid2';
 import { SQL } from 'bun';
 import { expect } from 'bun:test';
@@ -23,7 +23,7 @@ const { databaseUrl } = requireTestServices(process.env);
 /** One reader with a DM to each of `count` other members, messages under the test's control. */
 async function openReader(count: number) {
   const client = new SQL(databaseUrl);
-  const database = createDatabase({
+  const database = openWebDatabase({
     waits: hostWaits,
     url: databaseUrl,
     nextActorId: createId,

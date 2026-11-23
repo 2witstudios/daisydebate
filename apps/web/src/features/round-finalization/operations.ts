@@ -1,8 +1,8 @@
+import type { RoundMaintenanceStore } from '@daisy/db/stores/round-maintenance';
 import { advanceOpening, createRoundRuntime } from '@daisy/debate-engine';
-import type { Database } from '@daisy/db';
 
 type BuildProjection = Parameters<
-  Database['finalizeDueRoundTranscript']
+  RoundMaintenanceStore['finalizeDueRoundTranscript']
 >[0]['buildProjection'];
 
 export function roundTickProjection(

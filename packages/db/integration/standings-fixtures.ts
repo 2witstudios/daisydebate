@@ -1,5 +1,5 @@
 import { emptyRuntimeCheckpointFor } from '@daisy/protocol/round';
-import { frozenJudgingFor } from '../src/round-judging-freeze';
+import { frozenJudgingFor } from '@daisy/protocol/ballot-definition';
 import { createId } from '@paralleldrive/cuid2';
 import type { Fixture } from './constraint-helpers';
 import { validRules } from './round-fixtures';

@@ -1,4 +1,5 @@
 import { createId } from '@paralleldrive/cuid2';
+import type { ReleaseAdmission } from '@daisy/db/flags';
 import {
   admitAllowance,
   allowanceCeilings,
@@ -49,18 +50,35 @@ export async function admissionSponsor(
   return actorId;
 }
 
+/**
+ * `bot-debates` decided as released. Release is the application's decision
+ * (apps/web's catalogue and resolver, ADR 0921) and these suites prove
+ * allowance and capacity under it; the web suites decide it from the real
+ * account override, and `bot-admission.integration.ts` proves the refusal.
+ */
+export const botDebatesReleased: ReleaseAdmission = {
+  keys: ['bot-debates'],
+  decide: () => true,
+};
+
 /** Real admission at busy cap `busyCap` with the beta policy. */
 export const testBotAdmission = (
   run: BoundedTransaction,
   busyCap = 4,
   dailyCeiling?: number,
-) =>
-  createRoundBotAdmission({
+) => {
+  const admission = createRoundBotAdmission({
     run,
     nextId: createId,
     busyCap,
     ...betaAllowance(dailyCeiling),
   });
+  return {
+    ...admission,
+    reserve: (target: Parameters<typeof admission.reserve>[0]) =>
+      admission.reserve(target, botDebatesReleased),
+  };
+};
 
 /** Two Rounds hosted by one approved sponsoring member, with real admission at busy cap 4 and an optional daily ceiling. */
 export const withTwoRoundAdmission = (

@@ -1,6 +1,6 @@
-import { renderToStaticMarkup } from 'react-dom/server';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { conversational } from '@daisy/protocol/runtime';
+import { renderAccessible } from '../../test-support/rendered/accessible';
 import { ConversationHeldNotice } from './conversation-held-notice';
 import { view } from './live-round.test-support';
 
@@ -29,14 +29,14 @@ test('conversational is the pre-Round wait and the wait for a ballot, never a sp
 });
 
 test('the notice appears only when conversation is really being held', () => {
-  const html = (over: object) =>
-    renderToStaticMarkup(
+  const text = (over: object) =>
+    renderAccessible(
       <ConversationHeldNotice view={{ ...view, ...over } as never} nowMs={0} />,
-    );
+    ).textContent();
   assert({
     given: 'a Round whose conversation is not held',
     should: 'say nothing',
-    actual: html({ conversationHeld: false }),
+    actual: text({ conversationHeld: false }),
     expected: '',
   });
 });

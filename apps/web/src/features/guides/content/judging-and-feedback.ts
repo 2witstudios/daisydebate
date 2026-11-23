@@ -185,7 +185,7 @@ export const judgingAndFeedbackArticles: readonly Article[] = [
       'packages/protocol/src/ballot.ts',
       'packages/protocol/src/ballot-rubrics.ts',
       'packages/protocol/src/ballot-definition.ts',
-      'packages/db/src/round-ballot-view.ts',
+      'packages/db/src/round-ballot-reads.ts',
     ],
   },
 ];

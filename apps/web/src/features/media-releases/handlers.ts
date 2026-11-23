@@ -1,4 +1,4 @@
-import type { Database } from '@daisy/db';
+import type { MediaReleaseStore } from '@daisy/db/stores/media-releases';
 import { createAppError } from '@daisy/errors';
 import { CLIENT_IP_HEADER } from '@daisy/ingress/client-ip';
 import { idSchema } from '@daisy/protocol/primitives';
@@ -56,7 +56,10 @@ export type MediaReleaseRouteDependencies = {
   readonly recipientSubkey: () => string;
   readonly stopSubkey: () => string;
   readonly nowMs: () => number;
-  readonly store: Pick<Database, 'mediaReleases' | 'mediaReleaseClubs'>;
+  readonly store: Pick<
+    MediaReleaseStore,
+    'mediaReleases' | 'mediaReleaseClubs'
+  >;
 };
 
 /**

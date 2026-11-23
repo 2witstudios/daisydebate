@@ -1,78 +1,33 @@
-import { renderToStaticMarkup } from 'react-dom/server';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import {
-  destinationSlugs,
-  type DestinationSlug,
-} from '../../../../features/destinations/destinations';
-import { Icon, type IconName } from '../../../components/icon/icon';
+import { destinationSlugs } from '../../../../features/destinations/destinations';
+import { renderAccessible } from '../../../../test-support/rendered/accessible';
 import { NoteGlyph } from './note-glyph';
 
 setupRitewayBun();
 
-const restingIcons: Readonly<Record<DestinationSlug, IconName>> = {
-  lobby: 'swords',
-  watch: 'eye',
-  judge: 'gavel',
-  tournaments: 'trophy',
-  seasons: 'calendar',
-  leaderboard: 'chart',
-  train: 'brain',
-  prep: 'book',
-};
-
-const pathsOf = (html: string): readonly string[] =>
-  [...html.matchAll(/ d="([^"]+)"/g)].map((match) => match[1] ?? '');
-
-const glyph = (destination: DestinationSlug) =>
-  renderToStaticMarkup(<NoteGlyph destination={destination} />);
-
 describe('NoteGlyph', () => {
-  test('draws the shared icon at rest for every destination', () => {
-    assert({
-      given: 'each destination and its shared icon',
-      should: 'carry every path of the icon, so rest looks the same',
-      actual: destinationSlugs.filter((slug) => {
-        const paths = pathsOf(glyph(slug));
-        return pathsOf(
-          renderToStaticMarkup(<Icon name={restingIcons[slug]} />),
-        ).some((d) => !paths.includes(d));
-      }),
-      expected: [],
-    });
-  });
-
   test('is hidden from assistive technology', () => {
     assert({
-      given: 'every destination',
+      given: 'every destination, inside the link it decorates',
       should: 'be decorative, so the link keeps its own name',
-      actual: destinationSlugs.filter(
-        (slug) =>
-          !glyph(slug).startsWith(
-            '<span class="flex items-center gap-3" aria-hidden="true">',
-          ),
-      ),
+      actual: destinationSlugs.filter((slug) => {
+        const link = renderAccessible(
+          <a href="/note">
+            <NoteGlyph
+              destination={slug}
+              seasonGlance={{ number: 2, line: '12 days left' }}
+            />
+            Note
+          </a>,
+        );
+        const glyph = link.within('link', 'Note');
+        // Rendered (its spans exist when hidden ones are counted), yet absent from the tree.
+        return !(
+          glyph.count('generic') === 0 &&
+          glyph.count('generic', undefined, { hidden: true }) > 0
+        );
+      }),
       expected: [],
-    });
-  });
-
-  test('reveals the number and time only with a glance', () => {
-    const withGlance = renderToStaticMarkup(
-      <NoteGlyph
-        destination="seasons"
-        seasonGlance={{ number: 2, line: '12 days left' }}
-      />,
-    );
-    const without = glyph('seasons');
-    assert({
-      given: 'the Seasons note with a glance and without one',
-      should: 'carry the number and line only with one',
-      actual: [
-        withGlance.includes('>2</text>'),
-        withGlance.includes('12 days left'),
-        without.includes('<text'),
-        without.includes('note-glyph-reveal'),
-      ],
-      expected: [true, true, false, false],
     });
   });
 });

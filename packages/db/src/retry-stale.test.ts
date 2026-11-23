@@ -1,7 +1,7 @@
 import { createAppError, createRefusal } from '@daisy/errors';
 import { assertRejects } from '@daisy/errors/testing';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { retryStale } from './retry-stale';
+import { retryStale } from './tx';
 
 setupRitewayBun();
 

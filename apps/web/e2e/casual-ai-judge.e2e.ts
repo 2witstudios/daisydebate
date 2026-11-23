@@ -4,7 +4,7 @@ import { execFile } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { expect, test, openPage } from './support/fixtures';
 import { readRoomBotRoster } from './support/ai-cast';
-import { resetRateLimits, signUpMember, origin } from './support/accounts';
+import { resetRateLimits, signUpBotDebater, origin } from './support/accounts';
 import { reread } from './support/room-launch-flow';
 
 const withdrawGrant = (username: string) =>
@@ -35,7 +35,7 @@ test('a member without the casual AI judge practises with a person judging, and 
   });
   try {
     await resetRateLimits(context.request);
-    const { username } = await signUpMember(context.request);
+    const { username } = await signUpBotDebater(context.request);
     await withdrawGrant(username);
     const page = await openPage(context, 'Casual host without the AI judge');
     const roster = await readRoomBotRoster(page.request);

@@ -1,3 +1,4 @@
+import { openWebDatabase } from '../src/server/database';
 import { hostWaits } from '@daisy/worker/host';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { createId } from '@paralleldrive/cuid2';
@@ -28,7 +29,6 @@ const foundationToRules = (
     },
   };
 };
-import { createDatabase } from '@daisy/db';
 import { buildUserInboxTopic } from '@daisy/protocol/topics';
 import { createPasskeyFlows } from './auth-passkey-flows';
 import {
@@ -186,7 +186,7 @@ describe('AUTH-5.4 recover from a lost passkey through verified email', () => {
     // the username claim above already provisioned this account's human
     // actor in the same transaction (ACTOR-1), so the fixture only reads it
     // to give the account debate history to prove unchanged.
-    const database = createDatabase({
+    const database = openWebDatabase({
       waits: hostWaits,
       url: testDatabaseUrl as string,
       nextActorId: createId,

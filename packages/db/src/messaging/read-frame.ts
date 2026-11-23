@@ -19,8 +19,7 @@ import {
   messagingActorStates,
   messagingChannelStreams,
 } from '../schema/messaging-channels';
-import { messageRecord } from './message-record';
-import type { MessagingCounters } from './records';
+import type { MessagingCounters, MessagingMessageRecord } from './records';
 import type { Tx } from '../tx';
 
 const requirePageLimit = (limit: number) => {
@@ -316,3 +315,20 @@ export function channelReadFrame(
     },
   };
 }
+
+export const messageRecord = (
+  row: typeof messagingMessages.$inferSelect,
+): MessagingMessageRecord => ({
+  id: row.id,
+  channelId: row.channelId,
+  authorActorId: row.authorActorId,
+  sequence: row.sequence,
+  changeVersion: row.changeVersion,
+  text: row.text,
+  createdAt: row.createdAt.toISOString(),
+  editedAt: row.editedAt?.toISOString() ?? null,
+  removedAt: row.removedAt?.toISOString() ?? null,
+  ...(row.replyToMessageId === null
+    ? {}
+    : { replyToMessageId: row.replyToMessageId }),
+});

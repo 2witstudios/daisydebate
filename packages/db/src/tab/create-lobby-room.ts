@@ -2,7 +2,10 @@ import { createAppError, createRefusal } from '@daisy/errors';
 import type { FormatDefinition } from '@daisy/protocol/format';
 import type { EntitlementGrant } from '@daisy/protocol/entitlements';
 import type { LobbyCommand } from '@daisy/protocol/lobby/lobby-setup-command';
-import type { LobbyAgeRule } from '@daisy/protocol/lobby/eligibility';
+import {
+  mayHostStandingRoom,
+  type LobbyAgeRule,
+} from '@daisy/protocol/lobby/eligibility';
 import type {
   ActionHistoryEntry,
   LobbyCommandReceipt,
@@ -12,7 +15,7 @@ import { readDatabaseTime } from '../database-clock';
 import { readFormatSelectionFacts } from '../format-operations';
 import { readEntitlementGrants } from '../entitlement-grants';
 import { assembleRoom } from '../room-assembly';
-import { mayHostStandingRoom, readRoomCreator } from '../room-creator';
+import { readRoomCreator } from '../room-creator';
 import { recordCaptureNotice } from '../agreement-signatures';
 import {
   lockCommand,

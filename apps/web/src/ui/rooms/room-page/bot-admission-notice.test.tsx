@@ -1,6 +1,6 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { renderToStaticMarkup } from 'react-dom/server';
 import type { RoomView } from '@daisy/protocol/room-contract';
+import { renderAccessible } from '../../../test-support/rendered/accessible';
 import { BotAdmissionNotice } from './bot-admission-notice';
 setupRitewayBun();
 
@@ -15,34 +15,47 @@ const allowance = (
   refusal,
 });
 const render = (admission: RoomView['botAdmission']) =>
-  renderToStaticMarkup(<BotAdmissionNotice admission={admission} />);
-const words = (html: string) =>
-  html.replace(/<[^>]*>/g, ' ').replace(/&#?\w+;/g, ' ');
+  renderAccessible(<BotAdmissionNotice admission={admission} />);
+/** What a render says and links to: nothing at all reads as ['', []]. */
+const said = (admission: RoomView['botAdmission']) => {
+  const view = render(admission);
+  return [view.textContent(), view.names('link')];
+};
 
 test('a bot-debater cast that can start says nothing and never counts', () => {
   assert({
     given: 'a host whose bot Round is admitted',
     should:
       'render nothing: no remaining count, no period, no reservation copy',
-    actual: render(allowance(null)),
-    expected: '',
+    actual: said(allowance(null)),
+    expected: ['', []],
   });
 });
 
-test('a free account past its one bot Round sees the upgrade panel in place', () => {
-  const html = render(allowance('free-limit-reached'));
+test('a free account past its one bot Round is pointed to a person, never to Premium', () => {
+  const view = render(allowance('free-limit-reached'));
+  const html = view.text('status');
   assert({
     given: 'a free host starting a second bot Round',
     should:
-      'show the Premium panel with Get Premium and Find a person, and no number',
+      'say the free bot Round is used and link Find a person, with no Premium offer and no number',
     actual: [
       html.includes('Your free bot Round is used'),
-      html.includes('Premium gives you unlimited bot Rounds.'),
-      html.includes('href="/premium"'),
-      html.includes('Find a person'),
-      /\d/.test(words(html)),
+      /premium|unlimited/i.test(view.textContent()),
+      view.attribute('link', 'Find a person', 'href'),
+      view.names('link'),
+      /\d/.test(view.textContent()),
     ],
-    expected: [true, true, true, true, false],
+    expected: [true, false, '/play', ['Find a person'], false],
+  });
+});
+
+test('a host without the bot-debates release reads coming soon and nothing to buy', () => {
+  assert({
+    given: 'a bot-debater cast whose host has bot debates unreleased',
+    should: 'say only that bot debates are coming soon, with no link',
+    actual: said({ kind: 'coming-soon' }),
+    expected: ['Bot debates are coming soon.', []],
   });
 });
 
@@ -57,14 +70,18 @@ test('each other refusal says why a bot-debater round cannot start, never a coun
     given: 'an ineligible host, the daily ceiling, busy and unavailable bots',
     should: 'name the actual reason, never as an upsell or a number',
     actual: cases.map(([given, admission]) => {
-      const html = render(admission);
+      const view = render(admission);
+      const html = view.text('status');
       return [
         given,
         html.includes('because access is unavailable'),
         html.includes('fair-use ceiling'),
         html.includes('bots are busy, try again shortly'),
         html.includes('bots are unavailable'),
-        html.includes('href="/premium"') || /\d/.test(words(html)),
+        view
+          .all('link')
+          .some((link) => link.getAttribute('href') === '/premium') ||
+          /\d/.test(view.textContent()),
       ];
     }),
     expected: [
@@ -77,8 +94,8 @@ test('each other refusal says why a bot-debater round cannot start, never a coun
   assert({
     given: 'no host-only admission metadata',
     should: 'reveal nothing',
-    actual: render(null),
-    expected: '',
+    actual: said(null),
+    expected: ['', []],
   });
 });
 
@@ -87,9 +104,13 @@ test('renewal grace links to billing while busy bots never do', () => {
     given: 'renewal grace or shared bot capacity',
     should: 'offer billing management only for grace',
     actual: [
-      render(allowance('renewal-grace')).includes('href="/settings/billing"'),
-      render(allowance('capacity')).includes('href="/settings/billing"'),
+      render(allowance('renewal-grace'))
+        .all('link')
+        .map((link) => link.getAttribute('href')),
+      render(allowance('capacity'))
+        .all('link')
+        .map((link) => link.getAttribute('href')),
     ],
-    expected: [true, false],
+    expected: [['/settings/billing'], []],
   });
 });

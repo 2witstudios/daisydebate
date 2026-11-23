@@ -3,10 +3,8 @@ import { evaluateContextChannelPermits } from './context-channel-permits';
 import { loadAccountPolicyFacts } from '@daisy/auth/account-policy-facts';
 import { bindAuthorizationAgeFact } from '@daisy/db/account-age';
 import { loadAuthorizationSessions } from '@daisy/db/authorization';
-import type {
-  ChannelObservationReads,
-  RealtimeAuthorityReads,
-} from '@daisy/db';
+import type { ChannelObservationReads } from '@daisy/db/stores/channel-observation';
+import type { RealtimeAuthorityReads } from '@daisy/db/stores/realtime-authority';
 import { isAppError } from '@daisy/errors';
 import {
   channelMessagesWindow,

@@ -1,7 +1,11 @@
 import { createElement as h } from 'react';
-import { renderToString } from 'react-dom/server';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { contextChatIdle } from '../../features/messaging/context-chat/form-state';
+import {
+  accessibleWithin,
+  renderAccessible,
+  type AccessibleView,
+} from '../../test-support/rendered/accessible';
 import { ContextChatMessages } from './chat-messages';
 
 setupRitewayBun();
@@ -41,24 +45,26 @@ const props = {
   reportAction: action,
   refresh: () => {},
 };
-const names = (html: string) =>
-  [...html.matchAll(/<p class="font-strong">(.*?)<\/p>/g)].map((match) =>
-    match[1]!.replace(/<[^>]+>|<!-- -->/g, ''),
-  );
+/** Each message's first line: who wrote it, and the seat the page names. */
+const names = (view: AccessibleView) =>
+  view
+    .within('list', props.label)
+    .all('listitem')
+    .map((item) => accessibleWithin(item).all('paragraph')[0]?.textContent);
 
 test('a thread names each author and nothing more by default', () => {
-  const html = renderToString(h(ContextChatMessages, props));
+  const view = renderAccessible(h(ContextChatMessages, props));
   assert({
     given: 'own, labelled and unlabelled authors with no page label',
     should:
       'show You, the username and the context’s words for an unnamed author, in order, under the list’s name',
-    actual: [names(html), html.includes('aria-label="Room chat messages"')],
+    actual: [names(view), view.has('list', 'Room chat messages')],
     expected: [['You', 'grace', 'A member'], true],
   });
 });
 
 test('a thread shows what the page says about an author beside their name', () => {
-  const html = renderToString(
+  const view = renderAccessible(
     h(ContextChatMessages, {
       ...props,
       authorLabel: (id: string) =>
@@ -73,20 +79,23 @@ test('a thread shows what the page says about an author beside their name', () =
     given: 'a page that may name two of the three authors’ seats',
     should:
       'add the seat to those two and leave the third exactly as a member with none',
-    actual: names(html),
+    actual: names(view),
     expected: ['You · Affirmative 1 · host', 'grace · Judge', 'A member'],
   });
 });
 
 test('a thread mints its form ids under its own prefix', () => {
-  const html = renderToString(h(ContextChatMessages, props));
+  const view = renderAccessible(h(ContextChatMessages, props));
+  const ids = [...view.all('textbox'), ...view.all('button')].map(
+    (element) => element.id,
+  );
   assert({
     given: 'a Room chat thread with an own message',
     should: 'name the edit field for that chat, never another’s',
     actual: [
-      html.includes(`id="room-chat-edit-${props.messages[0]!.id}"`),
-      html.includes('floor-'),
+      view.attribute('textbox', 'Edit message', 'id'),
+      ids.some((id) => id.startsWith('floor-')),
     ],
-    expected: [true, false],
+    expected: [`room-chat-edit-${props.messages[0]!.id}`, false],
   });
 });

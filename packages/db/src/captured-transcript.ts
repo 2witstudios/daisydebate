@@ -4,7 +4,7 @@ import { createAppError } from '@daisy/errors';
 import { eq, sql } from 'drizzle-orm';
 import { updateCaptureStream } from './capture-stream-update';
 import type { z } from 'zod';
-import type { captureClipSchema } from './capture-input';
+import type { captureClipSchema } from './media-capture';
 import {
   captureHistory,
   advanceTranscriptRevision,
@@ -15,10 +15,10 @@ import {
   freshCaptureMutation,
   validCaptureIds,
   type CaptureDependencies,
+  clipDigests,
 } from './media-capture-context';
 import { transcriptSegments } from './schema/transcript-segments';
 import { utterances } from './schema/utterances';
-import { clipDigests } from './capture-rules';
 import type { Tx } from './tx';
 
 type Clip = z.infer<typeof captureClipSchema>;

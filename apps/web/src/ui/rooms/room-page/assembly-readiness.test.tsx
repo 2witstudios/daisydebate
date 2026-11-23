@@ -1,6 +1,5 @@
 import { Announcement } from '../../components/announcement/announcement';
 import { Button } from '../../components/button/button';
-import { renderToStaticMarkup } from 'react-dom/server';
 import { AssemblyCommandForm } from './assembly-command-form';
 import { idle } from '../../../features/forms/form-state';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
@@ -13,6 +12,7 @@ import {
 import { ContentWaiverForm } from './content-waiver-form';
 import { twoSides } from '@daisy/protocol/seats';
 import { PopoverDialog } from '../../components/popover/popover-dialog';
+import { renderAccessible } from '../../../test-support/rendered/accessible';
 
 setupRitewayBun();
 const base = {
@@ -500,10 +500,10 @@ describe('the tile’s one button (ADR 0145)', () => {
       turnedOn += 1;
     };
     const unchecked = ReadyControl({ ...props, view: debater, turnOnDevices });
-    const before = renderToStaticMarkup(<>{unchecked}</>);
+    const before = renderAccessible(<>{unchecked}</>);
     const button = byText(unchecked, Button, 'Turn on camera and mic');
     (button?.props as { onClick?: () => void } | undefined)?.onClick?.();
-    const after = renderToStaticMarkup(
+    const after = renderAccessible(
       <>
         {ReadyControl({
           ...props,
@@ -513,7 +513,7 @@ describe('the tile’s one button (ADR 0145)', () => {
         })}
       </>,
     );
-    const judge = renderToStaticMarkup(
+    const judge = renderAccessible(
       <>{ReadyControl({ ...props, turnOnDevices })}</>,
     );
     assert({
@@ -523,15 +523,15 @@ describe('the tile’s one button (ADR 0145)', () => {
         'offer Turn on camera and mic in place of I’m ready, then I’m ready, and never ask a judge for devices',
       actual: {
         before: [
-          before.includes('Turn on camera and mic'),
-          before.includes('I’m ready'),
+          before.has('button', 'Turn on camera and mic'),
+          before.has('button', 'I’m ready'),
         ],
         turnedOn,
         after: [
-          after.includes('Turn on camera and mic'),
-          after.includes('I’m ready'),
+          after.has('button', 'Turn on camera and mic'),
+          after.has('button', 'I’m ready'),
         ],
-        judge: judge.includes('Turn on camera and mic'),
+        judge: judge.has('button', 'Turn on camera and mic'),
       },
       expected: {
         before: [true, false],
@@ -572,9 +572,9 @@ for (const standing of ['not-ready', 'ready'] as const) {
         action(pending)?.props.disabled,
         action(initialized)?.props.disabled ?? false,
         Boolean(byText(pending, Button, 'Not ready')),
-        renderToStaticMarkup(<>{pending}</>).includes(
-          'Check your camera and microphone before readying.',
-        ),
+        renderAccessible(<>{pending}</>)
+          .textContent()
+          .includes('Check your camera and microphone before readying.'),
       ],
       expected: [true, true, false, standing === 'ready', false],
     });

@@ -1,6 +1,10 @@
 import { seatKinds } from '@daisy/protocol/seats';
 import { listedWord } from './lifecycle-sql';
-import { createAppError, createRefusal } from '@daisy/errors';
+import {
+  createAppError,
+  createRefusal,
+  createInvariantError,
+} from '@daisy/errors';
 import {
   type DebaterStanding,
   type PlannedRatingChange,
@@ -13,14 +17,8 @@ import type {
   RateDebateResult,
   RatingDecision,
 } from './rating-facts';
-import {
-  assertRoundRatingIntegrity,
-  projectionLockOrder,
-  ratedResult,
-  ratingChangeRows,
-} from './rating-decisions';
 import { readRatingFacts } from './rating-discovery';
-import { retryStale } from './retry-stale';
+import { retryStale, inTransaction, type Tx, type TxSource } from './tx';
 import { seatOfColumns } from './seat-columns';
 import { roundParticipants } from './schema/round-participants';
 import { rounds } from './schema/rounds';
@@ -29,11 +27,10 @@ import { seasons } from './schema/seasons';
 import { lobbies } from './schema/lobbies';
 import { seasonStandingRules } from './schema/sanctions';
 import { scopeTransaction } from './tenant-scope';
-
-import { inTransaction, type Tx, type TxSource } from './tx';
 import { takeLock, transactionLocks } from './locks';
 import { query } from './raw-rows';
 import { z } from 'zod';
+import type { RatingPlan } from '@daisy/protocol/ratings';
 
 /** A projection moved under a concurrent debate: retry from fresh facts. */
 class StaleProjection extends Error {}
@@ -263,3 +260,69 @@ export async function rateCompletedRound(
       ),
   );
 }
+
+/** Validate the frozen pool before calculating a posting. */
+export function assertRoundRatingIntegrity(round: {
+  readonly competitionType: string;
+  readonly presetVersion: unknown;
+  readonly ratingLobbyId: string | null;
+  readonly ladderId: string | null;
+  readonly seasonId: string | null;
+}): void {
+  const poolKeys = [round.ratingLobbyId, round.ladderId, round.seasonId];
+  const ranked = round.competitionType === 'ranked';
+  if (
+    ranked !== (round.presetVersion !== null) ||
+    (poolKeys.some((key) => key === null) &&
+      (ranked || poolKeys.some((key) => key !== null)))
+  )
+    throw createInvariantError(
+      'round.rating.integrity',
+      'The frozen rating pool and preset must match the Round',
+    );
+}
+
+/** Ledger rows for one plan, both written in the same transaction. */
+export const ratingChangeRows = (
+  plan: RatingPlan,
+  scope: { readonly roundId: string; readonly formatId: string },
+) =>
+  plan.changes.map((change) => ({
+    formatId: scope.formatId,
+    seasonId: plan.scope.seasonId,
+    ladder: plan.scope.ladderId,
+    lobbyId: plan.scope.lobbyId,
+    id: change.changeId,
+    roundId: scope.roundId,
+    actorId: change.actorId,
+    ratingBefore: change.before.rating,
+    ratingAfter: change.after.rating,
+    deviationBefore: change.before.deviation,
+    deviationAfter: change.after.deviation,
+    volatilityBefore: change.before.volatility,
+    volatilityAfter: change.after.volatility,
+    calculationVersion: plan.calculationVersion,
+    occurredAt: new Date(plan.occurredAt),
+  }));
+
+/**
+ * Stable actor order: two rounds between the same pair with sides swapped
+ * would otherwise lock the two projections in opposite orders and deadlock.
+ */
+export const projectionLockOrder = <C extends { readonly actorId: string }>(
+  changes: readonly C[],
+): C[] =>
+  [...changes].sort((a, b) =>
+    a.actorId < b.actorId ? -1 : a.actorId > b.actorId ? 1 : 0,
+  );
+
+export const ratedResult = (plan: RatingPlan): RateDebateResult => ({
+  kind: 'rated',
+  scope: plan.scope,
+  changes: plan.changes.map(({ changeId, actorId, before, after }) => ({
+    id: changeId,
+    actorId,
+    before,
+    after,
+  })),
+});

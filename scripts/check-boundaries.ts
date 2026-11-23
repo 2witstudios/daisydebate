@@ -1,4 +1,4 @@
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { readdir } from 'node:fs/promises';
 import { resolve, relative, dirname } from 'node:path';
 import ts from 'typescript';
@@ -10,6 +10,13 @@ import {
   repositorySources,
 } from './protocol-root';
 import { moduleLoads } from './module-loads';
+import { pureDatabaseModuleIssue } from './database-decisions';
+import {
+  databaseBarrel,
+  databasePackage,
+  databaseRootExportIssue,
+  databaseRootReferences,
+} from './database-root';
 import { trackedFiles } from './tracked-files';
 import { flagBoundaryProblems } from './flag-boundaries';
 import { flagCatalogue } from '../apps/web/src/features/flags/catalogue';
@@ -69,6 +76,12 @@ const rootExport = protocolRootExportIssue(
 if (rootExport) issues.push(rootExport);
 if (existsSync(resolve(root, protocolBarrel)))
   issues.push(`${protocolBarrel}: protocol has no root barrel`);
+const databaseRootExport = databaseRootExportIssue(
+  byName.get(databasePackage)?.manifest.exports,
+);
+if (databaseRootExport) issues.push(databaseRootExport);
+if (existsSync(resolve(root, databaseBarrel)))
+  issues.push(`${databaseBarrel}: the database package has no root barrel`);
 for (const path of trackedFiles(root).filter(
   (file) => file === 'package.json' || file.endsWith('/package.json'),
 )) {
@@ -110,6 +123,20 @@ for (const { path, source } of repositorySources(root)) {
       `${path}:${line + 1}: import a protocol owner subpath instead of ${specifier.text}`,
     );
   }
+  for (const { specifier } of databaseRootReferences(path, source)) {
+    const { line } = specifier
+      .getSourceFile()
+      .getLineAndCharacterOfPosition(specifier.getStart());
+    issues.push(
+      `${path}:${line + 1}: open @daisy/db/resources and compose @daisy/db/stores/* instead of ${specifier.text} (R4.5)`,
+    );
+  }
+  const pureDatabaseModule = pureDatabaseModuleIssue(path, source, (file) =>
+    existsSync(resolve(root, file))
+      ? readFileSync(resolve(root, file), 'utf8')
+      : undefined,
+  );
+  if (pureDatabaseModule) issues.push(pureDatabaseModule);
 }
 const flagSources = new Map<string, string>();
 /** The text of an identifier, string or JSX text node: what the reserved-word check reads. */

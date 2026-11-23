@@ -1,9 +1,22 @@
+import { createOnboardingStore } from '../src/stores/onboarding';
+import { openDatabaseResources } from '../src/resources';
 import { hostWaits } from '@daisy/worker/host';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { createDatabase } from '../src';
 import { withFixture, type Fixture } from './constraint-helpers';
 import { requireTestServices } from '@daisy/config';
+/** This file's database: the area stores it reads, over one set of resources. */
+const openStores = (
+  options: Parameters<typeof openDatabaseResources>[0] & {
+    readonly nextActorId: () => string;
+  },
+) => {
+  const resources = openDatabaseResources(options);
+  return {
+    ...createOnboardingStore(resources, { nextId: options.nextActorId }),
+    close: resources.close,
+  };
+};
 
 setupRitewayBun();
 
@@ -32,7 +45,7 @@ describe('claimUsername creates the human actor (ACTOR-1, ADR 0029)', () => {
       const claimed = await provisionalUser(fixture);
       const newcomer = await provisionalUser(fixture);
       const name = `claim-${claimed.userId}`;
-      const database = createDatabase({
+      const database = openStores({
         waits: hostWaits,
         url,
         nextActorId: () => claimed.actorId,
@@ -79,7 +92,7 @@ describe('claimUsername creates the human actor (ACTOR-1, ADR 0029)', () => {
   test('a claim inserts a human actor row using the injected id source', async () => {
     await withFixture(url, async (fixture) => {
       const { userId, actorId } = await provisionalUser(fixture);
-      const database = createDatabase({
+      const database = openStores({
         waits: hostWaits,
         url,
         nextActorId: () => actorId,
@@ -116,12 +129,12 @@ describe('claimUsername creates the human actor (ACTOR-1, ADR 0029)', () => {
       fixture.track('actors', secondActorId);
       await fixture.insert('users', { id: userId, username: null });
       const username = `claimed-${userId}`;
-      const first = createDatabase({
+      const first = openStores({
         waits: hostWaits,
         url,
         nextActorId: () => firstActorId,
       });
-      const second = createDatabase({
+      const second = openStores({
         waits: hostWaits,
         url,
         nextActorId: () => secondActorId,
@@ -172,7 +185,7 @@ describe('claimUsername creates the human actor (ACTOR-1, ADR 0029)', () => {
           for each row execute function "${trigger}"();
       `);
       await fixture.insert('users', { id: userId, username: null });
-      const database = createDatabase({
+      const database = openStores({
         waits: hostWaits,
         url,
         nextActorId: () => actorId,
@@ -216,7 +229,7 @@ describe('claimUsername creates the human actor (ACTOR-1, ADR 0029)', () => {
       // only writer of both together.
       const preexistingActorId = await fixture.actor(userId);
       const newActorId = createId();
-      const database = createDatabase({
+      const database = openStores({
         waits: hostWaits,
         url,
         nextActorId: () => newActorId,
@@ -249,7 +262,7 @@ describe('claimUsername creates the human actor (ACTOR-1, ADR 0029)', () => {
         id: userId,
         username: `already-${userId}`,
       });
-      const database = createDatabase({
+      const database = openStores({
         waits: hostWaits,
         url,
         nextActorId: () => actorId,
@@ -276,7 +289,7 @@ describe('claimUsername creates the human actor (ACTOR-1, ADR 0029)', () => {
   test('a completed claim also sets users.name to the claimed username (ISSUE-167)', async () => {
     await withFixture(url, async (fixture) => {
       const { userId, actorId } = await provisionalUser(fixture);
-      const database = createDatabase({
+      const database = openStores({
         waits: hostWaits,
         url,
         nextActorId: () => actorId,

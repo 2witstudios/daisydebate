@@ -1,10 +1,9 @@
 import { roomVisibilities } from '@daisy/protocol/room-contract';
 import { listedWord } from './lifecycle-sql';
 import { sql } from 'drizzle-orm';
-import { run, query } from './raw-rows';
+import { run, query, exportRows } from './raw-rows';
 import { instrumented, type DatabaseEventSink } from './instrumented';
 import type { PrivacyAdopter } from './privacy/contracts';
-import { exportRows } from './privacy/export-rows';
 import {
   factReleasedSql,
   roundAliasR,

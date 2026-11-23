@@ -2,7 +2,7 @@ import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { refuseCapacity } from '@daisy/db/testing';
 import { createBotGeneration } from './generation';
 import { inertWaits } from '../../lib/manual-waits.test-support';
-import { scope } from './speaker.test-support';
+import { scope } from './bot-scope.test-support';
 setupRitewayBun();
 
 /** Synthesizes one phrase through a generation over the given store and a fixed voice. */

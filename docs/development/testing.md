@@ -267,6 +267,11 @@ report in CI's advisory job) is the live audit:
   walk over the moves each state allows. Each run has a fixed seed and
   reports its shrunk failure. The round engine's oracle,
   `scripts/round-oracle.test.ts`, walks the public runtime in every format.
+  The bot's walks (`round-bots/bot-walks.test.ts`) and its corpus
+  (`round-bots/bot-corpus.test.ts`, logs under `round-bots/corpus/`,
+  rewritten only by `GOLDEN_UPDATE=1`) drive the real speaker and publisher
+  at the bot's edge; `bun bots:sabotage` shows which net catches each named
+  mutation (ADR 0920).
 - **Size and complexity.** `bun metrics` reports each file's size, churn and
   complexity. They are not lint rules: `bun lint` prints errors only, so a
   line of its output is always something to fix.
@@ -420,30 +425,58 @@ image lacks (ISSUE-92).
 ## UI component tests
 
 UI under `apps/web/src/ui/` is Tier 1: tests sit next to the component as
-`<name>.test.tsx`. Pure functions and `react-dom/server`'s `renderToString`
-are the default: assert behavior (landmarks, accessible names, link targets,
-store-driven content) rather than markup snapshots. `bun test src` runs them,
-and `bun evidence` counts them in the unit tier and orphan-checks them like
-any `*.test.ts` suite.
+`<name>.test.tsx`. `bun test src` runs them, and `bun evidence` counts them
+in the unit tier and orphan-checks them like any `*.test.ts` suite.
+
+A component test reads what it rendered by role and accessible name, the
+way assistive technology reads it ([ADR 0919](../decisions/0919-client-drivers-and-role-queries.md)).
+`renderAccessible(node)` from `apps/web/src/test-support/rendered/accessible.ts`
+server-renders an element and answers `get(role, name?, states?)` (one
+element; none or several throws), `has`, `count`, `names(role)`,
+`text(role, name)`, `attribute(role, name, attr)`, `within(role, name)` and
+`textContent()`. `accessibleWithin(element)` reads a mounted container the
+same way. Ask for the role a reader meets (`button`, `link`, `dialog`,
+`status`, `alert`, `heading` with `{ level }`, `region`, `navigation`) and
+its exact name; states (`pressed`, `checked`, `expanded`, `current`,
+`selected`, `hidden: true`) narrow it. A name that matches two elements is
+a defect in the page or the test: scope with `within`, never loosen the
+name to dodge it.
+
+Test code never holds rendered HTML as a string: `rendered-markup/through-roles`
+refuses `react-dom/server` and `react-dom/static` by any spelling and reads
+of `innerHTML` or `outerHTML` in tests and test support. A test whose
+subject is the markup itself (a design-system class contract, decorative
+SVG geometry, responsive visibility classes, a head tag, the document
+shell) lives in `apps/web/src/markup-contracts/`, says why in its header,
+and reads HTML through `renderMarkup` from `test-support/rendered/markup.ts`.
 
 For asynchronous client lifecycles that need mounted React, use
 `ui/test-support/browser-client.test-support.ts`: it bundles the real client
 into an isolated VM with its own `happy-dom` window and React root. Inject
-fetch, timers and other resources into that realm; never replace the test
-runner's globals. Use React `act`, unmount the root and dispose the window
-in `finally`. This narrow harness proves request/effect ordering, cleanup and
-DOM state changes. It does not prove native focus, layout, popovers, selection,
-CSP or browser behavior; those still need the real browser journeys below.
+fetch, timers and other resources into that realm (the window timers of
+`virtualBrowserTime` from `ui/test-support/virtual-browser-time.test-support.ts`
+run them on a virtual clock); never replace the test runner's globals. Use
+React `act`, unmount the root and dispose the window in `finally`. This
+narrow harness proves request/effect ordering, cleanup and DOM state
+changes. It does not prove native focus, layout, popovers, selection, CSP
+or browser behavior; those still need the real browser journeys below.
 
-- Styling is Tailwind utilities written in the markup (ADR 0028), so
-  `renderToString` output contains the literal classes. Variant props (button
-  variant, badge tone, avatar size, tile tint, presence) are pure functions
-  from props to a class string in `<name>-class.ts`; test them with RITEway
-  by asserting the literal classes for every variant. Do not assert on
-  stylesheet text.
+A client state machine is a driver (`<name>-driver.ts`: no React, no DOM
+global, ports as arguments, `readSnapshot`/`subscribe`/`dispose`), tested
+without a DOM on `@daisy/clock/testing`'s virtual clock with
+`virtualBrowserTime(clock).scheduler` as its timers. Its view's behaviour is
+pinned through the view's public surface in the mounted realm before a
+rewrite, and those tests pass before and after it.
+
+- Styling is Tailwind utilities written in the markup (ADR 0028). Variant
+  props (button variant, badge tone, avatar size, tile tint, presence) are
+  pure functions from props to a class string in `<name>-class.ts`; test
+  them with RITEway by asserting the literal classes for every variant. Do
+  not assert on stylesheet text.
 - Store-driven components read the store of the `UiStoreProvider` above
-  them. Render them with `renderInStore` (`ui/test-support/render-in-store.ts`),
-  or under a provider given `initialState`: each render gets its own store,
+  them. Render them with `renderInStore` (`ui/test-support/render-in-store.ts`,
+  which answers an accessible view), or under a provider given
+  `initialState`: each render gets its own store,
   so no test depends on another's state.
 - `next/link`, `next/image`, and `usePathname` render under plain
   `react-dom/server` (`usePathname` returns `null`).
@@ -672,12 +705,17 @@ inventory deterministically, longest estimated suites first, placing each on
 the least-loaded shard. No test is excluded. Files still run with
 `--parallel=1`, and Turbo still runs workspaces with `--concurrency=1`.
 
-`scripts/integration-timings.json` records sums of passing test durations
-from CI run 40812076331. These are scheduling estimates, not performance
-promises or cached test evidence: setup/teardown is not fully represented.
-New suites receive a 1000 ms weight, and stale entries cannot add or remove
-suites. Refresh estimates from successful CI logs when the work becomes
-unbalanced; retain the source run URL and review the data diff.
+`scripts/integration-timings.json` records, per suite, the median across its
+source CI runs of the sum of passing test durations. These are scheduling
+estimates, not performance promises or cached test evidence: setup/teardown
+is not fully represented. New suites receive a 1000 ms weight, and stale
+entries cannot add or remove suites. When the shards drift apart (compare the
+`test-integration: <workspace> shard N/4: K suites, M ms` lines), refresh from
+recent successful main runs with
+`bun scripts/refresh-integration-timings.ts <run-id>...`, which records the
+source run URLs, and review the data diff. Each workspace partitions on its own,
+so every one-suite workspace lands on shard 1; it runs about a minute and a
+half longer than the others.
 
 Without a shard selector, the runner executes the complete local inventory
 or the explicitly named suites exactly as before. Invalid selectors and

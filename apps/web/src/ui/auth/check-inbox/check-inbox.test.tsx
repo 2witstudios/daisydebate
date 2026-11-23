@@ -1,9 +1,8 @@
-import { renderToString } from 'react-dom/server';
 import { createElement as h } from 'react';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { Button } from '../../components/button/button';
 import { byText } from '../../test-support/find-elements';
-import { panelStageColours } from '../../test-support/stage-palette';
+import { renderAccessible } from '../../../test-support/rendered/accessible';
 import { CheckInbox, type CheckInboxProps } from './check-inbox';
 
 setupRitewayBun();
@@ -17,42 +16,45 @@ const props = (overrides: Partial<CheckInboxProps> = {}): CheckInboxProps => ({
   ...overrides,
 });
 
-const html = (overrides: Partial<CheckInboxProps> = {}) =>
-  renderToString(h(CheckInbox, props(overrides)));
+const render = (overrides: Partial<CheckInboxProps> = {}) =>
+  renderAccessible(h(CheckInbox, props(overrides)));
+
+const disabledButtons = (view: ReturnType<typeof render>) =>
+  view.all('button').filter((button) => button.hasAttribute('disabled'));
 
 describe('CheckInbox', () => {
   test('never confirms that an account exists', () => {
-    const page = html();
+    const view = render();
     assert({
       given: 'a sent link',
       should: 'hedge on delivery and name the limits',
       actual: [
-        page.includes('If <strong'),
-        page.includes('can<!-- --> receive email') ||
-          page.includes('can receive email'),
-        page.includes('expires') && page.includes('5 minutes'),
+        view.text('strong'),
+        view.textContent().includes('If jordan@lincoln.edu can receive email'),
+        view.textContent().includes('expires') &&
+          view.textContent().includes('5 minutes'),
       ],
-      expected: [true, true, true],
+      expected: ['jordan@lincoln.edu', true, true],
     });
   });
 
   test('counts down to the resend', () => {
-    const page = html();
+    const view = render();
     assert({
       given: '42 seconds left',
       should: 'show the countdown on a disabled resend button',
-      actual: [page.includes('Resend in 0:42'), page.includes('disabled=""')],
-      expected: [true, true],
+      actual: view.get('button', 'Resend in 0:42').hasAttribute('disabled'),
+      expected: true,
     });
   });
 
   test('offers the resend once the cooldown ends', () => {
-    const page = html({ resendInMs: 0 });
+    const view = render({ resendInMs: 0 });
     assert({
       given: 'no time left',
       should: 'enable the resend',
-      actual: [page.includes('Resend link'), page.includes('disabled=""')],
-      expected: [true, false],
+      actual: [view.has('button', 'Resend link'), disabledButtons(view).length],
+      expected: [true, 0],
     });
   });
 
@@ -76,16 +78,6 @@ describe('CheckInbox', () => {
       should: 'call both actions',
       actual: calls,
       expected: ['resend', 'change'],
-    });
-  });
-
-  test('draws its brand panel in the page palette, not the stage ink', () => {
-    const page = html();
-    assert({
-      given: 'the brand panel beside the steps',
-      should: 'use no stage colour, which is cream on cream in light',
-      actual: panelStageColours(page),
-      expected: [],
     });
   });
 });

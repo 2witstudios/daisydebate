@@ -1,6 +1,6 @@
 import { judgeSeat } from '@daisy/protocol/seats';
 import { test, expect } from './support/fixtures';
-import { signUpMember, origin } from './support/accounts';
+import { signUpBotDebater, origin } from './support/accounts';
 import { readRoomBotRoster } from './support/ai-cast';
 import { reread } from './support/room-launch-flow';
 import { systemId } from '@daisy/clock';
@@ -26,7 +26,7 @@ const withdraw = async (name: 'ai-judge' | 'capture', user: string) => {
 test('locked features show the upgrade panel in place, keep native withdrawal and never count', async ({
   page,
 }, info) => {
-  const { username } = await signUpMember(page.request);
+  const { username } = await signUpBotDebater(page.request);
   await withdraw('ai-judge', username);
   const roster = await readRoomBotRoster(page.request),
     opponent = roster.find((b) => b.label === 'Wren' && b.aiRole === 'debater'),
@@ -72,7 +72,7 @@ test('locked features show the upgrade panel in place, keep native withdrawal an
     judgeNotice.getByRole('button', { name: 'Invite a judge', exact: true }),
   ).toBeVisible();
   const admission = view.botAdmission;
-  if (!admission || admission.kind === 'unavailable')
+  if (!admission || admission.kind !== 'allowance')
     throw Error('Expected current bot admission decision');
   // PYL-10: the Room carries only the decision, and the page shows no count.
   expect(Object.keys(admission).sort()).toEqual(['kind', 'refusal']);

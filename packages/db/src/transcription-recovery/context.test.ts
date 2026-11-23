@@ -1,5 +1,5 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { contextBoundary } from './context';
+import { contextBoundary } from './register';
 setupRitewayBun();
 const current = {
   sourceKey: 'a'.repeat(64),

@@ -5,34 +5,18 @@ import {
   permissions,
 } from '@daisy/protocol/lobby';
 import { listedWord } from './lifecycle-sql';
-import type { CompetitionType } from '@daisy/protocol/round';
 import {
-  mayDebate,
   type DebaterEligibility,
-  type LobbyAgeRule,
+  isMinorAgeBand,
 } from '@daisy/protocol/lobby/eligibility';
 import { sql } from 'drizzle-orm';
 import { clubOrganizationKinds } from './billing-owner-lock';
-import {
-  isMinorAgeBand,
-  readGuardianLobbyIds,
-} from './guardians/lobby-permissions';
+import { readGuardianLobbyIds } from './guardians/lobby-permissions';
 import { readCompetitionAgeBand } from './ladder-division-band';
 import { query } from './raw-rows';
 import { currentTenantScope, scopeTransaction } from './tenant-scope';
 import type { Tx } from './tx';
 import { z } from 'zod';
-
-export const mayHostStandingRoom = (
-  creator: DebaterEligibility & { readonly clubStaff: boolean },
-  lobby: {
-    readonly lobbyId: string;
-    readonly ageRule: LobbyAgeRule;
-    readonly competitionType: CompetitionType;
-  },
-): boolean =>
-  (creator.clubStaff && lobby.ageRule === 'under-18') ||
-  mayDebate(creator, lobby);
 
 /**
  * Who creates a Room, as its lobby is decided: their competition age band and

@@ -1,8 +1,8 @@
+import { openWebDatabase } from '../../src/server/database';
 import { hostWaits } from '@daisy/worker/host';
 import { SQL } from 'bun';
 import { z } from 'zod';
 import { createId } from '@paralleldrive/cuid2';
-import { createDatabase } from '@daisy/db';
 import { affirmativeSide, negativeSide } from '@daisy/protocol/seats';
 import { emptyRuntimeCheckpointFor } from '@daisy/protocol/round';
 import { idSchema, ratingStyles } from '@daisy/protocol/primitives';
@@ -20,7 +20,7 @@ const { username, rooms } = z
   .parse(JSON.parse(await Bun.stdin.text()));
 const url = betaAccessTarget(process.env);
 const sql = new SQL(url, { max: 1 });
-const database = createDatabase({
+const database = openWebDatabase({
   waits: hostWaits,
   url,
   nextActorId: createId,

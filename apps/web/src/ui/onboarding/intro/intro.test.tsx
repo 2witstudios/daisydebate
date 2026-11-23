@@ -1,11 +1,13 @@
 import { join } from 'node:path';
-import { renderToString } from 'react-dom/server';
 import { createElement as h } from 'react';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
+import {
+  renderAccessible,
+  type AccessibleView,
+} from '../../../test-support/rendered/accessible';
 import { destinationHref } from '../../../features/destinations/destinations';
 import { hostRoutes } from '../../../features/tab/routes';
 import { routeExists } from '../../test-support/route-exists';
-import { stageColourClasses } from '../../test-support/stage-palette';
 import { StylesStep } from './styles-step';
 import { DebateStep } from './debate-step';
 import { PracticeStep } from './practice-step';
@@ -24,26 +26,26 @@ const props: IntroStepProps = {
   skip: null,
 };
 
-const renderHtml = (element: Parameters<typeof renderToString>[0]) =>
-  renderToString(element).replaceAll('<!-- -->', '');
-
 const daisy = (tabReleased: boolean) =>
-  renderHtml(h(DaisyStep, { ...props, tabReleased }));
+  renderAccessible(h(DaisyStep, { ...props, tabReleased }));
 const host = (tabReleased: boolean) =>
-  renderHtml(h(HostStep, { ...props, tabReleased }));
-const styles = () => renderHtml(h(StylesStep, props));
-const debate = () => renderHtml(h(DebateStep, props));
-const practice = () => renderHtml(h(PracticeStep, props));
+  renderAccessible(h(HostStep, { ...props, tabReleased }));
+const styles = () => renderAccessible(h(StylesStep, props));
+const debate = () => renderAccessible(h(DebateStep, props));
+const practice = () => renderAccessible(h(PracticeStep, props));
 
-const text = (html: string) =>
-  html
-    .replace(/<[^>]+>/g, ' ')
-    .replace(/&#x27;/g, "'")
-    .replace(/&amp;/g, '&')
-    .replace(/\s+/g, ' ');
+/** A node's text with a space at every element edge, so cells read apart. */
+const spaced = (node: Node): string =>
+  node.nodeType === node.TEXT_NODE
+    ? (node.textContent ?? '')
+    : [...node.childNodes].map((child) => ` ${spaced(child)} `).join('');
 
-const hrefs = (html: string) =>
-  [...html.matchAll(/href="([^"]+)"/g)].map((match) => match[1] as string);
+/** The slide's words, element by element, as a reader moves through them. */
+const text = (view: AccessibleView) =>
+  spaced(view.get('dialog')).replace(/\s+/g, ' ');
+
+const hrefs = (view: AccessibleView) =>
+  view.all('link').map((link) => link.getAttribute('href') as string);
 
 /** A link's page, without its fragment, exists in the app router tree. */
 const resolves = (href: string) =>
@@ -61,8 +63,8 @@ const allSlides = () => [
 
 describe('DaisyStep', () => {
   test('three ways to use Daisy', () => {
-    const html = daisy(true);
-    const page = text(html);
+    const view = daisy(true);
+    const page = text(view);
     assert({
       given: 'the opening slide',
       should:
@@ -76,9 +78,8 @@ describe('DaisyStep', () => {
           page.indexOf('Run your league For leagues and hosts'),
         page.includes('1v1, about 45 min with prep'),
         page.includes('Online or in person'),
-        stageColourClasses(html),
       ],
-      expected: [true, true, true, true, true, true, []],
+      expected: [true, true, true, true, true, true],
     });
   });
 
@@ -113,8 +114,8 @@ describe('DaisyStep', () => {
 
 describe('StylesStep', () => {
   test('Freestyle and its draw', () => {
-    const html = styles();
-    const page = text(html);
+    const view = styles();
+    const page = text(view);
     assert({
       given: 'the second slide',
       should:
@@ -136,7 +137,7 @@ describe('StylesStep', () => {
       should:
         'match the example: as many resolutions as it draws, Neg striking first',
       actual: [
-        html.split('<del').length - 1 + 1,
+        view.count('deletion') + 1,
         freestylePreset.resolutionDraw.enabled &&
           freestylePreset.resolutionDraw.firstStriker,
       ],
@@ -146,7 +147,7 @@ describe('StylesStep', () => {
       given: 'the example draw',
       should: 'strike four resolutions, two by each side',
       actual: [
-        html.split('<del').length - 1,
+        view.count('deletion'),
         page.split('Aff struck').length - 1,
         page.split('Neg struck').length - 1,
       ],
@@ -157,29 +158,14 @@ describe('StylesStep', () => {
 
 describe('DebateStep', () => {
   test('the turn bar follows the engine', () => {
-    const html = debate();
-    const page = text(html);
-    assert({
-      given: 'the one-on-one turn table, its 1AR at 3:00 (DEC-234)',
-      should: 'draw seven segments as wide as they are long',
-      actual: [
-        ...html.matchAll(/basis-0 items-center[^"]*?(grow(?:-\d)?)/g),
-      ].map((match) => match[1]),
-      expected: [
-        'grow-5',
-        'grow-2',
-        'grow-6',
-        'grow-2',
-        'grow-3',
-        'grow-5',
-        'grow-3',
-      ],
-    });
+    const view = debate();
+    const page = text(view);
     assert({
       given: 'the bar',
       should: 'carry a text alternative naming every turn',
-      actual: html.includes(
-        'aria-label="Turn order: Aff Case 5 min, Neg questions 2 min, Neg Case 6 min, Aff questions 2 min, Aff Reply 3 min, Neg Reply 5 min, Aff Close 3 min"',
+      actual: view.has(
+        'list',
+        'Turn order: Aff Case 5 min, Neg questions 2 min, Neg Case 6 min, Aff questions 2 min, Aff Reply 3 min, Neg Reply 5 min, Aff Close 3 min',
       ),
       expected: true,
     });
@@ -204,12 +190,12 @@ describe('DebateStep', () => {
       (href) => !href.startsWith('/onboarding/'),
     );
     assert({
-      given: 'Practise a debate, Watch a debate and How ratings work',
+      given: 'Find a casual round, Watch a debate and How ratings work',
       should:
         'point at existing routes, How ratings work at Help’s ratings answer, which every member can reach',
       actual: [links, links.filter((href) => !resolves(href))],
       expected: [
-        [destinationHref('train'), destinationHref('watch'), '/help#ratings'],
+        [destinationHref('lobby'), destinationHref('watch'), '/help#ratings'],
         [],
       ],
     });
@@ -240,8 +226,8 @@ describe('PracticeStep', () => {
 
 describe('HostStep', () => {
   test('released', () => {
-    const html = host(true);
-    const page = text(html);
+    const view = host(true);
+    const page = text(view);
     assert({
       given: 'a viewer Daisy Tab is released to',
       should:
@@ -252,23 +238,23 @@ describe('HostStep', () => {
         page.includes('Your league'),
         page.includes('Your tournaments'),
         page.includes('in person at your venue'),
-        hrefs(html).includes('/tournaments'),
-        hrefs(html).some((href) => href.startsWith(hostRoutes.home)),
+        hrefs(view).includes('/tournaments'),
+        hrefs(view).some((href) => href.startsWith(hostRoutes.home)),
       ],
       expected: [true, true, true, true, true, true, false],
     });
   });
 
   test('not yet released', () => {
-    const html = host(false);
+    const view = host(false);
     assert({
       given: 'a viewer Daisy Tab is not released to',
       should:
         'tag it early access and lead to the Tournaments page, never the host area',
       actual: [
-        text(html).includes('Run your league Early access'),
-        hrefs(html).includes('/tournaments'),
-        hrefs(html).some((href) => href.startsWith(hostRoutes.home)),
+        text(view).includes('Run your league Early access'),
+        hrefs(view).includes('/tournaments'),
+        hrefs(view).some((href) => href.startsWith(hostRoutes.home)),
       ],
       expected: [true, true, false],
     });
@@ -280,8 +266,8 @@ describe('every intro slide', () => {
     assert({
       given: 'every slide',
       should: 'call it the resolution, never the motion or topic',
-      actual: allSlides().map((html) =>
-        /\b(motion|topic)s?\b/i.test(text(html)),
+      actual: allSlides().map((view) =>
+        /\b(motion|topic)s?\b/i.test(text(view)),
       ),
       expected: allSlides().map(() => false),
     });
@@ -292,8 +278,8 @@ describe('every intro slide', () => {
     assert({
       given: 'every slide',
       should: 'link only to existing routes, Back and Next as given',
-      actual: slides.map((html) => {
-        const links = hrefs(html);
+      actual: slides.map((view) => {
+        const links = hrefs(view);
         return [
           links.includes(props.backHref as string),
           links.includes(props.nextHref),

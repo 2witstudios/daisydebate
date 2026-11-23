@@ -1,14 +1,27 @@
+import { createOnboardingStore } from '../src/stores/onboarding';
+import { openDatabaseResources } from '../src/resources';
 import { requireTestServices } from '@daisy/config';
 import { admitsOptionalAnswers } from '@daisy/auth/account-age';
 import { withDatabase as onPool, type Fixture } from './constraint-helpers';
-import { createDatabase } from '../src';
 import type { OnboardingStepWrite } from '../src/onboarding-operations';
+/** This file's database: the area stores it reads, over one set of resources. */
+const openStores = (
+  options: Parameters<typeof openDatabaseResources>[0] & {
+    readonly nextActorId: () => string;
+  },
+) => {
+  const resources = openDatabaseResources(options);
+  return {
+    ...createOnboardingStore(resources, { nextId: options.nextActorId }),
+    close: resources.close,
+  };
+};
 
 export const { databaseUrl: url } = requireTestServices(process.env);
 
 /** This suite's database, over its own pool for each test. */
 export const withDatabase = <T>(
-  run: (database: ReturnType<typeof createDatabase>) => Promise<T>,
+  run: (database: ReturnType<typeof openStores>) => Promise<T>,
 ): Promise<T> => onPool(url, run);
 
 export const now = '2026-10-15T12:00:00.000Z';
@@ -37,7 +50,7 @@ export async function member<T>(
 }
 
 export const save = (
-  database: ReturnType<typeof createDatabase>,
+  database: ReturnType<typeof openStores>,
   ids: { userId: string; actorId: string },
   answers: OnboardingStepWrite,
   { completes = false, at = now } = {},

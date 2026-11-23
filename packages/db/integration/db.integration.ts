@@ -1,12 +1,34 @@
+import { createHealthStore } from '../src/stores/health';
+import { createRoundStore } from '../src/stores/rounds';
+import { openDatabaseResources } from '../src/resources';
 import { hostWaits } from '@daisy/worker/host';
 import { tryInstantMs } from '@daisy/clock';
-import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { requireTestServices } from '@daisy/config';
 import { isAppError } from '@daisy/errors';
-import { createDatabase } from '../src';
 import { roundAuthoring, withFixture } from './constraint-helpers';
 import { authoredRoundCommand } from './round-command.test-support';
+/** This file's database: the area stores it reads, over one set of resources. */
+const openStores = (
+  options: Parameters<typeof openDatabaseResources>[0] & {
+    readonly roundTime?: NonNullable<
+      Parameters<typeof createRoundStore>[1]
+    >['roundTime'];
+    readonly decisionRelease?: NonNullable<
+      Parameters<typeof createRoundStore>[1]
+    >['decisionRelease'];
+  },
+) => {
+  const resources = openDatabaseResources(options);
+  return {
+    ...createHealthStore(resources),
+    ...createRoundStore(resources, {
+      roundTime: options.roundTime,
+      decisionRelease: options.decisionRelease,
+    }),
+    close: resources.close,
+  };
+};
 
 setupRitewayBun();
 
@@ -29,10 +51,9 @@ test('durable rounds survive reconnect; optimistic executions reject stale write
         rules,
       });
       await database.close();
-      const reopened = createDatabase({
+      const reopened = openStores({
         waits: hostWaits,
         url,
-        nextActorId: createId,
       });
       try {
         const stored = await reopened.getRound(roundId);

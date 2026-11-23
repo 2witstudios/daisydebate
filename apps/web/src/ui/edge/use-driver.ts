@@ -38,14 +38,18 @@ function createHolder<T, D>(seed: T) {
   };
 }
 
-/** First render reads the server seed. After hydration the driver owns the snapshots. */
+/**
+ * First render reads the server seed. After hydration the driver owns the
+ * snapshots; `start` is handed that seed, so a driver begins from exactly
+ * what the page first showed.
+ */
 export function useDriver<T, D extends Driver<T>>(
   seed: () => T,
-  start: () => D,
+  start: (seeded: T) => D,
 ) {
   const [holder] = useState(() => createHolder<T, D>(seed()));
   useEffect(() => {
-    const running = start();
+    const running = start(holder.initial().state);
     const hold = () =>
       holder.hold({ state: running.readSnapshot(), driver: running });
     const stop = running.subscribe(hold);

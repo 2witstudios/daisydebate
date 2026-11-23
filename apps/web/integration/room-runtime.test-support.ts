@@ -1,3 +1,4 @@
+import { openWebDatabase } from '../src/server/database';
 import { hostWaits } from '@daisy/worker/host';
 import { decisionRelease as roundDecisionReleasePolicy } from '../src/features/notifications/decision-release';
 import { pinRankedFixturePool } from '@daisy/db/testing';
@@ -6,7 +7,6 @@ import { admitParticipants } from '@daisy/db/testing';
 import { createId } from '@paralleldrive/cuid2';
 import { systemId } from '@daisy/clock';
 import { requireTestServices } from '@daisy/config';
-import { createDatabase } from '@daisy/db';
 import { youthRoundLinkedAdults } from '@daisy/db/youth-live';
 import { createRedis, redisKey } from '@daisy/redis';
 import { createBoundedTestClient, testNamespace } from '@daisy/redis/testing';
@@ -24,12 +24,15 @@ import { foundationSelection } from './foundation-selection.test-support';
 import { aiAdmissionOptions } from '../src/features/round-runtime/worker-policy';
 
 import { drawEntropy } from '../src/features/room-runtime/entropy';
+import { createRequestFlagReader } from '../src/features/flags/reader';
+import { releaseAdmission } from '../src/features/flags/admission';
+import { grantReleaseOverride } from '../src/features/operator-api/flag-override.test-support';
 import { deleteOrphanNotificationSignals } from './notification-signals.test-support';
 const services = requireTestServices(process.env);
 export async function withRoomRuntime(
   run: (context: Awaited<ReturnType<typeof fixture>>) => Promise<void>,
   options: Pick<
-    Parameters<typeof createDatabase>[0],
+    Parameters<typeof openWebDatabase>[0],
     | 'client'
     | 'profile'
     | 'botAdmission'
@@ -52,7 +55,7 @@ export async function withRoomRuntime(
 }
 async function fixture(
   options: Pick<
-    Parameters<typeof createDatabase>[0],
+    Parameters<typeof openWebDatabase>[0],
     | 'client'
     | 'profile'
     | 'botAdmission'
@@ -71,7 +74,7 @@ async function fixture(
   // Refusal-only cases may never issue an adapter command; cleanup still scans its namespace.
   await client.connect();
   const redis = createRedis({ url: services.redisUrl, namespace, client });
-  const store = createDatabase({
+  const store = openWebDatabase({
     waits: hostWaits,
     decisionRelease: roundDecisionReleasePolicy,
     url: databaseUrl,
@@ -81,6 +84,19 @@ async function fixture(
     }),
     ...storeOptions,
   });
+  const flagCommands: string[] = [];
+  /** Turns bot debates on or off for one account through the operator command. */
+  const setBotDebates = async (userId: string, enabled: boolean) => {
+    flagCommands.push(
+      await grantReleaseOverride({
+        store,
+        key: 'bot-debates',
+        userId,
+        nextId: createId,
+        enabled,
+      }),
+    );
+  };
   const callers: { userId: string; actorId: string }[] = [],
     rooms: string[] = [],
     bots: string[] = [];
@@ -100,13 +116,18 @@ async function fixture(
     await sql`insert into ai_judge_profiles(actor_id,name) values (${actorId},'Fixture judge')`;
     return { actorId };
   };
-  const caller = async () => {
+  /**
+   * A Room caller, an admitted participant (ADR 0075); removing the user
+   * cascades. Bot debates are opened for them as an operator opens them for
+   * a real account (ADR 0921) unless the case is about an ordinary member.
+   */
+  const caller = async (options: { readonly botDebates?: boolean } = {}) => {
     const userId = createId(),
       actorId = createId();
     await sql`insert into users (id,username,email_verified) values (${userId},${`u-${userId}`},true)`;
     await sql`insert into actors (id,kind,user_id) values (${actorId},'human',${userId})`;
-    // Room callers are admitted participants (ADR 0075); removing the user cascades.
     await admitParticipants(sql, [userId]);
+    if (options.botDebates !== false) await setBotDebates(userId, true);
     const c = { userId, actorId };
     callers.push(c);
     return c;
@@ -142,6 +163,14 @@ async function fixture(
     readRoundYouth: store.readRoundYouth,
     people: store.readYouthRoundPeople,
   });
+  /** The display reader each request builds, against the real flag rows. */
+  const botDebatesReleased = (userId: string) =>
+    createRequestFlagReader({
+      read: store.readFlagSnapshot,
+      now: Date.now,
+      diagnostic: () => {},
+      releaseDefault: false,
+    })('bot-debates', userId);
   const operations = createRoomRuntimeOperations({
     linkedAdults,
     store,
@@ -150,6 +179,8 @@ async function fixture(
     entropy: drawEntropy,
     consentTtlMs: () => 60_000,
     aiSeats: () => ({ debater: true, judge: true }),
+    botDebatesReleased,
+    botRelease: releaseAdmission('bot-debates', false),
     betaGrantsPremium: true,
   });
   const operationsWithBotAvailability = (available: boolean) =>
@@ -161,6 +192,8 @@ async function fixture(
       entropy: drawEntropy,
       consentTtlMs: () => 60_000,
       aiSeats: () => ({ debater: available, judge: available }),
+      botDebatesReleased,
+      botRelease: releaseAdmission('bot-debates', false),
       betaGrantsPremium: true,
     });
   /** The proof format every Room suite builds on; off the picker (FMT-1), so custom. */
@@ -300,6 +333,7 @@ async function fixture(
     outsider,
     /** Another member, cleaned up with the rest. */
     member: caller,
+    setBotDebates,
     bot,
     aiJudge,
     create,
@@ -371,6 +405,17 @@ async function fixture(
           await sql`delete from actors where id=${c.actorId}`;
           await sql`delete from users where id=${c.userId}`;
         }
+        // Overrides went with their users. The receipts and change events
+        // the operator commands wrote go by command id: an erased account's
+        // flag receipts outlive the account (daisy_erase_flag_subject). The
+        // flag row goes once no suite holds one.
+        if (flagCommands.length > 0) {
+          await sql`delete from operator_command_receipts where command_id in ${sql(flagCommands)}`;
+          await sql`delete from flag_change_events where command_id in ${sql(flagCommands)}`;
+        }
+        await sql`delete from release_flags where key = 'bot-debates'
+          and not exists (select 1 from flag_account_overrides where key = 'bot-debates')
+          and not exists (select 1 from flag_change_events where key = 'bot-debates')`;
       } finally {
         await sql.close();
       }

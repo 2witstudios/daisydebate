@@ -1,4 +1,4 @@
-import type { RoomPolicy } from '../../src/features/room-runtime/composition';
+import type { RoomPolicy } from '../../src/features/room-runtime/room-policy';
 /** Local fixture choices only; importing this does not activate any process. */
 export const launchProofPolicy: RoomPolicy = {
   consentTtlMs: 600_000,

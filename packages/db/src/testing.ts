@@ -14,7 +14,7 @@ export { daisyOrganizationId, publicLobbyId } from './daisy-reference';
 export { validRules } from './testing-rules';
 export { seedRatingSeason } from './testing-rating-season';
 export { completeControlledStripeCleanup } from './testing-billing';
-export { completeControlledBillingPurchase } from './testing-billing-purchase';
+export { completeControlledBillingPurchase } from './testing-billing';
 export { fundTestClub } from './testing-club';
 export { atFinalJudgingStage, syntheticCaseMap } from './testing-judging';
 
@@ -137,12 +137,12 @@ export {
   approveBetaAccess,
   removeUnowedBetaDigests,
 } from './beta-access-testing';
-export { refuseCapacity } from './capacity-refusal';
+export { refuseCapacity } from './raw-rows';
 export {
   eraseRoomAccountClosure,
   exportRoomAccountClosure,
 } from './testing-room-account-closure';
-export { refuseFinalSpeech } from './bot-generation-rules';
+export { refuseFinalSpeech } from './bot-generation';
 
 /** The database boundary's failure wrapper, for composing refusal telemetry across packages. */
 export { instrumented } from './instrumented';

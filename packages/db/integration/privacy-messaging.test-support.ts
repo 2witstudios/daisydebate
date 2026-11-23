@@ -1,5 +1,5 @@
 import { accountAgePrivacyAdopter } from '../src/account-age';
-import { socialPrivacyAdoption } from '../src/social-privacy-composition';
+import { socialPrivacyAdoption } from '../src/privacy/subject-rights';
 import { createId } from '@paralleldrive/cuid2';
 import { eq } from 'drizzle-orm';
 import { actors } from '../src/schema/actors';

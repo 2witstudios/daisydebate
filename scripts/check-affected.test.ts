@@ -85,12 +85,20 @@ describe('partitionAffected', () => {
     });
   });
 
-  test('eslint config changes run the config tests', () => {
+  test('any change runs the eslint config tests', () => {
     assert({
-      given: 'a change to eslint.config.mjs',
-      should: 'run the eslint config test suite',
-      actual: partitionAffected(['eslint.config.mjs']).runEslintConfigTest,
-      expected: true,
+      given:
+        'a change to eslint.config.mjs, a deleted database source, an app change, a decision record, and no change',
+      should:
+        'run the eslint config suite for every change, since its fixtures lint real repository paths',
+      actual: [
+        ['eslint.config.mjs'],
+        ['packages/db/src/index.ts'],
+        ['apps/web/src/features/attendance/receipt-session.ts'],
+        ['docs/decisions/0001-bun.md'],
+        [],
+      ].map((files) => partitionAffected(files).runEslintConfigTest),
+      expected: [true, true, true, true, false],
     });
   });
 });
@@ -141,7 +149,8 @@ describe('planGates', () => {
     );
     assert({
       given: 'only a deleted workspace file',
-      should: 'run the repo-wide gates and turbo without file-based gates',
+      should:
+        'run the repo-wide gates, the eslint config tests and turbo without file-based gates',
       actual: gates.map(({ name }) => name),
       expected: [
         'boundaries',
@@ -149,6 +158,7 @@ describe('planGates', () => {
         'side literals',
         'lifecycle literals',
         'root script tests',
+        'eslint config tests',
         'turbo affected (typecheck, test)',
       ],
     });

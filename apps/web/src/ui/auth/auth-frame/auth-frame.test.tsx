@@ -1,70 +1,52 @@
-import { renderToString } from 'react-dom/server';
 import { createElement as h } from 'react';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
+import { renderAccessible } from '../../../test-support/rendered/accessible';
 import { AuthFrame, AuthHeading } from './auth-frame';
-import { panelStageColours } from '../../test-support/stage-palette';
 
 setupRitewayBun();
 
 describe('AuthFrame', () => {
   test('keeps the panel free of controls', () => {
-    const page = renderToString(
+    const view = renderAccessible(
       h(AuthFrame, {
         panel: { eyebrow: 'Why?', title: 'Because.', body: 'Details.' },
         footer: 'Footer line',
         children: h('button', { type: 'button' }, 'Act'),
       }),
     );
-    const panel = page.slice(page.indexOf('<aside'));
+    const panel = view.within('complementary');
     assert({
       given: 'a step with a button',
       should:
         'link the logo home, render the panel copy, and keep controls out of the panel',
       actual: [
-        page.includes('href="/"'),
-        panel.includes('Why?'),
-        panel.includes('Because.'),
-        panel.includes('Details.'),
-        panel.includes('<button'),
-        page.includes('Footer line'),
+        view.attribute('link', 'Daisy Debate', 'href'),
+        panel.textContent().includes('Why?'),
+        panel.textContent().includes('Because.'),
+        panel.textContent().includes('Details.'),
+        panel.count('button'),
+        view.textContent().includes('Footer line'),
       ],
-      expected: [true, true, true, true, false, true],
+      expected: ['/', true, true, true, 0, true],
     });
   });
 });
 
 describe('AuthHeading', () => {
   test('renders the eyebrow, the page heading, and the lede', () => {
-    const page = renderToString(
+    const view = renderAccessible(
       h(AuthHeading, { eyebrow: 'Step', title: 'Title.', children: 'Lede.' }),
     );
     assert({
       given: 'heading copy',
       should: 'use one h1 for the title',
       actual: [
-        page.includes('Step'),
-        page.match(/<h1/g)?.length,
-        page.includes('Lede.'),
+        view.textContent().includes('Step'),
+        view.count('heading', undefined, { level: 1 }),
+        view.has('heading', 'Title.', { level: 1 }),
+        view.textContent().includes('Lede.'),
       ],
-      expected: [true, 1, true],
-    });
-  });
-
-  test('draws its brand panel on the page palette', () => {
-    const page = renderToString(
-      h(AuthFrame, {
-        panel: { eyebrow: 'Why?', title: 'Because.', body: 'Details.' },
-        children: null,
-      }),
-    );
-    assert({
-      given: 'the brand panel',
-      should: 'sit on the overlay surface and use no stage colour',
-      actual: {
-        overlay: /<aside class="[^"]*\bbg-surface-overlay\b/.test(page),
-        stage: panelStageColours(page),
-      },
-      expected: { overlay: true, stage: [] },
+      expected: [true, 1, true, true],
     });
   });
 });

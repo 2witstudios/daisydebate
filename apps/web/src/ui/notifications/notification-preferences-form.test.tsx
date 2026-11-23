@@ -1,16 +1,16 @@
-import { renderToStaticMarkup } from 'react-dom/server';
 import { createElement as h } from 'react';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import {
   defaultNotificationChoices,
   notificationChoicePairs,
 } from '@daisy/protocol/notifications';
+import { renderAccessible } from '../../test-support/rendered/accessible';
 import { NotificationPreferencesForm } from './notification-preferences-form';
 
 setupRitewayBun();
 
 test('NotificationPreferencesForm', () => {
-  const html = renderToStaticMarkup(
+  const view = renderAccessible(
     h(NotificationPreferencesForm, {
       action: async (previous) => previous,
       choices: {
@@ -19,9 +19,10 @@ test('NotificationPreferencesForm', () => {
       },
     }),
   );
-  const names = [...html.matchAll(/aria-label="([^"]+): ([^"]+)"/g)].map(
-    ([, kind, channel]) => `${kind} | ${channel}`,
-  );
+  const names = view
+    .within('form', 'Notification preferences')
+    .names('checkbox')
+    .map((name) => name.replace(/: (?=[^:]+$)/, ' | '));
   assert({
     given: 'each kind with the channels it is sent on',
     should:
@@ -60,7 +61,13 @@ test('NotificationPreferencesForm', () => {
   assert({
     given: 'friend request email turned off',
     should: 'leave only that switch unchecked',
-    actual: (html.match(/checked=""/g) ?? []).length,
-    expected: notificationChoicePairs.length - 1,
+    actual: [
+      view.count('checkbox', undefined, { checked: true }),
+      view.names('checkbox', { checked: false }),
+    ],
+    expected: [
+      notificationChoicePairs.length - 1,
+      ['Someone asks to be friends: Email'],
+    ],
   });
 });

@@ -11,9 +11,21 @@ import {
   retriedJobStatuses,
 } from './columns';
 import { users } from './users';
-import { privacyVendors } from '../privacy/planner';
 
 /** Local intent only. No bearer secrets, payloads, raw vendor errors or PII. */
+
+/** The vendors a subject-rights job deletes from, one CHECKed word each. */
+export const privacyVendors = [
+  'sentry',
+  'posthog',
+  'beehiiv',
+  'resend',
+  'object-storage',
+  'messaging-typing',
+  'stripe',
+] as const;
+export type PrivacyVendor = (typeof privacyVendors)[number];
+
 export const privacyJobs = pgTable(
   'privacy_jobs',
   {

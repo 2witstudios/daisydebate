@@ -1,10 +1,12 @@
+import type { RoomStore } from '@daisy/db/stores/rooms';
+import type { BroadcastStore } from '@daisy/db/stores/broadcasts';
+import type { RoundRoomAuthority } from '@daisy/db/stores/rounds';
 import { eventBallotAccess } from '../round-ballots/audience';
 import {
   authorize,
   type AccountAuthorizationFact,
 } from '@daisy/auth/authorization';
 import type { YouthLiveFact } from '@daisy/auth/live-audience';
-import type { Database, RoundRoomAuthority } from '@daisy/db';
 import {
   withLinkedAdults,
   type LinkedAdultsOf,
@@ -87,8 +89,11 @@ const canObserveUndelayed = (
 /** The Round as this caller may see it: every read of it, one composition. */
 export const roundViewReader =
   (
-    store: Pick<Database, 'readLaunchedRound'> & {
-      readonly broadcasts: Pick<Database['broadcasts'], 'conversationHeld'>;
+    store: Pick<RoomStore, 'readLaunchedRound'> & {
+      readonly broadcasts: Pick<
+        BroadcastStore['broadcasts'],
+        'conversationHeld'
+      >;
     },
     linkedAdults: LinkedAdultsOf,
   ) =>

@@ -1,6 +1,6 @@
+import type { AudienceReactionsStore } from '@daisy/db/stores/audience-reactions';
 import { instantMs } from '@daisy/clock';
 import type { Clock, IdGenerator } from '@daisy/clock';
-import type { Database } from '@daisy/db';
 import { createAppError, createRefusal } from '@daisy/errors';
 import { audienceReactionPostSchema } from '@daisy/protocol/audience';
 import {
@@ -54,7 +54,7 @@ export const refuseAudienceReaction = (facts: {
 /** POST /api/rounds/:id/reactions: an account reacts to the Round. */
 export const createAudienceReactionRoute = (
   deps: AccountRouteDeps & {
-    readonly store: Pick<Database, 'recordAudienceReaction'>;
+    readonly store: Pick<AudienceReactionsStore, 'recordAudienceReaction'>;
     readonly clock: Pick<Clock, 'now'>;
     readonly ids: Pick<IdGenerator, 'next'>;
   },

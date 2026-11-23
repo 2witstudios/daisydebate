@@ -1,6 +1,6 @@
-import { renderToString } from 'react-dom/server';
 import { createElement as h } from 'react';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
+import { renderAccessible } from '../../../test-support/rendered/accessible';
 import { findElements } from '../../test-support/find-elements';
 import { UsernameForm, type UsernameFormProps } from './username-form';
 
@@ -18,7 +18,7 @@ const props = (
   ...overrides,
 });
 const render = (overrides: Partial<UsernameFormProps> = {}) =>
-  renderToString(h(UsernameForm, props(overrides)));
+  renderAccessible(h(UsernameForm, props(overrides)));
 
 /** A stand-in for the submit event React hands the form. */
 const submitted = (username: string) => {
@@ -38,43 +38,45 @@ const submitted = (username: string) => {
 
 describe('UsernameForm', () => {
   test('labels the field and states the rule', () => {
-    const page = render();
+    const view = render();
     assert({
       given: 'the choose step',
       should: 'label the input and describe it with the rule',
       actual: [
-        page.includes('<label for="username"'),
-        page.includes('aria-describedby="username-hint"'),
-        page.includes('3 to 32 letters, numbers, underscores or hyphens.'),
+        view.has('textbox', 'Username'),
+        view.attribute('textbox', 'Username', 'aria-describedby'),
+        view
+          .textContent()
+          .includes('3 to 32 letters, numbers, underscores or hyphens.'),
       ],
-      expected: [true, true, true],
+      expected: [true, 'username-hint', true],
     });
   });
 
   test('keeps what was typed', () => {
-    const page = render({ username: 'Ada Lovelace' });
+    const view = render({ username: 'Ada Lovelace' });
     assert({
       given: 'a name returned with a refusal',
       should: 'post the field by name and start it from that name',
       actual: [
-        page.includes('name="username"'),
-        page.includes('value="Ada Lovelace"'),
+        view.attribute('textbox', 'Username', 'name'),
+        view.attribute('textbox', 'Username', 'value'),
       ],
-      expected: [true, true],
+      expected: ['username', 'Ada Lovelace'],
     });
   });
 
   test('marks a refused name invalid and ties it to the notice', () => {
-    const page = render({ notice: 'taken' });
+    const view = render({ notice: 'taken' });
     assert({
       given: 'a taken name',
       should: 'flag the input and describe it by the hint and the alert',
       actual: [
-        page.includes('aria-invalid="true"'),
-        page.includes('aria-describedby="username-hint username-notice"'),
-        page.includes('role="alert"'),
+        view.attribute('textbox', 'Username', 'aria-invalid'),
+        view.attribute('textbox', 'Username', 'aria-describedby'),
+        view.get('alert').id,
       ],
-      expected: [true, true, true],
+      expected: ['true', 'username-hint username-notice', 'username-notice'],
     });
   });
 
@@ -83,12 +85,14 @@ describe('UsernameForm', () => {
       given: 'the signed-out notice, and then another notice',
       should: 'link to sign-in only for the signed-out case',
       actual: [
-        render({ notice: 'signed-out' }).includes(
-          'href="/sign-in?next=%2Fonboarding%2Fusername"',
+        render({ notice: 'signed-out' }).attribute(
+          'link',
+          'Sign in again',
+          'href',
         ),
-        render({ notice: 'taken' }).includes('Sign in again</a>'),
+        render({ notice: 'taken' }).has('link', 'Sign in again'),
       ],
-      expected: [true, false],
+      expected: ['/sign-in?next=%2Fonboarding%2Fusername', false],
     });
   });
 

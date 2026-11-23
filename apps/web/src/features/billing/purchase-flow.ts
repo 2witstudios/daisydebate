@@ -1,4 +1,4 @@
-import type { Database } from '@daisy/db';
+import type { BillingStore } from '@daisy/db/stores/billing';
 import { createAppError } from '@daisy/errors';
 import type { Purchase } from '@daisy/protocol/billing';
 import type { createCheckoutVendor } from './checkout-vendor';
@@ -11,7 +11,7 @@ type Subject = {
   readonly organizationId?: string;
 };
 type Store = Pick<
-  ReturnType<Database['billingPurchases']>,
+  ReturnType<BillingStore['billingPurchases']>,
   'recover' | 'record' | 'read'
 >;
 type Recovery = Awaited<ReturnType<Store['recover']>>;

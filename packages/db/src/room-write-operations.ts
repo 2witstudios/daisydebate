@@ -24,11 +24,12 @@ import {
 } from './tab/room-direction';
 import { admitCasualCapture } from './casual-capture-admission';
 import type { RoundBotAdmission } from './round-bot-admission';
+import type { ReleaseAdmission } from './flags';
 import type { CasualJudgeAdmission } from './casual-judge-admission';
 import { persistRoomMutation } from './room-mutation-persistence';
 
 import { eq, inArray } from 'drizzle-orm';
-import type { roomCommandTransaction } from './room-command-transaction';
+import type { TransactionRunner, Tx } from './tx';
 import {
   readContentWaiverStanding,
   recordCaptureNotice,
@@ -65,7 +66,7 @@ import {
 } from './authorization';
 
 import { instrumented, type DatabaseEventSink } from './instrumented';
-import { retryStale } from './retry-stale';
+import { retryStale } from './tx';
 import {
   readFormatSelectionFacts,
   type FormatSelectionFactsRecord,
@@ -89,7 +90,6 @@ import {
   acceptCommand,
   transactionNow,
 } from './room-command-facts';
-import type { Tx } from './tx';
 
 /** Ready and Start require the same evidence for the seat's own lobby. */
 const readRoomSeatContentWaiverStanding = async (
@@ -186,6 +186,12 @@ type CommandInput = {
   /** The engine's cast rule: only a launch that seats a bot debater takes the bot-admission lock. */
   readonly seatsBotDebater: (state: RoomAssemblyState) => boolean;
   /**
+   * The application's trusted `bot-debates` release closure (ADR 0921): a
+   * launch that seats a bot debater requires it on the charged host's
+   * account in this transaction, whatever entitlement the host holds.
+   */
+  readonly botRelease: ReleaseAdmission;
+  /**
    * What a Ready on this Room stands on (WATCH-15, WATCH-9): the waiver version
    * it needs and the notice it records. Null when it needs neither.
    */
@@ -237,7 +243,7 @@ export const roomWriteOperations = ({
   botAdmission,
   judgeAdmission,
 }: {
-  readonly transaction: ReturnType<typeof roomCommandTransaction>;
+  readonly transaction: TransactionRunner;
   readonly eventSink?: DatabaseEventSink | undefined;
   readonly botAdmission?: RoundBotAdmission | undefined;
   readonly judgeAdmission?: CasualJudgeAdmission | undefined;
@@ -487,6 +493,7 @@ async function executeOnce(
     input.roundId,
     botAdmission,
     botLocked,
+    input.botRelease,
   );
   if (
     outcome.mutation.freeze &&
@@ -656,6 +663,7 @@ async function reserveBotFreeze(
   roundId: string,
   admission: RoundBotAdmission | undefined,
   locked: boolean,
+  release: ReleaseAdmission,
 ) {
   const state = mutation.state;
   // The pure engine decides whether this cast seats a bot debater; admission
@@ -664,5 +672,9 @@ async function reserveBotFreeze(
   if (!admission)
     throw createAppError('INFRASTRUCTURE', 'Bot admission unavailable');
   if (!locked) throw createAppError('CONFLICT', 'Bot admission not serialized');
-  await admission.reserveLocked(tx, { actorId: chargedHostOf(state), roundId });
+  await admission.reserveLocked(
+    tx,
+    { actorId: chargedHostOf(state), roundId },
+    release,
+  );
 }

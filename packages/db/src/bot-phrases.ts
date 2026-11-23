@@ -6,8 +6,8 @@ import { isSpokenPrefix, spokenPrefix } from '@daisy/protocol/authored-speech';
 import { advanceTranscriptRevision } from './capture-history';
 import { appendTranscriptChanged } from './transcript-signal';
 import { lockRoundAgentContext } from './round-agent-runs';
-import { requireAgentLeaseToken } from './round-agent-lease';
-import { refuseFinalSpeech } from './bot-generation-rules';
+import { requireLeaseToken } from './lease';
+import { refuseFinalSpeech } from './bot-generation';
 import {
   requireBotRoom,
   requireBotSpeakingWindow,
@@ -291,7 +291,7 @@ export async function endLockedBotPhrase(
     )
     .for('update');
   requireClaimScope(claim, scope);
-  requireAgentLeaseToken(input.token, claim.leaseTokenDigest);
+  requireLeaseToken(input.token, claim.leaseTokenDigest);
   const row = await phraseRow(tx, input.phraseId);
   if (row && !sameSeat(row, scope)) throw createAppError('NOT_FOUND');
   // Closed already, by this worker, a takeover or the freeze; or cut before a word.

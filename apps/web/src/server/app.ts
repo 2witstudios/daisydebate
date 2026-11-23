@@ -21,7 +21,7 @@ import {
 import type { MessagingFileRuntime } from '../features/messaging/files/runtime';
 import { readRealtimePublicUrl } from '@daisy/config';
 import type { MessagingRuntimePolicy } from '../features/messaging/composition';
-import type { RoomPolicy } from '../features/room-runtime/composition';
+import type { RoomPolicy } from '../features/room-runtime/room-policy';
 import type { Clock, IdGenerator, Waits } from '@daisy/clock';
 import {
   readAuthConfig,
@@ -31,7 +31,7 @@ import {
   type MailConfig,
 } from '@daisy/config';
 import { createOpenRouter, type OpenRouter } from '@daisy/ai-voice';
-import { createDatabase } from '@daisy/db';
+import { openWebDatabase } from './database';
 import { broadcastFeedUrls } from '../features/spectating/feed-url';
 import { createWatchRoundSnapshots } from '../features/spectating/read-timeline';
 import { createCachedLiveReads } from '../features/watch/cached-live-reads';
@@ -161,7 +161,7 @@ export function createApp({
   // counters, once each, with no per-site change.
   const logger = withAlertRecording(baseLogger, alertRecorder, metrics);
   const requestNetwork = createRequestNetwork();
-  const database = createDatabase({
+  const database = openWebDatabase({
     decisionRelease,
     url: config.DATABASE_URL,
     eventSink: logger.log,

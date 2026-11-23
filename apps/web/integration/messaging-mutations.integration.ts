@@ -1,10 +1,10 @@
+import { openWebDatabase } from '../src/server/database';
 import { hostWaits } from '@daisy/worker/host';
 import { addMs } from '@daisy/clock';
 import { SQL } from 'bun';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';
-import { createDatabase } from '@daisy/db';
 import { createMessagingTestFixture } from '@daisy/db/testing';
 import { requireTestServices } from '@daisy/config';
 import {
@@ -24,7 +24,7 @@ const services = requireTestServices(process.env);
 test('canonical message mutations serialize retries and scrub removed retry fingerprints', async () => {
   const connection = new SQL(services.databaseUrl);
   const fixture = await createMessagingTestFixture(connection);
-  const db = createDatabase({
+  const db = openWebDatabase({
     waits: hostWaits,
     url: services.databaseUrl,
     nextActorId: createId,

@@ -18,7 +18,7 @@ import {
 } from '@daisy/protocol/round-analysis';
 import { eq, sql } from 'drizzle-orm';
 import type { BoundedTransaction } from './bounded-transaction';
-import { agentLeaseDigest } from './round-agent-lease';
+import { leaseTokenDigest } from './lease';
 import {
   lockAnalysisAccounts,
   lockAnalysisEvidence,
@@ -182,7 +182,7 @@ export function createRoundAnalysisJobs(input: {
             kind: 'claim',
             lease: {
               callId,
-              tokenDigest: agentLeaseDigest(token),
+              tokenDigest: leaseTokenDigest(token),
               model: input.model,
               expiresAt: new Date(
                 Math.min(
@@ -209,7 +209,7 @@ export function createRoundAnalysisJobs(input: {
           await apply(
             tx,
             context,
-            { kind: 'retry', callId, tokenDigest: agentLeaseDigest(token) },
+            { kind: 'retry', callId, tokenDigest: leaseTokenDigest(token) },
             false,
           );
           return null;
@@ -217,7 +217,7 @@ export function createRoundAnalysisJobs(input: {
         const decision = await apply(
           tx,
           context,
-          { kind: 'dispatch', callId, tokenDigest: agentLeaseDigest(token) },
+          { kind: 'dispatch', callId, tokenDigest: leaseTokenDigest(token) },
           true,
         );
         if (decision.kind !== 'changed' || decision.state.kind !== 'leased')
@@ -246,7 +246,7 @@ export function createRoundAnalysisJobs(input: {
           {
             kind: 'observe',
             callId,
-            tokenDigest: agentLeaseDigest(token),
+            tokenDigest: leaseTokenDigest(token),
             outcome,
           },
           false,
@@ -270,7 +270,7 @@ export function createRoundAnalysisJobs(input: {
           {
             kind: 'publish',
             callId,
-            tokenDigest: agentLeaseDigest(token),
+            tokenDigest: leaseTokenDigest(token),
             report: parsed.data,
           },
           evidence,
@@ -301,7 +301,7 @@ export function createRoundAnalysisJobs(input: {
         return apply(
           tx,
           context,
-          { kind: 'retry', callId, tokenDigest: agentLeaseDigest(token) },
+          { kind: 'retry', callId, tokenDigest: leaseTokenDigest(token) },
           evidence,
         );
       }),

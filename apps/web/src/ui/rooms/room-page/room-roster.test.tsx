@@ -1,4 +1,3 @@
-import { renderToStaticMarkup } from 'react-dom/server';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { judgeSeat, sideSeat } from '@daisy/protocol/seats';
 import { type RoomView } from '@daisy/protocol/room-contract';
@@ -6,6 +5,10 @@ import { assemblySnapshot } from '../../../features/rooms/assembly.test-support'
 import { idle } from '../../../features/forms/form-state';
 import { botsForSeat, RoomRoster } from './room-roster';
 import { seatIntents } from './seat-intents.test-support';
+import {
+  renderAccessible,
+  type AccessibleView,
+} from '../../../test-support/rendered/accessible';
 
 setupRitewayBun();
 
@@ -60,7 +63,7 @@ const render = (
   bots: Parameters<typeof RoomRoster>[0]['bots'] = [],
   actorId = viewer.actorId,
 ) =>
-  renderToStaticMarkup(
+  renderAccessible(
     <RoomRoster
       view={{
         ...view,
@@ -102,36 +105,70 @@ const sized = (
   ...more,
 });
 
-/** The hidden fields of the form whose command id is `id`. */
-const formOf = (html: string, id: string) => {
-  const at = html.indexOf(`value="${id}"`);
-  if (at < 0) return null;
-  const start = html.lastIndexOf('<form', at);
-  return html.slice(start, html.indexOf('</form>', at));
+type Fields = Readonly<Record<string, string>>;
+
+/** The hidden fields a submit button posts with its form. */
+const posted = (button: Element): Fields => {
+  const form = (button as HTMLButtonElement).form;
+  return Object.fromEntries(
+    [...(form?.querySelectorAll('input[name]') ?? [])].map((input) => [
+      (input as HTMLInputElement).name,
+      (input as HTMLInputElement).value,
+    ]),
+  );
 };
-const field = (form: string | null, name: string) =>
-  form?.match(new RegExp(`name="${name}" value="([^"]*)"`))?.[1] ?? null;
+/** The fields posted by the button whose form carries command id `id`. */
+const formOf = (view: AccessibleView, id: string): Fields | null =>
+  view
+    .all('button', undefined, { hidden: true })
+    .map(posted)
+    .find((fields) => fields.commandId === id) ?? null;
+const field = (form: Fields | null, name: string) => form?.[name] ?? null;
+
+/** A row's boxes, changeable (buttons) or not, in document order: "Member v's side: Neg". */
+const boxes = (view: AccessibleView, kind: 'team' | 'side' | 'position') => {
+  const named = new RegExp(`'s ${kind}: `);
+  return [...view.all('button', named), ...view.all('generic', named)]
+    .sort((a, b) =>
+      // 4: DOCUMENT_POSITION_FOLLOWING, b after a.
+      a.compareDocumentPosition(b) & 4 ? -1 : 1,
+    )
+    .map((box) => ({
+      name: box.getAttribute('aria-label') ?? '',
+      text: box.textContent ?? '',
+    }));
+};
+/** The text of every paragraph, as read. */
+const paragraphs = (view: AccessibleView) =>
+  view.all('paragraph').map((p) => (p.textContent ?? '').trim());
+/** The exact text of every unnamed span or box, for the tags beside a name. */
+const tags = (view: AccessibleView) =>
+  view.all('generic').map((element) => element.textContent ?? '');
+/** Whether the host's Fill menu for `seat` offers `choice` to seat there. */
+const offers = (view: AccessibleView, seat: string, choice: string) =>
+  view.has('combobox', `Seat someone in ${seat}`) &&
+  view.within('combobox', `Seat someone in ${seat}`).has('option', choice);
 
 describe('RoomRoster columns', () => {
   test('a 1 v 1 Room', () => {
-    const html = render(
+    const view = render(
       sized(1, 1, [seated('v', 'affirmative', 0), seated('o', 'negative', 0)]),
     );
     assert({
       given: 'one debater a side',
       should: 'show Side alone, both on ?',
       actual: {
-        team: html.includes('>Team<'),
-        position: html.includes('>Position<'),
-        side: html.includes('>Side<'),
-        open: (html.match(/>\?</g) ?? []).length,
+        team: boxes(view, 'team').length > 0,
+        position: boxes(view, 'position').length > 0,
+        side: boxes(view, 'side').length > 0,
+        open: boxes(view, 'side').filter((box) => box.text === '?').length,
       },
       expected: { team: false, position: false, side: true, open: 2 },
     });
   });
 
   test('a 2 v 2 Room', () => {
-    const html = render(
+    const view = render(
       sized(
         2,
         2,
@@ -148,12 +185,14 @@ describe('RoomRoster columns', () => {
       should:
         'show Team, Side and Position, team 2 on Affirmative, and ? where open',
       actual: {
-        columns: ['>Team<', '>Side<', '>Position<'].map((c) =>
-          html.includes(c),
+        columns: (['team', 'side', 'position'] as const).map(
+          (kind) => boxes(view, kind).length > 0,
         ),
-        sides: html.match(/side: [A-Za-z ]+/g),
-        positions: html.match(/position: [0-9a-z]+/g),
-        open: html.includes('>Open<'),
+        sides: boxes(view, 'side').map((box) => /side: .*/.exec(box.name)?.[0]),
+        positions: boxes(view, 'position').map(
+          (box) => /position: .*/.exec(box.name)?.[0],
+        ),
+        open: paragraphs(view).includes('Open'),
       },
       expected: {
         columns: [true, true, true],
@@ -173,7 +212,7 @@ describe('RoomRoster boxes', () => {
   ]);
 
   test('the viewer’s own row', () => {
-    const html = render(twoVsTwo, [], 'w'.repeat(24));
+    const view = render(twoVsTwo, [], 'w'.repeat(24));
     const own = { ...twoVsTwo, hostActorId: 'h'.repeat(24) };
     const member = render(own, [], 'wa'.repeat(12));
     assert({
@@ -182,7 +221,7 @@ describe('RoomRoster boxes', () => {
       actual: {
         team: field(formOf(member, 'team-1'), 'participantId'),
         others: [formOf(member, 'team-0'), formOf(member, 'team-3')],
-        unknownViewer: formOf(html, 'team-1'),
+        unknownViewer: formOf(view, 'team-1'),
       },
       expected: {
         team: 'w'.repeat(24),
@@ -193,25 +232,25 @@ describe('RoomRoster boxes', () => {
   });
 
   test('the row action', () => {
-    const html = render(twoVsTwo);
-    const own = formOf(html, 'leave');
+    const view = render(twoVsTwo);
+    const own = formOf(view, 'leave');
     assert({
       given: 'the host seated on team 1 beside two other debaters',
       should:
         'offer Leave seat on their own row and Remove on each other occupied row',
       actual: {
-        leave: [field(own, 'type'), html.includes('aria-label="Leave seat"')],
-        remove: (html.match(/aria-label="Remove /g) ?? []).length,
+        leave: [field(own, 'type'), view.has('button', 'Leave seat')],
+        remove: view.count('button', /^Remove /),
       },
       expected: { leave: ['leave-seat', true], remove: 2 },
     });
   });
 
   test('cycling a box', () => {
-    const html = render(twoVsTwo);
-    const team = formOf(html, 'team-0');
-    const position = formOf(html, 'position-1');
-    const sides = formOf(html, 'sides');
+    const view = render(twoVsTwo);
+    const team = formOf(view, 'team-0');
+    const position = formOf(view, 'position-1');
+    const sides = formOf(view, 'sides');
     assert({
       given: 'the host, team 1 in both its seats and the sides on ?',
       should:
@@ -271,19 +310,22 @@ describe('RoomRoster rows', () => {
   };
 
   test('readiness and who sits where', () => {
-    const html = render(occupied);
+    const view = render(occupied);
+    const own = view.within('listitem', 'Member v');
     assert({
       given:
         'two aff and three neg seats, a ready viewer with a provisional rating and an ineligible bot judge',
       should:
         'show all six seats, the real Ready marks, the rating inline and who each is',
       actual: {
-        rows: (html.match(/<li /g) ?? []).length,
-        open: (html.match(/>Open</g) ?? []).length,
-        ready: (html.match(/aria-label="Ready"/g) ?? []).length,
-        rating: /class="[^"]*italic[^"]*">1500\*</.test(html),
-        you: html.includes('>You<'),
-        bot: html.includes('>Bot<') && html.includes('>Not eligible<'),
+        rows: view.count('listitem'),
+        open: paragraphs(view).filter((text) => text === 'Open').length,
+        ready: view.count('img', 'Ready'),
+        rating: tags(own).includes('1500*'),
+        you: tags(own).includes('You'),
+        bot:
+          tags(view.within('listitem', 'Judge bot')).includes('Bot') &&
+          tags(view.within('listitem', 'Judge bot')).includes('Not eligible'),
       },
       expected: {
         rows: 6,
@@ -297,7 +339,7 @@ describe('RoomRoster rows', () => {
   });
 
   test('an anonymous human judge (DEC-174)', () => {
-    const html = render({
+    const view = render({
       ...occupied,
       participants: [
         occupied.participants[0]!,
@@ -315,9 +357,10 @@ describe('RoomRoster rows', () => {
       given: 'a debater’s view of a seated, ready human judge',
       should: 'show the seat as Judge, ready, with no name',
       actual: [
-        html.includes('>Judge<'),
-        (html.match(/aria-label="Ready"/g) ?? []).length,
-        html.includes('undefined'),
+        tags(view.within('listitem', 'Judge 1')).includes('Judge'),
+        view.count('img', 'Ready'),
+        view.textContent().includes('undefined') ||
+          view.names('listitem').some((name) => name.includes('undefined')),
       ],
       expected: [true, 2, false],
     });
@@ -337,25 +380,27 @@ describe('RoomRoster open seats', () => {
       [judgeBot],
     );
     const ai = formOf(host, 'ai-5');
+    const hostJudge = host.within('listitem', 'Judge 1');
+    const guestJudge = guest.within('listitem', 'Judge 1');
     assert({
       given: 'an open judge seat seen by the host and by a guest',
       should:
         'offer Take seat and Invite to both, and the AI judge and Seat picker to the host alone',
       actual: [
-        host.includes('aria-label="Take Judge 1"'),
-        host.includes(`href="/rooms/${assemblySnapshot.id}"`),
+        hostJudge.has('button', 'Take Judge 1'),
+        hostJudge.attribute('link', 'Invite', 'href'),
         field(ai, 'actorId'),
         field(ai, 'seat'),
-        guest.includes('aria-label="Take Judge 1"'),
-        guest.includes('>Invite</a>'),
-        guest.includes('AI judge'),
-        guest.includes('Seat…'),
+        guestJudge.has('button', 'Take Judge 1'),
+        guestJudge.has('link', 'Invite'),
+        guest.textContent().includes('AI judge'),
+        guest.textContent().includes('Seat…'),
       ],
       expected: [
         true,
-        true,
+        `/rooms/${assemblySnapshot.id}`,
         judgeBot.actorId,
-        JSON.stringify(judgeSeat()).replaceAll('"', '&quot;'),
+        JSON.stringify(judgeSeat()),
         true,
         true,
         false,
@@ -365,24 +410,31 @@ describe('RoomRoster open seats', () => {
   });
 
   test('a casual host without the entitlement (WATCH-16)', () => {
-    const html = render({ ...assemblySnapshot, aiJudgeSeating: 'premium' }, [
+    const view = render({ ...assemblySnapshot, aiJudgeSeating: 'premium' }, [
       judgeBot,
     ]);
     assert({
       given: 'an open judge seat seen by a casual host without the entitlement',
       should: 'offer a person, not the AI judge, and keep Invite',
       actual: [
-        html.includes('>AI judge</button>'),
-        formOf(html, 'assign-5')?.includes(judgeBot.actorId) ?? false,
-        html.includes('>Invite</a>'),
-        html.includes('AI judging on casual Rounds is Premium'),
+        view.has('button', 'AI judge'),
+        offers(view, 'Judge 1', 'Penny · Bot'),
+        view.within('listitem', 'Judge 1').has('link', 'Invite'),
+        view.textContent().includes('AI judging on casual Rounds is Premium'),
       ],
       expected: [false, false, true, true],
     });
   });
 
   test('bots offered only for the seats they may hold', () => {
-    const casual = render(assemblySnapshot, [debaterBot]);
+    // Read each view before the next render: a label points at its control
+    // by id, which only the current render's document resolves.
+    const casualView = render(assemblySnapshot, [debaterBot]);
+    const casual = [
+      offers(casualView, 'Team 1 · 1st', 'Penny · Bot'),
+      offers(casualView, 'Judge 1', 'Penny · Bot'),
+      casualView.has('button', 'AI judge'),
+    ];
     const ranked = render({ ...assemblySnapshot, competitionType: 'ranked' }, [
       debaterBot,
     ]);
@@ -390,12 +442,7 @@ describe('RoomRoster open seats', () => {
       given: 'a bot debater in the cast choices, casual then ranked',
       should:
         'offer it for debater seats in a casual Room only, never as the AI judge (ISSUE-750)',
-      actual: [
-        formOf(casual, 'assign-0')?.includes(debaterBot.actorId) ?? false,
-        formOf(casual, 'assign-5')?.includes(debaterBot.actorId) ?? false,
-        casual.includes('>AI judge</button>'),
-        formOf(ranked, 'assign-0')?.includes(debaterBot.actorId) ?? false,
-      ],
+      actual: [...casual, offers(ranked, 'Team 1 · 1st', 'Penny · Bot')],
       expected: [true, false, false, false],
     });
   });
@@ -423,11 +470,15 @@ describe('RoomRoster open seats', () => {
       should:
         'name the invitee on the open judge seat, and let the host alone release it',
       actual: {
-        named: [host.includes('Invited: ana'), guest.includes('Invited: ana')],
+        named: [
+          host.textContent().includes('Invited: ana'),
+          guest.textContent().includes('Invited: ana'),
+        ],
         release: [
-          host.includes('>Release<') &&
-            host.includes(`name="invitationId" value="${'i'.repeat(24)}"`),
-          guest.includes('>Release<'),
+          host.has('button', 'Release') &&
+            posted(host.get('button', 'Release')).invitationId ===
+              'i'.repeat(24),
+          guest.has('button', 'Release'),
         ],
       },
       expected: { named: [true, true], release: [true, false] },
@@ -474,15 +525,12 @@ describe('RoomRoster in any format (TAB-6)', () => {
       judges: 2,
       moderators: 0 as const,
     };
-    const html = render({
+    const rows = render({
       ...assemblySnapshot,
       participants: [],
       definition: { ...assemblySnapshot.definition, sides, seats },
       rules: { ...assemblySnapshot.rules, sides, seats },
-    });
-    const rows = [...html.matchAll(/<li aria-label="([^"]+)"/g)].map(
-      ([, text]) => text,
-    );
+    }).names('listitem');
     assert({
       given: 'four one-seat benches and a panel of two, all open',
       should: 'name each seat by the format’s labels, benches first',
@@ -514,7 +562,7 @@ describe('RoomRoster with no two teams (TAB-6.2)', () => {
   };
 
   test('seated benches', () => {
-    const html = render({
+    const view = render({
       ...assemblySnapshot,
       hostActorId: viewer.actorId,
       teamOneSide: 'affirmative',
@@ -536,17 +584,19 @@ describe('RoomRoster with no two teams (TAB-6.2)', () => {
       given: 'four benches, each seated, seen by the host on their own bench',
       should: 'show no Team, Side or Position box: every seat is its side',
       actual: [
-        html.includes('&#x27;s team:'),
-        html.includes('&#x27;s side:'),
-        html.includes('&#x27;s position:'),
-        formOf(html, 'sides'),
+        boxes(view, 'team').length > 0,
+        boxes(view, 'side').length > 0,
+        boxes(view, 'position').length > 0,
+        formOf(view, 'sides'),
       ],
       expected: [false, false, false, null],
     });
   });
 
+  // The compact layout and the bench tones are classes only: see
+  // markup-contracts/room-roster.test.tsx.
   test('a four-team (BP) row in the compact layout (main-sync-5)', () => {
-    const html = render(
+    const view = render(
       {
         ...assemblySnapshot,
         hostActorId: viewer.actorId,
@@ -576,49 +626,34 @@ describe('RoomRoster with no two teams (TAB-6.2)', () => {
       },
       [debaterBot],
     );
-    const rowOf = (label: string) => {
-      const start = html.indexOf(`<li aria-label="${label}"`);
-      return html.slice(start, html.indexOf('</li>', start));
-    };
-    const own = rowOf('Member v');
-    const closing = rowOf('Member c');
-    const open = rowOf('Opening Opposition 1');
+    const own = view.within('listitem', 'Member v');
+    const closing = view.within('listitem', 'Member c');
+    const open = view.within('listitem', 'Opening Opposition 1');
     assert({
       given:
         'a BP Room, the host on Opening Government, a member on Closing Government, Opening Opposition open',
       should:
-        'lay each bench out as one compact row in the sides columns, tone each avatar by its bench, tag the host beside the name, and give icon Leave, icon Remove and Fill seat',
+        'tag the host beside the name, and give icon Leave, icon Remove and Fill seat',
       actual: {
-        compact: [own, closing, open].map(
-          (row) =>
-            row.includes('min-h-room-target') &&
-            row.includes('room-roster-sides') &&
-            !row.includes('room-roster-teams'),
-        ),
-        avatars: [own, closing].map(
-          (row) => /size-roster-avatar[^"]*bg-hue-(\w+)-soft/.exec(row)?.[1],
-        ),
-        tags: own.includes('>You<') && own.includes('>Host<'),
-        leave: own.includes('aria-label="Leave seat" title="Leave seat"'),
-        remove: closing.includes('aria-label="Remove Member c" title="Remove"'),
-        fill: open.includes('aria-label="Fill Opening Opposition 1"'),
+        tags: tags(own).includes('You') && tags(own).includes('Host'),
+        leave: own.attribute('button', 'Leave seat', 'title'),
+        remove: closing.attribute('button', 'Remove Member c', 'title'),
+        fill: open.has('button', 'Fill Opening Opposition 1'),
         fillSeat: field(
           formOf(open, seatIntents.commandIds[1]!.assign),
           'seat',
         ),
       },
       expected: {
-        compact: [true, true, true],
-        avatars: ['sky', 'plum'],
         tags: true,
-        leave: true,
-        remove: true,
+        leave: 'Leave seat',
+        remove: 'Remove',
         fill: true,
         fillSeat: JSON.stringify({
           kind: 'side',
           side: 'opening_opposition',
           slot: 0,
-        }).replaceAll('"', '&quot;'),
+        }),
       },
     });
   });
@@ -630,7 +665,7 @@ describe('RoomRoster with no two teams (TAB-6.2)', () => {
       judges: 0,
       moderators: 0 as const,
     };
-    const html = render({
+    const view = render({
       ...assemblySnapshot,
       definition: {
         ...assemblySnapshot.definition,
@@ -654,8 +689,8 @@ describe('RoomRoster with no two teams (TAB-6.2)', () => {
       should:
         'name the invitee on the first open speaker seat, for the host to release',
       actual: [
-        (html.match(/Invited: ana/g) ?? []).length,
-        html.includes('>Release<'),
+        (view.textContent().match(/Invited: ana/g) ?? []).length,
+        view.has('button', 'Release'),
       ],
       expected: [1, true],
     });
@@ -678,17 +713,17 @@ describe('RoomRoster in an event Room (ADR 0145, Tab)', () => {
   };
 
   test('a seated debater', () => {
-    const html = render(event);
+    const view = render(event);
     assert({
       given: 'a debater seated by the organiser in an event Room',
       should:
         'say who seated it, show their side by name and offer no way to change seat, side or position, or to leave',
       actual: {
-        note: html.includes('Seated by the organiser'),
-        side: html.includes('aria-label="Member v&#x27;s side: Aff"'),
-        sides: formOf(html, 'sides'),
-        team: formOf(html, 'team-0'),
-        leave: html.includes('Leave seat'),
+        note: view.textContent().includes('Seated by the organiser'),
+        side: view.has('generic', "Member v's side: Aff"),
+        sides: formOf(view, 'sides'),
+        team: formOf(view, 'team-0'),
+        leave: view.has('button', 'Leave seat'),
       },
       expected: {
         note: true,
@@ -701,134 +736,34 @@ describe('RoomRoster in an event Room (ADR 0145, Tab)', () => {
   });
 
   test('an open seat', () => {
-    const html = render({
+    const view = render({
       ...event,
       participants: [seated('o', 'negative', 0)],
     });
     assert({
       given: 'an event Room seat the organiser has not filled yet',
       should: 'offer no Take seat and no Invite',
-      actual: [html.includes('Take seat'), html.includes('>Invite</a>')],
+      actual: [
+        view.textContent().includes('Take seat'),
+        view.count('link', 'Invite') > 0,
+      ],
       expected: [false, false],
     });
   });
 });
 
-describe('RoomRoster on the narrowest roster (SEAT-14)', () => {
-  // The 360px container query lives in room.css; the markup must carry the
-  // classes it acts on, and nothing beside the name may refuse to shrink.
-  const rowOf = (html: string, label: string) => {
-    const start = html.indexOf(`<li aria-label="${label}"`);
-    return html.slice(start, html.indexOf('</li>', start));
-  };
-  const whoOf = (row: string) => ({
-    avatar: /<span aria-hidden="true" class="([^"]*)"/.exec(row)?.[1] ?? '',
-    rating: /<span class="([^"]*tabular-nums[^"]*)">\d/.exec(row)?.[1] ?? '',
-    tags: [
-      ...row.matchAll(/<span class="([^"]*bg-surface-sunken[^"]*)">/g),
-    ].map((match) => match[1]!),
-  });
-  const narrow = (who: ReturnType<typeof whoOf>) => ({
-    avatarSteps: who.avatar.split(' ').includes('room-roster-avatar'),
-    ratingShrinks:
-      who.rating.includes('truncate') && !who.rating.includes('shrink-0'),
-    tagsShrink: who.tags.map(
-      (tag) => tag.includes('truncate') && !tag.includes('shrink-0'),
-    ),
-  });
-
-  test('a rated BP debater tagged You and Host', () => {
-    const benches = [
-      { key: 'opening_government', label: 'Opening Government', short: 'OG' },
-      { key: 'opening_opposition', label: 'Opening Opposition', short: 'OO' },
-      { key: 'closing_government', label: 'Closing Government', short: 'CG' },
-      { key: 'closing_opposition', label: 'Closing Opposition', short: 'CO' },
-    ];
-    const seats = {
-      sides: Object.fromEntries(benches.map((side) => [side.key, 1])),
-      speakers: 0,
-      judges: 0,
-      moderators: 0 as const,
-    };
-    const html = render({
-      ...assemblySnapshot,
-      hostActorId: viewer.actorId,
-      teamOneSide: 'affirmative',
-      definition: { ...assemblySnapshot.definition, sides: benches, seats },
-      rules: { ...assemblySnapshot.rules, sides: benches, seats },
-      participants: [
-        {
-          ...(seated('v', 'affirmative', 0, {
-            rating: { value: 1500, provisional: true },
-          }) as Extract<Participant, { actorId: string }>),
-          seat: { kind: 'side', side: 'opening_government', slot: 0 },
-        },
-      ],
-    });
-    const who = whoOf(rowOf(html, 'Member v'));
-    assert({
-      given: 'the host on Opening Government with a provisional rating',
-      should:
-        'let the avatar step aside on the tightest phones and let the rating and each tag truncate, keeping the bench tone',
-      actual: {
-        ...narrow(who),
-        tone: who.avatar.includes('bg-hue-sky-soft'),
-      },
-      expected: {
-        avatarSteps: true,
-        ratingShrinks: true,
-        tagsShrink: [true, true],
-        tone: true,
-      },
-    });
-  });
-
-  test('a rated debater seated by the organiser in an event Room', () => {
-    const html = render({
-      ...sized(
-        1,
-        1,
-        [
-          seated('v', 'affirmative', 0, {
-            rating: { value: 1620, provisional: false },
-            eligible: false,
-          }),
-          seated('o', 'negative', 0),
-        ],
-        { teamOneSide: 'affirmative' },
-      ),
-      hostActorId: null,
-      hostLabel: null,
-      capabilities: { ...assemblySnapshot.capabilities, host: false },
-    });
-    const row = rowOf(html, 'Member v');
-    assert({
-      given: 'an event Room debater with a rating, tagged You and Not eligible',
-      should:
-        'still say who seated it while the avatar steps aside and the rating and tags truncate',
-      actual: {
-        ...narrow(whoOf(row)),
-        note: html.includes('Seated by the organiser'),
-      },
-      expected: {
-        avatarSteps: true,
-        ratingShrinks: true,
-        tagsShrink: [true, true],
-        note: true,
-      },
-    });
-  });
-});
+// The narrowest roster (SEAT-14) is carried by classes only: see
+// markup-contracts/room-roster.test.tsx.
 
 describe('RoomRoster header count (main-sync-4)', () => {
-  const count = (html: string) =>
-    html
-      .match(/<p class="text-sm text-ink-muted tabular-nums">(.*?)<\/p>/)?.[1]
-      ?.replaceAll('<!-- -->', '') ?? null;
+  const count = (view: AccessibleView) =>
+    paragraphs(view.within('region', 'Players')).find((text) =>
+      / of \d+ debaters?\b/.test(text),
+    ) ?? null;
 
   test('a two-sided Room with a judge', () => {
     const seats = seatsOf(1, 1, 1);
-    const html = render({
+    const view = render({
       ...sized(1, 1, [seated('v', 'affirmative', 0)]),
       definition: { ...assemblySnapshot.definition, seats },
       rules: { ...assemblySnapshot.rules, seats },
@@ -836,7 +771,7 @@ describe('RoomRoster header count (main-sync-4)', () => {
     assert({
       given: 'one of two debaters seated and the judge seat open',
       should: 'count debaters and judges apart',
-      actual: count(html),
+      actual: count(view),
       expected: '1 of 2 debaters · 0 of 1 judge',
     });
   });
@@ -848,7 +783,7 @@ describe('RoomRoster header count (main-sync-4)', () => {
       judges: 1,
       moderators: 1 as const,
     };
-    const html = render({
+    const view = render({
       ...assemblySnapshot,
       definition: { ...assemblySnapshot.definition, sides: [], seats },
       rules: { ...assemblySnapshot.rules, sides: [], seats },
@@ -866,7 +801,7 @@ describe('RoomRoster header count (main-sync-4)', () => {
       given:
         'three open speaker seats, an open judge seat and a seated moderator',
       should: 'count the judge and the moderator together as officials',
-      actual: count(html),
+      actual: count(view),
       expected: '0 of 3 debaters · 1 of 2 officials',
     });
   });
@@ -883,8 +818,7 @@ describe('RoomRoster lobbies (ADR 0162)', () => {
       ageRule,
     };
   };
-  const takes = (html: string) =>
-    (html.match(/>Take seat<\/button>/g) ?? []).length;
+  const takes = (view: AccessibleView) => view.count('button', /^Take /);
 
   test('debater seats are for the Room’s own lobby, judge seats for anyone (YLRoomSpectator)', () => {
     const own = render(inLobby('adults'));
@@ -897,8 +831,9 @@ describe('RoomRoster lobbies (ADR 0162)', () => {
       actual: [
         takes(own),
         takes(other),
-        other.includes('aria-label="Take Judge'),
-        other.includes('Youth') || other.includes('under 18'),
+        other.count('button', /^Take Judge/) > 0,
+        other.textContent().includes('Youth') ||
+          other.textContent().includes('under 18'),
       ],
       expected: [3, 1, true, false],
     });

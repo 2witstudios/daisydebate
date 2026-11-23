@@ -1,3 +1,5 @@
+import { createBetaAccessStore } from '../src/stores/beta-access';
+import { openDatabaseResources } from '../src/resources';
 import { hostWaits } from '@daisy/worker/host';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { requireTestServices } from '@daisy/config';
@@ -5,9 +7,16 @@ import { createAppError } from '@daisy/errors';
 import { createId } from '@paralleldrive/cuid2';
 import { sha3Hex } from '@daisy/digest';
 import { decidePreapprovalChange } from '@daisy/protocol/beta-preapproval';
-import { createDatabase } from '../src';
 import { withFixture } from './constraint-helpers';
 import { pendingAccount } from './operator-accounts.test-support';
+/** This file's database: the area stores it reads, over one set of resources. */
+const openStores = (options: Parameters<typeof openDatabaseResources>[0]) => {
+  const resources = openDatabaseResources(options);
+  return {
+    ...createBetaAccessStore(resources),
+    close: resources.close,
+  };
+};
 
 setupRitewayBun();
 const { databaseUrl: url } = requireTestServices(process.env);
@@ -40,10 +49,9 @@ test('preparing preapproval effects roll back on refusal, exception, missing app
   ] as const) {
     await withFixture(url, async (f) => {
       const account = await pendingAccount(f);
-      const db = createDatabase({
+      const db = openStores({
         waits: hostWaits,
         url,
-        nextActorId: createId,
       });
       let live = true;
       const input = inputFor(`${account.userId}@operator.invalid`, () => live);
@@ -122,7 +130,7 @@ test('preparing preapproval effects roll back on refusal, exception, missing app
 
 test('a preapproval session replays without a writer and rejects repeated or escaped load and apply', async () => {
   await withFixture(url, async (f) => {
-    const db = createDatabase({ waits: hostWaits, url, nextActorId: createId });
+    const db = openStores({ waits: hostWaits, url });
     const input = inputFor(`${createId()}@example.test`);
     let escaped: (() => Promise<unknown>) | null = null;
     const rejected: string[] = [];

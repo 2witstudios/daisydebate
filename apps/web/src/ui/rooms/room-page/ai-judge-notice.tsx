@@ -9,7 +9,9 @@ export const aiJudgeSeatable = (seating: RoomView['aiJudgeSeating']) =>
 
 const usedCopy = {
   premium: 'You’ve used your free AI-judged Round. ',
-  'with-bot': 'Your free AI-judged Round comes with your free bot Round. ',
+  // The free AI judge comes bundled with a free bot debate, which is no
+  // part of any offer (BCS-7): the panel says nothing about it.
+  'with-bot': '',
   'not-included': '',
 } as const;
 
@@ -44,7 +46,7 @@ export function AiJudgeNotice({
         >
           {view.competitionType === 'ranked'
             ? 'An AI judge is free on ranked rounds.'
-            : 'Your one free bot debate includes an optional AI judge.'}
+            : 'An AI judge is free on this round.'}
         </Announcement>
       );
     case 'premium':

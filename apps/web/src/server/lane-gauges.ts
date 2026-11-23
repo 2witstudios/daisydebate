@@ -1,6 +1,6 @@
+import type { DatabaseResources } from '@daisy/db/resources';
 import type { Waits } from '@daisy/clock';
 import { repeatEvery } from '@daisy/worker';
-import type { Database } from '@daisy/db';
 import {
   laneWindowLines,
   sampled,
@@ -8,7 +8,7 @@ import {
   type LaneWindowLine,
 } from './lane-window';
 
-type Gauge = ReturnType<Database['laneGauges']>[number];
+type Gauge = ReturnType<DatabaseResources['laneGauges']>[number];
 /** Fine enough for a time average; a lane read is two integers. */
 const SAMPLE_MS = 250;
 /** One window a minute: an idle process writes one line per lane per minute. */
@@ -23,7 +23,7 @@ const DETAIL_SAMPLES_PER_WINDOW = 20;
  */
 export function startLaneGauges(input: {
   readonly gauges: () => readonly Gauge[];
-  readonly drainHolds: Database['drainLaneHolds'];
+  readonly drainHolds: DatabaseResources['drainLaneHolds'];
   readonly log: (line: LaneWindowLine) => void;
   readonly waits: Waits;
   /** Every operation's holds each window, not only slow ones (LOG_LEVEL debug). */

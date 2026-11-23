@@ -1,10 +1,10 @@
-import type { Database } from '@daisy/db';
+import type { BillingStore } from '@daisy/db/stores/billing';
 import { createAppError } from '@daisy/errors';
 import type { Purchase } from '@daisy/protocol/billing';
 import type { createCheckoutVendor } from './checkout-vendor';
 import type { discoverCheckout } from './checkout-discovery';
 
-type Store = ReturnType<Database['billingPurchaseRecovery']>;
+type Store = ReturnType<BillingStore['billingPurchaseRecovery']>;
 type Inspection = NonNullable<Awaited<ReturnType<Store['inspect']>>>;
 type Observation = Awaited<ReturnType<typeof discoverCheckout>>;
 type Vendor = Pick<

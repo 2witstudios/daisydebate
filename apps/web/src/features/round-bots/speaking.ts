@@ -1,6 +1,7 @@
+import type { RoundWorkerStore } from '@daisy/db/stores/round-workers';
+import type { RoundStore } from '@daisy/db/stores/rounds';
 import type { OpenRouter } from '@daisy/ai-voice';
 import { deadlineSignal, type Waits } from '@daisy/clock';
-import type { Database } from '@daisy/db';
 import { createAudioPublication } from '@daisy/media/audio';
 import { createAudioSubscription } from '@daisy/media/subscription';
 import type { BotPublicationScope } from '@daisy/db/bot-publication';
@@ -11,14 +12,14 @@ import { createPeerLineWait } from './peer-line';
 import { createBotPublisher } from './publication';
 import { createBotSeat } from './seat';
 import { createBotSpeaker } from './speaker';
-type Claim = Awaited<ReturnType<Database['claimRoundBotWorker']>>;
+type Claim = Awaited<ReturnType<RoundWorkerStore['claimRoundBotWorker']>>;
 const ACTIVITY_POLL_MS = 50;
 const MAX_TOKENS = 2000;
 const MAX_ATTEMPTS = 2;
 /** Wraps each owned claim's receipts with its scoped speaker; receipts never await speech. */
 export function createSpeakingBotControl(input: {
   readonly store: Pick<
-    Database,
+    RoundWorkerStore,
     | 'beginRoundBotGeneration'
     | 'finishRoundBotGeneration'
     | 'verifyRoundBotPublication'
@@ -27,8 +28,8 @@ export function createSpeakingBotControl(input: {
     | 'revealRoundBotPhrase'
     | 'watchRoundBotFloor'
     | 'readRoundBotPeerLine'
-    | 'databaseNow'
-  >;
+  > &
+    Pick<RoundStore, 'databaseNow'>;
   readonly voice: () => Pick<OpenRouter, 'completeStreamed' | 'speakPcm'>;
   readonly withProvider: ProviderCall;
   /** Whether a refusal is `withProvider`'s own budget being full. */
@@ -112,14 +113,7 @@ export function createSpeakingBotControl(input: {
       waits: input.waits,
       synthesize: (scope, token, phraseId, text, signal) =>
         generation.synthesize(scope, token, phraseId, text, bounded(signal)),
-      deadline: publication.deadline,
-      lineClosed: publication.lineClosed,
-      tailCut: publication.tailCut,
-      writeAhead: publication.writeAhead,
-      discard: publication.discard,
-      audible: publication.audible,
-      silence: publication.silence,
-      publish: publication.publish,
+      publication,
       nextId: input.nextId,
       maxAttempts: MAX_ATTEMPTS,
       busy: input.providerBusy,

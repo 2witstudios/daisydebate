@@ -9,7 +9,7 @@ import { createBillingInbox } from '../src/billing-inbox';
 import type { Fixture } from './constraint-helpers';
 import { withBillingPurchases, offer } from './billing-purchases.test-support';
 import { executeFlagCommand, flagCommand } from './flags.test-support';
-import { completeControlledBillingPurchase } from '../src/testing-billing-purchase';
+import { completeControlledBillingPurchase } from '../src/testing-billing';
 
 export function withBillingSynchronization(
   work: (input: {

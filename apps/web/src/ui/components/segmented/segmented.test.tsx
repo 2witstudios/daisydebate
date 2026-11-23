@@ -1,13 +1,13 @@
 import { createElement as h } from 'react';
-import { renderToString } from 'react-dom/server';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
+import { renderAccessible } from '../../../test-support/rendered/accessible';
 import { Segmented } from './segmented';
 
 setupRitewayBun();
 
 describe('Segmented', () => {
   test('links with one current', () => {
-    const html = renderToString(
+    const view = renderAccessible(
       h(Segmented, {
         label: 'Scope',
         segments: [
@@ -24,17 +24,16 @@ describe('Segmented', () => {
       given: 'two segments, the first current',
       should: 'render a labelled nav of links marking only the first current',
       actual: [
-        html.includes('aria-label="Scope"'),
-        html.match(/<a /g)?.length,
-        html.match(/aria-current="page"/g)?.length,
-        html.includes('href="/leaderboard?scope=around"'),
+        view.within('navigation', 'Scope').count('link'),
+        view.names('link', { current: 'page' }),
+        view.attribute('link', 'Around me', 'href'),
       ],
-      expected: [true, 2, 1, true],
+      expected: [2, ['Top'], '/leaderboard?scope=around'],
     });
   });
 
   test('no label inside the group', () => {
-    const html = renderToString(
+    const view = renderAccessible(
       h(Segmented, {
         label: 'Lobby',
         segments: [{ label: 'Open lobby', href: '/lobby', selected: true }],
@@ -43,28 +42,11 @@ describe('Segmented', () => {
     assert({
       given: 'a labelled group',
       should: 'name it for assistive technology only, never as visible text',
-      actual: [html.includes('aria-label="Lobby"'), html.includes('>Lobby<')],
+      actual: [
+        view.has('navigation', 'Lobby'),
+        view.textContent().includes('Lobby'),
+      ],
       expected: [true, false],
-    });
-  });
-  test('the phone fill adds its classes as separate tokens', () => {
-    const html = renderToString(
-      h(Segmented, {
-        label: 'Lobby',
-        fillOnPhone: true,
-        segments: [{ label: 'Open lobby', href: '/lobby', selected: true }],
-      }),
-    );
-    const tokens = (html.match(/class="([^"]*)"/g) ?? []).flatMap((c) =>
-      c.slice(7, -1).split(' '),
-    );
-    assert({
-      given: 'a segmented control that fills a phone',
-      should: 'keep its padding and phone classes as whole tokens',
-      actual: ['p-1', 'max-narrow:flex', 'max-narrow:flex-1'].every((t) =>
-        tokens.includes(t),
-      ),
-      expected: true,
     });
   });
 });

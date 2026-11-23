@@ -1,8 +1,8 @@
 import { createAppError } from '@daisy/errors';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { instrumented } from './instrumented';
-import { refuseCapacity, reportCapacityHolders } from './capacity-refusal';
-import { currentLaneOperation, namedLaneOperations } from './lane-operation';
+import { currentLaneOperation, namedLaneOperations } from './instrumented';
+import { refuseCapacity, reportCapacityHolders } from './raw-rows';
 
 setupRitewayBun();
 

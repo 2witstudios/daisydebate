@@ -1,5 +1,5 @@
-import { renderToStaticMarkup } from 'react-dom/server';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
+import { renderAccessible } from '../../../test-support/rendered/accessible';
 import { StudentsLive } from './students-live';
 
 setupRitewayBun();
@@ -14,29 +14,31 @@ const card = {
 };
 
 test('Your students, live', () => {
-  const html = renderToStaticMarkup(<StudentsLive cards={[card]} />);
+  const view = renderAccessible(<StudentsLive cards={[card]} />);
+  const section = view.within('region', 'Your students, live');
+  const text = section.textContent();
   assert({
     given: "a linked coach's student debating live",
     should:
       'list the Round with its title, resolution and debaters, and link its live room',
     actual: [
-      html.includes('Your students, live'),
-      html.includes('Thursday scrimmage'),
-      html.includes(card.resolution),
-      html.includes(card.line),
-      html.includes(`href="${card.href}"`),
-      html.includes('>Watch</a>'),
-      html.includes('Ranked'),
-      renderToStaticMarkup(
-        <StudentsLive cards={[{ ...card, ranked: false }]} />,
-      ).includes('Casual'),
+      section.has('heading', 'Your students, live', { level: 2 }),
+      section.has('heading', 'Thursday scrimmage', { level: 3 }),
+      text.includes(card.resolution),
+      text.includes(card.line),
+      section.attribute('link', 'Watch Thursday scrimmage', 'href'),
+      section.text('link', 'Watch Thursday scrimmage'),
+      text.includes('Ranked'),
+      renderAccessible(<StudentsLive cards={[{ ...card, ranked: false }]} />)
+        .textContent()
+        .includes('Casual'),
     ],
-    expected: [true, true, true, true, true, true, true, true],
+    expected: [true, true, true, true, card.href, 'Watch', true, true],
   });
   assert({
     given: 'nobody to show',
     should: 'render nothing',
-    actual: renderToStaticMarkup(<StudentsLive cards={[]} />),
-    expected: '',
+    actual: StudentsLive({ cards: [] }),
+    expected: null,
   });
 });

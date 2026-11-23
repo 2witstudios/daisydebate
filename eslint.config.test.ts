@@ -3,6 +3,7 @@ import { registerHostTimeTests } from './eslint.config-host-time.test-support';
 import { registerProcessEdgeTests } from './eslint.config-process.test-support';
 import { registerFeatureBoundaryTests } from './eslint.config-feature-boundary.test-support';
 import { registerRequestPathTests } from './eslint.config-request-path.test-support';
+import { registerRenderedMarkupTests } from './eslint.config-rendered-markup.test-support';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {
   repositoryEslint,
@@ -21,6 +22,7 @@ registerProcessEdgeTests();
 registerFeatureBoundaryTests();
 registerClockDigestTests();
 registerRequestPathTests();
+registerRenderedMarkupTests();
 registerHostTimeTests();
 
 describe('repository ESLint configuration', () => {
@@ -597,7 +599,7 @@ describe('a check the type already answers is refused', () => {
   test('the rule rejects a dead fallback in packages/db/src', async () => {
     const [result] = await typedRepositoryEslint().lintText(
       "export const name = (value: string): string => value ?? 'none';",
-      { filePath: 'packages/db/src/index.ts' },
+      { filePath: 'packages/db/src/tx.ts' },
     );
     assert({
       given: 'a dead fallback in the database package',

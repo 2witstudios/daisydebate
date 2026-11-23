@@ -1,6 +1,6 @@
+import type { ClubSeatingRead } from '@daisy/db/stores/billing';
 import { addMs } from '@daisy/clock';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import type { ClubSeatingRead } from '@daisy/db';
 import {
   clubBillingView,
   clubSeatsView,

@@ -1,4 +1,7 @@
-import type { Database, MediaReleaseMailKind } from '@daisy/db';
+import type {
+  MediaReleaseMailKind,
+  MediaReleaseStore,
+} from '@daisy/db/stores/media-releases';
 import type { ReleaseLinkPurpose } from '@daisy/protocol/media-release';
 import type { EmailMessage } from '../mail/types';
 import { recipientKey } from '../mail/recipient-key';
@@ -9,7 +12,7 @@ import { releaseLinkDigest, releaseLinkPath } from './link-token';
 import { releaseStopPath } from './stop-token';
 
 type Store = Pick<
-  Database,
+  MediaReleaseStore,
   | 'claimMediaReleaseMails'
   | 'prepareMediaReleaseMail'
   | 'settleMediaReleaseMail'

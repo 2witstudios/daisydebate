@@ -1,6 +1,6 @@
 import { lobbyKinds } from '@daisy/protocol/lobby';
 import { listedWord } from './lifecycle-sql';
-import { isMinorAgeBand } from './guardians/lobby-permissions';
+
 import { and, eq, sql } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 import type {
@@ -14,12 +14,11 @@ import { buildRoomTopic } from '@daisy/protocol/topics';
 import { botDifficulties } from '@daisy/protocol/room-read';
 import { idSchema } from '@daisy/protocol/primitives';
 import { roomRoundLinkOf } from '@daisy/protocol/room-contract';
-import { createAppError, createRefusal } from '@daisy/errors';
+import { createAppError } from '@daisy/errors';
+import { storedCommand } from './command-log';
 import {
   authorizationAccountFact,
   authorizationAccountRow,
-} from './authorization-account';
-import {
   lockAuthorizationActors,
   loadAuthorizationAccount,
 } from './authorization';
@@ -31,15 +30,17 @@ import { users } from './schema/users';
 import { accountAge } from './schema/account-age';
 import type { AgeBand } from '@daisy/protocol/ladder';
 import { lobbies } from './schema/lobbies';
-import { lobbyAgeRules } from '@daisy/protocol/lobby/eligibility';
+import {
+  lobbyAgeRules,
+  isMinorAgeBand,
+} from '@daisy/protocol/lobby/eligibility';
 import { divisionAgeBand } from './ladder-division-band';
 import { botProfiles } from './schema/bot-profiles';
 import { aiJudgeProfiles } from './schema/ai-judge-profiles';
-import { aiSeatFits } from './seat-eligibility';
+import { aiSeatFits } from '@daisy/protocol/seat-eligibility';
 import { seatOfColumns, seatRowOrder } from './seat-columns';
 import { roomCommands } from './schema/room-commands';
 import { rooms, roomParticipants, roomSeatHolds } from './schema/rooms';
-import { hostPersonOf } from './room-host';
 import { rounds } from './schema/rounds';
 
 import { formats } from './schema/formats';
@@ -345,17 +346,12 @@ export const replayReceipt = async (
   payloadDigest: string,
   roomId?: string,
 ): Promise<RoomCommandReceipt | null> => {
-  const [previous] = await tx
-    .select()
-    .from(roomCommands)
-    .where(eq(roomCommands.commandId, commandId));
+  const previous = await storedCommand(tx, roomCommands, commandId, {
+    actorId,
+    payloadDigest,
+    roomId,
+  });
   if (!previous) return null;
-  if (
-    previous.actorId !== actorId ||
-    previous.payloadDigest !== payloadDigest ||
-    (roomId !== undefined && previous.roomId !== roomId)
-  )
-    throw createRefusal('CONFLICT', 'command-conflict');
   return {
     ...(previous.result as Omit<RoomCommandReceipt, 'replayed'>),
     replayed: true,
@@ -408,4 +404,25 @@ export const transactionNow = async (tx: Tx): Promise<string> => {
   );
   if (!row) throw createAppError('INFRASTRUCTURE');
   return new Date(row.now).toISOString();
+};
+
+/**
+ * The host person of a Room, or null for a Room no person hosts (TAB-6). A
+ * Room in a standing lobby has a host; one in a tournament lobby has none
+ * (`rooms_host_by_lobby_kind`): authority over it comes from grants on the
+ * lobby, and the engine refuses its host-only commands. A row whose host
+ * disagrees with its lobby's kind is corruption, refused here rather than
+ * read as either kind of Room.
+ */
+export const hostPersonOf = (room: {
+  readonly id: string;
+  readonly hostActorId: string | null;
+  readonly lobbyKind: 'standing' | 'tournament';
+}): string | null => {
+  if ((room.hostActorId === null) !== (room.lobbyKind === 'tournament'))
+    throw createAppError(
+      'INVARIANT',
+      `Room ${room.id} has a host exactly when its lobby is standing`,
+    );
+  return room.hostActorId;
 };

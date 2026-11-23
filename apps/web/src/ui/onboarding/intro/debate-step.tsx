@@ -89,8 +89,8 @@ export function DebateStep({ nextHref, backHref, skip }: IntroStepProps) {
     [
       'Speeches',
       "Each side opens with its case, then replies to the other's. Sides are assigned, so you argue whichever one you get.",
-      destinationHref('train'),
-      'Practise a debate',
+      destinationHref('lobby'),
+      'Find a casual round',
     ],
     [
       'Q&A',

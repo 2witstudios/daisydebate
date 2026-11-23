@@ -1,4 +1,4 @@
-import { renderToString } from 'react-dom/server';
+import { renderAccessible } from '../../test-support/rendered/accessible';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { mockNextRouter } from '../../lib/testing/mock-router';
 
@@ -8,15 +8,17 @@ const { RoundReconnecting } = await import('./round-reconnecting');
 setupRitewayBun();
 
 test('the temporary state recovers by itself and claims nothing about the Round', () => {
-  const html = renderToString(<RoundReconnecting retrySeconds={3} />);
+  const view = renderAccessible(<RoundReconnecting retrySeconds={3} />);
   assert({
     given: 'a Round room whose read was temporarily refused',
     should: 'announce it, offer a link and show no control',
     actual: {
-      status: html.includes('role="status"'),
-      link: html.includes('href=""'),
-      controls: html.includes('<button') || html.includes('<form'),
+      status: view.has('status'),
+      // An empty href reloads this same page in place.
+      link: view.attribute('link', 'Try now', 'href'),
+      controls:
+        view.count('button') + view.count('textbox') + view.count('form'),
     },
-    expected: { status: true, link: true, controls: false },
+    expected: { status: true, link: '', controls: 0 },
   });
 });

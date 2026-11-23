@@ -20,16 +20,15 @@ import { loadAuthorizationAccount } from '../src/authorization';
 import { memberCardOperations } from '../src/member-cards';
 import { reportsPrivacyAdopter } from '../src/reports/privacy';
 import { moderationPrivacyAdopter } from '../src/moderation/privacy';
-import { moderationOperations } from '../src/moderation/store';
 import {
+  moderationOperations,
   moderationReactions,
   type RestrictionRules,
-} from '../src/moderation-composition';
+} from '../src/moderation/store';
 import { admitParticipants } from '../src/beta-access-testing';
-import { rejectedBy } from './constraint-helpers';
+import { rejectedBy, withFixture } from './constraint-helpers';
 import { createMessagingTestFixture } from '../src/testing';
 import { daisyOrganizationId } from '../src/daisy-reference';
-import { withFixture } from './constraint-helpers';
 
 setupRitewayBun();
 /** These suites have no Round or Room: the engine's rules are never reached. */

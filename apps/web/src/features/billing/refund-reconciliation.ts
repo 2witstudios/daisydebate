@@ -1,9 +1,9 @@
-import type { Database } from '@daisy/db';
+import type { BillingStore } from '@daisy/db/stores/billing';
 import { createAppError } from '@daisy/errors';
 import type { createRefundVendor } from './refund-vendor';
 
 type Store = Pick<
-  ReturnType<Database['billingRefunds']>,
+  ReturnType<BillingStore['billingRefunds']>,
   'actions' | 'claim' | 'record'
 >;
 type Observation = Awaited<

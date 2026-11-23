@@ -1,5 +1,4 @@
 import { createElement as h } from 'react';
-import { renderToString } from 'react-dom/server';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {
   collectionOf,
@@ -9,12 +8,19 @@ import {
   relatedArticles,
 } from '../../../features/guides/library';
 import { helpTopics } from '../../../features/help/topics';
+import {
+  renderAccessible,
+  type AccessibleView,
+} from '../../../test-support/rendered/accessible';
 import { HelpPage } from '../../help/help-page/help-page';
 import { ArticlePage, HomeShelfPage, StoriesPage } from './guide-pages';
 
 setupRitewayBun();
 
 const none = new Set<never>();
+
+const hrefs = (view: AccessibleView): readonly (string | null)[] =>
+  view.all('link').map((link) => link.getAttribute('href'));
 
 describe('ArticlePage', () => {
   const article = findArticle(
@@ -24,48 +30,47 @@ describe('ArticlePage', () => {
     none,
   );
   const collection = article && collectionOf(article);
-  const html =
-    article && collection
-      ? renderToString(
-          h(ArticlePage, {
-            article,
-            collection,
-            related: relatedArticles(article, none),
-          }),
-        )
-      : '';
 
   test('an article with its way back and onward', () => {
+    const view =
+      article && collection
+        ? renderAccessible(
+            h(ArticlePage, {
+              article,
+              collection,
+              related: relatedArticles(article, none),
+            }),
+          )
+        : undefined;
     assert({
       given: 'the ballot guide',
       should:
-        'render its title, a breadcrumb to its collection, its links and what to read next',
-      actual: [
-        html.includes('<h1'),
-        html.includes('Understanding a Daisy ballot'),
-        html.includes('href="/guides/judging"'),
-        html.includes(
-          'href="/learn/judging-and-feedback/writing-a-reason-for-decision"',
+        'render its title, a breadcrumb to its collection, its links, what to read next and the day it was checked',
+      actual: view && [
+        view.has('heading', 'Understanding a Daisy ballot', { level: 1 }),
+        hrefs(view).includes('/guides/judging'),
+        hrefs(view).includes(
+          '/learn/judging-and-feedback/writing-a-reason-for-decision',
         ),
-        html.includes('Read next'),
-        html.includes('dateTime="2026-11-23"'),
+        view.has('heading', 'Read next'),
+        view.textContent().includes('Updated 2026-11-23'),
       ],
-      expected: [true, true, true, true, true, true],
+      expected: [true, true, true, true, true],
     });
   });
 });
 
 describe('HomeShelfPage', () => {
   test('each collection with its articles', () => {
-    const html = renderToString(
+    const view = renderAccessible(
       h(HomeShelfPage, { home: 'learn', shelves: homeShelf('learn', none) }),
     );
     assert({
       given: 'the Learn shelves',
       should: 'link the collection and each of its articles',
       actual: [
-        html.includes('href="/learn/judging-and-feedback"'),
-        html.includes('href="/learn/judging-and-feedback/making-a-decision"'),
+        hrefs(view).includes('/learn/judging-and-feedback'),
+        hrefs(view).includes('/learn/judging-and-feedback/making-a-decision'),
       ],
       expected: [true, true],
     });
@@ -77,9 +82,9 @@ describe('StoriesPage', () => {
     assert({
       given: 'no stories',
       should: 'say so in one line',
-      actual: renderToString(h(StoriesPage, { stories: [] })).includes(
-        'Nothing published yet.',
-      ),
+      actual: renderAccessible(h(StoriesPage, { stories: [] }))
+        .textContent()
+        .includes('Nothing published yet.'),
       expected: true,
     });
   });
@@ -87,17 +92,24 @@ describe('StoriesPage', () => {
 
 describe('Help, the front door', () => {
   test('lists the homes with something to read', () => {
-    const html = renderToString(
+    const view = renderAccessible(
       h(HelpPage, { homes: readingHomes(none), topics: helpTopics }),
     );
+    const reading = hrefs(view.within('list', 'Guides and learning'));
+    const questions = view.get('heading', 'Common questions');
     assert({
       given: 'the pilot library and no stories',
-      should: 'link Guides and Learn, not Stories, above the common questions',
+      should: 'list Guides and Learn, not Stories, before the common questions',
       actual: [
-        html.includes('href="/guides"'),
-        html.includes('href="/learn"'),
-        html.includes('href="/stories"'),
-        html.indexOf('href="/guides"') < html.indexOf('Common questions'),
+        reading.includes('/guides'),
+        reading.includes('/learn'),
+        reading.includes('/stories'),
+        Boolean(
+          view
+            .get('list', 'Guides and learning')
+            .compareDocumentPosition(questions) &
+          questions.DOCUMENT_POSITION_FOLLOWING,
+        ),
       ],
       expected: [true, true, false, true],
     });

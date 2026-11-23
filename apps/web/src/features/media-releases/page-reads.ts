@@ -1,9 +1,9 @@
+import type { ParentLinkRead } from '@daisy/db/stores/media-releases';
 import { nowMs } from '@daisy/clock';
 import {
   mediaReleaseSettingsView,
   type MediaReleaseSettingsView,
 } from './settings-view';
-import { type ParentLinkRead } from '@daisy/db';
 import { type ReleaseLinkPurpose } from '@daisy/protocol/media-release';
 import { isReleaseLinkToken, releaseLinkDigest } from './link-token';
 import { requestApp } from '../../lib/page-reads';

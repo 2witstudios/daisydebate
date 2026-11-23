@@ -6,7 +6,7 @@ import {
   loadAuthorizationAccount,
   readAuthorizationActors,
 } from './authorization';
-import type { authorizationAccountFact } from './authorization-account';
+import type { authorizationAccountFact } from './authorization';
 import { inTransaction, type Tx, type TxOpener } from './tx';
 import { query } from './raw-rows';
 import { z } from 'zod';

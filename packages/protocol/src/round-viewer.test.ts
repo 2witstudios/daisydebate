@@ -1,0 +1,261 @@
+import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
+import { emptyRuntimeCheckpointFor } from './round';
+import { twoSides, type SeatRef } from './seats';
+import { type LaunchedRound } from './round-view';
+import {
+  fixtureRules,
+  oneOnOneFormatFixture,
+  plainFormatSettings,
+} from './format-fixtures.test-support';
+import { roundViewFor } from './round-viewer';
+
+setupRitewayBun();
+
+const emptyRuntimeCheckpoint = emptyRuntimeCheckpointFor({ sides: twoSides });
+const id = (c: string) => c.repeat(24);
+const seatOf = (
+  role: 'affirmative' | 'negative' | 'judge',
+  slot: number,
+): SeatRef =>
+  role === 'judge'
+    ? { kind: 'judge', slot }
+    : { kind: 'side', side: role, slot };
+const seat = (
+  c: string,
+  role: 'affirmative' | 'negative' | 'judge',
+  kind: 'human' | 'bot' = 'human',
+  slot = 0,
+) => ({
+  id: id(c),
+  actorId: id(c),
+  kind,
+  label: `${role} ${c}`,
+  seat: seatOf(role, slot),
+});
+const aff = { ...seat('a', 'affirmative'), actorId: id('b') };
+const neg = { ...seat('c', 'negative'), actorId: id('d') };
+const judge = { ...seat('e', 'judge'), actorId: id('f'), label: 'Riley Judge' };
+const host = id('h');
+const round: LaunchedRound = {
+  id: id('r'),
+  roomId: id('m'),
+  version: 1,
+  status: 'active',
+  competitionType: 'casual',
+  topic: 'A topic',
+  visibility: 'public',
+  hostActorId: host,
+  hostInherited: false,
+  participants: [aff, neg, judge],
+  ladder: null,
+  config: plainFormatSettings,
+  rules: fixtureRules(oneOnOneFormatFixture),
+  postRoundCall: false,
+  panelRuling: null,
+  platformEnding: null,
+  transcriptCompleteness: null,
+  resolutionAudit: null,
+  startedAt: '2026-10-12T00:00:00.000Z',
+  completedAt: null,
+  outcome: null,
+  checkpoint: emptyRuntimeCheckpoint,
+  segments: [],
+};
+
+/** Every judge identity a serialized view could leak. */
+const leaks = (value: unknown) =>
+  ['Riley', judge.id, judge.actorId, host].filter((secret) =>
+    JSON.stringify(value).includes(secret),
+  );
+
+describe('roundViewFor', () => {
+  test('debaters and spectators', () => {
+    assert({
+      given:
+        'the Round read by a debater, a spectator and an anonymous visitor',
+      should: 'carry no judge name, judge ids or host actor for any of them',
+      actual: [aff.actorId, id('z'), null].map((viewer) =>
+        leaks(roundViewFor(round, viewer)),
+      ),
+      expected: [[], [], []],
+    });
+    assert({
+      given: 'a debater’s view',
+      should: 'show the judge seat as filled and anonymous, debaters named',
+      actual: roundViewFor(round, aff.actorId).participants,
+      expected: [
+        aff,
+        neg,
+        { seat: { kind: 'judge', slot: 0 }, kind: 'human', anonymous: true },
+      ],
+    });
+  });
+
+  test('the judge and a seatless host', () => {
+    assert({
+      given: 'the Round read by its judge and by its seatless host',
+      should: 'name the judge to both and still never send the host actor',
+      actual: [judge.actorId, host].map((viewer) => {
+        const view = roundViewFor(round, viewer);
+        return [view.participants[2], 'hostActorId' in view];
+      }),
+      expected: [
+        [judge, false],
+        [judge, false],
+      ],
+    });
+  });
+
+  test('a host who holds a seat', () => {
+    const anonymousJudge = (slot: number) => ({
+      seat: { kind: 'judge', slot },
+      kind: 'human',
+      anonymous: true,
+    });
+    const hosting = (actorId: string) => ({ ...round, hostActorId: actorId });
+    assert({
+      given: 'the Round read by a debater who also hosts it',
+      should: 'name no judge: hosting adds nothing to a seat (WATCH-6, DEC-98)',
+      actual: {
+        judge: roundViewFor(hosting(aff.actorId), aff.actorId).participants[2],
+        leaks: leaks(roundViewFor(hosting(aff.actorId), aff.actorId)),
+      },
+      expected: { judge: anonymousJudge(0), leaks: [] },
+    });
+    const secondJudge = {
+      ...seat('j', 'judge', 'human', 1),
+      actorId: id('k'),
+      label: 'Sam Judge',
+    };
+    const panel = {
+      ...hosting(judge.actorId),
+      participants: [aff, neg, judge, secondJudge],
+    };
+    assert({
+      given: 'a panel read by the judge who also hosts it',
+      should: 'name them to themselves and keep the other judge hidden',
+      actual: roundViewFor(panel, judge.actorId).participants.slice(2),
+      expected: [judge, anonymousJudge(1)],
+    });
+  });
+
+  test('a host who inherited the Room', () => {
+    const inherited = { ...round, hostInherited: true };
+    const view = roundViewFor(inherited, host);
+    assert({
+      given: 'the Round read by a host who took over from a restricted one',
+      should: 'keep them the host and name no judge to them (DEC-331)',
+      actual: {
+        viewerIsHost: view.viewerIsHost,
+        judge: view.participants[2],
+        leaks: leaks({ ...view, hostInherited: undefined }).filter(
+          (secret) => secret !== host,
+        ),
+        sent: 'hostInherited' in view,
+      },
+      expected: {
+        viewerIsHost: true,
+        judge: {
+          seat: { kind: 'judge', slot: 0 },
+          kind: 'human',
+          anonymous: true,
+        },
+        leaks: [],
+        sent: false,
+      },
+    });
+    assert({
+      given: 'the same Round read by its judge',
+      should: 'still name the judge to themselves',
+      actual: roundViewFor(inherited, judge.actorId).participants[2],
+      expected: judge,
+    });
+  });
+
+  test('an AI judge', () => {
+    const bot = { ...judge, kind: 'bot' as const, label: 'AI judge' };
+    assert({
+      given: 'a bot in the judge seat, read by a debater',
+      should: 'keep the bot seat as it is: no person to protect',
+      actual: roundViewFor(
+        { ...round, participants: [aff, neg, bot] },
+        aff.actorId,
+      ).participants[2],
+      expected: bot,
+    });
+  });
+});
+
+describe('ended draw envelope (PR #472 review, orchestrator B)', () => {
+  const audit = (
+    kind: 'host' | 'bank',
+  ): NonNullable<LaunchedRound['resolutionAudit']> => ({
+    manifest: {
+      version: 1,
+      algorithm: 'daisy-draw-v1',
+      roomId: id('m'),
+      drawId: id('w'),
+      source:
+        kind === 'host'
+          ? { kind, count: 3 }
+          : {
+              kind,
+              revision: 1,
+              categories: ['policy'],
+              locale: 'en',
+              difficulties: ['advanced', 'intro', 'standard'],
+            },
+      drawSize: 3,
+      firstStriker: 'negative',
+      strikeWindowMs: 60_000,
+      controllers: { affirmative: 'human', negative: 'human' },
+      inputCommitment: 'b'.repeat(64),
+    },
+    manifestDigest: 'c'.repeat(64),
+    commitment: 'e'.repeat(64),
+    items: [0, 1, 2].map((position) => ({
+      position,
+      text: `Line ${position}`,
+      category: null,
+    })),
+    strikes: [],
+    survivorPosition: 2,
+    revealedAt: '2026-10-12T00:01:30.000Z',
+    inputsErased: false,
+    textsWithheld: false,
+  });
+  const ended = (kind: 'host' | 'bank'): LaunchedRound => ({
+    ...round,
+    status: 'completed',
+    completedAt: '2026-10-12T01:00:00.000Z',
+    resolutionAudit: audit(kind),
+  });
+  const seen = (kind: 'host' | 'bank', viewer: string | null) => {
+    const view = roundViewFor(ended(kind), viewer).resolutionAudit;
+    return [view?.items.map((item) => item.text), view?.textsWithheld];
+  };
+  test('host-written lines reach the Round’s own people only', () => {
+    assert({
+      given:
+        'a host-list draw read by a debater, a judge, the host and a spectator, and a bank draw read by a spectator',
+      should:
+        'show every line to the Round’s people, only the debated line to a spectator of a host list, and every bank line to anyone',
+      actual: [
+        seen('host', aff.actorId),
+        seen('host', judge.actorId),
+        seen('host', host),
+        seen('host', id('z')),
+        seen('host', null),
+        seen('bank', id('z')),
+      ],
+      expected: [
+        [['Line 0', 'Line 1', 'Line 2'], false],
+        [['Line 0', 'Line 1', 'Line 2'], false],
+        [['Line 0', 'Line 1', 'Line 2'], false],
+        [[null, null, 'Line 2'], true],
+        [[null, null, 'Line 2'], true],
+        [['Line 0', 'Line 1', 'Line 2'], false],
+      ],
+    });
+  });
+});

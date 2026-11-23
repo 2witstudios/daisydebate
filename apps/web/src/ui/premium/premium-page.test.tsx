@@ -1,10 +1,17 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { renderToStaticMarkup } from 'react-dom/server';
+import {
+  renderAccessible,
+  type AccessibleView,
+} from '../../test-support/rendered/accessible';
 import { PremiumPage } from './premium-page';
 setupRitewayBun();
 
+const hrefs = (view: AccessibleView) =>
+  view.all('link').map((link) => link.getAttribute('href'));
+
 test('public Premium terms say unlimited at $20 a month, with no counter', () => {
-  const html = renderToStaticMarkup(<PremiumPage />);
+  const view = renderAccessible(<PremiumPage />);
+  const text = view.textContent();
   assert({
     given: 'the public Premium page',
     should:
@@ -12,27 +19,26 @@ test('public Premium terms say unlimited at $20 a month, with no counter', () =>
     actual: [
       'Premium · $20/month',
       'Get Premium · $20/month',
-      'Unlimited bot Rounds.',
       'Unlimited casual AI judging.',
       'Round analysis whenever you ask.',
       'No counters to watch.',
       'Human debate stays free',
-      'one bot Round, one AI-judged casual Round and one requested Round analysis, ever',
+      'one requested Round analysis, ever',
       'after Premium ends',
       'visibility rules',
-    ].filter((text) => !html.includes(text)),
+    ].filter((line) => !text.includes(line)),
     expected: [],
   });
   assert({
     given: 'an informational pricing read',
     should:
-      'send buying to billing and play to free play, with no form, no count and no old price',
+      'send buying to billing and play to free play, with nothing to post, no count and no old price',
     actual: [
-      html.includes('href="/settings/billing"'),
-      html.includes('href="/play"'),
-      html.includes('authorized to watch'),
-      html.includes('<form'),
-      /USD 10|Five bot debates|remaining/.test(html),
+      hrefs(view).includes('/settings/billing'),
+      hrefs(view).includes('/play'),
+      text.includes('authorized to watch'),
+      ['button', 'textbox', 'checkbox'].some((role) => view.count(role) > 0),
+      /USD 10|Five bot debates|remaining|\bbots?\b/i.test(text),
     ],
     expected: [true, true, true, false, false],
   });
@@ -43,9 +49,9 @@ test('Compare plans appears only once /pricing is open', () => {
     given: 'the pricing page closed, then open',
     should: 'link to /pricing only when it is open',
     actual: [
-      renderToStaticMarkup(<PremiumPage />).includes('href="/pricing"'),
-      renderToStaticMarkup(<PremiumPage comparePlans />).includes(
-        'href="/pricing"',
+      hrefs(renderAccessible(<PremiumPage />)).includes('/pricing'),
+      hrefs(renderAccessible(<PremiumPage comparePlans />)).includes(
+        '/pricing',
       ),
     ],
     expected: [false, true],

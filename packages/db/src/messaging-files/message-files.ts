@@ -4,7 +4,7 @@ import { createAppError } from '@daisy/errors';
 import { idSchema } from '@daisy/protocol/primitives';
 import { messagingFiles } from '../schema/messaging-files';
 import { messagingMessages } from '../schema/messaging-messages';
-import { requireFilePolicy } from './policy';
+import { requireFilePolicy } from './frame';
 import type { FileFrame } from './records';
 import type { Tx } from '../tx';
 

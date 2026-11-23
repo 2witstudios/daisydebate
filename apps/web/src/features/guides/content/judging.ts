@@ -308,7 +308,7 @@ export const judgingArticles: readonly Article[] = [
     sources: [
       ...ballotSources,
       'docs/domains/rooms.md',
-      'packages/db/src/round-ballot-view.ts',
+      'packages/db/src/round-ballot-reads.ts',
     ],
   },
   {

@@ -1,5 +1,5 @@
+import type { ClubReleasesRead } from '@daisy/db/stores/media-releases';
 import { notFound } from 'next/navigation';
-import type { ClubReleasesRead } from '@daisy/db';
 import { z } from 'zod';
 import type { SearchParams } from '../../../../../features/access/decision';
 import { clubSeatsViewSchema } from '../../../../../features/clubs/views';

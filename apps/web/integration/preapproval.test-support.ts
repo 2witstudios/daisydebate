@@ -1,10 +1,10 @@
+import { openWebDatabase } from '../src/server/database';
 import { hostWaits } from '@daisy/worker/host';
 import { createId } from '@paralleldrive/cuid2';
 import { buildUserInboxTopic } from '@daisy/protocol/topics';
-import { createDatabase } from '@daisy/db';
 import { withSql, testDatabaseUrl } from './fixtures';
 
-type Db = ReturnType<typeof createDatabase>;
+type Db = ReturnType<typeof openWebDatabase>;
 type Sql = Parameters<Parameters<typeof withSql>[0]>[0];
 
 /** Actual store/claim/settle operations; cleanup names only this fixture's records. */
@@ -16,7 +16,7 @@ export async function withBeta(
   }) => Promise<void>,
 ) {
   await withSql(async (sql) => {
-    const database = createDatabase({
+    const database = openWebDatabase({
       waits: hostWaits,
       url: testDatabaseUrl,
       nextActorId: createId,

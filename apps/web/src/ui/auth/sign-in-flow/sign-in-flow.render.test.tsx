@@ -1,6 +1,6 @@
-import { renderToString } from 'react-dom/server';
 import { isValidElement, type ReactElement } from 'react';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
+import { renderAccessible } from '../../../test-support/rendered/accessible';
 import { CheckInbox } from '../check-inbox/check-inbox';
 import { SignInForm } from '../sign-in-form/sign-in-form';
 import {
@@ -105,7 +105,7 @@ describe('renderSignInFlow', () => {
       should: 'render a status while the page moves on',
       actual: [
         isValidElement(node),
-        renderToString(node as ReactElement).includes('role="status"'),
+        renderAccessible(node as ReactElement).has('status'),
       ],
       expected: [true, true],
     });
