@@ -67,12 +67,24 @@ hook does one named job and takes that job's inputs, never an effect callback
 or a dependency list: `useDriver` and `useResource` hold a subscribed or
 disposable resource, `useAnswer` and `useDeliver` hand a rendered value on,
 the DOM event, media-query and observer hooks own one listener, the focus
-hooks move focus, `useTick`, `useDelay` and `useWait` own waits, and
+hooks move focus, `useTick` and `useDelay` own waits, and
 `useNavigation` follows a destination. Handlers are read at their latest, so a
 caller keeps no "latest" ref. A driver or HTTP client receives
 `browserTransport` and `browserScheduler` as injected ports; outside the edge a
 port is passed, never called. Driver state and feature decisions stay with
 their feature.
+
+A component that holds a state machine is a view over a driver
+([ADR 0919](../decisions/0919-client-drivers-and-role-queries.md)): a
+`<name>-driver.ts` module with no React import and no DOM global, its ports
+(transport or typed read, realtime connection, timers, clocks, navigation,
+a media adapter) passed in, exposing `readSnapshot`, `subscribe`, `dispose`
+and the commands its view sends. The view calls `useDriver(seed, start)`;
+`start` receives the seed the page rendered. The view keeps only view
+state (a DOM ref for focus or a video element) and hands the driver what
+the browser says (events, renders, route reads) through the edge hooks.
+Examples: `features/messaging/inbox-driver.ts`, `ui/people/people-driver.ts`,
+`ui/documents/drive-driver.ts`, `ui/broadcast/stage-driver.ts`.
 
 Markup uses `Dialog`, `Announcement` and `Button` from `ui/components`.
 `Dialog` is the native dialog and owns its lifetime: the owner passes `open`

@@ -1,5 +1,5 @@
-import { renderToStaticMarkup } from 'react-dom/server';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
+import { renderAccessible } from '../../../test-support/rendered/accessible';
 import {
   renderProfilePhotoControl,
   type ProfilePhotoControlProps,
@@ -23,62 +23,66 @@ const props = (
   ...overrides,
 });
 
-const html = (overrides: Partial<ProfilePhotoControlProps> = {}) =>
-  renderToStaticMarkup(renderProfilePhotoControl(props(overrides)));
+const render = (overrides: Partial<ProfilePhotoControlProps> = {}) =>
+  renderAccessible(renderProfilePhotoControl(props(overrides)));
 
 describe('renderProfilePhotoControl', () => {
   test('no photo yet', () => {
-    const page = html();
+    const view = render();
     assert({
       given: 'a member with no photo on a deployment that takes uploads',
       should:
-        'offer an upload of JPEG, PNG or WebP outside any form, and nothing to remove',
+        'offer an upload (its file input and types: see markup-contracts), and nothing to remove',
       actual: [
-        page.includes('Upload photo'),
-        page.includes('type="file"'),
-        page.includes('accept="image/jpeg,image/png,image/webp"'),
-        page.includes('<form'),
-        page.includes('Remove photo'),
+        view.textContent().includes('Upload photo'),
+        view.has('button', 'Remove photo'),
       ],
-      expected: [true, true, true, false, false],
+      expected: [true, false],
     });
   });
 
   test('a published photo and a newer one in review', () => {
-    const page = html({ photo: { published, inReview } });
+    const view = render({ photo: { published, inReview } });
     assert({
       given: 'a published photo and its replacement in review',
       should:
         'preview both at 128 px, mark the newer one In review and offer Remove photo',
       actual: [
-        page.includes(`src="/api/profile-photos/${published}/128"`),
-        page.includes(`src="/api/profile-photos/${inReview}/128"`),
-        page.includes('In review'),
-        page.includes('Remove photo'),
+        view.all('presentation').map((image) => image.getAttribute('src')),
+        view.textContent().includes('In review'),
+        view.has('button', 'Remove photo'),
       ],
-      expected: [true, true, true, true],
+      expected: [
+        [
+          `/api/profile-photos/${published}/128`,
+          `/api/profile-photos/${inReview}/128`,
+        ],
+        true,
+        true,
+      ],
     });
   });
 
   test('uploads unavailable', () => {
-    const page = html({
+    const view = render({
       photoUploads: 'unavailable',
       photo: { published, inReview: null },
     });
     assert({
       given: 'a deployment with no scanner or bucket',
-      should: 'hide the upload with a short note and still let the photo go',
+      should:
+        'hide the upload (no file input: see markup-contracts) with a short note and still let the photo go',
       actual: [
-        page.includes('type="file"'),
-        page.includes('Photo uploads are unavailable right now.'),
-        page.includes('Remove photo'),
+        view.textContent().includes('Upload photo'),
+        view.textContent().includes('Photo uploads are unavailable right now.'),
+        view.has('button', 'Remove photo'),
       ],
       expected: [false, true, true],
     });
   });
 
   test('while a request is out, and after', () => {
-    const page = html({
+    const view = render({
       photo: { published, inReview: null },
       activity: 'uploading',
       notice: 'Photo updated.',
@@ -86,13 +90,13 @@ describe('renderProfilePhotoControl', () => {
     assert({
       given: 'an upload on its way, then the notice it answered with',
       should:
-        'disable both controls, say it is uploading and announce the notice',
+        'disable both controls (the file input: see markup-contracts), say it is uploading and announce the notice',
       actual: [
-        page.includes('Uploading…'),
-        page.match(/disabled=""/g)?.length,
-        /role="status"[^>]*>Photo updated.</.test(page),
+        view.textContent().includes('Uploading…'),
+        view.get('button', 'Remove photo').hasAttribute('disabled'),
+        view.text('status'),
       ],
-      expected: [true, 2, true],
+      expected: [true, true, 'Photo updated.'],
     });
   });
 

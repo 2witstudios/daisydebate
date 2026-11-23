@@ -1,24 +1,25 @@
 import { createElement as h } from 'react';
-import { renderToString } from 'react-dom/server';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
+import { renderAccessible } from '../../../test-support/rendered/accessible';
 import { CopyLink } from './copy-link';
 
 setupRitewayBun();
 
 describe('CopyLink', () => {
   test('before hydration', () => {
-    const html = renderToString(h(CopyLink, { path: '/watch/top' }));
+    const view = renderAccessible(h(CopyLink, { path: '/watch/top' }));
+    const field = view.get('textbox', 'Link to this page', { hidden: true });
     assert({
       given: 'a server render',
       should:
         'offer a details with the link to copy by hand and no dead Copy button',
       actual: [
-        html.includes('<details'),
-        html.includes('value="/watch/top"'),
-        html.includes('readOnly') || html.includes('readonly'),
-        html.includes('>Copy<'),
+        view.count('group', undefined, { hidden: true }),
+        field.getAttribute('value'),
+        field.hasAttribute('readonly'),
+        view.has('button', 'Copy', { hidden: true }),
       ],
-      expected: [true, true, true, false],
+      expected: [1, '/watch/top', true, false],
     });
   });
 });

@@ -39,7 +39,7 @@ const render = (
 
 describe('FriendsPage', () => {
   test('friends online first, with requests both ways and what you can do', () => {
-    const html = render({
+    const view = render({
       version: 1,
       friends: [
         {
@@ -58,22 +58,24 @@ describe('FriendsPage', () => {
       incoming: [{ username: 'dan', requestedAt: at }],
       outgoing: [{ username: 'eve', requestedAt: at }],
     });
+    const sections = view.names('heading', { level: 2 });
+    const friends = view.within('region', 'Your friends').names('link');
     assert({
       given: 'two friends, one incoming and one sent request',
       should:
         'count who is online, show requests first, and offer each row its forms',
       actual: [
-        html.includes('>Friends</h1>'),
-        html.includes('1 of 2 online'),
-        html.indexOf('>Requests</h2>') < html.indexOf('>Your friends</h2>'),
-        html.indexOf('@ada') < html.indexOf('@cat'),
-        html.includes('aria-label="Accept @dan"'),
-        html.includes('Message @ada'),
-        html.includes('Message @dan'),
-        html.includes('aria-label="Remove @cat"'),
-        html.includes('aria-label="Cancel @eve"'),
-        html.includes('href="/profile/ada"'),
-        html.includes('Watch'),
+        view.has('heading', 'Friends', { level: 1 }),
+        view.textContent().includes('1 of 2 online'),
+        sections.indexOf('Requests') < sections.indexOf('Your friends'),
+        friends.indexOf('@ada') < friends.indexOf('@cat'),
+        view.has('button', 'Accept @dan'),
+        view.has('button', 'Message @ada'),
+        view.has('button', 'Message @dan'),
+        view.has('button', 'Remove @cat'),
+        view.has('button', 'Cancel @eve'),
+        view.attribute('link', '@ada', 'href') === '/profile/ada',
+        view.textContent().includes('Watch'),
       ],
       expected: [
         true,
@@ -93,7 +95,7 @@ describe('FriendsPage', () => {
 
   test('a friend who chose a display name and photo', () => {
     const photoId = 'f'.repeat(24);
-    const html = render({
+    const view = render({
       version: 1,
       friends: [
         {
@@ -111,16 +113,16 @@ describe('FriendsPage', () => {
       should:
         'name them by it, keep @username and their status beside it, and show the small photo',
       actual: [
-        /href="\/profile\/ada"[^>]*>Ada Byron</.test(html),
-        html.includes('@ada · Online'),
-        html.includes(`src="/api/profile-photos/${photoId}/128"`),
+        view.attribute('link', 'Ada Byron', 'href'),
+        view.textContent().includes('@ada · Online'),
+        view.attribute('presentation', undefined, 'src'),
       ],
-      expected: [true, true, true],
+      expected: ['/profile/ada', true, `/api/profile-photos/${photoId}/128`],
     });
   });
 
   test('a member with no friends sees how to add one', () => {
-    const html = render({
+    const view = render({
       version: 1,
       friends: [],
       incoming: [],
@@ -131,30 +133,30 @@ describe('FriendsPage', () => {
       should:
         'invite adding a friend by username with a native form, and no status control: that lives in the account menu',
       actual: [
-        html.includes('Add a friend by username'),
-        html.includes('name="username"'),
-        html.includes('>Your friends</h2>'),
-        html.includes('Presence control'),
+        view.textContent().includes('Add a friend by username'),
+        view.attribute('textbox', 'Username', 'name'),
+        view.has('heading', 'Your friends', { level: 2 }),
+        view.textContent().includes('Presence control'),
       ],
-      expected: [true, true, false, false],
+      expected: [true, 'username', false, false],
     });
   });
 
   test('an unavailable list still offers the add form', () => {
-    const html = render(null);
+    const view = render(null);
     assert({
       given: 'no list',
       should: 'say friends are unavailable and keep the add form',
       actual: [
-        html.includes('Friends are unavailable right now.'),
-        html.includes('Send friend request'),
+        view.textContent().includes('Friends are unavailable right now.'),
+        view.has('button', 'Send friend request'),
       ],
       expected: [true, true],
     });
   });
 
   test('a friend live in a public Round', () => {
-    const html = render(
+    const view = render(
       {
         version: 1,
         friends: [
@@ -180,10 +182,11 @@ describe('FriendsPage', () => {
       given: 'one friend live and one not',
       should: 'offer Watch live for the live one only',
       actual: [
-        html.includes('href="/watch/round-of-ada"'),
-        html.split('Watch live').length - 1,
+        view.attribute('link', 'Watch @ada live', 'href'),
+        view.count('link', /^Watch @.+ live$/),
+        view.textContent().split('Watch live').length - 1,
       ],
-      expected: [true, 1],
+      expected: ['/watch/round-of-ada', 1, 1],
     });
   });
 });

@@ -1,11 +1,12 @@
 import { createElement as h } from 'react';
-import { renderToString } from 'react-dom/server';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
+import { renderAccessible } from '../../../test-support/rendered/accessible';
 import { PrivacyPage } from './privacy-page';
 
 setupRitewayBun();
 
-const html = renderToString(h(PrivacyPage)).replace(/<!-- -->/g, '');
+const view = renderAccessible(h(PrivacyPage));
+const text = view.textContent();
 
 describe('PrivacyPage', () => {
   test('three sections', () => {
@@ -13,15 +14,19 @@ describe('PrivacyPage', () => {
       given: 'the privacy page',
       should: 'have one h1 and the three sections with their rules',
       actual: [
-        html.match(/<h1/g)?.length,
-        html.includes('>Public<'),
-        html.includes('>Private<'),
-        html.includes('>Hidden on purpose<'),
-        html.includes('Ratings while you judge'),
-        html.includes('Closed accounts'),
-        html.includes('ADR'),
+        view.count('heading', undefined, { level: 1 }),
+        view.names('heading', { level: 2 }),
+        text.includes('Ratings while you judge'),
+        text.includes('Closed accounts'),
+        text.includes('ADR'),
       ],
-      expected: [1, true, true, true, true, true, false],
+      expected: [
+        1,
+        ['Public', 'Private', 'Hidden on purpose'],
+        true,
+        true,
+        false,
+      ],
     });
   });
 
@@ -31,12 +36,12 @@ describe('PrivacyPage', () => {
       should:
         'describe public ranked records without a fake opt-out, profile fields or sample rating',
       actual: [
-        html.includes('Your privacy settings'),
-        html.includes('Change in settings'),
-        html.includes('Display name and image'),
-        html.includes('1538'),
-        html.includes('Never listed, and never rated'),
-        html.includes('Room visibility does not turn off rating'),
+        text.includes('Your privacy settings'),
+        text.includes('Change in settings'),
+        text.includes('Display name and image'),
+        text.includes('1538'),
+        text.includes('Never listed, and never rated'),
+        text.includes('Room visibility does not turn off rating'),
       ],
       expected: [false, false, false, false, false, true],
     });

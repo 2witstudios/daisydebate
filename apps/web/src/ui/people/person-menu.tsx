@@ -15,7 +15,14 @@ import {
 import { type ChallengeList } from '@daisy/protocol/challenges';
 import { type Person } from '@daisy/protocol/people-list';
 import { ShellLink as Link } from '../layout/app-shell/shell-link';
-import { useId, useRef, useState } from 'react';
+import { useId, useRef } from 'react';
+import { useDriver } from '../edge/use-driver';
+import {
+  createPersonMenuDriver,
+  personMenuStart,
+  type PersonMenuEvent,
+  type PersonMenuView,
+} from './person-menu-driver';
 import {
   challengeFields,
   challengeFormUnavailable,
@@ -221,11 +228,15 @@ function wasSent(answer: ChallengeFormState): boolean {
 function ChallengeView({
   action,
   member,
+  mode,
+  onMode,
   onBack,
   onDone,
 }: {
   readonly action: PersonActions['sendChallenge'];
   readonly member: Pick<Person, 'username' | 'challengeModes'>;
+  readonly mode: CompetitionType;
+  readonly onMode: (mode: CompetitionType) => void;
   readonly onBack: () => void;
   readonly onDone: () => void;
 }) {
@@ -233,9 +244,6 @@ function ChallengeView({
   const { memberDivision } = useChallenges();
   const ranked = member.challengeModes.includes('ranked');
   const line = ranked ? null : challengeModeLine(memberDivision);
-  const [mode, setMode] = useState<CompetitionType>(
-    ranked ? 'ranked' : 'casual',
-  );
   const [answer, post, pending] = useFormAction(
     action,
     initialChallengeForm,
@@ -262,7 +270,7 @@ function ChallengeView({
             aria-describedby={
               value === 'ranked' && line !== null ? ladderLineId : undefined
             }
-            onClick={() => setMode(value)}
+            onClick={() => onMode(value)}
             className="flex-1"
           >
             {modeLabels[value]}
@@ -302,15 +310,18 @@ function ChallengeView({
 function ReportView({
   action,
   username,
+  reason,
+  onReason,
   onBack,
   onDone,
 }: {
   readonly action: PersonActions['report'];
   readonly username: string;
+  readonly reason: ReportReason | null;
+  readonly onReason: (reason: ReportReason) => void;
   readonly onBack: () => void;
   readonly onDone: () => void;
 }) {
-  const [reason, setReason] = useState<ReportReason | null>(null);
   const [answer, post, pending] = useFormAction(
     action,
     initialReportForm,
@@ -332,7 +343,7 @@ function ReportView({
             key={value}
             type="button"
             aria-pressed={reason === value}
-            onClick={() => setReason(value)}
+            onClick={() => onReason(value)}
             className="flex-1 text-left"
           >
             {reportReasonLabels[value]}
@@ -369,8 +380,6 @@ function ReportView({
  * (ADR 0103): their card, then what the viewer can do. A sheet on a phone.
  */
 
-type PersonMenuView = 'menu' | 'challenge' | 'report';
-
 /** Focus enters the view the card now shows, on its first control. */
 const focusViewStart = (card: HTMLElement | null, view: PersonMenuView) => {
   if (card?.dataset.personView !== view) return;
@@ -403,7 +412,12 @@ export function PersonMenu({
     refreshPeople();
     refreshChallenges();
   };
-  const [view, setView] = useState<PersonMenuView>('menu');
+  const [shown, menu] = useDriver(
+    () => personMenuStart,
+    createPersonMenuDriver,
+  );
+  const { view } = shown;
+  const send = (event: PersonMenuEvent) => menu?.send(event);
   const finish = () => {
     refresh();
     onClose();
@@ -455,7 +469,12 @@ export function PersonMenu({
                 variant="row"
                 type="button"
 
-                onClick={() => setView('challenge')}
+                onClick={() =>
+                  send({
+                    type: 'challenge',
+                    ranked: member.challengeModes.includes('ranked'),
+                  })
+                }
                 className="w-full font-bold"
               >
                 Challenge
@@ -501,7 +520,7 @@ export function PersonMenu({
               type="button"
 
               disabled={reported}
-              onClick={() => setView('report')}
+              onClick={() => send({ type: 'report' })}
               className="w-full"
             >
               {reported ? 'Reported' : 'Report'}
@@ -516,22 +535,26 @@ export function PersonMenu({
             />
           </div>
         ) : null}
-        {view === 'challenge' ? (
+        {shown.view === 'challenge' ? (
           <ChallengeView
             action={actions.sendChallenge}
             member={member}
-            onBack={() => setView('menu')}
+            mode={shown.mode}
+            onMode={(mode) => send({ type: 'mode', mode })}
+            onBack={() => send({ type: 'menu' })}
             onDone={finish}
           />
         ) : null}
-        {view === 'report' ? (
+        {shown.view === 'report' ? (
           <ReportView
             action={actions.report}
             username={username}
-            onBack={() => setView('menu')}
+            reason={shown.reason}
+            onReason={(reason) => send({ type: 'reason', reason })}
+            onBack={() => send({ type: 'menu' })}
             onDone={() => {
               onReported();
-              setView('menu');
+              send({ type: 'menu' });
             }}
           />
         ) : null}

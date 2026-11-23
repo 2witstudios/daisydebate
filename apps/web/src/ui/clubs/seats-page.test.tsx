@@ -1,7 +1,7 @@
 import { mock } from 'bun:test';
-import { renderToStaticMarkup } from 'react-dom/server';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { noAction, seatsView, words } from './club-view.test-support';
+import { renderAccessible } from '../../test-support/rendered/accessible';
+import { noAction, seatsView } from './club-view.test-support';
 
 setupRitewayBun();
 const navigation = await import('next/navigation');
@@ -15,13 +15,22 @@ const render = (
   filter: 'everyone' | 'youth' | 'open' | 'invited' = 'everyone',
   view = seatsView,
 ) =>
-  renderToStaticMarkup(
+  renderAccessible(
     <ClubSeatsPage view={view} filter={filter} action={noAction} />,
   );
 
+/** The value a form posts for one field. */
+const posted = (form: Element, field: string) =>
+  (
+    (form as HTMLFormElement).elements.namedItem(
+      field,
+    ) as HTMLInputElement | null
+  )?.value;
+
 test('the seats board counts filled, invited and empty seats and filters by ladder', () => {
-  const html = render();
-  const text = words(html);
+  const view = render();
+  const text = view.textContent();
+  const filters = view.within('navigation', 'Filter members');
   assert({
     given: '8 seats held and 2 invitations on a 14-seat plan',
     should: 'show the tally, the monthly total and every filter with its count',
@@ -29,51 +38,57 @@ test('the seats board counts filled, invited and empty seats and filters by ladd
       text.includes('8 of 14'),
       text.includes('2 invited · 4 empty'),
       text.includes('$140'),
-      text.includes('Everyone · 11'),
-      text.includes('Youth · 6'),
-      text.includes('Open · 2'),
-      text.includes('Invited · 2'),
-      html.includes('href="/clubs/cccccccccccccccccccccccc/seats?show=youth"'),
+      filters.names('link'),
+      filters.attribute('link', 'Youth · 6', 'href'),
     ],
-    expected: [true, true, true, true, true, true, true, true],
+    expected: [
+      true,
+      true,
+      true,
+      ['Everyone · 11', 'Youth · 6', 'Open · 2', 'Invited · 2'],
+      '/clubs/cccccccccccccccccccccccc/seats?show=youth',
+    ],
   });
   assert({
     given: 'the Invited filter',
     should: 'list only the invitations, with resend and cancel',
     actual: [
-      words(render('invited')).includes('Sam Rivera'),
-      words(render('invited')).includes('rosa.j@lakeside.edu'),
-      render('invited').includes(
-        'aria-label="Cancel the invite to rosa.j@lakeside.edu"',
+      render('invited').textContent().includes('Sam Rivera'),
+      render('invited').textContent().includes('rosa.j@lakeside.edu'),
+      render('invited').has(
+        'button',
+        'Cancel the invite to rosa.j@lakeside.edu',
       ),
-      words(render('invited')).includes('Resend'),
+      render('invited').count('button', 'Resend'),
     ],
-    expected: [false, true, true, true],
+    expected: [false, true, true, 2],
   });
   assert({
     given: 'the Open filter',
     should: 'list only Open seat holders',
     actual: [
-      words(render('open')).includes('Leo Castillo'),
-      words(render('open')).includes('Theo Haddad'),
+      render('open').textContent().includes('Leo Castillo'),
+      render('open').textContent().includes('Theo Haddad'),
     ],
     expected: [true, false],
   });
 });
 
 test('empty seats get their band, and the invite form posts an email', () => {
-  const html = render();
   const full = render('everyone', {
     ...seatsView,
     plan: { ...seatsView.plan, seatCount: 10, monthlyTotalMinor: 10000 },
   });
+  // Rendered last: a view reads labels through the one live document.
+  const view = render();
+  const invite = view.within('form', 'Invite to a seat');
   assert({
     given: 'a plan with 4 empty seats, and one with none',
     should: 'show the empty-seats band only when there are empty seats',
     actual: [
-      words(html).includes('4 empty seats'),
-      words(html).includes('You pay for 14.'),
-      words(full).includes('empty seats'),
+      view.textContent().includes('4 empty seats'),
+      view.textContent().includes('You pay for 14.'),
+      full.textContent().includes('empty seats'),
     ],
     expected: [true, true, false],
   });
@@ -81,16 +96,17 @@ test('empty seats get their band, and the invite form posts an email', () => {
     given: 'the invite form',
     should: 'post an email as an invite command',
     actual: [
-      html.includes('name="kind" value="invite"'),
-      html.includes('type="email"'),
-      words(html).includes('Send invitation'),
+      posted(view.get('form', 'Invite to a seat'), 'kind'),
+      invite.attribute('textbox', 'Email', 'type'),
+      invite.has('button', 'Send invitation'),
     ],
-    expected: [true, true, true],
+    expected: ['invite', 'email', true],
   });
 });
 
 test('moving or removing a seat says Premium ends at the end of today (UTC)', () => {
-  const text = words(render());
+  const view = render();
+  const text = view.textContent();
   assert({
     given: 'a seat holder’s Move and Remove controls',
     should:
@@ -103,14 +119,14 @@ test('moving or removing a seat says Premium ends at the end of today (UTC)', ()
         'Theo Haddad stays a member and keeps their ratings and Rounds, and drops to the free plan at the end of today (UTC).',
       ),
       text.includes('No charge for moving a seat.'),
-      text.includes('Remove seat'),
+      view.count('button', 'Remove seat'),
     ],
-    expected: [true, true, true, true, true, true],
+    expected: [true, true, true, true, true, 8],
   });
   assert({
     given: 'a member without a seat while seats are free',
     should: 'offer to give them a seat',
-    actual: text.includes('Give a seat'),
+    actual: view.has('button', 'Give a seat'),
     expected: true,
   });
 });
@@ -123,7 +139,7 @@ test('a seat the paid count no longer covers says so; an unpaid plan points to B
       index === 0 ? { ...seat, funded: false } : seat,
     ),
   };
-  const text = words(render('everyone', view));
+  const text = render('everyone', view).textContent();
   assert({
     given: 'an unfunded seat on an unpaid plan',
     should: 'mark the seat and send the manager to Billing',

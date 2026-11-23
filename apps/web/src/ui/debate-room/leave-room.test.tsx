@@ -1,8 +1,12 @@
-import { renderToString } from 'react-dom/server';
 import { createElement as h } from 'react';
 import { AppRouterContext } from 'next/dist/shared/lib/app-router-context.shared-runtime';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
+import { renderAccessible } from '../../test-support/rendered/accessible';
 import { LeaveRoom, type LeaveLinks } from './leave-room';
+import {
+  postedBy,
+  postsAnyForm,
+} from '../test-support/posted-fields.test-support';
 
 setupRitewayBun();
 
@@ -17,48 +21,54 @@ const links: LeaveLinks = {
 const FREED = 'The debate is over, so leaving forfeits nothing.';
 
 test('a debater leaving while the ballot is pending is told they are freed (ISSUE-590)', () => {
-  const freed = renderToString(
+  const freed = renderAccessible(
     h(LeaveRoom, { links: { ...links, freed: true } }),
-  );
-  const plain = renderToString(h(LeaveRoom, { links }));
+  ).within('dialog', 'Leave the round?');
+  // A view reads the latest render only, so read each before the next.
+  const freedFacts = [
+    freed.textContent().includes(FREED),
+    freed.attribute('link', 'Leave round', 'href'),
+    freed.textContent().includes('forfeits the round'),
+    /judging/i.test(freed.textContent()),
+  ];
+  const plain = renderAccessible(h(LeaveRoom, { links }));
   assert({
     given:
       'the Leave confirm for a debater whose Round awaits its ballot, and for anyone else',
     should:
       'say leaving forfeits nothing, promise no judging, and offer a plain leave link, only for that debater',
-    actual: [
-      freed.includes(FREED),
-      freed.includes('href="/lobby"'),
-      freed.includes('forfeits the round'),
-      /judging/i.test(freed),
-      plain.includes(FREED),
-    ],
-    expected: [true, true, false, false, false],
+    actual: [...freedFacts, plain.textContent().includes(FREED)],
+    expected: [true, '/lobby', false, false, false],
   });
 });
 
 test('on a post-round call the control leaves the call, forfeiting nothing', () => {
-  const call = renderToString(
+  const call = renderAccessible(
     h(LeaveRoom, { links: { ...links, freed: true, call: true } }),
   );
-  const round = renderToString(h(LeaveRoom, { links }));
+  const callText = call.textContent();
+  const callFacts = [
+    call.count('link', 'Leave call'),
+    call.has('dialog', 'Leave the call?'),
+  ];
+  const round = renderAccessible(h(LeaveRoom, { links }));
+  const roundText = round.textContent();
   assert({
     given: 'the Leave confirm during a post-round call, and during a Round',
     should: 'name the call, promise no forfeit, and never say Leave round',
     actual: [
-      call.includes('Leave call'),
-      call.includes('Leave the call?'),
-      call.includes('The round is over, so leaving forfeits nothing.'),
-      call.includes('Leave round'),
-      round.includes('Leave round'),
-      round.includes('Leave call'),
+      ...callFacts,
+      callText.includes('The round is over, so leaving forfeits nothing.'),
+      callText.includes('Leave round'),
+      round.count('link', 'Leave round'),
+      roundText.includes('Leave call'),
     ],
-    expected: [true, true, true, false, true, false],
+    expected: [2, true, true, false, 2, false],
   });
 });
 
 test('a held Round cannot trap a debater: the seat is kept and the lobby stays reachable', () => {
-  const held = renderToString(
+  const held = renderAccessible(
     h(LeaveRoom, {
       links: {
         ...links,
@@ -67,20 +77,20 @@ test('a held Round cannot trap a debater: the seat is kept and the lobby stays r
       },
     }),
   );
+  const text = held.within('dialog', 'Leave the round?').textContent();
   assert({
     given: 'the Leave confirm while the Round catches up',
     should:
       'say leaving is unavailable and what stepping away means, and send no forfeit command',
     actual: [
-      held.includes('Leaving is unavailable for a moment'),
-      held.includes('keeping your seat'),
-      held.includes('the round continues'),
-      held.includes('attendance rules apply'),
-      held.includes('Leave and forfeit'),
-      held.includes('<form'),
-      held.includes('commandId'),
+      text.includes('Leaving is unavailable for a moment'),
+      held.has('link', 'Go to the lobby, keeping your seat'),
+      text.includes('the round continues'),
+      text.includes('attendance rules apply'),
+      held.textContent().includes('Leave and forfeit'),
+      postsAnyForm(held),
     ],
-    expected: [true, true, true, true, false, false, false],
+    expected: [true, true, true, true, false, false],
   });
 });
 
@@ -96,7 +106,7 @@ test('leaving a Round no forfeit ends posts leave and says the Round goes on (TA
     prefetch: noop,
   };
   const withdrawal = (type?: 'leave') =>
-    renderToString(
+    renderAccessible(
       h(
         AppRouterContext,
         { value: router },
@@ -115,6 +125,11 @@ test('leaving a Round no forfeit ends posts leave and says the Round goes on (TA
       ),
     );
   const leave = withdrawal('leave');
+  const leaveFacts = [
+    postedBy(leave, 'Leave round').type,
+    leave.textContent().includes('your seat is recorded absent'),
+    leave.textContent().includes('forfeit'),
+  ];
   const forfeit = withdrawal();
   assert({
     given:
@@ -122,12 +137,10 @@ test('leaving a Round no forfeit ends posts leave and says the Round goes on (TA
     should:
       'post leave and say the seat is recorded absent, where the two-sided Round still forfeits',
     actual: [
-      leave.includes('name="type" value="leave"'),
-      leave.includes('your seat is recorded absent'),
-      leave.includes('forfeit'),
-      forfeit.includes('name="type" value="forfeit"'),
-      forfeit.includes('Leave and forfeit'),
+      ...leaveFacts,
+      postedBy(forfeit, 'Leave and forfeit').type,
+      forfeit.has('button', 'Leave and forfeit'),
     ],
-    expected: [true, true, false, true, true],
+    expected: ['leave', true, false, 'forfeit', true],
   });
 });

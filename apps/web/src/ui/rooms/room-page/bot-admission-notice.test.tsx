@@ -1,6 +1,6 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { renderToStaticMarkup } from 'react-dom/server';
 import type { RoomView } from '@daisy/protocol/room-contract';
+import { renderAccessible } from '../../../test-support/rendered/accessible';
 import { BotAdmissionNotice } from './bot-admission-notice';
 setupRitewayBun();
 
@@ -15,22 +15,26 @@ const allowance = (
   refusal,
 });
 const render = (admission: RoomView['botAdmission']) =>
-  renderToStaticMarkup(<BotAdmissionNotice admission={admission} />);
-const words = (html: string) =>
-  html.replace(/<[^>]*>/g, ' ').replace(/&#?\w+;/g, ' ');
+  renderAccessible(<BotAdmissionNotice admission={admission} />);
+/** What a render says and links to: nothing at all reads as ['', []]. */
+const said = (admission: RoomView['botAdmission']) => {
+  const view = render(admission);
+  return [view.textContent(), view.names('link')];
+};
 
 test('a bot-debater cast that can start says nothing and never counts', () => {
   assert({
     given: 'a host whose bot Round is admitted',
     should:
       'render nothing: no remaining count, no period, no reservation copy',
-    actual: render(allowance(null)),
-    expected: '',
+    actual: said(allowance(null)),
+    expected: ['', []],
   });
 });
 
 test('a free account past its one bot Round sees the upgrade panel in place', () => {
-  const html = render(allowance('free-limit-reached'));
+  const view = render(allowance('free-limit-reached'));
+  const html = view.text('status');
   assert({
     given: 'a free host starting a second bot Round',
     should:
@@ -38,11 +42,11 @@ test('a free account past its one bot Round sees the upgrade panel in place', ()
     actual: [
       html.includes('Your free bot Round is used'),
       html.includes('Premium gives you unlimited bot Rounds.'),
-      html.includes('href="/premium"'),
-      html.includes('Find a person'),
-      /\d/.test(words(html)),
+      view.attribute('link', 'Get Premium', 'href'),
+      view.attribute('link', 'Find a person', 'href'),
+      /\d/.test(view.textContent()),
     ],
-    expected: [true, true, true, true, false],
+    expected: [true, true, '/premium', '/play', false],
   });
 });
 
@@ -57,14 +61,18 @@ test('each other refusal says why a bot-debater round cannot start, never a coun
     given: 'an ineligible host, the daily ceiling, busy and unavailable bots',
     should: 'name the actual reason, never as an upsell or a number',
     actual: cases.map(([given, admission]) => {
-      const html = render(admission);
+      const view = render(admission);
+      const html = view.text('status');
       return [
         given,
         html.includes('because access is unavailable'),
         html.includes('fair-use ceiling'),
         html.includes('bots are busy, try again shortly'),
         html.includes('bots are unavailable'),
-        html.includes('href="/premium"') || /\d/.test(words(html)),
+        view
+          .all('link')
+          .some((link) => link.getAttribute('href') === '/premium') ||
+          /\d/.test(view.textContent()),
       ];
     }),
     expected: [
@@ -77,8 +85,8 @@ test('each other refusal says why a bot-debater round cannot start, never a coun
   assert({
     given: 'no host-only admission metadata',
     should: 'reveal nothing',
-    actual: render(null),
-    expected: '',
+    actual: said(null),
+    expected: ['', []],
   });
 });
 
@@ -87,9 +95,13 @@ test('renewal grace links to billing while busy bots never do', () => {
     given: 'renewal grace or shared bot capacity',
     should: 'offer billing management only for grace',
     actual: [
-      render(allowance('renewal-grace')).includes('href="/settings/billing"'),
-      render(allowance('capacity')).includes('href="/settings/billing"'),
+      render(allowance('renewal-grace'))
+        .all('link')
+        .map((link) => link.getAttribute('href')),
+      render(allowance('capacity'))
+        .all('link')
+        .map((link) => link.getAttribute('href')),
     ],
-    expected: [true, false],
+    expected: [['/settings/billing'], []],
   });
 });

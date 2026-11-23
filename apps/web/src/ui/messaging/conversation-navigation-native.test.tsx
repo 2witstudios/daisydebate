@@ -1,4 +1,4 @@
-import { renderToStaticMarkup } from 'react-dom/server';
+import { renderAccessible } from '../../test-support/rendered/accessible';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import {
   ConversationNavigation,
@@ -21,11 +21,14 @@ test('server rendering retains the exact server action identity', () => {
     given: 'a server-rendered conversation composer action before hydration',
     should:
       'keep the original server action reference that React uses for native POST and 303',
-    actual: renderToStaticMarkup(
-      <ConversationNavigation requestId="server-request">
-        <NativeIdentity />
-      </ConversationNavigation>,
-    ),
-    expected: '<output>original server action</output>',
+    actual: (() => {
+      const view = renderAccessible(
+        <ConversationNavigation requestId="server-request">
+          <NativeIdentity />
+        </ConversationNavigation>,
+      );
+      return [view.text('status'), view.textContent()];
+    })(),
+    expected: ['original server action', 'original server action'],
   });
 });
