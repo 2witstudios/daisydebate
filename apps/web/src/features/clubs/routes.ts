@@ -250,11 +250,7 @@ export function composeClubRoutes(input: ClubRouteDependencies) {
             );
             if (!command.success) throw createAppError('VALIDATION');
             return Response.json(
-              await input.seats.command(
-                subject,
-                clubIdOf(club),
-                command.data,
-              ),
+              await input.seats.command(subject, clubIdOf(club), command.data),
               { headers },
             );
           },
