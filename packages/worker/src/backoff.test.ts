@@ -1,5 +1,5 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { nextWaitMs, validateIdleBackoff } from './idle-backoff';
+import { nextWaitMs, validateIdleBackoff } from './backoff';
 
 setupRitewayBun();
 

@@ -28,6 +28,9 @@ export const allowedWorkspaceDependencies: Record<string, readonly string[]> = {
   // Seeded randomness is topic-agnostic: it knows a seed and nothing else.
   'seeded-random': ['digest'],
   clock: [],
+  // R4.7: background loops, leases and shutdown over the clock's waits;
+  // it knows no app, store or domain.
+  worker: ['clock'],
   digest: [],
   // The tab engine is plain data in and out: no app, database, protocol or
   // Room engine, only seeded randomness and digests.

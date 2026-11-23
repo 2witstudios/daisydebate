@@ -38,6 +38,13 @@ export function fixedIds(values: readonly string[]): IdGenerator {
   };
 }
 
+export type { Waits } from './waits';
+export {
+  deadlineReason,
+  deadlineSignal,
+  withDeadline,
+  type Deadline,
+} from './deadline';
 export {
   addMs,
   instantMs,
