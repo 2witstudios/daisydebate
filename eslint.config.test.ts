@@ -1309,7 +1309,8 @@ describe('browser edges', () => {
     assert({
       given:
         'memoised values with a field the handler never reads: by destructure, by member, with no parameter, as an array, from a block body and through a named handler',
-      should: 'report each, and allow a value whose every field the job reads',
+      should:
+        'report each, and allow a value whose every field the job reads or a prop handler it cannot read',
       actual: await Promise.all([
         probe(
           web('ui/room/controls.tsx'),
@@ -1342,6 +1343,11 @@ describe('browser edges', () => {
            export function useMark(channelId: string, sequence: number) {
              const mark = useMemo(() => ({ channelId, sequence }), [channelId, sequence]);
              useDeliver(mark, ({ channelId, sequence }) => send(channelId, sequence));
+           }
+           export function Bar({ a, onShown }: { a: number; onShown: (v: unknown) => void }) {
+             const v = useMemo(() => ({ a, b: 2 }), [a]);
+             useDeliver(v, onShown);
+             return null;
            }`,
         ),
       ]),

@@ -276,10 +276,12 @@ const browserEdge = {
       )
         return node;
       if (node?.type !== 'Identifier') return null;
+      // A parameter's or import's definition node is its owner, not the
+      // handler: such a handler cannot be read and is skipped.
       const definition = variableOf(node)?.defs[0];
-      if (definition?.node?.type === 'FunctionDeclaration')
-        return definition.node;
-      const init = definition?.node?.init;
+      if (definition?.type === 'FunctionName') return definition.node;
+      if (definition?.type !== 'Variable') return null;
+      const init = definition.node.init;
       return init?.type === 'ArrowFunctionExpression' ||
         init?.type === 'FunctionExpression'
         ? init
