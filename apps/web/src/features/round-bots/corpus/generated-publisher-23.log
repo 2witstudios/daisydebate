@@ -1,0 +1,33 @@
+0 verify
+0 token
+0 join TR_0
+10 verify
+10 deadline 60000
+10 begin p0 470ms in=0 at=2027-01-15T08:00:00.010Z room
+10..10 frames TR_0 x31
+10 reveal p0 room at=2027-01-15T08:00:00.010Z
+20..40 frames TR_0 x3
+50 reveal -> CONFLICT
+50 clear TR_0 queued=300
+50 end p0 cut 40ms ""
+90 end -> CONFLICT/platform-incident
+90 published p0 -> CONFLICT
+90 begin p1 40ms in=0 at=2027-01-15T08:00:00.090Z room
+93 abort p1
+140 published p1 -> CONFLICT
+531 begin p2 90ms in=0 at=2027-01-15T08:00:00.531Z room
+571 begin -> CONFLICT
+571 published p2 -> CONFLICT
+571 published p3 complete=false ended=true
+571 published p4 complete=false ended=true
+571 begin p5 90ms in=0 at=2027-01-15T08:00:00.571Z room
+571 begin -> Error
+671 begin p5 90ms in=0 at=2027-01-15T08:00:00.571Z room
+671 begin -> Error
+871 begin p5 90ms in=0 at=2027-01-15T08:00:00.571Z room
+871 published p5 complete=false ended=true
+871 query audible=false p0:closed p1:open p2:open p3:open p4:open p5:open
+871 close TR_0
+871 closed
+871 published late -> CONFLICT
+982 abort p3

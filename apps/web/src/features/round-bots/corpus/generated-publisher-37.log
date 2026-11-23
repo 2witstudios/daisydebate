@@ -1,0 +1,19 @@
+0 verify
+0 token
+0 join TR_0
+10 verify
+10 deadline 60000
+10 begin p0 200ms in=0 at=2027-01-15T08:00:00.010Z room
+50 begin -> CONFLICT
+50 published p0 -> CONFLICT
+134 begin p1 560ms in=0 at=2027-01-15T08:00:00.134Z room
+134..134 frames TR_0 x31
+134 reveal p1 room at=2027-01-15T08:00:00.134Z
+144..374 frames TR_0 x24
+384 floor room
+384..384 frames TR_0 x1
+384 published p1 complete=true ended=false
+384 clear TR_0 queued=310
+463 query audible=false p0:open p1:open/tail-cut
+463 end p1 cut 250ms "one two three four"
+463 close TR_0

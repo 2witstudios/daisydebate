@@ -1,0 +1,27 @@
+436 generate opening
+436 settle answer 1
+436 verify
+436 tts "One."
+436 tts "Two."
+436 tts "Three."
+436 settle tts "One."
+436 settle tts "Two."
+436 settle tts "Three."
+436 verify
+436 token
+436 join TR_0
+436 begin id1 120ms in=0 at=2027-01-15T08:00:00.436Z room
+436 begin id3 260ms in=120 at=2027-01-15T08:00:00.556Z room
+436..436 frames TR_0 x12
+436 reveal id1 room at=2027-01-15T08:00:00.436Z
+436 begin id5 80ms in=380 at=2027-01-15T08:00:00.816Z room
+436..506 frames TR_0 x26
+556 end id1 whole
+556 reveal id3 room at=2027-01-15T08:00:00.556Z
+556..586 frames TR_0 x8
+816 reveal id5 room at=2027-01-15T08:00:00.816Z
+816 close answer 1
+816 abandon answer 1
+816 end id3 whole
+1116 end id5 whole
+13796 close TR_0

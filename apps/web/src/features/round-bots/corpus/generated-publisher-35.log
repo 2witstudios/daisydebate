@@ -1,0 +1,46 @@
+0 verify
+0 token
+0 join TR_0
+10 verify
+10 deadline 60000
+10 begin p0 220ms in=0 at=2027-01-15T08:00:00.010Z room
+10..10 frames TR_0 x22
+10 reveal p0 room at=2027-01-15T08:00:00.010Z
+10 published p0 complete=true ended=false
+146 begin p1 320ms in=84 at=2027-01-15T08:00:00.230Z room
+226 begin -> CONFLICT/bot-room-changed
+226 published p1 -> CONFLICT/bot-room-changed
+226 close TR_0
+226 verify
+226 token
+226 join TR_1
+226 begin p2 550ms in=4 at=2027-01-15T08:00:00.230Z room
+230 end p0 whole
+266 begin -> CONFLICT/bot-room-changed
+266 published p2 -> CONFLICT/bot-room-changed
+266 close TR_1
+266 verify
+266 token
+266 join TR_2
+266 begin p3 40ms in=0 at=2027-01-15T08:00:00.266Z room
+316..316 frames TR_2 x4
+316 reveal p3 room at=2027-01-15T08:00:00.316Z
+316 published p3 complete=true ended=false
+356 end p3 whole
+415 abort p1
+480 begin p4 380ms in=0 at=2027-01-15T08:00:00.480Z room
+480..480 frames TR_2 x31
+480 reveal p4 room at=2027-01-15T08:00:00.480Z
+490..550 frames TR_2 x7
+550 published p4 complete=true ended=false
+651 begin p5 40ms in=209 at=2027-01-15T08:00:00.860Z room
+651..651 frames TR_2 x4
+860 end p4 whole
+860 reveal p5 room at=2027-01-15T08:00:00.860Z
+860 published p5 complete=true ended=false
+860 query audible=true p0:closed p1:open p2:open p3:closed p4:closed p5:open
+860 clear TR_2 queued=40
+860 end p5 cut 0ms ""
+860 close TR_2
+860 closed
+860 published late -> CONFLICT

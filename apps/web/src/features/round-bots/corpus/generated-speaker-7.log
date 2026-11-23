@@ -1,0 +1,37 @@
+289 generate opening
+289 settle answer 1
+289 verify
+289 tts "One."
+289 tts "Two."
+289 tts "Three."
+289 settle tts "One."
+289 settle tts "Three."
+639 settle tts "Two."
+679 settle tts "Two." -> Error
+679 verify
+679 token
+679 join TR_0
+679 begin id1 120ms in=0 at=2027-01-15T08:00:00.679Z room
+679..679 frames TR_0 x12
+679 reveal id1 room at=2027-01-15T08:00:00.679Z
+679 reveal -> CONFLICT/platform-incident
+679 clear TR_0 queued=120
+679 end id1 cut 0ms ""
+1179 verify
+1179 begin id8 120ms in=0 at=2027-01-15T08:00:01.179Z room
+1179..1179 frames TR_0 x12
+1179 reveal id8 room at=2027-01-15T08:00:01.179Z
+1259 reveal -> Error
+1359 reveal id8 room at=2027-01-15T08:00:01.179Z
+1359 settle tts "Two."
+1359 begin id3 260ms in=0 at=2027-01-15T08:00:01.359Z room
+1359 begin id5 80ms in=260 at=2027-01-15T08:00:01.619Z room
+1359..1359 frames TR_0 x26
+1359 end id8 whole
+1359 reveal id3 room at=2027-01-15T08:00:01.359Z
+1359 abandon answer 1
+1399 end -> CONFLICT
+1439 begin -> CONFLICT/platform-incident
+1619 end id3 whole
+1619 end -> CONFLICT/bot-room-changed
+13108 close TR_0

@@ -1,0 +1,28 @@
+0 verify
+0 token
+0 join TR_0
+10 verify
+10 deadline 60000
+10 begin p0 540ms in=0 at=2027-01-15T08:00:00.010Z room
+10..10 frames TR_0 x31
+10 reveal p0 room at=2027-01-15T08:00:00.010Z
+20..240 frames TR_0 x23
+240 published p0 complete=true ended=false
+240 clear TR_0 queued=310
+240 begin p1 520ms in=0 at=2027-01-15T08:00:00.240Z room
+240 begin -> CONFLICT
+240 published p1 -> CONFLICT
+240 begin p2 90ms in=310 at=2027-01-15T08:00:00.550Z room
+240..240 frames TR_0 x9
+240 reveal p2 room at=2027-01-15T08:00:00.240Z
+320 reveal -> CONFLICT/platform-incident
+320 clear TR_0 queued=10
+320 end p2 cut 80ms "one two three four five six seven eight"
+320 end -> Error
+420 end p2 cut 80ms "one two three four five six seven eight"
+420 published p2 -> CONFLICT/platform-incident
+420 query audible=false p0:open/tail-cut p1:open p2:closed
+420 end p0 cut 230ms "one two three four"
+420 close TR_0
+420 closed
+420 published late -> CONFLICT

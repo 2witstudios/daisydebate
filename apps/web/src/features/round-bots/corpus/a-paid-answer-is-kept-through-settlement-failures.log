@@ -1,0 +1,27 @@
+0 generate opening
+0 settle answer 1
+0 settle answer 1 -> Error
+0 failed generate Error
+200 settle answer 1
+200 settle answer 1 -> INFRASTRUCTURE
+200 failed generate INFRASTRUCTURE
+600 settle answer 1
+600 verify
+600 tts "One."
+600 tts "Two."
+600 settle tts "One."
+600 settle tts "Two."
+600 verify
+600 token
+600 join TR_0
+600 begin id1 120ms in=0 at=2027-01-15T08:00:00.600Z room
+600 begin id3 260ms in=120 at=2027-01-15T08:00:00.720Z room
+600..600 frames TR_0 x12
+600 reveal id1 room at=2027-01-15T08:00:00.600Z
+600..670 frames TR_0 x26
+720 end id1 whole
+720 reveal id3 room at=2027-01-15T08:00:00.720Z
+720 close answer 1
+720 abandon answer 1
+980 end id3 whole
+6500 close TR_0

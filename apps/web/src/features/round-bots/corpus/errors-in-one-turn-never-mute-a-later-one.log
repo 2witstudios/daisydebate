@@ -1,0 +1,29 @@
+0 generate opening
+0 generate -> lost
+0 failed generate Error
+200 generate opening
+200 generate -> lost
+200 failed generate Error
+6000 peer end-of-turn peer
+6000 heard peer@1000
+6000 generate peer-turn peer@1000
+6000 settle answer 3
+6000 verify
+6000 tts "One."
+6000 tts "Two."
+6000 settle tts "One."
+6000 settle tts "Two."
+6000 verify
+6000 token
+6000 join TR_0
+6000 begin id1 120ms in=0 at=2027-01-15T08:00:06.000Z room
+6000 begin id3 260ms in=120 at=2027-01-15T08:00:06.120Z room
+6000..6000 frames TR_0 x12
+6000 reveal id1 room at=2027-01-15T08:00:06.000Z
+6000..6070 frames TR_0 x26
+6120 end id1 whole
+6120 reveal id3 room at=2027-01-15T08:00:06.120Z
+6120 close answer 3
+6120 abandon answer 3
+6380 end id3 whole
+9000 close TR_0

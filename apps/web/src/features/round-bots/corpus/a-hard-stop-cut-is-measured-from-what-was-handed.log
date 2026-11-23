@@ -1,0 +1,7 @@
+0 verify
+0 token
+0 join TR_0
+10 verify
+10 deadline 60000
+10 published a complete=false ended=true
+510 close TR_0

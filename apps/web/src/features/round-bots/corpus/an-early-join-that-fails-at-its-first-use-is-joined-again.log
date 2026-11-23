@@ -1,0 +1,12 @@
+0 verify
+0 token
+0 join TR_0
+100 verify
+100 token
+100 join TR_1
+100 begin a 100ms in=0 at=- room
+100..100 frames TR_1 x10
+100 reveal a room at=-
+100 published a complete=true ended=false
+200 end a whole
+600 close TR_1

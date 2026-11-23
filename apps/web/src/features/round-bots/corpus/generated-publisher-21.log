@@ -1,0 +1,45 @@
+0 verify
+0 token
+0 join TR_0
+10 verify
+10 deadline 60000
+10 begin p0 510ms in=0 at=2027-01-15T08:00:00.010Z room
+10..10 frames TR_0 x31
+10 reveal p0 room at=2027-01-15T08:00:00.010Z
+20..210 frames TR_0 x20
+210 published p0 complete=true ended=false
+210 begin p1 60ms in=310 at=2027-01-15T08:00:00.520Z room
+220..220 frames TR_0 x1
+230 frame TR_0 #52 failed
+230 clear TR_0 queued=300
+230 published p1 -> Error
+230 begin p2 430ms in=0 at=2027-01-15T08:00:00.230Z room
+261 abort p1
+520 end p0 cut 220ms "one two three four"
+580..580 frames TR_0 x31
+580 reveal p2 room at=2027-01-15T08:00:00.580Z
+590..610 frames TR_0 x3
+615 abort p2
+615 clear TR_0 queued=305
+615 end p2 cut 30ms ""
+915 published p2 complete=false ended=false
+915 begin p3 180ms in=0 at=2027-01-15T08:00:00.915Z room
+915..915 frames TR_0 x18
+915 reveal p3 room at=2027-01-15T08:00:00.915Z
+915 published p3 complete=true ended=false
+989 begin p4 240ms in=106 at=2027-01-15T08:00:01.095Z room
+989..1025 frames TR_0 x24
+1095 end p3 whole
+1095 reveal p4 room at=2027-01-15T08:00:01.095Z
+1095 published p4 complete=true ended=false
+1095 begin p5 310ms in=240 at=2027-01-15T08:00:01.335Z room
+1245..1325 frames TR_0 x30
+1335 end p4 whole
+1335 reveal p5 room at=2027-01-15T08:00:01.335Z
+1335..1335 frames TR_0 x1
+1391 abort p5
+1391 clear TR_0 queued=254
+1435 end p5 cut 56ms "one"
+1535 published p5 -> CONFLICT
+1893 query audible=false p0:closed p1:open p2:closed p3:closed p4:closed p5:closed
+1893 close TR_0

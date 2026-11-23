@@ -1,0 +1,20 @@
+0 peer speech-start peer
+0 peer barge-in peer
+0 peer end-of-turn peer
+0 heard peer@1000
+0 generate peer-turn peer@1000
+0 generate -> lost
+0 failed generate Error
+0 peer speech-start peer
+854 peer end-of-turn peer
+854 heard peer@2000
+854 generate peer-turn peer@2000
+854 settle answer 2
+854 verify
+854 tts "One."
+854 tts "Two."
+854 settle tts "One."
+854 settle tts "Two."
+854 peer barge-in peer
+894 settle tts "One." -> CONFLICT
+894 abandon answer 2

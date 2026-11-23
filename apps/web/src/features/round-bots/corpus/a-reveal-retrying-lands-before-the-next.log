@@ -1,0 +1,18 @@
+0 verify
+0 token
+0 join TR_0
+10 verify
+10 deadline 60000
+10 begin a 100ms in=0 at=2027-01-15T08:00:00.010Z room
+10..10 frames TR_0 x10
+10 reveal a room at=2027-01-15T08:00:00.010Z
+40 reveal -> Error
+140 reveal a room at=2027-01-15T08:00:00.010Z
+150 published a complete=true ended=false
+150 begin b 100ms in=0 at=2027-01-15T08:00:00.150Z room
+150..150 frames TR_0 x10
+150 end a whole
+150 reveal b room at=2027-01-15T08:00:00.150Z
+150 published b complete=true ended=false
+250 end b whole
+650 close TR_0

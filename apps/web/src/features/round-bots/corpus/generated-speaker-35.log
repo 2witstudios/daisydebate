@@ -1,0 +1,46 @@
+0 peer end-of-turn peer
+0 heard peer@1000
+0 generate peer-turn peer@1000
+0 generate -> lost
+0 failed generate Error
+108 peer barge-in peer
+108 peer end-of-turn peer
+108 peer speech-start peer
+108 peer end-of-turn peer
+1007 heard peer@3000
+1007 generate peer-turn peer@3000
+1007 settle answer 2
+1087 settle answer 2 -> Error
+1087 failed generate Error
+1287 settle answer 2
+1287 verify
+1287 tts "One."
+1287 settle tts "One."
+1287 verify
+1287 token
+1287 join TR_0
+1287 begin id1 120ms in=0 at=2027-01-15T08:00:01.287Z room
+1287..1287 frames TR_0 x12
+1287 reveal id1 room at=2027-01-15T08:00:01.287Z
+1287 close answer 2
+1287 abandon answer 2
+1407 end id1 whole
+9287 generate unanswered
+9287 settle answer 3
+9327 settle answer 3 -> Error
+9327 failed generate Error
+9527 settle answer 3
+9777 verify
+9777 tts "One."
+9777 settle tts "One."
+9777 begin id4 120ms in=0 at=2027-01-15T08:00:09.777Z room
+9777 begin -> Error
+9877 begin id4 120ms in=0 at=2027-01-15T08:00:09.777Z room
+9877..9877 frames TR_0 x12
+9877 reveal id4 room at=2027-01-15T08:00:09.877Z
+9917 reveal -> Error
+10017 reveal id4 room at=2027-01-15T08:00:09.877Z
+10117 close answer 3
+10117 abandon answer 3
+10117 end id4 whole
+11007 close TR_0

@@ -1,0 +1,26 @@
+1319 generate opening
+1319 generate -> lost
+1319 failed generate Error
+1519 generate opening
+1519 settle answer 2
+1559 settle answer 2 -> CONFLICT
+1959 settle answer 2
+1959 verify
+1959 tts "One."
+1959 tts "Two."
+1959 settle tts "One."
+2259 settle tts "Two."
+2259 verify
+2259 token
+2259 join TR_0
+2259 begin id1 120ms in=0 at=2027-01-15T08:00:02.259Z room
+2259 begin id3 260ms in=120 at=2027-01-15T08:00:02.379Z room
+2259..2259 frames TR_0 x12
+2259 reveal id1 room at=2027-01-15T08:00:02.259Z
+2259..2329 frames TR_0 x26
+2379 end id1 whole
+2379 reveal id3 room at=2027-01-15T08:00:02.379Z
+2379 close answer 2
+2379 abandon answer 2
+2639 end id3 whole
+14317 close TR_0

@@ -1,0 +1,50 @@
+0 generate opening
+0 settle answer 1
+0 verify
+0 tts "One."
+0 settle tts "One."
+0 verify
+0 token
+0 join TR_0
+0 begin id1 120ms in=0 at=2027-01-15T08:00:00.000Z room
+0..0 frames TR_0 x12
+0 reveal id1 room at=2027-01-15T08:00:00.000Z
+32 tts "Two."
+32 settle tts "Two."
+32 begin id4 260ms in=88 at=2027-01-15T08:00:00.120Z room
+64 tts "Three."
+72 begin -> CONFLICT/bot-room-changed
+96 tts "Four."
+96 tts "Four." -> CONFLICT/platform-incident
+120 end id1 whole
+214 tts "Four."
+214 settle tts "Three."
+272 verify
+272 close TR_0
+272 verify
+272 token
+272 join TR_1
+272 begin id4 260ms in=0 at=2027-01-15T08:00:00.272Z room
+272..272 frames TR_1 x26
+272 reveal id4 room at=2027-01-15T08:00:00.272Z
+294 settle tts "Three." -> CONFLICT/bot-room-changed
+294 settle tts "Three."
+294 begin id6 80ms in=238 at=2027-01-15T08:00:00.532Z room
+294..302 frames TR_1 x8
+364 settle tts "Four."
+444 settle tts "Four." -> CONFLICT
+532 end id4 whole
+532 reveal id6 room at=2027-01-15T08:00:00.532Z
+532 settle tts "Four."
+532 begin id10 400ms in=80 at=2027-01-15T08:00:00.612Z room
+532..602 frames TR_1 x30
+612 end id6 whole
+612 reveal id10 room at=2027-01-15T08:00:00.612Z
+612..642 frames TR_1 x4
+652 end -> Error
+652..702 frames TR_1 x6
+752 end id6 whole
+812 close answer 1
+812 abandon answer 1
+1012 end id10 whole
+14046 close TR_1

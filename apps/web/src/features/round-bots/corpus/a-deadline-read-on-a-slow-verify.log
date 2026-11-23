@@ -1,0 +1,6 @@
+0 verify
+0 token
+0 join TR_0
+10 verify
+90 deadline 4920
+90 close TR_0

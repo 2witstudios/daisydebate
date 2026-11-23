@@ -1,0 +1,11 @@
+0 verify
+0 token
+0 join TR_0
+10 verify
+10 deadline 60000
+10 begin a 100ms in=0 at=2027-01-15T08:00:00.010Z room
+10..10 frames TR_0 x10
+10 abort a
+10 clear TR_0 queued=100
+10 published a -> CONFLICT
+10 close TR_0

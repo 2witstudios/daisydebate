@@ -1,0 +1,38 @@
+0 generate opening
+0 settle answer 1
+0 verify
+0 tts "One."
+0 tts "Two."
+0 settle tts "One."
+0 settle tts "Two."
+0 verify
+0 token
+0 join TR_0
+0 begin id1 120ms in=0 at=2027-01-15T08:00:00.000Z room
+0 begin -> Error
+10 peer end-of-turn peer
+100 begin id1 120ms in=0 at=2027-01-15T08:00:00.000Z room
+100 begin -> Error
+300 begin id1 120ms in=0 at=2027-01-15T08:00:00.000Z room
+300 begin -> Error
+300 abandon answer 1
+410 peer end-of-turn peer
+410 heard peer@2000
+410 generate peer-turn peer@2000
+410 settle answer 2
+410 verify
+410 tts "One."
+410 tts "Two."
+410 settle tts "One."
+410 settle tts "Two."
+410 begin id6 120ms in=0 at=2027-01-15T08:00:00.410Z room
+410 begin id8 260ms in=120 at=2027-01-15T08:00:00.530Z room
+410..410 frames TR_0 x12
+410 reveal id6 room at=2027-01-15T08:00:00.410Z
+410..480 frames TR_0 x26
+530 end id6 whole
+530 reveal id8 room at=2027-01-15T08:00:00.530Z
+530 close answer 2
+530 abandon answer 2
+790 end id8 whole
+3410 close TR_0

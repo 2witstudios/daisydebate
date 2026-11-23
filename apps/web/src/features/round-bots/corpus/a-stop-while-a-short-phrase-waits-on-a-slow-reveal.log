@@ -1,0 +1,12 @@
+0 verify
+0 token
+0 join TR_0
+10 verify
+10 deadline 60000
+10 begin a 50ms in=0 at=2027-01-15T08:00:00.010Z room
+10..10 frames TR_0 x5
+10 reveal a room at=2027-01-15T08:00:00.010Z
+390 abort a
+510 end a whole
+510 published a -> CONFLICT
+1010 close TR_0

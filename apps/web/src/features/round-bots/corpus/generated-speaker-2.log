@@ -1,0 +1,61 @@
+0 peer end-of-turn peer
+0 heard peer@1000
+0 generate peer-turn peer@1000
+0 settle answer 1
+0 peer barge-in peer
+50 verify
+50 tts "One."
+50 tts "Two."
+50 settle tts "One."
+50 settle tts "Two."
+1423 peer speech-start peer
+1423 peer speech-start peer
+1423 peer end-of-turn peer
+1423 abandon answer 1
+1423 heard peer@2000
+1423 generate peer-turn peer@2000
+1423 generate -> conflict
+1623 heard peer@2000
+1623 generate peer-turn peer@2000
+1623 settle answer 3
+1623 verify
+1623 tts "One."
+1623 tts "Two."
+1623 settle tts "One."
+1623 settle tts "Two."
+1623 verify
+1623 token
+1623 join TR_0
+1623 begin id5 120ms in=0 at=2027-01-15T08:00:01.623Z room
+1623 begin id7 260ms in=120 at=2027-01-15T08:00:01.743Z room
+1623..1623 frames TR_0 x12
+1623 reveal id5 room at=2027-01-15T08:00:01.623Z
+1623..1693 frames TR_0 x26
+1743 end id5 whole
+1743 reveal id7 room at=2027-01-15T08:00:01.743Z
+1743 close answer 3
+1743 abandon answer 3
+1801 peer barge-in peer
+1801 clear TR_0 queued=202
+1801 peer end-of-turn peer
+1801 heard peer@3000
+1801 generate peer-turn peer@3000
+1801 settle answer 4
+1801 verify
+1801 tts "One."
+1801 tts "Two."
+1801 settle tts "One."
+1801 settle tts "Two."
+1801 begin id10 120ms in=0 at=2027-01-15T08:00:01.801Z room
+1851 begin id12 260ms in=120 at=2027-01-15T08:00:01.971Z room
+1851..1851 frames TR_0 x12
+1851 reveal id10 room at=2027-01-15T08:00:01.851Z
+1851..1921 frames TR_0 x26
+1971 reveal id12 room at=2027-01-15T08:00:01.971Z
+1971 close answer 4
+1971 abandon answer 4
+2003 end id7 cut 58ms ""
+2003 end -> CONFLICT
+2003 end id10 whole
+2231 end id12 whole
+11801 close TR_0

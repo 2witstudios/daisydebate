@@ -1,0 +1,27 @@
+0 verify
+0 token
+0 join TR_0
+10 verify
+10 deadline 60000
+10 begin p0 320ms in=0 at=2027-01-15T08:00:00.010Z room
+10..10 frames TR_0 x31
+10 reveal p0 room at=2027-01-15T08:00:00.010Z
+20..20 frames TR_0 x1
+20 published p0 complete=true ended=false
+20 clear TR_0 queued=310
+20 begin p1 370ms in=0 at=2027-01-15T08:00:00.020Z room
+20..20 frames TR_0 x21
+20 frame TR_0 #53 failed
+20 clear TR_0 queued=210
+20 published p1 -> Error
+206 begin p2 530ms in=0 at=2027-01-15T08:00:00.206Z room
+206..206 frames TR_0 x31
+206 reveal p2 room at=2027-01-15T08:00:00.206Z
+216..326 frames TR_0 x12
+330 end p0 cut 10ms ""
+336..426 frames TR_0 x10
+556 published p2 complete=true ended=false
+556 clear TR_0 queued=180
+736 end p2 cut 350ms "one two three four five six"
+781 query audible=false p0:closed p1:open p2:closed/tail-cut
+836 close TR_0

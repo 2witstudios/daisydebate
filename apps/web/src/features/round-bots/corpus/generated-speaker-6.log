@@ -1,0 +1,14 @@
+637 peer speech-start peer
+637 peer end-of-turn peer
+637 heard peer@1000
+637 generate peer-turn peer@1000
+637 settle answer 1
+637 verify
+637 tts "One."
+637 settle tts "One."
+637 peer speech-start peer
+657 tts "Two."
+657 settle tts "Two."
+677 tts "Three."
+717 settle tts "One." -> CONFLICT
+717 abandon answer 1
