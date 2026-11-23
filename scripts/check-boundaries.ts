@@ -10,6 +10,7 @@ import {
   repositorySources,
 } from './protocol-root';
 import { moduleLoads } from './module-loads';
+import { pureDatabaseModuleIssue } from './database-decisions';
 import { trackedFiles } from './tracked-files';
 import { flagBoundaryProblems } from './flag-boundaries';
 import { flagCatalogue } from '../apps/web/src/features/flags/catalogue';
@@ -110,6 +111,8 @@ for (const { path, source } of repositorySources(root)) {
       `${path}:${line + 1}: import a protocol owner subpath instead of ${specifier.text}`,
     );
   }
+  const pureDatabaseModule = pureDatabaseModuleIssue(path, source);
+  if (pureDatabaseModule) issues.push(pureDatabaseModule);
 }
 const flagSources = new Map<string, string>();
 /** The text of an identifier, string or JSX text node: what the reserved-word check reads. */
