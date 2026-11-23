@@ -40,7 +40,9 @@ Measured on the 60 PRs merged from 16 to 19 November 2026:
 3. **Nothing merges while main's latest Browser E2E run on a push is red**,
    except the PR that fixes it or reverts what broke it. The nightly
    all-project run does not hold merging. Staging still deploys on a green
-   CI gate without waiting for Browser E2E.
+   CI gate without waiting for Browser E2E. `bun merge:pr` refuses while that
+   run concluded `failure` or `timed_out`; the fixing PR names the failing
+   run with `--fixes-main-run <run-id>`.
 4. **knip is a required check** (the `checks` matrix). A script started by
    path is an entry in `knip.jsonc`. The production pass
    (`bun run knip:production`) stays a report until its list is empty.

@@ -314,67 +314,82 @@ describe('merged worktree follow-up', () => {
   });
 });
 
-describe('normal local point-guard merge entry', () => {
-  for (const remote of ['absent', 'retained', 'advanced'] as const) {
-    test(`merges the exact head and follows up with a ${remote} source ref`, () => {
-      const repo = repository();
-      try {
-        const managed = join(repo.cwd, '.pu/worktrees/wt-slice');
-        mkdirSync(join(repo.cwd, '.pu/worktrees'), { recursive: true });
-        repo.git('worktree', 'move', repo.path, managed);
-        const bin = join(repo.root, 'bin');
-        mkdirSync(bin);
-        const fixture = join(repo.root, 'fixture.json');
-        const manifest = join(repo.root, 'daemon.json');
-        const calls = join(repo.root, 'calls.txt');
-        writeFileSync(calls, '');
-        writeFileSync(
-          fixture,
-          JSON.stringify({
-            number: 61,
-            title: 'slice',
-            body: '',
-            merged: false,
-            merge_commit_sha: repo.pr.merge,
-            head: {
-              ref: repo.pr.branch,
-              sha: repo.pr.head,
-              repo: { full_name: 'test/repo' },
-            },
-            base: { ref: 'main', repo: { full_name: 'test/repo' } },
-          }),
-        );
-        writeFileSync(
-          manifest,
-          JSON.stringify({
-            worktrees: [
-              { id: 'wt-slice', path: managed, branch: repo.pr.branch },
-            ],
-            rootAgent: 'point-guard',
-          }),
-        );
-        repo.git('push', '-q', 'origin', `${repo.pr.merge}^:refs/heads/main`);
-        if (remote !== 'absent') repo.git('push', '-q', 'origin', 'pu/slice');
-        if (remote === 'advanced') {
-          writeFileSync(join(repo.cwd, 'next.txt'), 'unmerged remote work');
-          repo.git('add', 'next.txt');
-          repo.git('commit', '-qm', 'next work');
-          repo.git('push', '-q', 'origin', 'HEAD:refs/heads/pu/slice');
-        }
-        const remoteBefore = repo.git(
-          'ls-remote',
-          'origin',
-          'refs/heads/pu/slice',
-        );
-        writeFileSync(
-          join(bin, 'gh'),
-          `#!/usr/bin/env bun
+type Repository = ReturnType<typeof repository>;
+
+/** Runs `bun merge:pr 61 <head>` against fake `gh` and `pu` binaries. */
+function mergeEntry(
+  repo: Repository,
+  options: {
+    readonly remote: 'absent' | 'retained' | 'advanced';
+    readonly mainRun: { readonly id: number; readonly conclusion: string };
+    readonly extra?: readonly string[];
+  },
+) {
+  const { remote } = options;
+  const managed = join(repo.cwd, '.pu/worktrees/wt-slice');
+  mkdirSync(join(repo.cwd, '.pu/worktrees'), { recursive: true });
+  repo.git('worktree', 'move', repo.path, managed);
+  const bin = join(repo.root, 'bin');
+  mkdirSync(bin);
+  const fixture = join(repo.root, 'fixture.json');
+  const runs = join(repo.root, 'runs.json');
+  const manifest = join(repo.root, 'daemon.json');
+  const calls = join(repo.root, 'calls.txt');
+  writeFileSync(calls, '');
+  writeFileSync(
+    fixture,
+    JSON.stringify({
+      number: 61,
+      title: 'slice',
+      body: '',
+      merged: false,
+      merge_commit_sha: repo.pr.merge,
+      head: {
+        ref: repo.pr.branch,
+        sha: repo.pr.head,
+        repo: { full_name: 'test/repo' },
+      },
+      base: { ref: 'main', repo: { full_name: 'test/repo' } },
+    }),
+  );
+  writeFileSync(
+    runs,
+    JSON.stringify({
+      workflow_runs: [
+        {
+          ...options.mainRun,
+          head_sha: repo.pr.merge,
+          html_url: `https://github.test/runs/${String(options.mainRun.id)}`,
+        },
+      ],
+    }),
+  );
+  writeFileSync(
+    manifest,
+    JSON.stringify({
+      worktrees: [{ id: 'wt-slice', path: managed, branch: repo.pr.branch }],
+      rootAgent: 'point-guard',
+    }),
+  );
+  repo.git('push', '-q', 'origin', `${repo.pr.merge}^:refs/heads/main`);
+  if (remote !== 'absent') repo.git('push', '-q', 'origin', 'pu/slice');
+  if (remote === 'advanced') {
+    writeFileSync(join(repo.cwd, 'next.txt'), 'unmerged remote work');
+    repo.git('add', 'next.txt');
+    repo.git('commit', '-qm', 'next work');
+    repo.git('push', '-q', 'origin', 'HEAD:refs/heads/pu/slice');
+  }
+  const remoteBefore = repo.git('ls-remote', 'origin', 'refs/heads/pu/slice');
+  writeFileSync(
+    join(bin, 'gh'),
+    `#!/usr/bin/env bun
 import { readFileSync, writeFileSync, appendFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 const args = process.argv.slice(2);
 const pr = JSON.parse(readFileSync(process.env.FIXTURE, 'utf8'));
 if (args[0] === 'repo') console.log(JSON.stringify({nameWithOwner:'test/repo'}));
-else if (args[0] === 'api') console.log(JSON.stringify(pr));
+else if (args[0] === 'api' && args[1] === 'repos/test/repo/actions/workflows/e2e.yml/runs?branch=main&event=push&status=completed&per_page=1') console.log(readFileSync(process.env.RUNS, 'utf8'));
+else if (args[0] === 'api' && args[1] === 'repos/test/repo/pulls/61') console.log(JSON.stringify(pr));
 else if (args[0] === 'pr' && args[1] === 'merge') {
   if (!args.includes('--match-head-commit') || args.at(-1) !== pr.head.sha) process.exit(2);
   execFileSync('git', ['push', '-q', 'origin', pr.merge_commit_sha + ':refs/heads/main']);
@@ -383,10 +398,10 @@ else if (args[0] === 'pr' && args[1] === 'merge') {
   appendFileSync(process.env.CALLS, 'merge\\n');
 } else process.exit(3);
 `,
-        );
-        writeFileSync(
-          join(bin, 'pu'),
-          `#!/usr/bin/env bun
+  );
+  writeFileSync(
+    join(bin, 'pu'),
+    `#!/usr/bin/env bun
 import { readFileSync, writeFileSync, appendFileSync, existsSync } from 'node:fs';
 const args = process.argv.slice(2);
 const state = JSON.parse(readFileSync(process.env.MANIFEST, 'utf8'));
@@ -399,38 +414,61 @@ else if (args[2] === 'clean') {
   console.log(JSON.stringify({directory_removed:true,error:null}));
 } else process.exit(5);
 `,
-        );
-        chmodSync(join(bin, 'gh'), 0o755);
-        chmodSync(join(bin, 'pu'), 0o755);
-        const result = Bun.spawnSync(
-          [
-            process.execPath,
-            new URL('./local-merge-followup.ts', import.meta.url).pathname,
-            '61',
-            repo.pr.head,
-          ],
-          {
-            cwd: repo.cwd,
-            env: {
-              ...process.env,
-              PATH: `${bin}:${process.env.PATH}`,
-              FIXTURE: fixture,
-              MANIFEST: manifest,
-              CALLS: calls,
-            },
-          },
-        );
-        const state = JSON.parse(readFileSync(manifest, 'utf8'));
+  );
+  chmodSync(join(bin, 'gh'), 0o755);
+  chmodSync(join(bin, 'pu'), 0o755);
+  const result = Bun.spawnSync(
+    [
+      process.execPath,
+      new URL('./local-merge-followup.ts', import.meta.url).pathname,
+      '61',
+      repo.pr.head,
+      ...(options.extra ?? []),
+    ],
+    {
+      cwd: repo.cwd,
+      env: {
+        ...process.env,
+        PATH: `${bin}:${process.env.PATH}`,
+        FIXTURE: fixture,
+        RUNS: runs,
+        MANIFEST: manifest,
+        CALLS: calls,
+      },
+    },
+  );
+  return {
+    exitCode: result.exitCode,
+    stderr: result.stderr.toString(),
+    calls: readFileSync(calls, 'utf8'),
+    managed,
+    remoteBefore,
+    state: JSON.parse(readFileSync(manifest, 'utf8')) as {
+      worktrees: unknown[];
+      rootAgent: string;
+    },
+  };
+}
+
+const greenMain = { id: 900, conclusion: 'success' };
+const redMain = { id: 901, conclusion: 'failure' };
+
+describe('normal local point-guard merge entry', () => {
+  for (const remote of ['absent', 'retained', 'advanced'] as const) {
+    test(`merges the exact head and follows up with a ${remote} source ref`, () => {
+      const repo = repository();
+      try {
+        const entry = mergeEntry(repo, { remote, mainRun: greenMain });
         assert({
           given: `the normal merge entry and a ${remote} remote ref`,
           should:
             'merge exactly once, retire only when supported, and preserve all remote refs and the point guard',
           actual: [
-            result.exitCode,
-            readFileSync(calls, 'utf8'),
-            existsSync(managed),
-            state.worktrees.length,
-            state.rootAgent,
+            entry.exitCode,
+            entry.calls,
+            existsSync(entry.managed),
+            entry.state.worktrees.length,
+            entry.state.rootAgent,
             repo.git('ls-remote', 'origin', 'refs/heads/pu/slice'),
           ],
           expected: [
@@ -439,7 +477,7 @@ else if (args[2] === 'clean') {
             remote !== 'absent',
             remote === 'absent' ? 0 : 1,
             'point-guard',
-            remoteBefore,
+            entry.remoteBefore,
           ],
         });
       } finally {
@@ -447,4 +485,43 @@ else if (args[2] === 'clean') {
       }
     });
   }
+
+  test('refuses while main browser run is red', () => {
+    const repo = repository();
+    try {
+      const entry = mergeEntry(repo, { remote: 'absent', mainRun: redMain });
+      assert({
+        given: "main's latest Browser E2E push run concluded failure",
+        should: 'refuse before merging and name the run and the way through',
+        actual: [
+          entry.exitCode === 0,
+          entry.calls,
+          entry.stderr.includes('https://github.test/runs/901'),
+          entry.stderr.includes('--fixes-main-run 901'),
+        ],
+        expected: [false, '', true, true],
+      });
+    } finally {
+      repo.cleanup();
+    }
+  });
+
+  test('merges the fix that names the failing main run', () => {
+    const repo = repository();
+    try {
+      const entry = mergeEntry(repo, {
+        remote: 'absent',
+        mainRun: redMain,
+        extra: ['--fixes-main-run', '901'],
+      });
+      assert({
+        given: 'a red main and --fixes-main-run naming that run',
+        should: 'merge exactly once and follow up',
+        actual: [entry.exitCode, entry.calls],
+        expected: [0, 'merge\nretire\n'],
+      });
+    } finally {
+      repo.cleanup();
+    }
+  });
 });

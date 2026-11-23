@@ -81,12 +81,16 @@ pu kill --agent <agent> && pu clean
     ([ADR 0159](../decisions/0159-signals-that-gate.md)).
   - While main's latest Browser E2E run on a push is red, only the PR that
     fixes it or reverts what broke it merges. That run belongs to the point
-    guard whose merge turned it red.
+    guard whose merge turned it red. `bun merge:pr` enforces this: it reads
+    the latest completed run before merging and refuses while it concluded
+    `failure` or `timed_out`; the fixing PR merges with
+    `--fixes-main-run <failing-run-id>`, which must name that exact run.
   - The sweep merges at most two PRs per cycle into main. A feature parent
     takes one PR at a time (ADR 0128).
 - **Local merge entry point.** Once review and exact-head checks qualify the
   PR, the point guard runs `bun merge:pr <pr-number> <exact-head>` from a
-  retained checkout. It invokes `gh pr merge --merge --match-head-commit`
+  retained checkout, adding `--fixes-main-run <failing-run-id>` only for the
+  PR that fixes a red main. It invokes `gh pr merge --merge --match-head-commit`
   and immediately runs local cleanup. It never bypasses GitHub protections.
   The entry reads the committed migration/ADR candidate against the refreshed
   destination and refuses an unprepared head. Pending names are prepared in
