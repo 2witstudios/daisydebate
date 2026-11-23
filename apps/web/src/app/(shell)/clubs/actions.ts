@@ -49,7 +49,7 @@ export async function clubSeatAction(
     return refused(form, 'Enter an email address or choose who gets the seat.');
   try {
     const { response } = await postJson(
-      seatsRoute,
+      (request) => seatsRoute(request, { params: Promise.resolve({ club }) }),
       `/api/clubs/${club}/seats`,
       command,
     );
@@ -79,7 +79,8 @@ export async function clubSeatCountAction(
     return refused(form, refusalCopy['seat-count-out-of-range']);
   try {
     const { response } = await postJson(
-      seatCountRoute,
+      (request) =>
+        seatCountRoute(request, { params: Promise.resolve({ club }) }),
       `/api/clubs/${club}/billing/seats`,
       change,
     );
@@ -164,7 +165,8 @@ export async function clubInvitationAction(
   let incoming: Headers;
   try {
     const posted = await postJson(
-      invitationRoute,
+      (request) =>
+        invitationRoute(request, { params: Promise.resolve({ invitation }) }),
       `/api/clubs/invitations/${invitation}`,
       { answer },
     );

@@ -46,16 +46,18 @@ const harness = (identity: Identity) => {
     return answer;
   };
   const routes = {
-    chat: createSpectatorChatRoute({
-      ...deps,
-      store: {
-        postSpectatorChatMessage: reach('chat', { id: 'm' }) as never,
-      },
-    }),
-    reaction: createAudienceReactionRoute({
-      ...deps,
-      store: { recordAudienceReaction: reach('reaction', true) as never },
-    }),
+    chat: (request: Request) =>
+      createSpectatorChatRoute({
+        ...deps,
+        store: {
+          postSpectatorChatMessage: reach('chat', { id: 'm' }) as never,
+        },
+      })(request, round),
+    reaction: (request: Request) =>
+      createAudienceReactionRoute({
+        ...deps,
+        store: { recordAudienceReaction: reach('reaction', true) as never },
+      })(request, round),
     follow: createDebaterFollowRoute({
       ...deps,
       store: { setDebaterFollow: reach('follow', 'following') as never },

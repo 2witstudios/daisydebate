@@ -38,7 +38,12 @@ test('signed native HTTP ingress uses actual lease, snapshot and vendor token pr
     const server = Bun.serve({
       hostname: '127.0.0.1',
       port: 0,
-      fetch: handlers.handle,
+      routes: {
+        '/api/internal/media/:roundId/capture/:operation': {
+          POST: (request) => handlers.handle(request, request.params.operation),
+        },
+      },
+      fetch: () => new Response(null, { status: 404 }),
     });
     const signedRequest = (
       operation: string,

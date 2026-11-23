@@ -45,7 +45,10 @@ export async function readClubReleasePage(
   const seats =
     read.role === 'owner'
       ? await readOwnRoute(
-          seatsRoute,
+          (request) =>
+            seatsRoute(request, {
+              params: Promise.resolve({ club: read.club.id }),
+            }),
           `/api/clubs/${read.club.id}/seats`,
           clubSeatsViewSchema,
         )

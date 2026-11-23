@@ -14,10 +14,23 @@ type Input = string | Uint8Array;
 const bytesOf = (value: Input): Uint8Array =>
   typeof value === 'string' ? utf8ToBytes(value) : value;
 
+const base64Alphabet =
+  'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+
+/** RFC 4648 base64 with padding, written out so no runtime global is needed. */
 const base64 = (bytes: Uint8Array): string => {
-  let binary = '';
-  for (const byte of bytes) binary += String.fromCharCode(byte);
-  return btoa(binary);
+  let out = '';
+  for (let index = 0; index < bytes.length; index += 3) {
+    const [a = 0, b = 0, c = 0] = bytes.subarray(index, index + 3);
+    const word = (a << 16) | (b << 8) | c;
+    const left = bytes.length - index;
+    out +=
+      base64Alphabet.charAt((word >> 18) & 63) +
+      base64Alphabet.charAt((word >> 12) & 63) +
+      (left > 1 ? base64Alphabet.charAt((word >> 6) & 63) : '=') +
+      (left > 2 ? base64Alphabet.charAt(word & 63) : '=');
+  }
+  return out;
 };
 
 const base64url = (bytes: Uint8Array): string =>

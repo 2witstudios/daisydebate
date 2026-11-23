@@ -315,6 +315,7 @@ test('a terminal token refusal ends native capture rather than restarting it', a
       'token',
       JSON.stringify({ sessionId: id('s'), workerId: id('w'), epoch: 1 }),
     ),
+    'token',
   );
   const body = await response.json();
   assert({

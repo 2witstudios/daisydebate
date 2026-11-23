@@ -1,7 +1,6 @@
 // The one review-date rule shared by `bun policy` and `bun migrations:check`:
 // a time-bounded exception names a real UTC calendar day (YYYY-MM-DD) and
 // stays live through that day. Callers own their wording; the rule lives here.
-// The migration journal guard runs from a checkout without workspace installs.
 
 export type ReviewDateStatus = 'live' | 'expired' | 'invalid';
 

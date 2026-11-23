@@ -147,28 +147,34 @@ const routes = (
   };
   const clock = { now };
   return {
-    chat: createSpectatorChatRoute({
-      ...account,
-      store: f.store,
-      clock,
-      ids: { next: createId },
-    }),
-    reaction: createAudienceReactionRoute({
-      ...account,
-      store: f.store,
-      clock,
-      ids: { next: createId },
-    }),
+    chat: byRound(
+      createSpectatorChatRoute({
+        ...account,
+        store: f.store,
+        clock,
+        ids: { next: createId },
+      }),
+    ),
+    reaction: byRound(
+      createAudienceReactionRoute({
+        ...account,
+        store: f.store,
+        clock,
+        ids: { next: createId },
+      }),
+    ),
     follow: createDebaterFollowRoute({ ...account, store: f.store }),
-    pulse: createViewerPulseRoute({
-      logger: silentLogger,
-      reporter: noopErrorReporter,
-      origin: account.origin,
-      limiter: account.limiter,
-      clock,
-      store: f.store,
-      counts: f.redis,
-    }),
+    pulse: byRound(
+      createViewerPulseRoute({
+        logger: silentLogger,
+        reporter: noopErrorReporter,
+        origin: account.origin,
+        limiter: account.limiter,
+        clock,
+        store: f.store,
+        counts: f.redis,
+      }),
+    ),
     report: createReportHandler({
       ...account,
       store: f.store,
@@ -183,6 +189,16 @@ const routes = (
     history: createWatchHistoryRoute({ ...account, store: f.store, clock }),
   };
 };
+
+/** Next hands a `/api/rounds/[roundId]/…` route its Round id; so does this suite. */
+const roundRoute = new URLPattern({ pathname: '/api/rounds/:roundId/:action' });
+const byRound =
+  (handler: (request: Request, roundId: string) => Promise<Response>) =>
+  (request: Request) =>
+    handler(
+      request,
+      roundRoute.exec(request.url)?.pathname.groups['roundId'] ?? '',
+    );
 
 const postTo = (
   path: string,
