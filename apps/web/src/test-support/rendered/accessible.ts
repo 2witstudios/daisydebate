@@ -1,4 +1,5 @@
 import {
+  isInaccessible,
   queryAllByRole,
   type ByRoleMatcher,
   type ByRoleOptions,
@@ -133,6 +134,30 @@ const inlineStyle = (element: Element): CSSStyleDeclaration => {
   } as CSSStyleDeclaration;
 };
 
+/**
+ * `<a href="">` is a link to the page itself in every browser, but the
+ * role mapping requires a non-empty `href`. A plain link query (no states)
+ * takes those in too, in document order.
+ */
+const withEmptyLinks = (
+  container: HTMLElement,
+  role: Role,
+  states: States,
+  found: readonly HTMLElement[],
+): readonly HTMLElement[] => {
+  if (role !== 'link' || Object.keys(states).some((key) => key !== 'hidden'))
+    return found;
+  const empty = [
+    ...container.querySelectorAll<HTMLElement>(
+      'a[href=""]:not([role]), area[href=""]:not([role])',
+    ),
+  ].filter((element) => states.hidden === true || !isInaccessible(element));
+  if (empty.length === 0) return found;
+  return [...new Set([...found, ...empty])].sort((a, b) =>
+    a.compareDocumentPosition(b) & 4 ? -1 : 1,
+  );
+};
+
 const named = (element: Element, name: Name, hidden: boolean) => {
   const actual = nameOf(element, hidden);
   return typeof name === 'string' ? actual === name : name.test(actual);
@@ -183,7 +208,12 @@ const collapse = (text: string | null) =>
 
 const viewOf = (container: HTMLElement): AccessibleView => {
   const all = (role: Role, name?: Name, states: States = {}) => {
-    const found = queryAllByRole(container, role, states);
+    const found = withEmptyLinks(
+      container,
+      role,
+      states,
+      queryAllByRole(container, role, states),
+    );
     return name === undefined
       ? found
       : found.filter((element) => named(element, name, states.hidden === true));

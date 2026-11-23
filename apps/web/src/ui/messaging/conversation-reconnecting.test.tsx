@@ -143,14 +143,14 @@ describe('conversation recovery', () => {
           late,
           after: page.refreshes.length,
           says: page.view().text('status'),
-          retry: page.view().textContent().endsWith('Try again'),
+          retry: page.view().attribute('link', 'Try again', 'href'),
         },
         expected: {
           early: 0,
           late: 1,
           after: 1,
           says: 'This conversation could not load.',
-          retry: true,
+          retry: '',
         },
       });
     } finally {

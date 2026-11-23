@@ -50,6 +50,17 @@ describe('accessible: roles', () => {
     });
   });
 
+  test('a link to the page itself is a link', () => {
+    assert({
+      given: 'an anchor whose href is empty, between two links',
+      should: 'read it as a link in document order',
+      actual: accessible(
+        '<a href="/a">A</a><a href="">Try again</a><a href="/b">B</a>',
+      ).names('link'),
+      expected: ['A', 'Try again', 'B'],
+    });
+  });
+
   test('a link without href is not a link', () => {
     assert({
       given: 'an anchor with no href',
