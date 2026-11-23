@@ -66,6 +66,10 @@ const spellings = [
   "import { sleep } from 'bun';",
   "import { sleepSync as hold } from 'bun';",
   "import * as bun from 'bun';",
+  "await (await import('bun')).sleep(5);",
+  "import.meta.require('node:timers').setTimeout(() => undefined, 10);",
+  "createRequire(import.meta.url)('timers');",
+  "import { createRequire } from 'node:module';",
 ];
 
 /** Lines that touch no host time. */

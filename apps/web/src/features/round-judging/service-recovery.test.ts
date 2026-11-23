@@ -220,3 +220,30 @@ test('a delayed old renewal cannot remove a replacement judging claim', async ()
     expected: ['1', '2'],
   });
 });
+
+test('a renewal refused because another claimant took the token ends the call without a fault', async () => {
+  let aborted = false;
+  const job = oneJob({
+    renew: async () => {
+      throw createAppError('AUTHORIZATION', 'Judging lease token changed');
+    },
+    execute: (signal) =>
+      new Promise((resolve) =>
+        signal.addEventListener('abort', () => {
+          aborted = true;
+          resolve(undefined);
+        }),
+      ),
+    ballotHeld: false,
+  });
+  await job.service.started;
+  await job.renew();
+  const abortedByRenewal = aborted;
+  await job.service.stop();
+  assert({
+    given: 'a judging renewal refused with AUTHORIZATION',
+    should: 'treat the lease as taken: abort the paid call and report nothing',
+    actual: { abortedByRenewal, failures: job.failures },
+    expected: { abortedByRenewal: true, failures: [] },
+  });
+});

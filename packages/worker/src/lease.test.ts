@@ -311,3 +311,51 @@ test('a cadence that cannot renew before expiry is refused', () => {
     expected: 'Invalid lease cadence',
   });
 });
+
+test('a classifier or renewal that throws outright is a reported blip, and the lease still ends on time', async () => {
+  const clock = virtualClock();
+  const failures: string[] = [];
+  const unhandled: unknown[] = [];
+  const onUnhandled = (error: unknown) => unhandled.push(error);
+  process.on('unhandledRejection', onUnhandled);
+  let calls = 0;
+  const lease = holdLease({
+    waits: clock,
+    facts: null,
+    ...cadence,
+    renew: (() => {
+      calls += 1;
+      if (calls === 1) throw new Error('renew threw before its promise');
+      return Promise.reject(new Error('store down'));
+    }) as never,
+    lossOf: () => {
+      throw new Error('classifier bug');
+    },
+    failed: (error) => failures.push((error as Error).message),
+  });
+  await clock.advance(400);
+  process.off('unhandledRejection', onUnhandled);
+  assert({
+    given:
+      'a renewal that throws synchronously, then rejections a classifier throws on',
+    should: 'report each as a blip, expire at the horizon, and reject nothing',
+    actual: {
+      ended: await lease.ended,
+      aborted: lease.signal.aborted,
+      firstFailures: failures.slice(0, 3),
+      unhandled,
+      stop: await lease.stop().then(() => 'resolved'),
+    },
+    expected: {
+      ended: 'expired',
+      aborted: true,
+      firstFailures: [
+        'classifier bug',
+        'renew threw before its promise',
+        'classifier bug',
+      ],
+      unhandled: [],
+      stop: 'resolved',
+    },
+  });
+});

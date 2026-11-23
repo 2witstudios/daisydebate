@@ -50,7 +50,8 @@ export function startTranscriptionRecoveryService(input: {
   let scanning: Promise<void> | null = null;
   let enrolling: Promise<void> | null = null;
   const active = (entry: Entry) => entries.get(entry.claim.contextId) === entry;
-  const launch = (claim: Claim, free: () => void) => {
+  const launch = (claim: Claim, free: () => void, claimedAtMs: number) => {
+    let refusal: unknown = null;
     // A stale execution (another worker, epoch or token) is a loss; any other
     // failure is retried until the lease would lapse.
     const lease = holdLease({
@@ -59,13 +60,15 @@ export function startTranscriptionRecoveryService(input: {
       renewEveryMs: renewMs,
       retryMs: renewMs,
       horizonMs: leaseMs,
+      claimedAtMs,
       renew: async () => {
         await input.store.renew(claim);
         return { kind: 'held', facts: undefined };
       },
+      // Only classifies: the refusal is reported once the lease has ended.
       lossOf: (error) => {
         if (!isAppError(error) || error.code !== 'CONFLICT') return null;
-        input.failed(error, 'renew');
+        refusal = error;
         return 'taken';
       },
       failed: (error) => input.failed(error, 'renew'),
@@ -80,7 +83,14 @@ export function startTranscriptionRecoveryService(input: {
     // Abort future execution steps; owning PG fences still serialize commits.
     // Already-authorized in-flight work cannot be recalled. Keep its slot until settlement.
     void lease.ended.then((end) => {
-      if (end !== 'stopped' && active(entry)) entry.abort.abort();
+      if (end === 'stopped' || !active(entry)) return;
+      entry.abort.abort();
+      // A failure sink that throws never escapes into the lease's ending.
+      try {
+        if (refusal !== null) input.failed(refusal, 'renew');
+      } catch {
+        /* Reported again by the next failure. */
+      }
     });
     entry.work = (async () => {
       try {
@@ -109,6 +119,7 @@ export function startTranscriptionRecoveryService(input: {
           }
         };
         try {
+          const claimedAtMs = input.waits.nowMs();
           const claim = await input.store.claim({ workerId: input.workerId });
           if (isStopped() || claim.kind !== 'claimed') {
             free();
@@ -119,7 +130,7 @@ export function startTranscriptionRecoveryService(input: {
             free();
             continue;
           }
-          launch(claim, free);
+          launch(claim, free, claimedAtMs);
         } catch (error) {
           free();
           input.failed(error, 'claim');

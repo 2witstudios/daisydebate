@@ -181,10 +181,36 @@ const hostTime = {
       },
       ImportExpression(node) {
         inspectModule(node, node.source);
+        // A dynamic `bun` is the Bun namespace again, `sleep` and all.
+        if (bunModules.has(moduleName(node.source)))
+          report(node, 'host', 'bun namespace');
       },
       CallExpression(node) {
-        if (node.callee.type === 'Identifier' && node.callee.name === 'require')
-          inspectModule(node, node.arguments[0] ?? null);
+        const { callee } = node;
+        const loader =
+          (callee.type === 'Identifier' && callee.name === 'require') ||
+          // `import.meta.require(...)`
+          (callee.type === 'MemberExpression' &&
+            callee.object.type === 'MetaProperty' &&
+            staticName(callee.property, callee.computed) === 'require') ||
+          // `createRequire(url)(...)`: a require by another name.
+          (callee.type === 'CallExpression' &&
+            callee.callee.type === 'Identifier' &&
+            callee.callee.name === 'createRequire');
+        if (!loader) return;
+        const source = node.arguments[0] ?? null;
+        inspectModule(node, source);
+        if (bunModules.has(moduleName(source)))
+          report(node, 'host', 'bun namespace');
+      },
+      ImportSpecifier(node) {
+        // A `require` made under any name loads modules this rule cannot read.
+        const from = moduleName(node.parent.source);
+        if (
+          (from === 'module' || from === 'node:module') &&
+          staticName(node.imported, false) === 'createRequire'
+        )
+          report(node, 'module', 'createRequire');
       },
       'Program:exit'() {
         for (const reference of globals()) {

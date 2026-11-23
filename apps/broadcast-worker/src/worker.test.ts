@@ -481,3 +481,55 @@ test('a failed gap record ends the job and its renewal with it', async () => {
     expected: [],
   });
 });
+
+test('a stop seen during a storage outage retries the withdrawal at the idle pace, not in a loop', async () => {
+  const clock = virtualClock();
+  const attemptsAt: number[] = [];
+  let withdrawn = false;
+  await runSlot({
+    clock,
+    owner: 'w',
+    now: () => 900_000,
+    stopped: () => withdrawn,
+    report: () => {},
+    scratch: noScratch,
+    objects: {
+      putManifest: async () => {},
+      ensureDir: async () => {},
+      holdExists: async () => true,
+      readHoldText: async () => '',
+      // One withdrawal deletes several keys at once: an attempt is one instant.
+      deletePublic: async () => {
+        if (attemptsAt.at(-1) !== clock.nowMs()) attemptsAt.push(clock.nowMs());
+        if (attemptsAt.length <= 2) throw new Error('bucket down');
+      },
+      discardHoldPage: async () => 0,
+    } as never,
+    store: {
+      recordPassed: async () => true,
+      readStageHistory: async () => ({ segments: [], privateSpans: [] }),
+      renew: async () => ({
+        ...dueFromWorker([]),
+        stoppedAt: new Date(900_000),
+      }),
+      recordFeedWithdrawn: async () => {
+        withdrawn = true;
+      },
+      recordingKeepsHold: async () => true,
+      claim: async () => dueFromWorker([]),
+    } as never,
+  });
+  const firstAttempt = attemptsAt[0] ?? 0;
+  assert({
+    given: 'a stop seen at renewal while the public bucket refuses two deletes',
+    should: 'retry each failed withdrawal 500 ms later, then withdraw',
+    actual: {
+      gaps: attemptsAt
+        .slice(1)
+        .map((at, index) => at - (attemptsAt[index] ?? 0)),
+      withdrawn,
+      atRenewal: firstAttempt >= 5000,
+    },
+    expected: { gaps: [500, 500], withdrawn: true, atRenewal: true },
+  });
+});

@@ -186,6 +186,7 @@ export function startRoundJudgingService<C extends Claim>(input: {
       // A later held reply needs no provider slot; still visit it.
       if (!freeCapacity) continue;
       try {
+        const claimedAtMs = input.waits.nowMs();
         const claim = await input.store.claimRoundJudgingJob(target);
         if (isStopped()) {
           // A successful durable claim recovers by lease expiry. This
@@ -214,8 +215,17 @@ export function startRoundJudgingService<C extends Claim>(input: {
             ended.reason = renewed.reason;
             return { kind: 'lost', reason: 'released' };
           },
+          claimedAtMs,
+          // Completion or privacy is a release; a token another claimant
+          // rotated (AUTHORIZATION) means the job was taken.
           lossOf: (error) =>
-            isAppError(error) && error.code === 'CONFLICT' ? 'released' : null,
+            !isAppError(error)
+              ? null
+              : error.code === 'CONFLICT'
+                ? 'released'
+                : error.code === 'AUTHORIZATION'
+                  ? 'taken'
+                  : null,
           failed: (error) => input.failed(error, 'renew'),
         });
         const entry: Entry<C> = {

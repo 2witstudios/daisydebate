@@ -31,3 +31,22 @@ test('a host wait never ends before it is due, so every one-shot fires', async (
     expected: { early: [], fired: 200 },
   });
 });
+
+test('a wait longer than a host timer can hold is armed in steps, never as a spin', async () => {
+  const warnings: string[] = [];
+  const onWarning = (warning: Error) => warnings.push(warning.name);
+  process.on('warning', onWarning);
+  const stop = new AbortController();
+  const waiting = hostWaits.sleep(2 ** 32, stop.signal);
+  const infinite = hostWaits.waitUntilMs(Infinity, stop.signal);
+  await new Promise((resolve) => setTimeout(resolve, 100));
+  stop.abort();
+  await Promise.all([waiting, infinite]);
+  process.off('warning', onWarning);
+  assert({
+    given: 'a 2^32 ms wait and a wait until Infinity, aborted after 100 ms',
+    should: 'end on the abort without overflowing a host timer',
+    actual: warnings,
+    expected: [],
+  });
+});

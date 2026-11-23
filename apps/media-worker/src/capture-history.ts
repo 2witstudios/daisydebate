@@ -122,9 +122,11 @@ export async function readCaptureHistory(
   const giveUpAt = pace.nowMs() + CAPTURE_OUTAGE_BUDGET_MS;
   for (;;) {
     signal.throwIfAborted();
-    const deadline =
-      options.deadlineSignal?.() ??
-      deadlineSignal(pace, CAPTURE_HISTORY_READ_MS).signal;
+    // A caller's deadline is the caller's to end; the read's own goes with it.
+    const bound = options.deadlineSignal
+      ? { signal: options.deadlineSignal(), clear: () => {} }
+      : deadlineSignal(pace, CAPTURE_HISTORY_READ_MS);
+    const deadline = bound.signal;
     try {
       const snapshot = await readSnapshot(
         client,
@@ -143,6 +145,8 @@ export async function readCaptureHistory(
       if (deadline.aborted) continue;
       if (!isTransientControlFailure(error)) throw error;
       await pace.waitUntilMs(pace.nowMs() + READ_RETRY_MS, signal);
+    } finally {
+      bound.clear();
     }
   }
 }

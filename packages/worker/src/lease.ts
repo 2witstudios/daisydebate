@@ -109,6 +109,15 @@ export function holdLease<Facts>(input: {
     return end === null;
   };
 
+  /** A classifier that throws classifies nothing: the failure is a reported blip. */
+  const lossOf = (error: unknown): LeaseLoss | null => {
+    try {
+      return input.lossOf?.(error) ?? null;
+    } catch (thrown) {
+      report(input.failed, thrown);
+      return null;
+    }
+  };
   /** One renewal, cut off at the horizon. */
   const renewOnce = async (): Promise<'held' | 'blip' | 'ended'> => {
     const startedAt = waits.nowMs();
@@ -117,7 +126,8 @@ export function holdLease<Facts>(input: {
     const horizon = waits
       .waitUntilMs(expiresAtMs(), signal)
       .then(() => 'horizon' as const);
-    const answer = input.renew(signal).then(
+    // A renewal that throws before it returns a promise is a failed renewal too.
+    const answer = Promise.try(() => input.renew(signal)).then(
       (renewal) => ({ renewal }) as const,
       (error: unknown) => ({ error }) as const,
     );
@@ -134,7 +144,7 @@ export function holdLease<Facts>(input: {
       return 'ended';
     }
     if ('error' in first) {
-      const loss = input.lossOf?.(first.error) ?? null;
+      const loss = lossOf(first.error);
       if (loss !== null) {
         finish(loss);
         return 'ended';

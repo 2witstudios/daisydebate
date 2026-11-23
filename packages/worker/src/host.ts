@@ -9,6 +9,8 @@ import type { Waits } from '@daisy/clock';
  * A host timer may fire a little before its delay; the wait re-arms until
  * the clock has reached `dueMs`, so a wait never ends early.
  */
+const MAX_TIMER_MS = 2 ** 31 - 1;
+
 const waitUntilMs = (dueMs: number, signal?: AbortSignal): Promise<void> =>
   new Promise<void>((resolve) => {
     if (signal?.aborted) return resolve();
@@ -21,7 +23,9 @@ const waitUntilMs = (dueMs: number, signal?: AbortSignal): Promise<void> =>
     const arm = () => {
       const leftMs = dueMs - performance.now();
       if (leftMs <= 0) return done();
-      timer = setTimeout(arm, Math.ceil(leftMs));
+      // A host timer clamps a delay past 2^31 - 1 ms (or Infinity) to 1 ms, so a
+      // long wait is armed in steps, never as a spin.
+      timer = setTimeout(arm, Math.min(Math.ceil(leftMs), MAX_TIMER_MS));
     };
     signal?.addEventListener('abort', done, { once: true });
     arm();

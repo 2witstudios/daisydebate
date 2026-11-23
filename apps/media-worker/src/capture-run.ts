@@ -86,6 +86,9 @@ export async function runCaptureProcess(input: {
     secret,
     now: Date.now,
   });
+  // Ends every call's deadline when the session ends, so none holds the
+  // process alive after its work is done.
+  const sessionEnded = new AbortController();
   const client = createMediaWorkerClient({
     scope: { roundId, sessionId, workerId },
     url,
@@ -93,7 +96,8 @@ export async function runCaptureProcess(input: {
     fetch: input.fetch,
     waits: hostWaits,
     deadlineSignal: () =>
-      deadlineSignal(hostWaits, CAPTURE_CALL_DEADLINE_MS).signal,
+      deadlineSignal(hostWaits, CAPTURE_CALL_DEADLINE_MS, sessionEnded.signal)
+        .signal,
   });
   const stop = new AbortController();
   process.on('SIGTERM', () => stop.abort());
@@ -126,6 +130,7 @@ export async function runCaptureProcess(input: {
   } catch (error) {
     process.exitCode = startRefusalExit(error);
   } finally {
+    sessionEnded.abort();
     await disposeAudioRuntime();
   }
 }
