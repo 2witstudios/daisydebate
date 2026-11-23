@@ -1186,6 +1186,69 @@ describe('browser edges', () => {
     });
   });
 
+  test('refuses a re-exported effect under any name, the edge included', async () => {
+    assert({
+      given:
+        'the edge and a feature module re-exporting React effects by alias, by binding and wholesale',
+      should: 'report each re-export',
+      actual: await Promise.all([
+        probe(
+          web('ui/edge/browser-sync.ts'),
+          `export {
+             useEffect as useBrowserEffect,
+             useLayoutEffect as useBrowserLayoutEffect,
+           } from 'react';`,
+        ),
+        probe(
+          web('ui/edge/lifetime.ts'),
+          `import * as React from 'react';
+           import { useEffect } from 'react';
+           export { useEffect as useLifetime };
+           export const useLayout = React.useLayoutEffect;
+           export const usePassive = useEffect;`,
+        ),
+        probe(web('ui/room/hooks.ts'), `export * from 'react';`),
+      ]),
+      expected: [2, 3, 1],
+    });
+  });
+
+  test('refuses a hook that takes an arbitrary effect', async () => {
+    assert({
+      given: 'an edge hook typed with React’s effect callback and dependencies',
+      should: 'report the effect types, imported or namespaced',
+      actual: await probe(
+        web('ui/edge/use-mount.ts'),
+        `import * as React from 'react';
+         import { useEffect, type EffectCallback, type DependencyList } from 'react';
+         export function useMount(start: EffectCallback, deps: DependencyList) {
+           useEffect(start, deps);
+         }
+         export const useLater = (start: React.EffectCallback) => useEffect(start);`,
+      ),
+      expected: 3,
+    });
+  });
+
+  test('injects the timer and request ports instead of calling them', async () => {
+    assert({
+      given:
+        'a component calling, and a driver composition passing, the browser ports',
+      should: 'report only the calls',
+      actual: await probe(
+        web('ui/room/controls.tsx'),
+        `import { browserScheduler } from '../edge/browser-time';
+         import { browserTransport } from '../edge/browser-request';
+         import * as time from '../edge/browser-time';
+         browserScheduler.after(() => {}, 10);
+         void browserTransport('/api/rooms');
+         time.browserScheduler.every(() => {}, 10);
+         export const driver = createDriver({ fetch: browserTransport, scheduler: browserScheduler });`,
+      ),
+      expected: 3,
+    });
+  });
+
   test('accepts the owner, injected ports and a server request', async () => {
     assert({
       given: 'edge code, a client’s injected ports and a server’s fetch',

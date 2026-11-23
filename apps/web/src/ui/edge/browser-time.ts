@@ -1,40 +1,41 @@
-/** Cancellable browser work. Keeping the host calls here also gives drivers
- * one place to obtain their real scheduler. */
-export const delay = (run: () => void, ms: number) => setTimeout(run, ms);
+/**
+ * The browser's timer queue as one port. Outside the edge it is injected
+ * into the code that waits, never called: a component waits through
+ * `useTick` or `useDelay`, a driver through the scheduler it was given.
+ * Each wait answers its own cancellation. The window's own timers are read
+ * at each call, so a realm a test installs is the one that runs.
+ */
+export type BrowserScheduler = {
+  /** Runs once after `ms`. */
+  readonly after: (run: () => void, ms: number) => () => void;
+  /** Runs every `ms` until cancelled. */
+  readonly every: (run: () => void, ms: number) => () => void;
+  /** Runs before the next paint. */
+  readonly frame: (run: () => void) => () => void;
+};
 
-export const cancelDelay = (timer: ReturnType<typeof delay> | undefined) =>
-  clearTimeout(timer);
+export const browserScheduler: BrowserScheduler = {
+  after(run, ms) {
+    const timer = window.setTimeout(run, ms);
+    return () => window.clearTimeout(timer);
+  },
+  every(run, ms) {
+    const timer = window.setInterval(run, ms);
+    return () => window.clearInterval(timer);
+  },
+  frame(run) {
+    const frame = window.requestAnimationFrame(() => run());
+    return () => window.cancelAnimationFrame(frame);
+  },
+};
 
-export const startTick = (run: () => void, ms: number) => setInterval(run, ms);
+/** A handle-shaped timer pair, for consumers whose contract holds the handle. */
+export type HandleTimers = {
+  readonly set: (run: () => void, ms: number) => unknown;
+  readonly clear: (handle: unknown) => void;
+};
 
-export const stopTick = (timer: ReturnType<typeof startTick> | undefined) =>
-  clearInterval(timer);
-
-export const nextFrame = (run: FrameRequestCallback) =>
-  requestAnimationFrame(run);
-
-export const cancelFrame = (frame: number) => cancelAnimationFrame(frame);
-
-export function scheduleDelay(run: () => void, ms: number): () => void {
-  const timer = delay(run, ms);
-  return () => cancelDelay(timer);
-}
-
-export function scheduleTick(
-  run: () => void,
-  ms: number,
-  host?: Pick<Window, 'setInterval' | 'clearInterval'>,
-): () => void {
-  if (host !== undefined) {
-    const timer = host.setInterval(run, ms);
-    return () => host.clearInterval(timer);
-  }
-  const timer = startTick(run, ms);
-  return () => stopTick(timer);
-}
-
-export const windowDelay = (run: () => void, ms: number): number =>
-  window.setTimeout(run, ms);
-
-export const cancelWindowDelay = (timer: number): void =>
-  window.clearTimeout(timer);
+export const browserHandleTimers: HandleTimers = {
+  set: (run, ms) => window.setTimeout(run, ms),
+  clear: (handle) => window.clearTimeout(handle as number),
+};

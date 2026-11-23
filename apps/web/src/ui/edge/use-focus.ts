@@ -1,6 +1,12 @@
 'use client';
 
-import { useEffect, useRef, type RefObject } from 'react';
+import {
+  useEffect,
+  useEffectEvent,
+  useLayoutEffect,
+  useRef,
+  type RefObject,
+} from 'react';
 
 /** Focuses the control after a render that requests it. */
 export function useFocusWhen(
@@ -75,5 +81,51 @@ export function useFocusAfterAnswer(
       if (onlyWhenLost && owedOnLeaving.current) pay.current();
     },
     [onlyWhenLost],
+  );
+}
+
+/**
+ * Moves focus when `key` changes after the first render, before the browser
+ * paints (a layout crossing, a rename that ended). `move` is read at its latest.
+ */
+export function useFocusOnChange<K>(key: K, move: () => void): void {
+  const seen = useRef(key);
+  const run = useEffectEvent(move);
+  useLayoutEffect(() => {
+    if (Object.is(seen.current, key)) return;
+    seen.current = key;
+    run();
+  }, [key]);
+}
+
+/**
+ * When the element a ref holds leaves the page while it holds focus, focus
+ * goes to what `next` picks from it, so the keyboard is never dropped to
+ * `<body>`.
+ */
+export function useFocusOnLeave<T extends HTMLElement>(
+  target: RefObject<T | null>,
+  next: (leaving: T) => HTMLElement | null | undefined,
+): void {
+  const pick = useEffectEvent(next);
+  useLayoutEffect(() => {
+    const element = target.current;
+    return () => {
+      if (element === null || !element.contains(document.activeElement)) return;
+      pick(element)?.focus();
+    };
+  }, [target]);
+}
+
+/**
+ * When the owner leaves the page and focus fell to nothing usable, focus
+ * goes to the element `targetId` names.
+ */
+export function useFocusReturnOnLeave(targetId: string): void {
+  useLayoutEffect(
+    () => () => {
+      if (focusLost()) document.getElementById(targetId)?.focus();
+    },
+    [targetId],
   );
 }
