@@ -63,6 +63,13 @@
       "kind": "release",
       "owner": "Recording (@2witstudios)",
       "taskCode": "PYL-8"
+    },
+    {
+      "key": "bot-debates",
+      "retired": false,
+      "kind": "release",
+      "owner": "Bot debaters (@2witstudios)",
+      "taskCode": "BCS-1"
     }
   ]
 }

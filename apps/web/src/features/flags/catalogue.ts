@@ -71,6 +71,19 @@ export const flagCatalogue = [
     safeDefault: false,
     dependencies: [],
   },
+  {
+    // Bot debates: Train, a bot in a debating seat and the Round freeze that
+    // reserves the bot allowance. Off, they are Coming soon; an account
+    // override opens them for the members finishing them, and the flag wins
+    // over every entitlement (ADR on bot-debates release).
+    key: 'bot-debates',
+    kind: 'release',
+    owner: 'Bot debaters (@2witstudios)',
+    taskCode: 'BCS-1',
+    expiresOn: '2027-03-31',
+    safeDefault: false,
+    dependencies: [],
+  },
 ] as const satisfies readonly FlagDefinition[];
 
 export type ReleaseFlagKey = Extract<
