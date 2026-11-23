@@ -1,0 +1,6 @@
+0 verify
+0 token
+0 join TR_0
+50 abort a
+100 published a -> CONFLICT
+600 close TR_0

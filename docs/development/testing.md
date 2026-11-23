@@ -267,6 +267,11 @@ report in CI's advisory job) is the live audit:
   walk over the moves each state allows. Each run has a fixed seed and
   reports its shrunk failure. The round engine's oracle,
   `scripts/round-oracle.test.ts`, walks the public runtime in every format.
+  The bot's walks (`round-bots/bot-walks.test.ts`) and its corpus
+  (`round-bots/bot-corpus.test.ts`, logs under `round-bots/corpus/`,
+  rewritten only by `GOLDEN_UPDATE=1`) drive the real speaker and publisher
+  at the bot's edge; `bun bots:sabotage` shows which net catches each named
+  mutation (ADR 0920).
 - **Size and complexity.** `bun metrics` reports each file's size, churn and
   complexity. They are not lint rules: `bun lint` prints errors only, so a
   line of its output is always something to fix.
@@ -700,12 +705,17 @@ inventory deterministically, longest estimated suites first, placing each on
 the least-loaded shard. No test is excluded. Files still run with
 `--parallel=1`, and Turbo still runs workspaces with `--concurrency=1`.
 
-`scripts/integration-timings.json` records sums of passing test durations
-from CI run 40812076331. These are scheduling estimates, not performance
-promises or cached test evidence: setup/teardown is not fully represented.
-New suites receive a 1000 ms weight, and stale entries cannot add or remove
-suites. Refresh estimates from successful CI logs when the work becomes
-unbalanced; retain the source run URL and review the data diff.
+`scripts/integration-timings.json` records, per suite, the median across its
+source CI runs of the sum of passing test durations. These are scheduling
+estimates, not performance promises or cached test evidence: setup/teardown
+is not fully represented. New suites receive a 1000 ms weight, and stale
+entries cannot add or remove suites. When the shards drift apart (compare the
+`test-integration: <workspace> shard N/4: K suites, M ms` lines), refresh from
+recent successful main runs with
+`bun scripts/refresh-integration-timings.ts <run-id>...`, which records the
+source run URLs, and review the data diff. Each workspace partitions on its own,
+so every one-suite workspace lands on shard 1; it runs about a minute and a
+half longer than the others.
 
 Without a shard selector, the runner executes the complete local inventory
 or the explicitly named suites exactly as before. Invalid selectors and

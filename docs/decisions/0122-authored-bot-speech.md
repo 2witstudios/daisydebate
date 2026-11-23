@@ -3,7 +3,10 @@
 Status: accepted direction, owner-authorized slice authored-bot-speech,
 2026-11-09. Supersedes the bot clauses of DEC-212, DEC-213, DEC-215, DEC-218
 and DEC-226, and the "generated text never becomes an utterance" clause of
-[round bot workers](../architecture/round-bot-workers.md).
+[round bot workers](../architecture/round-bot-workers.md). §"Publication and
+speech models" amended by [ADR 0920](0920-bot-speech-machines.md): the
+publisher is one pure step function and the speech state is the speaker's
+only record.
 
 ## Context
 
@@ -199,6 +202,11 @@ needs no change to the speaker:
   already joined ahead of generation; it would save no time to first audio.
 
 ## Publication and speech models
+
+Amended by [ADR 0920](0920-bot-speech-machines.md): `stepPublisher` holds the
+ledger and the schedule below in one state with the claim, the track, the
+calls in flight and the phrase in play, and returns effects as data; the
+publisher's shell only performs them.
 
 The publisher's pure line ledger owns reveal receipts, handed audio, the
 first subsequent clear, credited audio and end acknowledgements. An end

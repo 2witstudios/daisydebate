@@ -1,29 +1,31 @@
 import type { BotPublicationScope } from '@daisy/db/bot-publication';
-import { isCapacityRefusal } from '@daisy/db/capacity';
-import { isFinalBotSpeechRefusal } from '@daisy/db/bot-publication';
-import { createAppError, isAppError } from '@daisy/errors';
+import { createAppError } from '@daisy/errors';
 import type { Waits } from '@daisy/clock';
-import {
-  retryPauseMs,
-  type DutyEffect,
-  type DutyEvent,
-  type Owed,
-} from './duty';
+import { retryPauseMs, type DutyEvent, type Owed } from './duty';
 import {
   initialSpeechState,
   nextSpeechState,
   nextSpeechWork,
   phraseAt,
   hasBought,
+  hasVoice,
   isPublishing,
+  needsLine,
+  openingToHold,
+  awaitsFloor,
+  phraseVerdict,
+  reportsCut,
+  setbackOf,
+  stopAt,
+  tailWasCut,
   voicesToBuy,
-  openingVoices,
+  type SpeechEffect,
   type SpeechEvent,
 } from './model/speech-state';
 import type { PhraseSource } from './phrase-source';
 import { createSelfWake } from './self-wake';
 import { unlessAborted } from './abortable';
-import type { BotSpeechJob, PhraseOutcome } from './publication';
+import type { BotPublisher, BotSpeechJob } from './publication';
 
 /** A provider answer held in memory until its usage and authority settle. */
 type Answer<T> = {
@@ -45,8 +47,6 @@ type Generated = Answer<{ readonly phrases: PhraseSource }> & {
   readonly abandon: () => void;
 };
 const STOPPED = 'Bot publication stopped before the phrase was sent';
-const isPlatformIncidentRefusal = (error: unknown) =>
-  isAppError(error) && error.reason === 'platform-incident';
 /** What the seat's hearing reports about one peer. */
 export type PeerActivity =
   | {
@@ -111,29 +111,21 @@ export function createBotSpeaker(input: {
     text: string,
     signal: AbortSignal,
   ) => Promise<Answer<BotSpeechJob>>;
-  /** The monotonic instant the claim's segment is due, read once per speech. */
-  readonly deadline: () => Promise<number>;
-  /** Whether the publisher closed this line, so a retry needs a new one. */
-  readonly lineClosed: (phraseId: string) => boolean;
   /**
-   * Whether this line, reported played whole, had its queued tail cut since by
-   * a later clear (the next phrase's stop, refusal or failure).
+   * The claim's publisher (`publication.ts`): what the speaker asks of it,
+   * and the two facts it reads back about the lines it closed.
    */
-  readonly tailCut: (phraseId: string) => boolean;
-  /** Whether audio already handed over is still playing out of the queue. */
-  readonly audible: () => boolean;
-  /** Drops whatever is still queued, at once. */
-  readonly silence: () => void;
-  /** Authorizes a phrase while the one before it plays (ADR 0122). */
-  readonly writeAhead: (job: BotSpeechJob) => void;
-  /** Forgets phrases authorized ahead that will not be said. */
-  readonly discard: () => void;
-  /** Plays one phrase and authors its line; never plays past `stopAtMs`. */
-  readonly publish: (
-    job: BotSpeechJob,
-    signal: AbortSignal,
-    stopAtMs: number,
-  ) => Promise<PhraseOutcome>;
+  readonly publication: Pick<
+    BotPublisher,
+    | 'deadline'
+    | 'lineClosed'
+    | 'tailCut'
+    | 'audible'
+    | 'silence'
+    | 'writeAhead'
+    | 'discard'
+    | 'publish'
+  >;
   readonly nextId: () => string;
   readonly maxAttempts: number;
   /**
@@ -160,8 +152,10 @@ export function createBotSpeaker(input: {
     voicing: new AbortController(),
   });
   let goods = freshGoods();
+  // The running turn's abort and its end: resources, not progress.
   let running: { abort: AbortController; done: Promise<void> } | null = null;
-  let held: (() => void)[] = [];
+  // Woken whenever the duty changes, so a wait for the floor reads the state again.
+  let floorWaiters: (() => void)[] = [];
   const record = (event: SpeechEvent) => {
     const next = nextSpeechState(state, event);
     state = next.state;
@@ -174,10 +168,12 @@ export function createBotSpeaker(input: {
   const voiceLength = (job: BotSpeechJob) =>
     (job.pcm.length / job.sampleRate) * 1000;
   const prepareAhead = (index: number) => {
-    const voice = phraseAt(state, index);
+    if (!isPublishing(state) || phraseAt(state, index)?.status !== 'settled')
+      return;
+    // The settled voice's paid answer: the state said it is in hand.
     const answer = goods.voices.get(index);
-    if (!isPublishing(state) || voice?.status !== 'settled' || !answer) return;
-    if (voice.lineId === null || input.lineClosed(voice.lineId))
+    if (!answer) return;
+    if (needsLine(state, index, input.publication.lineClosed))
       record({
         type: 'line',
         generation: state.generation,
@@ -186,7 +182,7 @@ export function createBotSpeaker(input: {
       });
     const lineId = phraseAt(state, index)?.lineId;
     if (lineId !== null && lineId !== undefined)
-      input.writeAhead({ ...answer.value, phraseId: lineId });
+      input.publication.writeAhead({ ...answer.value, phraseId: lineId });
   };
   const buyVoice = (
     phrases: PhraseSource,
@@ -224,8 +220,9 @@ export function createBotSpeaker(input: {
         index,
         durationMs: voiceLength(answer.value),
       });
-      if (goods === current && !signal.aborted && !voicing.aborted)
-        voiceAhead(phrases, signal);
+      const live = () =>
+        state.generation === generation && state.turn.voicing === 'open';
+      if (live() && !signal.aborted) voiceAhead(phrases, signal);
       // A paid receipt settles even if its generation was replaced meanwhile.
       record({ type: 'voice-settling', generation, index });
       try {
@@ -235,7 +232,7 @@ export function createBotSpeaker(input: {
         throw error;
       }
       record({ type: 'voice-settled', generation, index });
-      if (goods === current && index === state.turn.cursor + 1)
+      if (state.generation === generation && index === state.turn.cursor + 1)
         prepareAhead(index);
     })();
     current.buying.set(index, pending);
@@ -254,7 +251,7 @@ export function createBotSpeaker(input: {
       if (state.generation !== generation || state.turn.awaiting !== index)
         return;
       record({ type: 'await-phrase', generation, index: null });
-      if (text !== null && !signal.aborted && !goods.voicing.signal.aborted)
+      if (text !== null && !signal.aborted && state.turn.voicing === 'open')
         voiceAhead(phrases, signal);
     });
   };
@@ -271,48 +268,54 @@ export function createBotSpeaker(input: {
     signal: AbortSignal,
   ) => {
     const index = state.turn.cursor;
-    const pending = goods.buying.get(index);
-    if (pending) {
+    if (phraseAt(state, index)) {
       voiceAhead(phrases, signal);
-      await pending.catch(() => undefined);
+      await goods.buying.get(index)?.catch(() => undefined);
     }
-    if (!goods.voices.has(index)) {
+    if (!hasVoice(state, index)) {
       const buying = buyVoice(phrases, text, index, signal);
       voiceAhead(phrases, signal);
       await buying;
     }
   };
-  const holdShortOpening = async (signal: AbortSignal) => {
+  /** Waits on what the state says the opening is held for, until it says go. */
+  const holdOpening = async (signal: AbortSignal) => {
+    record({ type: 'opening-begins' });
     const stopped = Promise.withResolvers<void>();
     const stop = () => stopped.resolve();
     const isAborted = () => signal.aborted;
     signal.addEventListener('abort', stop, { once: true });
     try {
-      for (const index of [1, 2]) {
-        if (!openingVoices(state).includes(index) || isAborted()) return;
-        const pending = goods.buying.get(index);
-        if (!pending) return;
-        await Promise.race([pending.catch(() => undefined), stopped.promise]);
-        if (isAborted() || !goods.voices.has(index)) return;
+      for (
+        let index = openingToHold(state);
+        index !== null && !signal.aborted;
+        index = openingToHold(state)
+      ) {
+        const pending = goods.buying.get(index)?.catch(() => undefined);
+        await Promise.race([pending, stopped.promise]);
+        // Read live: the abort can land while the voice is awaited.
+        const held = !isAborted() && hasVoice(state, index);
+        record({ type: 'opening-held', index, held });
       }
     } finally {
       signal.removeEventListener('abort', stop);
     }
   };
+  /** Waits while the state says a peer holds the floor. */
   const floorClear = async (signal: AbortSignal) => {
-    while (state.midTurn.length > 0)
+    while (awaitsFloor(state, rules))
       await unlessStopped(
-        new Promise<void>((resolve) => held.push(resolve)),
+        new Promise<void>((resolve) => floorWaiters.push(resolve)),
         signal,
       );
     if (signal.aborted) throw createAppError('CONFLICT', STOPPED);
   };
-  const speak = async (signal: AbortSignal, stopAtMs: number) => {
+  const speak = async (signal: AbortSignal) => {
     const index = state.turn.cursor;
-    const voice = phraseAt(state, index);
-    const answer = goods.voices.get(index);
-    if (!voice || !answer) throw createAppError('CONFLICT', STOPPED);
-    if (voice.lineId === null || input.lineClosed(voice.lineId))
+    const answer = hasVoice(state, index) ? goods.voices.get(index) : undefined;
+    const stopAtMs = stopAt(state);
+    if (!answer || stopAtMs === null) throw createAppError('CONFLICT', STOPPED);
+    if (needsLine(state, index, input.publication.lineClosed))
       record({
         type: 'line',
         generation: state.generation,
@@ -324,7 +327,7 @@ export function createBotSpeaker(input: {
       throw createAppError('CONFLICT', STOPPED);
     record({ type: 'publishing', active: true });
     try {
-      return await input.publish(
+      return await input.publication.publish(
         { ...answer.value, phraseId: lineId },
         signal,
         stopAtMs,
@@ -334,15 +337,13 @@ export function createBotSpeaker(input: {
     }
   };
   const stepBackIfTailCut = () => {
-    const before = state.turn.previous;
-    const lineId = before === null ? null : phraseAt(state, before)?.lineId;
-    if (lineId && goods.voices.has(state.turn.cursor) && input.tailCut(lineId))
+    if (tailWasCut(state, input.publication.tailCut))
       record({ type: 'tail-cut', generation: state.generation });
   };
   const dropAhead = () => {
     goods.voicing.abort();
     record({ type: 'drop-ahead', generation: state.generation });
-    input.discard();
+    input.publication.discard();
   };
   const resetProgress = () => {
     dropAhead();
@@ -371,7 +372,7 @@ export function createBotSpeaker(input: {
     }
     const { phrases } = current.generated.value;
     work('publish');
-    const stopAtMs = await input.deadline();
+    record({ type: 'deadline', atMs: await input.publication.deadline() });
     for (;;) {
       const text =
         phrases.ready(state.turn.cursor) ??
@@ -384,7 +385,7 @@ export function createBotSpeaker(input: {
         case 'finish': {
           dropAhead();
           const cut = phrases.cutBy();
-          if (cut && state.turn.cut === 'unreported') {
+          if (cut && reportsCut(state)) {
             record({ type: 'cut-reported', generation });
             input.failed(cut.error, 'generate');
           }
@@ -408,85 +409,71 @@ export function createBotSpeaker(input: {
         case 'publish': {
           work('synthesize');
           voiceAhead(phrases, signal);
-          if (state.turn.cursor === 0) await holdShortOpening(signal);
-          if (crossEx) await floorClear(signal);
+          await holdOpening(signal);
+          await floorClear(signal);
           work('publish');
-          const speaking = speak(signal, stopAtMs);
+          const speaking = speak(signal);
           prepareAhead(state.turn.cursor + 1);
           const outcome = await speaking.catch((error: unknown) => {
             stepBackIfTailCut();
             throw error;
           });
-          if (outcome.segmentEnded) return dropAhead();
-          if (!outcome.complete) throw createAppError('CONFLICT', STOPPED);
+          const verdict = phraseVerdict(outcome);
+          if (verdict === 'segment-ended') return dropAhead();
+          if (verdict === 'stopped') throw createAppError('CONFLICT', STOPPED);
           record({ type: 'phrase-sent', generation });
-          for (const index of current.voices.keys()) {
-            if (index < state.turn.cursor - 1) {
+          // Paid voices the state no longer keeps are released.
+          for (const index of current.voices.keys())
+            if (!phraseAt(state, index)) {
               current.voices.delete(index);
               current.buying.delete(index);
             }
-          }
           apply({ type: 'phrase-said' });
         }
       }
     }
   };
   const cancel = () => running?.abort.abort();
-  const effect = (kind: DutyEffect) => {
+  const effect = (kind: SpeechEffect) => {
     switch (kind) {
       case 'start':
         return start();
-      case 'cut': {
-        const writing = isPublishing(state);
-        cancel();
-        if (!writing) input.silence();
-        return;
-      }
       case 'restart':
         return cancel();
       case 'drop':
-        return state.run.status === 'idle' ? resetProgress() : undefined;
+        return resetProgress();
       case 'silence':
-        return input.silence();
+        return input.publication.silence();
       case 'retry-soon':
-        return state.duty.status === 'over'
-          ? undefined
-          : selfWake.pauseFor(retryPauseMs(state.duty));
+        return selfWake.pauseFor(retryPauseMs(state.duty));
       case 'await-reply':
         return selfWake.awaitReply();
+      case 'stop-awaiting-reply':
+        return selfWake.stopAwaitingReply();
+      case 'stop-pause':
+        return selfWake.stopPause();
+      case 'floor-free': {
+        const waiting = floorWaiters;
+        floorWaiters = [];
+        for (const release of waiting) release();
+        return;
+      }
     }
   };
   const apply = (event: DutyEvent) => {
-    const effects = record({ type: 'duty', event, rules });
-    if (state.duty.status !== 'waiting' || !state.duty.unanswered)
-      selfWake.stopAwaitingReply();
-    if (state.duty.status !== 'owed' || !state.duty.paused)
-      selfWake.stopPause();
-    if (state.midTurn.length === 0) {
-      const waiting = held;
-      held = [];
-      for (const release of waiting) release();
-    }
-    for (const kind of effects) effect(kind);
+    for (const kind of record({ type: 'duty', event, rules })) effect(kind);
   };
   const recover = (error: unknown, stage: string) => {
-    if (isFinalBotSpeechRefusal(error))
-      return apply({ type: 'refused-for-good' });
-    if (isCapacityRefusal(error)) {
-      input.failed(error, stage);
-      return apply({ type: 'deferred', authorityChanged: false });
-    }
-    if (isPlatformIncidentRefusal(error) || input.busy(error))
-      return apply({ type: 'deferred', authorityChanged: false });
-    if (isAppError(error) && error.code === 'CONFLICT')
-      return apply({ type: 'deferred', authorityChanged: true });
     const phrases = goods.generated?.value.phrases;
-    const unusable =
-      phrases !== undefined &&
-      phrases.ended() &&
-      phrases.ready(0) === undefined;
-    input.failed(error, stage);
-    apply({ type: 'failed', unusable });
+    const setback = setbackOf(error, {
+      busy: input.busy(error),
+      unusable:
+        phrases !== undefined &&
+        phrases.ended() &&
+        phrases.ready(0) === undefined,
+    });
+    if (setback.reported) input.failed(error, stage);
+    apply(setback.event);
   };
   const turn = async (abort: AbortController, to: Owed) => {
     let failure: { readonly error: unknown } | null = null;
@@ -535,7 +522,7 @@ export function createBotSpeaker(input: {
           return apply({
             type: 'peer-spoke',
             peer: activity.peer,
-            audible: isPublishing(state) || input.audible(),
+            audible: isPublishing(state) || input.publication.audible(),
             bought: hasBought(state),
           });
         case 'end-of-turn':
@@ -547,7 +534,7 @@ export function createBotSpeaker(input: {
           });
       }
     },
-    playing: () => isPublishing(state) || input.audible(),
+    playing: () => isPublishing(state) || input.publication.audible(),
     async stop() {
       const current = running;
       selfWake.stop();

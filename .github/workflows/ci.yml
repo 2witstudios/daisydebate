@@ -191,7 +191,10 @@ jobs:
     needs: quick-check
     name: Infrastructure contracts (${{ matrix.shard }}/4)
     runs-on: ubuntu-24.04
-    timeout-minutes: 20
+    # The slowest balanced shard takes about 15 minutes (12 of suites, 3 of
+    # setup); this is that plus a third, and never below 25. Rebalance with
+    # scripts/refresh-integration-timings.ts before raising it.
+    timeout-minutes: 25
     # Each matrix job owns its service containers. Files and workspaces remain
     # serial within a worker because their cleanup inspects global test state.
     strategy:

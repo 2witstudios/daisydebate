@@ -9,7 +9,7 @@ type PublicationSchedule = {
       };
   readonly authorized: readonly string[];
 };
-type ScheduleEvent =
+export type ScheduleEvent =
   | { readonly type: 'starting' | 'finished' | 'discard' }
   | {
       readonly type: 'scheduled';

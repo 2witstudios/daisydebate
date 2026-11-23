@@ -1,0 +1,55 @@
+0 verify
+0 token
+0 join TR_0
+10 deadline 60000
+10 verify
+10 begin p0 30ms in=0 at=2027-01-15T08:00:00.010Z room
+10 reveal p0 room at=2027-01-15T08:00:00.010Z
+10 frames TR_0 x3
+90 reveal -> CONFLICT/platform-incident
+90 end p0 whole
+90 begin p1 70ms in=0 at=2027-01-15T08:00:00.090Z room
+90 reveal p1 room at=2027-01-15T08:00:00.090Z
+90 clear TR_0 queued=70
+90 begin p2 470ms in=0 at=2027-01-15T08:00:00.090Z room
+90 reveal p2 room at=2027-01-15T08:00:00.090Z
+90 frames TR_0 x38
+90 published p0 -> CONFLICT/platform-incident
+90 published p1 complete=true ended=false
+100..150 frames TR_0 x6 every 10ms
+160 end p1 cut 0ms ""
+160..240 frames TR_0 x9 every 10ms
+250 clear TR_0 queued=310
+250 begin p3 380ms in=310 at=2027-01-15T08:00:00.560Z room
+250 reveal p3 room at=2027-01-15T08:00:00.250Z
+250 frames TR_0 x32
+250 published p2 complete=true ended=false
+260..320 frames TR_0 x7 every 10ms
+399 abort p1
+550 begin p4 450ms in=80 at=2027-01-15T08:00:00.630Z room
+550 frames TR_0 x23
+550 published p3 complete=true ended=false
+560 end p2 cut 160ms "one two three"
+560..620 frames TR_0 x7 every 10ms
+630 reveal p4 room at=2027-01-15T08:00:00.630Z
+630 frames TR_0 x1
+637 abort p4
+637 clear TR_0 queued=303
+637 end p4 cut 0ms ""
+640 end -> CONFLICT/platform-incident
+640 end p3 whole
+717 end -> Error
+817 end p4 cut 0ms ""
+817 begin p5 550ms in=0 at=2027-01-15T08:00:00.817Z room
+817 reveal p5 room at=2027-01-15T08:00:00.817Z
+817 frames TR_0 x31
+817 published p4 complete=false ended=false
+827..1047 frames TR_0 x23 every 10ms
+1057 query audible=true p0:closed p1:closed p2:closed p3:closed p4:closed p5:open
+1057 clear TR_0 queued=310
+1057 end p5 cut 240ms "one two three four"
+1057 close TR_0
+1057 frames TR_0 x1
+1057 closed
+1057 published late -> CONFLICT
+1057 published p5 complete=true ended=false

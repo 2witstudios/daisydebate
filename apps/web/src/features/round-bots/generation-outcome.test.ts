@@ -2,7 +2,7 @@ import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createOpenRouter } from '@daisy/ai-voice';
 import { createBotGeneration } from './generation';
 import { inertWaits } from '../../lib/manual-waits.test-support';
-import { scope } from './speaker.test-support';
+import { scope } from './bot-scope.test-support';
 setupRitewayBun();
 
 /** The settlement one failed 4-character voice call records. */

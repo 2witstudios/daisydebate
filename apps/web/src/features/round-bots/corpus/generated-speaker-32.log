@@ -1,0 +1,75 @@
+0 peer end-of-turn peer
+0 heard peer@1000
+0 generate peer-turn peer@1000
+0 settle answer 1
+0 tts "One."
+0 tts "Two."
+0 tts "Three."
+0 settle tts "One."
+0 settle tts "Two."
+0 peer end-of-turn peer
+0 verify
+300 tts "Three."
+300 abandon answer 1
+1873 heard peer@2000
+1873 generate peer-turn peer@2000
+1873 settle answer 2
+1913 settle answer 2 -> CONFLICT/platform-incident
+2113 settle answer 2
+2113 settle answer 2 -> CONFLICT/bot-room-changed
+2113 abandon answer 2
+2513 heard peer@2000
+2513 generate peer-turn peer@2000
+2513 settle answer 3
+2513 tts "One."
+2513 tts "Two."
+2513 tts "Three."
+2513 settle tts "One."
+2513 settle tts "Three."
+2513 verify
+2663 settle tts "Two."
+2663 verify
+2663 token
+2663 join TR_0
+2663 begin id9 120ms in=0 at=2027-01-15T08:00:02.663Z room
+2663 begin id11 260ms in=120 at=2027-01-15T08:00:02.783Z room
+2663 reveal id9 room at=2027-01-15T08:00:02.663Z
+2663 begin id13 80ms in=380 at=2027-01-15T08:00:03.043Z room
+2663 frames TR_0 x31
+2673..2733 frames TR_0 x7 every 10ms
+2783 end id9 whole
+2783 reveal id11 room at=2027-01-15T08:00:02.783Z
+2783 frames TR_0 x5
+2793..2813 frames TR_0 x3 every 10ms
+3043 failed generate Error
+3043 close answer 3
+3043 abandon answer 3
+3043 end id11 whole
+3043 reveal id13 room at=2027-01-15T08:00:03.043Z
+3123 end id13 whole
+11043 generate unanswered
+11043 settle answer 4
+11043 tts "One."
+11043 tts "Two."
+11043 tts "Three."
+11043 settle tts "One."
+11043 settle tts "Two."
+11043 settle tts "Three."
+11043 verify
+11043 begin id16 120ms in=0 at=2027-01-15T08:00:11.043Z room
+11043 begin id18 260ms in=120 at=2027-01-15T08:00:11.163Z room
+11043 reveal id16 room at=2027-01-15T08:00:11.043Z
+11043 begin id20 80ms in=380 at=2027-01-15T08:00:11.423Z room
+11043 frames TR_0 x31
+11053..11113 frames TR_0 x7 every 10ms
+11163 end id16 whole
+11163 reveal id18 room at=2027-01-15T08:00:11.163Z
+11163 frames TR_0 x5
+11173..11193 frames TR_0 x3 every 10ms
+11423 failed generate Error
+11423 close answer 4
+11423 abandon answer 4
+11423 end id18 whole
+11423 reveal id20 room at=2027-01-15T08:00:11.423Z
+11503 end id20 whole
+11873 close TR_0
