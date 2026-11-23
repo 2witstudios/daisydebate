@@ -205,7 +205,8 @@
     "./round-outcome-audience": "./src/round-outcome-audience.ts",
     "./usage-sponsor": "./src/usage-sponsor.ts",
     "./messaging/group-issuance-plan": "./src/messaging/group-issuance-plan.ts",
-    "./messaging/group-management-plan": "./src/messaging/group-management-plan.ts"
+    "./messaging/group-management-plan": "./src/messaging/group-management-plan.ts",
+    "./standings-release": "./src/standings-release.ts"
   },
   "scripts": {
     "typecheck": "tsgo --noEmit && tsgo --noEmit -p tsconfig.test.json",

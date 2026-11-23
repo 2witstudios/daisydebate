@@ -6,7 +6,7 @@ import {
   projectionLockOrder,
   ratedResult,
   ratingChangeRows,
-} from './rating-decisions';
+} from './rating-operations';
 
 setupRitewayBun();
 
