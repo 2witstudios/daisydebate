@@ -1,4 +1,5 @@
 import { createId } from '@paralleldrive/cuid2';
+import { releaseAdmission } from '../src/features/flags/admission';
 import { requireTestServices } from '@daisy/config';
 import { executeRoomCommand, castSeatsBotDebater } from '@daisy/debate-engine';
 import { assertRejects } from '@daisy/errors/testing';
@@ -119,6 +120,7 @@ test('direct domain Launch safety refusal cannot persist a Round or freeze', asy
         actual: () =>
           f.store.executeRoomCommand({
             caller: f.host,
+            botRelease: releaseAdmission('bot-debates', false),
             actorId: f.host.actorId,
             roomId: view.id,
             commandId: createId(),

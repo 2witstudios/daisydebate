@@ -32,6 +32,7 @@ export function roomCommandOperation({
   ids,
   aiSeats,
   botDebatesReleased,
+  botRelease,
   betaGrantsPremium,
   consentTtlMs,
   eligible,
@@ -44,6 +45,8 @@ export function roomCommandOperation({
   ids: IdGenerator;
   aiSeats: () => AiSeatAvailability;
   botDebatesReleased: BotDebatesReleased;
+  /** The trusted `bot-debates` closure the Round freeze requires (ADR 0921). */
+  botRelease: Parameters<Store['executeRoomCommand']>[0]['botRelease'];
   betaGrantsPremium: boolean;
   consentTtlMs: () => number;
   eligible: (state: RoomAssemblyState) => RoomAssemblyState;
@@ -106,6 +109,7 @@ export function roomCommandOperation({
           : null,
       roundId,
       seatsBotDebater: castSeatsBotDebater,
+      botRelease,
       readyAgreements: (state, signer) => {
         const notice = roomCaptureNotice(state);
         const guardianSigns = needsGuardianContentWaiver(

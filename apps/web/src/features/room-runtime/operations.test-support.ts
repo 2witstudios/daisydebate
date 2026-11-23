@@ -238,6 +238,7 @@ export function makeOperations(
         ? { debater: aiSeats, judge: aiSeats }
         : aiSeats,
     botDebatesReleased: async () => botDebates,
+    botRelease: { keys: ['bot-debates'], decide: () => botDebates },
     betaGrantsPremium: true,
     entropy: () => '01'.repeat(32),
   });

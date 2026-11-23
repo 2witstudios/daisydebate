@@ -10,14 +10,8 @@ import { createRoomHandlers } from './handlers';
 import { createRoomRuntimeOperations } from './operations';
 import { drawEntropy } from './entropy';
 import { routeReleaseFor } from '../flags/route-release';
-/** Explicit policy injection; proof choices do not silently activate production. */
-export type RoomPolicy = {
-  readonly consentTtlMs: number;
-  /** How long an open Room may go without a command before maintenance closes it; absent leaves expiry inert (ADR 0070). */
-  readonly idleTimeoutMs?: number;
-  readonly maxBodyBytes: number;
-  readonly limits: Parameters<typeof createRoomHandlers>[0]['limits'];
-};
+import { releaseAdmission } from '../flags/admission';
+import { releaseFlagDefault } from '../flags/release-default';
 function composeRoomRoutes(app: App) {
   let handlers: ReturnType<typeof createRoomHandlers> | undefined;
   const run = (
@@ -51,6 +45,10 @@ function composeRoomRoutes(app: App) {
         aiSeats: () => app.aiSeats,
         botDebatesReleased: (userId) =>
           routeReleaseFor(app)('bot-debates', userId),
+        botRelease: releaseAdmission(
+          'bot-debates',
+          releaseFlagDefault(app.config),
+        ),
         betaGrantsPremium: app.config.PREMIUM_BETA_GRANT,
         entropy: drawEntropy,
         linkedAdults: liveLinkedAdults(app),

@@ -6,9 +6,11 @@ import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';
 import { withBoundedRound } from './bounded-transaction.test-support';
 import { createRoundBotAdmission } from '../src/round-bot-admission';
+import type { ReleaseAdmission } from '../src/flags';
 import {
   admissionSponsor,
   betaAllowance,
+  botDebatesReleased,
   testBotAdmission,
 } from './bot-admission.test-support';
 import { createBotActor, createBotSeat } from './bot-seat.test-support';
@@ -235,7 +237,11 @@ test('two bot-debater Rounds racing for the last capacity slot admit exactly one
         await admission.lock(tx);
         await tx.execute(sql`insert into round_participants (id, round_id, actor_id, seat_kind, side, slot)
           values (${createId()}, ${roundId}, ${botActor}, 'side', 'negative', 0)`);
-        return admission.reserveLocked(tx, { actorId, roundId });
+        return admission.reserveLocked(
+          tx,
+          { actorId, roundId },
+          botDebatesReleased,
+        );
       });
     const attempts = await Promise.allSettled([
       launch(second, bots[0]!),
@@ -260,5 +266,62 @@ test('two bot-debater Rounds racing for the last capacity slot admit exactly one
           code: 'CONFLICT',
           reason: 'bots-busy',
         });
+  });
+});
+
+test('an unreleased bot debate is refused at the reservation whatever allowance the host holds (ADR 0921)', async () => {
+  await withBoundedRound(async (fixture, run, firstRound) => {
+    // An approved beta host holds the Premium-beta allowance.
+    const actorId = await admissionSponsor(fixture, [firstRound]);
+    const [{ user_id: userId }] =
+      await fixture.sql`select user_id from actors where id=${actorId}`;
+    // The decision opens only on this account's own override, as the
+    // application's resolver does for an override holder.
+    const admission = createRoundBotAdmission({
+      run,
+      nextId: createId,
+      busyCap: 4,
+      ...betaAllowance(),
+    });
+    const ownOverride: ReleaseAdmission = {
+      keys: ['bot-debates'],
+      decide: (snapshot, now) =>
+        snapshot.kind === 'available' &&
+        snapshot.flags.some(
+          (fact) =>
+            fact.key === 'bot-debates' &&
+            fact.override?.enabled === true &&
+            fact.override.expiresAt > now,
+        ),
+    };
+    const created =
+      await fixture.sql`insert into release_flags (key, state, revision) values ('bot-debates', 'default', 1) on conflict (key) do nothing returning key`;
+    try {
+      await assertRejects({
+        given: 'a host with allowance and no bot-debates override',
+        should: 'refuse the reservation as coming soon',
+        actual: () =>
+          admission.reserve({ actorId, roundId: firstRound }, ownOverride),
+        code: 'CONFLICT',
+        reason: 'bot-debates-coming-soon',
+      });
+      const [{ n: refusedRows }] =
+        await fixture.sql`select count(*)::int as n from usage_reservations where actor_id=${actorId}`;
+      await fixture.sql`insert into flag_account_overrides (key, user_id, enabled, expires_at) values ('bot-debates', ${userId}, true, clock_timestamp() + interval '1 hour')`;
+      await admission.reserve({ actorId, roundId: firstRound }, ownOverride);
+      const [{ n: admittedRows }] =
+        await fixture.sql`select count(*)::int as n from usage_reservations where actor_id=${actorId}`;
+      assert({
+        given: 'the refused reservation, then the same host given the override',
+        should:
+          'leave nothing reserved when refused and reserve under the allowance once released',
+        actual: [refusedRows, admittedRows > 0],
+        expected: [0, true],
+      });
+    } finally {
+      await fixture.sql`delete from flag_account_overrides where key = 'bot-debates' and user_id = ${userId}`;
+      if (created.length > 0)
+        await fixture.sql`delete from release_flags where key = 'bot-debates' and not exists (select 1 from flag_account_overrides where key = 'bot-debates')`;
+    }
   });
 });

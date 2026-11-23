@@ -24,6 +24,7 @@ import {
 } from './tab/room-direction';
 import { admitCasualCapture } from './casual-capture-admission';
 import type { RoundBotAdmission } from './round-bot-admission';
+import type { ReleaseAdmission } from './flags';
 import type { CasualJudgeAdmission } from './casual-judge-admission';
 import { persistRoomMutation } from './room-mutation-persistence';
 
@@ -184,6 +185,12 @@ type CommandInput = {
   readonly roundId: string;
   /** The engine's cast rule: only a launch that seats a bot debater takes the bot-admission lock. */
   readonly seatsBotDebater: (state: RoomAssemblyState) => boolean;
+  /**
+   * The application's trusted `bot-debates` release closure (ADR 0921): a
+   * launch that seats a bot debater requires it on the charged host's
+   * account in this transaction, whatever entitlement the host holds.
+   */
+  readonly botRelease: ReleaseAdmission;
   /**
    * What a Ready on this Room stands on (WATCH-15, WATCH-9): the waiver version
    * it needs and the notice it records. Null when it needs neither.
@@ -486,6 +493,7 @@ async function executeOnce(
     input.roundId,
     botAdmission,
     botLocked,
+    input.botRelease,
   );
   if (
     outcome.mutation.freeze &&
@@ -655,6 +663,7 @@ async function reserveBotFreeze(
   roundId: string,
   admission: RoundBotAdmission | undefined,
   locked: boolean,
+  release: ReleaseAdmission,
 ) {
   const state = mutation.state;
   // The pure engine decides whether this cast seats a bot debater; admission
@@ -663,5 +672,9 @@ async function reserveBotFreeze(
   if (!admission)
     throw createAppError('INFRASTRUCTURE', 'Bot admission unavailable');
   if (!locked) throw createAppError('CONFLICT', 'Bot admission not serialized');
-  await admission.reserveLocked(tx, { actorId: chargedHostOf(state), roundId });
+  await admission.reserveLocked(
+    tx,
+    { actorId: chargedHostOf(state), roundId },
+    release,
+  );
 }

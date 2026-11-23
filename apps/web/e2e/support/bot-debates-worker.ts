@@ -2,7 +2,7 @@ import { hostWaits } from '@daisy/worker/host';
 import { createId } from '@paralleldrive/cuid2';
 import { SQL } from 'bun';
 import { z } from 'zod';
-import { createDatabase } from '@daisy/db';
+import { openWebDatabase } from '../../src/server/database';
 import { grantReleaseOverride } from '../../src/features/operator-api/flag-override.test-support';
 import { betaAccessTarget } from './beta-access-target';
 
@@ -17,7 +17,7 @@ const emails = z
   .parse(JSON.parse(await Bun.stdin.text())).emails;
 const url = betaAccessTarget(process.env);
 const client = new SQL(url, { max: 1 });
-const database = createDatabase({
+const database = openWebDatabase({
   waits: hostWaits,
   url,
   nextActorId: createId,

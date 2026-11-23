@@ -33,12 +33,14 @@ and a crafted request all reach a Round only through it.
    existing grants are kept: they are spent only where the flag allows.
 3. **The account is the one the allowance is charged to**: the Room's host
    (`chargedHostOf`). For create, seating and Train it is the caller.
-4. **The freeze is the authority.** The `bot_debate` reservation takes the
-   same trusted release closure Premium checkout uses
-   (`releaseAdmission('bot-debates', releaseDefault)`) and requires it on the
-   host's account inside the reserving transaction, after the account fence.
-   Refused, it answers `bot-debates-coming-soon` and leaves no reservation
-   and no Round.
+4. **The freeze is the authority.** The Room command carries the same
+   trusted release closure Premium checkout uses
+   (`releaseAdmission('bot-debates', releaseDefault)`, built by the Room
+   composition, never at database open, so release flags stay out of client
+   and proxy scopes), and the `bot_debate` reservation requires it on the
+   charged host's account inside the reserving transaction, after the account
+   fence and before the allowance decision. Refused, it answers
+   `bot-debates-coming-soon` and leaves no reservation and no Round.
 5. **Earlier refusals use the same word.** Room create (and rematch, which is
    create) and assign-seat refuse a bot in a debating seat with
    `bot-debates-coming-soon`; cast choices offer no bot debater; the host's

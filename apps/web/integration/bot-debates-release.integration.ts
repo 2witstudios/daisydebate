@@ -2,11 +2,21 @@ import { requireTestServices } from '@daisy/config';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createId } from '@paralleldrive/cuid2';
 import { roomViewSchema } from '@daisy/protocol/room-read';
+import { isRoundRunning } from '@daisy/protocol/round';
 import { judgeSeat, negativeSide, sideSeat } from '@daisy/protocol/seats';
 import { createRoomHttpFixture } from './room-http.test-support';
 import { withSql } from './fixtures';
 import { deleteOrphanNotificationSignals } from './notification-signals.test-support';
 import { roomComposition } from '../src/features/room-runtime/composition';
+import {
+  oneOnOneDefinition,
+  oneOnOneSettings,
+} from '@daisy/db/reference-formats';
+import { botAdmissionForTests } from './bot-admission.test-support';
+import {
+  launchRuntimeRound,
+  withRoomRuntime,
+} from './round-runtime.test-support';
 
 requireTestServices(process.env);
 setupRitewayBun();
@@ -159,4 +169,110 @@ test('an ordinary member is refused every request that seats a bot debater', asy
     });
     await removeBots([bots.debater, bots.judge]);
   }
+});
+
+type RuntimeFixture = Parameters<Parameters<typeof withRoomRuntime>[0]>[0];
+
+/** A casual one-on-one with the bot seated at negative and the host Ready. */
+const botRoom = async (f: RuntimeFixture) => {
+  const bot = await f.bot();
+  const room = (
+    await f.create({
+      selection: {
+        kind: 'custom',
+        definition: {
+          ...oneOnOneDefinition,
+          seats: { ...oneOnOneDefinition.seats, judges: 0 },
+        },
+        config: {
+          ...oneOnOneSettings,
+          speechTiming: { ...oneOnOneSettings.speechTiming, countdownMs: 0 },
+        },
+        competitionType: 'casual',
+      },
+    })
+  ).view;
+  return f.seatBotOpponent(room, bot.actorId);
+};
+const turnOff = (f: RuntimeFixture, userId: string) =>
+  f.setBotDebates(userId, false);
+const reservations = async (f: RuntimeFixture, actorId: string) =>
+  (
+    await f.sql`select count(*)::int as n from usage_reservations where actor_id=${actorId} and kind='ai_round'`
+  )[0].n as number;
+
+test('the Round freeze refuses a bot debate whose host lost the release, whatever allowance they hold', async () => {
+  await withRoomRuntime(
+    async (f) => {
+      // Built while released: the host holds the Premium-beta allowance too.
+      const room = await botRoom(f);
+      await turnOff(f, f.host.userId);
+      const refusal = await f.operations
+        .command(f.host, room.id, {
+          type: 'start-round',
+          commandId: createId(),
+          expectedVersion: room.version,
+        })
+        .then(
+          () => 'started',
+          (error: { reason?: string }) => error.reason ?? 'error',
+        );
+      const after = await f.operations.view(f.host, room.id);
+      assert({
+        given:
+          'a Ready bot Room whose host’s bot-debates override was turned off',
+        should:
+          'refuse Start as coming soon inside the freeze, reserve nothing, start no Round, and tell the host',
+        actual: [
+          refusal,
+          await reservations(f, f.host.actorId),
+          after.roundRef,
+          after.botAdmission,
+        ],
+        expected: ['bot-debates-coming-soon', 0, null, { kind: 'coming-soon' }],
+      });
+    },
+    { ...botAdmissionForTests },
+  );
+});
+
+test('a bot Round already running when the release turns off goes on normally', async () => {
+  await withRoomRuntime(
+    async (f) => {
+      const room = await botRoom(f);
+      const { roundId, operations } = await launchRuntimeRound(f, room);
+      await turnOff(f, f.host.userId);
+      await operations.tick(roundId);
+      const round = (await f.store.getRound(roundId))!;
+      const forfeited = await operations
+        .command({ kind: 'human', actorId: f.host.actorId }, roundId, {
+          version: 1,
+          commandId: createId(),
+          expectedVersion: round.version,
+          command: {
+            type: 'forfeit',
+            participantId: round.participants.find(
+              (p) => p.actorId === f.host.actorId,
+            )!.id,
+          },
+        })
+        .then(
+          () => 'accepted',
+          (error: { reason?: string; code?: string }) =>
+            error.reason ?? error.code ?? 'error',
+        );
+      assert({
+        given: 'a launched bot Round, then the host’s release turned off',
+        should:
+          'keep its one reservation, keep running, and take the host’s own Round command',
+        actual: [
+          await reservations(f, f.host.actorId),
+          isRoundRunning(round.status),
+          forfeited,
+        ],
+        expected: [1, true, 'accepted'],
+      });
+    },
+    { ...botAdmissionForTests },
+  );
 });

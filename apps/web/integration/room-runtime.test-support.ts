@@ -25,6 +25,7 @@ import { aiAdmissionOptions } from '../src/features/round-runtime/worker-policy'
 
 import { drawEntropy } from '../src/features/room-runtime/entropy';
 import { createRequestFlagReader } from '../src/features/flags/reader';
+import { releaseAdmission } from '../src/features/flags/admission';
 import { grantReleaseOverride } from '../src/features/operator-api/flag-override.test-support';
 import { deleteOrphanNotificationSignals } from './notification-signals.test-support';
 const services = requireTestServices(process.env);
@@ -83,6 +84,19 @@ async function fixture(
     }),
     ...storeOptions,
   });
+  const flagCommands: string[] = [];
+  /** Turns bot debates on or off for one account through the operator command. */
+  const setBotDebates = async (userId: string, enabled: boolean) => {
+    flagCommands.push(
+      await grantReleaseOverride({
+        store,
+        key: 'bot-debates',
+        userId,
+        nextId: createId,
+        enabled,
+      }),
+    );
+  };
   const callers: { userId: string; actorId: string }[] = [],
     rooms: string[] = [],
     bots: string[] = [];
@@ -113,13 +127,7 @@ async function fixture(
     await sql`insert into users (id,username,email_verified) values (${userId},${`u-${userId}`},true)`;
     await sql`insert into actors (id,kind,user_id) values (${actorId},'human',${userId})`;
     await admitParticipants(sql, [userId]);
-    if (options.botDebates !== false)
-      await grantReleaseOverride({
-        store,
-        key: 'bot-debates',
-        userId,
-        nextId: createId,
-      });
+    if (options.botDebates !== false) await setBotDebates(userId, true);
     const c = { userId, actorId };
     callers.push(c);
     return c;
@@ -172,6 +180,7 @@ async function fixture(
     consentTtlMs: () => 60_000,
     aiSeats: () => ({ debater: true, judge: true }),
     botDebatesReleased,
+    botRelease: releaseAdmission('bot-debates', false),
     betaGrantsPremium: true,
   });
   const operationsWithBotAvailability = (available: boolean) =>
@@ -184,6 +193,7 @@ async function fixture(
       consentTtlMs: () => 60_000,
       aiSeats: () => ({ debater: available, judge: available }),
       botDebatesReleased,
+      botRelease: releaseAdmission('bot-debates', false),
       betaGrantsPremium: true,
     });
   /** The proof format every Room suite builds on; off the picker (FMT-1), so custom. */
@@ -323,6 +333,7 @@ async function fixture(
     outsider,
     /** Another member, cleaned up with the rest. */
     member: caller,
+    setBotDebates,
     bot,
     aiJudge,
     create,
@@ -394,6 +405,13 @@ async function fixture(
           await sql`delete from actors where id=${c.actorId}`;
           await sql`delete from users where id=${c.userId}`;
         }
+        // Overrides and receipts went with their users; the change events and
+        // the flag row the operator commands wrote go once no suite holds one.
+        if (flagCommands.length > 0)
+          await sql`delete from flag_change_events where command_id in ${sql(flagCommands)}`;
+        await sql`delete from release_flags where key = 'bot-debates'
+          and not exists (select 1 from flag_account_overrides where key = 'bot-debates')
+          and not exists (select 1 from flag_change_events where key = 'bot-debates')`;
       } finally {
         await sql.close();
       }

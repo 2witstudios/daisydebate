@@ -1,4 +1,4 @@
-import type { Database } from '@daisy/db';
+import type { FlagsStore } from '@daisy/db/stores/flags';
 import { isAppError } from '@daisy/errors';
 import type { AuthorizationPrincipal } from '@daisy/auth/authorization';
 import type { ReleaseFlagKey } from '../flags/catalogue';
@@ -16,10 +16,11 @@ const operator: AuthorizationPrincipal = {
  * Turns a release flag on (or off) for one account exactly as an operator does
  * (`flag.override.update` through the operator API's own command), never a
  * test bypass. The flag's revision is shared by every override, so a
- * concurrent grant can move it: a conflict rereads and asks again.
+ * concurrent grant can move it: a conflict rereads and asks again. Returns
+ * the applied command's id, so a suite can remove the change event it wrote.
  */
 export async function grantReleaseOverride(input: {
-  readonly store: Pick<Database, 'flagCommand' | 'readFlagSnapshot'>;
+  readonly store: Pick<FlagsStore, 'flagCommand' | 'readFlagSnapshot'>;
   readonly key: ReleaseFlagKey;
   readonly userId: string;
   readonly nextId: () => string;
@@ -27,16 +28,17 @@ export async function grantReleaseOverride(input: {
   readonly forMs?: number;
   /** False turns the flag off for this account, as an operator can. */
   readonly enabled?: boolean;
-}): Promise<void> {
+}): Promise<string> {
   for (let attempt = 0; attempt < 20; attempt++) {
     const { snapshot, now } = await input.store.readFlagSnapshot(null, [
       input.key,
     ]);
     const revision = snapshot.flags[0]?.revision ?? 0;
+    const commandId = input.nextId();
     const body = new TextEncoder().encode(
       JSON.stringify({
         v: 1,
-        commandId: input.nextId(),
+        commandId,
         expectedRevision: revision,
         adminAuditHead: '0'.repeat(64),
         accountId: input.userId,
@@ -55,7 +57,7 @@ export async function grantReleaseOverride(input: {
         input.key,
         { body, signedAtMs: now },
       );
-      return;
+      return commandId;
     } catch (error) {
       if (!isAppError(error) || error.code !== 'CONFLICT') throw error;
     }

@@ -20,7 +20,10 @@ import {
 } from '../src/round-projection-writer';
 import { createCasualJudgeAdmission } from '../src/casual-judge-admission';
 import { createAuthorizationSubject } from './authorization.test-support';
-import { betaAllowance } from './bot-admission.test-support';
+import {
+  betaAllowance,
+  botDebatesReleased,
+} from './bot-admission.test-support';
 import { withFixture, type Fixture } from './constraint-helpers';
 import { judgedRound } from './judged-round.test-support';
 import { resolveRoomConfiguration } from '@daisy/debate-engine';
@@ -283,6 +286,7 @@ test('a Round with nothing to run first tells its seated humans at the Start', a
         }),
       }).executeRoomCommand({
         caller: host,
+        botRelease: botDebatesReleased,
         actorId: host.actorId,
         roomId,
         roundId,

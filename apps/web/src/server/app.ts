@@ -21,7 +21,7 @@ import {
 import type { MessagingFileRuntime } from '../features/messaging/files/runtime';
 import { readRealtimePublicUrl } from '@daisy/config';
 import type { MessagingRuntimePolicy } from '../features/messaging/composition';
-import type { RoomPolicy } from '../features/room-runtime/composition';
+import type { RoomPolicy } from '../features/room-runtime/room-policy';
 import type { Clock, IdGenerator, Waits } from '@daisy/clock';
 import {
   readAuthConfig,

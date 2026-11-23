@@ -108,6 +108,7 @@ export function createRoomRuntimeOperations({
   consentTtlMs,
   aiSeats,
   botDebatesReleased,
+  botRelease,
   betaGrantsPremium,
   entropy,
   linkedAdults,
@@ -119,6 +120,8 @@ export function createRoomRuntimeOperations({
   readonly aiSeats: () => AiSeatAvailability;
   /** Whether bot debates are released for an account (`bot-debates`). */
   readonly botDebatesReleased: BotDebatesReleased;
+  /** The trusted `bot-debates` closure the Round freeze requires (ADR 0921). */
+  readonly botRelease: Parameters<Store['executeRoomCommand']>[0]['botRelease'];
   /** Whether a beta-sourced premium grant counts (`PREMIUM_BETA_GRANT`). */
   readonly betaGrantsPremium: boolean;
   /** 32 CSPRNG bytes as hex, for a draw's seed and salt; fixed in tests. */
@@ -665,6 +668,7 @@ export function createRoomRuntimeOperations({
       ids,
       aiSeats,
       botDebatesReleased,
+      botRelease,
       betaGrantsPremium,
       consentTtlMs,
       eligible,
