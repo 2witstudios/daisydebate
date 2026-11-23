@@ -477,7 +477,7 @@
     "packages/db/integration/bot-worker-discovery.integration.ts": 357,
     "packages/db/integration/bounded-admission.integration.ts": 239,
     "packages/db/integration/bounded-tenant-scope.integration.ts": 92,
-    "packages/db/integration/bounded-transaction-configuration.integration.ts": 2341,
+    "packages/db/integration/bounded-transaction-configuration.integration.ts": 2862,
     "packages/db/integration/bounded-transaction-faults.integration.ts": 7262,
     "packages/db/integration/bounded-transaction-lifecycle.integration.ts": 784,
     "packages/db/integration/bounded-transaction-lifetime.integration.ts": 1258,

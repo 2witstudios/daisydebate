@@ -19,16 +19,21 @@ describe('refreshing integration timings from CI logs', () => {
       '2026-11-23T13:06:18.1Z ##[group]integration/a.integration.ts:',
       '2026-11-23T13:06:18.2Z (pass) a > writes [10.00ms]',
       '2026-11-23T13:06:18.3Z (pass) a > reads [5.00ms]',
+      '2026-11-23T13:06:18.31Z (pass) a > a name with a',
+      '2026-11-23T13:06:18.32Z newline in it [2.50ms]',
+      '2026-11-23T13:06:18.33Z (fail) a > broke',
+      '2026-11-23T13:06:18.34Z  across lines [99.00ms]',
       '2026-11-23T13:06:18.4Z ##[group]integration/nested/b.integration.tsx:',
       '2026-11-23T13:06:18.5Z (skip) b > not yet',
     ].join('\n');
     assert({
       given: 'a shard log covering two workspaces',
-      should: 'credit each suite its own passing test time by repository path',
+      should:
+        'credit each suite its own passing test time by repository path, even when a test name spans lines',
       actual: suiteDurationsFromLog(log),
       expected: {
         'apps/media-worker/integration/encode.integration.ts': 1200.75,
-        'packages/db/integration/a.integration.ts': 15,
+        'packages/db/integration/a.integration.ts': 17.5,
         'packages/db/integration/nested/b.integration.tsx': 0,
       },
     });

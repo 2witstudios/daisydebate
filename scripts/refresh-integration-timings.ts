@@ -16,13 +16,16 @@ type Samples = Record<string, number[]>;
 
 const WORKSPACE = /^test-integration: (\S+) shard \d+\/\d+: \d+\/\d+ suites$/;
 const SUITE = /^##\[group\](integration\/\S+\.integration\.tsx?):$/;
-const PASSED = /^\(pass\) .* \[([\d.]+)ms\]$/;
+const MARKER = /^\((pass|fail|skip|todo)\) /;
+// A test name holding a newline puts its duration at the end of a later line.
+const DURATION = /\[([\d.]+)ms\]$/;
 
 /** Each suite's summed passing test time in one job log, by repository path. */
 export function suiteDurationsFromLog(log: string): Record<string, number> {
   const durations: Record<string, number> = {};
   let workspace: string | undefined;
   let suite: string | undefined;
+  let passing = false;
   for (const raw of log.split('\n')) {
     // GitHub prefixes every log line with an ISO timestamp.
     const line = raw.replace(/^\d{4}-\d\d-\d\dT\S+Z /, '').trimEnd();
@@ -30,16 +33,24 @@ export function suiteDurationsFromLog(log: string): Record<string, number> {
     if (named) {
       workspace = named[1];
       suite = undefined;
+      passing = false;
       continue;
     }
     const group = SUITE.exec(line);
     if (group && workspace) {
       suite = `${workspace}/${group[1]}`;
       durations[suite] = 0;
+      passing = false;
       continue;
     }
-    const passed = PASSED.exec(line);
-    if (passed && suite) durations[suite] += Number(passed[1]);
+    const marker = MARKER.exec(line);
+    if (marker) passing = marker[1] === 'pass';
+    else if (line.startsWith('##[')) passing = false;
+    const duration = passing ? DURATION.exec(line) : null;
+    if (duration && suite) {
+      durations[suite] += Number(duration[1]);
+      passing = false;
+    }
   }
   return durations;
 }
