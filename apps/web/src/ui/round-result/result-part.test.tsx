@@ -49,12 +49,11 @@ test('the page refreshes only when asking again can help', () => {
 
 test('a temporary failure is announced and tried again by itself', () => {
   const view = renderAccessible(<ResultUnavailable retrySeconds={3} />);
-  // The `href=""` that asks again in place: markup-contracts/result-part.
   assert({
     given: 'a part refused for now',
-    should: 'announce it and offer it now',
-    actual: [view.has('status'), view.textContent().includes('Try now')],
-    expected: [true, true],
+    should: 'announce it and offer a link that asks this page again in place',
+    actual: [view.has('status'), view.attribute('link', 'Try now', 'href')],
+    expected: [true, ''],
   });
 });
 
@@ -66,8 +65,8 @@ test('a failure that may last is announced with no refresh loop', () => {
     actual: [
       view.has('status'),
       view.text('status').includes('Trying again'),
-      view.textContent().includes('Try now'),
+      view.attribute('link', 'Try now', 'href'),
     ],
-    expected: [true, false, true],
+    expected: [true, false, ''],
   });
 });

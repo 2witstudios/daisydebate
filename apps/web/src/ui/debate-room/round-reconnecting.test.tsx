@@ -14,11 +14,11 @@ test('the temporary state recovers by itself and claims nothing about the Round'
     should: 'announce it, offer a link and show no control',
     actual: {
       status: view.has('status'),
-      // The `href=""` that reloads in place: markup-contracts/round-reconnecting.
-      link: view.textContent().includes('Try now'),
+      // An empty href reloads this same page in place.
+      link: view.attribute('link', 'Try now', 'href'),
       controls:
         view.count('button') + view.count('textbox') + view.count('form'),
     },
-    expected: { status: true, link: true, controls: 0 },
+    expected: { status: true, link: '', controls: 0 },
   });
 });
