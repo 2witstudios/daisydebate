@@ -25,7 +25,7 @@ const router = {
   replace: noop,
   prefetch: noop,
 };
-export const actions = {
+const actions = {
   friend: async () => initialFriendForm(),
   sendChallenge: async () => initialChallengeForm,
   acceptChallenge: async () => initialChallengeForm,
