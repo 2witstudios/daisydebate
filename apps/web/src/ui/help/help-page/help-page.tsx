@@ -14,17 +14,17 @@ import { OpenTopicFromHash } from './open-topic-from-hash';
  * to /help#topic opens its answer.
  */
 export function HelpPage({
-  homes = [],
+  homes,
   topics,
 }: {
-  readonly homes?: readonly ArticleListItem[];
+  readonly homes: readonly ArticleListItem[];
   readonly topics: readonly HelpTopic[];
 }) {
   return (
     <ReadingPage>
       <PageHeader
         title="Help"
-        lede="Answers to the questions people ask most."
+        lede="Guides to using Daisy, lessons in debate, and answers to common questions."
       />
       {homes.length > 0 ? (
         <ArticleList label="Guides and learning" items={homes} />
