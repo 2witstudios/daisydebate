@@ -74,9 +74,11 @@ export function partitionAffected(
     // never looked at (PR 895), and an engine change merged without its
     // oracle. Any change runs them.
     runRootScriptsTests: allWorkspaces || changedFiles.length > 0,
-    runEslintConfigTest: changedFiles.some((file) =>
-      file.startsWith('eslint.config'),
-    ),
+    // The eslint config tests lint fixtures at real repository paths, so a
+    // source change or deletion can break them as surely as a config change:
+    // PR 918 deleted packages/db/src/index.ts, ran no config tests, and main
+    // went red. Any change runs them.
+    runEslintConfigTest: allWorkspaces || changedFiles.length > 0,
   };
 }
 
