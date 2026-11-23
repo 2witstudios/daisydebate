@@ -122,17 +122,33 @@ const bindProcessRoute = <Args extends unknown[]>(pick: RouteSelector<Args>) =>
     pick(state.routes, state.app, state.vendorFetch),
   );
 
+/**
+ * The handler a binding selects on an app of the caller's own, never this
+ * process's: what a test or the route net calls to reach one route.
+ */
+const boundTo =
+  <Args extends unknown[]>(pick: RouteSelector<Args>) =>
+  (app: App, vendorFetch: typeof globalThis.fetch = globalThis.fetch) => {
+    const state = stateFor(app, vendorFetch);
+    return pick(state.routes, state.app, state.vendorFetch);
+  };
+
 const bindRequestRoute = (pick: RouteSelector<[]>) => {
   const handler = bindProcessRoute(pick);
-  return (request: Request) => handler(request);
+  return Object.assign((request: Request) => handler(request), {
+    bindTo: boundTo(pick),
+  });
 };
 
 const bindParameterizedRoute = <Params>(pick: RouteSelector<[Params]>) =>
-  bindProcessRoute((routes, app, fetch) => {
-    const handler = pick(routes, app, fetch);
-    return async (request, { params }: { params: Promise<Params> }) =>
-      handler(request, await params);
-  });
+  Object.assign(
+    bindProcessRoute((routes, app, fetch) => {
+      const handler = pick(routes, app, fetch);
+      return async (request, { params }: { params: Promise<Params> }) =>
+        handler(request, await params);
+    }),
+    { bindTo: boundTo(pick) },
+  );
 
 /** Binds request-only handlers or unwraps the directory params supplied by Next. */
 export const processRoute = Object.assign(bindRequestRoute, {
