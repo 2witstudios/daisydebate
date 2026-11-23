@@ -329,3 +329,24 @@ test('apt is bounded per request and per attempt, with at most three attempts', 
     },
   });
 });
+
+test('extra apt packages are package names, never shell', async () => {
+  const script = await read('scripts/ci-browsers.sh');
+  const guard = script.slice(
+    script.indexOf('extra_packages=${EXTRA_PACKAGES:-}'),
+    script.indexOf('esac', script.indexOf('extra_packages=')) + 4,
+  );
+  const status = (value: string) =>
+    Bun.spawnSync(['sh', '-ec', guard], {
+      env: { EXTRA_PACKAGES: value },
+      stderr: 'pipe',
+    }).exitCode;
+  assert({
+    given: 'EXTRA_PACKAGES as a package list, empty, or carrying shell syntax',
+    should: 'accept package names only',
+    actual: ['espeak-ng', 'espeak-ng libsonic0', '', 'a;id', 'x$(id)'].map(
+      status,
+    ),
+    expected: [0, 0, 0, 2, 2],
+  });
+});

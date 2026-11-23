@@ -49,8 +49,9 @@
     // Integration suites are globbed by scripts/test-integration.ts, which
     // each workspace's test:integration runs instead of listing files.
     "apps/web": {
-      // macOS speech for the on-demand drills' human speaker.
-      "ignoreBinaries": ["say"],
+      // The system speech synthesizer for the drills' human speaker (an apt
+      // package on the nightly runner, scripts/ci-browsers.sh).
+      "ignoreBinaries": ["espeak-ng"],
       // Spawned from the workspace root by browser-capture.e2e.ts; an entry below.
       "ignoreUnresolved": ["e2e/support/server.ts"],
       "playwright": {
@@ -98,7 +99,7 @@
         "e2e/support/tournament-eligibility-seed-process.ts",
         // Started by messaging-realtime-config.ts's webServer command.
         "e2e/support/messaging-media-edge.ts",
-        // The on-demand drills (`bun drill:first-word`, `bun drill:bot-freestyle`)
+        // The nightly drills (`bun drill:first-word`, `bun drill:bot-freestyle`)
         // and the floor driver (`bun floor:local`, `bun floor:driver`): each
         // runner spawns its queued entry, which names its config.
         "e2e/support/first-word-queued.ts",

@@ -14,12 +14,21 @@
 # warm run only refreshes apt's index and unpacks. DEB_CACHE keeps only the
 # versions now installed; when that set changed (Ubuntu published updates),
 # the script writes debs=changed to GITHUB_OUTPUT and the workflow saves it.
+# EXTRA_PACKAGES names more apt packages for the same bounded install (the
+# nightly drills' espeak-ng); a job that sets it keys its .debs on its own set.
 set -eu
 
 cli=apps/web/node_modules/@playwright/test/cli.js
 bun=$(command -v bun)
 deb_cache=${DEB_CACHE:-$HOME/.cache/daisy-apt-archives}
 attempt_seconds=${APT_ATTEMPT_SECONDS:-75}
+extra_packages=${EXTRA_PACKAGES:-}
+case "$extra_packages" in
+*[!a-z0-9.+\ -]*)
+  echo "EXTRA_PACKAGES may name apt packages only" >&2
+  exit 2
+  ;;
+esac
 
 # install-deps runs apt-get itself, so the bounds live in apt's own config.
 sudo tee /etc/apt/apt.conf.d/80daisy-bounded >/dev/null <<'EOF'
@@ -54,7 +63,7 @@ attempt=1
 until sudo timeout -k 10 "$attempt_seconds" \
   "$bun" "$cli" install-deps "$@" &&
   sudo timeout -k 10 "$attempt_seconds" \
-    apt-get install -y --no-install-recommends openssl zip unzip; do
+    apt-get install -y --no-install-recommends openssl zip unzip $extra_packages; do
   if [ "$attempt" -ge 3 ]; then
     echo "Browser OS dependencies failed after $attempt attempts" >&2
     exit 1
