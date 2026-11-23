@@ -65,14 +65,17 @@ describe('the Tab release', () => {
   });
 
   test('stored league request readers refuse a closed release before database reads', () => {
-    const source = readFileSync(join(app, '../lib/request-session.ts'), 'utf8');
+    const source = readFileSync(
+      join(app, '../features/tab/page-reads.ts'),
+      'utf8',
+    );
     assert({
       given: 'the stored league and standing Room request readers',
       should: 'check the member release before acquiring their database store',
       actual: ['requestLeaguePage', 'requestStandingRoomPage'].map((name) => {
         const reader = source.slice(source.indexOf(`export const ${name} =`));
         const release = reader.indexOf("requestReleaseEnabled('daisy-tab'");
-        const database = reader.indexOf('processApp()');
+        const database = reader.indexOf('requestApp()');
         return (
           release >= 0 &&
           release < database &&

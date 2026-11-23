@@ -6,7 +6,7 @@ import {
   reportAnswerText,
 } from '../../../../features/content-moderation/submit-report';
 import type { SearchParams } from '../../../../features/access/decision';
-import { requestWatchRound } from '../../../../lib/request-session';
+import { requestWatchRound } from '../../../../features/spectating/page-reads';
 import { PublishedAudienceFeed } from '../../../../ui/spectating/published-audience-feed';
 import { RoundAudience } from '../round-audience';
 

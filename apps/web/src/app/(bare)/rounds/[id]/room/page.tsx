@@ -4,10 +4,8 @@ import {
 } from '../../../../(shell)/rounds/[id]/floor/floor-props';
 import { documentPrincipalOf } from '../../../../../features/documents/document-principal';
 import { shareLinkHref } from '../../../../../features/audience-link/audience-link';
-import {
-  requestHostedAudienceLink,
-  requestRoundRatings,
-} from '../../../../../lib/request-session';
+import { requestHostedAudienceLink } from '../../../../../features/audience-link/page-reads';
+import { requestRoundRatings } from '../../../../../features/ratings/page-reads';
 import { RoundRatings } from '../../../../../ui/ranked/round-ratings';
 import type { ReactNode } from 'react';
 import {

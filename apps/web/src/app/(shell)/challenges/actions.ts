@@ -18,7 +18,7 @@ import {
 } from '../../../features/challenges/forms';
 import { readRoomTemplates } from '../../../features/rooms/read-catalog';
 import { submitRoomCreation } from '../../../features/rooms/create-room-form';
-import { requestIdentity } from '../../../lib/request-session';
+import { requestIdentity } from '../../../lib/page-reads';
 import { activeRoomRead } from '../actions';
 import { post, text } from '../form-post';
 import { moveOn } from '../../../server/form-action';

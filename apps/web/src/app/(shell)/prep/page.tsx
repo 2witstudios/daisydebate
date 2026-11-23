@@ -5,7 +5,7 @@ import type { SearchParams } from '../../../features/access/decision';
 import { driveNoticeText } from '../../../features/documents/drive-return';
 import { requireAccess } from '../../../lib/access';
 import { DocumentManager } from '../../../ui/documents/document-manager';
-import { requestMemberDrive } from '../../../lib/request-session';
+import { requestMemberDrive } from '../../../features/documents/page-reads';
 
 export const metadata: Metadata = { title: 'Prep' };
 

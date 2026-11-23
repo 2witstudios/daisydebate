@@ -282,12 +282,13 @@ const appImportRestrictions = [{ group: ['@adobe/*', '@daisy/*/src/*'] }];
 
 /**
  * ISSUE-7: the web process edge (`server/process-app.ts`) holds the
- * process's app, so importing it is reaching a process-wide locator. Route
- * modules and server action modules (`actions.ts`) may bind `processRoute`
- * only; the process entries (proxy,
- * instrumentation, production start, and the server-component session
- * read) may use `processApp`; everything else receives the app, or part of
- * it, as an argument.
+ * process's app, so importing it is reaching a process-wide locator. Three
+ * kinds of module may, each by path: route bindings (`app/**` route and
+ * server action modules) bind `processRoute` only; page-read modules (a
+ * `page-reads.ts`, or anything under a `page-reads/` folder) read
+ * `processApp` only; and the process entries Next and the production start
+ * load (proxy, instrumentation, `server/start.ts`) use the rest. Everything
+ * else receives the app, or part of it, as an argument.
  */
 const processEdgeMessage =
   'Receive the app as an argument; only route bindings and the process entries import the process edge.';
@@ -313,10 +314,13 @@ const processEdgeLoads = [
 const memberNamed = (name) =>
   `:matches([computed=false][property.name="${name}"], [computed=true][property.value="${name}"], [computed=true][property.type="TemplateLiteral"][property.expressions.length=0][property.quasis.0.value.cooked="${name}"])`;
 const processEntries = [
-  'apps/web/src/proxy.ts',
-  'apps/web/src/instrumentation.ts',
+  'apps/web/src/{proxy,instrumentation}.ts',
   'apps/web/src/server/start.ts',
-  'apps/web/src/lib/request-session.ts',
+];
+/** Every page read, beside its feature, and the request scope they share. */
+const pageReadModules = [
+  'apps/web/src/**/page-reads.ts',
+  'apps/web/src/**/page-reads/**/*.ts',
 ];
 
 /**
@@ -1486,7 +1490,11 @@ export default [
   },
   {
     files: ['apps/web/src/**/*.{ts,tsx}'],
-    ignores: ['apps/web/src/server/process-app.ts', ...processEntries],
+    ignores: [
+      'apps/web/src/server/process-app.ts',
+      ...processEntries,
+      ...pageReadModules,
+    ],
     rules: {
       'no-restricted-imports': [
         'error',
@@ -1611,6 +1619,30 @@ export default [
     ],
     plugins: { 'db-native-rows': dbNativeRowsPlugin },
     rules: { 'db-native-rows/require-query': 'error' },
+  },
+  {
+    files: pageReadModules,
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            ...appImportRestrictions,
+            {
+              group: ['@sentry/*'],
+              message:
+                'Import Sentry only inside src/features/telemetry/ or next.config.ts (ADR 0037).',
+            },
+            { ...processEdgeImport, allowImportNames: ['processApp'] },
+          ],
+        },
+      ],
+      'no-restricted-syntax': [
+        'error',
+        ...repoSyntaxRestrictions,
+        ...processEdgeLoads,
+      ],
+    },
   },
   {
     files: ['apps/web/src/app/**/route.ts', 'apps/web/src/app/**/actions.ts'],

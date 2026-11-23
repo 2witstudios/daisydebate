@@ -26,15 +26,23 @@ const member: Identity = {
 const app = join(import.meta.dir, '../../app');
 // Each replacement keeps every export of the module it stands in for: a suite
 // that runs later in this process links its pages against the same module.
-const session = await import('../../lib/request-session');
-mock.module(join(import.meta.dir, '../../lib/request-session.ts'), () => ({
-  ...session,
+const scope = await import('../../lib/page-reads');
+mock.module(join(import.meta.dir, '../../lib/page-reads.ts'), () => ({
+  ...scope,
   requestIdentity: async () => identity,
+  requestNow: () => '2027-03-06T08:00:00.000Z',
+}));
+const flagReads = await import('../flags/page-reads');
+mock.module(join(import.meta.dir, '../flags/page-reads.ts'), () => ({
+  ...flagReads,
   requestReleaseEnabled: async () => true,
+}));
+const tabReads = await import('./page-reads');
+mock.module(join(import.meta.dir, './page-reads.ts'), () => ({
+  ...tabReads,
   requestLeaguePage: async () => null,
   requestStandingLobbyManagement: async () => null,
   requestStandingRoomPage: async () => null,
-  requestNow: () => '2027-03-06T08:00:00.000Z',
 }));
 const flags = await import('../flags/server');
 mock.module(join(import.meta.dir, '../flags/server.ts'), () => ({

@@ -10,7 +10,7 @@ import {
 } from '../../../../features/access/decision';
 import { Onboarding } from '../../../../ui/auth/onboarding/onboarding';
 import { claimUsernameAction } from './actions';
-import { requestHasRecordedAge } from '../../../../lib/request-session';
+import { requestHasRecordedAge } from '../../../../features/account/page-reads';
 
 export const metadata: Metadata = {
   title: 'Choose a username',

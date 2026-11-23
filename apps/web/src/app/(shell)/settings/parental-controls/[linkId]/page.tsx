@@ -3,10 +3,8 @@ import { notFound } from 'next/navigation';
 import { idSchema } from '@daisy/protocol/primitives';
 import type { SearchParams } from '../../../../../features/access/decision';
 import { requireAccess } from '../../../../../lib/access';
-import {
-  requestFamilyViewer,
-  requestGuardianRelease,
-} from '../../../../../lib/request-session';
+import { requestFamilyViewer } from '../../../../../features/parental-controls/page-reads';
+import { requestGuardianRelease } from '../../../../../features/media-releases/page-reads';
 import {
   CloseChildAccountForm,
   LinkedGuardianReleaseForm,

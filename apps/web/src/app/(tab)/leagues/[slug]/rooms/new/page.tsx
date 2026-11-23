@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { createId } from '@paralleldrive/cuid2';
-import { requestStandingRoomPage } from '../../../../../../lib/request-session';
+import { requestStandingRoomPage } from '../../../../../../features/tab/page-reads';
 import { requireAccess } from '../../../../../../lib/access';
 import { tabRoutes } from '../../../../../../features/tab/routes';
 import { standingRoomCreationSchema } from '../../../../../../features/tab/standing-room-creation';

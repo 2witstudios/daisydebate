@@ -10,7 +10,7 @@ import { systemClock, systemId } from '@daisy/clock';
 import { idSchema } from '@daisy/protocol/primitives';
 import { messagingBetaLimits } from '@daisy/protocol/messaging/core';
 import { requireAccess } from '../../../../lib/access';
-import { messagingLatestPageItems } from '../../../../lib/request-session';
+import { messagingLatestPageItems } from '../../../../features/messaging/page-reads';
 import type { SearchParams } from '../../../../features/access/decision';
 import {
   readConversationResponse,

@@ -9,8 +9,8 @@ import {
   requestCompetitionAgeBand,
   requestGuardianLobbyIds,
   requestOfficialStandingLobbies,
-  requestStudentRoundIds,
-} from '../../../lib/request-session';
+} from '../../../features/lobby/page-reads';
+import { requestStudentRoundIds } from '../../../features/watch/page-reads';
 import { Lobby } from '../../../ui/lobby/lobby';
 import { hostedRoomsRead, roomListing } from './actions';
 import { requestActiveRoom } from '../active-room';

@@ -3,10 +3,8 @@ import { analysisRequestNotice } from '../../../../features/round-analysis/reque
 import { floorProps } from './floor/floor-props';
 import { BoundedDocuments } from '../../../../ui/documents/bounded-documents';
 import { documentPrincipalOf } from '../../../../features/documents/document-principal';
-import {
-  requestHostedAudienceLink,
-  requestRoundRatings,
-} from '../../../../lib/request-session';
+import { requestHostedAudienceLink } from '../../../../features/audience-link/page-reads';
+import { requestRoundRatings } from '../../../../features/ratings/page-reads';
 import { RoundRatings } from '../../../../ui/ranked/round-ratings';
 import { readPersistedBallot } from '../../judge/ballot/[roundId]/actions';
 import type { Metadata } from 'next';

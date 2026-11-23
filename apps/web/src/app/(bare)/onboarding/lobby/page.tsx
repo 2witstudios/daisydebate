@@ -7,7 +7,7 @@ import {
   type SearchParams,
 } from '../../../../features/access/decision';
 import { readOnboardingEntry } from '../../../../lib/auth-entry';
-import { requestLandingLobby } from '../../../../lib/request-session';
+import { requestLandingLobby } from '../../../../features/lobby/page-reads';
 import { YouthLanding } from '../../../../ui/onboarding/age/youth-landing';
 
 export const metadata: Metadata = {

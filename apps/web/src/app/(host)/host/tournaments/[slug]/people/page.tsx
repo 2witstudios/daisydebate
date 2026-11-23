@@ -6,7 +6,7 @@ import { lobbyPeoplePath } from '../../../../../../features/tab/lobby-people-rou
 import { lobbyPeoplePage } from '../../../../../../features/tab/lobby-people';
 import { hostNavigationRail } from '../../../../../../features/tab/host-navigation';
 import { hostRoutes } from '../../../../../../features/tab/routes';
-import { requestIdentity } from '../../../../../../lib/request-session';
+import { requestIdentity } from '../../../../../../lib/page-reads';
 import { People } from '../../../../../../ui/tab/people/people';
 import { readStoredHostNavigation } from '../../../read-navigation';
 import { readOwnRoute } from '../../../../../(shell)/friends/read-route';

@@ -15,7 +15,7 @@ import {
   withdrawBodyOf,
 } from '../../../features/media-releases/parent-pages';
 import { inProcessFetch } from '../../../server/in-process-fetch';
-import { releaseNowMs } from '../../../lib/request-session';
+import { releaseNowMs } from '../../../features/media-releases/page-reads';
 import { processRoute } from '../../../server/process-app';
 import { mediaReleaseComposition } from '../../../features/media-releases/composition';
 

@@ -14,7 +14,7 @@ import {
 import { hostRoutes } from '../../../../../features/tab/routes';
 import { moveOn } from '../../../../../server/form-action';
 import { runTabCommandForm } from '../../../../../features/tab/command-form-action';
-import { requestNow } from '../../../../../lib/request-session';
+import { requestNow } from '../../../../../lib/page-reads';
 import { POST } from '../../../../api/tab/lobby-command/route';
 
 export async function submitStandingLobby(

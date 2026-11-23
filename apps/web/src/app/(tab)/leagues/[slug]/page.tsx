@@ -3,7 +3,7 @@ import { notFound } from 'next/navigation';
 import { leagueViewOf } from '../../../../features/tab/league-view';
 import { storedLeagueLobbyOf } from '../../../../features/tab/stored-league';
 import { tabRoutes } from '../../../../features/tab/routes';
-import { requestLeaguePage } from '../../../../lib/request-session';
+import { requestLeaguePage } from '../../../../features/tab/page-reads';
 import { requireAccess } from '../../../../lib/access';
 import { LeagueLobby } from '../../../../ui/tab/league-lobby/league-lobby';
 export const metadata: Metadata = { title: 'League' };

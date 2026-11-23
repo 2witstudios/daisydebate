@@ -4,7 +4,7 @@ import { notFound } from 'next/navigation';
 import { systemId } from '@daisy/clock';
 import { idSchema } from '@daisy/protocol/primitives';
 import { requireAccess } from '../../../../../../lib/access';
-import { privateGroupsOffered } from '../../../../../../lib/request-session';
+import { privateGroupsOffered } from '../../../../../../features/messaging/page-reads';
 import type { MessagingChannelPageProps } from '../../../../../../features/messaging/channel-page';
 import { GroupManagementForm } from '../../../../../../ui/messaging/group-management-form';
 import { manageGroupAction } from './actions';

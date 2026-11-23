@@ -13,10 +13,8 @@ import {
 import { roomCommandIds } from '../../../../features/rooms/room-command-ids';
 import { roomWatchHref } from '../../../../features/watch/routes';
 import { requireAccess } from '../../../../lib/access';
-import {
-  requestIdentity,
-  requestWatchableRoundOfRoom,
-} from '../../../../lib/request-session';
+import { requestIdentity } from '../../../../lib/page-reads';
+import { requestWatchableRoundOfRoom } from '../../../../features/spectating/page-reads';
 import { RoomLive } from '../../../../ui/rooms/room-page/room-live';
 import { roomTemplates } from '../../play/actions';
 import {

@@ -7,7 +7,7 @@ import {
   signInHref,
   type SearchParams,
 } from '../features/access/decision';
-import { requestIdentity } from './request-session';
+import { requestIdentity } from './page-reads';
 
 /**
  * What the sign-in and onboarding pages start from: the validated `?next=`

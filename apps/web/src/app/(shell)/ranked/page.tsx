@@ -5,7 +5,7 @@ import { requireAccess } from '../../../lib/access';
 import {
   requestMemberDivision,
   requestMemberStandings,
-} from '../../../lib/request-session';
+} from '../../../features/ratings/page-reads';
 import { RankedLadders } from '../../../ui/ranked/ranked-ladders';
 import { PageHeader } from '../../../ui/components/page-header/page-header';
 import { buttonClass } from '../../../ui/components/button/button-class';

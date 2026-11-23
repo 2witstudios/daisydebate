@@ -9,7 +9,7 @@ import {
 import {
   requestLeaguePage,
   requestStandingLobbyManagement,
-} from '../../../../../lib/request-session';
+} from '../../../../../features/tab/page-reads';
 import { requireAccess } from '../../../../../lib/access';
 import { HostLeague } from '../../../../../ui/tab/host-league/host-league';
 import { SanctionDecisionForm } from '../../../../../ui/tab/host-league/sanction-decision-form';

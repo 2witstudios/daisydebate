@@ -1,7 +1,7 @@
 import type { Identity } from '@daisy/auth';
 import type { SearchParams } from '../features/access/decision';
 import { accessGuard } from './access-guard';
-import { requestIdentity } from './request-session';
+import { requestIdentity } from './page-reads';
 
 const guard = accessGuard(requestIdentity);
 
