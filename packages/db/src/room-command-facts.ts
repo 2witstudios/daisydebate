@@ -1,6 +1,6 @@
 import { lobbyKinds } from '@daisy/protocol/lobby';
 import { listedWord } from './lifecycle-sql';
-import { isMinorAgeBand } from './guardians/lobby-permissions';
+
 import { and, eq, sql } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 import type {
@@ -29,7 +29,10 @@ import { users } from './schema/users';
 import { accountAge } from './schema/account-age';
 import type { AgeBand } from '@daisy/protocol/ladder';
 import { lobbies } from './schema/lobbies';
-import { lobbyAgeRules } from '@daisy/protocol/lobby/eligibility';
+import {
+  lobbyAgeRules,
+  isMinorAgeBand,
+} from '@daisy/protocol/lobby/eligibility';
 import { divisionAgeBand } from './ladder-division-band';
 import { botProfiles } from './schema/bot-profiles';
 import { aiJudgeProfiles } from './schema/ai-judge-profiles';

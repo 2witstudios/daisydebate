@@ -6,13 +6,11 @@ import {
   defaultStandingLobby,
   mayDebate,
   type StandingLobbyChoice,
+  isMinorAgeBand,
 } from '@daisy/protocol/lobby/eligibility';
 import { divisionAgeBand } from '../ladder-division-band';
 import { readOfficialStandingLobbies } from '../official-standing-lobbies';
-import {
-  isMinorAgeBand,
-  readGuardianLobbyIds,
-} from '../guardians/lobby-permissions';
+import { readGuardianLobbyIds } from '../guardians/lobby-permissions';
 import type { AgeBand } from '@daisy/protocol/ladder';
 import { actors } from '../schema/actors';
 import { query } from '../raw-rows';

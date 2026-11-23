@@ -53,3 +53,22 @@ export function mayDebate(
       return true;
   }
 }
+
+/** An age band a guardian's evidence speaks for: thirteen to seventeen. */
+export const isMinorAgeBand = (ageBand: AgeBand | null) =>
+  ageBand === '13-15' || ageBand === '16-17';
+
+/**
+ * Who may open a standing Room in a lobby: anyone who may debate in it, and
+ * club staff, who may also open a Youth Room for their students.
+ */
+export const mayHostStandingRoom = (
+  creator: DebaterEligibility & { readonly clubStaff: boolean },
+  lobby: {
+    readonly lobbyId: string;
+    readonly ageRule: LobbyAgeRule;
+    readonly competitionType: CompetitionType;
+  },
+): boolean =>
+  (creator.clubStaff && lobby.ageRule === 'under-18') ||
+  mayDebate(creator, lobby);

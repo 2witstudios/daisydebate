@@ -16,11 +16,14 @@ import type { FormatDefinition } from '@daisy/protocol/format';
 import type { FormatSelectionFacts } from '@daisy/protocol/format-standing';
 import type { EntitlementGrant } from '@daisy/protocol/entitlements';
 import type { RecordingPolicy } from '@daisy/protocol/room-capture';
-import { defaultStandingLobby } from '@daisy/protocol/lobby/eligibility';
+import {
+  defaultStandingLobby,
+  mayHostStandingRoom,
+} from '@daisy/protocol/lobby/eligibility';
 import { readOfficialStandingLobbies } from './official-standing-lobbies';
 import { lockLadderSeason } from './ladder-season';
 import { readCompetitionAgeBand } from './ladder-division-band';
-import { mayHostStandingRoom, readRoomCreator } from './room-creator';
+import { readRoomCreator } from './room-creator';
 import {
   readFormatSelectionFacts,
   type SelectionTuple,

@@ -14,12 +14,9 @@ import type { TransactionRunner } from './tx';
 import type { CasualJudgeAdmission } from './casual-judge-admission';
 import type { AllowanceDecision } from '@daisy/protocol/billing';
 import { readEntitlementGrants } from './entitlement-grants';
-import { mayDebate } from '@daisy/protocol/lobby/eligibility';
+import { mayDebate, isMinorAgeBand } from '@daisy/protocol/lobby/eligibility';
 import { readCompetitionAgeBand } from './ladder-division-band';
-import {
-  isMinorAgeBand,
-  readGuardianLobbyIds,
-} from './guardians/lobby-permissions';
+import { readGuardianLobbyIds } from './guardians/lobby-permissions';
 import {
   roomListQuerySchema,
   type RoomListQuery,
