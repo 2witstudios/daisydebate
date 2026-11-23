@@ -10,7 +10,7 @@ import {
   type ReadOpeningTopic,
 } from './round-opening-read';
 import { discoverRooms, type RoomDiscoveryFact } from './room-discovery';
-import type { roomCommandTransaction } from './room-command-transaction';
+import type { TransactionRunner } from './tx';
 import type { CasualJudgeAdmission } from './casual-judge-admission';
 import type { AllowanceDecision } from '@daisy/protocol/billing';
 import { readEntitlementGrants } from './entitlement-grants';
@@ -78,7 +78,7 @@ export const roomReadOperations = ({
   readonly database: TxSource;
   readonly judgeAdmission?: CasualJudgeAdmission | undefined;
   readonly eventSink?: DatabaseEventSink | undefined;
-  readonly commandTransaction: ReturnType<typeof roomCommandTransaction>;
+  readonly commandTransaction: TransactionRunner;
 }) => ({
   async readLaunchedRound(
     roundId: string,

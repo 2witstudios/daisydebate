@@ -3,6 +3,7 @@ import type { CompetitionType } from '@daisy/protocol/round';
 import type { TwoSideKey } from '@daisy/protocol/seats';
 import type { RoomConfig, RoomExecutionPlan } from '@daisy/protocol/room';
 import type { RoundRules } from '@daisy/protocol/format';
+import type { rooms } from './schema/rooms';
 
 export type NewRoom = {
   readonly id: string;
@@ -30,7 +31,9 @@ export type NewRoom = {
 };
 
 /** A new Room's row: it assembles first, so no Room is ever stored started without its Round. */
-export const newRoomValues = (room: NewRoom) => ({
+export const newRoomValues = (
+  room: NewRoom,
+): Omit<typeof rooms.$inferInsert, 'lobbyId'> => ({
   id: room.id,
   hostActorId: room.hostActorId,
   title: room.title,

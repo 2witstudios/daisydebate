@@ -5,7 +5,7 @@ import {
   type InitialCastApplier,
 } from './room-assembly';
 export type { InitialCastSeat, InitialCastApplier } from './room-assembly';
-import type { roomCommandTransaction } from './room-command-transaction';
+import type { TransactionRunner } from './tx';
 import type { CasualJudgeAdmission } from './casual-judge-admission';
 import { recordCaptureNotice } from './agreement-signatures';
 import type {
@@ -50,7 +50,7 @@ export const roomCreateOperations = ({
   eventSink,
   judgeAdmission,
 }: {
-  readonly transaction: ReturnType<typeof roomCommandTransaction>;
+  readonly transaction: TransactionRunner;
   readonly eventSink?: DatabaseEventSink | undefined;
   readonly judgeAdmission?: CasualJudgeAdmission | undefined;
 }) => ({

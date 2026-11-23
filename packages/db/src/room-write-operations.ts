@@ -28,7 +28,7 @@ import type { CasualJudgeAdmission } from './casual-judge-admission';
 import { persistRoomMutation } from './room-mutation-persistence';
 
 import { eq, inArray } from 'drizzle-orm';
-import type { roomCommandTransaction } from './room-command-transaction';
+import type { TransactionRunner, Tx } from './tx';
 import {
   readContentWaiverStanding,
   recordCaptureNotice,
@@ -89,7 +89,6 @@ import {
   acceptCommand,
   transactionNow,
 } from './room-command-facts';
-import type { Tx } from './tx';
 
 /** Ready and Start require the same evidence for the seat's own lobby. */
 const readRoomSeatContentWaiverStanding = async (
@@ -237,7 +236,7 @@ export const roomWriteOperations = ({
   botAdmission,
   judgeAdmission,
 }: {
-  readonly transaction: ReturnType<typeof roomCommandTransaction>;
+  readonly transaction: TransactionRunner;
   readonly eventSink?: DatabaseEventSink | undefined;
   readonly botAdmission?: RoundBotAdmission | undefined;
   readonly judgeAdmission?: CasualJudgeAdmission | undefined;

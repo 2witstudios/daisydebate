@@ -63,3 +63,6 @@ export async function retryStale<T>(
     }
   }
 }
+
+/** Runs `run` in one transaction it opens and settles: a writer's transaction runner. */
+export type TransactionRunner = <T>(run: (tx: Tx) => Promise<T>) => Promise<T>;
