@@ -2,6 +2,7 @@ import { ESLint } from 'eslint';
 import { assert, describe, test } from 'riteway/bun';
 import tseslint from 'typescript-eslint';
 import { hostTimeRules } from './eslint.config-host-time.mjs';
+import { repositoryEslint } from './eslint.config.test-support';
 
 let instance: ESLint | undefined;
 /** The host-time rule alone, on probe text under invented paths. */
@@ -79,6 +80,7 @@ const harmless = [
   'function f(setTimeout: (run: () => void) => void) { setTimeout(() => undefined); }',
   'await waits.sleep(10, signal);',
   'setImmediate(() => undefined);',
+  "const browser = typeof window !== 'undefined';",
   'type Handle = ReturnType<typeof setTimeout>;',
 ];
 
@@ -93,6 +95,21 @@ export function registerHostTimeTests() {
         should: 'refuse each one',
         actual: spellings.filter((_, index) => each[index] === 0),
         expected: [],
+      });
+    });
+
+    test('the repository configuration runs the rule', async () => {
+      const [result] = await repositoryEslint().lintText(
+        'export const later = () => setTimeout(() => undefined, 10);',
+        { filePath: 'packages/media/src/probe.ts' },
+      );
+      assert({
+        given: 'a host timer in package source, linted as `bun lint` lints it',
+        should: 'be refused by daisy-time/host-time',
+        actual: (result?.messages ?? []).some(
+          ({ ruleId }) => ruleId === 'daisy-time/host-time',
+        ),
+        expected: true,
       });
     });
 

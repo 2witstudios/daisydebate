@@ -1,4 +1,5 @@
 import { clientEdgeRules } from './eslint.config-client-edge.mjs';
+import { hostTimeRules } from './eslint.config-host-time.mjs';
 import { clockDigestRules } from './eslint.config-clock-digest.mjs';
 import js from '@eslint/js';
 import ts from 'typescript';
@@ -1215,6 +1216,7 @@ export default [
   },
   ...clockDigestRules,
   clientEdgeRules,
+  hostTimeRules,
   js.configs.recommended,
   ...tseslint.configs.recommended,
   { plugins: { 'daisy-form': formActionPlugin } },
