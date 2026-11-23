@@ -40,6 +40,18 @@ describe('ActionTile markup', () => {
     });
   });
 
+  test('draws its decorative glyph', () => {
+    // The glyph sits in an aria-hidden span, so it is outside the accessibility tree.
+    assert({
+      given: 'an action tile',
+      should: 'draw a glyph hidden from assistive technology',
+      actual: /aria-hidden="true"[^>]*><svg/.test(
+        renderMarkup(h(ActionTile, tile)),
+      ),
+      expected: true,
+    });
+  });
+
   test('becomes a menu row on a phone', () => {
     const html = renderMarkup(h(ActionTile, tile));
     assert({

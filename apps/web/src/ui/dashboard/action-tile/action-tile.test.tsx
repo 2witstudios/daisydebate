@@ -20,15 +20,14 @@ describe('ActionTile', () => {
     const name = 'Ranked Climb the ladder. Prove yourself.';
     assert({
       given: 'an action tile',
-      should: 'link to its route carrying the copy and an icon',
+      should:
+        'link to its route carrying the copy (its decorative glyph: see markup-contracts)',
       actual: [
         view.attribute('link', name, 'href'),
         view.within('link', name).has('heading', 'Ranked', { level: 2 }),
         view.text('link', name).includes('Climb the ladder. Prove yourself.'),
-        // The glyph is decorative (aria-hidden), so it is found inside the link, not by role.
-        view.get('link', name).querySelector('svg') !== null,
       ],
-      expected: ['/ranked', true, true, true],
+      expected: ['/ranked', true, true],
     });
   });
 });

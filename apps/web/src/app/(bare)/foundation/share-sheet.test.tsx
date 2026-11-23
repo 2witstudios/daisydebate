@@ -7,12 +7,12 @@ setupRitewayBun();
 
 test('the screenshot sheet exposes every exact-size export in both schemes', () => {
   const view = renderAccessible(<ShareSheet />);
-  const sheet = view.get('region', 'Share images');
   assert({
     given: 'the gated foundation share sheet',
     should:
-      'embed all ten original-size PNGs and link each export without inline styles',
+      'embed all ten original-size PNGs and link each export (no inline styles: see markup-contracts)',
     actual: {
+      sheet: view.has('region', 'Share images'),
       count: view.count('img'),
       formats: Object.entries(shareFormats).flatMap(
         ([format, { width, height, label }]) =>
@@ -35,13 +35,11 @@ test('the screenshot sheet exposes every exact-size export in both schemes', () 
             );
           }),
       ),
-      inlineStyles:
-        sheet.hasAttribute('style') || sheet.querySelector('[style]') !== null,
     },
     expected: {
+      sheet: true,
       count: 10,
       formats: Array.from({ length: 10 }, () => true),
-      inlineStyles: false,
     },
   });
 });

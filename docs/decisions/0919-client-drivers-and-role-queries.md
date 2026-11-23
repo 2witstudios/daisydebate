@@ -82,5 +82,15 @@ start)`, which now hands `start` the seed the page rendered, so a driver
 - The browser proof of conversation recovery
   (`e2e/support/messaging-committed-refusal.ts`) now finds the recovery
   driver in `useDriver`'s holder rather than a ref.
+- Known limit of the ban: it refuses rendered HTML as a string, not the
+  DOM. A test can still select elements by tag, attribute or class
+  (`querySelector('svg')`, `[style]`), because the role helper hands back
+  real elements, and a hidden input or a decorative child has no role to be
+  asked for. The shared reader for hidden fields is the form a named button
+  posts (`ui/test-support/posted-fields.test-support.ts`); fifteen room and
+  form tests written before it still select their hidden inputs by name,
+  and they move to it as they are next touched. Markup facts (decorative
+  drawing, inline styles) belong in `markup-contracts/`. Review, not the
+  rule, keeps selector checks out of component tests.
 - Removal: replace `accessible.ts`'s two library calls and the rule's
   message; tests keep their role questions.

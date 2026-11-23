@@ -13,16 +13,18 @@ describe('Notice', () => {
       h(Notice, { id: 'n', tone: 'error', title: 'Refused.' }),
     );
     const errorRole = [error.has('alert'), error.text('alert')];
-    // The icon is decorative (aria-hidden), so it is found inside the alert, not by role.
-    const errorIcon = error.get('alert').querySelector('svg') !== null;
     const info = renderAccessible(
       h(Notice, { id: 'n', tone: 'info', title: 'Cancelled.' }),
     );
     assert({
       given: 'an error and an info notice',
-      should: 'use alert and status roles respectively, with an icon',
-      actual: [errorRole, [info.has('status'), info.has('alert')], errorIcon],
-      expected: [[true, 'Refused.'], [true, false], true],
+      should:
+        'use alert and status roles respectively (its decorative icon: see markup-contracts)',
+      actual: [errorRole, [info.has('status'), info.has('alert')]],
+      expected: [
+        [true, 'Refused.'],
+        [true, false],
+      ],
     });
   });
 });

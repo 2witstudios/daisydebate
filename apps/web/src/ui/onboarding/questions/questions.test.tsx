@@ -14,6 +14,7 @@ import {
   TopicsStep,
   type QuestionStepProps,
 } from './questions';
+import { postedBy } from '../../test-support/posted-fields.test-support';
 
 setupRitewayBun();
 
@@ -50,12 +51,9 @@ const inputs = (view: AccessibleView) =>
 const controls = (view: AccessibleView) =>
   ['checkbox', 'radio', 'textbox', 'button'].flatMap((role) => view.all(role));
 
-/** The value of the step's hidden field, which no role reaches. */
+/** The step a form's Next button posts, in a hidden field no role reaches. */
 const hiddenStep = (view: AccessibleView, title: string) =>
-  view
-    .get('form', title)
-    .querySelector('input[type="hidden"][name="step"]')
-    ?.getAttribute('value');
+  postedBy(view.within('form', title), 'Next').step;
 
 describe('AboutStep', () => {
   test('wants are many, club is one, and a club name waits for “I have a club”', () => {

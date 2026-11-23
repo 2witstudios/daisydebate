@@ -1,5 +1,6 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { renderAccessible } from '../../test-support/rendered/accessible';
+import { postedBy } from '../test-support/posted-fields.test-support';
 import { ReportForm } from './report-form';
 
 setupRitewayBun();
@@ -20,11 +21,7 @@ const render = (targetKind: 'round' | 'ballot_feedback') =>
  * controls are queried with `hidden: true`: rendered, not yet shown.
  */
 const posted = (view: ReturnType<typeof render>, name: string) =>
-  view
-    .get('button', 'Send report', { hidden: true })
-    .closest('form')
-    ?.querySelector(`input[name="${name}"]`)
-    ?.getAttribute('value');
+  postedBy(view, 'Send report', { hidden: true })[name];
 
 const reasons = (view: ReturnType<typeof render>) =>
   view
