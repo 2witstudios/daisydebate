@@ -6,6 +6,7 @@ import type {
   MessagingPreferenceAuthorizationFact,
 } from '@daisy/auth/authorization';
 import { authorizeOwnPreferenceClear } from './preference-composition';
+import type { MessagingStore } from '@daisy/db/stores/messaging';
 import type { Tx } from '@daisy/db/tx';
 import { unusedTx } from '@daisy/db/testing';
 setupRitewayBun();
@@ -113,10 +114,7 @@ test('real preference factory binds separate channel fences and row-derived clea
       revision: 1,
     },
   };
-  const database: Pick<
-    import('@daisy/db').Database,
-    'messagingPreferenceStore'
-  > = {
+  const database: Pick<MessagingStore, 'messagingPreferenceStore'> = {
     messagingPreferenceStore: (fences) => ({
       read: async (scope) => {
         calls.push('read');

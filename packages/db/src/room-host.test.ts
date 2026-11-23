@@ -1,6 +1,6 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { isAppError } from '@daisy/errors';
-import { hostPersonOf } from './room-host';
+import { hostPersonOf } from './room-command-facts';
 
 setupRitewayBun();
 

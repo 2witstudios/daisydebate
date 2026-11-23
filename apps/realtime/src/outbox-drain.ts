@@ -20,7 +20,7 @@ export type OutboxRowsSink = (rows: readonly OutboxRow[]) => void;
 const MAX_DRAIN_LIMIT = 500;
 
 export type OutboxDrainDeps = {
-  /** `createDatabase()`'s bound drain read (RT-2.3b, `@daisy/db`'s `outboxOperations`). */
+  /** The outbox store's bound drain read (RT-2.3b, `@daisy/db/stores/outbox`). */
   readonly drainOutbox: (
     cursor: OutboxPosition,
     limit?: number,

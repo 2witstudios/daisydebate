@@ -1,6 +1,6 @@
+import type { ContentModerationStore as ContentModerationAreaStore } from '@daisy/db/stores/content-moderation';
 import { sha3Hex } from '@daisy/digest';
 import { runChatRemovalCommand } from './chat-removal-command';
-import type { Database } from '@daisy/db';
 import { runRecordingWithdrawalCommand } from './recording-withdrawal-command';
 import {
   authorize,
@@ -148,8 +148,8 @@ export type ContentModerationStore = {
       }
     >;
   }) => Promise<ContentModerationCommandResult>;
-  readonly chatRemovalCommand: Database['chatRemovalCommand'];
-  readonly recordingWithdrawalCommand: Database['recordingWithdrawalCommand'];
+  readonly chatRemovalCommand: ContentModerationAreaStore['chatRemovalCommand'];
+  readonly recordingWithdrawalCommand: ContentModerationAreaStore['recordingWithdrawalCommand'];
 };
 
 type Deps = {

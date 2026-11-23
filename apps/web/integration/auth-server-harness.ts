@@ -1,9 +1,9 @@
+import { openWebDatabase } from '../src/server/database';
 import { hostWaits } from '@daisy/worker/host';
 import { deriveRecipientSubkey } from '../src/features/mail/recipient-key';
 import { createId } from '@paralleldrive/cuid2';
 import { readAuthConfig } from '@daisy/config';
 import { noopErrorReporter } from '@daisy/observability';
-import { createDatabase } from '@daisy/db';
 import { fixedClock, systemId } from '@daisy/clock';
 import type { Logger } from '@daisy/logger';
 import { createConfirmHandlers } from '../src/features/auth/confirmation/confirm';
@@ -118,12 +118,12 @@ export const redeemMagicLink = (
 export const createDatabaseAuthServer = (
   url: string,
   wire: (
-    database: ReturnType<typeof createDatabase>,
+    database: ReturnType<typeof openWebDatabase>,
   ) => Partial<Parameters<typeof createTestAuthServer>[1]> = () => ({}),
 ) => {
   const sent: SentMessages = [];
   const logged: RecordedLogs = [];
-  const database = createDatabase({
+  const database = openWebDatabase({
     waits: hostWaits,
     url,
     nextActorId: createId,

@@ -1,7 +1,7 @@
+import { openWebDatabase } from '../src/server/database';
 import { hostWaits } from '@daisy/worker/host';
 import { authorize } from '@daisy/auth/authorization';
 import { createTabStore } from '@daisy/db/tab';
-import { createDatabase } from '@daisy/db';
 import type { SQL, TransactionSQL } from 'bun';
 import type { SavepointTestDatabase } from '@daisy/db/testing';
 import { noopErrorReporter } from '@daisy/observability';
@@ -100,7 +100,7 @@ export async function lobbyPeopleFrame(
         headers: { origin },
       }),
     );
-  const directory = createDatabase({
+  const directory = openWebDatabase({
     waits: hostWaits,
     url: databaseUrl,
     client: sql as SQL,

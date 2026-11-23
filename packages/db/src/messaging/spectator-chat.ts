@@ -13,7 +13,7 @@ import {
   messagingMessages,
   messagingReceipts,
 } from '../schema/messaging-messages';
-import { messageRecord } from './message-record';
+import { messageRecord } from './read-frame';
 import type {
   MessagingCreateSendPlan,
   MessagingMessageRecord,

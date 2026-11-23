@@ -1,5 +1,5 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { YOUTH_PEOPLE_TTL_MS, youthPeopleCache } from './youth-people-cache';
+import { YOUTH_PEOPLE_TTL_MS, youthPeopleCache } from './youth-live-reads';
 
 setupRitewayBun();
 

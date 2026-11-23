@@ -1,6 +1,47 @@
+import { createAgeStepStore } from '../src/stores/age-step';
+import { createAgreementsStore } from '../src/stores/agreements';
+import { createAnalyticsConsentStore } from '../src/stores/analytics-consent';
+import { createAttendanceStore } from '../src/stores/attendance';
+import { createAudienceReactionsStore } from '../src/stores/audience-reactions';
+import { createAuthStore } from '../src/stores/auth';
+import { createAvailabilityStore } from '../src/stores/availability';
+import { createBetaAccessStore } from '../src/stores/beta-access';
+import { createBillingStore } from '../src/stores/billing';
+import {
+  contentModerationPorts,
+  createContentModerationStore,
+} from '../src/stores/content-moderation';
+import { createDebaterFollowsStore } from '../src/stores/debater-follows';
+import { createDocumentStore } from '../src/stores/documents';
+import { createFlagsStore } from '../src/stores/flags';
+import { createFormatsStore } from '../src/stores/formats';
+import { createHealthStore } from '../src/stores/health';
+import { createMailStore } from '../src/stores/mail';
+import { createMessagingStore } from '../src/stores/messaging';
+import { contactReactions } from '../src/stores/contacts';
+import { createModerationStore } from '../src/stores/moderation';
+import { createNotificationsStore } from '../src/stores/notifications';
+import { createOnboardingStore } from '../src/stores/onboarding';
+import { createOperatorAccountsStore } from '../src/stores/operator-accounts';
+import { createOutboxStore } from '../src/stores/outbox';
+import { createProfileStore } from '../src/stores/profiles';
+import { createRatingStore } from '../src/stores/ratings';
+import { createRecordingStore } from '../src/stores/recordings';
+import { createReportsStore, moderationReactions } from '../src/stores/reports';
+import { createRoomStore } from '../src/stores/rooms';
+import { createRoundAnalysisStore } from '../src/stores/round-analysis';
+import { createRoundBallotStore, createRoundStore } from '../src/stores/rounds';
+import { createRoundMaintenanceStore } from '../src/stores/round-maintenance';
+import { createRoundWorkerStore } from '../src/stores/round-workers';
+import { createSpectatingStore } from '../src/stores/spectating';
+import { createSpectatorChatStore } from '../src/stores/spectator-chat';
+import { createStandingsStore } from '../src/stores/standings';
+import { createTranscriptStore } from '../src/stores/transcripts';
+import { createWatchHistoryStore } from '../src/stores/watch-history';
+import { openDatabaseResources } from '../src/resources';
 import { hostWaits } from '@daisy/worker/host';
 import { roundDecisionReleasePolicy } from '@daisy/protocol/round-decision-release';
-import { causeChainMember } from '../src/capacity-refusal';
+import { causeChainMember } from '../src/raw-rows';
 import { SQL } from 'bun';
 import {
   foundationDefinition,
@@ -9,7 +50,6 @@ import {
 } from './round-fixtures';
 import { createId } from '@paralleldrive/cuid2';
 import { pinRankedFixturePool } from '../src/testing-rating-pool';
-import { createDatabase } from '../src';
 import { daisyOrganizationId, publicLobbyId } from '../src/daisy-reference';
 import { createTestOnlyOperations } from '../src/test-only-operations';
 import {
@@ -18,7 +58,105 @@ import {
 } from '../src/beta-access-testing';
 import { buildRoundTopic, buildUserInboxTopic } from '@daisy/protocol/topics';
 import { emptyRuntimeCheckpointFor } from '@daisy/protocol/round';
-import { frozenJudgingFor } from '../src/round-judging-freeze';
+import { frozenJudgingFor } from '@daisy/protocol/ballot-definition';
+/** This file's database: the area stores it reads, over one set of resources. */
+const openStores = (
+  options: Parameters<typeof openDatabaseResources>[0] & {
+    readonly nextActorId: () => string;
+    readonly decisionRelease?: NonNullable<
+      Parameters<typeof createAttendanceStore>[1]
+    >['decisionRelease'];
+    readonly roundTime?: NonNullable<
+      Parameters<typeof createAttendanceStore>[1]
+    >['roundTime'];
+    readonly botAdmission?: NonNullable<
+      Parameters<typeof createRoomStore>[1]
+    >['botAdmission'];
+    readonly aiAllowance?: NonNullable<
+      Parameters<typeof createRoomStore>[1]
+    >['aiAllowance'];
+    readonly roundAnalysis?: NonNullable<
+      Parameters<typeof createRoundAnalysisStore>[1]
+    >['roundAnalysis'];
+    readonly judging?: NonNullable<
+      Parameters<typeof createRoundWorkerStore>[1]
+    >['judging'];
+    readonly botPublication?: NonNullable<
+      Parameters<typeof createRoundWorkerStore>[1]
+    >['botPublication'];
+  },
+) => {
+  const resources = openDatabaseResources(options);
+  return {
+    ...createAgeStepStore(resources),
+    ...createAgreementsStore(resources),
+    ...createAnalyticsConsentStore(resources),
+    ...createAttendanceStore(resources, {
+      nextId: options.nextActorId,
+      decisionRelease: options.decisionRelease,
+      roundTime: options.roundTime,
+    }),
+    ...createAudienceReactionsStore(resources),
+    ...createAuthStore(resources),
+    ...createAvailabilityStore(resources),
+    ...createBetaAccessStore(resources),
+    ...createBillingStore(resources, { nextId: options.nextActorId }),
+    ...createContentModerationStore(resources, contentModerationPorts),
+    ...createDebaterFollowsStore(resources),
+    ...createDocumentStore(resources),
+    ...createFlagsStore(resources),
+    ...createFormatsStore(resources),
+    ...createHealthStore(resources),
+    ...createMailStore(resources),
+    ...createMessagingStore(resources, { reactions: contactReactions }),
+    ...createModerationStore(resources),
+    ...createNotificationsStore(resources),
+    ...createOnboardingStore(resources, { nextId: options.nextActorId }),
+    ...createOperatorAccountsStore(resources),
+    ...createOutboxStore(resources),
+    ...createProfileStore(resources),
+    ...createRatingStore(resources),
+    ...createRecordingStore(resources),
+    ...createReportsStore(resources, {
+      decisionRelease: options.decisionRelease,
+      reactions: moderationReactions,
+    }),
+    ...createRoomStore(resources, {
+      nextId: options.nextActorId,
+      botAdmission: options.botAdmission,
+      aiAllowance: options.aiAllowance,
+    }),
+    ...createRoundAnalysisStore(resources, {
+      nextId: options.nextActorId,
+      roundAnalysis: options.roundAnalysis,
+      aiAllowance: options.aiAllowance,
+    }),
+    ...createRoundBallotStore(resources, {
+      roundTime: options.roundTime,
+      decisionRelease: options.decisionRelease,
+    }),
+    ...createRoundMaintenanceStore(resources, {
+      roundTime: options.roundTime,
+      decisionRelease: options.decisionRelease,
+    }),
+    ...createRoundWorkerStore(resources, {
+      nextId: options.nextActorId,
+      decisionRelease: options.decisionRelease,
+      judging: options.judging,
+      botPublication: options.botPublication,
+    }),
+    ...createRoundStore(resources, {
+      roundTime: options.roundTime,
+      decisionRelease: options.decisionRelease,
+    }),
+    ...createSpectatingStore(resources),
+    ...createSpectatorChatStore(resources),
+    ...createStandingsStore(resources),
+    ...createTranscriptStore(resources),
+    ...createWatchHistoryStore(resources),
+    close: resources.close,
+  };
+};
 
 type PostgresFailure = { errno?: unknown; constraint?: unknown };
 
@@ -654,7 +792,7 @@ export const roundAuthoring = async (fixture: Fixture, url: string) => {
     actorId,
     formatId,
     rules: validRules,
-    database: createDatabase({
+    database: openStores({
       waits: hostWaits,
       url,
       nextActorId: createId,
@@ -704,9 +842,9 @@ export const columnNames = async (fixture: Fixture, table: string) =>
 /** A database over its own pool for one test, always closed afterwards. */
 export const withDatabase = async <T>(
   url: string,
-  run: (database: ReturnType<typeof createDatabase>) => Promise<T>,
+  run: (database: ReturnType<typeof openStores>) => Promise<T>,
 ): Promise<T> => {
-  const database = createDatabase({
+  const database = openStores({
     waits: hostWaits,
     url,
     nextActorId: createId,

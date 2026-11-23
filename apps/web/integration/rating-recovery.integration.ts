@@ -1,7 +1,7 @@
+import { openWebDatabase } from '../src/server/database';
 import { hostWaits } from '@daisy/worker/host';
 import { requireTestServices } from '@daisy/config';
 import { createId } from '@paralleldrive/cuid2';
-import { createDatabase } from '@daisy/db';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { ratingAwaited } from '@daisy/debate-engine';
 import { createRatingSweep } from '../src/features/ratings/sweep';
@@ -22,7 +22,7 @@ test('real PostgreSQL recovery crosses full pages after transient write failure 
         }),
       );
     ids.sort();
-    let db = createDatabase({
+    let db = openWebDatabase({
       waits: hostWaits,
       url: testDatabaseUrl,
       nextActorId: createId,
@@ -65,7 +65,7 @@ test('real PostgreSQL recovery crosses full pages after transient write failure 
         if (page.exhausted) break;
       }
       await db.close();
-      db = createDatabase({
+      db = openWebDatabase({
         waits: hostWaits,
         url: testDatabaseUrl,
         nextActorId: createId,

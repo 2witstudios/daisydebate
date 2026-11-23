@@ -1,4 +1,4 @@
-import type { Database } from '@daisy/db';
+import type { MessagingStore } from '@daisy/db/stores/messaging';
 import type {
   MessagingCollectionAuthorizationFact,
   AuthorizationPrincipal,
@@ -22,7 +22,7 @@ import {
 } from './inbox';
 import { requireMemberActor } from '../access/actor';
 export function composeMessagingInbox(input: {
-  readonly database: Database;
+  readonly database: MessagingStore;
   readonly principal: AuthorizationPrincipal;
   readonly clock: Clock;
   readonly postingPolicy: SocialContactPolicy;

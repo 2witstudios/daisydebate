@@ -1,3 +1,4 @@
+import { openWebDatabase } from '../src/server/database';
 import { hostWaits } from '@daisy/worker/host';
 import { decisionRelease as roundDecisionReleasePolicy } from '../src/features/notifications/decision-release';
 import { pinRankedFixturePool } from '@daisy/db/testing';
@@ -6,7 +7,6 @@ import { admitParticipants } from '@daisy/db/testing';
 import { createId } from '@paralleldrive/cuid2';
 import { systemId } from '@daisy/clock';
 import { requireTestServices } from '@daisy/config';
-import { createDatabase } from '@daisy/db';
 import { youthRoundLinkedAdults } from '@daisy/db/youth-live';
 import { createRedis, redisKey } from '@daisy/redis';
 import { createBoundedTestClient, testNamespace } from '@daisy/redis/testing';
@@ -29,7 +29,7 @@ const services = requireTestServices(process.env);
 export async function withRoomRuntime(
   run: (context: Awaited<ReturnType<typeof fixture>>) => Promise<void>,
   options: Pick<
-    Parameters<typeof createDatabase>[0],
+    Parameters<typeof openWebDatabase>[0],
     | 'client'
     | 'profile'
     | 'botAdmission'
@@ -52,7 +52,7 @@ export async function withRoomRuntime(
 }
 async function fixture(
   options: Pick<
-    Parameters<typeof createDatabase>[0],
+    Parameters<typeof openWebDatabase>[0],
     | 'client'
     | 'profile'
     | 'botAdmission'
@@ -71,7 +71,7 @@ async function fixture(
   // Refusal-only cases may never issue an adapter command; cleanup still scans its namespace.
   await client.connect();
   const redis = createRedis({ url: services.redisUrl, namespace, client });
-  const store = createDatabase({
+  const store = openWebDatabase({
     waits: hostWaits,
     decisionRelease: roundDecisionReleasePolicy,
     url: databaseUrl,

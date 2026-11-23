@@ -1,8 +1,8 @@
+import type { PrivacyStore } from '@daisy/db/stores/privacy';
 import type { Waits } from '@daisy/clock';
 import { passOf, pollWork } from '@daisy/worker';
 import { HOUSEKEEPING_IDLE_MAX_MS } from '../../../lib/worker-idle';
 import type { Clock } from '@daisy/clock';
-import type { createDatabase } from '@daisy/db';
 import type { Logger } from '@daisy/logger';
 import { createScheduledWorker } from '../../ops/scheduled-worker';
 
@@ -17,10 +17,8 @@ const OBSERVATION_PURGE_BATCH = 128;
  * backoff, and the next run retries them.
  */
 export function startObservationPurges(input: {
-  readonly deliver: ReturnType<
-    typeof createDatabase
-  >['deliverObservationPurges'];
-  readonly owed: ReturnType<typeof createDatabase>['owedObservationPurges'];
+  readonly deliver: PrivacyStore['deliverObservationPurges'];
+  readonly owed: PrivacyStore['owedObservationPurges'];
   readonly purgeAll: () => Promise<unknown>;
   readonly clock: Clock;
   readonly logger: Logger;

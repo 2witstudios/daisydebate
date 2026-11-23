@@ -1,8 +1,9 @@
 import { channelFileFrame, type FileStore } from '../messaging-files';
-import { scopeFileFrame } from './file-capability';
 import { readMessagingChannel, withMessagingContent } from './channel-frame';
 import type { MessagingAuthorizationFence } from './records';
 import type { TxSource } from '../tx';
+import { createAppError } from '@daisy/errors';
+import type { FileFrame } from '../messaging-files';
 
 /** Files share the message transaction fence, never a nested transaction. */
 export function createMessagingFileStore({
@@ -36,5 +37,29 @@ export function createMessagingFileStore({
           );
         },
       ),
+  };
+}
+
+const deny = async (): Promise<never> => {
+  throw createAppError('AUTHORIZATION');
+};
+/** Method selection cannot widen the canonical capability chosen for this tx. */
+export function scopeFileFrame(
+  frame: FileFrame,
+  capability: 'post' | 'read',
+): FileFrame {
+  if (capability === 'post')
+    return { ...frame, access: deny, listMessageFiles: deny };
+  return {
+    access: frame.access,
+    listMessageFiles: frame.listMessageFiles,
+    authorize: deny,
+    reserve: deny,
+    upload: deny,
+    scan: deny,
+    quarantine: deny,
+    renew: deny,
+    finalize: deny,
+    cancel: deny,
   };
 }

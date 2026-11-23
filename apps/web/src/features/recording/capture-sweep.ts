@@ -1,3 +1,4 @@
+import type { BroadcastStore } from '@daisy/db/stores/broadcasts';
 import { type LoopPass } from '@daisy/worker';
 import { instantMs } from '@daisy/clock';
 import {
@@ -18,7 +19,6 @@ import {
   type BuiltRecordingMedia,
 } from '@daisy/protocol/recording-processing';
 import { type EntitlementGrant } from '@daisy/protocol/entitlements';
-import type { createDatabase } from '@daisy/db';
 import {
   answerRecordingJob,
   decideRecordingCapture,
@@ -29,7 +29,7 @@ import { createSweepPass } from '../../lib/sweep-pass';
 import type { RecordingCapturePort } from './capture-port';
 
 type Store = Pick<
-  ReturnType<typeof createDatabase>['recordingCaptures'],
+  BroadcastStore['recordingCaptures'],
   | 'discoverUnrecorded'
   | 'listExpiredTournamentAdmissions'
   | 'settleUndispatchedTournamentAdmission'

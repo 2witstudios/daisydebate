@@ -28,7 +28,7 @@ import {
 import { hydrateRoundRows } from './round-hydration';
 import { mediaParticipants, mediaSessions } from './schema/media-sessions';
 import { mediaBindingFields } from './media-participant-binding';
-import { reconcileLive } from './media-reconcile-rules';
+import { reconcileLive } from './media-reconcile-store';
 import type { Tx } from './tx';
 
 export type MediaSessionRead = {

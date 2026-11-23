@@ -1,4 +1,4 @@
-import type { Database } from '@daisy/db';
+import type { MessagingStore } from '@daisy/db/stores/messaging';
 import type { FileStore } from '@daisy/db/messaging-files';
 import type { AuthorizationPrincipal } from '@daisy/auth/authorization';
 import type { Clock } from '@daisy/clock';
@@ -10,7 +10,7 @@ import {
 
 /** Canonical policy is re-evaluated after waits in the file provider's exact tx. */
 export function composeMessagingFileStore(input: {
-  readonly database: Database;
+  readonly database: MessagingStore;
   readonly principal: AuthorizationPrincipal;
   readonly clock: Clock;
   readonly postingPolicy: SocialContactPolicy;

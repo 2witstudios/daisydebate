@@ -5,16 +5,14 @@ import { judgingJobRules } from '@daisy/debate-engine';
 import { admitAllowance, canUseAiAllowance } from '@daisy/auth/authorization';
 import type { ServerConfig } from '@daisy/config';
 import type { AiRole } from '@daisy/protocol/ai-roles';
-import type { createDatabase } from '@daisy/db';
+import type { WebDatabaseOptions } from '../../server/database';
 import { createAppError } from '@daisy/errors';
-
-type DatabaseOptions = Parameters<typeof createDatabase>[0];
 
 /**
  * Each worker's database options from its own explicit policy (ISSUE-749):
  * AI judging, bot debaters and round analysis are configured apart, and an
  * absent policy leaves that store absent. Existing-pool composition remains
- * owned by createDatabase.
+ * owned by the web process's database (openWebDatabase).
  */
 export function roundWorkerDatabaseOptions(
   config: Pick<
@@ -22,7 +20,7 @@ export function roundWorkerDatabaseOptions(
     'ROUND_JUDGING_POLICY' | 'ROUND_BOT_WORKER_POLICY' | 'ROUND_ANALYSIS_POLICY'
   >,
   nextToken: (() => string) | undefined,
-): Pick<DatabaseOptions, 'judging' | 'botPublication' | 'roundAnalysis'> {
+): Pick<WebDatabaseOptions, 'judging' | 'botPublication' | 'roundAnalysis'> {
   const judging = config.ROUND_JUDGING_POLICY;
   const bots = config.ROUND_BOT_WORKER_POLICY;
   const analysis = config.ROUND_ANALYSIS_POLICY;
@@ -80,7 +78,7 @@ export function roundWorkerDatabaseOptions(
 export function aiAdmissionOptions(config: {
   readonly AI_ROUND_BUSY_CAP?: number | undefined;
   readonly PREMIUM_BETA_GRANT: boolean;
-}): Pick<DatabaseOptions, 'botAdmission' | 'aiAllowance'> {
+}): Pick<WebDatabaseOptions, 'botAdmission' | 'aiAllowance'> {
   const busyCap = config.AI_ROUND_BUSY_CAP;
   return {
     ...(busyCap === undefined ? {} : { botAdmission: { busyCap } }),

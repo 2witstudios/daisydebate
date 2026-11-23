@@ -1,27 +1,34 @@
+import { createHealthStore } from '../src/stores/health';
+import { openDatabaseResources } from '../src/resources';
 import { hostWaits } from '@daisy/worker/host';
 import { SQL } from 'bun';
-import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { requireTestServices } from '@daisy/config';
-import { createDatabase } from '../src/index';
+/** This file's database: the area stores it reads, over one set of resources. */
+const openStores = (options: Parameters<typeof openDatabaseResources>[0]) => {
+  const resources = openDatabaseResources(options);
+  return {
+    ...createHealthStore(resources),
+    close: resources.close,
+  };
+};
 
 setupRitewayBun();
 
 const { databaseUrl: ownerUrl } = requireTestServices(process.env);
 
 /**
- * Runs the check through `createDatabase` on one owner connection, as the
+ * Runs the check through the health store on one owner connection, as the
  * owner or after `set role`, so `current_user` is exactly the role Fly's
  * DATABASE_URL would log in as. No role is created or dropped: role DDL is
  * cluster-wide and would reach every other slot's suites.
  */
 const problemsAs = async (role: 'owner' | 'daisy_web' | 'daisy_realtime') => {
   const client = new SQL(ownerUrl, { max: 1 });
-  const database = createDatabase({
+  const database = openStores({
     waits: hostWaits,
     url: ownerUrl,
     client,
-    nextActorId: createId,
   });
   try {
     if (role !== 'owner') await client.unsafe(`set role ${role}`);

@@ -1,4 +1,4 @@
-import type { Database } from '@daisy/db';
+import type { MessagingStore } from '@daisy/db/stores/messaging';
 import type { MessagingGroupCreationFence } from '@daisy/db/messaging';
 import type {
   AuthorizationPrincipal,
@@ -15,7 +15,7 @@ import {
 } from './authorization-fence';
 import { creationResource } from './creation-authorization';
 export function composeMessagingGroupCreationStore(input: {
-  readonly database: Database;
+  readonly database: MessagingStore;
   readonly principal: AuthorizationPrincipal;
   readonly clock: Clock;
   readonly creationPolicy?: SocialCreationPolicy;

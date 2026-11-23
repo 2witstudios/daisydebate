@@ -1,8 +1,8 @@
-import type { Database } from '@daisy/db';
+import type { GuardiansStore } from '@daisy/db/stores/guardians';
 import type { RetentionTarget } from '../../server/retention-target';
 
 export const childAccountRequestRetentionTarget = (
-  database: Pick<Database, 'expireGuardianRequests'>,
+  database: Pick<GuardiansStore, 'expireGuardianRequests'>,
 ): RetentionTarget => ({
   name: 'retention.child_account_requests',
   batchSize: 200,

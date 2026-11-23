@@ -1,6 +1,6 @@
-import type { Database } from '@daisy/db';
+import type { RoundWorkerStore } from '@daisy/db/stores/round-workers';
 import type { createAttendanceFeature } from '../attendance/operations';
-type Claim = Awaited<ReturnType<Database['claimRoundBotWorker']>>;
+type Claim = Awaited<ReturnType<RoundWorkerStore['claimRoundBotWorker']>>;
 /**
  * A seat's attendance receipts. They rest on the worker lease, which the
  * control service renews on its own cadence, never on publication, floor,

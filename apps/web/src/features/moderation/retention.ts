@@ -1,4 +1,4 @@
-import type { Database } from '@daisy/db';
+import type { ModerationStore } from '@daisy/db/stores/moderation';
 import {
   retentionAfter,
   type RetentionTarget,
@@ -12,7 +12,7 @@ const MODERATION_RECORD_RETENTION_MS = 365 * 24 * 60 * 60 * 1000;
 
 /** An erased account's sanctions past their proposed retention. */
 export const moderationRetentionTarget = (
-  database: Pick<Database, 'purgeErasedModeration'>,
+  database: Pick<ModerationStore, 'purgeErasedModeration'>,
 ): RetentionTarget =>
   retentionAfter(
     'moderation',

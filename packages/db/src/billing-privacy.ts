@@ -1,4 +1,4 @@
-import { privacyVendors } from './privacy/planner';
+import { privacyVendors } from './schema/privacy-jobs';
 import { listedWord } from './lifecycle-sql';
 import { billingModes } from '@daisy/protocol/billing-mode';
 import { sql } from 'drizzle-orm';

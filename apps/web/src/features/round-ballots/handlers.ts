@@ -1,8 +1,8 @@
+import type { RoundBallotStore } from '@daisy/db/stores/rounds';
 import { serverClockHeaders } from '../round-runtime/server-clock-header';
 import { idSchema } from '@daisy/protocol/primitives';
 import { type RoundBallotRead } from '@daisy/protocol/round-ballot-read';
 import type { Clock } from '@daisy/clock';
-import type { Database } from '@daisy/db';
 import { parseValidated } from '../../server/http';
 import {
   createRoundMemberGate,
@@ -24,7 +24,7 @@ export function createRoundBallotHandlers(
     ) => Promise<RoundBallotRead>;
     readonly assignments: (
       caller: RoundCaller,
-    ) => ReturnType<Database['listRoundJudgeAssignments']>;
+    ) => ReturnType<RoundBallotStore['listRoundJudgeAssignments']>;
   },
 ) {
   const run = createRoundMemberGate(d);

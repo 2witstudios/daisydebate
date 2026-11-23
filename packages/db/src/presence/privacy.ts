@@ -1,8 +1,7 @@
 import { sql } from 'drizzle-orm';
 import { idSchema } from '@daisy/protocol/primitives';
 import type { PrivacyAdopter, PrivacyExport } from '../privacy/contracts';
-import { exportRows } from '../privacy/export-rows';
-import { run, query } from '../raw-rows';
+import { exportRows, run, query } from '../raw-rows';
 import { z } from 'zod';
 
 /** Presence's subject rights (ADR 0072): the member's own visibility choice. */

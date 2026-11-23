@@ -4,10 +4,9 @@ import { audienceReactionKinds } from '@daisy/protocol/audience';
 import { sql } from 'drizzle-orm';
 import { inLiveRoomSql, liveRoomOfR } from './live-room-sql';
 import type { RoundAudienceAdmission } from './messaging/spectator-chat';
-import { postgresInt8, run, query } from './raw-rows';
+import { postgresInt8, run, query, exportRows } from './raw-rows';
 import { instrumented, type DatabaseEventSink } from './instrumented';
 import type { PrivacyAdopter } from './privacy/contracts';
-import { exportRows } from './privacy/export-rows';
 import { inTransaction, type Tx, type TxSource } from './tx';
 import { z } from 'zod';
 

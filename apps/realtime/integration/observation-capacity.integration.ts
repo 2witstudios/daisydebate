@@ -4,7 +4,8 @@ import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { requireTestServices } from '@daisy/config';
 import { systemClock, systemId } from '@daisy/clock';
 import { hostWaits } from '@daisy/worker/host';
-import { createRealtimeDatabase, WORKLOAD_PROFILES } from '@daisy/db';
+import { WORKLOAD_PROFILES } from '@daisy/db/resources';
+import { openRealtimeDatabase } from '../src/database';
 import { createMessagingTestFixture } from '@daisy/db/testing';
 import { messagingTestReading } from '@daisy/auth/testing';
 import { testNamespace } from '@daisy/redis/testing';
@@ -56,7 +57,7 @@ test('500 viewers of one channel: every viewer gets each revision, and revocatio
   const client = new SQL(services.databaseUrl, { max: 1 });
   await client.unsafe('set role daisy_realtime');
   const resources = createRealtimeApp({
-    database: createRealtimeDatabase({
+    database: openRealtimeDatabase({
       url: services.databaseUrl,
       client,
       profile: WORKLOAD_PROFILES['realtime-observer'],

@@ -1,3 +1,4 @@
+import type { MediaSessionStore } from '@daisy/db/stores/media-sessions';
 import { instantMs } from '@daisy/clock';
 import { mediaBindingRevoked } from '@daisy/protocol/media-binding-authority';
 import {
@@ -7,12 +8,11 @@ import {
   mediaPhase,
   postRoundCallGrants,
 } from '@daisy/debate-engine';
-import type { Database } from '@daisy/db';
 import { conversational } from '@daisy/protocol/runtime';
 import { isJudgeSeat } from '@daisy/protocol/seats';
 import { type RoundMediaState } from '@daisy/protocol/round-media';
 
-type Store = Database['mediaSessions'];
+type Store = MediaSessionStore['mediaSessions'];
 export type MediaSnapshot = NonNullable<
   Awaited<ReturnType<Store['readMediaSession']>>
 >;

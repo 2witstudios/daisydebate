@@ -1,5 +1,5 @@
+import { WORKLOAD_PROFILES } from '@daisy/db/resources';
 import { hostWaits } from '@daisy/worker/host';
-import { WORKLOAD_PROFILES } from '@daisy/db';
 import { noopErrorReporter } from '@daisy/observability';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { requireTestServices } from '@daisy/config';

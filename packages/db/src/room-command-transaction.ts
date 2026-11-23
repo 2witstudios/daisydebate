@@ -3,8 +3,8 @@ import { deadlineSignal, type Waits } from '@daisy/clock';
 import { drizzle } from 'drizzle-orm/bun-sql/postgres';
 import { createAppError, isAppError } from '@daisy/errors';
 import { RUNTIME_SESSION } from './session-bounds';
-import { createLaneGate } from './workload-admission';
-import { inTransaction, type Tx } from './tx';
+import { createLaneGate } from './workload';
+import { inTransaction, type TransactionRunner, type Tx } from './tx';
 
 /**
  * Room preparation on the competitive lane (ADR 0088). It may wait on
@@ -17,7 +17,7 @@ export function roomCommandTransaction(
   competitive: SQL,
   budget: number,
   waits: Waits,
-) {
+): TransactionRunner {
   const gate = createLaneGate(
     'competitive',
     { connections: budget, queue: 0, maxWaitMs: 1 },

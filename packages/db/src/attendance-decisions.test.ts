@@ -1,6 +1,6 @@
 import { assertRejects } from '@daisy/errors/testing';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { requireSameCheckIn } from './attendance-decisions';
+import { requireSameCheckIn } from './attendance-operations';
 setupRitewayBun();
 
 test('a replayed check-in must match its receipt', async () => {

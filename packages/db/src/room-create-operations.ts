@@ -5,7 +5,7 @@ import {
   type InitialCastApplier,
 } from './room-assembly';
 export type { InitialCastSeat, InitialCastApplier } from './room-assembly';
-import type { roomCommandTransaction } from './room-command-transaction';
+import type { TransactionRunner } from './tx';
 import type { CasualJudgeAdmission } from './casual-judge-admission';
 import { recordCaptureNotice } from './agreement-signatures';
 import type {
@@ -16,11 +16,14 @@ import type { FormatDefinition } from '@daisy/protocol/format';
 import type { FormatSelectionFacts } from '@daisy/protocol/format-standing';
 import type { EntitlementGrant } from '@daisy/protocol/entitlements';
 import type { RecordingPolicy } from '@daisy/protocol/room-capture';
-import { defaultStandingLobby } from '@daisy/protocol/lobby/eligibility';
+import {
+  defaultStandingLobby,
+  mayHostStandingRoom,
+} from '@daisy/protocol/lobby/eligibility';
 import { readOfficialStandingLobbies } from './official-standing-lobbies';
 import { lockLadderSeason } from './ladder-season';
 import { readCompetitionAgeBand } from './ladder-division-band';
-import { mayHostStandingRoom, readRoomCreator } from './room-creator';
+import { readRoomCreator } from './room-creator';
 import {
   readFormatSelectionFacts,
   type SelectionTuple,
@@ -32,7 +35,7 @@ import { instrumented, type DatabaseEventSink } from './instrumented';
 
 import { readEntitlementGrants } from './entitlement-grants';
 
-import type { NewRoom } from './room-operations';
+import type { NewRoom } from './room-assembly';
 
 import {
   type Caller,
@@ -50,7 +53,7 @@ export const roomCreateOperations = ({
   eventSink,
   judgeAdmission,
 }: {
-  readonly transaction: ReturnType<typeof roomCommandTransaction>;
+  readonly transaction: TransactionRunner;
   readonly eventSink?: DatabaseEventSink | undefined;
   readonly judgeAdmission?: CasualJudgeAdmission | undefined;
 }) => ({

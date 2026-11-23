@@ -6,8 +6,8 @@ import { instrumented, type DatabaseEventSink } from './instrumented';
 
 /**
  * ISSUE-8 AC1: `transaction` and `createUser` have no production consumer —
- * nothing in `apps/web` or `apps/realtime` calls them, so `createDatabase()`
- * never returns them. This composes them onto the same client for
+ * nothing in `apps/web` or `apps/realtime` calls them, so no store
+ * returns them. This composes them onto the same client for
  * `packages/db`'s own unit and integration suites; nothing outside this
  * package imports this file.
  */

@@ -7,7 +7,7 @@ import {
   isTemporaryRefusal,
   markCapacityRefusalReported,
   refuseCapacity,
-} from './capacity-refusal';
+} from './raw-rows';
 
 setupRitewayBun();
 
@@ -95,10 +95,8 @@ test('a refusal carries the lane and reason that refused it', () => {
 test('a refusal is recognised by every bundled copy of this module', async () => {
   // Next bundles a page apart from the process app, so one process can hold
   // two instances of this module; the query string makes Bun load a second.
-  const secondCopy: string = './capacity-refusal.ts?second-bundle';
-  const copy = (await import(
-    secondCopy
-  )) as typeof import('./capacity-refusal');
+  const secondCopy: string = './raw-rows.ts?second-bundle';
+  const copy = (await import(secondCopy)) as typeof import('./raw-rows');
   const refused = refuseCapacity({ lane: 'control', reason: 'expired' });
   const theirs = copy.refuseCapacity({ lane: 'social', reason: 'saturated' });
   markCapacityRefusalReported(theirs);
@@ -106,7 +104,7 @@ test('a refusal is recognised by every bundled copy of this module', async () =>
     given: 'a refusal minted by one copy and read by the other, both ways',
     should: 'recognise it, its detail and its reported mark',
     actual: [
-      copy !== (await import('./capacity-refusal')),
+      copy !== (await import('./raw-rows')),
       copy.isCapacityRefusal(new Error('wrapper', { cause: refused })),
       isCapacityRefusal(theirs),
       copy.capacityRefusalDetail(refused)?.lane,

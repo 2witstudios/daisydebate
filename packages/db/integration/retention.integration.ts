@@ -1,11 +1,24 @@
+import { createAuthStore } from '../src/stores/auth';
+import { createMailStore } from '../src/stores/mail';
+import { createOutboxStore } from '../src/stores/outbox';
+import { openDatabaseResources } from '../src/resources';
 import { hostWaits } from '@daisy/worker/host';
 import { instantMs } from '@daisy/clock';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { SQL } from 'bun';
 import { createId } from '@paralleldrive/cuid2';
-import { createDatabase, type Database } from '../src';
 import { waitForOutboxFinality } from '../src/testing';
 import { requireTestServices } from '@daisy/config';
+/** This file's database: the area stores it reads, over one set of resources. */
+const openStores = (options: Parameters<typeof openDatabaseResources>[0]) => {
+  const resources = openDatabaseResources(options);
+  return {
+    ...createAuthStore(resources),
+    ...createMailStore(resources),
+    ...createOutboxStore(resources),
+    close: resources.close,
+  };
+};
 
 const { databaseUrl: url } = requireTestServices(process.env);
 
@@ -23,7 +36,7 @@ const hoursAgo = (hours: number) => new Date(now - hours * HOUR).toISOString();
  */
 type Table = {
   readonly operation: keyof Pick<
-    Database,
+    ReturnType<typeof openStores>,
     | 'purgeExpiredVerifications'
     | 'purgeExpiredOutboxEvents'
     | 'purgeExpiredEmailDeliveryEvents'
@@ -109,10 +122,9 @@ async function withSql<T>(work: (sql: SQL) => Promise<T>): Promise<T> {
 
 test('each retained table loses only rows older than the cutoff, and a repeat run is a no-op', async () => {
   const tag = `rt-${createId().slice(0, 10)}`;
-  const database = createDatabase({
+  const database = openStores({
     waits: hostWaits,
     url,
-    nextActorId: createId,
   });
   try {
     const results = [];
@@ -175,10 +187,9 @@ test("a batch deletes exactly its limit of its own rows, never another suite's, 
   const [deliveries] = tables.filter(
     (table) => table.operation === 'purgeExpiredEmailDeliveries',
   );
-  const database = createDatabase({
+  const database = openStores({
     waits: hostWaits,
     url,
-    nextActorId: createId,
   });
   try {
     await withSql(async (sql) => {
@@ -228,9 +239,9 @@ async function drainConcurrently(
   isolatedBefore: string,
 ) {
   const workers = Array.from({ length: 4 }, () =>
-    createDatabase({ waits: hostWaits, url, nextActorId: createId }),
+    openStores({ waits: hostWaits, url }),
   );
-  const drain = async (database: Database) => {
+  const drain = async (database: ReturnType<typeof openStores>) => {
     let total = 0;
     for (;;) {
       const deleted = await database[operation]({

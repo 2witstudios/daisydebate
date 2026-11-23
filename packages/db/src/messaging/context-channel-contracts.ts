@@ -1,5 +1,5 @@
 import type { ContentReportCreate } from '@daisy/protocol/content-moderation';
-import type { authorizationAccountFact } from '../authorization-account';
+import type { authorizationAccountFact } from '../authorization';
 import type { MessagingLockedFrame, MessagingReadFrame } from './records';
 import type { Tx } from '../tx';
 

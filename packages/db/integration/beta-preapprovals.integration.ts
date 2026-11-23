@@ -1,5 +1,15 @@
+import { createAgeStepStore } from '../src/stores/age-step';
+import { createBetaAccessStore } from '../src/stores/beta-access';
+import { createMailStore } from '../src/stores/mail';
+import { createOnboardingStore } from '../src/stores/onboarding';
+import { createOperatorAccountsStore } from '../src/stores/operator-accounts';
+import { openDatabaseResources } from '../src/resources';
 import { hostWaits } from '@daisy/worker/host';
-import { executeBetaAccessCommand } from './operator-accounts.test-support';
+import {
+  executeBetaAccessCommand,
+  pendingAccount,
+  command as accessCommand,
+} from './operator-accounts.test-support';
 import { executePreapprovalCommand } from './preapproval-command.test-support';
 import { decidePreapprovalChange } from '@daisy/protocol/beta-preapproval';
 import { sha3Hex } from '@daisy/digest';
@@ -13,12 +23,24 @@ import { createId } from '@paralleldrive/cuid2';
 import { requireTestServices } from '@daisy/config';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import type { PreapprovalCommand } from '@daisy/protocol/beta-preapproval';
-import { createDatabase } from '../src';
 import { withFixture, rejectedBy, type Fixture } from './constraint-helpers';
-import {
-  pendingAccount,
-  command as accessCommand,
-} from './operator-accounts.test-support';
+/** This file's database: the area stores it reads, over one set of resources. */
+const openStores = (
+  options: Parameters<typeof openDatabaseResources>[0] & {
+    readonly nextActorId: () => string;
+  },
+) => {
+  const resources = openDatabaseResources(options);
+  return {
+    ...createAgeStepStore(resources),
+    ...createBetaAccessStore(resources),
+    ...createMailStore(resources),
+    ...createOnboardingStore(resources, { nextId: options.nextActorId }),
+    ...createOperatorAccountsStore(resources),
+    close: resources.close,
+  };
+};
+
 setupRitewayBun();
 const { databaseUrl: url } = requireTestServices(process.env);
 const inputFor = (command: PreapprovalCommand, live = () => true) => ({
@@ -33,9 +55,9 @@ const inputFor = (command: PreapprovalCommand, live = () => true) => ({
 /** Tracks exactly this test's durable command and recipient records. */
 const trackedDatabase = (
   f: Fixture,
-  options: Parameters<typeof createDatabase>[0],
+  options: Parameters<typeof openStores>[0],
 ) => {
-  const db = createDatabase(options);
+  const db = openStores(options);
   const commandIds: string[] = [];
   const grants: string[] = [];
   return {

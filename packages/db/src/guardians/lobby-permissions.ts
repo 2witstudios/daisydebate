@@ -3,13 +3,9 @@ import { guardianLinkStatuses } from '@daisy/protocol/guardians';
 import { listedWord } from '../lifecycle-sql';
 import { sql, type SQL } from 'drizzle-orm';
 import { z } from 'zod';
-import type { AgeBand } from '@daisy/protocol/ladder';
 import { query } from '../raw-rows';
 import { currentTenantScope, scopeTransaction } from '../tenant-scope';
 import type { Tx } from '../tx';
-
-export const isMinorAgeBand = (ageBand: AgeBand | null) =>
-  ageBand === '13-15' || ageBand === '16-17';
 
 const readForMinor = async <Row>(
   tx: Pick<Tx, 'execute'>,

@@ -1,10 +1,19 @@
+import { createHealthStore } from '../src/stores/health';
+import { openDatabaseResources } from '../src/resources';
 import { hostWaits } from '@daisy/worker/host';
 import { join } from 'node:path';
 import { createId } from '@paralleldrive/cuid2';
 import { SQL } from 'bun';
 import { requireTestServices } from '@daisy/config';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { createDatabase } from '../src';
+/** This file's database: the area stores it reads, over one set of resources. */
+const openStores = (options: Parameters<typeof openDatabaseResources>[0]) => {
+  const resources = openDatabaseResources(options);
+  return {
+    ...createHealthStore(resources),
+    close: resources.close,
+  };
+};
 
 setupRitewayBun();
 
@@ -55,11 +64,10 @@ test('currentDatabaseName reports the connected database rather than the URL pat
   const pretend = 'not_the_connected_database_test';
   const url = withDatabaseOverride(databaseUrl, pretend);
   const client = new SQL(url, { max: 1 });
-  const database = createDatabase({
+  const database = openStores({
     waits: hostWaits,
     client,
     url,
-    nextActorId: createId,
   });
   try {
     const [{ name }] = await client`select current_database() as name`;

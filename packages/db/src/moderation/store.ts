@@ -22,6 +22,16 @@ import { actionInForce } from './in-force';
 import { inTransaction, type Tx, type TxSource } from '../tx';
 import { run, query } from '../raw-rows';
 import { z } from 'zod';
+import type { DecisionReleasePolicy } from '@daisy/protocol/round-decision-release';
+import { endMemberOffers } from '../challenges/frame';
+import {
+  releaseMemberFromRooms,
+  type RoomReleaseRules,
+} from '../room-restriction-release';
+import {
+  forfeitMemberRounds,
+  type RoundForfeitRule,
+} from '../round-restriction-forfeit';
 
 /** What a reviewer does to an account (ADR 0103). */
 export type Sanction =
@@ -291,4 +301,31 @@ export const moderationOperations = ({
       );
       return rows.length;
     }),
+});
+
+/** The engine's rules a restriction applies; the db never imports the engine. */
+export type RestrictionRules = RoomReleaseRules & {
+  readonly forfeitRound: RoundForfeitRule;
+};
+
+/**
+ * What each capability registers to react to a restriction (ADR 0103). Rounds
+ * come before Rooms: a Round's writers lock it before they touch its Room.
+ */
+export const moderationReactions = (
+  rules: RestrictionRules,
+  decisionRelease?: DecisionReleasePolicy,
+): ModerationReactions => ({
+  onRestricted: [
+    endMemberOffers,
+    (tx, actorId, { nextId, eventSink }) =>
+      forfeitMemberRounds(tx, actorId, {
+        nextId,
+        eventSink,
+        forfeit: rules.forfeitRound,
+        decisionRelease,
+      }),
+    (tx, actorId, { now }) =>
+      releaseMemberFromRooms(tx, actorId, { now, rules }),
+  ],
 });

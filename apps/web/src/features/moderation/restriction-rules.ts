@@ -1,4 +1,4 @@
-import type { RestrictionRules } from '@daisy/db';
+import type { RestrictionRules } from '@daisy/db/stores/reports';
 import {
   activeRoomMembers,
   forfeitOfRestriction,

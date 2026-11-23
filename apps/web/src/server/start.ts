@@ -1,7 +1,7 @@
+import { refuseSchemaAlteringRole } from '@daisy/db/startup';
 import { hostWaits } from '@daisy/worker/host';
 import { readFileSync } from 'node:fs';
 import next from 'next';
-import { refuseSchemaAlteringRole } from '@daisy/db';
 import { installShutdownSignals } from '@daisy/observability';
 import {
   closeProcessApp,

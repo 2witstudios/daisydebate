@@ -1,3 +1,13 @@
+import {
+  removedSeatPremiumEndsAt,
+  clubSeatBounds,
+  clubInvitationMailRefusal,
+  type ClubInvitationMailFacts,
+  type ClubSeat,
+  type ClubSeating,
+  type ClubSeatingRefusal,
+  type SeatInvitation,
+} from '@daisy/protocol/club-seats';
 import { entitlementSources } from '@daisy/protocol/entitlements';
 import { mailJobStates } from './schema/columns';
 import {
@@ -12,15 +22,6 @@ import {
   subscriptionEvidenceSchema,
   type SubscriptionEvidence,
 } from '@daisy/protocol/billing';
-import {
-  clubSeatBounds,
-  clubInvitationMailRefusal,
-  type ClubInvitationMailFacts,
-  type ClubSeat,
-  type ClubSeating,
-  type ClubSeatingRefusal,
-  type SeatInvitation,
-} from '@daisy/protocol/club-seats';
 import { normalizeEmail } from '@daisy/protocol/email';
 import { sql } from 'drizzle-orm';
 import {
@@ -126,15 +127,6 @@ class Refused extends Error {
     super(reason);
   }
 }
-
-/**
- * When a removed seat's Premium ends (point guard, Delivery 5111): the end
- * of that UTC day, never later than the grant already ended.
- */
-export const endOfUtcDay = (now: Date) =>
-  new Date(
-    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1),
-  );
 
 async function readInvitations(
   tx: Tx,
@@ -310,7 +302,7 @@ async function writeSeating(
     await runStatement(
       tx,
       sql`update account_entitlement_grants
-      set expires_at = greatest(starts_at, least(expires_at, ${endOfUtcDay(input.now)}))
+      set expires_at = greatest(starts_at, least(expires_at, ${removedSeatPremiumEndsAt(input.now)}))
       where user_id=${seat.userId} and source=${listedWord(entitlementSources, 'organization_seat')} and organization_id=${club.id}`,
     );
     await runStatement(

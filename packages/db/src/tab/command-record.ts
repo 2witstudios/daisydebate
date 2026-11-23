@@ -6,7 +6,7 @@ import {
   type StoredOutcome,
 } from '@daisy/protocol/lobby/command';
 import { actionHistory } from '../schema/grants';
-import { isUniqueViolationOf } from '../unique-violation';
+import { isUniqueViolationOf } from '../raw-rows';
 import type { Tx } from '../tx';
 
 /**

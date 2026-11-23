@@ -1,3 +1,5 @@
+import { createAuthStore } from '../src/stores/auth';
+import { openDatabaseResources } from '../src/resources';
 import { hostWaits } from '@daisy/worker/host';
 import { createId } from '@paralleldrive/cuid2';
 import { SQL } from 'bun';
@@ -8,13 +10,20 @@ import {
   outboxPayloadSchema,
 } from '@daisy/protocol/realtime-payloads';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { createDatabase } from '../src';
 import {
   sqlStateOf,
   withDatabase,
   withFixture,
   type Fixture,
 } from './constraint-helpers';
+/** This file's database: the area stores it reads, over one set of resources. */
+const openStores = (options: Parameters<typeof openDatabaseResources>[0]) => {
+  const resources = openDatabaseResources(options);
+  return {
+    ...createAuthStore(resources),
+    close: resources.close,
+  };
+};
 
 const { databaseUrl: url } = requireTestServices(process.env);
 setupRitewayBun();
@@ -87,11 +96,10 @@ describe('session revocation control (MSG-2.1-arch1, ADR 0032 §5)', () => {
     await withSessionOwner(async (fixture, { userId, id }) => {
       const client = new SQL(url, { max: 1 });
       const events: unknown[] = [];
-      const database = createDatabase({
+      const database = openStores({
         waits: hostWaits,
         url,
         client,
-        nextActorId: createId,
         eventSink: (event, fields, message) =>
           events.push({ event, fields, message }),
       });
