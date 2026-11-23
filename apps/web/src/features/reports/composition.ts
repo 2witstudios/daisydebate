@@ -1,3 +1,4 @@
+import { defineComposition } from '../../server/composition';
 import {
   reportCommandSchema,
   reportResultSchema,
@@ -6,17 +7,14 @@ import { appDiscoverActor } from '../account/username-discovery';
 import { contactPairFence } from '../contacts/authorization';
 import type { App } from '../../server/app';
 import { parseValidated, readJson } from '../../server/http';
-import {
-  memberHttpBoundary,
-  runEvaluatedRoute,
-} from '../../server/member-boundary';
+import { memberHttpBoundary, runEvaluatedRoute } from '../auth/member-boundary';
 import { consumeOrThrow } from '../../server/rate-limit';
 import { fileReport, REPORT_RULE } from './operations';
 
 const MAX_BODY_BYTES = 1024;
 
 /** Reports (ADR 0103). */
-export function composeReportRoutes(app: App) {
+function composeReportRoutes(app: App) {
   const boundary = memberHttpBoundary(app);
   return {
     file: (request: Request) =>
@@ -58,3 +56,8 @@ export function composeReportRoutes(app: App) {
       }),
   };
 }
+
+/** reports: its route files bind here (`processRoute`). */
+export const reportComposition = defineComposition('reports', (app) =>
+  composeReportRoutes(app),
+);

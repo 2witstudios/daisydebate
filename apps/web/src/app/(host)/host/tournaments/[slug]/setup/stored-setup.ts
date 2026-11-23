@@ -7,7 +7,7 @@ import { hostTiersReleased } from '../../../../../../features/tab/release';
 import { tournamentSetupPath } from '../../../../../../features/tab/tournament-setup-route';
 import { tournamentEventSettingsPath } from '../../../../../../features/tab/tournament-event-settings-route';
 import { storedSetupOf } from '../../../../../../features/tab/stored-setup';
-import { requestNow } from '../../../../../../lib/request-session';
+import { requestNow } from '../../../../../../lib/page-reads';
 import { GET as setupGET } from '../../../../../api/tab/tournament-setup/route';
 import { GET as settingsGET } from '../../../../../api/tab/tournament-event-settings/route';
 import { GET as hostingGET } from '../../../../../api/tab/hosting/route';

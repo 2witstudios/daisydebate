@@ -1,4 +1,8 @@
 import { processRoute } from '../../../../server/process-app';
+import { messagingComposition } from '../../../../features/messaging/composition';
 
 export const dynamic = 'force-dynamic';
-export const GET = processRoute((routes) => routes.messaging.unread);
+export const GET = processRoute(
+  messagingComposition,
+  (routes) => routes.unread,
+);

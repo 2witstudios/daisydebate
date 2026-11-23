@@ -135,7 +135,7 @@ The rule that remains is that a click before hydration never leaks what was type
   (`inProcessFetch` in `apps/web/src/server/in-process-fetch.ts`). The
   username claim, the sign-in link request and the email change all work
   this way.
-- An action that moves on ends with `moveOn` (`apps/web/src/server/form-action.ts`),
+- An action that moves on ends with `moveOn` (`apps/web/src/features/forms/form-action.ts`),
   never a bare `redirect()`. A form posted before hydration gets a 303;
   a hydrated page gets the destination back as action state and navigates
   itself. A `redirect()` in an action the page's script calls makes Next

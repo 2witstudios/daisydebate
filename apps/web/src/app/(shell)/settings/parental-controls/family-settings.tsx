@@ -6,7 +6,7 @@ import {
   requestFamilyLobbyPermissions,
   requestFamilyRows,
   requestFriendApprovals,
-} from '../../../../lib/request-session';
+} from '../../../../features/parental-controls/page-reads';
 import { ProtectionLevelForm } from '../../../../ui/settings/parental-controls/protection-level-form';
 import { protectionLevelLabels } from '../../../../features/parental-controls/protection-level-labels';
 import { GuardianForm } from '../../../../ui/settings/parental-controls/guardian-form';

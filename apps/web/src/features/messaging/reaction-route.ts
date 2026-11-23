@@ -11,7 +11,7 @@ import {
   memberHttpBoundary,
   runEvaluatedRoute,
   type MemberBoundary,
-} from '../../server/member-boundary';
+} from '../auth/member-boundary';
 
 /** Optional reaction policy never creates posting or cleanup authority. */
 export function composeMessagingReactionRoute(app: App) {

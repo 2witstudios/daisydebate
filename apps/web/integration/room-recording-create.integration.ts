@@ -5,6 +5,7 @@ import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createRoomHttpFixture } from './room-http.test-support';
 import { withSql } from './fixtures';
 import { deleteOrphanNotificationSignals } from './notification-signals.test-support';
+import { roomComposition } from '../src/features/room-runtime/composition';
 
 requireTestServices(process.env);
 setupRitewayBun();
@@ -31,7 +32,7 @@ test('recording create HTTP binds the receipt to its payload and member and refu
     },
   };
   const post = (cookie: string, input = body) =>
-    routes.rooms.create(f.jsonPost('/api/rooms', input, { cookie }));
+    routes(roomComposition).create(f.jsonPost('/api/rooms', input, { cookie }));
   let roomId: string | undefined;
   try {
     const created = await post(host);
@@ -102,7 +103,7 @@ test('recording create HTTP binds the receipt to its payload and member and refu
       given: 'a forged recording opt-out for ranked creation',
       should: 'refuse the override at the HTTP boundary',
       actual: (
-        await routes.rooms.create(
+        await routes(roomComposition).create(
           f.jsonPost('/api/rooms', ranked, { cookie: host }),
         )
       ).status,

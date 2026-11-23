@@ -10,7 +10,7 @@ import { hostedTournamentsPath } from '../../../features/hosting-purchases/route
 import { linkTo } from '../../../features/tab/action';
 import { requireHostTiersRelease } from '../../../features/tab/release';
 import { hostRoutes } from '../../../features/tab/routes';
-import { requestIdentity } from '../../../lib/request-session';
+import { requestIdentity } from '../../../lib/page-reads';
 import { CreateTournamentForm } from '../../../ui/hosting/create-tournament-form';
 import { HostingHome } from '../../../ui/hosting/hosting-home';
 import { GET } from '../../api/tab/hosted-tournaments/route';

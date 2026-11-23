@@ -11,7 +11,7 @@ import {
 import { RequestDecision } from '../../../../../../ui/messaging/request-decision';
 import { GET } from '../../../../../api/messaging/groups/[channelId]/invitation/route';
 import { decideInvitationAction } from './actions';
-import { privateGroupsOffered } from '../../../../../../lib/request-session';
+import { privateGroupsOffered } from '../../../../../../features/messaging/page-reads';
 export const metadata = { title: 'Group invitation' };
 export default async function GroupInvitationPage({
   params,

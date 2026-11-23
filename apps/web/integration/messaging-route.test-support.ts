@@ -1,7 +1,6 @@
 import { isolatedMessagingPolicy } from '../src/features/messaging/isolated-policy.test-support';
 import { SQL } from 'bun';
 import { createId } from '@paralleldrive/cuid2';
-import { createRoutes } from '../src/server/routes';
 import { seedMessagingTestDm } from '@daisy/db/testing';
 import { messagingTestReading } from '@daisy/auth/testing';
 import type { MessagingRuntimePolicy } from '../src/features/messaging/composition';
@@ -9,6 +8,7 @@ import type { MessagingRuntimePolicy } from '../src/features/messaging/compositi
 import { createAccountFlows, uniqueName } from './auth-account-helpers';
 import { createTestApp } from './fixtures';
 import { requireMemberActor } from '../src/features/access/actor';
+import { composer } from '../src/server/composition.test-support';
 /** Two mounted suites use real signup/claim/session binding and the same isolated policy. */
 export async function messagingRouteActors(
   app: ReturnType<typeof createTestApp>,
@@ -66,10 +66,7 @@ export async function seedMessagingRouteDm(
 export async function mountedMessagingPair(
   databaseUrl: string,
   extensions: Partial<
-    Pick<
-      Parameters<typeof createRoutes>[0],
-      'messagingFiles' | 'messagingPolicy'
-    >
+    Pick<Parameters<typeof composer>[0], 'messagingFiles' | 'messagingPolicy'>
   > = {},
 ) {
   const app = createTestApp();
@@ -79,7 +76,7 @@ export async function mountedMessagingPair(
     ...actors,
     client: new SQL(databaseUrl),
     channelId: createId(),
-    routes: createRoutes({
+    routes: composer({
       ...app.app,
       messagingPolicy: messagingRoutePolicy,
       ...extensions,

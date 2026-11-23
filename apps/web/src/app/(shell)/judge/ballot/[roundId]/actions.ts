@@ -7,16 +7,22 @@ import {
   submitRoundBallotForm,
   type RoundBallotFormState,
 } from '../../../../../features/round-ballots/form';
-import { hydratedPost, moveOn } from '../../../../../server/form-action';
+import {
+  hydratedPost,
+  moveOn,
+} from '../../../../../features/forms/form-action';
 import { inProcessFetch } from '../../../../../server/in-process-fetch';
 import { processRoute } from '../../../../../server/process-app';
+import { roundBallotComposition } from '../../../../../features/round-ballots/composition';
 const read = (roundId: string) =>
   processRoute(
-    (routes) => (request) => routes.rounds.getBallots(request, roundId),
+    roundBallotComposition,
+    (routes) => (request) => routes.getBallots(request, roundId),
   );
 const post = (roundId: string) =>
   processRoute(
-    (routes) => (request) => routes.rounds.submitBallot(request, roundId),
+    roundBallotComposition,
+    (routes) => (request) => routes.submitBallot(request, roundId),
   );
 export async function readPersistedBallot(roundId: string) {
   return readRoundBallot(

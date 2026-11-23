@@ -3,12 +3,13 @@ import { systemClock } from '@daisy/clock';
 import { requireTestServices } from '@daisy/config';
 import { createAccountFlows, uniqueName } from './auth-account-helpers';
 import { cookieHeader, withSql } from './fixtures';
+import { ageComposition } from '../src/features/account/composition';
 
 requireTestServices(process.env);
 setupRitewayBun();
 const { flows, identifyAs, claim } = createAccountFlows();
 const { jsonPost } = flows;
-const { age } = flows.testApp.routes;
+const age = flows.testApp.routes(ageComposition);
 
 /** The birth month and year that many whole months before now, in UTC. */
 const monthsAgo = (months: number) => {

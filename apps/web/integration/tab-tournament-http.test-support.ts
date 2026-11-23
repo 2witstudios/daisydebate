@@ -4,6 +4,8 @@ import { createFlows } from './auth-mounted-flows';
 import type { TestApp } from './fixtures';
 import type { TournamentHttp } from './tab-tournament-transport.test-support';
 import type { Bot } from './tab-tournament.test-support';
+import { tabComposition } from '../src/features/tab/composition';
+import { audienceComposition } from '../src/features/spectating/audience-composition';
 
 export async function openTournamentHttp(app: TestApp, bots: readonly Bot[]) {
   const flows = createFlows(app);
@@ -14,7 +16,8 @@ export async function openTournamentHttp(app: TestApp, bots: readonly Bot[]) {
     cookies.set(bot.userId, cookie);
   }
 
-  const { tab, audience } = app.routes;
+  const tab = app.routes(tabComposition);
+  const audience = app.routes(audienceComposition);
   const released = tabReleasedFor(app.app);
   // The Next route modules bind these same handlers and the same release gate.
   const server = Bun.serve({

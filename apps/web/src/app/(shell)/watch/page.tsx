@@ -8,12 +8,14 @@ import { documentPrincipalOf } from '../../../features/documents/document-princi
 import {
   requestCompetitionAgeBand,
   requestOfficialStandingLobbies,
+} from '../../../features/lobby/page-reads';
+import {
   requestFollowing,
   requestHubCounts,
-  requestIdentity,
   requestLiveListing,
   requestStudentsLive,
-} from '../../../lib/request-session';
+} from '../../../features/watch/page-reads';
+import { requestIdentity } from '../../../lib/page-reads';
 import { FollowingTab } from '../../../ui/watch/following-tab/following-tab';
 import { LiveTab } from '../../../ui/watch/live-tab/live-tab';
 import { StudentsLive } from '../../../ui/watch/students-live/students-live';

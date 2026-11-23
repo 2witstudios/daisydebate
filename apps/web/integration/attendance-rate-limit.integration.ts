@@ -3,6 +3,7 @@ import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createTestApp, origin } from './fixtures';
 import { createAccountFlows, uniqueName } from './auth-account-helpers';
+import { attendanceComposition } from '../src/features/attendance/composition';
 
 setupRitewayBun();
 requireTestServices(process.env);
@@ -23,7 +24,7 @@ test('attendance enforces the real Redis member budget before envelope admission
   const statuses = [];
   for (let index = 0; index < 121; index++) {
     const roundId = createId();
-    const response = await app.routes.attendance.checkIn(
+    const response = await app.routes(attendanceComposition).checkIn(
       new Request(`${origin}/api/rounds/${roundId}/check-in`, {
         method: 'POST',
         headers: {
@@ -53,7 +54,7 @@ test('attendance enforces the real Redis member budget before envelope admission
 test('signed attendance for a missing Round answers absence instead of infrastructure (ISSUE-653)', async () => {
   const { app, cookie } = await attendanceMember();
   const roundId = createId();
-  const response = await app.routes.attendance.checkIn(
+  const response = await app.routes(attendanceComposition).checkIn(
     new Request(`${origin}/api/rounds/${roundId}/check-in`, {
       method: 'POST',
       headers: { origin, cookie, 'content-type': 'application/json' },

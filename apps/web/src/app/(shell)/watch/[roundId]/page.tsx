@@ -6,10 +6,8 @@ import {
   reportNotice,
 } from '../../../../features/content-moderation/submit-report';
 import { accountOf } from '../../../../features/access/account-of';
-import {
-  requestIdentity,
-  requestWatchRound,
-} from '../../../../lib/request-session';
+import { requestIdentity } from '../../../../lib/page-reads';
+import { requestWatchRound } from '../../../../features/spectating/page-reads';
 import { ReportForm } from '../../../../ui/content-moderation/report-form';
 import { reportFromPageAction } from '../../audience/actions';
 import { RoundAudience } from '../../audience/round-audience';

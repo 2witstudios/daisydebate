@@ -17,7 +17,7 @@ import {
   aiAdmissionOptions,
   roundWorkerDatabaseOptions,
   type AiSeatAvailability,
-} from './round-worker-policy';
+} from '../features/round-runtime/worker-policy';
 import type { MessagingFileRuntime } from '../features/messaging/files/runtime';
 import { readRealtimePublicUrl } from '@daisy/config';
 import type { MessagingRuntimePolicy } from '../features/messaging/composition';
@@ -43,6 +43,7 @@ import { createRedis } from '@daisy/redis';
 import { createResendSender, type Fetch } from '../features/mail/resend-sender';
 import { createRateLimiter } from './rate-limit';
 import { createAuthServer, type AuthServer } from '../features/auth/server';
+import { resolveSession } from '../features/auth/identity';
 import type { AfterResponseLimits } from '../features/auth/after-response';
 import { createResendWebhook } from '../features/mail/webhook';
 import { createSendMail } from '../features/mail/send-mail';
@@ -268,7 +269,20 @@ export function createApp({
     view: roundViewReader(database, liveLinkedAdults({ database })),
     nowMs: () => nowMs(clock),
   });
+  // Per-app state every copy of a module must share: Next bundles route
+  // code beside the process's own, so a module-level map would hold one
+  // runtime per copy and the process's shutdown would stop only its own
+  // (ADR 0917).
+  const shared = new Map<string, unknown>();
   return {
+    /** The value `key` names for this app, created once by its first caller. */
+    held: <Value>(key: HeldKey<Value>, create: () => Value): Value => {
+      if (!shared.has(key)) shared.set(key, create());
+      return shared.get(key) as Value;
+    },
+    /** The value `key` names, if anything created it; never creates. */
+    heldIfAny: <Value>(key: HeldKey<Value>): Value | undefined =>
+      shared.get(key) as Value | undefined,
     billingNative(): NativeBillingRuntime | null {
       return billingNative?.() ?? null;
     },
@@ -375,6 +389,9 @@ export function createApp({
     limiter,
     /** The composed auth server, validated and built on first use. */
     auth: (): AuthServer => (auth ??= composeAuth()),
+    /** This request's session and identity, resolved through auth (its Cookie only). */
+    resolveSession: (requestHeaders: Headers) =>
+      resolveSession((auth ??= composeAuth()), requestHeaders),
     /** The mail transport's configuration (ISSUE-780), validated on first use. */
     mailConfig: readMail,
     /**
@@ -456,3 +473,12 @@ export function createApp({
 }
 
 export type App = ReturnType<typeof createApp>;
+
+/**
+ * A key into `App.held`, typed by the value it names. A string, because an
+ * object key would split across module copies too; its feature owns it and
+ * names it `<feature>/<name>`, declared once beside its one user.
+ */
+export type HeldKey<Value> = string & { readonly __held?: Value };
+export const heldKey = <Value>(name: `${string}/${string}`) =>
+  name as HeldKey<Value>;

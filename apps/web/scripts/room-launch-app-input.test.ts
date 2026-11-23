@@ -2,7 +2,7 @@ import { readServerConfig } from '@daisy/config';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { launchAppInput } from '../e2e/support/room-launch-app-input';
 import { launchWorkerEnv } from '../e2e/support/room-launch-worker-policy';
-import { roundWorkerDatabaseOptions } from '../src/server/round-worker-policy';
+import { roundWorkerDatabaseOptions } from '../src/features/round-runtime/worker-policy';
 setupRitewayBun();
 test('the launch browser server composes its configured round workers', () => {
   const env = {

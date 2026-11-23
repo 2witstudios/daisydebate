@@ -6,6 +6,8 @@ import { userIdOf, withSql } from './fixtures';
 import { trackRevocations } from './auth-outbox-helpers';
 import { CLIENT_IP_HEADER } from '@daisy/ingress/client-ip';
 import { decideAccess, requirementFor } from '../src/features/access/decision';
+import { revokeSessionComposition } from '../src/features/account/composition';
+import { sessionsComposition } from '../src/features/account/composition';
 
 requireTestServices(process.env);
 setupRitewayBun();
@@ -13,8 +15,8 @@ setupRitewayBun();
 const { signUp, flows, identifyAs, claim } = createAccountFlows();
 const { origin, routes, withLoggedEvents } = flows.testApp;
 const { signInAgain, authRoute, newClient } = flows;
-const sessionsRoute = routes.sessions;
-const revokeRoute = routes.revokeSession;
+const sessionsRoute = routes(sessionsComposition);
+const revokeRoute = routes(revokeSessionComposition);
 
 const listSessions = (cookie: string) =>
   sessionsRoute.GET(

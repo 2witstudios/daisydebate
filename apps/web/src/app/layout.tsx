@@ -7,11 +7,11 @@ import {
   parseThemePreference,
   THEME_COOKIE,
 } from '../features/theme/theme-preference';
+import { requestBrowserCapture } from '../features/telemetry/page-reads';
 import {
-  requestBrowserCapture,
   requestMetadataBase,
   requestSearchIndexing,
-} from '../lib/request-session';
+} from '../features/search-indexing/page-reads';
 import { robotsMetadataOf } from '../features/search-indexing/search-indexing';
 import './globals.css';
 

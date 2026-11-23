@@ -1,3 +1,4 @@
+import { defineComposition } from '../../server/composition';
 import type { AuthorizationPrincipal } from '@daisy/auth/authorization';
 import type { App } from '../../server/app';
 import { consumeOrThrow } from '../../server/rate-limit';
@@ -12,7 +13,7 @@ import {
   readFriendList,
   type FriendReadDependencies,
 } from './operations';
-import { memberHttpBoundary } from '../../server/member-boundary';
+import { memberHttpBoundary } from '../auth/member-boundary';
 import { contactPairFence } from '../contacts/authorization';
 import { appDiscoverActor } from '../account/username-discovery';
 
@@ -91,3 +92,8 @@ export function composeFriendRoutes(app: App) {
     }),
   });
 }
+
+/** friends: its route files bind here (`processRoute`). */
+export const friendComposition = defineComposition('friends', (app) =>
+  composeFriendRoutes(app),
+);

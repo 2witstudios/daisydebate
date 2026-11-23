@@ -4,11 +4,9 @@ import {
   setDebaterFollowAction,
 } from '../../audience/actions';
 import { FollowButton } from '../../../../ui/following/follow-button';
-import {
-  requestDebaterFollow,
-  requestMemberStandings,
-  requestMessageOffer,
-} from '../../../../lib/request-session';
+import { requestDebaterFollow } from '../../../../features/watch/page-reads';
+import { requestMemberStandings } from '../../../../features/ratings/page-reads';
+import { requestMessageOffer } from '../../../../features/messaging/page-reads';
 import { MemberStandings } from '../../../../ui/ranked/member-standings';
 import { profileLadders } from '../../../../features/profile/profile-ladders';
 import type { RatingDivision } from '@daisy/protocol/ladder';
@@ -19,14 +17,14 @@ import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import type { SearchParams } from '../../../../features/access/decision';
 import { ProfilePage } from '../../../../ui/profile/profile-page/profile-page';
+import { requestIdentity } from '../../../../lib/page-reads';
+import { requestLiveRoundsOf } from '../../../../features/watch/page-reads';
+import { requestMemberDivision } from '../../../../features/ratings/page-reads';
+import { requestProfileChallengeModes } from '../../../../features/challenges/page-reads';
 import {
-  requestIdentity,
-  requestLiveRoundsOf,
-  requestMemberDivision,
-  requestProfileChallengeModes,
   requestSeasonHistory,
   requestMemberProfile,
-} from '../../../../lib/request-session';
+} from '../../../../features/profile/page-reads';
 import { ProfileFriendActions } from '../../../../ui/friends/profile-friend-actions';
 import { relationTo } from '../../../../ui/friends/friends';
 import { friendAction } from '../../friends/actions';

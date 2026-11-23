@@ -1,3 +1,4 @@
+import { defineComposition } from '../../server/composition';
 import { createAppError } from '@daisy/errors';
 import type { App } from '../../server/app';
 import { composeRoundMemberDependencies } from '../round-runtime/member-composition';
@@ -9,7 +10,7 @@ import { roundAnalysisView } from './policy';
  * The completed Round's own debater may read their delivered report after
  * paid access lapses. Fresh requests separately pass atomic allowance admission.
  */
-export function composeRoundAnalysisRoutes(app: App) {
+function composeRoundAnalysisRoutes(app: App) {
   return createRoundAnalysisHandlers({
     ...composeRoundMemberDependencies(app),
     request: async (caller, roundId) =>
@@ -37,3 +38,9 @@ export function composeRoundAnalysisRoutes(app: App) {
     },
   });
 }
+
+/** round-analysis: its route files bind here (`processRoute`). */
+export const roundAnalysisComposition = defineComposition(
+  'round-analysis',
+  (app) => composeRoundAnalysisRoutes(app),
+);

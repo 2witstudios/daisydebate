@@ -10,7 +10,7 @@ import {
 } from '../../../features/hosting-purchases/create-tournament-form';
 import { hostRoutes } from '../../../features/tab/routes';
 import { runTabCommandForm } from '../../../features/tab/command-form-action';
-import { moveOn } from '../../../server/form-action';
+import { moveOn } from '../../../features/forms/form-action';
 import { POST } from '../../api/tab/lobby-command/route';
 
 /** Free hosting (decision 80): any adult makes a tournament, with its Freestyle event. */

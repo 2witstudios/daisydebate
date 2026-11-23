@@ -6,6 +6,7 @@ import {
   consentReturnPath,
   cookieConsent,
 } from '../src/features/analytics/handlers';
+import { analyticsConsentComposition } from '../src/features/analytics/composition';
 
 setupRitewayBun();
 requireTestServices(process.env);
@@ -34,13 +35,15 @@ const post = (
 
 test('native consent POST records only offered choices and supports withdrawal', async () => {
   const fixture = configured();
-  const accepted = await fixture.routes.analyticsConsent.POST(
-    post(
-      fixture,
-      { choice: 'accept' },
-      { referer: `${fixture.origin}/rooms?tab=open` },
-    ),
-  );
+  const accepted = await fixture
+    .routes(analyticsConsentComposition)
+    .POST(
+      post(
+        fixture,
+        { choice: 'accept' },
+        { referer: `${fixture.origin}/rooms?tab=open` },
+      ),
+    );
   assert({
     given: 'an anonymous native form acceptance',
     should:
@@ -61,9 +64,11 @@ test('native consent POST records only offered choices and supports withdrawal',
       },
     ],
   });
-  const denied = await fixture.routes.analyticsConsent.POST(
-    post(fixture, { choice: 'deny' }, { cookie: cookieHeader(accepted) }),
-  );
+  const denied = await fixture
+    .routes(analyticsConsentComposition)
+    .POST(
+      post(fixture, { choice: 'deny' }, { cookie: cookieHeader(accepted) }),
+    );
   assert({
     given: 'a later native form refusal',
     should: 'withdraw analytics without changing hidden replay consent',
@@ -75,9 +80,9 @@ test('native consent POST records only offered choices and supports withdrawal',
       replay: 'unanswered',
     },
   });
-  const scripted = await fixture.routes.analyticsConsent.POST(
-    post(fixture, { choice: 'accept' }, { 'sec-fetch-mode': 'cors' }),
-  );
+  const scripted = await fixture
+    .routes(analyticsConsentComposition)
+    .POST(post(fixture, { choice: 'accept' }, { 'sec-fetch-mode': 'cors' }));
   assert({
     given: 'an acceptance sent by the page script',
     should: 'store the choice without redirecting',
@@ -98,9 +103,15 @@ test('native consent POST records only offered choices and supports withdrawal',
     ],
     expected: ['/analytics', '/analytics', '/analytics'],
   });
-  const crossSite = await fixture.routes.analyticsConsent.POST(
-    post(fixture, { choice: 'accept' }, { origin: 'https://attacker.invalid' }),
-  );
+  const crossSite = await fixture
+    .routes(analyticsConsentComposition)
+    .POST(
+      post(
+        fixture,
+        { choice: 'accept' },
+        { origin: 'https://attacker.invalid' },
+      ),
+    );
   assert({
     given: 'a cross-site attempt to grant consent',
     should: 'refuse without changing cookies',
@@ -112,9 +123,9 @@ test('native consent POST records only offered choices and supports withdrawal',
 test('anonymous consent adoption on sign-in is durable and never overrides refusal', async () => {
   const fixture = configured();
   const flows = createFlows(fixture);
-  const anonymous = await fixture.routes.analyticsConsent.POST(
-    post(fixture, { choice: 'accept' }),
-  );
+  const anonymous = await fixture
+    .routes(analyticsConsentComposition)
+    .POST(post(fixture, { choice: 'accept' }));
   const signup = await flows.startSignup();
   const signedIn = await flows.redeem(signup.token);
   const session = await fixture.app.auth().instance.api.getSession({
@@ -123,9 +134,9 @@ test('anonymous consent adoption on sign-in is durable and never overrides refus
   if (!session)
     throw new Error('The consent proof requires its own signed-in account');
   const cookie = `${cookieHeader(signedIn)}; ${cookieHeader(anonymous)}`;
-  const adopted = await fixture.routes.analyticsConsent.POST(
-    post(fixture, { choice: 'adopt' }, { cookie }),
-  );
+  const adopted = await fixture
+    .routes(analyticsConsentComposition)
+    .POST(post(fixture, { choice: 'adopt' }, { cookie }));
   assert({
     given: 'a real sign-in after anonymous browser opt-in',
     should: 'adopt consent for the authenticated account before capture',
@@ -136,12 +147,12 @@ test('anonymous consent adoption on sign-in is durable and never overrides refus
     ],
     expected: [204, 'granted'],
   });
-  await fixture.routes.analyticsConsent.POST(
-    post(fixture, { choice: 'deny' }, { cookie }),
-  );
-  await fixture.routes.analyticsConsent.POST(
-    post(fixture, { choice: 'adopt' }, { cookie }),
-  );
+  await fixture
+    .routes(analyticsConsentComposition)
+    .POST(post(fixture, { choice: 'deny' }, { cookie }));
+  await fixture
+    .routes(analyticsConsentComposition)
+    .POST(post(fixture, { choice: 'adopt' }, { cookie }));
   assert({
     given: 'a stale browser opt-in after account withdrawal',
     should: 'preserve the durable refusal',

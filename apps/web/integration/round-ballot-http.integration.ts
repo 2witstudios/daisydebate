@@ -15,6 +15,7 @@ import {
   withHumanJudgeHttpRound,
 } from './room-http.test-support';
 import { withSql } from './fixtures';
+import { roundBallotComposition } from '../src/features/round-ballots/composition';
 setupRitewayBun();
 requireTestServices(process.env);
 const h = createRoomHttpFixture();
@@ -41,7 +42,7 @@ test('authenticated ballot JSON/native POST and protected GET share actual froze
       if (finalized.status !== 'frozen')
         throw Error('Expected actual frozen input');
       const get = (cookie: string) =>
-        routes.rounds.getBallots(
+        routes(roundBallotComposition).getBallots(
           new Request(`${f.origin}/api/rounds/${roundId}/ballots`, {
             headers: headers(cookie),
           }),
@@ -77,7 +78,7 @@ test('authenticated ballot JSON/native POST and protected GET share actual froze
         body: object = envelope,
         origin = f.origin,
       ) =>
-        routes.rounds.submitBallot(
+        routes(roundBallotComposition).submitBallot(
           f.jsonPost(`/api/rounds/${roundId}/ballots`, body, {
             cookie,
             origin,
@@ -113,7 +114,7 @@ test('authenticated ballot JSON/native POST and protected GET share actual froze
       for (const side of ['affirmative', 'negative'])
         for (const category of ballotCategories)
           form.set(`${side}-${category}`, '3');
-      const native = await routes.rounds.submitBallot(
+      const native = await routes(roundBallotComposition).submitBallot(
         new Request(`${f.origin}/api/rounds/${roundId}/ballots`, {
           method: 'POST',
           headers: {
@@ -127,7 +128,7 @@ test('authenticated ballot JSON/native POST and protected GET share actual froze
       );
       const assigned = roundJudgeAssignmentsSchema.parse(
         await (
-          await routes.rounds.judgeAssignments(
+          await routes(roundBallotComposition).judgeAssignments(
             new Request(`${f.origin}/api/judge/assignments`, {
               headers: headers(firstJudge),
             }),
@@ -136,7 +137,7 @@ test('authenticated ballot JSON/native POST and protected GET share actual froze
       );
       const empty = roundJudgeAssignmentsSchema.parse(
         await (
-          await routes.rounds.judgeAssignments(
+          await routes(roundBallotComposition).judgeAssignments(
             new Request(`${f.origin}/api/judge/assignments`, {
               headers: headers(guest),
             }),

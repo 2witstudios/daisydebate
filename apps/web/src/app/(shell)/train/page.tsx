@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import type { SearchParams } from '../../../features/access/decision';
 import { trainLanding } from '../../../features/train/bots';
 import { startPracticeAction } from './actions';
-import { requireAccess } from '../../../lib/access';
+import { requireAccess } from '../../../features/access/page-access';
 import { roomTemplates } from '../play/actions';
 import { BotSelectorPage } from '../../../ui/train/bots/bot-selector';
 

@@ -12,7 +12,7 @@ import {
 } from '../forms/file-form';
 import { attachMessagingFormFile } from './form-upload';
 import type { createMessagingFileHandlers } from './handlers';
-import { runEvaluatedRoute } from '../../../server/member-boundary';
+import { runEvaluatedRoute } from '../../auth/member-boundary';
 /** Multipart is bounded after origin/member validation, outside the 16 KiB action decoder. */
 export function nativeFileHandler(
   input: {

@@ -4,6 +4,8 @@ import { headers } from 'next/headers';
 import { revalidatePath } from 'next/cache';
 import { inProcessFetch } from '../../../server/in-process-fetch';
 import { processRoute } from '../../../server/process-app';
+import { messagingComposition } from '../../../features/messaging/composition';
+import { publicProfileComposition } from '../../../features/profile/public-profile-routes';
 import { done } from '../../../features/forms/form-state';
 import {
   saveRefused,
@@ -17,7 +19,10 @@ import {
   type ProfileTextFormState,
 } from '../../../features/profile/profile-text-form';
 
-const publicProfileRoute = processRoute((all) => all.publicProfile.write);
+const publicProfileRoute = processRoute(
+  publicProfileComposition,
+  (all) => all.write,
+);
 
 /**
  * The member's display name and bio (ADR 0143), through the route's own gates.
@@ -64,7 +69,10 @@ export async function savePublicProfileAction(
   return done();
 }
 
-const requestSettingRoute = processRoute((all) => all.messaging.requestSetting);
+const requestSettingRoute = processRoute(
+  messagingComposition,
+  (all) => all.requestSetting,
+);
 
 /** Who may send the member message requests (decision 90), through the route. */
 export async function saveMessageRequestSettingAction(

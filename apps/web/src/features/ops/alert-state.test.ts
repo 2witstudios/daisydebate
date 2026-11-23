@@ -11,7 +11,7 @@ import {
 import { emptySnapshot } from './alert-state.test-support';
 
 import { OBSERVATION_PURGE_BACKOFF_CEILING_MS } from '@daisy/db/privacy';
-import { PRIVACY_JOBS_RETRY_MAX_MS } from '../../server/privacy-jobs';
+import { PRIVACY_JOBS_RETRY_MAX_MS } from '../account/data-rights/privacy-jobs';
 
 setupRitewayBun();
 

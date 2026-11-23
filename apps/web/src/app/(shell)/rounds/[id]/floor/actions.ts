@@ -2,6 +2,7 @@
 import { headers } from 'next/headers';
 import { systemId } from '@daisy/clock';
 import { processRoute } from '../../../../../server/process-app';
+import { roundFloorComposition } from '../../../../../features/messaging/round-floor/composition';
 import { inProcessFetch } from '../../../../../server/in-process-fetch';
 import { submitContextChatMessage } from '../../../../../features/messaging/context-chat/form';
 import type { ContextChatFormState } from '../../../../../features/messaging/context-chat/form-state';
@@ -9,19 +10,23 @@ import { submitContextChatChange } from '../../../../../features/messaging/conte
 import { roundFloorContext } from '../../../../../features/messaging/round-floor/floor-context';
 const send = (roundId: string) =>
   processRoute(
-    (routes) => (request) => routes.roundFloor.send(request, roundId),
+    roundFloorComposition,
+    (routes) => (request) => routes.send(request, roundId),
   );
 const edit = (roundId: string) =>
   processRoute(
-    (routes) => (request) => routes.roundFloor.edit(request, roundId),
+    roundFloorComposition,
+    (routes) => (request) => routes.edit(request, roundId),
   );
 const remove = (roundId: string) =>
   processRoute(
-    (routes) => (request) => routes.roundFloor.remove(request, roundId),
+    roundFloorComposition,
+    (routes) => (request) => routes.remove(request, roundId),
   );
 const report = (roundId: string) =>
   processRoute(
-    (routes) => (request) => routes.roundFloor.report(request, roundId),
+    roundFloorComposition,
+    (routes) => (request) => routes.report(request, roundId),
   );
 export async function sendFloorMessageAction(
   roundId: string,
@@ -78,7 +83,8 @@ export async function reportFloorMessageAction(
 
 const discover = (roundId: string) =>
   processRoute(
-    (routes) => (request) => routes.roundFloor.discover(request, roundId),
+    roundFloorComposition,
+    (routes) => (request) => routes.discover(request, roundId),
   );
 export async function discoverFloor(roundId: string): Promise<Response> {
   return inProcessFetch(discover(roundId), new Headers(await headers()))(

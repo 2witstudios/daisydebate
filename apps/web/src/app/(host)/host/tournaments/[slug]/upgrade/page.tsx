@@ -13,10 +13,8 @@ import {
 import { hostNavigationRail } from '../../../../../../features/tab/host-navigation';
 import { requireHostTiersRelease } from '../../../../../../features/tab/release';
 import { hostRoutes } from '../../../../../../features/tab/routes';
-import {
-  requestIdentity,
-  requestOwnProfileCard,
-} from '../../../../../../lib/request-session';
+import { requestIdentity } from '../../../../../../lib/page-reads';
+import { requestOwnProfileCard } from '../../../../../../features/profile/page-reads';
 import { PageHeader } from '../../../../../../ui/components/page-header/page-header';
 import { Notice } from '../../../../../../ui/components/notice/notice';
 import { UpgradeForm } from '../../../../../../ui/hosting/upgrade-form';

@@ -5,13 +5,16 @@ import { readAssembly } from '../../../../features/rooms/read-assembly';
 import { saveSettings } from '../../../../features/rooms/save-settings';
 import { submitAssembly } from '../../../../features/rooms/submit-assembly';
 import { inProcessFetch } from '../../../../server/in-process-fetch';
-import { hydratedPost, moveOn } from '../../../../server/form-action';
+import { hydratedPost, moveOn } from '../../../../features/forms/form-action';
 import {
   commandAnswer,
   roomFormAnswer,
   type RoomFormState,
 } from '../../../../features/rooms/command-answer';
 import { processRoute } from '../../../../server/process-app';
+import { agreementComposition } from '../../../../features/agreements/composition';
+import { roomComposition } from '../../../../features/room-runtime/composition';
+import { roomInvitationComposition } from '../../../../features/room-invitations/composition';
 import {
   submitInvitationForm,
   type InvitationFormState,
@@ -22,23 +25,33 @@ import {
 } from '../../../../features/agreements/submit-content-waiver';
 
 const read = (id: string) =>
-  processRoute((routes) => (request) => routes.rooms.read(request, id));
+  processRoute(
+    roomComposition,
+    (routes) => (request) => routes.read(request, id),
+  );
 const signWaiver = processRoute(
-  (routes) => routes.agreements.contentWaiver.POST,
+  agreementComposition,
+  (routes) => routes.contentWaiver.POST,
 );
 const commands = (id: string) =>
-  processRoute((routes) => (request) => routes.rooms.commands(request, id));
+  processRoute(
+    roomComposition,
+    (routes) => (request) => routes.commands(request, id),
+  );
 
 const invitations = {
   invite: (id: string) =>
     processRoute(
-      (routes) => (request) => routes.roomInvitations.invite(request, id),
+      roomInvitationComposition,
+      (routes) => (request) => routes.invite(request, id),
     ),
   withdraw: processRoute(
-    (routes) => (request) => routes.roomInvitations.end(request, 'withdraw'),
+    roomInvitationComposition,
+    (routes) => (request) => routes.end(request, 'withdraw'),
   ),
   decline: processRoute(
-    (routes) => (request) => routes.roomInvitations.end(request, 'decline'),
+    roomInvitationComposition,
+    (routes) => (request) => routes.end(request, 'decline'),
   ),
 };
 

@@ -1,4 +1,5 @@
 import { processRoute } from '../../../../../server/process-app';
+import { mediaReleaseComposition } from '../../../../../features/media-releases/composition';
 
 type Params = Awaited<RouteContext<'/api/clubs/[club]/releases'>['params']>;
 
@@ -10,15 +11,17 @@ export const dynamic = 'force-dynamic';
  * releases, for its owner or a school's staff (ADR 0151); anyone else finds
  * nothing.
  */
-export const GET = processRoute.withParams<Params>(
+export const GET = processRoute.withParams(
+  mediaReleaseComposition,
   (routes) =>
-    (request, { club }) =>
-      routes.mediaReleases.clubRead(club)(request),
+    (request, { club }: Params) =>
+      routes.clubRead(club)(request),
 );
 
 /** POST /api/clubs/<id>/releases: the club confirms releases it holds (ADR 0151). */
-export const POST = processRoute.withParams<Params>(
+export const POST = processRoute.withParams(
+  mediaReleaseComposition,
   (routes) =>
-    (request, { club }) =>
-      routes.mediaReleases.confirm(club)(request),
+    (request, { club }: Params) =>
+      routes.confirm(club)(request),
 );

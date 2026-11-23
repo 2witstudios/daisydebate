@@ -4,7 +4,7 @@ import { parseValidated } from '../../server/http';
 import {
   runMemberRoute,
   type BudgetedMemberBoundary,
-} from '../../server/member-boundary';
+} from '../auth/member-boundary';
 import { readBoundedBody } from '../../server/bounded-body';
 import { inProcessFetch } from '../../server/in-process-fetch';
 import { readRoomTemplates } from './read-catalog';

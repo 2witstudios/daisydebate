@@ -292,12 +292,10 @@ const conceptGroups = {
   'round analysis': [
     'apps/web/src/features/round-analysis',
     'apps/web/src/ui/round-analysis',
-    'apps/web/src/server/round-analysis-workers',
   ],
   judging: [
     'apps/web/src/features/round-judging',
     'apps/web/src/features/round-ballots',
-    'apps/web/src/server/round-judging-workers',
   ],
 } as const;
 const conceptOf = (path: string) =>

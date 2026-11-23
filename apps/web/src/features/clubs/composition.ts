@@ -1,3 +1,6 @@
+import { createBillingStripe } from '../billing/stripe-client';
+import { defineComposition } from '../../server/composition';
+import { memberHttpBoundary } from '../auth/member-boundary';
 import { nowMs } from '@daisy/clock';
 import type Stripe from 'stripe';
 import { createId } from '@paralleldrive/cuid2';
@@ -9,7 +12,7 @@ import {
   subscriptionAccess,
 } from '@daisy/auth/authorization';
 import type { App } from '../../server/app';
-import type { BudgetedMemberBoundary } from '../../server/member-boundary';
+import type { BudgetedMemberBoundary } from '../auth/member-boundary';
 import { releaseAdmission } from '../flags/admission';
 import { createRequestFlagReader } from '../flags/reader';
 import { releaseFlagDefault } from '../flags/release-default';
@@ -27,7 +30,7 @@ import { composeClubRoutes, type StartClub } from './routes';
  * handed to the routes as a named input. Loaded lazily with billing, since
  * it holds the Stripe client.
  */
-export function composeClubs(
+function composeClubs(
   app: App,
   stripe: Pick<
     Stripe,
@@ -144,3 +147,14 @@ export function composeClubs(
     },
   });
 }
+
+/** clubs: club creation, seats, billing and invitations bind here (ADR 0148). */
+export const clubComposition = defineComposition(
+  'clubs',
+  (app, { vendorFetch }) =>
+    composeClubs(
+      app,
+      createBillingStripe(app.config.billing, vendorFetch),
+      memberHttpBoundary(app),
+    ),
+);

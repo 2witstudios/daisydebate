@@ -1,6 +1,6 @@
 import { createAppError } from '@daisy/errors';
 import type { ZodType } from 'zod';
-import type { OperationName } from '../ops/operation-names';
+import type { OperationName } from '../../server/operation-names';
 import {
   handleOperation,
   parseValidated,
@@ -9,7 +9,7 @@ import {
 import {
   runEvaluatedRoute,
   type MemberBoundary,
-} from '../../server/member-boundary';
+} from '../auth/member-boundary';
 import type { TabPrincipal } from './tab-principal';
 
 type ReadRoute<Query, View> = {

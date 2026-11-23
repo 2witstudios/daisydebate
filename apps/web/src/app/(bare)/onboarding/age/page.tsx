@@ -12,11 +12,9 @@ import {
   AGE_HOLD_COOKIE,
   holdRefusal,
 } from '../../../../features/account/age-step';
-import { readOnboardingEntry } from '../../../../lib/auth-entry';
-import {
-  requestGuardianAgeBinding,
-  requestHasRecordedAge,
-} from '../../../../lib/request-session';
+import { readOnboardingEntry } from '../../../../features/access/auth-entry';
+import { requestGuardianAgeBinding } from '../../../../features/parental-controls/page-reads';
+import { requestHasRecordedAge } from '../../../../features/account/page-reads';
 import { AgeRefusalStep } from '../../../../ui/onboarding/age/age-refusal';
 import { AgeStep } from '../../../../ui/onboarding/age/age-step';
 import { ageStepAction } from './actions';

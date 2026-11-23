@@ -3,7 +3,7 @@ import { ConversationPane } from '../../../../../ui/messaging/conversation-pane'
 import { messagePageContext } from '../message-page-context';
 import Link from 'next/link';
 import { systemId } from '@daisy/clock';
-import { requireAccess } from '../../../../../lib/access';
+import { requireAccess } from '../../../../../features/access/page-access';
 import type { MessagingChannelPageProps } from '../../../../../features/messaging/channel-page';
 import { readReactionResponse } from '../../../../../features/messaging/reaction-response';
 import { ReactionForm } from '../../../../../ui/messaging/reaction-form';

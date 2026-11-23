@@ -1,17 +1,15 @@
+import { defineComposition } from '../../server/composition';
 import { requireAuthorization } from '@daisy/auth/request-authorization';
 import { moderationAcknowledgeSchema } from '@daisy/protocol/moderation';
 import { requireMemberActor } from '../access/actor';
 import type { App } from '../../server/app';
 import { parseValidated, readJson } from '../../server/http';
-import {
-  memberHttpBoundary,
-  runEvaluatedRoute,
-} from '../../server/member-boundary';
+import { memberHttpBoundary, runEvaluatedRoute } from '../auth/member-boundary';
 
 const MAX_BODY_BYTES = 1024;
 
 /** The member's own moderation notices (ADR 0103). */
-export function composeModerationRoutes(app: App) {
+function composeModerationRoutes(app: App) {
   const boundary = memberHttpBoundary(app);
   return {
     notices: (request: Request) =>
@@ -63,3 +61,8 @@ export function composeModerationRoutes(app: App) {
       }),
   };
 }
+
+/** moderation: its route files bind here (`processRoute`). */
+export const moderationComposition = defineComposition('moderation', (app) =>
+  composeModerationRoutes(app),
+);

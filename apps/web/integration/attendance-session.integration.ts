@@ -14,6 +14,7 @@ import { createAttendanceFeature } from '../src/features/attendance/operations';
 import { withAttendanceRound } from './attendance.test-support';
 import { createTestApp } from './fixtures';
 import { createAccountFlows, uniqueName } from './auth-account-helpers';
+import { attendanceComposition } from '../src/features/attendance/composition';
 
 setupRitewayBun();
 requireTestServices(process.env);
@@ -123,14 +124,16 @@ test('signed receipt replay waiting on the canonical account fence sees revocati
   await withAttendanceRound(async ({ f, roundId, segmentId }) => {
     const envelope = { version: 1, commandId: createId(), segmentId };
     const post = (commandId: string) =>
-      app.routes.attendance.checkIn(
-        app.jsonPost(
-          `/api/rounds/${roundId}/check-in`,
-          { ...envelope, commandId },
-          { cookie: signed.cookie },
-        ),
-        roundId,
-      );
+      app
+        .routes(attendanceComposition)
+        .checkIn(
+          app.jsonPost(
+            `/api/rounds/${roundId}/check-in`,
+            { ...envelope, commandId },
+            { cookie: signed.cookie },
+          ),
+          roundId,
+        );
     const firstResponse = await post(envelope.commandId);
     assert({
       given: 'a signed actual member in a real shared-clock speech',

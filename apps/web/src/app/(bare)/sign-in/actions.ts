@@ -4,13 +4,14 @@ import { headers } from 'next/headers';
 import { returnableDestination } from '../../../features/auth/redirect';
 import { inProcessFetch } from '../../../server/in-process-fetch';
 import { processRoute } from '../../../server/process-app';
+import { authComposition } from '../../../features/auth/composition';
 import {
   createRequestLink,
   submitLinkRequest,
   type LinkFormState,
 } from '../../../ui/auth/request-link';
 
-const authRoute = processRoute((routes) => routes.auth.POST);
+const authRoute = processRoute(authComposition, (routes) => routes.POST);
 
 /**
  * The sign-in form's POST, as a server action: a link can be requested

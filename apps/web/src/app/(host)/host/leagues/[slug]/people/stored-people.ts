@@ -2,10 +2,7 @@ import { systemId } from '@daisy/clock';
 import { organizationPeopleViewSchema } from '@daisy/protocol/lobby/organization-read';
 import { organizationPeoplePage } from '../../../../../../features/tab/organization';
 import { organizationPeoplePath } from '../../../../../../features/tab/organization-people-route';
-import {
-  requestIdentity,
-  requestNow,
-} from '../../../../../../lib/request-session';
+import { requestIdentity, requestNow } from '../../../../../../lib/page-reads';
 import { GET as readOrganizationPeopleRoute } from '../../../../../api/tab/organization-people/route';
 import { readOwnRoute } from '../../../../../(shell)/friends/read-route';
 import { readStoredHostNavigation } from '../../../read-navigation';

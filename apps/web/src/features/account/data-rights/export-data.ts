@@ -3,7 +3,7 @@ import { createAppError, isAppError, errorCodeOf } from '@daisy/errors';
 import type { PrivacyExport, PrivacySubject } from '@daisy/db/privacy';
 import type { Logger } from '@daisy/logger';
 import { requireSignedIn, requireSameOrigin } from '../../../server/http';
-import { evaluatedIdentity } from '../../../server/member-boundary';
+import { evaluatedIdentity } from '../../auth/member-boundary';
 import {
   consumeWindowsOrThrow,
   type RateLimiter,
