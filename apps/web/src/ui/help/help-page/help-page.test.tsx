@@ -9,7 +9,9 @@ setupRitewayBun();
 
 describe('HelpPage', () => {
   test('every topic is a disclosure with its links', () => {
-    const view = renderAccessible(h(HelpPage, { topics: helpTopics }));
+    const view = renderAccessible(
+      h(HelpPage, { homes: [], topics: helpTopics }),
+    );
     assert({
       given: 'the help topics',
       should: 'render one disclosure each and link to the privacy policy',
@@ -25,7 +27,9 @@ describe('HelpPage', () => {
   });
 
   test('each topic is addressable', () => {
-    const view = renderAccessible(h(HelpPage, { topics: helpTopics }));
+    const view = renderAccessible(
+      h(HelpPage, { homes: [], topics: helpTopics }),
+    );
     assert({
       given: 'each topic id',
       should: 'name its question, inside the disclosure it opens',

@@ -2,20 +2,34 @@ import Link from 'next/link';
 import type { HelpTopic } from '../../../features/help/topics';
 import { PageHeader } from '../../components/page-header/page-header';
 import { ReadingPage } from '../../components/reading-page/reading-page';
+import {
+  ArticleList,
+  type ArticleListItem,
+} from '../../guides/article-list/article-list';
 import { OpenTopicFromHash } from './open-topic-from-hash';
 
-/** Common questions. Native disclosure, so it works before hydration; a link to /help#topic opens its answer. */
+/**
+ * Help's front door: the reading homes with something to read, then the
+ * common questions. Native disclosure, so it works before hydration; a link
+ * to /help#topic opens its answer.
+ */
 export function HelpPage({
+  homes,
   topics,
 }: {
+  readonly homes: readonly ArticleListItem[];
   readonly topics: readonly HelpTopic[];
 }) {
   return (
     <ReadingPage>
       <PageHeader
         title="Help"
-        lede="Answers to the questions people ask most."
+        lede="Guides to using Daisy, lessons in debate, and answers to common questions."
       />
+      {homes.length > 0 ? (
+        <ArticleList label="Guides and learning" items={homes} />
+      ) : null}
+      <h2 className="font-display text-xl font-bold">Common questions</h2>
       <ul className="flex flex-col gap-3">
         {topics.map((topic) => (
           <li key={topic.id} className="rounded-xl bg-surface p-5 shadow-1">

@@ -28,3 +28,36 @@ test('a link to a Help topic opens its answer', async ({ page }) => {
     page.locator('details', { has: page.locator('summary#ranked-recorded') }),
   ).not.toHaveAttribute('open', '');
 });
+
+// Help is the front door to the guides: a visitor reads from Help to a
+// judging guide, crosses to its Learn article and comes back.
+test('Help leads to a guide and its Learn article', async ({ page }) => {
+  await page.goto('/help');
+  await page.getByRole('link', { name: 'Guides', exact: true }).click();
+  await expect(page).toHaveURL(/\/guides$/);
+  await page
+    .getByRole('link', { name: 'Understanding a Daisy ballot' })
+    .click();
+  await expect(
+    page.getByRole('heading', {
+      level: 1,
+      name: 'Understanding a Daisy ballot',
+    }),
+  ).toBeVisible();
+
+  await page
+    .getByRole('main')
+    .getByRole('link', { name: 'Writing a clear reason for decision' })
+    .first()
+    .click();
+  await expect(page).toHaveURL(
+    /\/learn\/judging-and-feedback\/writing-a-reason-for-decision$/,
+  );
+  await page
+    .getByRole('link', { name: 'Understanding a Daisy ballot' })
+    .click();
+  await expect(page).toHaveURL(/\/guides\/judging\/understanding-a-ballot$/);
+
+  const missing = await page.goto('/guides/judging/no-such-guide');
+  expect(missing?.status()).toBe(404);
+});

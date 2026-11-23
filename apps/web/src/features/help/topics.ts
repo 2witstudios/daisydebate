@@ -1,4 +1,5 @@
 import { destinationHref } from '../destinations/destinations';
+import { guideEntryLinks } from '../guides/entry-links';
 import { leaderboardDestinations } from '../leaderboard/actions';
 import { openRoomHref } from '../play/options';
 
@@ -61,7 +62,10 @@ export const helpTopics: readonly HelpTopic[] = [
     question: 'Who judges debates?',
     answer:
       'Every round has a judge, who scores each side and gives a decision with a written reason. Both debaters can read it once the ballot is submitted. A room’s host can invite a person to judge, or seat an AI judge so the round never waits for one. An AI judge is free on ranked rounds and premium on casual rounds.',
-    links: [{ label: 'Judge', href: '/judge' }],
+    links: [
+      { label: 'Judge', href: '/judge' },
+      { label: 'Judging guides', href: guideEntryLinks.judging },
+    ],
   },
   {
     id: 'teams',
