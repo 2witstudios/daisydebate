@@ -29,7 +29,7 @@ export type RoundAdjudication = {
 export type RoundAdjudicationEvent = {
   readonly segmentId: string;
   readonly decision: RoundEndingDecision;
-  /** The Round's segment rows as the evaluator read them. */
+  /** The segment rows the runtime was hydrated with, which the evaluator read. */
   readonly segments: readonly HydratedSegment[];
 };
 

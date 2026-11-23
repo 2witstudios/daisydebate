@@ -87,7 +87,11 @@ for (const path of trackedFiles(root).filter(
   }
 }
 for (const { path, source } of repositorySources(root)) {
-  for (const { specifier } of moduleLoads(path, source, isAdobePackage)) {
+  // Only a source naming the scope, or holding an escape that could spell it, can load it.
+  const mayLoadAdobe = /adobe|\\[ux]/i.test(source);
+  for (const { specifier } of mayLoadAdobe
+    ? moduleLoads(path, source, isAdobePackage)
+    : []) {
     const { line } = specifier
       .getSourceFile()
       .getLineAndCharacterOfPosition(specifier.getStart());
