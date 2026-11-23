@@ -1,5 +1,4 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { assertRejects } from '@daisy/errors/testing';
 import { planGroupIssuance } from './group-issuance-plan';
 setupRitewayBun();
 const actor = 'a'.repeat(24),
@@ -62,10 +61,10 @@ test('invitation effects refuse duplicate pending or active participants and exp
       ],
     },
   ])
-    await assertRejects({
+    assert({
       given: 'conflicting prospective invitation effects',
       should: 'refuse before any writes',
-      actual: async () => planGroupIssuance(input),
-      code: 'CONFLICT',
+      actual: planGroupIssuance(input),
+      expected: { refused: 'CONFLICT' },
     });
 });

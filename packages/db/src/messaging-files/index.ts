@@ -1,5 +1,5 @@
 export { channelFileFrame } from './frame';
-export { requireFilePolicy } from './policy';
+export { requireFilePolicy } from './frame';
 export {
   pendingFileDeletions,
   chargedFileBytes,

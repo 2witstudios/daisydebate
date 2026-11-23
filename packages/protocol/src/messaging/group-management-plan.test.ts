@@ -1,5 +1,4 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { assertRejects } from '@daisy/errors/testing';
 import { planGroupManagement } from './group-management-plan';
 
 setupRitewayBun();
@@ -128,21 +127,20 @@ for (const [label, change] of [
   ],
   ['time precedes grant', { now: '2026-10-08T06:00:00.000Z' }],
 ] as const) {
-  test(`group management refuses ${label} before producing writes`, async () => {
-    await assertRejects({
+  test(`group management refuses ${label} before producing writes`, () => {
+    assert({
       given: label,
       should: 'refuse an invalid effect plan',
-      actual: async () =>
-        planGroupManagement({
-          operation: 'remove',
-          actorId: manager,
-          targetActorId: member,
-          lifecycle: 'active',
-          grants: grants(),
-          now,
-          ...change,
-        }),
-      code: 'CONFLICT',
+      actual: planGroupManagement({
+        operation: 'remove',
+        actorId: manager,
+        targetActorId: member,
+        lifecycle: 'active',
+        grants: grants(),
+        now,
+        ...change,
+      }),
+      expected: { refused: 'CONFLICT' },
     });
   });
 }

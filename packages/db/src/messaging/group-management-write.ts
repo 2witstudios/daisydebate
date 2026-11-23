@@ -7,7 +7,7 @@ import {
   messagingGroupInvitations,
   messagingSocialCommands,
 } from '../schema/messaging-social';
-import { planGroupManagement } from './group-management-plan';
+import { planGroupManagement } from '@daisy/protocol/messaging/group-management-plan';
 import { advanceSocialChannelAuthority } from './social-channel-change';
 import { invalidateMessagingInboxes } from './inbox-change';
 import type { MessagingGroupManagementScope } from './group-management-contracts';
@@ -71,6 +71,7 @@ export async function writeGroupManagement(
     grants,
     now: command.now,
   });
+  if ('refused' in plan) throw createAppError(plan.refused);
   for (const change of plan.changes) {
     const changed = await tx
       .update(messagingGroupGrants)
