@@ -1,4 +1,4 @@
-import type { Database } from '@daisy/db';
+import { type MessagingStore } from '@daisy/db/stores/messaging';
 import type { MessagingFileCleanupFence } from '@daisy/db/messaging';
 import type {
   AuthorizationPrincipal,
@@ -12,7 +12,7 @@ export function composeMessagingFileCleanup({
   database,
   principal,
 }: {
-  readonly database: Pick<Database, 'messagingFileCleanup'>;
+  readonly database: Pick<MessagingStore, 'messagingFileCleanup'>;
   readonly principal: AuthorizationPrincipal;
 }) {
   const authorize: MessagingFileCleanupFence = async (_tx, input, frame) => {

@@ -1,4 +1,4 @@
-import type { Database } from '@daisy/db';
+import { type DebaterFollowsStore } from '@daisy/db/stores/debater-follows';
 import { createRefusal } from '@daisy/errors';
 import { debaterFollowUpdateSchema } from '@daisy/protocol/audience';
 import {
@@ -15,7 +15,7 @@ const FOLLOW_LIMIT = { max: 120, windowSeconds: 3600 };
  */
 export const createDebaterFollowRoute = (
   deps: AccountRouteDeps & {
-    readonly store: Pick<Database, 'setDebaterFollow'>;
+    readonly store: Pick<DebaterFollowsStore, 'setDebaterFollow'>;
   },
 ) =>
   audienceRoute(

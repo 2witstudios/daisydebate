@@ -1,8 +1,8 @@
+import { type BetaAccessStore } from '@daisy/db/stores/beta-access';
 import { createAppError } from '@daisy/errors';
-import type { Database } from '@daisy/db';
 import { decidePreapprovalChange } from '@daisy/protocol/beta-preapproval';
 
-type Store = Pick<Database, 'preapprovalCommand'>;
+type Store = Pick<BetaAccessStore, 'preapprovalCommand'>;
 type Input = Parameters<Store['preapprovalCommand']>[0];
 
 /** A new account discovered after the email fence gets a new account-first attempt. */

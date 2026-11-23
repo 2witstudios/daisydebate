@@ -1,7 +1,7 @@
+import { type BillingStore } from '@daisy/db/stores/billing';
 import { nowMs } from '@daisy/clock';
 import type { BillingConfig } from '@daisy/config';
 import type { Clock } from '@daisy/clock';
-import type { Database } from '@daisy/db';
 import { readBoundedBody } from '../../server/bounded-body';
 import { verifyBillingWebhook } from './webhook-verification';
 
@@ -10,7 +10,7 @@ export function createBillingWebhook(input: {
   readonly config: BillingConfig;
   readonly clock: Clock;
   readonly deadline: () => AbortSignal;
-  readonly receive: Database['receiveBillingReceipt'];
+  readonly receive: BillingStore['receiveBillingReceipt'];
   /** Settles a hosted tournament's payment from Stripe's own session (ADR 0149). */
   readonly settleHosting: (target: {
     readonly purchaseId: string;

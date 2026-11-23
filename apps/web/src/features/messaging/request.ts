@@ -1,6 +1,6 @@
+import { type SocialRequestLimits } from '@daisy/db/stores/contacts';
 import type { AuthorizationPrincipal } from '@daisy/auth/authorization';
 import type { IdGenerator } from '@daisy/clock';
-import type { SocialRequestLimits } from '@daisy/db';
 import type { MessagingSocialStore } from '@daisy/db/messaging';
 import { createAppError, isAppError } from '@daisy/errors';
 import {

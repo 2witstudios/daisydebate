@@ -1,6 +1,6 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { drizzle } from 'drizzle-orm/bun-sql';
-import { fakeSql } from './index.test-support';
+import { fakeSql } from './scripted-bun-wire';
 import { deleteExpiredOutboxPrefix } from './outbox-retention';
 import { requireRetentionBounds } from './retention';
 

@@ -52,6 +52,13 @@ that needed three operations was typed by, and opened lanes for, all 374.
 5. **Each process composes the stores it uses**, and its consumers name the
    narrow store types they need. The package root is deleted from the
    package's exports and banned by any spelling (`scripts/database-root.ts`).
+   The web server composes in `apps/web/src/server/database.ts`
+   (`openWebDatabase`, every area its routes, workers and sweeps read, with
+   the policy options this process owns) and realtime in
+   `apps/realtime/src/database.ts` (`openRealtimeDatabase`, six stores on its
+   admission and renewal lanes). The web process's own tests, browser-suite
+   workers and scripts open the web composition; each `packages/db` suite
+   composes only the stores it exercises.
 6. **Command records.** Tab's `action_history` and the operator receipts
    stay the two command-record kinds (Delivery 6643), with the mail queue.
    `round_commands` and `room_commands` are aggregate command logs bound to

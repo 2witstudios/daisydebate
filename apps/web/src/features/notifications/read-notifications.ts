@@ -1,7 +1,7 @@
+import { type NotificationsStore } from '@daisy/db/stores/notifications';
 import { instantMs } from '@daisy/clock';
 import { participantAccess } from '@daisy/auth/authorization';
 import { hostLobbyResource } from '../tab/operations/host-lobby-resource';
-import type { Database } from '@daisy/db';
 import type {
   NotificationItem,
   NotificationsCursor,
@@ -17,7 +17,7 @@ const PAGE = 50;
  * show a tournament notification exactly when its lobby is readable to them.
  */
 export const canReadTournamentInbox: NonNullable<
-  Parameters<Database['readNotifications']>[0]['canReadTournament']
+  Parameters<NotificationsStore['readNotifications']>[0]['canReadTournament']
 > = (facts) => {
   const account = facts.authorization.account;
   if (!account?.member || account.erased || !participantAccess(account))
@@ -32,7 +32,7 @@ export const canReadTournamentInbox: NonNullable<
 
 /** An account's stored notifications as its list reads them. */
 export const readNotificationItems = async (
-  store: Pick<Database, 'readNotifications'>,
+  store: Pick<NotificationsStore, 'readNotifications'>,
   input: {
     readonly userId: string;
     readonly query: NotificationsQuery;

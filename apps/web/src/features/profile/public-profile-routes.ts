@@ -1,8 +1,8 @@
+import { type OwnPublicProfile } from '@daisy/db/stores/profiles';
 import { defineComposition } from '../../server/composition';
 import { nowMs } from '@daisy/clock';
 import { requireAuthorization } from '@daisy/auth/request-authorization';
 import type { AuthorizationPrincipal } from '@daisy/auth/authorization';
-import type { OwnPublicProfile } from '@daisy/db';
 import type { OwnCollectionFence } from '@daisy/db/authorization';
 import { createAppError, createRefusal, isAppError } from '@daisy/errors';
 import {

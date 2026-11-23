@@ -1,4 +1,4 @@
-import type { Database } from '@daisy/db';
+import { type BillingStore } from '@daisy/db/stores/billing';
 import type { BillingConfig } from '@daisy/config';
 import {
   canManageBilling,
@@ -9,7 +9,7 @@ import { releaseAdmission } from '../flags/admission';
 
 /** The form supplies no offer, customer, redirect or release decision. */
 export function createPurchaseAdmission(input: {
-  readonly database: Pick<Database, 'billingPurchases'>;
+  readonly database: Pick<BillingStore, 'billingPurchases'>;
   readonly config: BillingConfig;
   readonly returnOrigin: string;
   /** The deployment's release-flag default (ADR 0118). */

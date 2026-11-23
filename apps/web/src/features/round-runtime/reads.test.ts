@@ -1,5 +1,5 @@
+import { type RoundRoomAuthority } from '@daisy/db/stores/rounds';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import type { RoundRoomAuthority } from '@daisy/db';
 import type { AccountAuthorizationFact } from '@daisy/auth/authorization';
 import { createAppError } from '@daisy/errors';
 import { rejectionOf } from '@daisy/errors/testing';

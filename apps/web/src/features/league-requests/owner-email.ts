@@ -1,4 +1,4 @@
-import type { LeagueRequestNotice } from '@daisy/db';
+import { type LeagueRequestNotice } from '@daisy/db/stores/league-requests';
 import { styleLabels } from '../ratings/ladder-labels';
 import { renderEmailLayout } from '../mail/layout';
 import {

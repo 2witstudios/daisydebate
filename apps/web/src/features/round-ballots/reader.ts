@@ -1,15 +1,15 @@
+import { type RoundBallotStore } from '@daisy/db/stores/rounds';
 import {
   captureRule,
   readRoundOpening,
   roundWaitingOn,
 } from '@daisy/debate-engine';
-import type { Database } from '@daisy/db';
 import { canReadRound, canReadTranscript } from '../round-runtime/reads';
 import { eventBallotAccess } from './audience';
 
 /** A ballot's own current permission grants its structured read, never Room/video access. */
 export const roundBallotReader =
-  (store: Pick<Database, 'readRoundBallot'>) =>
+  (store: Pick<RoundBallotStore, 'readRoundBallot'>) =>
   (
     caller: { readonly userId: string; readonly actorId: string },
     roundId: string,

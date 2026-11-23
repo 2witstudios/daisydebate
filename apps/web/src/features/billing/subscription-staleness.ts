@@ -1,8 +1,8 @@
+import { type BillingStore } from '@daisy/db/stores/billing';
 import { instantMs } from '@daisy/clock';
-import type { Database } from '@daisy/db';
 
 type Page = Awaited<
-  ReturnType<ReturnType<Database['billingSubscriptionStaleness']>['sample']>
+  ReturnType<ReturnType<BillingStore['billingSubscriptionStaleness']>['sample']>
 >;
 export type SubscriptionFreshnessFacts = Omit<
   Page,

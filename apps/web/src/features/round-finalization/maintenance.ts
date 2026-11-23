@@ -1,8 +1,9 @@
+import { type RatingStore } from '@daisy/db/stores/ratings';
+import { type RoundMaintenanceStore } from '@daisy/db/stores/round-maintenance';
 import { panelAdmission } from './admission';
 import { instantMs } from '@daisy/clock';
 import type { IdGenerator } from '@daisy/clock';
 import type { AttendanceEvaluation } from '@daisy/db/attendance';
-import type { Database } from '@daisy/db';
 import {
   attendanceSettled,
   botGrantUnused,
@@ -23,7 +24,7 @@ import { createRatingSweep } from '../ratings/sweep';
 import { roundTickProjection } from './operations';
 
 type JudgingPlanner = Parameters<
-  Database['finalizeDueRoundTranscript']
+  RoundMaintenanceStore['finalizeDueRoundTranscript']
 >[0]['planJudging'];
 /** The freeze applies the engine's DEC-208 gate under the injected ballot deadline. */
 export const judgingPlan =
@@ -35,7 +36,7 @@ export const judgingPlan =
       aiJudgingBudgetMs: judgingPolicy.aiBudgetMs,
     });
 type CompletionBuilder = Parameters<
-  Database['completePanelRound']
+  RoundMaintenanceStore['completePanelRound']
 >[0]['buildCompletion'];
 /** The engine decides; a judged Round before its persisted ballot deadline is not yet eligible. */
 export const panelCompletion =
@@ -71,14 +72,13 @@ export const panelCompletion =
 /** Bound internal ports; the startup owner supplies the existing availability instance. */
 export function createRoundMaintenanceOperations(input: {
   readonly store: Pick<
-    Database,
+    RoundMaintenanceStore,
     | 'readRoundMaintenanceCandidates'
     | 'tickDueRound'
     | 'finalizeDueRoundTranscript'
-    | 'readRatingCandidates'
-    | 'rateRound'
     | 'completePanelRound'
-  >;
+  > &
+    Pick<RatingStore, 'readRatingCandidates' | 'rateRound'>;
   readonly instanceId: string;
   readonly ratingFailed: (roundId: string, error: unknown) => void;
   /** An AI judge's job ended at completion, with no worker there to report it. */

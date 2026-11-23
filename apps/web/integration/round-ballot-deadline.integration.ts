@@ -1,3 +1,4 @@
+import { type RatingStore } from '@daisy/db/stores/ratings';
 import { judgingProgression } from '../src/features/round-judging/progression';
 import { canUseAiAllowance } from '@daisy/auth/authorization';
 import { atFinalJudgingStage } from '@daisy/db/testing';
@@ -9,7 +10,6 @@ import {
   readRoundOpening,
   roundWaitingOn,
 } from '@daisy/debate-engine';
-import type { Database } from '@daisy/db';
 import { seedRatingSeason } from '@daisy/db/testing';
 import { recoverRankedResults } from './ranked-room.test-support';
 import { randomBytes } from 'node:crypto';
@@ -647,7 +647,9 @@ async function proveFirstSpeakerAbsent(f: Fixture, roundId: string) {
 
 const awaitsRating = async (
   f: {
-    readonly store: { readonly readRatingFacts: Database['readRatingFacts'] };
+    readonly store: {
+      readonly readRatingFacts: RatingStore['readRatingFacts'];
+    };
   },
   roundId: string,
 ) => {

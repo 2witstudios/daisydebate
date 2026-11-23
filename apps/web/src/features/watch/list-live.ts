@@ -1,4 +1,4 @@
-import type { Database } from '@daisy/db';
+import { type SpectatingStore } from '@daisy/db/stores/spectating';
 import { spectatorClockAt } from '../spectating/spectator-clock';
 import { liveCardOf, type LiveCard } from './live-card';
 import type { LiveQuery } from './live-query';
@@ -7,7 +7,7 @@ import type { LiveQuery } from './live-query';
 const LIVE_PAGE_SIZE = 24;
 
 export type LiveStore = Pick<
-  Database,
+  SpectatingStore,
   'listLiveBroadcasts' | 'countLiveBroadcasts'
 >;
 

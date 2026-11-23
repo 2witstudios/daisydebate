@@ -1,5 +1,5 @@
+import { type MessagingStore } from '@daisy/db/stores/messaging';
 import { requireMessagingGroupResult } from './group-command-result';
-import type { Database } from '@daisy/db';
 import type { MessagingGroupManagementFence } from '@daisy/db/messaging';
 import type { AuthorizationPrincipal } from '@daisy/auth/authorization';
 import type { SocialContactPolicy } from '@daisy/auth/social-policy';
@@ -20,7 +20,7 @@ const capabilities = {
 } as const;
 /** Safety and committed-result checks deliberately require no age/content-policy loader. */
 export function composeMessagingGroupManagementStore(input: {
-  readonly database: Database;
+  readonly database: MessagingStore;
   readonly principal: AuthorizationPrincipal;
   readonly clock: Clock;
   readonly postingPolicy: SocialContactPolicy;

@@ -1,4 +1,4 @@
-import type { Database } from '@daisy/db';
+import { type MessagingStore } from '@daisy/db/stores/messaging';
 import { roundFloorRetentionMs } from '@daisy/protocol/round-floor';
 import {
   retentionAfter,
@@ -7,7 +7,7 @@ import {
 
 export const floorRetentionTargets = (
   database: Pick<
-    Database,
+    MessagingStore,
     | 'purgeExpiredRoundFloorReceipts'
     | 'purgeExpiredRoundFloorMessages'
     | 'purgeExpiredRoundFloorReadStates'

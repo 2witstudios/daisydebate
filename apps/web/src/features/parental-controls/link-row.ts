@@ -1,5 +1,5 @@
+import { type GuardianLinkRow } from '@daisy/db/stores/guardians';
 import { createAppError } from '@daisy/errors';
-import type { GuardianLinkRow } from '@daisy/db';
 import type { GuardianLink } from './guardian-link';
 
 export function readGuardianLink(row: GuardianLinkRow): GuardianLink {

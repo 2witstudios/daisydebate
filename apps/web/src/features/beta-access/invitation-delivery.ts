@@ -1,4 +1,4 @@
-import type { Database } from '@daisy/db';
+import { type MailStore } from '@daisy/db/stores/mail';
 import {
   blocksPreapprovalInvitation,
   canInviteClaimedPreapproval,
@@ -6,7 +6,7 @@ import {
 } from '@daisy/protocol/beta-preapproval';
 
 type InvitationRead = Extract<
-  Awaited<ReturnType<Database['readMailIntentDelivery']>>,
+  Awaited<ReturnType<MailStore['readMailIntentDelivery']>>,
   { kind: 'beta-invitation' }
 >;
 

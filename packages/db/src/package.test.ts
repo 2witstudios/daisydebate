@@ -4,28 +4,12 @@ import { getTableColumns, getTableName } from 'drizzle-orm';
 import { getTableConfig } from 'drizzle-orm/pg-core';
 import { rounds } from './schema/rounds';
 import { users } from './schema/users';
-import * as packageEntry from './index';
 import * as outboxEntry from '@daisy/db/outbox';
-import { unreachableDatabase } from './index.test-support';
+import { virtualClock } from '@daisy/clock/testing';
+import { openDatabaseResources } from './resources';
+import { createHealthStore } from './stores/health';
 
 setupRitewayBun();
-
-describe('package entry surface (ISSUE-8 AC1)', () => {
-  test('never re-exports a function that takes a Drizzle transaction/table handle, only the createDatabase factory and the two startup gates; the capacity-refusal identity is the client-safe @daisy/db/capacity subpath', () => {
-    assert({
-      given: "the package entry's exported names",
-      should:
-        'exclude appendOutboxEvent, drainOutbox, deleteExpiredBatch and the raw outbox table — each takes or is a Drizzle handle, so a caller outside packages/db can only reach the opaque createDatabase() surface',
-      actual: Object.keys(packageEntry).sort(),
-      expected: [
-        'WORKLOAD_PROFILES',
-        'createDatabase',
-        'refuseSchemaAlteringRole',
-        'refuseUnisolatedTenantTables',
-      ].sort(),
-    });
-  });
-});
 
 describe('outbox public surface', () => {
   test('exposes cursor values without raw persistence operations', () => {
@@ -104,7 +88,19 @@ describe('persistence schema', () => {
 
 describe('database adapter failures', () => {
   test('reports a failed query through the injected event sink', async () => {
-    const { database, events } = unreachableDatabase();
+    const events: {
+      event: string;
+      fields: Record<string, unknown>;
+      message: string;
+    }[] = [];
+    const database = createHealthStore(
+      openDatabaseResources({
+        url: 'postgresql://user:password@127.0.0.1:1/daisy',
+        eventSink: (event, fields, message) =>
+          events.push({ event, fields, message }),
+        waits: virtualClock(),
+      }),
+    );
 
     await expect(database.health()).rejects.toMatchObject({
       cause: { code: 'ERR_POSTGRES_CONNECTION_REFUSED' },

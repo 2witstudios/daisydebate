@@ -1,3 +1,4 @@
+import { type PublicProfileCard } from '@daisy/db/stores/profiles';
 import {
   ADMITTED_AGE_BANDS,
   type AuthorizationPrincipal,
@@ -16,7 +17,6 @@ import type { RatingState } from '@daisy/protocol/ratings';
 import type { RoundStatus } from '@daisy/protocol/round';
 import type { RoundOutcome } from '@daisy/protocol/round-outcome';
 import type { SeatRef } from '@daisy/protocol/seats';
-import type { PublicProfileCard } from '@daisy/db';
 import { daisyLadders } from '@daisy/protocol/ladder';
 import type {
   PeopleListCursor,

@@ -1,9 +1,9 @@
-import type { Database } from '@daisy/db';
+import { type BillingStore } from '@daisy/db/stores/billing';
 import type { CleanupDeliveryRequest as Request } from './cleanup-delivery-request';
 import { readOwnedSubscription } from './subscription-observation';
 import type { CleanupVendorPort } from './cleanup-vendor';
 type Store = Pick<
-  ReturnType<Database['billingCleanup']>,
+  ReturnType<BillingStore['billingCleanup']>,
   'frozenOffer' | 'record'
 >;
 type Resources = {

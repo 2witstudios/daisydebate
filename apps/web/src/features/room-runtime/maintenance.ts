@@ -1,7 +1,7 @@
+import { type RoomStore } from '@daisy/db/stores/rooms';
 import type { Waits } from '@daisy/clock';
 import { pollWork, type LoopPass } from '@daisy/worker';
 import { LIVE_IDLE_MAX_MS } from '../../lib/worker-idle';
-import type { Database } from '@daisy/db';
 import { maintainRoom } from '@daisy/debate-engine';
 
 /** How often Room maintenance runs: due draw strikes settle within a pulse. */
@@ -23,7 +23,7 @@ type RoomMaintenanceFailed = (
 export const createRoomMaintenance =
   (input: {
     readonly store: Pick<
-      Database,
+      RoomStore,
       'readMaintenanceCandidates' | 'maintainRoom'
     >;
     /** Injected Room policy, or null to leave idle Room expiry inert (ADR 0070). */

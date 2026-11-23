@@ -1,10 +1,10 @@
-import type { Database } from '@daisy/db';
+import { type NotificationsStore } from '@daisy/db/stores/notifications';
 import type { EmailMessage } from '../../mail/types';
 import { createAwayMailDelivery } from './away-mail';
 import { renderNotificationDigest } from './templates';
 
 type Store = Pick<
-  Database,
+  NotificationsStore,
   | 'claimNotificationDigests'
   | 'readNotificationDigestDelivery'
   | 'settleNotificationDigest'

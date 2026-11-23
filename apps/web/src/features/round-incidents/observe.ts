@@ -1,3 +1,5 @@
+import { type RoundIncidentStore } from '@daisy/db/stores/round-incidents';
+import { type RoundHydration } from '@daisy/db/stores/rounds';
 import { instantMs } from '@daisy/clock';
 import { isRoundRunning } from '@daisy/protocol/round';
 import {
@@ -7,14 +9,13 @@ import {
   type MediaObservation,
 } from '@daisy/debate-engine';
 import { createAppError } from '@daisy/errors';
-import type { Database, RoundHydration } from '@daisy/db';
 import type { Logger } from '@daisy/logger';
 import type { ErrorReporter } from '@daisy/observability';
 import { roundIncidentPolicy } from '@daisy/protocol/round-incident-policy';
 import type { MediaPassReport } from '../round-media/operation-context';
 
 type Store = Pick<
-  Database['roundIncidents'],
+  RoundIncidentStore['roundIncidents'],
   'observeRoundIncident' | 'readRoundIncidentWatch'
 >;
 

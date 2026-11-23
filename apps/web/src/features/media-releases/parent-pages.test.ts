@@ -1,5 +1,5 @@
+import { type ParentLinkRead } from '@daisy/db/stores/media-releases';
 import { instantMs } from '@daisy/clock';
-import type { ParentLinkRead } from '@daisy/db';
 import type {
   MediaReleaseRecord,
   ReleaseRequest,

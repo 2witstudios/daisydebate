@@ -1,5 +1,5 @@
+import { type StandingsStore } from '@daisy/db/stores/standings';
 import { addMs } from '@daisy/clock';
-import type { Database } from '@daisy/db';
 import type { StandingsRead } from '@daisy/db/ratings';
 import { ratingDivisionForAgeRule, type Ladder } from '@daisy/protocol/ladder';
 import { createAppError } from '@daisy/errors';
@@ -10,7 +10,7 @@ import { summarizeStandings } from './summarize';
 import { replayPublishedStandings } from './replay-published-standings';
 
 export type RatingReadStore = Pick<
-  Database,
+  StandingsStore,
   | 'listLadderSeasons'
   | 'readStandings'
   | 'readRatingBlindings'

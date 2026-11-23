@@ -1,4 +1,4 @@
-import type { Database } from '@daisy/db';
+import { type MessagingStore } from '@daisy/db/stores/messaging';
 import { messageRequestSettingSchema } from '@daisy/protocol/messaging/social';
 import {
   accountRoute,
@@ -13,7 +13,7 @@ import { parseValidated } from '../../server/http';
  */
 export const createMessageRequestSettingRoute = (
   deps: AccountRouteDeps & {
-    readonly store: Pick<Database, 'writeMessageRequestSetting'>;
+    readonly store: Pick<MessagingStore, 'writeMessageRequestSetting'>;
   },
 ) =>
   accountRoute(

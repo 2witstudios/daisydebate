@@ -1,5 +1,5 @@
+import { type NotificationsStore } from '@daisy/db/stores/notifications';
 import type { Clock } from '@daisy/clock';
-import type { Database } from '@daisy/db';
 import {
   NOTIFICATIONS_SHELL_RECENT,
   notificationPreferencesSchema,
@@ -21,7 +21,7 @@ const WRITE_LIMIT = { max: 120, windowSeconds: 3600 };
 /** POST /api/notifications/read: marks some, or all, of the account's own. */
 export const createNotificationsReadRoute = (
   deps: AccountRouteDeps & {
-    readonly store: Pick<Database, 'markNotificationsRead'>;
+    readonly store: Pick<NotificationsStore, 'markNotificationsRead'>;
     readonly clock: Pick<Clock, 'now'>;
   },
 ) =>
@@ -47,7 +47,7 @@ export const createNotificationsReadRoute = (
 /** POST /api/notifications/preferences: stores what the member chose (ISSUE-1045). */
 export const createNotificationPreferencesRoute = (
   deps: AccountRouteDeps & {
-    readonly store: Pick<Database, 'writeNotificationPreferences'>;
+    readonly store: Pick<NotificationsStore, 'writeNotificationPreferences'>;
   },
 ) =>
   accountRoute(
@@ -79,7 +79,7 @@ const SHELL_LIMIT = { max: 600, windowSeconds: 3600 };
 export const createNotificationShellRoute = (
   deps: AccountRouteDeps & {
     readonly store: Pick<
-      Database,
+      NotificationsStore,
       'readNotifications' | 'readNotificationPresentation'
     >;
     readonly clock: Pick<Clock, 'now'>;
@@ -123,7 +123,7 @@ export const createNotificationShellRoute = (
 /** POST /api/notifications/presentation: how the member is told, and the email switch. */
 export const createNotificationPresentationRoute = (
   deps: AccountRouteDeps & {
-    readonly store: Pick<Database, 'writeNotificationPresentation'>;
+    readonly store: Pick<NotificationsStore, 'writeNotificationPresentation'>;
   },
 ) =>
   accountRoute(

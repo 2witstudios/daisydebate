@@ -1,4 +1,4 @@
-import type { Database } from '@daisy/db';
+import { type SpectatorChatStore } from '@daisy/db/stores/spectator-chat';
 import {
   DAY_MS,
   retentionAfter,
@@ -7,7 +7,7 @@ import {
 
 /** Spectator chat goes 180 days after posting, matching transcript retention (point guard ruling 2026-11-03). */
 export const spectatorChatRetentionTarget = (
-  database: Pick<Database, 'purgeExpiredSpectatorChat'>,
+  database: Pick<SpectatorChatStore, 'purgeExpiredSpectatorChat'>,
 ): RetentionTarget =>
   retentionAfter(
     'spectator_chat',

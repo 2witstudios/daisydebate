@@ -1,4 +1,4 @@
-import type { Database } from '@daisy/db';
+import { type BillingStore } from '@daisy/db/stores/billing';
 import { createAppError } from '@daisy/errors';
 import { noCleanupEffects } from '@daisy/protocol/billing';
 import { createLocalCleanupDelivery } from './cleanup-local-delivery';
@@ -14,7 +14,7 @@ import type { CleanupVendorPort } from './cleanup-vendor';
 import type { createInvoicePassReader } from './invoice-pass-reader';
 import type { createPaymentObservationReader } from './payment-observation-reader';
 type Store = Pick<
-  ReturnType<Database['billingCleanup']>,
+  ReturnType<BillingStore['billingCleanup']>,
   | 'claim'
   | 'inspect'
   | 'resources'

@@ -1,12 +1,12 @@
+import { type RoomStore } from '@daisy/db/stores/rooms';
 import { participantAccess } from '@daisy/auth/authorization';
-import type { Database } from '@daisy/db';
 import {
   decideInvitationEnd,
   decideRoomInvitation,
 } from '@daisy/debate-engine';
 import type { SeatKind } from '@daisy/protocol/seats';
 
-type Store = Pick<Database, 'inviteToRoom' | 'endRoomInvitation'>;
+type Store = Pick<RoomStore, 'inviteToRoom' | 'endRoomInvitation'>;
 type Caller = { readonly userId: string; readonly actorId: string };
 
 /** Invitations a host may send per hour (ADR 0124). */

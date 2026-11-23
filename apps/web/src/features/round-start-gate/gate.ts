@@ -1,9 +1,10 @@
+import { type RoundStartGateStore } from '@daisy/db/stores/round-start-gates';
+import { type RoundHydration } from '@daisy/db/stores/rounds';
 import { instantMs } from '@daisy/clock';
 import { createRoundRuntime } from '@daisy/debate-engine';
-import type { Database, RoundHydration } from '@daisy/db';
 import { roundStartPolicy } from '@daisy/protocol/round-start-policy';
 
-type Store = Database['roundStartGates'];
+type Store = RoundStartGateStore['roundStartGates'];
 
 /**
  * Whether capture has a speech's speakers before its clock starts (ADR 0110). The pass

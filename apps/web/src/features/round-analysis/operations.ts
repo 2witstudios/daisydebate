@@ -1,10 +1,10 @@
+import { type RoundAnalysisStore } from '@daisy/db/stores/round-analysis';
 import {
   isDefiniteProviderFailure,
   parseRoundAnalysis,
   roundAnalysisMessages,
   type OpenRouter,
 } from '@daisy/ai-voice';
-import type { Database } from '@daisy/db';
 import type { RoundAnalysisSeat } from '@daisy/db/rounds';
 import { createAppError } from '@daisy/errors';
 import type { ProviderCall } from '../../server/provider-budget';
@@ -12,7 +12,7 @@ import { transcriptEvidenceInput } from '../round-runtime/transcript-evidence';
 
 const analysisMaxTokens = 12_000;
 type Store = Pick<
-  Database,
+  RoundAnalysisStore,
   | 'claimRoundAnalysisJob'
   | 'beginRoundAnalysisModelCall'
   | 'recordRoundAnalysisOutcome'

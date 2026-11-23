@@ -1,5 +1,6 @@
+import { type FormatsStore } from '@daisy/db/stores/formats';
+import { type RoundStore } from '@daisy/db/stores/rounds';
 import type { IdGenerator } from '@daisy/clock';
-import type { Database } from '@daisy/db';
 import { createAppError, isAppError } from '@daisy/errors';
 import type { Principal } from '@daisy/auth';
 import { authorize } from '@daisy/auth/authorization';
@@ -34,7 +35,8 @@ const proofFormat = 'foundation';
 export type ProofDependencies = {
   /** `FOUNDATION_PROOF_ENABLED` from validated server config. */
   readonly enabled: boolean;
-  readonly database: Pick<Database, 'getFormat' | 'createRound' | 'getRound'>;
+  readonly database: Pick<FormatsStore, 'getFormat'> &
+    Pick<RoundStore, 'createRound' | 'getRound'>;
   readonly ids: IdGenerator;
 };
 

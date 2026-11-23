@@ -1,4 +1,4 @@
-import type { Database } from '@daisy/db';
+import { type MessagingStore } from '@daisy/db/stores/messaging';
 import type { MessagingGroupInvitationFence } from '@daisy/db/messaging';
 import type {
   AuthorizationInput,
@@ -76,7 +76,7 @@ export function composeMessagingGroupInvitationStore({
   admissionPolicy,
   maxMembers,
 }: {
-  readonly database: Database;
+  readonly database: MessagingStore;
   readonly principal: AuthorizationPrincipal;
   readonly clock: Clock;
   readonly admissionPolicy?: SocialCreationPolicy;

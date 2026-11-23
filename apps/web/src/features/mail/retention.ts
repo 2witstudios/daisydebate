@@ -1,4 +1,4 @@
-import type { Database } from '@daisy/db';
+import { type MailStore } from '@daisy/db/stores/mail';
 import {
   DAY_MS,
   retentionAfter,
@@ -7,7 +7,7 @@ import {
 
 export const deliveryRetentionTargets = (
   database: Pick<
-    Database,
+    MailStore,
     'purgeExpiredEmailDeliveryEvents' | 'purgeExpiredEmailDeliveries'
   >,
 ): readonly RetentionTarget[] => [
@@ -26,7 +26,7 @@ export const deliveryRetentionTargets = (
 
 /** ADR 0075: sent, failed and cancelled mail intents are kept 30 days. */
 export const mailIntentRetentionTarget = (
-  database: Pick<Database, 'purgeExpiredMailIntents'>,
+  database: Pick<MailStore, 'purgeExpiredMailIntents'>,
 ): RetentionTarget =>
   retentionAfter('mail_intents', 30 * DAY_MS, (batch) =>
     database.purgeExpiredMailIntents(batch),

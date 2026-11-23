@@ -1,4 +1,4 @@
-import type { LeagueRequestNotice } from '@daisy/db';
+import { type LeagueRequestNotice } from '@daisy/db/stores/league-requests';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import type { EmailMessage } from '../mail/types';
 import { MAIL_MAX_ATTEMPTS } from '../mail/retry-policy';

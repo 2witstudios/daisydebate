@@ -1,7 +1,7 @@
+import { type MailStore } from '@daisy/db/stores/mail';
 import { nowMs, instantMs } from '@daisy/clock';
 import { knownDeliveryRejection } from '../mail/resend-sender';
 import { operatorConsoleOrigin } from '@daisy/protocol/beta-access';
-import type { Database } from '@daisy/db';
 import type { EmailMessage } from '../mail/types';
 import { renderBetaEmail } from './templates';
 import {
@@ -15,7 +15,7 @@ import { decideApprovalDelivery } from './approval-delivery';
 import { runMailQueue } from '../mail/run-queue';
 
 type Store = Pick<
-  Database,
+  MailStore,
   'claimMailIntents' | 'readMailIntentDelivery' | 'settleMailIntent'
 >;
 type Claim = Awaited<ReturnType<Store['claimMailIntents']>>[number];

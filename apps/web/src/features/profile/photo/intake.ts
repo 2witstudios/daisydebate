@@ -1,6 +1,6 @@
+import { type OwnPublicProfile } from '@daisy/db/stores/profiles';
 import type { AuthorizationPrincipal } from '@daisy/auth/authorization';
 import { addMs, type Clock, type IdGenerator } from '@daisy/clock';
-import type { OwnPublicProfile } from '@daisy/db';
 import { createRefusal, isAppError, rethrow } from '@daisy/errors';
 import {
   PROFILE_PHOTO_MAX_BYTES,

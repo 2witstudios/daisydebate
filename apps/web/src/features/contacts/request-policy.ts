@@ -1,5 +1,5 @@
+import { type SocialRequestLimits } from '@daisy/db/stores/contacts';
 import type { ContactsPolicyOverride } from '@daisy/config';
-import type { SocialRequestLimits } from '@daisy/db';
 import { tightenOnly } from '../../server/tighten-only';
 import type { RateRule } from '../../server/rate-limit';
 

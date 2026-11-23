@@ -1,6 +1,6 @@
+import { type MessagingStore } from '@daisy/db/stores/messaging';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';
-import type { Database } from '@daisy/db';
 import type { PendingFileAuthorizationFact } from '@daisy/auth/authorization';
 import { composeMessagingFileCleanup } from './file-cleanup';
 setupRitewayBun();
@@ -39,7 +39,7 @@ test('actual pending cleanup composition uses canonical own-file authority witho
   let writes = 0;
   let currentFact = fact;
   let currentAccount = account;
-  const database: Pick<Database, 'messagingFileCleanup'> = {
+  const database: Pick<MessagingStore, 'messagingFileCleanup'> = {
     messagingFileCleanup: (authorize) => async (input, expected) => {
       await authorize({ execute: async () => [] } as never, input, {
         fact: { ...currentFact, expectedGeneration: expected.generation },

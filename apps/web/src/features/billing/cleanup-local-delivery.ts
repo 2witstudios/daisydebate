@@ -1,8 +1,8 @@
-import type { Database } from '@daisy/db';
+import { type BillingStore } from '@daisy/db/stores/billing';
 import type { CleanupDeliveryRequest } from './cleanup-delivery-request';
 
 type Store = Pick<
-  ReturnType<Database['billingCleanup']>,
+  ReturnType<BillingStore['billingCleanup']>,
   'resources' | 'record'
 >;
 

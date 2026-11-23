@@ -1,4 +1,4 @@
-import type { Database } from '@daisy/db';
+import { type WatchHistoryStore } from '@daisy/db/stores/watch-history';
 import {
   DAY_MS,
   retentionAfter,
@@ -7,7 +7,7 @@ import {
 
 /** SPECT-1.4: a Round leaves watch history a year after the last visit. */
 export const watchHistoryRetentionTarget = (
-  database: Pick<Database, 'purgeExpiredWatchHistory'>,
+  database: Pick<WatchHistoryStore, 'purgeExpiredWatchHistory'>,
 ): RetentionTarget =>
   retentionAfter(
     'watch_history',

@@ -1,4 +1,4 @@
-import type { Database } from '@daisy/db';
+import { type AvailabilityStore } from '@daisy/db/stores/availability';
 import {
   DAY_MS,
   retentionAfter,
@@ -7,7 +7,7 @@ import {
 
 export const availabilityRetentionTargets = (
   database: Pick<
-    Database,
+    AvailabilityStore,
     'purgeExpiredServiceInstances' | 'purgeExpiredAvailabilitySamples'
   >,
 ): readonly RetentionTarget[] => [

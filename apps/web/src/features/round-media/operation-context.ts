@@ -1,7 +1,7 @@
+import { type MediaSessionStore } from '@daisy/db/stores/media-sessions';
 import type { MediaObservation } from '@daisy/debate-engine';
 import type { RoundIncident, RoundStatus } from '@daisy/protocol/round';
 import type { createAdmissionPriority } from './admission-priority';
-import type { Database } from '@daisy/db';
 import type { MediaNodes, MediaVendor } from '@daisy/media';
 import type { ErrorReporter } from '@daisy/observability';
 import type { Logger } from '@daisy/logger';
@@ -18,7 +18,7 @@ export type MediaPassReport = {
   };
 };
 
-export type Store = Database['mediaSessions'];
+export type Store = MediaSessionStore['mediaSessions'];
 export type Claim = Extract<
   Awaited<ReturnType<Store['claimMediaReconcile']>>,
   { kind: 'claimed' }

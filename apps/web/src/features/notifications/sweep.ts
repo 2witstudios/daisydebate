@@ -1,4 +1,4 @@
-import type { Database } from '@daisy/db';
+import { type NotificationsStore } from '@daisy/db/stores/notifications';
 import { spectatorClockAt } from '../spectating/spectator-clock';
 
 const BATCH = 64;
@@ -9,7 +9,7 @@ const BATCH = 64;
  */
 export const createNotificationSweep =
   (deps: {
-    readonly store: Pick<Database, 'sweepNotificationFanouts'>;
+    readonly store: Pick<NotificationsStore, 'sweepNotificationFanouts'>;
     readonly now: () => string;
     readonly nextId: () => string;
   }) =>

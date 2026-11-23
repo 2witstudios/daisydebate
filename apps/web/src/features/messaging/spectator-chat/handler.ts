@@ -1,5 +1,5 @@
+import { type SpectatorChatStore } from '@daisy/db/stores/spectator-chat';
 import type { Clock, IdGenerator } from '@daisy/clock';
-import type { Database } from '@daisy/db';
 import { createAppError, createRefusal } from '@daisy/errors';
 import { spectatorChatPostSchema } from '@daisy/protocol/audience';
 import {
@@ -21,7 +21,7 @@ const CHAT_LIMIT = { max: 20, windowSeconds: 60 };
  */
 export const createSpectatorChatRoute = (
   deps: AccountRouteDeps & {
-    readonly store: Pick<Database, 'postSpectatorChatMessage'>;
+    readonly store: Pick<SpectatorChatStore, 'postSpectatorChatMessage'>;
     readonly clock: Pick<Clock, 'now'>;
     readonly ids: Pick<IdGenerator, 'next'>;
   },

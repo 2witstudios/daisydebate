@@ -1,4 +1,4 @@
-import type { Database } from '@daisy/db';
+import { type MediaReleaseStore } from '@daisy/db/stores/media-releases';
 import {
   DAY_MS,
   retentionAfter,
@@ -7,7 +7,7 @@ import {
 
 export const mediaReleaseRetentionTargets = (
   database: Pick<
-    Database,
+    MediaReleaseStore,
     'purgeEndedMediaReleaseRequests' | 'purgeWithdrawnMediaReleases'
   >,
 ): readonly RetentionTarget[] => [

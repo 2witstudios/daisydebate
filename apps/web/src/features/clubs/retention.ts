@@ -1,4 +1,4 @@
-import type { Database } from '@daisy/db';
+import { type MailStore } from '@daisy/db/stores/mail';
 import {
   DAY_MS,
   retentionAfter,
@@ -7,7 +7,7 @@ import {
 
 /** ADR 0148: a lapsed Club seat invitation (an invitee's address) is kept 30 days. */
 export const seatInvitationRetentionTarget = (
-  database: Pick<Database, 'purgeLapsedClubSeatInvitations'>,
+  database: Pick<MailStore, 'purgeLapsedClubSeatInvitations'>,
 ): RetentionTarget =>
   retentionAfter(
     'club_seat_invitations',

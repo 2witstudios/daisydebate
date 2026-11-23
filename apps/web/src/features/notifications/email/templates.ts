@@ -1,4 +1,4 @@
-import type { InboxRow } from '@daisy/db';
+import { type InboxRow } from '@daisy/db/stores/notifications';
 import { renderEmailLayout } from '../../mail/layout';
 import { notificationWords } from '../notification-words';
 

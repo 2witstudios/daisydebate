@@ -18,7 +18,7 @@ setupRitewayBun();
 const { databaseUrl: ownerUrl } = requireTestServices(process.env);
 
 /**
- * Runs the check through `createDatabase` on one owner connection, as the
+ * Runs the check through the health store on one owner connection, as the
  * owner or after `set role`, so `current_user` is exactly the role Fly's
  * DATABASE_URL would log in as. No role is created or dropped: role DDL is
  * cluster-wide and would reach every other slot's suites.

@@ -1,9 +1,9 @@
+import { type FlagsStore } from '@daisy/db/stores/flags';
 import { sha3Hex } from '@daisy/digest';
 import {
   authorize,
   type AuthorizationPrincipal,
 } from '@daisy/auth/authorization';
-import type { Database } from '@daisy/db';
 import { createAppError } from '@daisy/errors';
 import {
   flagStateCommandSchema,
@@ -30,7 +30,7 @@ export function mayControlFlags(
 /** Closed resource operations on the private signed listener only. */
 export async function changeFlag(
   deps: {
-    readonly store: Pick<Database, 'flagCommand'>;
+    readonly store: Pick<FlagsStore, 'flagCommand'>;
     readonly nextId: () => string;
     readonly nowMs: () => number;
   },

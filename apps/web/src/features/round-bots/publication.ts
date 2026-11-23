@@ -1,3 +1,4 @@
+import { type RoundWorkerStore } from '@daisy/db/stores/round-workers';
 import {
   emptyPublicationSchedule,
   nextPublicationSchedule,
@@ -6,7 +7,6 @@ import {
 import { instantMs } from '@daisy/clock';
 import type { createAudioPublication } from '@daisy/media/audio';
 import { createStreamingAudioWriter } from '@daisy/media/publication';
-import type { Database } from '@daisy/db';
 import type { BotPublicationScope } from '@daisy/db/bot-publication';
 import { spokenPrefix } from '@daisy/protocol/authored-speech';
 import { createAppError, isAppError, rethrow } from '@daisy/errors';
@@ -164,7 +164,7 @@ const transient = (error: unknown) =>
  */
 export function createBotPublisher(input: {
   readonly store: Pick<
-    Database,
+    RoundWorkerStore,
     | 'verifyRoundBotPublication'
     | 'beginRoundBotPhrase'
     | 'endRoundBotPhrase'

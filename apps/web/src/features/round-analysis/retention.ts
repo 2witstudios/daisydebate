@@ -1,4 +1,4 @@
-import type { Database } from '@daisy/db';
+import { type RoundAnalysisStore } from '@daisy/db/stores/round-analysis';
 import {
   DAY_MS,
   retentionAfter,
@@ -7,7 +7,7 @@ import {
 
 /** Round analyses keep the same 180-day window as the transcripts they read. */
 export const roundAnalysisRetentionTarget = (
-  database: Pick<Database, 'purgeExpiredRoundAnalyses'>,
+  database: Pick<RoundAnalysisStore, 'purgeExpiredRoundAnalyses'>,
 ): RetentionTarget =>
   retentionAfter('round_analyses', 180 * DAY_MS, (batch) =>
     database.purgeExpiredRoundAnalyses(batch),

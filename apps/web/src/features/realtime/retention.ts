@@ -1,4 +1,4 @@
-import type { Database } from '@daisy/db';
+import { type OutboxStore } from '@daisy/db/stores/outbox';
 import {
   DAY_MS,
   retentionAfter,
@@ -18,7 +18,7 @@ import {
  * batches, the batch size or the run frequency together if it does.
  */
 export const outboxRetentionTarget = (
-  database: Pick<Database, 'purgeExpiredOutboxEvents'>,
+  database: Pick<OutboxStore, 'purgeExpiredOutboxEvents'>,
 ): RetentionTarget =>
   retentionAfter(
     'outbox',

@@ -1,4 +1,4 @@
-import type { Database } from '@daisy/db';
+import { type LeagueRequestsStore } from '@daisy/db/stores/league-requests';
 import { createAppError } from '@daisy/errors';
 import { CLIENT_IP_HEADER } from '@daisy/ingress/client-ip';
 import type { Logger } from '@daisy/logger';
@@ -64,7 +64,7 @@ export const createLeagueRequestHandlers = (deps: {
   /** The id a changed resend is stored under: a stored request never changes. */
   readonly newId: () => string;
   readonly store: Pick<
-    Database,
+    LeagueRequestsStore,
     'leagueRequestUnchanged' | 'recordLeagueRequest'
   >;
 }) => ({

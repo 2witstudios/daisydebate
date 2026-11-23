@@ -1,3 +1,5 @@
+import { type RatingStore } from '@daisy/db/stores/ratings';
+import { type StandingsStore } from '@daisy/db/stores/standings';
 import {
   affirmativeSide,
   isDebatingSeat,
@@ -6,7 +8,6 @@ import {
 } from '@daisy/protocol/seats';
 import { isRoundOver } from '@daisy/protocol/round';
 import { winnerOutcome } from '@daisy/protocol/round-outcome';
-import type { Database } from '@daisy/db';
 import { createAppError } from '@daisy/errors';
 import type { Ladder } from '@daisy/protocol/ladder';
 import type { RoundView } from '@daisy/protocol/round-view';
@@ -36,7 +37,7 @@ export type RoundRatingsView = {
 };
 
 const roundAwaitsRating = async (
-  store: Pick<Database, 'readRatingFacts'>,
+  store: Pick<RatingStore, 'readRatingFacts'>,
   roundId: string,
 ) => {
   const facts = await store.readRatingFacts(roundId);
@@ -46,13 +47,13 @@ const roundAwaitsRating = async (
 /** Authorized Round read is the named input; the feature alone computes rating stakes. */
 export async function readRoundRatings(
   store: Pick<
-    Database,
+    StandingsStore,
     | 'listLadderSeasons'
     | 'listOfficialRatingLadders'
     | 'readStandings'
     | 'readRatingBlindings'
-    | 'readRatingFacts'
-  >,
+  > &
+    Pick<RatingStore, 'readRatingFacts'>,
   input: {
     readonly round: RoundView;
     readonly now: string;

@@ -1,4 +1,4 @@
-import type { Database } from '@daisy/db';
+import { type BillingStore } from '@daisy/db/stores/billing';
 import { createAppError } from '@daisy/errors';
 import {
   subscriptionFreshness,
@@ -6,7 +6,7 @@ import {
   type SubscriptionFreshness,
 } from './subscription-staleness';
 
-type Store = ReturnType<Database['billingSubscriptionStaleness']>;
+type Store = ReturnType<BillingStore['billingSubscriptionStaleness']>;
 type Page = Awaited<ReturnType<Store['sample']>>;
 type Scan = {
   readonly cursor: { readonly afterId: string; readonly throughId: string };

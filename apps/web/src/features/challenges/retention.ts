@@ -1,4 +1,4 @@
-import type { Database } from '@daisy/db';
+import { type ChallengesStore } from '@daisy/db/stores/challenges';
 import {
   retentionAfter,
   type RetentionTarget,
@@ -6,7 +6,7 @@ import {
 
 /** Offers past their time; the list already ignores them (ADR 0103). */
 export const challengeRetentionTarget = (
-  database: Pick<Database, 'purgeExpiredChallenges'>,
+  database: Pick<ChallengesStore, 'purgeExpiredChallenges'>,
 ): RetentionTarget =>
   retentionAfter(
     'challenges',

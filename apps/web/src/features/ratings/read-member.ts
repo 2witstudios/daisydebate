@@ -1,4 +1,4 @@
-import type { Database } from '@daisy/db';
+import { type StandingsStore } from '@daisy/db/stores/standings';
 import { daisyLadders, ladderKey } from '@daisy/protocol/ladder';
 import type { Ladder } from '@daisy/protocol/ladder';
 import { readRatingStandings } from './read';
@@ -24,7 +24,7 @@ export type MemberStanding = {
 /** The same published data/policy as leaderboard, with one injected read instant. */
 export async function readMemberStandings(
   store: Pick<
-    Database,
+    StandingsStore,
     | 'listLadderSeasons'
     | 'readStandings'
     | 'readRatingBlindings'

@@ -1,4 +1,4 @@
-import type { Database } from '@daisy/db';
+import { type MediaCaptureStore } from '@daisy/db/stores/media-capture';
 import type { OpenRouter } from '@daisy/ai-voice';
 import type {
   NecessaryEvidenceRestore,
@@ -7,7 +7,7 @@ import type {
 import { createAppError } from '@daisy/errors';
 import { assembleOriginalAudio } from './audio';
 import { canStartTranscription } from './start-window';
-type Work = ReturnType<Database['createTranscriptionRecovery']>;
+type Work = ReturnType<MediaCaptureStore['createTranscriptionRecovery']>;
 type Claim = Extract<Awaited<ReturnType<Work['claim']>>, { kind: 'claimed' }>;
 type Restored = Extract<NecessaryEvidenceRestoreReply, { kind: 'restored' }>;
 /** One capacity-reserved attempt. Caller owns renewal/scheduling and any subsequent qualified selection; no implicit provider retries. */

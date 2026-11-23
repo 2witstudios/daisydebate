@@ -1,7 +1,7 @@
+import { type PhotoDeletion } from '@daisy/db/stores/profiles';
 import { repeatEvery } from '@daisy/worker';
 import type { Waits } from '@daisy/clock';
 import { addMs, type Clock } from '@daisy/clock';
-import type { PhotoDeletion } from '@daisy/db';
 import type { Logger } from '@daisy/logger';
 import { createScheduledWorker } from '../../ops/scheduled-worker';
 import type { ProfilePhotoObjects } from './ports';

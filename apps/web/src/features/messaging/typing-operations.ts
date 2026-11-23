@@ -1,5 +1,5 @@
+import { type MessagingStore } from '@daisy/db/stores/messaging';
 import { instantMs } from '@daisy/clock';
-import type { Database } from '@daisy/db';
 import type { createRedis } from '@daisy/redis';
 import type { Clock } from '@daisy/clock';
 import type { AuthorizationPrincipal } from '@daisy/auth/authorization';
@@ -25,7 +25,7 @@ export function composeMessagingTyping({
   bounds,
   readAccounts,
 }: {
-  readonly database: Pick<Database, 'messagingTypingStore'>;
+  readonly database: Pick<MessagingStore, 'messagingTypingStore'>;
   readonly redis: Pick<
     ReturnType<typeof createRedis>,
     'readTypingLeases' | 'writeTypingLease' | 'clearTypingLease'

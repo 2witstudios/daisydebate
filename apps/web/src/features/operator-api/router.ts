@@ -1,3 +1,8 @@
+import { type BetaAccessStore } from '@daisy/db/stores/beta-access';
+import { type OperatorAccountsStore } from '@daisy/db/stores/operator-accounts';
+import { type FlagsStore } from '@daisy/db/stores/flags';
+import { type ReportsStore } from '@daisy/db/stores/reports';
+import { type ModerationStore } from '@daisy/db/stores/moderation';
 import { sha3Hex } from '@daisy/digest';
 import { runBetaAccessCommand } from './beta-access-command';
 import { runPreapprovalCommand } from './preapproval-command';
@@ -13,7 +18,6 @@ import {
   preapprovalQuerySchema,
 } from '@daisy/protocol/beta-preapproval';
 import { verifyOperatorRequest } from '@daisy/auth/operator-signature';
-import type { Database } from '@daisy/db';
 import { createAppError, isAppError, type ErrorCode } from '@daisy/errors';
 import type { Logger } from '@daisy/logger';
 import type { ErrorReporter } from '@daisy/observability';
@@ -84,18 +88,16 @@ const operatorService = {
 };
 
 type Store = Pick<
-  Database,
-  | 'listBetaPreapprovals'
-  | 'preapprovalCommand'
-  | 'listOperatorAccounts'
-  | 'flagCommand'
-  | 'betaAccessCommand'
-  | 'readOperatorCommand'
-  | 'listOperatorReports'
-  | 'listOperatorRestrictions'
-  | 'resolveReport'
-  | 'liftModeration'
->;
+  BetaAccessStore,
+  'listBetaPreapprovals' | 'preapprovalCommand'
+> &
+  Pick<
+    OperatorAccountsStore,
+    'listOperatorAccounts' | 'betaAccessCommand' | 'readOperatorCommand'
+  > &
+  Pick<FlagsStore, 'flagCommand'> &
+  Pick<ReportsStore, 'listOperatorReports' | 'resolveReport'> &
+  Pick<ModerationStore, 'listOperatorRestrictions' | 'liftModeration'>;
 
 export type OperatorApiDependencies = {
   readonly audience: string;

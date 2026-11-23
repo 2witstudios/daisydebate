@@ -1,8 +1,8 @@
+import { openWebDatabase } from '../src/server/database';
 import { hostWaits } from '@daisy/worker/host';
 import { createId } from '@paralleldrive/cuid2';
 import { fixedClock, systemId } from '@daisy/clock';
 import { requireTestServices } from '@daisy/config';
-import { createDatabase } from '@daisy/db';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createDocumentOperations } from '../src/features/documents/document-operations';
 import { testDatabaseUrl, withSql } from './fixtures';
@@ -37,7 +37,7 @@ test('a full documents lane takes nothing from the competitive lane', async () =
       select md5(i::text || ${actorId}), ${actorId}, 'Doc ' || i, ${BODY}
       from generate_series(1, ${SEATS}) as i`;
   });
-  const database = createDatabase({
+  const database = openWebDatabase({
     waits: hostWaits,
     url: testDatabaseUrl,
     nextActorId: createId,

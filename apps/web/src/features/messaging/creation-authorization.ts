@@ -1,3 +1,4 @@
+import { type MessagingStore } from '@daisy/db/stores/messaging';
 import type {
   AuthorizationPrincipal,
   ContactAuthorizationFact,
@@ -5,7 +6,6 @@ import type {
   SocialCreationPolicy,
 } from '@daisy/auth/authorization';
 import type { Clock } from '@daisy/clock';
-import type { Database } from '@daisy/db';
 import { createAppError } from '@daisy/errors';
 import { requireAuthorization } from '@daisy/auth/request-authorization';
 import { loadAccountPolicyFacts } from '../authorization/account-policy-facts';
@@ -31,7 +31,7 @@ export function messagingCreationFence({
   readonly clock: Clock;
   readonly operation: CreationOperation & { readonly kind: 'dm' };
   readonly readingPolicy: MessagingReadingPolicy;
-}): Parameters<Database['messagingSocialStore']>[0] {
+}): Parameters<MessagingStore['messagingSocialStore']>[0] {
   return async (tx, input, facts, existing) => {
     if (
       principal.kind !== 'user' ||

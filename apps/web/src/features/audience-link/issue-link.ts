@@ -1,14 +1,14 @@
+import { type SpectatingStore } from '@daisy/db/stores/spectating';
+import { type RoomStore } from '@daisy/db/stores/rooms';
 import { authorize } from '@daisy/auth/authorization';
-import type { Database } from '@daisy/db';
 import { createAppError } from '@daisy/errors';
 import { idSchema } from '@daisy/protocol/primitives';
 
 type Store = Pick<
-  Database,
-  | 'readHostedRoundAudienceLink'
-  | 'readRoomAuthorizationFacts'
-  | 'setRoundAudienceLink'
->;
+  SpectatingStore,
+  'readHostedRoundAudienceLink' | 'setRoundAudienceLink'
+> &
+  Pick<RoomStore, 'readRoomAuthorizationFacts'>;
 type Caller = { readonly userId: string; readonly actorId: string };
 
 /**

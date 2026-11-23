@@ -1,7 +1,7 @@
-import type { Database } from '@daisy/db';
+import { type DatabaseResources } from '@daisy/db/resources';
 
-type Gauge = ReturnType<Database['laneGauges']>[number];
-export type LaneHolds = ReturnType<Database['drainLaneHolds']>[number];
+type Gauge = ReturnType<DatabaseResources['laneGauges']>[number];
+export type LaneHolds = ReturnType<DatabaseResources['drainLaneHolds']>[number];
 /** A lane's sampled occupancy over one window. */
 export type LaneOccupancy = {
   readonly connections: number;

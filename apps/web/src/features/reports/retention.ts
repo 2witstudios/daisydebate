@@ -1,4 +1,4 @@
-import type { Database } from '@daisy/db';
+import { type ReportsStore } from '@daisy/db/stores/reports';
 import {
   retentionAfter,
   type RetentionTarget,
@@ -6,7 +6,7 @@ import {
 
 /** Closed reports past their proposed evidence retention (DEC-298). */
 export const reportRetentionTarget = (
-  database: Pick<Database, 'purgeClosedReports'>,
+  database: Pick<ReportsStore, 'purgeClosedReports'>,
 ): RetentionTarget =>
   retentionAfter(
     'reports',

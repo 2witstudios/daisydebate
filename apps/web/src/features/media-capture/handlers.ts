@@ -1,4 +1,4 @@
-import type { Database } from '@daisy/db';
+import { type MediaCaptureStore } from '@daisy/db/stores/media-capture';
 import { prepareEvidenceBody } from './necessary-evidence-authentication';
 import type { Logger } from '@daisy/logger';
 import type { ErrorReporter } from '@daisy/observability';
@@ -25,7 +25,7 @@ import type { createMediaWorkerTokenBroker } from '../round-media/worker-token';
 
 type Authentication = ReturnType<typeof createMediaWorkerAuthentication>;
 type Broker = ReturnType<typeof createMediaWorkerTokenBroker>;
-type Capture = ReturnType<Database['createMediaCaptureOperations']>;
+type Capture = ReturnType<MediaCaptureStore['createMediaCaptureOperations']>;
 const captureScope = z.strictObject({
   roundId: idSchema,
   sessionId: idSchema,

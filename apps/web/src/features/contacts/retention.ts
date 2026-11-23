@@ -1,4 +1,4 @@
-import type { Database } from '@daisy/db';
+import { type ContactsStore } from '@daisy/db/stores/contacts';
 import {
   DAY_MS,
   retentionAfter,
@@ -7,7 +7,7 @@ import {
 
 export const contactRetentionTargets = (
   database: Pick<
-    Database,
+    ContactsStore,
     'purgeExpiredSocialDeclines' | 'purgeExpiredSocialRequests'
   >,
 ): readonly RetentionTarget[] => [

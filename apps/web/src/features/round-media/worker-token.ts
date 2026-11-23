@@ -1,13 +1,14 @@
+import { type MediaCaptureStore } from '@daisy/db/stores/media-capture';
+import { type MediaSessionStore } from '@daisy/db/stores/media-sessions';
 import { addMs } from '@daisy/clock';
 import { admitsPrincipalAccess } from '@daisy/auth/authorization';
-import type { Database } from '@daisy/db';
 import type { MediaNodes, MediaVendor } from '@daisy/media';
 import type { createMediaWorkerAuthentication } from '@daisy/media/internal';
 import type { createRoundMediaOperations } from './operations';
 import { createAppError, createRefusal } from '@daisy/errors';
 import { admissionRevoked, mediaPhaseOf, mediaRuntime } from './projection';
 
-type Capture = ReturnType<Database['createMediaCaptureOperations']>;
+type Capture = ReturnType<MediaCaptureStore['createMediaCaptureOperations']>;
 type CaptureScope = Awaited<ReturnType<Capture['verifyMediaWorkerLease']>>;
 type AuthenticatedWorker = ReturnType<
   ReturnType<typeof createMediaWorkerAuthentication>['verify']
@@ -15,7 +16,7 @@ type AuthenticatedWorker = ReturnType<
 
 /** Called only after signed-ingress authentication, never by the human routes. */
 export function createMediaWorkerTokenBroker(input: {
-  readonly sessions: Database['mediaSessions'];
+  readonly sessions: MediaSessionStore['mediaSessions'];
   readonly capture: Capture;
   readonly media: MediaVendor;
   readonly urlsFor: MediaNodes['urlsFor'];
@@ -31,7 +32,7 @@ export function createMediaWorkerTokenBroker(input: {
   >['holdForCapture'];
 }) {
   const buildProjection: Parameters<
-    Database['mediaSessions']['readMediaSession']
+    MediaSessionStore['mediaSessions']['readMediaSession']
   >[0]['buildProjection'] = (context) =>
     mediaRuntime(context, input.nextId).tick(context.now);
   return {

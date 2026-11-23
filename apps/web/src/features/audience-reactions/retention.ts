@@ -1,4 +1,4 @@
-import type { Database } from '@daisy/db';
+import { type AudienceReactionsStore } from '@daisy/db/stores/audience-reactions';
 import {
   DAY_MS,
   retentionAfter,
@@ -7,7 +7,7 @@ import {
 
 /** Audience reactions go 180 days after posting, matching transcript retention (point guard ruling 2026-11-03). */
 export const audienceReactionRetentionTarget = (
-  database: Pick<Database, 'purgeExpiredAudienceReactions'>,
+  database: Pick<AudienceReactionsStore, 'purgeExpiredAudienceReactions'>,
 ): RetentionTarget =>
   retentionAfter(
     'audience_reactions',
