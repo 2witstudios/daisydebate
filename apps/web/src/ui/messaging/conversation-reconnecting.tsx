@@ -34,8 +34,9 @@ export function ConversationReconnecting({
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   /**
-   * The recovery driver, held right after the transition: the browser proof
-   * (e2e/support/messaging-committed-refusal.ts) finds its holder there.
+   * The recovery driver's start, then its holder, right after the
+   * transition: the browser proof (e2e/support/messaging-committed-refusal.ts)
+   * finds the holder at exactly that hook position.
    */
   const start = useCallback(
     () =>

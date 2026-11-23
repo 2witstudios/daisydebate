@@ -98,8 +98,10 @@ export function committedRefusalState(
     diagnostic.contextualRouter = true;
     const transition = hook?.next;
     const start = transition?.next;
-    // useDriver's holder follows the transition; it holds the recovery driver.
-    const owner = start?.next?.memoizedState as
+    // The view's memoized driver start follows the transition, then
+    // useDriver's holder, which holds the recovery driver.
+    const callback = start?.next?.memoizedState as unknown;
+    const owner = start?.next?.next?.memoizedState as
       | {
           read?: () => {
             driver?: { stop?: unknown; refused?: unknown } | null;
@@ -107,7 +109,11 @@ export function committedRefusalState(
         }
       | undefined;
     const recovery =
-      typeof owner?.read === 'function' ? owner.read().driver : undefined;
+      Array.isArray(callback) &&
+      typeof callback[0] === 'function' &&
+      typeof owner?.read === 'function'
+        ? owner.read().driver
+        : undefined;
     diagnostic.queuePresent = transition?.queue != null;
     diagnostic.queueDispatchNull = transition?.queue?.dispatch === null;
     diagnostic.queueReducer =
