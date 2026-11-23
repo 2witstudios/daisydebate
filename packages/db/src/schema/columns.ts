@@ -163,14 +163,14 @@ export const jsonbIsObject = (table: string, column: PgColumn) =>
     sql`jsonb_typeof(${column}) = 'object'`,
   );
 
-/**
- * A retried delivery job's lifecycle (vendor deletion, observation purge):
- * pending until one confirmed success, with its attempts and next retry.
- */
 /** A retried job is pending until one confirmed success. */
 export const retriedJobStatuses = ['pending', 'succeeded'] as const;
 export type RetriedJobStatus = (typeof retriedJobStatuses)[number];
 
+/**
+ * A retried delivery job's lifecycle (vendor deletion, observation purge):
+ * pending until one confirmed success, with its attempts and next retry.
+ */
 export const retriedJobColumns = () => ({
   status: text('status').$type<RetriedJobStatus>().notNull().default('pending'),
   attempts: integer('attempts').notNull().default(0),

@@ -8,6 +8,8 @@ setupRitewayBun();
 test('only an open transaction appends to the audit chain or holds its lock', () => {
   // The pool's autocommit would release the transaction lock after its own
   // statement, so the head read and the insert would race and fork the chain.
+  // The type checker is the assertion: each call below must fail to compile,
+  // and the admin typecheck fails if either `@ts-expect-error` goes unused.
   const refused = (pool: AdminTxSource) => [
     // @ts-expect-error the pool is not a transaction
     () => appendAudit(pool, undefined as never),
@@ -16,8 +18,8 @@ test('only an open transaction appends to the audit chain or holds its lock', ()
   ];
   assert({
     given: 'the admin pool where a transaction is required',
-    should: 'not compile (the calls above carry the expected errors)',
-    actual: refused.length,
-    expected: 1,
+    should: 'be refused by the type checker, which the admin typecheck runs',
+    actual: typeof refused,
+    expected: 'function',
   });
 });

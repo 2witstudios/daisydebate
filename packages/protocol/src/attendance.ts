@@ -1,7 +1,6 @@
 import { z } from 'zod';
 import { idSchema } from './primitives';
 
-/** The closed vocabulary a check-in refusal answers with. */
 /** What attendance decides for a Round seat. */
 export const attendanceDecisions = [
   'attended',
@@ -17,6 +16,7 @@ export const checkInAttemptStates = [
   'aborted',
 ] as const;
 
+/** The closed vocabulary a check-in refusal answers with. */
 export const attendanceRefusalSchema = z.enum([
   'attendance-terminal',
   'attendance-finalized',
