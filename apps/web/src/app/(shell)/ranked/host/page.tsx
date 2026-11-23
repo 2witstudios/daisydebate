@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation';
 import type { SearchParams } from '../../../../features/access/decision';
-import { requireAccess } from '../../../../lib/access';
+import { requireAccess } from '../../../../features/access/page-access';
 export default async function HostRankedRoomPage({
   searchParams,
 }: {

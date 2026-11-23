@@ -21,7 +21,7 @@ import { messagePersonAction } from '../messages/new/actions';
 import { reportAction } from '../reports/actions';
 import { setPeopleRail } from './actions';
 import { readPeople } from './read-people';
-import { requestMemberDivision } from '../../../lib/request-session';
+import { requestMemberDivision } from '../../../features/ratings/page-reads';
 
 /** Every action the list's menu posts; `ui/` never imports from `app/`. */
 export const personActions = {

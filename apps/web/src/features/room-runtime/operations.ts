@@ -7,7 +7,7 @@ import { hostHoldsCasualCapture, roomCaptureOffer } from './capture-offer';
 import { authorize } from '@daisy/auth/authorization';
 import { roomCommandOperation } from './command';
 import { aiServesSeat } from './ai-seat';
-import type { AiSeatAvailability } from '../../server/round-worker-policy';
+import type { AiSeatAvailability } from '../round-runtime/worker-policy';
 import { currentRoomConsent, type PreparedRoomConsent } from './consent';
 import { can, digest } from './authority';
 import { resolveRoomSelection } from './selection';

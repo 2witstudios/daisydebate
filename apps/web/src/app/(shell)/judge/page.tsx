@@ -2,7 +2,7 @@ import { createAppError } from '@daisy/errors';
 import type { Metadata } from 'next';
 import type { SearchParams } from '../../../features/access/decision';
 import { getAssignedDebates } from '../../../features/judge/get-assigned';
-import { requireAccess } from '../../../lib/access';
+import { requireAccess } from '../../../features/access/page-access';
 import { JudgeHub } from '../../../ui/judge/judge-hub/judge-hub';
 import { readPersistedJudgeAssignments } from './actions';
 export const metadata: Metadata = { title: 'Judge' };

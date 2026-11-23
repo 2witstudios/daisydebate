@@ -1,7 +1,7 @@
 import { createAppError } from '@daisy/errors';
 import type { OnboardingAnswers } from '../../../features/onboarding/answers';
 import { afterPasskeyHref } from '../../../features/onboarding/continue';
-import { requestOnboardingAnswers } from '../../../lib/request-session';
+import { requestOnboardingAnswers } from '../../../features/onboarding/page-reads';
 
 /**
  * The signed-in member's own answers, for a step's server render. The

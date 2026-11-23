@@ -1,0 +1,111 @@
+import { nowMs, type Waits } from '@daisy/clock';
+import type { RoundBotWorkerPolicy } from '@daisy/config';
+import type { ErrorReporter } from '@daisy/observability';
+import type { WorkWake } from '@daisy/worker';
+import { createAttendanceFeature } from '../attendance/operations';
+import { createBotControl } from './control';
+import { startBotControlService } from './control-service';
+import { endingDeadline } from './ending-deadline';
+import { createSpeakingBotControl } from './speaking';
+import { speakingFailureCause } from './speaking-failure';
+import type { App } from '../../server/app';
+import {
+  isProviderBudgetRefusal,
+  type createProviderBudget,
+} from '../../server/provider-budget';
+import { workerFailures } from '../../server/recoverable-failure';
+
+/** Bot debaters' own workers: seat control and live speech on the competitive provider budget. */
+export function startRoundBotWorkers(input: {
+  readonly app: App;
+  readonly policy: RoundBotWorkerPolicy;
+  readonly budget: ReturnType<typeof createProviderBudget>;
+  readonly instanceId: string;
+  /**
+   * Media broker grants for a bot seat: its publication and its own
+   * listen-only hearing (ISSUE-764). Without configured media, seats keep
+   * receipts only.
+   */
+  readonly botMedia: Pick<
+    Parameters<typeof createSpeakingBotControl>[0],
+    'botToken' | 'listenToken' | 'readPeers'
+  > | null;
+  /**
+   * Monotonic time for all of it: discovery, check-ins and lease renewals,
+   * each seat's ending deadline below its lease (ISSUE-789), and a speaker's
+   * self-wakes, call bounds and paced publication.
+   */
+  readonly waits: Waits;
+  readonly wake?: WorkWake | undefined;
+  readonly reporter?: ErrorReporter;
+}) {
+  const { app, policy } = input;
+  const failure = workerFailures(app, input.reporter);
+  const attendance = createAttendanceFeature({
+    checkIns: app.database,
+    evaluate: app.database.evaluateRoundAttendance,
+    nextId: () => app.ids.next(),
+    instanceId: input.instanceId,
+  });
+  const hearing = failure(
+    'round.hearing.failed',
+    'round.hearing',
+    'Bot hearing stays unknown until rejoined',
+  );
+  const speaking = input.botMedia
+    ? createSpeakingBotControl({
+        store: app.database,
+        voice: app.aiVoice,
+        withProvider: input.budget,
+        providerBusy: isProviderBudgetRefusal,
+        ...input.botMedia,
+        waits: input.waits,
+        nextId: () => app.ids.next(),
+        nowMs: () => nowMs(app.clock),
+        callTimeoutMs: policy.callTimeoutMs,
+        reasoning: policy.reasoning,
+        failed: failure(
+          'round.speaking.failed',
+          'round.speaking',
+          'Bot speech stays uncredited',
+          // Where a publish stopped, or that the vendor refused the request.
+          speakingFailureCause,
+        ),
+        hearingFailed: (error) => hearing(error, 'join'),
+        hearingObserved: (operation, fields) =>
+          app.logger.log(
+            'round.hearing.observed',
+            { operation: `round.hearing.${operation}`, ...fields },
+            'Bot hearing observed',
+          ),
+      })
+    : null;
+  return startBotControlService({
+    store: app.database,
+    control: (claim) => {
+      const receipts = createBotControl({
+        claim,
+        attendance,
+        nextId: () => app.ids.next(),
+      });
+      return speaking ? speaking(claim, receipts) : receipts;
+    },
+    limits: {
+      maxControllers: policy.maxControllers,
+      scanBatch: policy.scanBatch,
+      scanMs: policy.scanMs,
+      // Attendance checks in as often as the lease renews, each on its own.
+      checkInMs: policy.renewMs,
+      renewMs: policy.renewMs,
+      leaseMs: policy.leaseMs,
+    },
+    waits: input.waits,
+    wake: input.wake,
+    overdue: endingDeadline(policy, input.waits),
+    failed: failure(
+      'round.control.failed',
+      'round.control',
+      'Control receipt work remains recoverable',
+    ),
+  });
+}

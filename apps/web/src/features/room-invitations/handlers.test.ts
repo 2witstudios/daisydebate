@@ -3,7 +3,7 @@ import type { Identity } from '@daisy/auth';
 import { createRefusal } from '@daisy/errors';
 import type { RoomInvitationRefusal } from '@daisy/protocol/room-invitations';
 import { noopErrorReporter } from '@daisy/observability';
-import { origin } from '../../server/member-boundary.test-support';
+import { origin } from '../auth/member-boundary.test-support';
 import { silentLogger } from '../../server/test-loggers.test-support';
 import { createRoomInvitationHandlers } from './handlers';
 import { submitInvitationForm } from './submit';

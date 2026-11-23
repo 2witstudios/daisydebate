@@ -81,8 +81,11 @@ package; this map lists only packages that exist today.
   instances lives in PostgreSQL or Redis.
 - **Composition root.** `createApp({ env, fetch, clock, ids })`
   (`apps/web/src/server/app.ts`) validates configuration and builds the
-  logger, database, Redis, auth, rate limiter, mail and webhook for one app;
-  `createRoutes(app)` binds each feature's route output. Ops owns readiness,
+  logger, database, Redis, auth, rate limiter, mail and webhook for one app.
+  Each feature composes its own handlers (`defineComposition` in its
+  folder), and each route file binds its feature's composition
+  (`processRoute(composition, pick)`), built once per app
+  ([ADR 0917](../decisions/0917-web-feature-composition.md)). Ops owns readiness,
   alerts and metrics construction in `features/ops/composition.ts`, with named
   health, live startup/drain, lazy probe-token, metrics and configured worker
   inputs. The process edge supplies resources; it does not choose Ops policy.
@@ -94,13 +97,14 @@ package; this map lists only packages that exist today.
   bundles that share only that) and binds each `app/**/route.ts` export to
   it; `apps/realtime/src/start.ts` builds `createRealtimeApp`. Next renders
   pages and layouts itself, so server components cannot take arguments:
-  they read this request's session and published feature reads through
-  `lib/request-session.ts`, the one
-  non-route module that takes the process app (`processApp().auth()`) and
-  passes it on to `lib/identity.ts`. Only route bindings (`processRoute`),
-  that module, `proxy.ts`, `instrumentation.ts` and `server/start.ts` may
-  import the edge. ESLint enforces all of this (ISSUE-7), and tests build
-  their own apps.
+  they read through each feature's `page-reads.ts`, built on one request
+  scope (`lib/page-reads.ts`: the process app, this request's identity
+  through React's cache, the clock). Only route bindings (`processRoute`),
+  page-read modules (`processApp`), `proxy.ts`, `instrumentation.ts` and
+  `server/start.ts` may import the edge, by path. Background work starts
+  from one feature list (`server/process-work.ts`), and `server/` and `lib/`
+  import no feature outside the spots ADR 0917 names. ESLint enforces all
+  of this (ISSUE-7, ADR 0917), and tests build their own apps.
 - **UI shell store** (`apps/web/src/ui/store/store.tsx`, with its state in
   `state.ts`) is request-scoped. `UiStoreProvider` creates one store per
   provider instance, and each store closes over its own snapshot, so a server

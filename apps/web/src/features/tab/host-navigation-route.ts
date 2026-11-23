@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import type { HostNavigationView } from '@daisy/protocol/lobby/host-navigation-read';
 import { hostNavigationViewSchema } from '@daisy/protocol/lobby/host-navigation-read';
-import type { MemberBoundary } from '../../server/member-boundary';
+import type { MemberBoundary } from '../auth/member-boundary';
 import { bindTabRead } from './read-route';
 import type { TabPrincipal } from './tab-principal';
 

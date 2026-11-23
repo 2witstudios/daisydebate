@@ -7,8 +7,9 @@ import {
   seedMessagingRouteDm,
   messagingRoutePolicy,
 } from './messaging-route.test-support';
-import { createRoutes } from '../src/server/routes';
 import { createTestApp, origin, testDatabaseUrl } from './fixtures';
+import { messagingComposition } from '../src/features/messaging/composition';
+import { composer } from '../src/server/composition.test-support';
 
 setupRitewayBun();
 requireTestServices(process.env);
@@ -19,7 +20,7 @@ test('mounted messaging composition uses real signed-in actors and shared HTTP g
     channelId = createId();
   const [low, high] = [me.actorId, peer.actorId].sort();
   const now = testApp.app.clock.now();
-  const routes = createRoutes({
+  const routes = composer({
     ...testApp.app,
     messagingPolicy: messagingRoutePolicy,
   });
@@ -29,7 +30,7 @@ test('mounted messaging composition uses real signed-in actors and shared HTTP g
       'update messaging_channel_streams set change_version=1 where channel_id=$1',
       [channelId],
     );
-    const sent = await routes.messaging.send(
+    const sent = await routes(messagingComposition).send(
       testApp.jsonPost(
         '/api/messaging/messages',
         {
@@ -46,7 +47,7 @@ test('mounted messaging composition uses real signed-in actors and shared HTTP g
       new Request(`${origin}/api/messaging/channels/${id}/messages?limit=20`, {
         headers: { origin, cookie },
       });
-    const read = await routes.messaging.history(
+    const read = await routes(messagingComposition).history(
       request(channelId, second.cookie),
       channelId,
     );
@@ -78,7 +79,7 @@ test('mounted messaging composition uses real signed-in actors and shared HTTP g
       ['%', 0],
       ['not present', 0],
     ] as const) {
-      const found = await routes.messaging.search(
+      const found = await routes(messagingComposition).search(
         searchRequest(channelId, query),
         channelId,
       );
@@ -98,7 +99,7 @@ test('mounted messaging composition uses real signed-in actors and shared HTTP g
         `${origin}/api/messaging/channels/${channelId}/changes?limit=20&after=0`,
         { headers: { origin, cookie: first.cookie } },
       );
-    const firstChanges = await routes.messaging.changes(
+    const firstChanges = await routes(messagingComposition).changes(
       changesRequest(),
       channelId,
     );
@@ -118,7 +119,7 @@ test('mounted messaging composition uses real signed-in actors and shared HTTP g
       requestId: createId(),
       text: 'Edited through HTTP',
     };
-    const edited = await routes.messaging.edit(
+    const edited = await routes(messagingComposition).edit(
       testApp.jsonPost('/api/messaging/messages/edit', mutationBody, {
         cookie: first.cookie,
       }),
@@ -129,7 +130,7 @@ test('mounted messaging composition uses real signed-in actors and shared HTTP g
       actual: { status: edited.status, body: (await edited.json()).text },
       expected: { status: 200, body: 'Edited through HTTP' },
     });
-    const removed = await routes.messaging.remove(
+    const removed = await routes(messagingComposition).remove(
       testApp.jsonPost(
         '/api/messaging/messages/remove',
         {
@@ -152,7 +153,7 @@ test('mounted messaging composition uses real signed-in actors and shared HTTP g
         keys: ['changeVersion', 'channelId', 'id', 'sequence', 'unavailable'],
       },
     });
-    const removedSearch = await routes.messaging.search(
+    const removedSearch = await routes(messagingComposition).search(
       searchRequest(channelId, 'Edited'),
       channelId,
     );
@@ -166,7 +167,7 @@ test('mounted messaging composition uses real signed-in actors and shared HTTP g
       expected: { status: 200, messages: [] },
     });
     const unavailableChannel = createId();
-    const foreignSearch = await routes.messaging.search(
+    const foreignSearch = await routes(messagingComposition).search(
       searchRequest(unavailableChannel, 'Private'),
       unavailableChannel,
     );
@@ -180,7 +181,7 @@ test('mounted messaging composition uses real signed-in actors and shared HTTP g
       'update messaging_channel_streams set change_version=change_version+1 where channel_id=$1',
       [channelId],
     );
-    const exhausted = await routes.messaging.changes(
+    const exhausted = await routes(messagingComposition).changes(
       changesRequest(),
       channelId,
     );
@@ -196,7 +197,7 @@ test('mounted messaging composition uses real signed-in actors and shared HTTP g
       expected: { status: 200, last: 4, cursor: 5 },
     });
     const hidden = createId();
-    const missing = await routes.messaging.history(
+    const missing = await routes(messagingComposition).history(
       request(hidden, second.cookie),
       hidden,
     );
@@ -209,7 +210,7 @@ test('mounted messaging composition uses real signed-in actors and shared HTTP g
       },
       expected: { status: 404, containsText: false },
     });
-    const anonymous = await routes.messaging.history(
+    const anonymous = await routes(messagingComposition).history(
       request(channelId, ''),
       channelId,
     );

@@ -3,10 +3,7 @@ import { createAppError } from '@daisy/errors';
 import { z } from 'zod';
 import type { App } from '../../server/app';
 import { parseValidated, readJson } from '../../server/http';
-import {
-  memberHttpBoundary,
-  runMemberRoute,
-} from '../../server/member-boundary';
+import { memberHttpBoundary, runMemberRoute } from '../auth/member-boundary';
 import { closeChildAccount } from '../account/data-rights/composition';
 import { routeReleaseFor } from '../flags/route-release';
 import { deriveRecipientSubkey, recipientKey } from '../mail/recipient-key';

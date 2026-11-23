@@ -19,7 +19,10 @@ import {
 } from '../src/features/tab/participant-page-read';
 import { releaseCommand } from '../src/features/tab/operations/release-command';
 import { settingCommand } from '../src/features/tab/operations/settings';
-import { member, origin } from '../src/server/member-boundary.test-support';
+import {
+  member,
+  origin,
+} from '../src/features/auth/member-boundary.test-support';
 import { silentLogger } from '../src/server/test-loggers.test-support';
 import { entryEnrollmentStage } from './tab-tournament-entry-enrollment.test-support';
 import { judgeRegistrationStage } from './tab-tournament-judge-registration.test-support';

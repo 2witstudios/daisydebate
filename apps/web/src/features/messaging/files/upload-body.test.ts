@@ -28,7 +28,7 @@ test('binary upload bounds streamed bytes independent of the claimed content len
 });
 
 test('the shared member boundary can return authorized binary content without JSON serialization', async () => {
-  const { runEvaluatedRoute } = await import('../../../server/member-boundary');
+  const { runEvaluatedRoute } = await import('../../auth/member-boundary');
   const { silentLogger } =
     await import('../../../server/test-loggers.test-support');
   const response = await runEvaluatedRoute(

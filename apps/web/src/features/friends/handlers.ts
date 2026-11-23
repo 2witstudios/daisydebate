@@ -13,7 +13,7 @@ import {
 } from '@daisy/protocol/friends';
 import type { FriendshipCommand } from './friendship';
 import { parseValidated, readJson } from '../../server/http';
-import { runEvaluatedRoute } from '../../server/member-boundary';
+import { runEvaluatedRoute } from '../auth/member-boundary';
 
 const MAX_BODY_BYTES = 1024;
 

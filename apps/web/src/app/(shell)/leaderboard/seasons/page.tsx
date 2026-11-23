@@ -2,11 +2,9 @@ import { ratingDivisionForAgeRule } from '@daisy/protocol/ladder';
 import { systemClock } from '@daisy/clock';
 import type { Metadata } from 'next';
 import type { SearchParams } from '../../../../features/access/decision';
-import {
-  requestLadder,
-  requestOfficialRatingLadders,
-  requestLandingLobby,
-} from '../../../../lib/request-session';
+import { requestLadder } from '../../../../features/leaderboard/page-reads';
+import { requestOfficialRatingLadders } from '../../../../features/ratings/page-reads';
+import { requestLandingLobby } from '../../../../features/lobby/page-reads';
 import { boardLadder } from '../../../../features/leaderboard/board-ladder';
 import { parseLadderQuery } from '../../../../features/leaderboard/query';
 import {

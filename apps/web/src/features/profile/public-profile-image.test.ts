@@ -3,7 +3,7 @@ import type { ProfilePhotoStatus } from '@daisy/protocol/public-profile';
 import type { App } from '../../server/app';
 import { silentLogger } from '../../server/test-loggers.test-support';
 import { composePublicProfileRoutes } from './public-profile-routes';
-import { CLIENT_ID_HASH_HEADER } from '../auth/abuse/client-ip';
+import { CLIENT_ID_HASH_HEADER } from '../../server/client-ip';
 
 setupRitewayBun();
 

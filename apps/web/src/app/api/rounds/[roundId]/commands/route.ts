@@ -1,9 +1,11 @@
 import { processRoute } from '../../../../../server/process-app';
+import { roundComposition } from '../../../../../features/round-runtime/composition';
 type Params = Awaited<RouteContext<'/api/rounds/[roundId]/commands'>['params']>;
 
 export const runtime = 'nodejs';
-export const POST = processRoute.withParams<Params>(
+export const POST = processRoute.withParams(
+  roundComposition,
   (routes) =>
-    (request, { roundId }) =>
-      routes.rounds.commands(request, roundId),
+    (request, { roundId }: Params) =>
+      routes.commands(request, roundId),
 );

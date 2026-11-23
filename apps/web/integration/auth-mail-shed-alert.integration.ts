@@ -7,6 +7,7 @@ import { createAccountFlows } from './auth-account-helpers';
 import { createTestApp } from './fixtures';
 import { serveEdge } from './ops-edge';
 import { CLIENT_IP_HEADER } from '@daisy/ingress/client-ip';
+import { authComposition } from '../src/features/auth/composition';
 
 /**
  * ISSUE-220: a flood that fills the handed-off work's bound sheds sign-in
@@ -29,7 +30,7 @@ const accounts = createAccountFlows(testApp);
 const { app, routes, mailbox, freshEmail, jsonPost, newClient } = testApp;
 
 const magicLink = (email: string) =>
-  routes.auth.POST(
+  routes(authComposition).POST(
     jsonPost(
       '/api/auth/sign-in/magic-link',
       { email },

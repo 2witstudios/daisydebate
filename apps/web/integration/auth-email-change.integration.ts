@@ -13,6 +13,7 @@ import {
 } from './fixtures';
 import { trackRevocations } from './auth-outbox-helpers';
 import { CLIENT_IP_HEADER } from '@daisy/ingress/client-ip';
+import { confirmEmailComposition } from '../src/features/auth/composition';
 
 requireTestServices(process.env);
 const { flows, recordedEvents, newClient, signUp } = await authFlows();
@@ -221,8 +222,9 @@ describe('AUTH-5.6 change the recovery email', () => {
   });
 
   test('an invalid token is refused without a same-origin bypass', async () => {
-    const crossOrigin =
-      await flows.account.flows.testApp.routes.confirmEmail.POST(
+    const crossOrigin = await flows.account.flows.testApp
+      .routes(confirmEmailComposition)
+      .POST(
         new Request(`${origin}/auth/confirm-email`, {
           method: 'POST',
           headers: {

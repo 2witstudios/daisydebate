@@ -3,7 +3,7 @@ import {
   readTranscript,
   TRANSCRIPT_READ_DEADLINE_MS,
 } from '../../../../features/round-runtime/read-transcript';
-import { renderReadDeadline } from '../../../../lib/request-session';
+import { renderReadDeadline } from '../../../../lib/page-reads';
 import { inProcessFetch } from '../../../../server/in-process-fetch';
 import { GET } from '../../../api/rounds/[roundId]/transcript/route';
 

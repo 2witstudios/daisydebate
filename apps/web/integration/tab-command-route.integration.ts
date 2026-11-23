@@ -17,7 +17,7 @@ import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createTabCommandRoute } from '../src/features/tab/command-route';
 import { organizationCommand } from '../src/features/tab/operations/organization';
 import { silentLogger } from '../src/server/test-loggers.test-support';
-import { origin } from '../src/server/member-boundary.test-support';
+import { origin } from '../src/features/auth/member-boundary.test-support';
 import { organizationStage } from './tab-tournament-organization.test-support';
 import {
   createBots,

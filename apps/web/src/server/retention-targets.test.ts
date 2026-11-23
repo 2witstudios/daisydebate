@@ -1,8 +1,7 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { fixedClock } from '@daisy/clock';
 import { createRetentionSweep } from './retention-sweep';
-import { retentionTargets } from './retention-targets';
-import { provisionalLinkPurposes } from '../features/auth/mail/provisional-mail';
+import { retentionTargets } from './retention-targets.test-support';
 import { createRecordingLogger } from './test-loggers.test-support';
 
 setupRitewayBun();
@@ -91,7 +90,6 @@ describe('retention targets', () => {
     const targets = retentionTargets({
       database,
       redis,
-      provisionalLinks: provisionalLinkPurposes,
     }).filter((target) => target.name.startsWith('retention.room_chat_'));
     for (const target of targets)
       await target.purge({ now, limit: target.batchSize });
@@ -126,7 +124,6 @@ describe('retention targets', () => {
     const targets = retentionTargets({
       database,
       redis,
-      provisionalLinks: provisionalLinkPurposes,
     }).filter((target) => target.name.startsWith('retention.round_floor_'));
     for (const target of targets)
       await target.purge({ now, limit: target.batchSize });
@@ -161,7 +158,6 @@ describe('retention targets', () => {
     const targets = retentionTargets({
       database,
       redis,
-      provisionalLinks: provisionalLinkPurposes,
     });
     const { logger } = recorder();
     await createRetentionSweep({
@@ -187,9 +183,9 @@ describe('retention targets', () => {
           { name: 'retention.flag_overrides', batchSize: 500, maxBatches: 20 },
           { name: 'retention.flag_evidence', batchSize: 500, maxBatches: 20 },
           { name: 'retention.verification', batchSize: 500, maxBatches: 20 },
-          { name: 'retention.outbox', batchSize: 200, maxBatches: 200 },
           { name: 'retention.session', batchSize: 500, maxBatches: 20 },
           { name: 'retention.provisional_user', batchSize: 50, maxBatches: 20 },
+          { name: 'retention.outbox', batchSize: 200, maxBatches: 200 },
           {
             name: 'retention.child_account_requests',
             batchSize: 200,
@@ -197,6 +193,7 @@ describe('retention targets', () => {
           },
           { name: 'retention.room_commands', batchSize: 500, maxBatches: 20 },
           { name: 'retention.round_commands', batchSize: 500, maxBatches: 20 },
+          { name: 'retention.utterances', batchSize: 500, maxBatches: 20 },
           {
             name: 'retention.round_check_in_attempts',
             batchSize: 500,
@@ -218,24 +215,19 @@ describe('retention targets', () => {
             maxBatches: 20,
           },
           { name: 'retention.email_delivery', batchSize: 500, maxBatches: 20 },
+          { name: 'retention.mail_intents', batchSize: 500, maxBatches: 20 },
           {
             name: 'retention.club_seat_invitations',
             batchSize: 500,
             maxBatches: 4,
           },
-          {
-            name: 'retention.league_requests',
-            batchSize: 500,
-            maxBatches: 20,
-          },
+          { name: 'retention.league_requests', batchSize: 500, maxBatches: 20 },
           {
             name: 'retention.media_release_requests',
             batchSize: 500,
             maxBatches: 4,
           },
           { name: 'retention.media_releases', batchSize: 500, maxBatches: 4 },
-          { name: 'retention.mail_intents', batchSize: 500, maxBatches: 20 },
-          { name: 'retention.utterances', batchSize: 500, maxBatches: 20 },
           { name: 'retention.pending_ballots', batchSize: 500, maxBatches: 20 },
           { name: 'retention.judging_stages', batchSize: 500, maxBatches: 20 },
           { name: 'retention.round_analyses', batchSize: 500, maxBatches: 20 },
@@ -243,12 +235,12 @@ describe('retention targets', () => {
           { name: 'retention.social_requests', batchSize: 500, maxBatches: 20 },
           { name: 'retention.notifications', batchSize: 500, maxBatches: 40 },
           {
-            name: 'retention.messaging_unread_emails',
+            name: 'retention.notification_digests',
             batchSize: 500,
             maxBatches: 20,
           },
           {
-            name: 'retention.notification_digests',
+            name: 'retention.messaging_unread_emails',
             batchSize: 500,
             maxBatches: 20,
           },
@@ -390,7 +382,6 @@ describe('retention targets', () => {
       targets: retentionTargets({
         database,
         redis,
-        provisionalLinks: provisionalLinkPurposes,
       }),
       clock: { now: () => 'not a timestamp' },
       logger,
@@ -411,31 +402,31 @@ describe('retention targets', () => {
           ['retention.flag_overrides', false],
           ['retention.flag_evidence', false],
           ['retention.verification', false],
-          ['retention.outbox', false],
           ['retention.session', false],
           ['retention.provisional_user', false],
+          ['retention.outbox', false],
           ['retention.child_account_requests', true],
           ['retention.room_commands', false],
           ['retention.round_commands', false],
+          ['retention.utterances', false],
           ['retention.round_check_in_attempts', false],
           ['retention.service_instances', false],
           ['retention.availability_samples', false],
           ['retention.email_delivery_event', false],
           ['retention.email_delivery', false],
+          ['retention.mail_intents', false],
           ['retention.club_seat_invitations', false],
           ['retention.league_requests', false],
           ['retention.media_release_requests', false],
           ['retention.media_releases', false],
-          ['retention.mail_intents', false],
-          ['retention.utterances', false],
           ['retention.pending_ballots', false],
           ['retention.judging_stages', false],
           ['retention.round_analyses', false],
           ['retention.social_declines', false],
           ['retention.social_requests', false],
           ['retention.notifications', false],
-          ['retention.messaging_unread_emails', false],
           ['retention.notification_digests', false],
+          ['retention.messaging_unread_emails', false],
           ['retention.room_invitations', false],
           ['retention.watch_history', false],
           ['retention.spectator_chat', false],

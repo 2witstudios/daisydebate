@@ -4,12 +4,17 @@ import {
   submitRoundForm,
   type RoundFormState,
 } from '../../../../../features/round-runtime/command-form';
-import { hydratedPost, moveOn } from '../../../../../server/form-action';
+import {
+  hydratedPost,
+  moveOn,
+} from '../../../../../features/forms/form-action';
 import { inProcessFetch } from '../../../../../server/in-process-fetch';
 import { processRoute } from '../../../../../server/process-app';
+import { roundComposition } from '../../../../../features/round-runtime/composition';
 const commands = (roundId: string) =>
   processRoute(
-    (routes) => (request) => routes.rounds.commands(request, roundId),
+    roundComposition,
+    (routes) => (request) => routes.commands(request, roundId),
   );
 async function submitRound(roundId: string, form: FormData) {
   const incoming = new Headers(await headers());

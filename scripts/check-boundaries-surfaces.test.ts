@@ -257,8 +257,8 @@ describe('round analysis and judging stay separate concepts (ISSUE-745..752)', (
           'apps/web/src/ui/round-analysis/round-analysis.tsx',
         ),
         conceptCouplingIssue(
-          './round-judging-workers',
-          'apps/web/src/server/round-analysis-workers.ts',
+          '../round-judging/workers',
+          'apps/web/src/features/round-analysis/workers.ts',
         ),
         conceptCouplingIssue(
           '../round-analysis/policy',

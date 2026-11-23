@@ -1,6 +1,7 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { createTestApp } from './fixtures';
 import { requireTestServices } from '@daisy/config';
+import { foundationProofComposition } from '../src/features/foundation/composition';
 
 setupRitewayBun();
 requireTestServices(process.env);
@@ -13,14 +14,14 @@ const origin = app.config.PUBLIC_APP_URL;
 
 describe('ISSUE-7 foundation proof gate per app', () => {
   test('an app built with the proof disabled answers 404 however the other suite is configured', async () => {
-    const created = await routes.foundationProof.POST(
+    const created = await routes(foundationProofComposition).POST(
       new Request(`${origin}/api/foundation/proof`, {
         method: 'POST',
         headers: { 'content-type': 'application/json', origin },
         body: JSON.stringify({ resolution: 'Must not be stored' }),
       }),
     );
-    const read = await routes.foundationProof.GET(
+    const read = await routes(foundationProofComposition).GET(
       new Request(`${origin}/api/foundation/proof?id=m4n6p8r2t4v6x8z1k3b5c7d9`),
     );
     const codeOf = async (response: Response) =>

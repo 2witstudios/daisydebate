@@ -1,3 +1,6 @@
+import { defineComposition } from '../../server/composition';
+import { memberHttpBoundary } from '../auth/member-boundary';
+import { createRoundMediaHandlers } from './handlers';
 import { captureAdmissionPolicy } from '../media-capture/capture-policy';
 import { nowMs, type Waits } from '@daisy/clock';
 import { repeatEvery, type RepeatWorker } from '@daisy/worker';
@@ -7,7 +10,7 @@ import {
   createAdmissionPriority,
   MEDIA_ADMISSION_HINT_TIMEOUT_MS,
 } from './admission-priority';
-import type { App } from '../../server/app';
+import { heldKey, type App } from '../../server/app';
 import { createAppError } from '@daisy/errors';
 import { mediaEndpointsOf } from '@daisy/config';
 import { createMediaNodes } from '@daisy/media';
@@ -31,9 +34,12 @@ const MEDIA_NODE_PROBE_MS = 1_000;
 type RoundMediaStop = { readonly stop: () => Promise<void> };
 
 /** Every round media runtime composed for an app, so its shutdown stops them all. */
-const composedFor = new WeakMap<App, Set<RoundMediaStop>>();
-/** Apps whose round media was stopped: a runtime composed after starts no probe. */
-const stoppedApps = new WeakSet<App>();
+const RUNTIMES = heldKey<Set<RoundMediaStop>>('round-media/runtimes');
+const composedFor = (app: App) =>
+  app.held(RUNTIMES, () => new Set<RoundMediaStop>());
+/** Whether the app's round media was stopped: a runtime composed after starts no probe. */
+const STOPPED = heldKey<{ stopped: boolean }>('round-media/stopped');
+const stoppedFor = (app: App) => app.held(STOPPED, () => ({ stopped: false }));
 
 /**
  * Stops the node probe of every round media runtime composed for `app` (the
@@ -41,10 +47,8 @@ const stoppedApps = new WeakSet<App>();
  * runtime composed for the app afterwards starts no probe.
  */
 export const stopRoundMedia = async (app: App): Promise<void> => {
-  stoppedApps.add(app);
-  await Promise.all(
-    [...(composedFor.get(app) ?? [])].map((runtime) => runtime.stop()),
-  );
+  stoppedFor(app).stopped = true;
+  await Promise.all([...composedFor(app)].map((runtime) => runtime.stop()));
 };
 
 /**
@@ -58,7 +62,7 @@ export function createRoundMediaRuntime(
   reporter: ErrorReporter = noopErrorReporter,
 ) {
   /** The node probe: not started, running, or stopped for good. */
-  let probe: RepeatWorker | 'stopped' | null = stoppedApps.has(app)
+  let probe: RepeatWorker | 'stopped' | null = stoppedFor(app).stopped
     ? 'stopped'
     : null;
   let runtime: {
@@ -181,12 +185,18 @@ export function createRoundMediaRuntime(
       if (running !== null && running !== 'stopped') await running.stop();
     },
   };
-  const composed = composedFor.get(app) ?? new Set<RoundMediaStop>();
-  composed.add(stoppable);
-  composedFor.set(app, composed);
+  composedFor(app).add(stoppable);
   return {
     operations: () => get().operations,
     workerTokens: () => get().workerTokens,
     stop: stoppable.stop,
   };
 }
+
+/** round-media: its route files bind here (`processRoute`). */
+export const roundMediaComposition = defineComposition('round-media', (app) =>
+  createRoundMediaHandlers({
+    ...memberHttpBoundary(app),
+    operations: createRoundMediaRuntime(app, app.waits).operations,
+  }),
+);

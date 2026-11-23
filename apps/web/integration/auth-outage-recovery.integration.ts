@@ -8,8 +8,10 @@ import { createTestApp, linkFrom, tokenOf, withSql } from './fixtures';
 import { CLIENT_IP_HEADER } from '@daisy/ingress/client-ip';
 import type { Fetch } from '../src/features/mail/resend-sender';
 import { createApp } from '../src/server/app';
-import { createRoutes } from '../src/server/routes';
 import { betaMessagingPolicy } from '../src/features/messaging/beta-policy';
+import { authComposition } from '../src/features/auth/composition';
+import { confirmComposition } from '../src/features/auth/composition';
+import { composer } from '../src/server/composition.test-support';
 
 /**
  * AUTH-6.7 AC3: instance restart is already proven by
@@ -44,7 +46,7 @@ describe('AUTH-6.7 AC3 database outage and recovery', () => {
 
     const email = testApp.freshEmail();
     const magicLink = () =>
-      routes.auth.POST(
+      routes(authComposition).POST(
         testApp.jsonPost('/api/auth/sign-in/magic-link', { email }),
       );
 
@@ -56,7 +58,7 @@ describe('AUTH-6.7 AC3 database outage and recovery', () => {
 
     dbProxy.resume();
     const link = linkFrom(testApp.mailbox.mails.at(-1)!);
-    const redeemed = await routes.confirm.POST(
+    const redeemed = await routes(confirmComposition).POST(
       testApp.formPost({ token: tokenOf(link), callbackURL: '/lobby' }),
     );
     const countAfterRecovery = await countUsers(email);
@@ -98,11 +100,11 @@ describe('AUTH-6.7 AC3 Redis outage and recovery', () => {
     // A real session, established before the outage, over the shared
     // database (unaffected: only Redis, the limiter, is behind this proxy).
     const email = testApp.freshEmail();
-    await routes.auth.POST(
+    await routes(authComposition).POST(
       testApp.jsonPost('/api/auth/sign-in/magic-link', { email }),
     );
     const link = linkFrom(testApp.mailbox.mails.at(-1)!);
-    const signedIn = await routes.confirm.POST(
+    const signedIn = await routes(confirmComposition).POST(
       testApp.formPost({ token: tokenOf(link), callbackURL: '/lobby' }),
     );
     const cookie = signedIn.headers
@@ -111,14 +113,14 @@ describe('AUTH-6.7 AC3 Redis outage and recovery', () => {
       .join('; ');
 
     redisProxy.pause();
-    const outageSessionRead = await routes.auth.GET(
+    const outageSessionRead = await routes(authComposition).GET(
       new Request(`${testApp.origin}/api/auth/get-session`, {
         headers: { cookie, [CLIENT_IP_HEADER]: testApp.newClient() },
       }),
     );
 
     redisProxy.resume();
-    const recoveredSessionRead = await routes.auth.GET(
+    const recoveredSessionRead = await routes(authComposition).GET(
       new Request(`${testApp.origin}/api/auth/get-session`, {
         headers: { cookie, [CLIENT_IP_HEADER]: testApp.newClient() },
       }),
@@ -162,12 +164,12 @@ describe('AUTH-6.7 AC3 Resend timeout and recovery', () => {
       clock: systemClock,
       ids: systemId,
     });
-    const routes = createRoutes(app);
+    const routes = composer(app);
     afterAll(() => app.close());
 
     const email = testApp.freshEmail();
     const magicLink = () =>
-      routes.auth.POST(
+      routes(authComposition).POST(
         testApp.jsonPost('/api/auth/sign-in/magic-link', { email }),
       );
 

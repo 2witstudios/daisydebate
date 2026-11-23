@@ -4,8 +4,9 @@ import { headers } from 'next/headers';
 import { passkeyOfferHref } from '../../../../features/access/decision';
 import { returnableDestination } from '../../../../features/auth/redirect';
 import { afterPasskey } from '../answers';
-import { moveOn } from '../../../../server/form-action';
+import { moveOn } from '../../../../features/forms/form-action';
 import { processRoute } from '../../../../server/process-app';
+import { usernameComposition } from '../../../../features/account/composition';
 import {
   submitClaim,
   type UsernameFormState,
@@ -13,7 +14,7 @@ import {
 import { createClaimUsername } from '../../../../ui/auth/onboarding/claim-username';
 import { inProcessFetch } from '../../../../server/in-process-fetch';
 
-const claimRoute = processRoute((routes) => routes.username.POST);
+const claimRoute = processRoute(usernameComposition, (routes) => routes.POST);
 
 /**
  * The username form's POST, as a server action: the claim works before

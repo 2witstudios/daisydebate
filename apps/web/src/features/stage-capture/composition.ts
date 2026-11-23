@@ -1,3 +1,4 @@
+import { defineComposition } from '../../server/composition';
 import type { Waits } from '@daisy/clock';
 import { passOf, pollWork, repeatEvery } from '@daisy/worker';
 import { HOUSEKEEPING_IDLE_MAX_MS } from '../../lib/worker-idle';
@@ -8,7 +9,7 @@ import {
   createBroadcastEgress,
 } from '@daisy/media/broadcast';
 import { createMediaNodes } from '@daisy/media';
-import type { App } from '../../server/app';
+import { heldKey, type App } from '../../server/app';
 import { createStageRoute } from './stage-route';
 import { createStrayEgressSweep } from './stray-egress-sweep';
 
@@ -16,8 +17,6 @@ const STRAY_SWEEP_EVERY_MS = 15_000;
 const STRAY_CLAIM_MS = 800;
 
 const MEDIA_NODE_PROBE_MS = 5_000;
-
-const stageMedia = new WeakMap<App, ReturnType<typeof composeStageMedia>>();
 
 /**
  * Capture's own view of the media nodes: which are up, and an Egress client for each
@@ -77,13 +76,12 @@ const composeStageMedia = (app: App, waits: Waits) => {
 };
 
 /** One stage media per app, its probe on the first caller's `waits`. */
-const stageMediaOf = (app: App, waits: Waits) => {
-  const known = stageMedia.get(app);
-  if (known !== undefined) return known;
-  const media = composeStageMedia(app, waits);
-  stageMedia.set(app, media);
-  return media;
-};
+const STAGE_MEDIA = heldKey<ReturnType<typeof composeStageMedia>>(
+  'stage-capture/media',
+);
+
+const stageMediaOf = (app: App, waits: Waits) =>
+  app.held(STAGE_MEDIA, () => composeStageMedia(app, waits));
 
 /** The LiveKit and Egress adapter, or null on a deployment with no LiveKit. */
 export const stageEgressOf = (app: App, waits: Waits) =>
@@ -94,7 +92,7 @@ export const stageEgressOf = (app: App, waits: Waits) =>
  * shutdown awaits it. Later reads compose no new probe for this app.
  */
 export const stopStageMedia = async (app: App): Promise<void> => {
-  await stageMedia.get(app)?.stop();
+  await app.heldIfAny(STAGE_MEDIA)?.stop();
 };
 
 /**
@@ -102,7 +100,7 @@ export const stopStageMedia = async (app: App): Promise<void> => {
  * no Broadcast; each owns its own credential and revocation. Inert unless a
  * capture switch is on, so merging never activates capture.
  */
-export const composeStage = (app: App, waits: Waits) => {
+const composeStage = (app: App, waits: Waits) => {
   const media = stageMediaOf(app, waits);
   if (
     (app.config.BROADCAST_CAPTURE !== 'on' &&
@@ -168,3 +166,8 @@ export const startStrayEgressSweep = (app: App, waits: Waits) => {
     failed: () => report('stage.stray_sweep_failed'),
   });
 };
+
+/** stage: its route files bind here (`processRoute`). */
+export const stageComposition = defineComposition('stage', (app) =>
+  composeStage(app, app.waits),
+);

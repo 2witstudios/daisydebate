@@ -1,3 +1,4 @@
+import { defineComposition } from '../../../server/composition';
 import {
   exportRoomDraftAnswer,
   eraseRoomDraftAnswer,
@@ -9,8 +10,8 @@ import {
   type PrivacySubject,
 } from '@daisy/db/privacy';
 import type { App } from '../../../server/app';
-import { identify } from '../../../lib/identity';
-import { configuredPrivacyJobVendors } from '../../../server/privacy-jobs';
+import { identify } from '../../auth/identity';
+import { configuredPrivacyJobVendors } from './privacy-jobs';
 import { createEraseAccountHandler } from './erase-account';
 import { createExportDataHandler } from './export-data';
 
@@ -86,7 +87,7 @@ export async function closeChildAccount(
  * configured vendor (with a fresh id) — in the one transaction the database
  * owns (ADR 0087, DEC-261).
  */
-export function composeDataRightsRoutes(app: App) {
+function composeDataRightsRoutes(app: App) {
   const origin = () => app.auth().config.PUBLIC_APP_URL;
   const identityOf = (request: Request) =>
     identify(app.auth(), request.headers);
@@ -119,3 +120,8 @@ export function composeDataRightsRoutes(app: App) {
     },
   };
 }
+
+/** data-rights: its route files bind here (`processRoute`). */
+export const dataRightsComposition = defineComposition('data-rights', (app) =>
+  composeDataRightsRoutes(app),
+);

@@ -2,11 +2,12 @@
 import { headers } from 'next/headers';
 import { revalidatePath } from 'next/cache';
 import { processRoute } from '../../../../../server/process-app';
+import { messagingComposition } from '../../../../../features/messaging/composition';
 import { inProcessFetch } from '../../../../../server/in-process-fetch';
 import { readReactionResponse } from '../../../../../features/messaging/reaction-response';
 import { readReactionChangeResponse } from '../../../../../features/messaging/reaction-change-response';
-import { submitMessagingForm } from '../../../../../server/messaging-form-submit';
-import { moveOn, stayOn } from '../../../../../server/form-action';
+import { submitMessagingForm } from '../../../../../features/messaging/form-submit';
+import { moveOn, stayOn } from '../../../../../features/forms/form-action';
 import {
   parseReactionForm,
   reactionUnavailable,
@@ -21,7 +22,7 @@ import {
   reactionWithdrawnUncounted,
   type ReactionPillState,
 } from '../../../../../features/messaging/forms/reaction-pill-form';
-const change = processRoute((routes) => routes.messaging.reactions);
+const change = processRoute(messagingComposition, (routes) => routes.reactions);
 export async function changeReactionAction(
   channelId: string,
   messageId: string,
@@ -92,8 +93,8 @@ export async function reactToMessageAction(
       const current = await readReactionResponse(
         await inProcessFetch(
           processRoute(
-            (routes) => (request) =>
-              routes.messaging.reactions(request, channel.data),
+            messagingComposition,
+            (routes) => (request) => routes.reactions(request, channel.data),
           ),
           incoming,
         )(

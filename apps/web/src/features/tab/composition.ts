@@ -1,3 +1,4 @@
+import { defineComposition } from '../../server/composition';
 import { createLeagueSchoolCommandRoute } from './league-school-command-route';
 import {
   createLobbyPeopleRoute,
@@ -74,7 +75,7 @@ import { entryEnrollmentCommand } from './operations/entry-enrollment';
 import { judgeRegistrationCommand } from './operations/judge-registration';
 import { authorize } from '@daisy/auth/authorization';
 import type { App } from '../../server/app';
-import { memberHttpBoundary } from '../../server/member-boundary';
+import { memberHttpBoundary } from '../auth/member-boundary';
 import {
   createOrganizationPeopleRoute,
   type OrganizationPeopleRouteDependencies,
@@ -86,7 +87,7 @@ import { readOrganizationPeople } from './reads/organization-people';
  * the release check from its Next route module: release flags never reach
  * the route table the proxy loads (ADR 0118).
  */
-export function composeTabRoutes(app: App) {
+function composeTabRoutes(app: App) {
   const store = app.database.tabCommands;
   const now = () => app.clock.now();
   const boundary = memberHttpBoundary(app);
@@ -261,3 +262,8 @@ export function composeTabRoutes(app: App) {
       }),
   };
 }
+
+/** tab: its route files bind here (`processRoute`). */
+export const tabComposition = defineComposition('tab', (app) =>
+  composeTabRoutes(app),
+);

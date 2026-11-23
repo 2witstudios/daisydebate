@@ -1,10 +1,11 @@
+import { defineComposition } from '../../server/composition';
 import { liveLinkedAdults } from '../spectating/linked-adults';
 import { trackRequest } from '../analytics/track-request';
 import { createRoomDraftHandler } from '../rooms/create-room-draft-handler';
 import { createAppError } from '@daisy/errors';
 import type { App } from '../../server/app';
 import { handleOperation } from '../../server/http';
-import { memberHttpBoundary } from '../../server/member-boundary';
+import { memberHttpBoundary } from '../auth/member-boundary';
 import { createRoomHandlers } from './handlers';
 import { createRoomRuntimeOperations } from './operations';
 import { drawEntropy } from './entropy';
@@ -16,7 +17,7 @@ export type RoomPolicy = {
   readonly maxBodyBytes: number;
   readonly limits: Parameters<typeof createRoomHandlers>[0]['limits'];
 };
-export function composeRoomRoutes(app: App) {
+function composeRoomRoutes(app: App) {
   let handlers: ReturnType<typeof createRoomHandlers> | undefined;
   const run = (
     request: Request,
@@ -93,3 +94,8 @@ export function composeRoomRoutes(app: App) {
     }),
   };
 }
+
+/** rooms: its route files bind here (`processRoute`). */
+export const roomComposition = defineComposition('rooms', (app) =>
+  composeRoomRoutes(app),
+);

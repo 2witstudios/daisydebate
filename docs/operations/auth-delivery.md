@@ -275,7 +275,7 @@ Prometheus counters behind AUTH-7.7's dashboard criterion: auth HTTP
 responses by status class, rate-limit denied/unavailable totals, mail
 delivery failures, retention sweep failures by target name, scheduled worker
 run failures by worker, and route handler latency by operation name (the closed
-list in `apps/web/src/features/ops/operation-names.ts`) — no per-email or
+list in `apps/web/src/server/operation-names.ts`) — no per-email or
 per-token labels. Wiring an actual scrape config or rendered
 dashboard is a separate, owner-approved deploy-rail step (ADR 0042).
 

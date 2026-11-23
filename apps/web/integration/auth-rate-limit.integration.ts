@@ -4,12 +4,13 @@ import { createTestApp, origin } from './fixtures';
 import { createSecondInstances, statuses } from './auth-rate-limit-helpers';
 import { CLIENT_IP_HEADER } from '@daisy/ingress/client-ip';
 import { requireTestServices } from '@daisy/config';
+import { authComposition } from '../src/features/auth/composition';
 
 requireTestServices(process.env);
 setupRitewayBun();
 const testApp = createTestApp();
 const { mailbox, jsonPost, newClient, redisKeys, redisNamespace } = testApp;
-const authRoute = testApp.routes.auth;
+const authRoute = testApp.routes(authComposition);
 const { secondInstance, closeExtraInstances } = createSecondInstances(testApp);
 
 const magicLink = (

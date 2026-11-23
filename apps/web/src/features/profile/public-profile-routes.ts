@@ -1,3 +1,4 @@
+import { defineComposition } from '../../server/composition';
 import { nowMs } from '@daisy/clock';
 import { requireAuthorization } from '@daisy/auth/request-authorization';
 import type { AuthorizationPrincipal } from '@daisy/auth/authorization';
@@ -25,16 +26,13 @@ import { requireMemberActor } from '../access/actor';
 import { squareWebpRenditions } from '../image-intake/square-renditions';
 import type { App } from '../../server/app';
 import { readBytes, readJson } from '../../server/http';
-import {
-  memberHttpBoundary,
-  runEvaluatedRoute,
-} from '../../server/member-boundary';
+import { memberHttpBoundary, runEvaluatedRoute } from '../auth/member-boundary';
 import {
   consumeOrThrow,
   readLimiterDecision,
   retryAfterHeaders,
 } from '../../server/rate-limit';
-import { CLIENT_ID_HASH_HEADER } from '../auth/abuse/client-ip';
+import { CLIENT_ID_HASH_HEADER } from '../../server/client-ip';
 import { intakeProfilePhoto, PHOTO_UPLOAD_RULE } from './photo/intake';
 import { photoObjectKey } from './photo/object-keys';
 import { isTextWithdrawal } from './text-withdrawal';
@@ -362,3 +360,9 @@ export function composePublicProfileRoutes(app: App) {
     },
   };
 }
+
+/** public-profile: its route files bind here (`processRoute`). */
+export const publicProfileComposition = defineComposition(
+  'public-profile',
+  (app) => composePublicProfileRoutes(app),
+);

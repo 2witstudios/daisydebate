@@ -2,7 +2,7 @@ import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { requireTestServices } from '@daisy/config';
 import { createMediaService } from '@daisy/media';
 import { createRoundMediaOperations } from '../src/features/round-media/operations';
-import { startRoundMediaRecovery } from '../src/server/round-media-recovery';
+import { startRoundMediaRecovery } from '../src/features/round-media/recovery-worker';
 import { mediaDependencies, withMediaRound } from './round-media.test-support';
 import { hostWaits } from '@daisy/worker/host';
 setupRitewayBun();

@@ -15,9 +15,11 @@ import {
   CHAT_POST_FAILED,
   chatRefusalText,
 } from '../../../features/messaging/spectator-chat/form';
-import { stayOn } from '../../../server/form-action';
+import { stayOn } from '../../../features/forms/form-action';
 import { inProcessFetch } from '../../../server/in-process-fetch';
 import { processRoute } from '../../../server/process-app';
+import { audienceComposition } from '../../../features/spectating/audience-composition';
+import { contentModerationComposition } from '../../../features/content-moderation/composition';
 import { audienceRefusalText } from '../../../ui/audience/audience-copy';
 import {
   saveRefused,
@@ -32,18 +34,26 @@ import { post } from '../form-post';
 const routes = {
   chat: (roundId: string) =>
     processRoute(
-      (all) => (request: Request) => all.audience.chat(request, roundId),
+      audienceComposition,
+      (all) => (request: Request) => all.chat(request, roundId),
     ),
   reaction: (roundId: string) =>
     processRoute(
-      (all) => (request: Request) => all.audience.reaction(request, roundId),
+      audienceComposition,
+      (all) => (request: Request) => all.reaction(request, roundId),
     ),
-  follow: processRoute((all) => all.audience.follow),
-  history: processRoute((all) => all.audience.watchHistory),
-  read: processRoute((all) => all.audience.notificationsRead),
-  preferences: processRoute((all) => all.audience.notificationPreferences),
-  presentation: processRoute((all) => all.audience.notificationPresentation),
-  report: processRoute((all) => all.contentModeration.report.POST),
+  follow: processRoute(audienceComposition, (all) => all.follow),
+  history: processRoute(audienceComposition, (all) => all.watchHistory),
+  read: processRoute(audienceComposition, (all) => all.notificationsRead),
+  preferences: processRoute(
+    audienceComposition,
+    (all) => all.notificationPreferences,
+  ),
+  presentation: processRoute(
+    audienceComposition,
+    (all) => all.notificationPresentation,
+  ),
+  report: processRoute(contentModerationComposition, (all) => all.report.POST),
 };
 
 /** Bound arguments round-trip through the page, so they are checked as untrusted. */

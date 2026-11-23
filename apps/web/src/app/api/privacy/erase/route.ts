@@ -1,4 +1,8 @@
 import { processRoute } from '../../../../server/process-app';
+import { dataRightsComposition } from '../../../../features/account/data-rights/composition';
 
 export const runtime = 'nodejs';
-export const POST = processRoute((routes) => routes.privacy.erase.POST);
+export const POST = processRoute(
+  dataRightsComposition,
+  (routes) => routes.erase.POST,
+);

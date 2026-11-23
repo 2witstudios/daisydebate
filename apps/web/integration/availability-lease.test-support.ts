@@ -1,7 +1,7 @@
 import { assert } from 'riteway/bun';
 import type { withAttendanceRound } from './attendance.test-support';
 import type { PublicCheckInProbeConfiguration } from '../src/features/availability/public-probe';
-import { startRoundAvailability } from '../src/server/round-availability';
+import { startRoundAvailability } from '../src/features/availability/worker';
 import { RENEW_INTERVAL_MS } from '../src/features/availability/lease-health';
 import { manualWaits } from '../src/lib/manual-waits.test-support';
 

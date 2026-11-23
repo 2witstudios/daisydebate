@@ -7,10 +7,12 @@ import {
 } from '../../../../../features/audience-link/submit-issue';
 import { inProcessFetch } from '../../../../../server/in-process-fetch';
 import { processRoute } from '../../../../../server/process-app';
+import { audienceLinkComposition } from '../../../../../features/audience-link/composition';
 
 const issue = (roundId: string) =>
   processRoute(
-    (routes) => (request) => routes.audienceLink.issue(request, roundId),
+    audienceLinkComposition,
+    (routes) => (request) => routes.issue(request, roundId),
   );
 
 /**

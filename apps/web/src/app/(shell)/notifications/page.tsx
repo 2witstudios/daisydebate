@@ -1,11 +1,9 @@
 import type { Metadata } from 'next';
 import type { SearchParams } from '../../../features/access/decision';
 import { getNotifications } from '../../../features/notifications/get-notifications';
-import { requireAccess } from '../../../lib/access';
-import {
-  requestIdentity,
-  requestNotifications,
-} from '../../../lib/request-session';
+import { requireAccess } from '../../../features/access/page-access';
+import { requestIdentity } from '../../../lib/page-reads';
+import { requestNotifications } from '../../../features/notifications/page-reads';
 import { parseNotificationsQuery } from '../../../features/notifications/notifications';
 import {
   markAllNotificationsReadAction,

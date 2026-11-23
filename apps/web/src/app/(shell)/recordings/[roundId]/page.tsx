@@ -7,11 +7,9 @@ import {
   reportNotice,
 } from '../../../../features/content-moderation/submit-report';
 import { recordingViewerOf } from '../../../../features/recording/viewer';
-import {
-  readRecordingHistory,
-  requestIdentity,
-  requestPresentedLink,
-} from '../../../../lib/request-session';
+import { readRecordingHistory } from '../../../../features/recording/page-reads';
+import { requestIdentity } from '../../../../lib/page-reads';
+import { requestPresentedLink } from '../../../../features/audience-link/page-reads';
 import {
   RecordingHistory,
   removalNotices,
