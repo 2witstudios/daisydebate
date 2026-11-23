@@ -1,7 +1,4 @@
 import { instantMs } from '@daisy/clock';
-import type { createAudioPublication } from '@daisy/media/audio';
-import { createStreamingAudioWriter } from '@daisy/media/publication';
-import type { Database } from '@daisy/db';
 import type { BotPublicationScope } from '@daisy/db/bot-publication';
 import { createAppError } from '@daisy/errors';
 import { lineClosed, lineTailCut } from './model/line-ledger';
@@ -12,48 +9,25 @@ import {
   STOPPED,
   type PhraseOutcome,
   type PublisherEffect,
-  type PublisherEvent,
-  type StoreCall,
+  type PublisherEventBody,
   type Wait,
 } from './model/publisher';
+import {
+  joinTrack,
+  phraseOf,
+  playable,
+  storeCall,
+  streamPhrase,
+  type BotSpeechJob,
+  type Input,
+  type Publication,
+} from './publication-io';
 export type { PhraseOutcome } from './model/publisher';
+export type { BotSpeechJob } from './publication-io';
 export { playedFraction } from './model/line-ledger';
 
-type Publication = Awaited<ReturnType<typeof createAudioPublication>>;
-/** One synthesized bot phrase, bound to its publication scope and token. */
-export type BotSpeechJob = {
-  readonly scope: BotPublicationScope;
-  readonly token: string;
-  readonly phraseId: string;
-  readonly text: string;
-  readonly pcm: Int16Array;
-  readonly sampleRate: 24000;
-  readonly channels: 1;
-};
-type Input = {
-  readonly store: Pick<
-    Database,
-    | 'verifyRoundBotPublication'
-    | 'beginRoundBotPhrase'
-    | 'endRoundBotPhrase'
-    | 'revealRoundBotPhrase'
-    | 'watchRoundBotFloor'
-  >;
-  readonly botToken: (
-    scope: BotPublicationScope,
-    token: string,
-  ) => Promise<{ url: string; token: string; roomName: string }>;
-  readonly connect: typeof createAudioPublication;
-  readonly nextId: () => string;
-  readonly monotonicNowMs: () => number;
-  readonly waitUntilMs: (due: number, signal: AbortSignal) => Promise<void>;
-};
 type Claim = { readonly scope: BotPublicationScope; readonly token: string };
-type Event = PublisherEvent extends infer E
-  ? E extends unknown
-    ? Omit<E, 'nowMs' | 'queuedMs' | 'trackUsable'>
-    : never
-  : never;
+type Event = PublisherEventBody;
 /**
  * The interpreter's resources: the step's state, the audio tracks, the audio
  * of the phrase in play and its answer, and the pending waits. No decision
@@ -72,20 +46,6 @@ type Shell = {
   } | null;
   writing: AbortController | null;
 };
-const SAMPLE_RATE = 24000;
-const FRAME_SAMPLES = 240;
-/** How far ahead of playout frames are handed to the native queue. */
-const LEAD_MS = 300;
-/** The native queue: comfortably above the lead, so a handoff never waits. */
-const QUEUE_MS = 500;
-/** TTS audio in whole 10 ms frames, the last padded with silence (ISSUE-454). */
-function wholeFrames(pcm: Int16Array) {
-  const tail = pcm.length % FRAME_SAMPLES;
-  if (tail === 0) return pcm;
-  const padded = new Int16Array(pcm.length + FRAME_SAMPLES - tail);
-  padded.set(pcm);
-  return padded;
-}
 const keyOf = (wait: Wait) => JSON.stringify(wait);
 const native = ({ state: { track }, tracks }: Shell) =>
   'join' in track ? tracks.get(track.join) : undefined;
@@ -103,55 +63,31 @@ function dispatch(shell: Shell, event: Event) {
   for (const effect of next.effects) perform(shell, effect);
 }
 
-function storeCall({ input: { store }, claim }: Shell, args: StoreCall) {
-  const { scope, token } = claim;
-  switch (args.kind) {
-    case 'begin':
-      return store.beginRoundBotPhrase(scope, token, args.phrase, args.room);
-    case 'reveal': {
-      const { phrase, room, startedAt } = args;
-      return store.revealRoundBotPhrase(scope, token, phrase, room, startedAt);
-    }
-    case 'end':
-      return store.endRoundBotPhrase(scope, token, args.phraseId, args.end);
-    case 'floor':
-      return store.watchRoundBotFloor(scope, token, args.room);
-  }
-}
-
-/** Joins the claim's room on a fresh track (ADR 0110: a retired room is never rejoined). */
-async function join(shell: Shell, id: number) {
+function join(shell: Shell, id: number) {
   const { input, claim } = shell;
-  await input.store.verifyRoundBotPublication(claim.scope, claim.token);
-  const grant = await input.botToken(claim.scope, claim.token);
-  const track = await input.connect({
-    url: grant.url,
-    token: grant.token,
-    trackName: input.nextId(),
-    sampleRate: SAMPLE_RATE,
-    channels: 1,
-    queueMs: QUEUE_MS,
-  });
-  shell.tracks.set(id, track);
-  const usable = track.usable();
-  dispatch(shell, { type: 'joined', join: id, room: grant.roomName, usable });
+  const { scope, token } = claim;
+  void joinTrack({
+    verify: () => input.store.verifyRoundBotPublication(scope, token),
+    grant: () => input.botToken(scope, token),
+    connect: input.connect,
+    trackName: input.nextId,
+  }).then(
+    ({ track, room }) => {
+      shell.tracks.set(id, track);
+      const usable = track.usable();
+      dispatch(shell, { type: 'joined', join: id, room, usable });
+    },
+    () => dispatch(shell, { type: 'join-failed', join: id }),
+  );
 }
 
-/** Streams the phrase's frames in real time, never one that would play past `stopAtMs`. */
 function write(shell: Shell, stopAtMs: number) {
   const target = native(shell);
   if (!shell.phrase || !target) return;
   const writing = new AbortController();
   shell.writing = writing;
-  const writer = createStreamingAudioWriter({
-    target,
-    sampleRate: SAMPLE_RATE,
-    channels: 1,
-    nowMs: shell.input.monotonicNowMs,
-    waitUntilMs: shell.input.waitUntilMs,
-    leadMs: LEAD_MS,
-  });
-  void writer(wholeFrames(shell.phrase.pcm), writing.signal, stopAtMs).then(
+  const { pcm } = shell.phrase;
+  void streamPhrase(shell.input, target, pcm, writing.signal, stopAtMs).then(
     (written) => dispatch(shell, { type: 'written', written }),
   );
 }
@@ -169,9 +105,7 @@ function wait(shell: Shell, target: Wait, untilMs: number) {
 function perform(shell: Shell, effect: PublisherEffect) {
   switch (effect.type) {
     case 'join':
-      return void join(shell, effect.join).catch(() =>
-        dispatch(shell, { type: 'join-failed', join: effect.join }),
-      );
+      return join(shell, effect.join);
     case 'leave': {
       const track = shell.tracks.get(effect.join);
       shell.tracks.delete(effect.join);
@@ -180,7 +114,7 @@ function perform(shell: Shell, effect: PublisherEffect) {
     }
     case 'call': {
       const { call } = effect;
-      return void storeCall(shell, effect.args).then(
+      return void storeCall(shell.input.store, shell.claim, effect.args).then(
         () => dispatch(shell, { type: 'answered', call }),
         (error: unknown) => dispatch(shell, { type: 'refused', call, error }),
       );
@@ -200,32 +134,20 @@ function perform(shell: Shell, effect: PublisherEffect) {
       return void Promise.resolve().then(() =>
         dispatch(shell, { type: 'resumed' }),
       );
-    case 'answer':
-      return answer(shell, effect);
+    case 'answer': {
+      const pending = shell.phrase?.answer;
+      shell.phrase = null;
+      shell.writing = null;
+      if (effect.kind === 'outcome') return pending?.resolve(effect.outcome);
+      const stopped = effect.error === STOPPED;
+      return pending?.reject(
+        stopped ? createAppError('CONFLICT') : effect.error,
+      );
+    }
     case 'closed':
       return shell.closed.resolve();
   }
 }
-
-/** Settles the publish in flight: its outcome, or why it stopped. */
-function answer(
-  shell: Shell,
-  effect: Extract<PublisherEffect, { type: 'answer' }>,
-) {
-  const pending = shell.phrase?.answer;
-  shell.phrase = null;
-  shell.writing = null;
-  if (effect.kind === 'outcome') return pending?.resolve(effect.outcome);
-  const { error } = effect;
-  pending?.reject(error === STOPPED ? createAppError('CONFLICT') : error);
-}
-
-const phraseOf = (job: BotSpeechJob) => ({
-  id: job.phraseId,
-  text: job.text,
-  durationMs: wholeFrames(job.pcm).length / (SAMPLE_RATE / 1000),
-  samples: job.pcm.length,
-});
 
 /** Plays one phrase and authors its line beside it; never plays past `stopAtMs`. */
 async function publish(
@@ -234,23 +156,16 @@ async function publish(
   signal: AbortSignal,
   stopAtMs: number,
 ) {
-  const { pcm } = job;
-  if (
-    !(pcm instanceof Int16Array) ||
-    pcm.length === 0 ||
-    pcm.length > SAMPLE_RATE * 60 ||
-    !Number.isFinite(stopAtMs)
-  )
-    throw createAppError('VALIDATION');
-  const answered = Promise.withResolvers<PhraseOutcome>();
-  shell.phrase = { pcm, answer: answered };
+  const { pcm } = playable(job, stopAtMs);
+  const answer = Promise.withResolvers<PhraseOutcome>();
+  shell.phrase = { pcm, answer };
   const stop = () => dispatch(shell, { type: 'stop' });
   signal.addEventListener('abort', stop, { once: true });
   const phrase = phraseOf(job);
   const stopped = signal.aborted;
   dispatch(shell, { type: 'publish', phrase, stopAtMs, stopped });
   try {
-    return await answered.promise;
+    return await answer.promise;
   } finally {
     signal.removeEventListener('abort', stop);
   }

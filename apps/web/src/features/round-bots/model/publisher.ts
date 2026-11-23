@@ -42,7 +42,7 @@ export type PhraseFacts = {
   readonly samples: number;
 };
 /** How the audio writer ended (`@daisy/media/publication`). */
-type Written = {
+export type Written = {
   readonly sentSamples: number;
   readonly playedSamples: number;
   readonly aborted: boolean;
@@ -147,7 +147,8 @@ export type Wait =
       readonly kind: 'audio-start' | 'floor' | 'tail';
       readonly phraseId: string;
     };
-type Events =
+/** An event as the shell reports it, before the track's state is read beside it. */
+export type PublisherEventBody =
   | {
       readonly type:
         'start' | 'stop' | 'silence' | 'discard' | 'close' | 'resumed';
@@ -178,7 +179,7 @@ type Events =
   | { readonly type: 'woke'; readonly wait: Wait }
   | { readonly type: 'written'; readonly written: Written };
 /** An event, read with the track's state: the time, its queue and its health. */
-export type PublisherEvent = Events & {
+export type PublisherEvent = PublisherEventBody & {
   readonly nowMs: number;
   readonly queuedMs: number;
   readonly trackUsable: boolean;
@@ -405,7 +406,10 @@ function authorize(
   set(step, { asks: [...step.state.asks, ask] });
 }
 
-function publish(step: Step, event: Extract<Events, { type: 'publish' }>) {
+function publish(
+  step: Step,
+  event: Extract<PublisherEventBody, { type: 'publish' }>,
+) {
   if (event.stopped) {
     clearNow(step, true);
     return emit(step, { type: 'answer', kind: 'error', error: STOPPED });
@@ -444,7 +448,7 @@ function resumed(step: Step) {
 
 function joinSettled(
   step: Step,
-  event: Extract<Events, { type: 'joined' | 'join-failed' }>,
+  event: Extract<PublisherEventBody, { type: 'joined' | 'join-failed' }>,
 ) {
   const { track, playing } = step.state;
   const current = track.status === 'joining' && track.join === event.join;
