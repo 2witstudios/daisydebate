@@ -17,6 +17,13 @@ import {
   type WorkloadProfile,
 } from './workload';
 
+export {
+  WORKLOAD_PROFILES,
+  type WorkloadLane,
+  type WorkloadProfile,
+} from './workload';
+export type { DatabaseEventSink } from './instrumented';
+
 type Workload = ReturnType<typeof createWorkload>;
 
 /**

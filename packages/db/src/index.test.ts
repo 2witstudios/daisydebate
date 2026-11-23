@@ -20,7 +20,6 @@ describe('package entry surface (ISSUE-8 AC1)', () => {
       expected: [
         'WORKLOAD_PROFILES',
         'createDatabase',
-        'createRealtimeDatabase',
         'refuseSchemaAlteringRole',
         'refuseUnisolatedTenantTables',
       ].sort(),

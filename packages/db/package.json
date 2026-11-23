@@ -105,7 +105,10 @@
     "./stores/standings": "./src/stores/standings.ts",
     "./stores/tab": "./src/stores/tab.ts",
     "./stores/transcripts": "./src/stores/transcripts.ts",
-    "./stores/watch-history": "./src/stores/watch-history.ts"
+    "./stores/watch-history": "./src/stores/watch-history.ts",
+    "./stores/realtime-authority": "./src/stores/realtime-authority.ts",
+    "./stores/channel-observation": "./src/stores/channel-observation.ts",
+    "./startup": "./src/startup.ts"
   },
   "scripts": {
     "typecheck": "tsgo --noEmit",

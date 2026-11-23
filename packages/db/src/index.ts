@@ -129,11 +129,6 @@ export type {
 export { refuseSchemaAlteringRole } from './runtime-role';
 export type { WorkKind } from './work-wake';
 export { refuseUnisolatedTenantTables } from './tenant-isolation';
-export {
-  createRealtimeDatabase,
-  type RealtimeAuthorityReads,
-  type RealtimeDatabase,
-} from './realtime-database';
 export type { ChannelObservationReads } from './messaging/observation-reads';
 
 /**

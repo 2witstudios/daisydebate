@@ -3,11 +3,10 @@ import { requireTestServices } from '@daisy/config';
 import { SQL } from 'bun';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import {
-  WORKLOAD_PROFILES,
-  createDatabase,
-  createRealtimeDatabase,
-} from '../src';
+import { openDatabaseResources, WORKLOAD_PROFILES } from '../src/resources';
+import { createAuthStore } from '../src/stores/auth';
+import { createChannelObservationStore } from '../src/stores/channel-observation';
+import { createRoundStore } from '../src/stores/rounds';
 import { currentLaneOperation } from '../src/workload';
 
 setupRitewayBun();
@@ -25,15 +24,12 @@ const namingClient = () => {
 
 test('database factory ports keep their operation label through native I/O', async () => {
   const { client, seen } = namingClient();
-  const database = createDatabase({
-    waits: hostWaits,
-    url,
-    client,
-    nextActorId: createId,
-  });
+  const resources = openDatabaseResources({ waits: hostWaits, url, client });
+  const rounds = createRoundStore(resources);
+  const auth = createAuthStore(resources);
   try {
-    await database.databaseNow();
-    await database.authAdapter({}).findOne({ model: 'user', where: [] });
+    await rounds.databaseNow();
+    await auth.authAdapter({}).findOne({ model: 'user', where: [] });
     assert({
       given: 'a clock operation and a nested auth store',
       should: 'reach PostgreSQL under their own operation labels',
@@ -41,19 +37,20 @@ test('database factory ports keep their operation label through native I/O', asy
       expected: ['databaseNow', 'authAdapter.findOne'],
     });
   } finally {
-    await database.close();
+    await resources.close();
     await client.close();
   }
 });
 
 test('the realtime factory labels its nested observation read', async () => {
   const { client, seen } = namingClient();
-  const database = createRealtimeDatabase({
+  const resources = openDatabaseResources({
     waits: hostWaits,
     url,
     client,
     profile: WORKLOAD_PROFILES['realtime-observer'],
   });
+  const database = createChannelObservationStore(resources);
   try {
     if (!database.observation) throw new Error('Observation port unavailable');
     await database.observation.headers.readChannelObservationHeaders([
@@ -66,7 +63,7 @@ test('the realtime factory labels its nested observation read', async () => {
       expected: ['observation.headers.readChannelObservationHeaders'],
     });
   } finally {
-    await database.close();
+    await resources.close();
     await client.close();
   }
 });
