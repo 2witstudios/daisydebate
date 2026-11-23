@@ -5,7 +5,7 @@
  * supplies the dump and the facts read from the source database.
  */
 
-export type BaselineRole = { readonly name: string };
+type BaselineRole = { readonly name: string };
 
 export type BaselineSource = {
   /** `pg_dump --no-owner --column-inserts --exclude-schema=drizzle` output. */

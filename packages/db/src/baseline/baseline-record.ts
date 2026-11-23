@@ -4,7 +4,7 @@ import { z } from 'zod';
 const repository = resolve(import.meta.dir, '../../../..');
 
 /** The one baseline `policy/migration-baselines.json` records (ADR 0913). */
-export const baselineRecord = z.object({
+const baselineRecord = z.object({
   tag: z.string().regex(/^\d{14}_baseline$/),
   cutoff: z.string().regex(/^\d{14}_[a-z0-9_]+$/),
   commit: z.string().regex(/^[0-9a-f]{40}$/),

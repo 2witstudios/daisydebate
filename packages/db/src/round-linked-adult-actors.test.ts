@@ -1,16 +1,14 @@
-import { readdirSync, readFileSync } from 'node:fs';
-import { join } from 'node:path';
 import { sql } from 'drizzle-orm';
 import { PgDialect } from 'drizzle-orm/pg-core';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
+import {
+  committedMigrationSql,
+  installedFunction,
+} from './migrations.test-support';
 import { isDebatingSeatSql } from './seat-columns';
 import { youthRoundSql } from './youth-round-sql';
 
 setupRitewayBun();
-
-const migrations = join(import.meta.dir, '../migrations');
-const declaration =
-  /CREATE (?:OR REPLACE )?FUNCTION public\.daisy_round_linked_adult_actors\([\s\S]*?\$round_linked_adult_actors\$;/i;
 
 /** A predicate as SQL text, its parameters written in. */
 const inlined = (expression: Parameters<PgDialect['sqlToQuery']>[0]) => {
@@ -37,18 +35,11 @@ const normal = (text: string) =>
  * its publication and its people read decide alike. A change to either
  * TypeScript predicate fails here until a migration redefines the function.
  */
-test('the linked-adult Round read uses the Youth Round and debating-seat predicates verbatim', () => {
-  const installed = readdirSync(migrations)
-    .sort()
-    .map((tag) => {
-      try {
-        return readFileSync(join(migrations, tag, 'migration.sql'), 'utf8');
-      } catch {
-        return '';
-      }
-    })
-    .flatMap((text) => declaration.exec(text)?.[0] ?? [])
-    .at(-1);
+test('the linked-adult Round read uses the Youth Round and debating-seat predicates verbatim', async () => {
+  const installed = installedFunction(
+    await committedMigrationSql(),
+    'daisy_round_linked_adult_actors',
+  )?.statement;
   const body = normal(installed ?? '');
   assert({
     given:

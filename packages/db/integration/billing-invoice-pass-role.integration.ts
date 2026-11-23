@@ -1,4 +1,3 @@
-import { installInvoicePassGuards } from './billing-invoice-pass-current.test-support';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { requireTestServices } from '@daisy/config';
 import { createId } from '@paralleldrive/cuid2';
@@ -17,10 +16,6 @@ import { claimTarget, passOf } from './billing-invoice-pass-role.test-support';
 import { classifyAcrossMemberWait } from './billing-invoice-pass-wait.test-support';
 requireTestServices(process.env);
 setupRitewayBun();
-const candidate = new URL(
-  '../migrations/20261107080513_fair_midnight/migration.sql',
-  import.meta.url,
-);
 for (const lane of ['invoices', 'observations'] as const)
   test(
     `actual ${lane} enumeration guard preserves pending money and rejects missing/currently contradictory/expired authority`,
@@ -36,7 +31,6 @@ for (const lane of ['invoices', 'observations'] as const)
           const rollback = Error('Owned invoice classification role rollback');
           try {
             await fixture.sql.begin(async (tx) => {
-              await installInvoicePassGuards(tx, candidate);
               await tx`set local role daisy_web`;
               await tx`select id from users where id=${subject.userId} for update`;
               const [job] =

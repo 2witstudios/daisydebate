@@ -1,6 +1,5 @@
 import { query } from './raw-rows';
 import { z } from 'zod';
-export { loanRoundAssignmentInterface } from './testing-round-assignment-interface';
 import { SQL } from 'bun';
 import { sql } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/bun-sql';
