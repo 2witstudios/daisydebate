@@ -10,7 +10,7 @@ import { roundAnalysisView } from './policy';
  * The completed Round's own debater may read their delivered report after
  * paid access lapses. Fresh requests separately pass atomic allowance admission.
  */
-export function composeRoundAnalysisRoutes(app: App) {
+function composeRoundAnalysisRoutes(app: App) {
   return createRoundAnalysisHandlers({
     ...composeRoundMemberDependencies(app),
     request: async (caller, roundId) =>

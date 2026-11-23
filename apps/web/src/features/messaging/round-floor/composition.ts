@@ -23,7 +23,7 @@ import {
 } from '../../spectating/linked-adults';
 
 /** HTTP, embedded forms and retained history all use the same fenced Round authority. */
-export function composeRoundFloorRoutes(app: App) {
+function composeRoundFloorRoutes(app: App) {
   const policy = app.messagingPolicy;
   const linkedAdults = liveLinkedAdults(app);
   const store = (

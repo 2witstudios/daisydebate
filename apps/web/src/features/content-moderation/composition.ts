@@ -4,7 +4,7 @@ import type { App } from '../../server/app';
 import { createReportHandler } from './report-handler';
 
 /** The participant's one moderation route: filing a report. */
-export function composeContentModerationRoutes(app: App) {
+function composeContentModerationRoutes(app: App) {
   return {
     report: {
       POST: createReportHandler({

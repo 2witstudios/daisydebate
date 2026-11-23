@@ -23,7 +23,7 @@ import { roomChatContext } from './room-chat-context';
  * authority. A refused read is answered as not found, so a private Room's chat
  * is never confirmed to someone who may not read the Room.
  */
-export function composeRoomCommunityRoutes(app: App) {
+function composeRoomCommunityRoutes(app: App) {
   const policy = app.messagingPolicy;
   const store = (
     principal: AuthorizationPrincipal,

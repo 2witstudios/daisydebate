@@ -30,7 +30,7 @@ import { composeClubRoutes, type StartClub } from './routes';
  * handed to the routes as a named input. Loaded lazily with billing, since
  * it holds the Stripe client.
  */
-export function composeClubs(
+function composeClubs(
   app: App,
   stripe: Pick<
     Stripe,

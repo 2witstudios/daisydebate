@@ -25,7 +25,7 @@ test('every route module keeps its path, methods and segment config', async () =
   assert({
     given: 'the route modules under src/app',
     should:
-      'match route-table.json (`bun run scripts/route-table.ts` rewrites it)',
+      'match route-table.json (`bun run nets/route-table.ts` rewrites it)',
     actual: await routeTable(),
     expected: await Bun.file(TABLE).json(),
   });

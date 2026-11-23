@@ -39,7 +39,7 @@ const asUser = (principal: { readonly kind: string }): TabPrincipal => {
   return principal as TabPrincipal;
 };
 
-export function composeHostingRoutes(input: {
+function composeHostingRoutes(input: {
   readonly boundary: BudgetedMemberBoundary;
   /** The hosting resources over this process's vendor transport. */
   readonly dependencies: (

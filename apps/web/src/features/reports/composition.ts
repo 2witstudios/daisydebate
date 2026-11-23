@@ -17,7 +17,7 @@ import { fileReport, REPORT_RULE } from './operations';
 const MAX_BODY_BYTES = 1024;
 
 /** Reports (ADR 0103). */
-export function composeReportRoutes(app: App) {
+function composeReportRoutes(app: App) {
   const boundary = memberHttpBoundary(app);
   return {
     file: (request: Request) =>

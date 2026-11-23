@@ -23,7 +23,7 @@ import { createAudienceSnapshotRoute } from './audience-snapshot';
 const NOTIFICATION_SWEEP_EVERY_MS = 15_000;
 
 /** The audience's routes, each from its owning feature. */
-export function composeAudienceRoutes(app: App) {
+function composeAudienceRoutes(app: App) {
   const account: AccountRouteDeps = {
     logger: app.logger,
     reporter: app.reporter,

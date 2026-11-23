@@ -110,7 +110,7 @@ const recordingInputs = (app: App): RecordingInputs & HistoryInputs => {
   };
 };
 
-export const composeRecordingRoutes = (app: App) =>
+const composeRecordingRoutes = (app: App) =>
   createRecordingHandlers({
     logger: app.logger,
     reporter: app.reporter,

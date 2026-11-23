@@ -87,7 +87,7 @@ export async function closeChildAccount(
  * configured vendor (with a fresh id) — in the one transaction the database
  * owns (ADR 0087, DEC-261).
  */
-export function composeDataRightsRoutes(app: App) {
+function composeDataRightsRoutes(app: App) {
   const origin = () => app.auth().config.PUBLIC_APP_URL;
   const identityOf = (request: Request) =>
     identify(app.auth(), request.headers);

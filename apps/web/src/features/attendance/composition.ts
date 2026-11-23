@@ -4,7 +4,7 @@ import type { App } from '../../server/app';
 import { createAttendanceHandler } from './handler';
 import { createAttendanceFeature } from './operations';
 
-export function composeAttendanceRoutes(app: App) {
+function composeAttendanceRoutes(app: App) {
   const operations = createAttendanceFeature({
     checkIns: app.database,
     evaluate: app.database.evaluateRoundAttendance,

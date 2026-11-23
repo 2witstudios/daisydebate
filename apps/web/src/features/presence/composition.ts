@@ -46,7 +46,7 @@ const ownList =
       context: { account },
     });
 
-export function composePresenceRoutes(app: App) {
+function composePresenceRoutes(app: App) {
   const onlineActorIds = cachedScan(
     () => app.redis.readOnlineActorIds(ONLINE_LEASES_MAX),
     () => nowMs(app.clock),

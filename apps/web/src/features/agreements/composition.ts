@@ -6,7 +6,7 @@ import { agreementWords, contentWaiverAt } from '../legal/agreements';
 import { createContentWaiverHandler } from './content-waiver-handler';
 
 /** The agreement routes: a member's signature, recorded with its version. */
-export function composeAgreementRoutes(app: App) {
+function composeAgreementRoutes(app: App) {
   return {
     contentWaiver: {
       POST: createContentWaiverHandler({

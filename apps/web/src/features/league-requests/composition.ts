@@ -3,7 +3,7 @@ import type { App } from '../../server/app';
 import { createLeagueRequestHandlers } from './handlers';
 
 /** League requests' route, built from one app. */
-export const composeLeagueRequestRoutes = (app: App) =>
+const composeLeagueRequestRoutes = (app: App) =>
   createLeagueRequestHandlers({
     logger: app.logger,
     reporter: app.reporter,

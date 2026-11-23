@@ -7,7 +7,7 @@ import { canReadRound } from '../round-runtime/reads';
 import { roundBallotReader } from './reader';
 import { createRoundBallotOperations } from './operations';
 import { createRoundBallotHandlers } from './handlers';
-export function composeRoundBallotRoutes(app: App) {
+function composeRoundBallotRoutes(app: App) {
   return createRoundBallotHandlers({
     ...composeRoundMemberDependencies(app),
     clock: app.clock,

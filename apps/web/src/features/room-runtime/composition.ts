@@ -17,7 +17,7 @@ export type RoomPolicy = {
   readonly maxBodyBytes: number;
   readonly limits: Parameters<typeof createRoomHandlers>[0]['limits'];
 };
-export function composeRoomRoutes(app: App) {
+function composeRoomRoutes(app: App) {
   let handlers: ReturnType<typeof createRoomHandlers> | undefined;
   const run = (
     request: Request,

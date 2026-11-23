@@ -11,7 +11,7 @@ import { canReadTranscript, roundViewReader } from './reads';
 import { createRoundHandlers } from './handlers';
 import { createRoundRuntimeOperations } from './operations';
 
-export function composeRoundRoutes(app: App) {
+function composeRoundRoutes(app: App) {
   return createRoundHandlers({
     ...composeRoundMemberDependencies(app),
     operations: createRoundRuntimeOperations({

@@ -5,7 +5,7 @@ import { createRoomInvitationHandlers } from './handlers';
 import { endRoomInvitation, inviteToRoom } from './operations';
 
 /** The Room invitation routes over the app's store (ADR 0124). */
-export function composeRoomInvitationRoutes(app: App) {
+function composeRoomInvitationRoutes(app: App) {
   const deps = { store: app.database, nextId: () => app.ids.next() };
   return createRoomInvitationHandlers({
     boundary: memberHttpBoundary(app),

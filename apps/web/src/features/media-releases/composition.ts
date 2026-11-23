@@ -7,7 +7,7 @@ import { composeMediaReleaseHandlers } from './handlers';
 import { deriveReleaseStopSubkey } from './stop-token';
 
 /** The media release routes, built from one app (ADR 0151). */
-export const composeMediaReleaseRoutes = (app: App) =>
+const composeMediaReleaseRoutes = (app: App) =>
   composeMediaReleaseHandlers({
     boundary: memberHttpBoundary(app),
     nowMs: () => nowMs(app.clock),

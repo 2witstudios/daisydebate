@@ -103,7 +103,7 @@ export const stopStageMedia = async (app: App): Promise<void> => {
  * no Broadcast; each owns its own credential and revocation. Inert unless a
  * capture switch is on, so merging never activates capture.
  */
-export const composeStage = (app: App, waits: Waits) => {
+const composeStage = (app: App, waits: Waits) => {
   const media = stageMediaOf(app, waits);
   if (
     (app.config.BROADCAST_CAPTURE !== 'on' &&

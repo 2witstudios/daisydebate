@@ -63,7 +63,7 @@ const ports = (
     app.database.readChallengeCounterpart(actorId, challengeId),
 });
 
-export function composeChallengeRoutes(app: App) {
+function composeChallengeRoutes(app: App) {
   return createChallengeHandlers({
     boundary: memberHttpBoundary(app),
     websocketEndpoint: app.websocketEndpoint,

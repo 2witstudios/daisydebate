@@ -55,9 +55,14 @@
         "config": ["playwright.config.ts", "playwright.analytics.config.ts"],
       },
       "entry": [
-        // `test` runs `bun test src scripts` through the heavy queue.
+        // `test` runs `bun test src scripts nets` through the heavy queue.
         "src/**/*.test.{ts,tsx}",
         "scripts/**/*.test.ts",
+        "nets/**/*.test.ts",
+        // The route net's table writer, run by hand (`bun run nets/route-table.ts`).
+        "nets/route-table.ts",
+        // Spawned as a real process by the shutdown net.
+        "src/server/process-shutdown-child.test-support.ts",
         // Manual SDK/repair CLIs; the browser proof module is bundled by Bun.
         "scripts/prove-sentry-browser.ts",
         "scripts/staging-attendance-probe.ts",

@@ -14,7 +14,7 @@ import { CAPTURE_STT_LAG_MS } from '@daisy/protocol/capture-timing';
 
 type Capture = ReturnType<App['database']['createMediaCaptureOperations']>;
 /** Inert without configuration; the shared router mounts only this authenticated handler. */
-export function composeMediaCaptureRoutes(app: App) {
+function composeMediaCaptureRoutes(app: App) {
   let capture: Capture | undefined;
   let authentication:
     ReturnType<typeof createMediaWorkerAuthentication> | undefined;
