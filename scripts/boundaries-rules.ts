@@ -60,7 +60,7 @@ export const allowedWorkspaceDependencies: Record<string, readonly string[]> = {
     'worker',
   ],
   // ADR 0107: builds from the hold; its role reaches only its jobs.
-  'recording-worker': ['clock', 'db', 'logger', 'protocol'],
+  'recording-worker': ['clock', 'db', 'logger', 'protocol', 'worker'],
   // ADR 0053: capture deployment discovers sessions read-only under
   // daisy_media_worker and writes only through signed web ingress.
   'media-worker': [
