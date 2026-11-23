@@ -296,7 +296,10 @@ describe('export name collector', () => {
 describe('migration baseline registry', () => {
   const knownPaths = new Set(['docs/decisions/0023-greenfield-baseline.md']);
   const validBaseline = {
-    baseMigrationsHash: `sha256:${'a'.repeat(64)}`,
+    tag: '20261121235720_baseline',
+    cutoff: '20261121235720_guardian_pending_friend_holds',
+    commit: 'b'.repeat(40),
+    supersededHash: `sha256:${'a'.repeat(64)}`,
     adr: 'docs/decisions/0023-greenfield-baseline.md',
     owner: 'platform',
     reason: 'one-time cuid2-native baseline squash',
@@ -305,7 +308,8 @@ describe('migration baseline registry', () => {
 
   test('accepts a well-formed, unexpired sanctioned baseline', () => {
     assert({
-      given: 'a baseline entry with a content hash, ADR and live review date',
+      given:
+        'a baseline entry with its folder, cut-off, commit, superseded hash, ADR and live review date',
       should: 'report no registry problems',
       actual: validateMigrationBaselines(
         { version: 1, baselines: [validBaseline] },
@@ -315,16 +319,21 @@ describe('migration baseline registry', () => {
     });
   });
 
-  test('rejects malformed hashes, unknown ADRs and expired reviews', () => {
+  test('rejects malformed fields, unknown ADRs and expired reviews', () => {
     assert({
       given:
-        'baseline entries with a bare hash, missing ADR file and an expired review date',
+        'baseline entries with a bare hash, a folder not named baseline, a short commit, a missing ADR file and an expired review date',
       should: 'reject every entry with the specific registry problem',
       actual: validateMigrationBaselines(
         {
           version: 1,
           baselines: [
-            { ...validBaseline, baseMigrationsHash: 'abc123' },
+            {
+              ...validBaseline,
+              supersededHash: 'abc123',
+              tag: '20261121235720_squash',
+              commit: 'abc123',
+            },
             {
               ...validBaseline,
               adr: 'docs/decisions/9999-missing.md',
@@ -335,7 +344,9 @@ describe('migration baseline registry', () => {
         { knownPaths, today: '2026-09-20' },
       ),
       expected: [
-        'baselines[0]: baseMigrationsHash must be sha256:<64 lowercase hex>',
+        'baselines[0]: tag must be <14-digit timestamp>_baseline',
+        'baselines[0]: commit must be a full commit id',
+        'baselines[0]: supersededHash must be sha256:<64 lowercase hex>',
         'baselines[1]: ADR does not exist: docs/decisions/9999-missing.md',
         'baselines[1]: reviewBy has expired: 2026-01-01',
       ],

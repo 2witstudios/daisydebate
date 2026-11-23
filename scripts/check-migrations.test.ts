@@ -214,73 +214,179 @@ describe('migrationsFingerprint', () => {
 });
 
 describe('evaluateMigrations', () => {
-  const legacy: TreeFile[] = [
-    { path: '0000_old.sql', blob: 'o' },
-    { path: 'meta/_journal.json', blob: 'j' },
+  const words = {
+    adjectives: new Set(['dark', 'wooden']),
+    heroes: new Set(['silver_centurion', 'toro']),
+  };
+  const today = '2026-09-23';
+  const oldFirst = '20260101000000_first';
+  const oldCut = '20260103000000_cut_here';
+  const baseline = '20260103000000_baseline';
+  const later = '20260104000000_after_the_cut';
+  const base: TreeFile[] = [
+    ...folder(oldFirst),
+    ...folder(oldCut),
+    ...folder(later),
   ];
-  const head = folder(first);
-  const headLinks = [links[0]!];
-  const sanction = (reviewBy: unknown, files = legacy) => ({
-    baseMigrationsHash: migrationsFingerprint(files),
-    adr: 'docs/decisions/0038-drizzle-1-baseline.md',
+  const head: TreeFile[] = [...folder(baseline), ...folder(later)];
+  const headLinks = [
+    { tag: baseline, id: 'c', prevIds: [origin] },
+    { tag: later, id: 'd', prevIds: ['c'] },
+  ];
+  const sanction = (reviewBy: unknown, files = base) => ({
+    tag: baseline,
+    cutoff: oldCut,
+    supersededHash: migrationsFingerprint(
+      files.filter(({ path }) => path.split('/')[0]! <= oldCut),
+    ),
+    adr: 'docs/decisions/0913-one-baseline-adopted-in-place.md',
     reviewBy,
   });
-  const today = '2026-09-23';
+  const evaluate = (
+    overrides: Partial<Parameters<typeof evaluateMigrations>[0]>,
+  ) =>
+    evaluateMigrations({
+      baseFiles: base,
+      headFiles: head,
+      headLinks,
+      baselines: [sanction('2026-12-31')],
+      words,
+      today,
+      ...overrides,
+    });
 
-  test('excuses replacing the recorded base tree only while the sanction is live', () => {
+  test('excuses the superseded folders only while the sanction is live', () => {
     assert({
-      given: 'a legacy base replaced by one baseline',
+      given: 'two base folders through the cut-off replaced by one baseline',
       should:
-        'pass with a live sanction, fail when expired, undated or missing',
+        'pass with a live sanction, fail when expired, undated, missing or recorded for other folders',
       actual: [
         [sanction('2026-09-23')],
         [sanction('2026-09-22')],
         [sanction(undefined)],
         [],
-        [sanction('2026-12-31', head)],
+        [
+          sanction('2026-12-31', [
+            ...folder(oldFirst, 'edited'),
+            ...folder(oldCut),
+          ]),
+        ],
       ].map((baselines) => {
-        const result = evaluateMigrations({
-          baseFiles: legacy,
-          headFiles: head,
-          headLinks,
-          baselines,
-          today,
-        });
+        const result = evaluate({ baselines });
         return [result.sanctioned, codes(result.problems)];
       }),
       expected: [
         [true, []],
-        [false, ['BASE_LAYOUT', 'EXPIRED_SANCTION']],
-        [false, ['BASE_LAYOUT', 'INVALID_SANCTION']],
-        [false, ['BASE_LAYOUT']],
-        [false, ['BASE_LAYOUT']],
+        [
+          false,
+          [
+            'REWRITTEN_HISTORY',
+            'REWRITTEN_HISTORY',
+            'TRUNCATED_HISTORY',
+            'EXPIRED_SANCTION',
+          ],
+        ],
+        [
+          false,
+          [
+            'REWRITTEN_HISTORY',
+            'REWRITTEN_HISTORY',
+            'TRUNCATED_HISTORY',
+            'INVALID_SANCTION',
+          ],
+        ],
+        [
+          false,
+          ['REWRITTEN_HISTORY', 'REWRITTEN_HISTORY', 'TRUNCATED_HISTORY'],
+        ],
+        [
+          false,
+          ['REWRITTEN_HISTORY', 'REWRITTEN_HISTORY', 'TRUNCATED_HISTORY'],
+        ],
       ],
     });
   });
 
+  test('still holds every base folder after the cut-off to its history', () => {
+    assert({
+      given:
+        'a sanctioned baseline whose branch rewrites, drops or reorders a folder after the cut-off, or omits the baseline',
+      should: 'fail each, naming the folder',
+      actual: [
+        evaluate({
+          headFiles: [...folder(baseline), ...folder(later, 'edited')],
+        }),
+        evaluate({ headFiles: folder(baseline), headLinks: [headLinks[0]!] }),
+        evaluate({
+          headFiles: folder(later),
+          headLinks: [{ tag: later, id: 'd', prevIds: [origin] }],
+        }),
+      ].map(({ problems }) => codes(problems)),
+      expected: [
+        ['REWRITTEN_SQL'],
+        ['TRUNCATED_HISTORY'],
+        ['MISSING_BASELINE'],
+      ],
+    });
+  });
+
+  test('stays inert once the baseline is the base', () => {
+    const result = evaluate({ baseFiles: head });
+    assert({
+      given: 'a base that already starts with the baseline',
+      should: 'compare history as for any branch',
+      actual: [result.sanctioned, codes(result.problems)],
+      expected: [false, []],
+    });
+  });
+
   test('never excuses a broken new tree, even when sanctioned', () => {
-    const result = evaluateMigrations({
-      baseFiles: legacy,
+    const result = evaluate({
       headFiles: [...head, { path: `${second}/snapshot.json`, blob: 'x' }],
-      headLinks: [{ tag: first, id: 'a', prevIds: ['z'] }],
-      baselines: [sanction('2026-12-31')],
-      today,
+      headLinks: [{ tag: baseline, id: 'c', prevIds: ['z'] }, headLinks[1]!],
     });
     assert({
       given:
-        'a sanctioned squash whose tree has an orphan snapshot and a broken chain',
+        'a sanctioned baseline whose tree has an orphan snapshot and a broken chain',
       should: 'still fail on both',
       actual: codes(result.problems),
       expected: ['ORPHAN_SNAPSHOT', 'BROKEN_CHAIN'],
     });
   });
 
+  test('refuses a folder named by drizzle-kit, by any of its words', () => {
+    const named = (tag: string) =>
+      codes(
+        evaluateMigrations({
+          baseFiles: [],
+          headFiles: folder(tag),
+          headLinks: [{ tag, id: 'a', prevIds: [origin] }],
+          baselines: [],
+          words,
+          today,
+        }).problems,
+      );
+    assert({
+      given:
+        'folders named dark_silver_centurion and wooden_toro, and ones named for their change',
+      should: 'refuse the two drizzle-kit drew and accept the rest',
+      actual: [
+        named('20260101000000_dark_silver_centurion'),
+        named('20260101000000_wooden_toro'),
+        named('20260101000000_dark_mode_settings'),
+        named('20260101000000_silver_centurion'),
+      ],
+      expected: [['GENERATED_NAME'], ['GENERATED_NAME'], [], []],
+    });
+  });
+
   test('compares an ordinary branch against its base', () => {
     const result = evaluateMigrations({
-      baseFiles: head,
+      baseFiles: folder(first),
       headFiles: [...folder(first, 'edited'), ...folder(second)],
       headLinks: links,
       baselines: [],
+      words,
       today,
     });
     assert({
@@ -291,6 +397,19 @@ describe('evaluateMigrations', () => {
         counts: [result.baseCount, result.headCount],
       },
       expected: { problems: ['REWRITTEN_SQL'], counts: [1, 2] },
+    });
+  });
+
+  test('reports an unreadable base layout', () => {
+    const result = evaluate({
+      baseFiles: [{ path: 'meta/_journal.json', blob: 'j' }],
+      baselines: [],
+    });
+    assert({
+      given: 'a base holding a drizzle-kit 0.x journal',
+      should: 'ask for a rebase',
+      actual: codes(result.problems),
+      expected: ['BASE_LAYOUT'],
     });
   });
 });

@@ -1,5 +1,10 @@
 import { resolve } from 'node:path';
 
+import {
+  isGeneratedName,
+  readGeneratedNameWords,
+  type GeneratedNameWords,
+} from './migration-names';
 import { findRewriteProblems } from './migration-rewrites';
 import { isIsoDate, reviewDateStatus, utcToday } from './review-date';
 
@@ -41,7 +46,9 @@ export type MigrationProblemCode =
   | 'EXPIRED_SANCTION'
   | 'INVALID_SANCTION'
   | 'UNPROVEN_REWRITE'
-  | 'PENDING_TRIGGER_HAZARD';
+  | 'PENDING_TRIGGER_HAZARD'
+  | 'GENERATED_NAME'
+  | 'MISSING_BASELINE';
 
 export type MigrationProblem = {
   readonly code: MigrationProblemCode;
@@ -63,8 +70,15 @@ export type SnapshotLink = {
   readonly prevIds: readonly string[];
 };
 
+/**
+ * A baseline that replaces every base folder up to `cutoff` with the one
+ * folder `tag`. `supersededHash` fingerprints the replaced folders as the
+ * base tree holds them, so the sanction is inert once the baseline lands.
+ */
 export type SanctionedBaseline = {
-  readonly baseMigrationsHash: string;
+  readonly tag: string;
+  readonly cutoff: string;
+  readonly supersededHash: string;
   readonly adr: string;
   /** Untrusted policy-file value; only a valid, unexpired ISO date excuses. */
   readonly reviewBy?: unknown;
@@ -261,18 +275,30 @@ const sanctionProblem = (
   return null;
 };
 
+/** The base folders a baseline replaces: up to its cut-off, but itself. */
+const supersededBy = (
+  files: readonly TreeFile[],
+  { tag, cutoff }: Pick<SanctionedBaseline, 'tag' | 'cutoff'>,
+) =>
+  files.filter(({ path }) => {
+    const folder = path.split('/')[0] ?? '';
+    return folder <= cutoff && folder !== tag;
+  });
+
 /**
- * A sanctioned baseline squash (ADR 0023, ADR 0038) is the one allowed way
- * to replace committed history. The sanction records the fingerprint of the
- * replaced base tree, so it is inert once the squash lands. It excuses only
- * the comparison with that base; the new tree must still be valid on its
- * own.
+ * A sanctioned baseline (ADR 0023, ADR 0038, ADR 0913) is the one allowed
+ * way to replace committed history. It excuses exactly the base folders it
+ * superseded, which the branch replaces with the baseline as its first
+ * folder; every base folder after the cut-off is still shared history. The
+ * new tree must still be valid on its own, and a folder drizzle-kit named is
+ * refused anywhere in it.
  */
 export function evaluateMigrations(options: {
   readonly baseFiles: readonly TreeFile[];
   readonly headFiles: readonly TreeFile[];
   readonly headLinks: readonly SnapshotLink[];
   readonly baselines: readonly SanctionedBaseline[];
+  readonly words: GeneratedNameWords;
   /** UTC calendar day (YYYY-MM-DD), injected by the caller. */
   readonly today: string;
   readonly dir?: string;
@@ -284,33 +310,68 @@ export function evaluateMigrations(options: {
 } {
   const base = readMigrations(options.baseFiles, options.dir);
   const head = readMigrations(options.headFiles, options.dir);
-  const own = [...head.problems, ...findChainProblems(options.headLinks)];
-  const fingerprint = migrationsFingerprint(options.baseFiles);
-  const sanctions = options.baselines
-    .filter(({ baseMigrationsHash }) => baseMigrationsHash === fingerprint)
-    .map((baseline) => sanctionProblem(baseline, options.today));
+  const own = [
+    ...head.problems,
+    ...findChainProblems(options.headLinks),
+    ...head.migrations
+      .filter(({ tag }) => isGeneratedName(tag, options.words))
+      .map(({ tag }) => ({
+        code: 'GENERATED_NAME' as const,
+        detail: `${tag} carries a name drizzle-kit drew; name the change with bun db:generate --name <what it does>`,
+      })),
+  ];
   const counts = {
     baseCount: base.migrations.length,
     headCount: head.migrations.length,
   };
-  if (sanctions.includes(null))
-    return { problems: own, sanctioned: true, ...counts };
-  const history =
-    base.problems.length > 0
-      ? [
-          {
-            code: 'BASE_LAYOUT' as const,
-            detail: `the base ref's migrations are not in the drizzle-kit 1.0 layout (${base.problems.length} unreadable files); rebase onto it`,
-          },
-        ]
-      : findHistoryProblems(base.migrations, head.migrations);
+  if (base.problems.length > 0)
+    return {
+      problems: [
+        ...own,
+        {
+          code: 'BASE_LAYOUT',
+          detail: `the base ref's migrations are not in the drizzle-kit 1.0 layout (${base.problems.length} unreadable files); rebase onto it`,
+        },
+      ],
+      sanctioned: false,
+      ...counts,
+    };
+  const matching = options.baselines.filter((baseline) => {
+    const superseded = supersededBy(options.baseFiles, baseline);
+    return (
+      superseded.length > 0 &&
+      migrationsFingerprint(superseded) === baseline.supersededHash
+    );
+  });
+  const live = matching.find(
+    (baseline) => sanctionProblem(baseline, options.today) === null,
+  );
+  if (live === undefined)
+    return {
+      problems: [
+        ...own,
+        ...findHistoryProblems(base.migrations, head.migrations),
+        ...matching
+          .map((baseline) => sanctionProblem(baseline, options.today))
+          .filter((problem) => problem !== null),
+      ],
+      sanctioned: false,
+      ...counts,
+    };
+  const shared = base.migrations.filter(({ tag }) => tag > live.cutoff);
   return {
     problems: [
       ...own,
-      ...history,
-      ...sanctions.filter((problem) => problem !== null),
+      ...(head.migrations[0]?.tag === live.tag
+        ? findHistoryProblems(shared, head.migrations.slice(1))
+        : [
+            {
+              code: 'MISSING_BASELINE' as const,
+              detail: `the sanctioned baseline ${live.tag} must be this branch's first migration; it replaces every base folder through ${live.cutoff}`,
+            },
+          ]),
     ],
-    sanctioned: false,
+    sanctioned: true,
     ...counts,
   };
 }
@@ -325,8 +386,9 @@ export function formatMigrationCheckReport(
       `Migrations: PASS (${report.headCount} committed, base ${report.baseCount} from ${report.baseRef})`,
       ...(report.sanctioned
         ? [
-            `  Sanctioned baseline squash applied (${baselinesPath});`,
-            '  every pre-existing local and test database must be reset once.',
+            `  Sanctioned baseline applied (${baselinesPath});`,
+            '  every local and test database resets once; staging adopts it',
+            '  with bun db:adopt-baseline (docs/operations/database.md).',
           ]
         : []),
       '',
@@ -365,7 +427,9 @@ export const readSanctionedBaselines = async (): Promise<
     (entry): entry is SanctionedBaseline =>
       typeof entry === 'object' &&
       entry !== null &&
-      typeof (entry as SanctionedBaseline).baseMigrationsHash === 'string' &&
+      typeof (entry as SanctionedBaseline).tag === 'string' &&
+      typeof (entry as SanctionedBaseline).cutoff === 'string' &&
+      typeof (entry as SanctionedBaseline).supersededHash === 'string' &&
       typeof (entry as SanctionedBaseline).adr === 'string',
   );
 };
@@ -383,38 +447,33 @@ export async function runMigrationCheck(
       parseSnapshotLink(tag, await git(['cat-file', '-p', snapshot])),
     ),
   );
+  const baselines = await readSanctionedBaselines();
   const result = evaluateMigrations({
     baseFiles,
     headFiles,
     headLinks,
-    baselines: await readSanctionedBaselines(),
+    baselines,
+    words: await readGeneratedNameWords(),
     today,
     dir,
   });
   const shared = new Set(
     readMigrations(baseFiles, dir).migrations.map(({ tag }) => tag),
   );
-  const rewrites = result.sanctioned
-    ? []
-    : await Promise.all(
-        readMigrations(headFiles, dir)
-          .migrations.filter(({ tag }) => !shared.has(tag))
-          .map(async ({ tag, sql }) => {
-            const proofFiles = await namedByIntegrationTests(tag);
-            return findRewriteProblems({
-              tag,
-              sql: await git(['cat-file', '-p', sql]),
-              proven: proofFiles.length > 0,
-              history: {
-                path: `${dir}/${tag}/migration.sql`,
-                predecessorFingerprint: migrationsFingerprint(
-                  headFiles.filter((file) => file.path.split('/')[0]! < tag),
-                ),
-                proofFiles,
-              },
-            });
-          }),
-      );
+  const baselineTags = new Set(baselines.map(({ tag }) => tag));
+  const rewrites = await Promise.all(
+    readMigrations(headFiles, dir)
+      .migrations.filter(
+        ({ tag }) => !shared.has(tag) && !baselineTags.has(tag),
+      )
+      .map(async ({ tag, sql }) =>
+        findRewriteProblems({
+          tag,
+          sql: await git(['cat-file', '-p', sql]),
+          proven: (await namedByIntegrationTests(tag)).length > 0,
+        }),
+      ),
+  );
   const problems = [...result.problems, ...rewrites.flat()];
   return {
     ok: problems.length === 0,
