@@ -59,8 +59,11 @@ const readingPaths = new Set([
 ]);
 const isReadingPath = (path: string) =>
   homes.some((home) => path === `/${home}` || path.startsWith(`/${home}/`));
+/** A link's path, without its query or fragment. */
+const pathOf = (href: string): string =>
+  href.split('#')[0]?.split('?')[0] ?? '';
 const resolves = (href: string): boolean => {
-  const path = href.split('#')[0]?.split('?')[0] ?? '';
+  const path = pathOf(href);
   return isReadingPath(path)
     ? readingPaths.has(path)
     : routeExists(appDirectory, path);
@@ -143,7 +146,7 @@ describe('the article graph', () => {
         ),
       );
     const blockedFor = (article: Article) => (href: string) => {
-      const path = href.split('#')[0];
+      const path = pathOf(href);
       const releases = releasesOf(article);
       const target = articles.find((entry) => articleHref(entry) === path);
       if (target) return !visibleArticle(target, releases);
