@@ -25,6 +25,12 @@ export const walkOnboarding = async (page: Page, destination = '/lobby') => {
   ]) {
     await page.getByRole('link', { name: 'Next' }).click();
     await expect(page.getByRole('heading', { name: heading })).toBeVisible();
+    // Onboarding never sends a new member toward a bot Round (ADR 0921).
+    await expect(page.locator('a[href^="/train"]')).toHaveCount(0);
+    if (heading === 'A Freestyle round, step by step')
+      await expect(
+        page.getByRole('link', { name: 'Find a casual round' }),
+      ).toHaveAttribute('href', '/lobby');
   }
   await page.getByRole('link', { name: 'Next' }).click();
 
