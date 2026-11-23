@@ -20,7 +20,8 @@ export function useDocumentEvent<K extends keyof DocumentEventMap>(
   const passive = options?.passive;
   useEffect(() => {
     const listener = (event: DocumentEventMap[K]) => onEvent(event);
-    const listening: Listening = { capture, passive };
+    const listening: Listening =
+      passive === undefined ? { capture } : { capture, passive };
     document.addEventListener(type, listener, listening);
     return () => document.removeEventListener(type, listener, { capture });
   }, [type, capture, passive]);
@@ -146,7 +147,12 @@ export function useMutationObserver<K>(
 ): void {
   const locate = useEffectEvent(find);
   const onChange = useEffectEvent(handle);
-  const { childList, characterData, subtree, attributes } = init;
+  const {
+    childList = false,
+    characterData = false,
+    subtree = false,
+    attributes = false,
+  } = init;
   useEffect(() => {
     onChange();
     const node = locate();
