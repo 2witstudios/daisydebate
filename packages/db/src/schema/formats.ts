@@ -1,3 +1,4 @@
+import { listedWord } from '../lifecycle-sql';
 import { sql } from 'drizzle-orm';
 import {
   check,
@@ -89,11 +90,11 @@ export const formats = pgTable(
     ),
     check(
       'formats_standard_ids',
-      sql`${table.catalogRole} is distinct from 'standard' or ${oneOf(table.id, standardFormatIds)}`,
+      sql`${table.catalogRole} is distinct from ${listedWord(catalogRoles, 'standard')} or ${oneOf(table.id, standardFormatIds)}`,
     ),
     check(
       'formats_family_for_templates',
-      sql`(${table.family} is not null) = coalesce(${table.catalogRole} = 'template', false)`,
+      sql`(${table.family} is not null) = coalesce(${table.catalogRole} = ${listedWord(catalogRoles, 'template')}, false)`,
     ),
     check(
       'formats_family_check',

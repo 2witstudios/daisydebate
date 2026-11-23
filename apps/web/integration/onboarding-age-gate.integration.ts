@@ -3,12 +3,13 @@ import { requireTestServices } from '@daisy/config';
 import { interestCategoryChoices } from '@daisy/protocol/onboarding';
 import { createAccountFlows, uniqueName } from './auth-account-helpers';
 import { withSql } from './fixtures';
+import { onboardingComposition } from '../src/features/onboarding/composition';
 
 requireTestServices(process.env);
 setupRitewayBun();
 const { flows, signUp, claim } = createAccountFlows();
 const { jsonPost } = flows;
-const { onboarding } = flows.testApp.routes;
+const onboarding = flows.testApp.routes(onboardingComposition);
 
 const topicsOf = (email: string) =>
   withSql(
@@ -19,7 +20,7 @@ const topicsOf = (email: string) =>
   );
 
 describe('optional onboarding answers through the composed routes (ISSUE-678)', () => {
-  test('the real routes.ts wiring admits a 13+ member and refuses one without a canonical age', async () => {
+  test('the onboarding composition admits a 13+ member and refuses one without a canonical age', async () => {
     const save = (cookie: string) =>
       onboarding.POST(
         jsonPost(

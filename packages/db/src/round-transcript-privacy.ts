@@ -1,3 +1,6 @@
+import { judgingJobStatuses } from '@daisy/protocol/round-panel-completion';
+import { competitionTypes } from '@daisy/protocol/round';
+import { listedWord } from './lifecycle-sql';
 import { sql } from 'drizzle-orm';
 import type { PrivacyAdopter } from './privacy/contracts';
 import {
@@ -14,7 +17,7 @@ const seatedBy = (actorId: string) =>
 const seatedOnNonRanked = (actorId: string) =>
   sql`select p.id,p.round_id from round_participants p
     join rounds r on r.id=p.round_id
-    where p.actor_id=${actorId} and r.competition_type <> 'ranked'`;
+    where p.actor_id=${actorId} and r.competition_type <> ${listedWord(competitionTypes, 'ranked')}`;
 
 /**
  * ISSUE-498: subject erasure deletes the subject's own transcript lines (text
@@ -46,7 +49,7 @@ export const roundTranscriptPrivacyAdopter: PrivacyAdopter = {
       tx,
       sql`update round_judging_jobs set ${discardPendingJudgment},${clearJudgingStages}
       where (first_ballot is not null or case_map is not null)
-        and status not in ('succeeded','failed')
+        and status not in (${listedWord(judgingJobStatuses, 'succeeded')},${listedWord(judgingJobStatuses, 'failed')})
         and round_id in (select round_id from (${seatedOnNonRanked(subject.actorId)}) seats)`,
     );
     await run(

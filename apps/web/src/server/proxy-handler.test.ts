@@ -1,6 +1,5 @@
 import { spyOn } from 'bun:test';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { createHash } from 'node:crypto';
 import { NextRequest } from 'next/server';
 import { sequentialId } from '@daisy/clock';
 import { handleProxy, type ProxySettings } from './proxy-handler';
@@ -196,8 +195,6 @@ describe('proxy content security policy', () => {
   });
 
   test('authorizes only the exact next/image style attributes by hash', () => {
-    const hash = (style: string) =>
-      `'sha256-${createHash('sha256').update(style).digest('base64')}'`;
     assert({
       given: 'a production request',
       should:
@@ -205,10 +202,9 @@ describe('proxy content security policy', () => {
       actual: directives('production').get('style-src-attr'),
       expected: [
         "'unsafe-hashes'",
-        hash(
-          'position:absolute;height:100%;width:100%;left:0;top:0;right:0;bottom:0;color:transparent',
-        ),
-        hash('color:transparent'),
+        // SHA-256 of the fill and the default next/image style, base64.
+        "'sha256-ZDrxqUOB4m/L0JWL/+gS52g1CRH0l/qwMhjTw5Z/Fsc='",
+        "'sha256-zlqnbDt84zf1iSefLU/ImC54isoprH/MRiVZGskwexk='",
       ],
     });
   });

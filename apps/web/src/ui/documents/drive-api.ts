@@ -1,4 +1,7 @@
-import { browserFetch } from '../edge/browser-request';
+import {
+  browserTransport,
+  type BrowserTransport,
+} from '../edge/browser-request';
 import type {
   DriveCursor,
   DriveEntryView,
@@ -10,7 +13,7 @@ export type FolderRow = {
   readonly name: string;
   readonly parentFolderId: string | null;
 };
-export type SearchHit = {
+type SearchHit = {
   readonly id: string;
   readonly title: string;
   readonly folderId: string | null;
@@ -18,7 +21,7 @@ export type SearchHit = {
 };
 /** A document edited lately, without its body. */
 export type RecentDocument = { readonly id: string; readonly title: string };
-export type DrivePage = {
+type DrivePage = {
   readonly entries: readonly DriveEntryView[];
   readonly next: DriveCursor | null;
 };
@@ -34,40 +37,46 @@ export type DriveChange =
 
 const REQUEST_TIMEOUT_MS = 15_000;
 
-const post = async <T>(path: string, body: unknown): Promise<T> => {
-  const response = await browserFetch(`/api/documents/${path}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-    signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
-  });
-  if (!response.ok)
-    throw Object.assign(new Error('Drive request failed'), {
-      status: response.status,
+/** Drive metadata and changes over `send`, the browser's transport. */
+function createDriveApi(send: BrowserTransport) {
+  const post = async <T>(path: string, body: unknown): Promise<T> => {
+    const response = await send(`/api/documents/${path}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
     });
-  return (await response.json()) as T;
-};
+    if (!response.ok)
+      throw Object.assign(new Error('Drive request failed'), {
+        status: response.status,
+      });
+    return (await response.json()) as T;
+  };
 
-/** Drive metadata and changes; an existence probe reads the owner's body without adopting it. */
-export const driveApi = {
-  list: (folderId: string | null, after: DriveCursor | null) =>
-    post<DrivePage>('list', { folderId, after }),
-  folders: async () =>
-    (await post<{ folders: readonly FolderRow[] }>('folders', {})).folders,
-  recent: async () =>
-    (await post<{ documents: readonly RecentDocument[] }>('recent', {}))
-      .documents,
-  hasDocument: async (id: string) =>
-    (
-      await post<{ documents: readonly { readonly id: string }[] }>('read', {
-        ids: [id],
-      })
-    ).documents.some((document) => document.id === id),
-  folderCount: async (id: string) =>
-    (await post<{ count: number }>('folders/count', { id })).count,
-  search: async (text: string) =>
-    (await post<{ hits: readonly SearchHit[] }>('search', { text, page: 0 }))
-      .hits,
-  change: <T = unknown>(path: DriveChange, body: Record<string, unknown>) =>
-    post<T>(path, body),
-};
+  /** An existence probe reads the owner's body without adopting it. */
+  return {
+    list: (folderId: string | null, after: DriveCursor | null) =>
+      post<DrivePage>('list', { folderId, after }),
+    folders: async () =>
+      (await post<{ folders: readonly FolderRow[] }>('folders', {})).folders,
+    recent: async () =>
+      (await post<{ documents: readonly RecentDocument[] }>('recent', {}))
+        .documents,
+    hasDocument: async (id: string) =>
+      (
+        await post<{ documents: readonly { readonly id: string }[] }>('read', {
+          ids: [id],
+        })
+      ).documents.some((document) => document.id === id),
+    folderCount: async (id: string) =>
+      (await post<{ count: number }>('folders/count', { id })).count,
+    search: async (text: string) =>
+      (await post<{ hits: readonly SearchHit[] }>('search', { text, page: 0 }))
+        .hits,
+    change: <T = unknown>(path: DriveChange, body: Record<string, unknown>) =>
+      post<T>(path, body),
+  };
+}
+
+/** The drive over the tab's own transport. */
+export const driveApi = createDriveApi(browserTransport);

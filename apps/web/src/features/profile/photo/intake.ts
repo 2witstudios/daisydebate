@@ -1,5 +1,5 @@
 import type { AuthorizationPrincipal } from '@daisy/auth/authorization';
-import type { Clock, IdGenerator } from '@daisy/clock';
+import { addMs, type Clock, type IdGenerator } from '@daisy/clock';
 import type { OwnPublicProfile } from '@daisy/db';
 import { createRefusal, isAppError, rethrow } from '@daisy/errors';
 import {
@@ -198,9 +198,7 @@ export async function intakeProfilePhoto(
       objectPrefix,
       checkVerdict: verdict,
       now,
-      deleteAfter: new Date(
-        new Date(now).getTime() + PHOTO_RESERVATION_MS,
-      ).toISOString(),
+      deleteAfter: addMs(now, PHOTO_RESERVATION_MS),
     });
     const written = await Promise.allSettled(
       sized.map(({ key, bytes }) => storage.objects.put(key, bytes)),

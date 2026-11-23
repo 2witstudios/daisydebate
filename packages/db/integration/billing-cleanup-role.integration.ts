@@ -1,3 +1,4 @@
+import { hostWaits } from '@daisy/worker/host';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { requireTestServices } from '@daisy/config';
 import { createId } from '@paralleldrive/cuid2';
@@ -12,6 +13,7 @@ test('runtime Stripe cleanup cannot rewrite job origin, report cursorless progre
     const [job] =
       await fixture.sql`select id from privacy_jobs where subject_ref=${userId} and vendor='stripe'`;
     const cleanup = createDatabase({
+      waits: hostWaits,
       url: databaseUrl,
       client: pool,
       nextActorId: createId,

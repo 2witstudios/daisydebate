@@ -1,5 +1,5 @@
 import { and, eq, gt, isNull, ne, sql } from 'drizzle-orm';
-import type { AdminExecutor, AdminTransaction } from '../db/client';
+import type { AdminTransaction, AdminTx } from '../db/tx';
 import {
   authAttempts,
   operatorChallenges,
@@ -17,13 +17,13 @@ import {
 type ChallengePurpose = 'register' | 'authenticate';
 const date = (iso: string) => new Date(iso);
 
-export async function findOperator(db: AdminExecutor, id: string) {
+export async function findOperator(db: AdminTx, id: string) {
   const [row] = await db.select().from(operators).where(eq(operators.id, id));
   return row ?? null;
 }
 
 export async function findActiveOperatorByName(
-  db: AdminExecutor,
+  db: AdminTx,
   displayName: string,
 ) {
   const [row] = await db
@@ -55,7 +55,7 @@ export async function revokeOpenEnrollments(
 
 /** An enrollment still open at `now`, with its operator. */
 export async function findOpenEnrollment(
-  db: AdminExecutor,
+  db: AdminTx,
   tokenHash: string,
   now: string,
 ) {
@@ -96,7 +96,7 @@ export async function consumeEnrollment(
 }
 
 export async function insertChallenge(
-  db: AdminExecutor,
+  db: AdminTx,
   row: {
     readonly id: string;
     readonly purpose: ChallengePurpose;
@@ -130,7 +130,7 @@ const openChallenge = (
 
 /** Reads, never consumes: GET and the pre-verification lookup use this. */
 export async function peekChallenge(
-  db: AdminExecutor,
+  db: AdminTx,
   challengeHash: string,
   purpose: ChallengePurpose,
   now: string,
@@ -144,7 +144,7 @@ export async function peekChallenge(
 
 /** Single use, bound to its purpose and (for register) its enrollment. */
 export async function consumeChallenge(
-  tx: AdminExecutor,
+  tx: AdminTx,
   input: {
     readonly challengeHash: string;
     readonly purpose: ChallengePurpose;
@@ -169,7 +169,7 @@ export async function consumeChallenge(
   return rows.length === 1;
 }
 
-export async function activeCredentials(db: AdminExecutor, operatorId: string) {
+export async function activeCredentials(db: AdminTx, operatorId: string) {
   return db
     .select()
     .from(operatorCredentials)
@@ -181,10 +181,7 @@ export async function activeCredentials(db: AdminExecutor, operatorId: string) {
     );
 }
 
-export async function findActiveCredential(
-  db: AdminExecutor,
-  credentialId: string,
-) {
+export async function findActiveCredential(db: AdminTx, credentialId: string) {
   const [row] = await db
     .select({ credential: operatorCredentials, operator: operators })
     .from(operatorCredentials)
@@ -222,7 +219,7 @@ export async function revokeCredentials(
 }
 
 export async function revokeSessions(
-  tx: AdminExecutor,
+  tx: AdminTx,
   input: {
     readonly operatorId: string;
     readonly now: string;
@@ -245,7 +242,7 @@ export async function revokeSessions(
   return rows.length;
 }
 
-export async function findSession(db: AdminExecutor, tokenHash: string) {
+export async function findSession(db: AdminTx, tokenHash: string) {
   const [row] = await db
     .select()
     .from(operatorSessions)
@@ -254,7 +251,7 @@ export async function findSession(db: AdminExecutor, tokenHash: string) {
 }
 
 export async function touchSession(
-  db: AdminExecutor,
+  db: AdminTx,
   id: string,
   now: string,
 ): Promise<void> {
@@ -264,10 +261,7 @@ export async function touchSession(
     .where(eq(operatorSessions.id, id));
 }
 
-export async function failuresIn(
-  db: AdminExecutor,
-  bucket: string,
-): Promise<number> {
+export async function failuresIn(db: AdminTx, bucket: string): Promise<number> {
   const [row] = await db
     .select({ count: authAttempts.count })
     .from(authAttempts)
@@ -277,7 +271,7 @@ export async function failuresIn(
 
 /** The window's count after taking one slot, incremented atomically. */
 export async function reserveSlot(
-  db: AdminExecutor,
+  db: AdminTx,
   input: { readonly bucket: string; readonly windowStart: string },
 ): Promise<number> {
   const [row] = await db
@@ -296,10 +290,7 @@ export async function reserveSlot(
 }
 
 /** Gives a slot back after a success; the row goes with its last slot. */
-export async function releaseSlot(
-  db: AdminExecutor,
-  bucket: string,
-): Promise<void> {
+export async function releaseSlot(db: AdminTx, bucket: string): Promise<void> {
   await db
     .delete(authAttempts)
     .where(and(eq(authAttempts.bucket, bucket), eq(authAttempts.count, 1)));

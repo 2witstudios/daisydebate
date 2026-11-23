@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { requireTestServices } from '@daisy/config';
 import { createId } from '@paralleldrive/cuid2';
@@ -118,9 +119,8 @@ for (const target of ['invoices', 'observations'] as const)
                 state,
                 facts,
                 recognitionWithin:
-                  new Date(observed_at).getTime() >=
-                    new Date(oldObserved).getTime() &&
-                  new Date(observed_at).getTime() <= rearmed!.at.getTime(),
+                  instantMs(observed_at) >= instantMs(oldObserved) &&
+                  instantMs(observed_at) <= rearmed!.at.getTime(),
               },
               expected: {
                 priorBasis: 'enumeration_retained',

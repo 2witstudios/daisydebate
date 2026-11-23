@@ -9,7 +9,7 @@ import {
   type StandingRoomState,
 } from '../../../../../../features/tab/standing-room-form';
 import { refused } from '../../../../../../features/forms/form-state';
-import { moveOn } from '../../../../../../server/form-action';
+import { moveOn } from '../../../../../../features/forms/form-action';
 import { runTabCommandForm } from '../../../../../../features/tab/command-form-action';
 import { POST } from '../../../../../api/tab/lobby-command/route';
 export async function standingRoomCreateAction(

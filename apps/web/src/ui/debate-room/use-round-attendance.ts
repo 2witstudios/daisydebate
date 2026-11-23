@@ -1,16 +1,12 @@
 'use client';
-import { useBrowserEffect } from '../edge/browser-sync';
-import { browserFetch } from '../edge/browser-request';
-import { startTick, stopTick } from '../edge/browser-time';
-import { useRef, useState } from 'react';
-import { systemId } from '@daisy/clock';
+import { useDeliver } from '../edge/use-answer';
+import { openBrowserAttendance } from './browser-attendance';
+import { browserTransport } from '../edge/browser-request';
+import { browserScheduler } from '../edge/browser-time';
+import { useResource } from '../edge/use-driver';
+import { useMemo, useState } from 'react';
 import { isDebatingSeat } from '@daisy/protocol/seats';
 import { type RoundView } from '@daisy/protocol/round-view';
-import { createAttendanceHttpClient } from '../../features/attendance/http-client';
-import {
-  ATTENDANCE_HEARTBEAT_MS,
-  createAttendanceClient,
-} from '../../features/attendance/client';
 
 /**
  * HTTP receipt production is independent of realtime, visibility and
@@ -39,46 +35,28 @@ export function useRoundAttendance({
   // client, such as the Room's next Round, shows no stale signed-out state.
   const clientKey = `${view.id}:${eligible}`;
   const [signedOutKey, setSignedOutKey] = useState<string | null>(null);
-  const client = useRef<ReturnType<typeof createAttendanceClient> | null>(null);
-  useBrowserEffect(() => {
-    if (!eligible) return;
-    const key = `${view.id}:${eligible}`;
-    const http = createAttendanceHttpClient({
-      roundId: view.id,
-      fetch: (url, init) => browserFetch(url, init),
-      timeout: (ms) => AbortSignal.timeout(ms),
-    });
-    const consumer = createAttendanceClient({
-      nextCommandId: () => systemId.next(),
-      nowMs: () => performance.now(),
-      read: http.read,
-      send: http.send,
-      signedOut: () => setSignedOutKey(key),
-    });
-    client.current = consumer;
-    const reconnect = () => {
-      void consumer.reconnect();
-    };
-    const visible = () => {
-      if (document.visibilityState === 'visible') reconnect();
-    };
-    window.addEventListener('online', reconnect);
-    const unsubscribe = reconnectSource?.subscribe(reconnect);
-    document.addEventListener('visibilitychange', visible);
-    const timer = startTick(() => {
-      void consumer.heartbeat();
-    }, ATTENDANCE_HEARTBEAT_MS);
-    return () => {
-      client.current = null;
-      consumer.stop();
-      unsubscribe?.();
-      stopTick(timer);
-      window.removeEventListener('online', reconnect);
-      document.removeEventListener('visibilitychange', visible);
-    };
-  }, [view.id, eligible, reconnectSource]);
-  useBrowserEffect(() => {
-    void client.current?.update(view);
-  }, [view, eligible]);
+  const attending = useMemo(
+    () =>
+      eligible ? { roundId: view.id, key: clientKey, reconnectSource } : null,
+    [eligible, view.id, clientKey, reconnectSource],
+  );
+  const client = useResource(attending, (asked) =>
+    asked === null
+      ? null
+      : openBrowserAttendance({
+          roundId: asked.roundId,
+          signedOut: () => setSignedOutKey(asked.key),
+          transport: browserTransport,
+          every: browserScheduler.every,
+          ...(asked.reconnectSource
+            ? { reconnect: asked.reconnectSource }
+            : {}),
+        }),
+  );
+  // Every view, the first included, reaches the client checking in for it.
+  const reported = useMemo(() => ({ client, view }), [client, view]);
+  useDeliver(reported, ({ client: checkingIn, view: shown }) => {
+    void checkingIn?.update(shown);
+  });
   return { signedOut: signedOutKey === clientKey };
 }

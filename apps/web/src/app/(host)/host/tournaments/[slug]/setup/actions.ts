@@ -11,7 +11,7 @@ import {
 } from '../../../../../../features/tab/setup-pairing-form';
 import { hostRoutes } from '../../../../../../features/tab/routes';
 import { runTabCommandForm } from '../../../../../../features/tab/command-form-action';
-import { moveOn } from '../../../../../../server/form-action';
+import { moveOn } from '../../../../../../features/forms/form-action';
 import { POST } from '../../../../../api/tab/settings-command/route';
 
 export async function setupPairingAction(

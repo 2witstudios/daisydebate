@@ -1,3 +1,4 @@
+import { hostWaits } from '@daisy/worker/host';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { requireTestServices } from '@daisy/config';
 import { createMediaNodes, createMediaService } from '@daisy/media';
@@ -118,6 +119,7 @@ test('a permission call lost to a dying node never strands the session', async (
 test('an unreachable node costs nothing: admission reads through a healthy one and sends the seat there', async () => {
   await withMediaRound(async (f) => {
     const nodes = createMediaNodes({
+      waits: hostWaits,
       nodes: [
         // Nothing listens here: the first node in the list is down.
         { url: 'http://127.0.0.1:9', publicUrl: 'wss://dead.invalid' },

@@ -1,3 +1,4 @@
+import { hostWaits } from '@daisy/worker/host';
 import { testLane } from '../src/testing-lane';
 import { requireTestServices } from '@daisy/config';
 import { createAppError, isAppError } from '@daisy/errors';
@@ -51,8 +52,8 @@ test('a hidden backend start requires an original command receipt and cannot aut
       });
     };
     const run = createBoundedTransaction({
-      lane: testLane(client, 4),
-      now: performance.now,
+      lane: testLane(client, hostWaits, 4),
+      waits: hostWaits,
     });
     const committed = await run(async (tx, _signal, receipt) => {
       const [row] = await tx.execute(sql`select 1 as value`);
@@ -215,8 +216,8 @@ test(
         return connection;
       };
       const run = createBoundedTransaction({
-        lane: testLane(client, 4),
-        now: performance.now,
+        lane: testLane(client, hostWaits, 4),
+        waits: hostWaits,
       });
       try {
         let message = 'accepted';
@@ -311,8 +312,8 @@ test(
         client.reserve(),
       ]);
       const run = createBoundedTransaction({
-        lane: testLane(client, 4),
-        now: performance.now,
+        lane: testLane(client, hostWaits, 4),
+        waits: hostWaits,
       });
       try {
         const start = performance.now();
@@ -364,8 +365,8 @@ test(
       const entered = Promise.withResolvers<number>();
       const resume = Promise.withResolvers<void>();
       const run = createBoundedTransaction({
-        lane: testLane(client, 4),
-        now: performance.now,
+        lane: testLane(client, hostWaits, 4),
+        waits: hostWaits,
       });
       const work = run(async (tx) => {
         const [backend] = await tx.execute(sql`select pg_backend_pid() as pid`);
@@ -416,8 +417,8 @@ test('a detached callback cannot write after cancellation and disposal', async (
       const resume = Promise.withResolvers<void>();
       const resumed = Promise.withResolvers<boolean>();
       const run = createBoundedTransaction({
-        lane: testLane(client, 4),
-        now: performance.now,
+        lane: testLane(client, hostWaits, 4),
+        waits: hostWaits,
       });
       const attempt = run(async (tx, signal) => {
         await tx.execute(

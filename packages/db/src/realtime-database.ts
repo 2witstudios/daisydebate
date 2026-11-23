@@ -2,6 +2,7 @@ import { createRoundFloorChannelCohortAuthority } from './messaging/round-floor-
 import { youthLiveReadOperations } from './youth-live-reads';
 import { createRoomCommunityChannelCohortAuthority } from './messaging/room-community-observation';
 import type { SQL } from 'bun';
+import type { Waits } from '@daisy/clock';
 import { authorizationSessionOperations } from './authorization-session';
 import { availabilityOperations } from './availability-operations';
 import { databaseHealthOperations } from './database-health';
@@ -22,11 +23,7 @@ import {
 import { namedLaneOperations } from './lane-operation';
 import { roomAuthorizationRead } from './room-authorization-read';
 import { createWorkload, dialDedicated, dialLanes } from './workload';
-import {
-  WORKLOAD_PROFILES,
-  type LaneTimer,
-  type WorkloadProfile,
-} from './workload-admission';
+import { WORKLOAD_PROFILES, type WorkloadProfile } from './workload-admission';
 import type { TxSource } from './tx';
 
 /**
@@ -67,19 +64,19 @@ export function createRealtimeDatabase({
   profile = WORKLOAD_PROFILES.realtime,
   eventSink,
   client: injectedClient,
-  laneTimer,
+  waits,
 }: {
   url: string;
   profile?: WorkloadProfile;
   eventSink?: DatabaseEventSink;
   /** Overrides dialing `url` for every lane; tests inject a client at this seam. */
   client?: SQL;
-  /** Overrides the lanes' waiter timer; tests drive expiry at this seam. */
-  laneTimer?: LaneTimer;
+  /** The time lane waiters and connection bounds are measured on (R4.7). */
+  waits: Waits;
 }) {
   const workload = createWorkload({
     profile,
-    timer: laneTimer,
+    waits,
     connect: injectedClient ? () => injectedClient : dialLanes(url),
   });
   const admission = workload.lane('admission').database;
@@ -117,8 +114,11 @@ export function createRealtimeDatabase({
       instrumented(eventSink, 'readOutboxCatchup', () =>
         readOutboxCatchup(admission, topic, since, through, limit),
       ),
-    renewServiceInstance: availabilityOperations(control.client, dedicated)
-      .renewServiceInstance,
+    renewServiceInstance: availabilityOperations(
+      control.client,
+      dedicated,
+      waits,
+    ).renewServiceInstance,
     ...databaseHealthOperations({
       database: control.database,
       dedicated,

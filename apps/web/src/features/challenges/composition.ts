@@ -1,8 +1,9 @@
+import { defineComposition } from '../../server/composition';
 import type { AuthorizationPrincipal } from '@daisy/auth/authorization';
 import { requireAuthorization } from '@daisy/auth/request-authorization';
 import type { OwnCollectionFence } from '@daisy/db/authorization';
 import type { App } from '../../server/app';
-import { memberHttpBoundary } from '../../server/member-boundary';
+import { memberHttpBoundary } from '../auth/member-boundary';
 import { consumeOrThrow } from '../../server/rate-limit';
 import { appDiscoverActor } from '../account/username-discovery';
 import { requireMemberActor } from '../access/actor';
@@ -62,7 +63,7 @@ const ports = (
     app.database.readChallengeCounterpart(actorId, challengeId),
 });
 
-export function composeChallengeRoutes(app: App) {
+function composeChallengeRoutes(app: App) {
   return createChallengeHandlers({
     boundary: memberHttpBoundary(app),
     websocketEndpoint: app.websocketEndpoint,
@@ -83,3 +84,8 @@ export function composeChallengeRoutes(app: App) {
       endChallenge(principal, command, challengeId, ports(app, principal)),
   });
 }
+
+/** challenges: its route files bind here (`processRoute`). */
+export const challengeComposition = defineComposition('challenges', (app) =>
+  composeChallengeRoutes(app),
+);

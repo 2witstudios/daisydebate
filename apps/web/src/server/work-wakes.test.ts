@@ -1,4 +1,5 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
+import { manualWaits } from '../lib/manual-waits.test-support';
 import { createWorkWakes, keepWorkWakesListening } from './work-wakes';
 
 setupRitewayBun();
@@ -41,7 +42,7 @@ test('a re-established listen wakes every loop once', () => {
 });
 
 test('a LISTEN that cannot start is retried, doubling, until it holds', async () => {
-  const shots: { ms: number; run: () => unknown }[] = [];
+  const time = manualWaits();
   const causes: string[] = [];
   let attempts = 0;
   let unlistened = 0;
@@ -56,22 +57,15 @@ test('a LISTEN that cannot start is retried, doubling, until it holds', async ()
       };
     },
     unavailable: (cause) => causes.push(cause),
-    timers: {
-      setTimeout: (run, ms) => shots.push({ ms, run }),
-      clearTimeout: () => {},
-    },
+    waits: time.waits,
   });
-  await Promise.resolve();
-  await Promise.resolve();
-  shots[0]!.run();
-  await new Promise((settle) => setTimeout(settle, 0));
-  shots[1]!.run();
-  await new Promise((settle) => setTimeout(settle, 0));
+  await time.nextPass();
+  await time.nextPass();
   await listening.stop();
   assert({
     given: 'two failed subscribes, then one that holds, then a stop',
     should: 'report each failure by class, retry at 1 s then 2 s, and unlisten',
-    actual: { attempts, causes, waits: shots.map(({ ms }) => ms), unlistened },
+    actual: { attempts, causes, waits: time.armed, unlistened },
     expected: {
       attempts: 3,
       causes: ['TypeError', 'TypeError'],

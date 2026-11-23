@@ -67,12 +67,21 @@ describe('partitionAffected', () => {
     });
   });
 
-  test('root script changes run the root script tests', () => {
+  test('any change runs the root script tests', () => {
     assert({
-      given: 'a change under scripts/',
-      should: 'run the root script test suite',
-      actual: partitionAffected(['scripts/doctor.ts']).runRootScriptsTests,
-      expected: true,
+      given:
+        'a change under scripts/, one to the engine alone, one to an app, one to a workflow, one to a decision record, and no change',
+      should:
+        'run the root script suite for every change, since it holds repository-wide facts such as the round oracle and the start-up gate',
+      actual: [
+        ['scripts/doctor.ts'],
+        ['packages/debate-engine/src/round-runtime.ts'],
+        ['apps/web/src/features/attendance/receipt-session.ts'],
+        ['.github/workflows/ci.yml'],
+        ['docs/decisions/0001-bun.md'],
+        [],
+      ].map((files) => partitionAffected(files).runRootScriptsTests),
+      expected: [true, true, true, true, true, false],
     });
   });
 
@@ -139,6 +148,7 @@ describe('planGates', () => {
         'styling',
         'side literals',
         'lifecycle literals',
+        'root script tests',
         'turbo affected (typecheck, test)',
       ],
     });

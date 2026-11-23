@@ -1,3 +1,4 @@
+import { hostWaits } from '@daisy/worker/host';
 import { seedPaidHosting } from './hosting-purchase.test-support';
 import { afterAll } from 'bun:test';
 import { SQL } from 'bun';
@@ -168,7 +169,7 @@ test('publication reloads after account waits and holds actual Room pins through
       publishing,
       observer,
       holderPid,
-      { now: Date.now },
+      { waits: hostWaits },
     );
     changing = settingCommand({
       store: createTabStore(committingRuntimeTestDatabase(writer)),
@@ -192,7 +193,7 @@ test('publication reloads after account waits and holds actual Room pins through
       changing,
       observer,
       Number(publisherBackend!.pid),
-      { now: Date.now },
+      { waits: hostWaits },
     );
     releaseAccount();
     await holding;
@@ -300,7 +301,7 @@ test('publication reloads after account waits and holds actual Room pins through
       changing,
       observer,
       Number(backend!.pid),
-      { now: Date.now },
+      { waits: hostWaits },
     );
     releasePublication();
     const [published, written] = await Promise.all([publishing, changing]);

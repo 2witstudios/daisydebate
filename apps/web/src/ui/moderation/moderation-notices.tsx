@@ -16,7 +16,7 @@ export function ModerationNotices({
         tone="gold"
         icon="alert"
         title="A moderator warned you after a report."
-        role="status"
+        announced
       />
       <form action={acknowledge}>
         <input type="hidden" name="id" value={notice.id} />

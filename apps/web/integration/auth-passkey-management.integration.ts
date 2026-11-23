@@ -1,3 +1,4 @@
+import { hostWaits } from '@daisy/worker/host';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { createId } from '@paralleldrive/cuid2';
 import { foundationDefinition } from '@daisy/db/reference-formats';
@@ -186,6 +187,7 @@ describe('AUTH-5.4 recover from a lost passkey through verified email', () => {
     // actor in the same transaction (ACTOR-1), so the fixture only reads it
     // to give the account debate history to prove unchanged.
     const database = createDatabase({
+      waits: hostWaits,
       url: testDatabaseUrl as string,
       nextActorId: createId,
     });

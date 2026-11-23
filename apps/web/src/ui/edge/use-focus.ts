@@ -1,16 +1,12 @@
 'use client';
 
-import { useEffect, useRef, type RefObject } from 'react';
-
-/** Focuses the control after a render that requests it. */
-export function useFocusWhen(
-  ref: RefObject<HTMLElement | null>,
-  condition: boolean,
-): void {
-  useEffect(() => {
-    if (condition) ref.current?.focus();
-  }, [condition, ref]);
-}
+import {
+  useEffect,
+  useEffectEvent,
+  useLayoutEffect,
+  useRef,
+  type RefObject,
+} from 'react';
 
 /** Focus is on nothing a member can use: `<body>`, or a control since disabled or removed. */
 export const focusLost = () => {
@@ -75,5 +71,58 @@ export function useFocusAfterAnswer(
       if (onlyWhenLost && owedOnLeaving.current) pay.current();
     },
     [onlyWhenLost],
+  );
+}
+
+/**
+ * Moves focus when `key` changes after the first render, before the browser
+ * paints (a layout crossing, a rename that ended). `move` is read at its latest.
+ */
+export function useFocusOnChange<K>(key: K, move: () => void): void {
+  const seen = useRef(key);
+  const run = useEffectEvent(move);
+  useLayoutEffect(() => {
+    if (Object.is(seen.current, key)) return;
+    seen.current = key;
+    run();
+  }, [key]);
+}
+
+/**
+ * When the element a ref holds leaves the page while it holds focus, focus
+ * goes to what `next` picks from it, so the keyboard is never dropped to
+ * `<body>`.
+ */
+export function useFocusOnLeave<T extends HTMLElement>(
+  target: RefObject<T | null>,
+  next: (leaving: T) => HTMLElement | null | undefined,
+): void {
+  const pick = useEffectEvent(next);
+  useLayoutEffect(() => {
+    const element = target.current;
+    return () => {
+      if (element === null || !element.contains(document.activeElement)) return;
+      pick(element)?.focus();
+    };
+  }, [target]);
+}
+
+/**
+ * When the owner leaves the page owing focus (`owed` holds true) and, once
+ * the page has updated, focus has fallen to `<body>`, focus goes to the
+ * element `targetId` names. Checked after the removal has painted, so a
+ * control disabled or removed with its owner counts as dropped focus; a
+ * change of `targetId` settles the debt owed to the previous target.
+ */
+export function useFocusAfterLeave(
+  targetId: string,
+  owed: RefObject<boolean>,
+): void {
+  useEffect(
+    () => () => {
+      if (owed.current && document.activeElement === document.body)
+        document.getElementById(targetId)?.focus();
+    },
+    [targetId, owed],
   );
 }

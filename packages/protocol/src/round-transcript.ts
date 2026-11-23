@@ -22,6 +22,11 @@ const utteranceFields = {
    */
   interrupted: z.boolean().default(false),
 };
+
+/** Whether a frozen transcript holds every required speech. */
+export const transcriptCompletenesses = ['complete', 'incomplete'] as const;
+/** A speech's captured stream: open while captured, then complete or partial. */
+export const transcriptStreamStates = ['open', 'complete', 'partial'] as const;
 export const roundUtteranceSchema = z.strictObject(utteranceFields);
 /** Raised only when an open tab could not render the new reply correctly. */
 export const TRANSCRIPT_CONTRACT_VERSION = 1;
@@ -32,14 +37,14 @@ export const roundTranscriptReadSchema = z.strictObject({
   revision: z.int().nonnegative(),
   freeze: z
     .strictObject({
-      completeness: z.enum(['complete', 'incomplete']),
+      completeness: z.enum(transcriptCompletenesses),
     })
     .nullable(),
   streams: z.array(
     z.strictObject({
       segmentId: idSchema,
       roundParticipantId: idSchema,
-      state: z.enum(['open', 'complete', 'partial']),
+      state: z.enum(transcriptStreamStates),
       /** Why a partial stream is partial. Empty unless partial. */
       partialReasons: z.array(capturePartialReasonSchema),
       /** Required speech with no capture, as offsets into the speech. Closed or frozen streams only. */
@@ -95,13 +100,13 @@ export const liveTranscriptReadSchema = z.looseObject({
   }),
   revision: z.int().nonnegative(),
   freeze: z
-    .looseObject({ completeness: z.enum(['complete', 'incomplete']) })
+    .looseObject({ completeness: z.enum(transcriptCompletenesses) })
     .nullable(),
   streams: z.array(
     z.looseObject({
       segmentId: idSchema,
       roundParticipantId: idSchema,
-      state: z.enum(['open', 'complete', 'partial']),
+      state: z.enum(transcriptStreamStates),
       /** Why a partial stream is partial; a newer reason parses and says nothing. */
       partialReasons: z.array(z.string()).optional(),
       gaps: z.array(

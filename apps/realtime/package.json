@@ -22,6 +22,7 @@
     "@daisy/observability": "workspace:*",
     "@daisy/protocol": "workspace:*",
     "@daisy/redis": "workspace:*",
+    "@daisy/worker": "workspace:*",
     "@sentry/bun": "11.10.0"
   },
   "devDependencies": {

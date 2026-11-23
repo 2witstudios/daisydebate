@@ -1,3 +1,4 @@
+import { hostWaits } from '@daisy/worker/host';
 import { botGrantUnused, captureRule } from '@daisy/debate-engine';
 import { judgingPolicy } from '@daisy/protocol/judging-policy';
 import type { SQL } from 'bun';
@@ -97,26 +98,6 @@ export const passBallotDeadline = (sql: SQL, roundId: string) =>
     await tx`update rounds set ballot_deadline_at=clock_timestamp()-interval '1 millisecond' where id=${roundId}`;
   });
 
-export const maintenanceTestTimers = {
-  now: () => performance.now(),
-  setInterval: (pulse: () => void, ms: number) => {
-    const handle = setInterval(pulse, ms);
-    return () => clearInterval(handle);
-  },
-  clearInterval: (stop: unknown) => {
-    if (typeof stop !== 'function') throw new Error('Unknown test timer');
-    stop();
-  },
-  setTimeout: (run: () => unknown, ms: number) => {
-    const handle = setTimeout(() => void run(), ms);
-    return () => clearTimeout(handle);
-  },
-  clearTimeout: (stop: unknown) => {
-    if (typeof stop !== 'function') throw new Error('Unknown test timer');
-    stop();
-  },
-};
-
 /** Observes real elected sampling without replacing its SQL or evidence. */
 export function maintenanceAvailability(input: {
   readonly store: Database;
@@ -145,7 +126,7 @@ export function maintenanceAvailability(input: {
       }),
     },
     probe: async () => false,
-    timers: maintenanceTestTimers,
+    waits: hostWaits,
     failed: input.failed,
     lapsing: { log: () => {}, report: () => {} },
     nextId: () => input.instanceId,

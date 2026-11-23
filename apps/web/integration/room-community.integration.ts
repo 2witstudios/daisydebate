@@ -13,9 +13,12 @@ import { foundationSelection } from './foundation-selection.test-support';
 import { withSql } from './fixtures';
 import { createAccountFlows } from './auth-account-helpers';
 import { deleteOrphanNotificationSignals } from './notification-signals.test-support';
+import { roomCommunityComposition } from '../src/features/messaging/room-community/composition';
+import { roomComposition } from '../src/features/room-runtime/composition';
 
 setupRitewayBun();
 const h = createRoomHttpFixture();
+const community = h.routes(roomCommunityComposition);
 type Kind = 'open' | 'send' | 'edit' | 'remove' | 'markRead' | 'report';
 const segment: Record<Kind, string> = {
   open: '',
@@ -59,7 +62,7 @@ test('real Room chat HTTP admits the host, seats and visitors of an open Room, n
     visitor = await h.member();
   let roomId: string | null = null;
   try {
-    const created = await h.routes.rooms.create(
+    const created = await h.routes(roomComposition).create(
       h.f.jsonPost(
         '/api/rooms',
         {
@@ -76,18 +79,20 @@ test('real Room chat HTTP admits the host, seats and visitors of an open Room, n
     const room = (roomId = view.id);
     const path = `/api/rooms/${room}/chat`;
     const post = (cookie: string | null, kind: Kind, body: object) =>
-      h.routes.roomCommunity[kind](
+      community[kind](
         h.f.jsonPost(path + segment[kind], body, cookie ? { cookie } : {}),
         room,
       );
     const discover = (cookie: string | null) =>
-      h.routes.roomCommunity.discover(
-        new Request(
-          h.f.origin + path,
-          cookie ? { headers: h.headers(cookie) } : {},
-        ),
-        room,
-      );
+      h
+        .routes(roomCommunityComposition)
+        .discover(
+          new Request(
+            h.f.origin + path,
+            cookie ? { headers: h.headers(cookie) } : {},
+          ),
+          room,
+        );
     const channels = () =>
       withSql(
         async (sql) =>
@@ -120,7 +125,7 @@ test('real Room chat HTTP admits the host, seats and visitors of an open Room, n
       expected: [200, { version: 1, roomId: room, channel: null }, 200, 401, 0],
     });
 
-    const foreign = await h.routes.roomCommunity.open(
+    const foreign = await h.routes(roomCommunityComposition).open(
       new Request(h.f.origin + path, {
         method: 'POST',
         headers: {
@@ -210,13 +215,15 @@ test('real Room chat HTTP admits the host, seats and visitors of an open Room, n
     });
 
     const read = (cookie: string, query = '') =>
-      h.routes.roomCommunity.history(
-        new Request(
-          `${h.f.origin}${path}/messages?channelId=${channelId}${query}`,
-          { headers: h.headers(cookie) },
-        ),
-        room,
-      );
+      h
+        .routes(roomCommunityComposition)
+        .history(
+          new Request(
+            `${h.f.origin}${path}/messages?channelId=${channelId}${query}`,
+            { headers: h.headers(cookie) },
+          ),
+          room,
+        );
     const guestRead = await read(guest);
     const page = await guestRead.json();
     const identities = await Promise.all(
@@ -370,7 +377,7 @@ test('real Room chat HTTP admits the host, seats and visitors of an open Room, n
     const current = async (cookie: string) =>
       roomViewSchema.parse(
         await (
-          await h.routes.rooms.read(
+          await h.routes(roomComposition).read(
             new Request(`${h.f.origin}/api/rooms/${room}`, {
               headers: h.headers(cookie),
             }),
@@ -443,14 +450,16 @@ test('real Room chat HTTP admits the host, seats and visitors of an open Room, n
           ],
         ] as const
       ).map(async ([cookie, body]) => {
-        const response = await h.routes.rooms.commands(
-          h.f.jsonPost(
-            `/api/rooms/${room}/commands`,
-            { ...body, commandId: createId(), expectedVersion: view.version },
-            { cookie },
-          ),
-          room,
-        );
+        const response = await h
+          .routes(roomComposition)
+          .commands(
+            h.f.jsonPost(
+              `/api/rooms/${room}/commands`,
+              { ...body, commandId: createId(), expectedVersion: view.version },
+              { cookie },
+            ),
+            room,
+          );
         return response.status === 200;
       }),
     );
@@ -525,7 +534,7 @@ for (const hostSeat of ['affirmative', 'judge'] as const)
     const reader = second;
     let roomId: string | null = null;
     try {
-      const created = await h.routes.rooms.create(
+      const created = await h.routes(roomComposition).create(
         h.f.jsonPost(
           '/api/rooms',
           {
@@ -552,16 +561,18 @@ for (const hostSeat of ['affirmative', 'judge'] as const)
       );
       const path = `/api/rooms/${room}/chat`;
       const post = (cookie: string, kind: Kind, body: object) =>
-        h.routes.roomCommunity[kind](
+        community[kind](
           h.f.jsonPost(path + segment[kind], body, { cookie }),
           room,
         );
       const discover = async (cookie: string) =>
         (
-          await h.routes.roomCommunity.discover(
-            new Request(h.f.origin + path, { headers: h.headers(cookie) }),
-            room,
-          )
+          await h
+            .routes(roomCommunityComposition)
+            .discover(
+              new Request(h.f.origin + path, { headers: h.headers(cookie) }),
+              room,
+            )
         ).json();
       const stored = () =>
         withSql(async (sql) =>
@@ -592,7 +603,7 @@ for (const hostSeat of ['affirmative', 'judge'] as const)
       const message = await sent.json();
       const before = await stored();
       const read = (cookie: string) =>
-        h.routes.roomCommunity.history(
+        h.routes(roomCommunityComposition).history(
           new Request(`${h.f.origin}${path}/messages?channelId=${channelId}`, {
             headers: h.headers(cookie),
           }),
@@ -684,7 +695,7 @@ test('a debater who posts and then takes the judge seat is not named by their ea
     reader = await h.member();
   let roomId: string | null = null;
   try {
-    const created = await h.routes.rooms.create(
+    const created = await h.routes(roomComposition).create(
       h.f.jsonPost(
         '/api/rooms',
         {
@@ -713,13 +724,15 @@ test('a debater who posts and then takes the judge seat is not named by their ea
     );
     const path = `/api/rooms/${room}/chat`;
     const opened = await (
-      await h.routes.roomCommunity.open(
-        h.f.jsonPost(path, { version: 1, roomId: room }, { cookie: mover }),
-        room,
-      )
+      await h
+        .routes(roomCommunityComposition)
+        .open(
+          h.f.jsonPost(path, { version: 1, roomId: room }, { cookie: mover }),
+          room,
+        )
     ).json();
     const channelId = opened.channelId as string;
-    await h.routes.roomCommunity.send(
+    await h.routes(roomCommunityComposition).send(
       h.f.jsonPost(
         `${path}/messages`,
         {
@@ -735,7 +748,7 @@ test('a debater who posts and then takes the judge seat is not named by their ea
     const identity = await createAccountFlows(h.f).identifyAs(mover);
     if (identity.state !== 'member') throw Error('Expected a member');
     const page = async (cookie: string) => {
-      const response = await h.routes.roomCommunity.history(
+      const response = await h.routes(roomCommunityComposition).history(
         new Request(`${h.f.origin}${path}/messages?channelId=${channelId}`, {
           headers: h.headers(cookie),
         }),
@@ -751,7 +764,7 @@ test('a debater who posts and then takes the judge seat is not named by their ea
     const before = await page(reader);
     const current = roomViewSchema.parse(
       await (
-        await h.routes.rooms.read(
+        await h.routes(roomComposition).read(
           new Request(`${h.f.origin}/api/rooms/${room}`, {
             headers: h.headers(mover),
           }),

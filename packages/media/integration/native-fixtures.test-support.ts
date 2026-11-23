@@ -1,3 +1,4 @@
+import { hostWaits } from '@daisy/worker/host';
 import { instantMs } from '@daisy/clock';
 import { SQL } from 'bun';
 import { createDatabase } from '@daisy/db';
@@ -18,7 +19,11 @@ export async function withHistoricalSeat(
     readonly closeEligibility: () => Promise<void>;
   }) => Promise<void>,
 ) {
-  const db = createDatabase({ url: databaseUrl, nextActorId: createId });
+  const db = createDatabase({
+    url: databaseUrl,
+    nextActorId: createId,
+    waits: hostWaits,
+  });
   const fixture = new SQL(databaseUrl);
   const roundId = createId(),
     actorId = createId(),

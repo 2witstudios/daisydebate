@@ -1,4 +1,4 @@
-import { cancelDelay, delay, startTick, stopTick } from '../edge/browser-time';
+import type { BrowserScheduler } from '../edge/browser-time';
 import {
   createDeviceCheckController,
   type DeviceCapture,
@@ -14,6 +14,8 @@ type BrowserEdge = {
   readonly document: Document;
   readonly permissions?: Permissions;
   readonly createAudioContext: () => AudioContext;
+  /** The timer queue every bounded wait and level poll runs on. */
+  readonly scheduler: BrowserScheduler;
   /** Bound on waiting for a frame or level; injected so tests need no sleep. */
   readonly checkTimeoutMs?: number;
 };
@@ -32,7 +34,7 @@ function observe(
     const finish = (error?: Error) => {
       if (settled) return;
       settled = true;
-      cancelDelay(timeout);
+      cancelTimeout();
       signal.removeEventListener('abort', abort);
       cleanup();
       if (error) reject(error);
@@ -40,7 +42,7 @@ function observe(
     };
     const abort = () =>
       finish(new DOMException('Check cancelled', 'AbortError'));
-    const timeout = delay(
+    const cancelTimeout = edge.scheduler.after(
       // An opened device that never produced a frame or level: no signal.
       () => finish(new DOMException('No device observation', 'TimeoutError')),
       edge.checkTimeoutMs ?? CHECK_TIMEOUT_MS,
@@ -101,12 +103,12 @@ function microphoneConfirmation(
     const context = edge.createAudioContext();
     let source: MediaStreamAudioSourceNode | undefined;
     let analyser: AnalyserNode | undefined;
-    let timer: ReturnType<typeof startTick> | undefined;
+    let stopPolling: (() => void) | undefined;
     let closed = false;
     const cleanup = () => {
       if (closed) return;
       closed = true;
-      stopTick(timer);
+      stopPolling?.();
       try {
         source?.disconnect();
       } finally {
@@ -124,7 +126,7 @@ function microphoneConfirmation(
       level.fftSize = 1024;
       source.connect(level); // Never connect to speakers or any transport.
       const samples = new Float32Array(level.fftSize);
-      timer = startTick(() => {
+      stopPolling = edge.scheduler.every(() => {
         level.getFloatTimeDomainData(samples);
         const rms = Math.sqrt(
           samples.reduce((sum, sample) => sum + sample * sample, 0) /
@@ -175,7 +177,7 @@ function watchLoss(
         if (active) loss('device-disappeared');
       });
   };
-  const health = startTick(() => {
+  const stopHealth = edge.scheduler.every(() => {
     if (track.readyState === 'ended') ended();
   }, 250);
   track.addEventListener('ended', ended);
@@ -196,7 +198,7 @@ function watchLoss(
   // Track.enabled (publication mute) is deliberately not a device-health signal.
   return () => {
     active = false;
-    stopTick(health);
+    stopHealth();
     track.removeEventListener('ended', ended);
     edge.mediaDevices.removeEventListener('devicechange', changed);
     permission?.removeEventListener('change', revoked);
@@ -235,15 +237,19 @@ async function openDevice(
   };
 }
 
+/** The page's own devices, on the timers it is handed. */
+export const browserDeviceEdge = (
+  scheduler: BrowserEdge['scheduler'],
+): BrowserEdge => ({
+  mediaDevices: navigator.mediaDevices,
+  document,
+  permissions: navigator.permissions,
+  createAudioContext: () => new AudioContext(),
+  scheduler,
+});
+
 /** Construct in a client; call check from a user gesture. Local preview only. */
-export function createBrowserDeviceChecks(
-  edge: BrowserEdge = {
-    mediaDevices: navigator.mediaDevices,
-    document,
-    permissions: navigator.permissions,
-    createAudioContext: () => new AudioContext(),
-  },
-) {
+export function createBrowserDeviceChecks(edge: BrowserEdge) {
   return createDeviceCheckController({
     open: (kind, deviceId) => openDevice(edge, kind, deviceId),
   });

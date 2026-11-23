@@ -6,7 +6,7 @@ import {
   decideClubSeating,
   type ClubSeatingCommand,
 } from '@daisy/protocol/club-seats';
-import type { MemberCaller } from '../../server/member-boundary';
+import type { MemberCaller } from '../auth/member-boundary';
 
 type Store = ReturnType<Database['clubSeats']>;
 

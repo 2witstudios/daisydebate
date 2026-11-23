@@ -1,6 +1,7 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createOpenRouter } from '@daisy/ai-voice';
 import { createBotGeneration } from './generation';
+import { inertWaits } from '../../lib/manual-waits.test-support';
 import { scope } from './speaker.test-support';
 setupRitewayBun();
 
@@ -30,11 +31,10 @@ async function settlementOf(
         now: '2026-10-23T10:00:00.000Z',
       }),
     },
-    voice: () => createOpenRouter({ apiKey: 'key', fetch }),
+    voice: () => createOpenRouter({ apiKey: 'key', fetch, waits: inertWaits }),
     withProvider: (_signal, work) => work(),
     nowMs: () => 0,
-    pause: async () => undefined,
-    timer: { setTimeout: () => null, clearTimeout: () => undefined },
+    waits: inertWaits,
     stallMs: 1000,
     maxTokens: 100,
     reasoning: 'none',

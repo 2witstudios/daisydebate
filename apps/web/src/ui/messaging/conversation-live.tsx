@@ -1,6 +1,7 @@
 'use client';
-import { useBrowserEffect } from '../edge/browser-sync';
-import { StatusRegion } from '../components/status-region/status-region';
+import { useResource } from '../edge/use-driver';
+import { browserTransport } from '../edge/browser-request';
+import { Announcement } from '../components/announcement/announcement';
 import { useMemo, useState } from 'react';
 import { createBrowserTypingReader } from './typing-browser';
 import { tabConnection } from '../edge/realtime-browser';
@@ -48,26 +49,39 @@ export function ConversationLive({
   const descriptor = useMemo(() => channelMessages(channelId), [channelId]);
   const view = useRealtime(descriptor, history, socketUrl);
   const [typing, showTyping] = useState<boolean | null>(null);
-  useBrowserEffect(() => {
-    if (socketUrl === null) return;
-    const connection = tabConnection(socketUrl);
+  // One reader per conversation, socket and cadence; showTyping is stable.
+  const typingChannel = useMemo(
+    () =>
+      socketUrl === null ? null : { channelId, socketUrl, typingRefetchMs },
+    [channelId, socketUrl, typingRefetchMs],
+  );
+  useResource(typingChannel, (watched) => {
+    if (watched === null) return null;
+    const connection = tabConnection(watched.socketUrl);
     const reader = createBrowserTypingReader(
-      channelId,
+      watched.channelId,
       connection,
       showTyping,
-      typingRefetchMs,
+      watched.typingRefetchMs,
+      browserTransport,
     );
     connection.connect();
-    return () => {
-      reader.close();
-      connection.dispose();
+    return {
+      dispose: () => {
+        reader.close();
+        connection.dispose();
+      },
     };
-  }, [channelId, socketUrl, typingRefetchMs]);
+  });
   if (view.status === 'hidden')
     return (
-      <StatusRegion as="p" role="status" className="flex-1 p-6 text-ink-muted">
+      <Announcement
+        as="p"
+        kind="progress"
+        className="flex-1 p-6 text-ink-muted"
+      >
         This conversation is no longer available to you.
-      </StatusRegion>
+      </Announcement>
     );
   const shown = view.body ?? history;
   // What is on screen is what is read: a live message advances the cursor too.
@@ -93,9 +107,9 @@ export function ConversationLive({
       {/* Reserved, so a typing line never moves the conversation. */}
       <div className="h-typing-row shrink-0 px-6 pt-1 text-xs text-ink-muted max-narrow:px-4">
         {typing === true ? (
-          <StatusRegion as="p" role="status">
+          <Announcement as="p" kind="progress">
             {typingName} is typing…
-          </StatusRegion>
+          </Announcement>
         ) : null}
       </div>
     </>

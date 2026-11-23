@@ -1,3 +1,4 @@
+import { hostWaits } from '@daisy/worker/host';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { requireTestServices } from '@daisy/config';
 import { assertRejects } from '@daisy/errors/testing';
@@ -120,7 +121,7 @@ test('subscription application samples time after an account lock wait crossing 
           pending,
           fixture.sql,
           Number(backend.pid),
-          { now: performance.now, deadlineMs: 300 },
+          { waits: hostWaits, deadlineMs: 300 },
         );
         const [edge] =
           await holder`select clock_timestamp()<(synchronization->'claim'->>'expiresAt')::timestamptz as before from billing_customers where id=${customerId}`;

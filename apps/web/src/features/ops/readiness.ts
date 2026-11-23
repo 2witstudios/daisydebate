@@ -1,3 +1,4 @@
+import type { Waits } from '@daisy/clock';
 import type { Logger } from '@daisy/logger';
 import type { ErrorReporter } from '@daisy/observability';
 import { withTimeout } from '@daisy/observability';
@@ -16,6 +17,7 @@ export function createReadinessHandler({
   startupChecked = () => true,
   logger,
   reporter,
+  waits,
 }: {
   readonly database: Probe;
   readonly redis: Probe;
@@ -25,6 +27,8 @@ export function createReadinessHandler({
   readonly logger: Logger;
   /** ADR 0037: where a 5xx from this handler's raw error goes, scrubbed. */
   readonly reporter: ErrorReporter;
+  /** The time each store's two-second answer is measured on (R4.7). */
+  readonly waits: Waits;
 }) {
   return (request: Request) =>
     handleOperation(
@@ -33,8 +37,8 @@ export function createReadinessHandler({
       'health.readiness',
       async () => {
         const results = await Promise.allSettled([
-          withTimeout(database.health(), 2000),
-          withTimeout(redis.health(), 2000),
+          withTimeout(waits, database.health(), 2000),
+          withTimeout(waits, redis.health(), 2000),
         ]);
         const ready =
           !isDraining() &&

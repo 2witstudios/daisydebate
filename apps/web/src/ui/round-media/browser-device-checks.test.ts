@@ -1,6 +1,31 @@
+import { virtualClock } from '@daisy/clock/testing';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { createBrowserDeviceChecks } from './browser-device-checks';
 setupRitewayBun();
+
+/** The device checks' scheduler on a clock the test owns (ADR 0164). */
+const clock = virtualClock();
+const testScheduler = {
+  after: (run: () => void, ms: number) => {
+    const waiting = new AbortController();
+    void clock.sleep(ms, waiting.signal).then(() => {
+      if (!waiting.signal.aborted) run();
+    });
+    return () => waiting.abort();
+  },
+  every: (run: () => void, ms: number) => {
+    const waiting = new AbortController();
+    const next = (): Promise<void> =>
+      clock.sleep(ms, waiting.signal).then(() => {
+        if (waiting.signal.aborted) return;
+        run();
+        return next();
+      });
+    void next();
+    return () => waiting.abort();
+  },
+  frame: (run: () => void) => testScheduler.after(run, 0),
+};
 
 describe('browser media boundary', () => {
   test('requests only selected input and exposes denial without raw error', async () => {
@@ -13,6 +38,7 @@ describe('browser media boundary', () => {
         },
       } as unknown as MediaDevices,
       document: {} as Document,
+      scheduler: testScheduler,
       createAudioContext: () => {
         throw new Error('must not open audio after denial');
       },
@@ -49,6 +75,7 @@ describe('browser media boundary', () => {
         },
       } as unknown as MediaDevices,
       document: {} as Document,
+      scheduler: testScheduler,
       createAudioContext: () => {
         throw new Error('unreachable');
       },
@@ -100,8 +127,9 @@ describe('browser media boundary', () => {
         throw new Error('unreachable');
       },
       checkTimeoutMs: 0,
+      scheduler: testScheduler,
     });
-    await controller.check('camera');
+    await clock.run(controller.check('camera'));
     assert({
       given: 'an opened camera whose frame never arrives within the bound',
       should:

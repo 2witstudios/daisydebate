@@ -1,3 +1,4 @@
+import { tryInstantMs } from '@daisy/clock';
 import { createAppError } from '@daisy/errors';
 
 export type GroupManagementOperation =
@@ -90,14 +91,17 @@ export function planGroupManagement(input: {
   readonly lifecycle: 'active' | 'archived';
   readonly changes: readonly GrantChange[];
 } {
-  const now = new Date(input.now);
+  const nowMs = tryInstantMs(input.now) ?? Number.NaN;
   if (
-    !Number.isFinite(now.getTime()) ||
+    !Number.isFinite(nowMs) ||
     input.grants.some(
-      (g) => !Number.isFinite(g.grantedAt.getTime()) || now < g.grantedAt,
+      (g) =>
+        !Number.isFinite(g.grantedAt.getTime()) ||
+        nowMs < g.grantedAt.getTime(),
     )
   )
     conflict();
+  const now = new Date(nowMs);
   if (input.operation === 'archive' || input.operation === 'transfer') {
     if (input.lifecycle !== 'active') conflict();
     return input.operation === 'archive'

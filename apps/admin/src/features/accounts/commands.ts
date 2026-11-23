@@ -13,7 +13,7 @@ import {
   deniedDetail,
   type OperatorFact,
 } from '../../authorization/authorize-operator';
-import type { AdminDatabase } from '../../db/client';
+import { inTransaction, type AdminTxSource } from '../../db/tx';
 import { betaAccessCommandAction } from '@daisy/protocol/beta-access';
 import { operatorLimits } from '@daisy/protocol/operator';
 import type { OperatorClient } from '../operator-client/client';
@@ -38,7 +38,7 @@ import {
  * when the participant app never saw it, resends it under the same id.
  */
 export type CommandDeps = {
-  readonly db: AdminDatabase;
+  readonly db: AdminTxSource;
   readonly clock: Clock;
   readonly ids: IdGenerator;
   readonly client: OperatorClient;
@@ -47,7 +47,7 @@ export type CommandDeps = {
 type Event = Omit<AuditEvent, 'id' | 'at'>;
 
 const record = (deps: CommandDeps, event: Event, now: string) =>
-  deps.db.transaction((tx) =>
+  inTransaction(deps.db, (tx) =>
     appendAudit(tx, { ...event, id: deps.ids.next(), at: now }),
   );
 
@@ -136,7 +136,7 @@ async function recordOutcome(
   audited: ReturnType<typeof auditedOutcome>,
 ): Promise<boolean> {
   const now = deps.clock.now();
-  return deps.db.transaction(async (tx) => {
+  return inTransaction(deps.db, async (tx) => {
     if (
       audited.settled &&
       !(await resolvePendingCommand(tx, command.commandId, now))
@@ -189,7 +189,7 @@ export async function submitBetaAccess(
   if (!(await mayUpdate(deps, input.operatorId))) return { notice: 'denied' };
   const command = { ...input, commandId: deps.ids.next() };
   const now = deps.clock.now();
-  const intent = await deps.db.transaction(async (tx) => {
+  const intent = await inTransaction(deps.db, async (tx) => {
     await openPendingCommand(tx, { ...command, now });
     return appendAudit(tx, {
       id: deps.ids.next(),
@@ -357,7 +357,7 @@ export async function submitPreapproval(
     preapproval: command,
   } as const;
   const now = deps.clock.now();
-  const intent = await deps.db.transaction(async (tx) => {
+  const intent = await inTransaction(deps.db, async (tx) => {
     await openPendingCommand(tx, { ...pending, now });
     return appendAudit(tx, {
       id: deps.ids.next(),

@@ -1,3 +1,4 @@
+import { hostWaits } from '@daisy/worker/host';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { createDatabase } from '../src';
@@ -32,6 +33,7 @@ describe('claimUsername creates the human actor (ACTOR-1, ADR 0029)', () => {
       const newcomer = await provisionalUser(fixture);
       const name = `claim-${claimed.userId}`;
       const database = createDatabase({
+        waits: hostWaits,
         url,
         nextActorId: () => claimed.actorId,
       });
@@ -77,7 +79,11 @@ describe('claimUsername creates the human actor (ACTOR-1, ADR 0029)', () => {
   test('a claim inserts a human actor row using the injected id source', async () => {
     await withFixture(url, async (fixture) => {
       const { userId, actorId } = await provisionalUser(fixture);
-      const database = createDatabase({ url, nextActorId: () => actorId });
+      const database = createDatabase({
+        waits: hostWaits,
+        url,
+        nextActorId: () => actorId,
+      });
       let outcome;
       try {
         outcome = await database.claimUsername({
@@ -110,8 +116,16 @@ describe('claimUsername creates the human actor (ACTOR-1, ADR 0029)', () => {
       fixture.track('actors', secondActorId);
       await fixture.insert('users', { id: userId, username: null });
       const username = `claimed-${userId}`;
-      const first = createDatabase({ url, nextActorId: () => firstActorId });
-      const second = createDatabase({ url, nextActorId: () => secondActorId });
+      const first = createDatabase({
+        waits: hostWaits,
+        url,
+        nextActorId: () => firstActorId,
+      });
+      const second = createDatabase({
+        waits: hostWaits,
+        url,
+        nextActorId: () => secondActorId,
+      });
       let outcomes: readonly [{ kind: string }, { kind: string }];
       try {
         outcomes = [
@@ -158,7 +172,11 @@ describe('claimUsername creates the human actor (ACTOR-1, ADR 0029)', () => {
           for each row execute function "${trigger}"();
       `);
       await fixture.insert('users', { id: userId, username: null });
-      const database = createDatabase({ url, nextActorId: () => actorId });
+      const database = createDatabase({
+        waits: hostWaits,
+        url,
+        nextActorId: () => actorId,
+      });
       let threw = false;
       try {
         await database.claimUsername({ userId, username: `claimed-${userId}` });
@@ -198,7 +216,11 @@ describe('claimUsername creates the human actor (ACTOR-1, ADR 0029)', () => {
       // only writer of both together.
       const preexistingActorId = await fixture.actor(userId);
       const newActorId = createId();
-      const database = createDatabase({ url, nextActorId: () => newActorId });
+      const database = createDatabase({
+        waits: hostWaits,
+        url,
+        nextActorId: () => newActorId,
+      });
       let outcome;
       try {
         outcome = await database.claimUsername({
@@ -227,7 +249,11 @@ describe('claimUsername creates the human actor (ACTOR-1, ADR 0029)', () => {
         id: userId,
         username: `already-${userId}`,
       });
-      const database = createDatabase({ url, nextActorId: () => actorId });
+      const database = createDatabase({
+        waits: hostWaits,
+        url,
+        nextActorId: () => actorId,
+      });
       let outcome;
       try {
         outcome = await database.claimUsername({
@@ -250,7 +276,11 @@ describe('claimUsername creates the human actor (ACTOR-1, ADR 0029)', () => {
   test('a completed claim also sets users.name to the claimed username (ISSUE-167)', async () => {
     await withFixture(url, async (fixture) => {
       const { userId, actorId } = await provisionalUser(fixture);
-      const database = createDatabase({ url, nextActorId: () => actorId });
+      const database = createDatabase({
+        waits: hostWaits,
+        url,
+        nextActorId: () => actorId,
+      });
       const username = `named-${userId}`;
       try {
         await database.claimUsername({ userId, username });

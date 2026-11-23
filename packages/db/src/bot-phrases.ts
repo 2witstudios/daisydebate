@@ -21,7 +21,12 @@ import { requireTranscriptUnfrozen } from './transcript-unfrozen';
 import { transcriptSegments } from './schema/transcript-segments';
 import { utterances } from './schema/utterances';
 import type { Tx } from './tx';
-import { run, query as queryRows } from './raw-rows';
+import {
+  parsedColumn,
+  postgresInstantMs,
+  run,
+  query as queryRows,
+} from './raw-rows';
 import { z } from 'zod';
 
 /** One phrase a bot is about to say: its own words and its known length. */
@@ -118,9 +123,15 @@ async function requirePhraseFits(
 ) {
   const query = tx
     .select({
-      start: sql<Date | string>`${start}`,
-      fits: sql<boolean>`${start}+${phrase.durationMs}*interval '1 millisecond'<=least(coalesce(${roundSegments.endedAt},'infinity'::timestamptz),${roundSegments.dueAt})`,
-      ahead: sql<boolean>`${start}<=clock_timestamp()+${MAX_PHRASE_MS + MAX_AHEAD_SLACK_MS}*interval '1 millisecond'`,
+      start: parsedColumn(postgresInstantMs, sql`${start}`),
+      fits: parsedColumn(
+        z.boolean(),
+        sql`${start}+${phrase.durationMs}*interval '1 millisecond'<=least(coalesce(${roundSegments.endedAt},'infinity'::timestamptz),${roundSegments.dueAt})`,
+      ),
+      ahead: parsedColumn(
+        z.boolean(),
+        sql`${start}<=clock_timestamp()+${MAX_PHRASE_MS + MAX_AHEAD_SLACK_MS}*interval '1 millisecond'`,
+      ),
     })
     .from(roundSegments)
     .where(

@@ -1,11 +1,12 @@
+import { defineComposition } from '../../server/composition';
 import { createAppError } from '@daisy/errors';
-import { identify } from '../../lib/identity';
+import { identify } from '../auth/identity';
 import type { App } from '../../server/app';
 import { agreementWords, contentWaiverAt } from '../legal/agreements';
 import { createContentWaiverHandler } from './content-waiver-handler';
 
 /** The agreement routes: a member's signature, recorded with its version. */
-export function composeAgreementRoutes(app: App) {
+function composeAgreementRoutes(app: App) {
   return {
     contentWaiver: {
       POST: createContentWaiverHandler({
@@ -36,3 +37,8 @@ export function composeAgreementRoutes(app: App) {
     },
   };
 }
+
+/** agreements: its route files bind here (`processRoute`). */
+export const agreementComposition = defineComposition('agreements', (app) =>
+  composeAgreementRoutes(app),
+);

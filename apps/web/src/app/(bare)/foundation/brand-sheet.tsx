@@ -126,12 +126,7 @@ export function BrandSheetView({
             />
           </label>
         ))}
-        <Button
-          variant="unstyled"
-          type="button"
-          onClick={onReset}
-          className="rounded-sm border border-border-strong px-4 py-2 text-sm font-semibold"
-        >
+        <Button variant="secondary" size="room" type="button" onClick={onReset}>
           Reset to committed
         </Button>
       </fieldset>

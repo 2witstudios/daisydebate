@@ -47,21 +47,34 @@ const GUARDED_AREAS: Readonly<Record<string, Requirement>> = {
 };
 
 /**
- * The guarded area a path belongs to: the longest entry that is a whole
- * leading run of its segments, or null. The first segment is read exactly as
- * it always was (so `//lobby` and `/lobbyist` stay public); later empty
- * segments are dropped, so a doubled slash cannot step out of an area.
+ * Each guarded area as a whole-segment path pattern, longest first. Its first
+ * segment follows a single slash; any later run of slashes counts as one.
  */
-export const guardedAreaFor = (pathname: string): string | null => {
-  const [, first = '', ...rest] = pathname.split('/');
-  if (first === '') return null;
-  const segments = [first, ...rest.filter((segment) => segment !== '')];
-  for (let depth = segments.length; depth > 0; depth -= 1) {
-    const area = `/${segments.slice(0, depth).join('/')}`;
-    if (area in GUARDED_AREAS) return area;
-  }
-  return null;
-};
+const areaPatterns = Object.keys(GUARDED_AREAS)
+  .sort((left, right) => right.length - left.length)
+  .map(
+    (area) =>
+      [
+        area,
+        new RegExp(
+          `^/${area
+            .slice(1)
+            .split('/')
+            .map((segment) => segment.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
+            .join('/+')}(?:/|$)`,
+        ),
+      ] as const,
+  );
+
+/**
+ * The guarded area a path belongs to: the longest entry the path is, or
+ * begins as a whole segment, or null. A path that does not begin with one
+ * non-empty segment is public (so `//lobby` and `/lobbyist` stay public);
+ * later runs of slashes count as one, so a doubled slash cannot step out of
+ * an area.
+ */
+export const guardedAreaFor = (pathname: string): string | null =>
+  areaPatterns.find(([, pattern]) => pattern.test(pathname))?.[0] ?? null;
 
 /** The requirement for a guarded area or descendant, or null when public. */
 export const requirementFor = (pathname: string): Requirement | null => {

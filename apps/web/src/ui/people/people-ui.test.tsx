@@ -156,7 +156,7 @@ describe('the people rail', () => {
     ],
   );
   test('the tabs and heading keep their word and number apart', () => {
-    const tabs = html.match(/<button[^>]*aria-pressed[^>]*>/g) ?? [];
+    const tabs = html.match(/<button[^>]*\saria-pressed="[^"]*"[^>]*>/g) ?? [];
     assert({
       given: 'the All and Friends tabs',
       should: 'space each word from its count on the spacing scale',

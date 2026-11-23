@@ -1,5 +1,5 @@
 'use client';
-import { useBrowserEffect } from '../edge/browser-sync';
+import { useDeliver } from '../edge/use-answer';
 import { isRoundOver } from '@daisy/protocol/round';
 import { postRoundCallChosen } from '../../features/post-round-call/offered';
 import { useMemo, useState } from 'react';
@@ -29,10 +29,15 @@ export function useRoundMediaTab(
   view: RoundView,
 ): RoundMediaTab {
   const [stepDown] = useState(createStepDown);
-  useBrowserEffect(() => {
-    clearDeparture(actorId, view.id);
-    clearResumeAttempt(actorId, view.id);
-  }, [actorId, view.id]);
+  // Entering a Round's room settles any departure or resume it recorded.
+  const entered = useMemo(
+    () => ({ actorId, roundId: view.id }),
+    [actorId, view.id],
+  );
+  useDeliver(entered, (seat) => {
+    clearDeparture(seat.actorId, seat.roundId);
+    clearResumeAttempt(seat.actorId, seat.roundId);
+  });
   const ownership = useResumeLifetime(
     actorId,
     // A post-round call still holds this seat's one connection.

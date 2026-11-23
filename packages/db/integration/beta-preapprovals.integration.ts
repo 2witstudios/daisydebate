@@ -1,3 +1,4 @@
+import { hostWaits } from '@daisy/worker/host';
 import { executeBetaAccessCommand } from './operator-accounts.test-support';
 import { executePreapprovalCommand } from './preapproval-command.test-support';
 import { decidePreapprovalChange } from '@daisy/protocol/beta-preapproval';
@@ -81,7 +82,11 @@ describe('beta email grants through participant operations', () => {
   test('duplicate grants, immediate approval and command replay owe one invitation', async () => {
     await withFixture(url, async (f) => {
       const account = await pendingAccount(f);
-      const db = trackedDatabase(f, { url, nextActorId: createId });
+      const db = trackedDatabase(f, {
+        waits: hostWaits,
+        url,
+        nextActorId: createId,
+      });
       const email = `${account.userId}@operator.invalid`;
       try {
         const input = inputFor(add(email, true));
@@ -140,7 +145,11 @@ describe('beta email grants through participant operations', () => {
 
   test('preapproval replay still requires early liveness and its original digest', async () => {
     await withFixture(url, async (f) => {
-      const db = trackedDatabase(f, { url, nextActorId: createId });
+      const db = trackedDatabase(f, {
+        waits: hostWaits,
+        url,
+        nextActorId: createId,
+      });
       try {
         const input = inputFor(add(`${createId()}@example.test`, true));
         const saved = await db.runPreapprovalCommand(input);
@@ -199,7 +208,11 @@ describe('beta email grants through participant operations', () => {
 
   test('the supplied decision sees fenced facts on fresh commands and is skipped on replay', async () => {
     await withFixture(url, async (f) => {
-      const db = trackedDatabase(f, { url, nextActorId: createId });
+      const db = trackedDatabase(f, {
+        waits: hostWaits,
+        url,
+        nextActorId: createId,
+      });
       const observed: unknown[] = [];
       const decide: typeof decidePreapprovalChange = (facts) => {
         observed.push({
@@ -256,7 +269,11 @@ describe('beta email grants through participant operations', () => {
 
   test('signup consumes only a matching verified eligible grant', async () => {
     await withFixture(url, async (f) => {
-      const db = trackedDatabase(f, { url, nextActorId: createId });
+      const db = trackedDatabase(f, {
+        waits: hostWaits,
+        url,
+        nextActorId: createId,
+      });
       const userId = createId();
       const email = `${userId}+beta@example.test`;
       await f.insert('users', {
@@ -312,7 +329,11 @@ describe('beta email grants through participant operations', () => {
   test('missing age defers a claim, revoked access never restores', async () => {
     await withFixture(url, async (f) => {
       const account = await pendingAccount(f);
-      const db = trackedDatabase(f, { url, nextActorId: createId });
+      const db = trackedDatabase(f, {
+        waits: hostWaits,
+        url,
+        nextActorId: createId,
+      });
       await f.sql`delete from account_age where user_id = ${account.userId}`;
       try {
         const result = await db.runPreapprovalCommand(
@@ -361,7 +382,11 @@ describe('beta email grants through participant operations', () => {
   test('a preapproved 13 to 15 year old is approved by the age step (decision 88)', async () => {
     await withFixture(url, async (f) => {
       const account = await pendingAccount(f);
-      const db = trackedDatabase(f, { url, nextActorId: createId });
+      const db = trackedDatabase(f, {
+        waits: hostWaits,
+        url,
+        nextActorId: createId,
+      });
       await f.sql`delete from account_age where user_id = ${account.userId}`;
       try {
         const result = await db.runPreapprovalCommand(
@@ -391,7 +416,11 @@ describe('beta email grants through participant operations', () => {
 
   test('expired commands roll back all grant and mail writes', async () => {
     await withFixture(url, async (f) => {
-      const db = trackedDatabase(f, { url, nextActorId: createId });
+      const db = trackedDatabase(f, {
+        waits: hostWaits,
+        url,
+        nextActorId: createId,
+      });
       const account = await pendingAccount(f);
       const command = add(`${account.userId}@operator.invalid`, true);
       try {
@@ -431,7 +460,11 @@ describe('beta email grants through participant operations', () => {
 
 test('two verified accounts racing one grant can consume it only once', async () => {
   await withFixture(url, async (f) => {
-    const db = trackedDatabase(f, { url, nextActorId: createId });
+    const db = trackedDatabase(f, {
+      waits: hostWaits,
+      url,
+      nextActorId: createId,
+    });
     const email = `${createId()}@example.test`;
     const userIds = [createId(), createId()];
     try {
@@ -479,7 +512,11 @@ test('two verified accounts racing one grant can consume it only once', async ()
 
 test('signup and removal serialize without an orphaned approval', async () => {
   await withFixture(url, async (f) => {
-    const db = trackedDatabase(f, { url, nextActorId: createId });
+    const db = trackedDatabase(f, {
+      waits: hostWaits,
+      url,
+      nextActorId: createId,
+    });
     const userId = createId();
     const email = `${userId}@example.test`;
     await f.insert('users', {
@@ -531,7 +568,11 @@ test('signup and removal serialize without an orphaned approval', async () => {
 
 test('an invitation lease recovers a crashed send under one provider identity', async () => {
   await withFixture(url, async (f) => {
-    const db = trackedDatabase(f, { url, nextActorId: createId });
+    const db = trackedDatabase(f, {
+      waits: hostWaits,
+      url,
+      nextActorId: createId,
+    });
     const command = add(`${createId()}@example.test`, true);
     try {
       await db.runPreapprovalCommand(inputFor(command));
@@ -594,7 +635,11 @@ test('an invitation lease recovers a crashed send under one provider identity', 
 
 test('unverified, mismatched and moderated identities cannot consume a grant', async () => {
   await withFixture(url, async (f) => {
-    const db = trackedDatabase(f, { url, nextActorId: createId });
+    const db = trackedDatabase(f, {
+      waits: hostWaits,
+      url,
+      nextActorId: createId,
+    });
     try {
       const outcomes: unknown[] = [];
       for (const kind of ['unverified', 'mismatched', 'moderated'] as const) {
@@ -629,7 +674,11 @@ test('unverified, mismatched and moderated identities cannot consume a grant', a
 
 test('concurrent preapproval and revocation never restore revoked access', async () => {
   await withFixture(url, async (f) => {
-    const db = trackedDatabase(f, { url, nextActorId: createId });
+    const db = trackedDatabase(f, {
+      waits: hostWaits,
+      url,
+      nextActorId: createId,
+    });
     const account = await pendingAccount(f);
     const email = `${account.userId}@operator.invalid`;
     try {
@@ -665,7 +714,11 @@ test('concurrent preapproval and revocation never restore revoked access', async
 
 test('under-13 deletion removes unused preapproval and owed invitations', async () => {
   await withFixture(url, async (f) => {
-    const db = trackedDatabase(f, { url, nextActorId: createId });
+    const db = trackedDatabase(f, {
+      waits: hostWaits,
+      url,
+      nextActorId: createId,
+    });
     const userId = createId();
     const email = `${userId}@example.test`;
     await f.insert('users', {
@@ -698,7 +751,11 @@ test('under-13 deletion removes unused preapproval and owed invitations', async 
 
 test('an account committed between discovery and the email fence is approved by a fresh account-first attempt', async () => {
   await withFixture(url, async (f) => {
-    const db = trackedDatabase(f, { url, nextActorId: createId });
+    const db = trackedDatabase(f, {
+      waits: hostWaits,
+      url,
+      nextActorId: createId,
+    });
     const signup = new SQL(url, { max: 1 });
     const userId = createId();
     const actorId = createId();
@@ -747,7 +804,11 @@ test('an account committed between discovery and the email fence is approved by 
 
 test('removal and erasure use email-before-grant-before-mail locking', async () => {
   await withFixture(url, async (f) => {
-    const db = trackedDatabase(f, { url, nextActorId: createId });
+    const db = trackedDatabase(f, {
+      waits: hostWaits,
+      url,
+      nextActorId: createId,
+    });
     const blocker = new SQL(url, { max: 1 });
     const erasure = new SQL(url, { max: 1 });
     const account = await pendingAccount(f);
@@ -826,7 +887,11 @@ test('removal and erasure use email-before-grant-before-mail locking', async () 
 
 test('invitation delivery facts distinguish suppression, rejection, uncertainty and retired detail', async () => {
   await withFixture(url, async (f) => {
-    const db = trackedDatabase(f, { url, nextActorId: createId });
+    const db = trackedDatabase(f, {
+      waits: hostWaits,
+      url,
+      nextActorId: createId,
+    });
     try {
       const states = [];
       for (const errorCode of [
@@ -894,7 +959,11 @@ test('invitation delivery facts distinguish suppression, rejection, uncertainty 
 
 test('mail recipient variants reject detached active invitations and cross-purpose grant references', async () => {
   await withFixture(url, async (f) => {
-    const db = trackedDatabase(f, { url, nextActorId: createId });
+    const db = trackedDatabase(f, {
+      waits: hostWaits,
+      url,
+      nextActorId: createId,
+    });
     const account = await pendingAccount(f);
     const terminalId = createId();
     try {
@@ -930,7 +999,11 @@ test('mail recipient variants reject detached active invitations and cross-purpo
 
 test('explicit resend creates one new invitation after terminal delivery and replays safely', async () => {
   await withFixture(url, async (f) => {
-    const db = trackedDatabase(f, { url, nextActorId: createId });
+    const db = trackedDatabase(f, {
+      waits: hostWaits,
+      url,
+      nextActorId: createId,
+    });
     try {
       const saved = await db.runPreapprovalCommand(
         inputFor(add(`${createId()}@example.test`, true)),
@@ -984,7 +1057,11 @@ test('explicit resend creates one new invitation after terminal delivery and rep
 
 test('preapproval listing pages by stable opaque grant ids without losing entries', async () => {
   await withFixture(url, async (f) => {
-    const db = trackedDatabase(f, { url, nextActorId: createId });
+    const db = trackedDatabase(f, {
+      waits: hostWaits,
+      url,
+      nextActorId: createId,
+    });
     try {
       const ids = [];
       for (let index = 0; index < 3; index += 1)

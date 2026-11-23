@@ -1,11 +1,11 @@
-import { StatusRegion } from '../../../../../ui/components/status-region/status-region';
+import { Announcement } from '../../../../../ui/components/announcement/announcement';
 import { ConversationPane } from '../../../../../ui/messaging/conversation-pane';
 import { headers } from 'next/headers';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { idSchema } from '@daisy/protocol/primitives';
 import { messagingPreferenceSchemas } from '@daisy/protocol/messaging/preferences';
-import { requireAccess } from '../../../../../lib/access';
+import { requireAccess } from '../../../../../features/access/page-access';
 import type { MessagingChannelPageProps } from '../../../../../features/messaging/channel-page';
 import { PreferenceForm } from '../../../../../ui/messaging/preference-form';
 import { GET } from '../../../../api/messaging/channels/[channelId]/preferences/route';
@@ -39,10 +39,10 @@ export default async function PreferencePage({
           <p>Preferences do not change who can access this conversation.</p>
         </>
       ) : (
-        <StatusRegion as="p" role="status">
+        <Announcement as="p" kind="progress">
           Preferences are unavailable. You can still try clearing your own saved
           state.
-        </StatusRegion>
+        </Announcement>
       )}
       <PreferenceForm
         state={preferenceFormState(state)}

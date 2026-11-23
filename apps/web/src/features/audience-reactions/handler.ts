@@ -5,7 +5,6 @@ import { createAppError, createRefusal } from '@daisy/errors';
 import { audienceReactionPostSchema } from '@daisy/protocol/audience';
 import {
   audienceRoute,
-  roundIdOf,
   type AccountRouteDeps,
 } from '../../server/account-route';
 import { parseValidated } from '../../server/http';
@@ -60,7 +59,7 @@ export const createAudienceReactionRoute = (
     readonly ids: Pick<IdGenerator, 'next'>;
   },
 ) => {
-  return (request: Request) =>
+  return (request: Request, roundId: string) =>
     audienceRoute(
       deps,
       {
@@ -72,7 +71,6 @@ export const createAudienceReactionRoute = (
       async ({ identity, body }) => {
         const { kind } = parseValidated(audienceReactionPostSchema, body);
         const at = deps.clock.now();
-        const roundId = roundIdOf(request);
         const recorded = await deps.store.recordAudienceReaction(
           {
             id: deps.ids.next(),

@@ -94,8 +94,9 @@ step does that work.
 ## Inner loop
 
 - `bun check:affected` is the fast loop: eslint and prettier on changed
-  files, boundaries, styling, side literals, and the affected turbo typecheck
-  and test graph. It is a convenience, not a gate.
+  files, boundaries, styling, side literals, the root script tests (about two
+  minutes, on every change), and the affected turbo typecheck and test graph.
+  It is a convenience, not a gate.
 - `bun check` mirrors CI's blocking gates, which CI runs on every PR.
 - `bun migrations:check` runs whenever migrations change.
 - CI is per-PR isolated (service containers, concurrency cancellation). The

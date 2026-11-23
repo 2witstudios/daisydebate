@@ -281,9 +281,9 @@ test('a pause earned by one turn never holds back the turn that replaces it', as
   let voiced = 0;
   const calls: string[] = [];
   const { createBotSpeaker } = await import('./speaker');
-  const { generated, isBudgetFull, scope } =
+  const { generated, isBudgetFull, recordedWaits, scope } =
     await import('./speaker.test-support');
-  const pending: number[] = [];
+  const { waits, pending } = recordedWaits();
   const stopped: string[] = [];
   const speaker = createBotSpeaker({
     claim: {
@@ -301,10 +301,7 @@ test('a pause earned by one turn never holds back the turn that replaces it', as
     },
     heard: async () => undefined,
     // The pause never ends by itself in this test.
-    timer: {
-      setTimeout: (_run, ms) => pending.push(ms),
-      clearTimeout: () => undefined,
-    },
+    waits,
     synthesize: async (_scope, _token, phraseId, text) => {
       if (++voiced === 1) throw budgetFull();
       return answered(job(phraseId, text));
@@ -338,7 +335,7 @@ test('a pause earned by one turn never holds back the turn that replaces it', as
       'an opening paused by a full budget, a pulse during the pause, then a peer turn ending and a pulse',
     should:
       'start nothing during the pause, then answer the peer at once and stop the dropped answer',
-    actual: [whilePaused, calls, stopped[0], pending[0]],
+    actual: [whilePaused, calls, stopped[0], pending[0]?.ms],
     expected: [['opening'], ['opening', 'peer-turn'], 'opening', 200],
   });
   await speaker.stop();

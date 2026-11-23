@@ -1,4 +1,4 @@
-import { StatusRegion } from '../../components/status-region/status-region';
+import { Announcement } from '../../components/announcement/announcement';
 import { Button } from '../../components/button/button';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { AssemblyCommandForm } from './assembly-command-form';
@@ -409,8 +409,8 @@ describe('native room readiness and Start round controls', () => {
       given: 'open debater seats and the unready viewer, then a ready room',
       should: 'list the seats and the viewer, then nothing',
       actual: [
-        byText(waiting, StatusRegion, 'Waiting on')?.props.children,
-        byText(clear, StatusRegion, 'Waiting on'),
+        byText(waiting, Announcement, 'Waiting on')?.props.children,
+        byText(clear, Announcement, 'Waiting on'),
       ],
       expected: ['Waiting on Affirmative, Negative, You', undefined],
     });
@@ -455,7 +455,7 @@ describe('native room readiness and Start round controls', () => {
             startRefusal: null,
           },
         }),
-        StatusRegion,
+        Announcement,
         'Waiting on',
       )?.props.children;
     assert({

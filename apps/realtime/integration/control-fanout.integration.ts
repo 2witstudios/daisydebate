@@ -1,3 +1,4 @@
+import { hostWaits } from '@daisy/worker/host';
 import { requireTestServices } from '@daisy/config';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { encodeOutboxCursor } from '@daisy/db/outbox';
@@ -41,6 +42,7 @@ test('two actual instances consume durable access and session revocations withou
       port: 0,
       hostname: '127.0.0.1',
       now: () => 0,
+      waits: hostWaits,
     });
     const round = await rounds.seed('private', judgeSeat());
     const instances = [fixture.runtime, replica];
@@ -95,7 +97,7 @@ test('two actual instances consume durable access and session revocations withou
       const position = { txid: String(row.txid), seq: BigInt(row.seq) };
       positions.push(position);
       await waitForOutboxFinality(fixture.client, position.txid, {
-        now: Date.now,
+        waits: hostWaits,
       });
       await notifyOutbox(fixture.client, position);
       return position;

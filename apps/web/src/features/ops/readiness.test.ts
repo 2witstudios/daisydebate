@@ -1,5 +1,6 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { createRecordingLogger } from '../../server/test-loggers.test-support';
+import { virtualClock } from '@daisy/clock/testing';
 import { createReadinessHandler } from './readiness';
 import { noopErrorReporter } from '@daisy/observability';
 
@@ -18,6 +19,7 @@ describe('createReadinessHandler (ISSUE-146: cold-start ordering)', () => {
       isDraining: () => false,
       logger,
       reporter: noopErrorReporter,
+      waits: virtualClock(),
     });
     const response = await handler(new Request('http://x/api/health/ready'));
     assert({
@@ -37,6 +39,7 @@ describe('createReadinessHandler (ISSUE-146: cold-start ordering)', () => {
       startupChecked: () => checked,
       logger: createRecordingLogger().logger,
       reporter: noopErrorReporter,
+      waits: virtualClock(),
     });
     const before = (await handler(new Request('http://x/api/health/ready')))
       .status;
@@ -62,6 +65,7 @@ describe('createReadinessHandler (ISSUE-146: cold-start ordering)', () => {
       isDraining: () => false,
       logger,
       reporter: noopErrorReporter,
+      waits: virtualClock(),
     });
     const duringColdStart = await handler(
       new Request('http://x/api/health/ready'),
@@ -100,6 +104,7 @@ describe('createReadinessHandler (ISSUE-146: cold-start ordering)', () => {
       isDraining: () => true,
       logger,
       reporter: noopErrorReporter,
+      waits: virtualClock(),
     });
     const response = await handler(new Request('http://x/api/health/ready'));
     assert({

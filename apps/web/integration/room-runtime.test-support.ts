@@ -1,3 +1,4 @@
+import { hostWaits } from '@daisy/worker/host';
 import { decisionRelease as roundDecisionReleasePolicy } from '../src/features/notifications/decision-release';
 import { pinRankedFixturePool } from '@daisy/db/testing';
 import { SQL } from 'bun';
@@ -20,7 +21,7 @@ import {
 import { roundViewReader } from '../src/features/round-runtime/reads';
 import { createRoomRuntimeOperations } from '../src/features/room-runtime/operations';
 import { foundationSelection } from './foundation-selection.test-support';
-import { aiAdmissionOptions } from '../src/server/round-worker-policy';
+import { aiAdmissionOptions } from '../src/features/round-runtime/worker-policy';
 
 import { drawEntropy } from '../src/features/room-runtime/entropy';
 import { deleteOrphanNotificationSignals } from './notification-signals.test-support';
@@ -71,6 +72,7 @@ async function fixture(
   await client.connect();
   const redis = createRedis({ url: services.redisUrl, namespace, client });
   const store = createDatabase({
+    waits: hostWaits,
     decisionRelease: roundDecisionReleasePolicy,
     url: databaseUrl,
     nextActorId: createId,

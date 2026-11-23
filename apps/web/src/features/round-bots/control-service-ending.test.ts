@@ -2,18 +2,25 @@ import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createAppError } from '@daisy/errors';
 import { startBotControlService } from './control-service';
 import { neverOverdue, ownedClaim, seat } from './control-service.test-support';
-import { failureLog, manualTimers } from '../../lib/worker-timers.test-support';
+import { failureLog, manualWaits } from '../../lib/manual-waits.test-support';
 import { within } from '../../lib/deadline.test-support';
 setupRitewayBun();
 
-const limits = { maxControllers: 2, scanBatch: 4, scanMs: 500, renewMs: 3000 };
+const limits = {
+  maxControllers: 2,
+  scanBatch: 4,
+  scanMs: 500,
+  checkInMs: 3000,
+  renewMs: 4000,
+  leaseMs: 15000,
+};
 
 test('a rotation whose stop never settles never holds discovery of other seats (ISSUE-789)', async () => {
   const { failed } = failureLog();
   const claimed: string[] = [];
   const stopping = Promise.withResolvers<void>();
   let targets = [seat('rotating', 'first')];
-  const { tasks, timers } = manualTimers();
+  const { tasks, waits } = manualWaits();
   const service = startBotControlService({
     store: {
       scanRoundBotWorkers: async () => targets,
@@ -22,6 +29,7 @@ test('a rotation whose stop never settles never holds discovery of other seats (
         return ownedClaim(target);
       },
       revokeRoundBotWorker: async () => {},
+      renewRoundBotWorker: async () => {},
       verifyRoundBotWorker: async () => {},
     },
     control: () => ({
@@ -33,7 +41,7 @@ test('a rotation whose stop never settles never holds discovery of other seats (
       },
     }),
     limits,
-    timers,
+    waits,
     overdue: neverOverdue,
     failed,
   });
@@ -58,12 +66,13 @@ test('shutdown waits for a released seat’s stop to finish (ISSUE-789)', async 
   const finish = Promise.withResolvers<void>();
   const order: string[] = [];
   let ended = false;
-  const { tasks, timers } = manualTimers();
+  const { tasks, waits } = manualWaits();
   const service = startBotControlService({
     store: {
       scanRoundBotWorkers: async () => [seat('ending')],
       claimRoundBotWorker: async (target) => ownedClaim(target),
       revokeRoundBotWorker: async () => {},
+      renewRoundBotWorker: async () => {},
       verifyRoundBotWorker: async () => {
         if (ended) throw createAppError('CONFLICT', 'Worker lease expired');
       },
@@ -81,7 +90,7 @@ test('shutdown waits for a released seat’s stop to finish (ISSUE-789)', async 
       },
     }),
     limits,
-    timers,
+    waits,
     overdue: neverOverdue,
     failed,
   });
@@ -106,7 +115,7 @@ test('a seat its own pulse already released is not stopped or revoked again by a
   const log: string[] = [];
   let segment = 'first',
     ended = false;
-  const { tasks, timers } = manualTimers();
+  const { tasks, waits } = manualWaits();
   const service = startBotControlService({
     store: {
       scanRoundBotWorkers: async () => [seat('seat', segment)],
@@ -114,6 +123,7 @@ test('a seat its own pulse already released is not stopped or revoked again by a
       revokeRoundBotWorker: async (scope) => {
         log.push(`revoke:${scope.segmentId}`);
       },
+      renewRoundBotWorker: async () => {},
       verifyRoundBotWorker: async (scope) => {
         if (ended && scope.segmentId === 'first')
           throw createAppError('CONFLICT', 'Worker claim rotated');
@@ -131,7 +141,7 @@ test('a seat its own pulse already released is not stopped or revoked again by a
       },
     }),
     limits,
-    timers,
+    waits,
     overdue: neverOverdue,
     failed,
   });
@@ -165,7 +175,7 @@ test('a rotation stops its speaker at once, even while a receipt pulse hangs, an
   const hung = Promise.withResolvers<void>();
   let segment = 'first',
     hang = false;
-  const { tasks, timers } = manualTimers();
+  const { tasks, waits } = manualWaits();
   const service = startBotControlService({
     store: {
       scanRoundBotWorkers: async () => [seat('seat', segment)],
@@ -174,6 +184,7 @@ test('a rotation stops its speaker at once, even while a receipt pulse hangs, an
         log.push(`revoke:${scope.segmentId}`);
         if (scope.segmentId === 'first') throw revokeFault;
       },
+      renewRoundBotWorker: async () => {},
       verifyRoundBotWorker: async () => {},
     },
     control: (claim) => ({
@@ -187,7 +198,7 @@ test('a rotation stops its speaker at once, even while a receipt pulse hangs, an
       },
     }),
     limits,
-    timers,
+    waits,
     overdue: neverOverdue,
     failed,
   });

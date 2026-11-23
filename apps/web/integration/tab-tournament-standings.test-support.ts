@@ -11,7 +11,10 @@ import {
 } from '../src/features/tab/host-standings-route';
 import { eventCompetition } from '../src/features/tab/operations/event-competition';
 import { readHostStandings } from '../src/features/tab/reads/host-standings';
-import { member, origin } from '../src/server/member-boundary.test-support';
+import {
+  member,
+  origin,
+} from '../src/features/auth/member-boundary.test-support';
 import { silentLogger } from '../src/server/test-loggers.test-support';
 import { as } from './tab-tournament-organization-wiring.test-support';
 import { tabRead } from './tab-tournament-transport.test-support';

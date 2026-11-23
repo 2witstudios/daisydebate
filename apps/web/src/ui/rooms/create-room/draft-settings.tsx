@@ -8,7 +8,6 @@ import {
 } from '../../../features/rooms/draft-seat-fields';
 import { SeatInput, seatInputs } from './draft-seat-inputs';
 import { controlClass } from '../../components/form-field/form-field-class';
-import { buttonClass } from '../../components/button/button-class';
 
 type Props = {
   readonly draft: CreateRoomDraft;
@@ -57,14 +56,13 @@ function ScheduleButton({
 }) {
   return (
     <Button
-      variant="unstyled"
+      variant="secondary"
       type="submit"
       name="intent"
       value={intent}
       formNoValidate
       disabled={disabled}
       aria-label={label}
-      className={buttonClass('secondary')}
       onClick={(event) => {
         event.preventDefault();
         schedule(intent);

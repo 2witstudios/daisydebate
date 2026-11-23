@@ -1,3 +1,4 @@
+import { hostWaits } from '@daisy/worker/host';
 import { canUseAiAllowance } from '@daisy/auth/authorization';
 import { createOpenRouter } from '@daisy/ai-voice';
 import { syntheticCaseMap } from '@daisy/db/testing';
@@ -50,6 +51,7 @@ test('actual judging buys first, map and final once, then keeps the original hel
     });
     const voice = createOpenRouter({
       apiKey: 'noncredential-loopback-fixture',
+      waits: hostWaits,
       fetch: (_url, init) =>
         fetch(server.url, {
           ...init,

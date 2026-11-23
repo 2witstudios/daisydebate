@@ -2,7 +2,7 @@ import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { noopErrorReporter } from '@daisy/observability';
 import type { OrganizationPeopleView } from '@daisy/protocol/lobby/organization-read';
 import { silentLogger } from '../../server/test-loggers.test-support';
-import { member, origin } from '../../server/member-boundary.test-support';
+import { member, origin } from '../auth/member-boundary.test-support';
 import {
   createOrganizationPeopleRoute,
   organizationPeoplePath,

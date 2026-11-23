@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import { assertRejects } from '@daisy/errors/testing';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import {
@@ -11,8 +12,10 @@ import {
 
 setupRitewayBun();
 
-const now = new Date('2026-10-22T12:00:00.000Z');
-const at = (ms: number) => new Date(now.getTime() + ms);
+const nowMs = instantMs('2026-10-22T12:00:00.000Z');
+
+const now = new Date(nowMs);
+const at = (ms: number) => new Date(nowMs + ms);
 const idle = {
   reconcileOwner: null,
   reconcileLeaseUntil: null,

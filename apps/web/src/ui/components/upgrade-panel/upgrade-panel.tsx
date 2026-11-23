@@ -1,7 +1,9 @@
 'use client';
 
 import { Button } from '../button/button';
-import { StatusRegion } from '../status-region/status-region';
+import { requestDialog } from '../dialog/dialog';
+import { buttonClass } from '../button/button-class';
+import { Announcement } from '../announcement/announcement';
 import { useState, type ReactNode } from 'react';
 import { Icon } from '../icon/icon';
 
@@ -18,15 +20,8 @@ export type UpgradeAlternative =
     }
   | { readonly kind: 'dismiss'; readonly label: string };
 
-const openDialog = (titleId: string) =>
-  document
-    .querySelector<HTMLDialogElement>(`dialog[aria-labelledby="${titleId}"]`)
-    ?.showModal();
-
-const action =
-  'inline-flex min-h-room-target items-center justify-center gap-2 rounded-sm border px-4 text-sm leading-tight font-strong whitespace-nowrap transition-colors duration-120 ease-standard';
-const primary = `${action} border-transparent bg-accent text-accent-ink hover:bg-accent-strong`;
-const quiet = `${action} cursor-pointer border-transparent bg-transparent text-ink hover:bg-accent-soft`;
+const primary = buttonClass('primary', 'room');
+const quiet = buttonClass('ghost', 'room');
 
 /**
  * A free account's upgrade moment (PYL-11): small, in place, and shown only
@@ -46,9 +41,9 @@ export function UpgradePanel({
   const [dismissed, setDismissed] = useState(false);
   if (dismissed) return null;
   return (
-    <StatusRegion
+    <Announcement
       as="div"
-      role="status"
+      kind="progress"
       className="flex flex-col gap-3 rounded-xl border border-border-strong bg-surface-raised px-4 py-4"
     >
       <div className="flex items-start gap-3">
@@ -68,12 +63,12 @@ export function UpgradePanel({
           </a>
         ) : (
           <Button
-            variant="unstyled"
+            variant="ghost"
+            size="room"
             type="button"
-            className={quiet}
             onClick={() =>
               alternative.kind === 'dialog'
-                ? openDialog(alternative.titleId)
+                ? requestDialog(alternative.titleId)
                 : setDismissed(true)
             }
           >
@@ -81,6 +76,6 @@ export function UpgradePanel({
           </Button>
         )}
       </div>
-    </StatusRegion>
+    </Announcement>
   );
 }

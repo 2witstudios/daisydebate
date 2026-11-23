@@ -1,3 +1,4 @@
+import { hostWaits } from '@daisy/worker/host';
 import { createId } from '@paralleldrive/cuid2';
 import type { CleanupWork } from '@daisy/protocol/billing';
 import { createDatabase } from '../src/index';
@@ -29,6 +30,7 @@ async function prepareCompletion(input: Fixture) {
     },
   };
   const database = createDatabase({
+      waits: hostWaits,
       url: databaseUrl,
       client: pool,
       nextActorId: createId,

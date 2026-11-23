@@ -1,3 +1,4 @@
+import { hostWaits } from '@daisy/worker/host';
 import { authorize } from '@daisy/auth/authorization';
 import { createTabStore } from '@daisy/db/tab';
 import { createDatabase } from '@daisy/db';
@@ -16,7 +17,10 @@ import {
 import { lobbyAdministrationCommand } from '../src/features/tab/operations/lobby-administration';
 import { organizationCommand } from '../src/features/tab/operations/organization';
 import { readLobbyPeople } from '../src/features/tab/reads/lobby-people';
-import { member, origin } from '../src/server/member-boundary.test-support';
+import {
+  member,
+  origin,
+} from '../src/features/auth/member-boundary.test-support';
 import { silentLogger } from '../src/server/test-loggers.test-support';
 import { seedHostingGrant } from './tab-hosting-grant.test-support';
 import { as } from './tab-tournament-organization-wiring.test-support';
@@ -97,6 +101,7 @@ export async function lobbyPeopleFrame(
       }),
     );
   const directory = createDatabase({
+    waits: hostWaits,
     url: databaseUrl,
     client: sql as SQL,
     nextActorId: createId,

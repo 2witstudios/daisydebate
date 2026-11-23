@@ -1,3 +1,4 @@
+import { hostWaits } from '@daisy/worker/host';
 import { createId } from '@paralleldrive/cuid2';
 import { requireTestServices } from '@daisy/config';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
@@ -6,17 +7,14 @@ import { readyRecognition } from './transcription-recovery.test-support';
 import { createNecessaryEvidenceIngress } from '../src/features/media-capture/necessary-evidence-ingress';
 import { createTranscriptionAttempt } from '../src/features/transcription-recovery/attempt';
 import { startTranscriptionRecoveryService } from '../src/features/transcription-recovery/service';
-import {
-  manualTimers,
-  failureLog,
-} from '../src/lib/worker-timers.test-support';
+import { manualWaits, failureLog } from '../src/lib/manual-waits.test-support';
 setupRitewayBun();
 requireTestServices(process.env);
 for (const expired of [false, true])
   test(`actual PG renewal with expired=${expired} fences the held controlled recognition reply`, async () => {
     await withEvidenceIngress(async (f) => {
       const work = await readyRecognition(f),
-        { timers, tasks } = manualTimers(),
+        { waits, tasks } = manualWaits(),
         log = failureLog();
       const entered = Promise.withResolvers<void>(),
         response = Promise.withResolvers<void>(),
@@ -45,7 +43,7 @@ for (const expired of [false, true])
       const service = startTranscriptionRecoveryService({
         store: work,
         workerId: createId(),
-        timers,
+        waits,
         failed: log.failed,
         limits: {
           parallel: 1,
@@ -53,6 +51,7 @@ for (const expired of [false, true])
           scanMs: 1000,
           enrollMs: 2000,
           renewMs: 3000,
+          leaseMs: 30_000,
         },
         enroll: async (target) => {
           const restored = await createNecessaryEvidenceIngress({
@@ -85,6 +84,15 @@ for (const expired of [false, true])
           await f.f
             .sql`update transcription_recovery_contexts set lease_expires_at=clock_timestamp()-interval '1 second' where round_id=${f.roundId}`;
         await tasks.get(3000)!();
+        // The renewal reads PostgreSQL: it has settled once it fenced the
+        // provider or armed the next renewal (real time, bounded at 5 s).
+        const settledBy = hostWaits.nowMs() + 5000;
+        while (
+          !providerSignal?.aborted &&
+          !tasks.has(3000) &&
+          hostWaits.nowMs() < settledBy
+        )
+          await hostWaits.sleep(2);
         const heldSlot = released === 0,
           abortedByRenewal = providerSignal?.aborted;
         response.resolve();

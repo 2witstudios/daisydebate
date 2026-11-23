@@ -1,4 +1,4 @@
-import { StatusRegion } from '../components/status-region/status-region';
+import { Announcement } from '../components/announcement/announcement';
 import type { RoundRatingsView } from '../../features/ratings/read-round';
 import {
   markedRating,
@@ -32,9 +32,9 @@ export function RoundRatings({
       <h2 className="text-base font-bold">{`Ranked · ${view.season}`}</h2>
       {view.posting === 'rated' ? <p>Rated</p> : null}
       {view.posting === 'pending' ? (
-        <StatusRegion as="p" role="status">
+        <Announcement as="p" kind="progress">
           Rating update pending
-        </StatusRegion>
+        </Announcement>
       ) : null}
       <dl className="flex flex-wrap gap-6">
         {view.rows.map((row) => {

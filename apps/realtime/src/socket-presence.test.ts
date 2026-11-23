@@ -1,3 +1,4 @@
+import { virtualClock } from '@daisy/clock/testing';
 import type { ServerWebSocket } from 'bun';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import type { Logger } from '@daisy/logger';
@@ -40,7 +41,7 @@ const connect = async ({
   } as unknown as ServerWebSocket<SocketData>;
   const handlers = createWebSocketHandlers({
     logger,
-    timers: { setTimeout: () => 0 as never, clearTimeout: () => {} },
+    waits: virtualClock(),
     now: () => 0,
     authenticate: async () => ({
       actorId,

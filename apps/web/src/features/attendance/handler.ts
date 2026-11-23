@@ -8,7 +8,7 @@ import { parseValidated, refusalResponse } from '../../server/http';
 import {
   runMemberRoute,
   type BudgetedMemberBoundary,
-} from '../../server/member-boundary';
+} from '../auth/member-boundary';
 import { readAttendanceCommand } from './body';
 type HandlerDeps = BudgetedMemberBoundary & {
   readonly checkIn: (

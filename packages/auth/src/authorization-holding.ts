@@ -1,4 +1,4 @@
-import { isInstantBefore } from '@daisy/clock';
+import { isInstantBefore } from '@daisy/clock/instant';
 import type { Permission } from '@daisy/protocol/authorization';
 import { capabilityMetadata } from '@daisy/protocol/capability-metadata';
 import type { AgeBand } from '@daisy/protocol/ladder';

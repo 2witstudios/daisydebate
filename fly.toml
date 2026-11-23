@@ -151,7 +151,7 @@ kill_timeout = 35
   # traffic; 512mb is the smallest size with real headroom under load. See
   # docs/operations/deploy-staging.md "Cost" for the full measurement.
   # ISSUE-528: bot opponents publish speech from this process through the
-  # native LiveKit SDK (apps/web/src/server/round-workers.ts), so live
+  # native LiveKit SDK (apps/web/src/features/round-runtime/ai-work.ts), so live
   # Rounds get 1gb rather than the measured idle-plus-SSR 512mb. With the
   # Round workers running (availability sampling, maintenance, bot control),
   # shared-cpu-1x measured 70% CPU steal and stalled database round trips

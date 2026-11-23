@@ -1,3 +1,4 @@
+import { hostWaits } from '@daisy/worker/host';
 import { afterAll, expect, test } from 'bun:test';
 import { SQL } from 'bun';
 import { requireTestServices } from '@daisy/config';
@@ -137,7 +138,7 @@ test.each(races)(
           (sameChild ? firstChild : secondChild).userId,
         );
         expect(
-          await finishedOrBlockedBehind(second, sql, pid, { now: Date.now }),
+          await finishedOrBlockedBehind(second, sql, pid, { waits: hostWaits }),
         ).toBe('blocked');
       } finally {
         finishFirst.resolve();

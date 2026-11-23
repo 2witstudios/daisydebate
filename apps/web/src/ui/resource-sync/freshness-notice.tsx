@@ -1,4 +1,4 @@
-import { StatusRegion } from '../components/status-region/status-region';
+import { Announcement } from '../components/announcement/announcement';
 import Link from 'next/link';
 import type { Freshness } from '../../features/resource-sync/resource-sync';
 
@@ -13,21 +13,21 @@ export function FreshnessNotice({
 }) {
   if (freshness === 'current') return null;
   return freshness === 'stale' ? (
-    <StatusRegion
+    <Announcement
       as="p"
-      role="status"
+      kind="progress"
       className="rounded-xl bg-surface-sunken p-4 text-sm text-ink-muted"
     >
       Reconnecting to the {noun}. What you see may be out of date.
-    </StatusRegion>
+    </Announcement>
   ) : (
-    <StatusRegion
+    <Announcement
       as="p"
-      role="alert"
+      kind="problem"
       className="rounded-xl bg-surface-sunken p-4 text-sm"
     >
       This {noun} is no longer available.{' '}
       <Link href="/lobby">Back to the lobby</Link>
-    </StatusRegion>
+    </Announcement>
   );
 }

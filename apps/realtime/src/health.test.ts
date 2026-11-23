@@ -1,3 +1,4 @@
+import { virtualClock } from '@daisy/clock/testing';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { checkReadiness, type ReadinessResources } from './health';
 
@@ -17,7 +18,7 @@ describe('checkReadiness', () => {
     assert({
       given: 'a healthy database, LISTEN subscription and Redis',
       should: 'report ready with every check true',
-      actual: await checkReadiness(healthyResources),
+      actual: await checkReadiness(healthyResources, virtualClock()),
       expected: {
         ready: true,
         checks: { database: true, listen: true, redis: true },
@@ -30,7 +31,10 @@ describe('checkReadiness', () => {
       given: 'a draining process',
       should: 'report not ready despite healthy dependencies',
       actual: (
-        await checkReadiness({ ...healthyResources, isDraining: () => true })
+        await checkReadiness(
+          { ...healthyResources, isDraining: () => true },
+          virtualClock(),
+        )
       ).ready,
       expected: false,
     });
@@ -50,7 +54,7 @@ describe('checkReadiness', () => {
     assert({
       given: 'a database that cannot LISTEN',
       should: 'report not ready with only the listen check false',
-      actual: await checkReadiness(resources),
+      actual: await checkReadiness(resources, virtualClock()),
       expected: {
         ready: false,
         checks: { database: true, listen: false, redis: true },
@@ -59,6 +63,7 @@ describe('checkReadiness', () => {
   });
 
   test('reports unready when a check exceeds its timeout', async () => {
+    const clock = virtualClock();
     const resources: ReadinessResources = {
       ...healthyResources,
       redis: {
@@ -70,7 +75,7 @@ describe('checkReadiness', () => {
     assert({
       given: 'a Redis health check slower than the bound',
       should: 'report not ready rather than waiting indefinitely',
-      actual: (await checkReadiness(resources, 5)).ready,
+      actual: (await clock.run(checkReadiness(resources, clock, 5))).ready,
       expected: false,
     });
   });
@@ -88,7 +93,7 @@ describe('checkReadiness', () => {
       given: 'a drain cursor 7 seq behind a fresh high-water mark',
       should:
         'report the seq distance as deliverySeqLagEstimate without affecting ready',
-      actual: await checkReadiness(resources),
+      actual: await checkReadiness(resources, virtualClock()),
       expected: {
         ready: true,
         checks: { database: true, listen: true, redis: true },
@@ -110,7 +115,7 @@ describe('checkReadiness', () => {
     assert({
       given: 'delivery work retained behind an already-advanced drain cursor',
       should: 'report the backlog and its age while staying ready',
-      actual: await checkReadiness(resources),
+      actual: await checkReadiness(resources, virtualClock()),
       expected: {
         ready: true,
         checks: { database: true, listen: true, redis: true },
@@ -135,7 +140,7 @@ describe('checkReadiness', () => {
       given: 'an outbox resource whose high-water mark read fails',
       should:
         'report ready with no deliverySeqLagEstimate field, never throwing',
-      actual: await checkReadiness(resources),
+      actual: await checkReadiness(resources, virtualClock()),
       expected: {
         ready: true,
         checks: { database: true, listen: true, redis: true },

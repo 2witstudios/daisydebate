@@ -1,3 +1,5 @@
+import { postgresInstantMs } from '../src/raw-rows';
+import { hostWaits } from '@daisy/worker/host';
 import { instantMs } from '@daisy/clock';
 import { testLane } from '../src/testing-lane';
 import { requireTestServices } from '@daisy/config';
@@ -14,8 +16,8 @@ const { databaseUrl } = requireTestServices(process.env);
 test('the attendance execution slice exposes the first setup receipt and fits recovery before2s', async () =>
   withPool(async (client) => {
     const run = createBoundedTransaction({
-      lane: testLane(client, 4),
-      now: performance.now,
+      lane: testLane(client, hostWaits, 4),
+      waits: hostWaits,
       executionMs: 900,
     });
     const result = await run(async (tx, _signal, receipt) => {
@@ -36,8 +38,7 @@ test('the attendance execution slice exposes the first setup receipt and fits re
       actual: {
         receipt:
           typeof result.received === 'string' &&
-          instantMs(result.received) <=
-            new Date(result.after as string).getTime(),
+          instantMs(result.received) <= postgresInstantMs.parse(result.after),
         statement: result.statement,
         idle: result.idle,
       },
@@ -56,8 +57,8 @@ test(
         const [backend] = await holder`select pg_backend_pid() as pid`;
         await holder`select id from rounds where id=${roundId} for update`;
         const run = createBoundedTransaction({
-          lane: testLane(client, 4),
-          now: performance.now,
+          lane: testLane(client, hostWaits, 4),
+          waits: hostWaits,
           executionMs: 900,
         });
         let receivedAt: string | undefined;
@@ -80,7 +81,7 @@ test(
             attempt,
             f.sql,
             backend!.pid,
-            { now: performance.now },
+            { waits: hostWaits },
           );
           await refusal;
           const elapsed = performance.now() - started;

@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import { beginBroadcastEgressAttempt } from '../src/broadcast-egress-dispatch';
 import { requireTestServices } from '@daisy/config';
 import { createId } from '@paralleldrive/cuid2';
@@ -20,8 +21,9 @@ import { withFixture } from './constraint-helpers';
 setupRitewayBun();
 
 const { databaseUrl } = requireTestServices(process.env);
-const NOW = new Date('2036-01-01T00:00:00.000Z');
-const later = (ms: number) => new Date(NOW.getTime() + ms);
+const NOWMs = instantMs('2036-01-01T00:00:00.000Z');
+const NOW = new Date(NOWMs);
+const later = (ms: number) => new Date(NOWMs + ms);
 /** Far past any row another suite left, so only this suite's jobs come due. */
 const FUTURE = 86_400_000 * 365 * 100;
 const hostOptIn = { kind: 'host_opt_in', hostActorId: 'a'.repeat(24) } as const;

@@ -30,15 +30,15 @@ and `rateDebate` applies Daisy's rules below. Neither reads a clock, an id or
 storage; the caller passes the stored states, when each debater was last
 rated, the outcome and the debate's completion time.
 
-| Parameter              | Value                                             |
-| ---------------------- | ------------------------------------------------- |
-| New debater            | rating 1500, deviation 350, volatility 0.06       |
-| τ                      | 0.5                                               |
-| Volatility search      | ε = 1e-6, at most 100 steps                       |
-| Inactivity period      | one day                                           |
-| Season deviation floor | unresolved; no second season                      |
-| Provisional above      | deviation 110                                     |
-| Bounds                 | rating 0–4000, deviation 30–350, volatility ≤ 0.1 |
+| Parameter              | Value                                                  |
+| ---------------------- | ------------------------------------------------------ |
+| New debater            | rating 1500, deviation 350, volatility 0.06            |
+| τ                      | 0.5                                                    |
+| Volatility search      | ε = 1e-6, at most 100 steps                            |
+| Inactivity period      | one day                                                |
+| Season deviation floor | unresolved; no second season                           |
+| Provisional above      | deviation 110                                          |
+| Bounds                 | rating 0–4000, deviation 30–350, volatility 0.0001–0.1 |
 
 `RATING_CALCULATION_VERSION = 'glicko2-v1'` names exactly this table. Any
 change to it is a new version, written to `rating_changes.calculation_version`,
@@ -176,3 +176,13 @@ rating fact; the receipt says Rated once the ladder posts. An AI judge still
 never rules on an incomplete transcript (DEC-208): no job is queued for one, and
 the ballot write refuses an agent's, so such a Round's decision is always a
 human's.
+
+## Amendment (2026-11-22, ISSUE-1498)
+
+The ledger's volatility bound gains a floor of 0.0001. Below it σ² is not a
+normal double: the volatility search took log(0) and rated a debater to a
+volatility of zero, outside the bounds it had just accepted. A stored state
+under the floor is refused with `debate.rating.state-bounded`, and a rating
+that would land under it is clamped to it, as the ceiling already was. No
+real state comes near it (a new debater starts at 0.06), so
+`glicko2-v1` stays the calculation version.

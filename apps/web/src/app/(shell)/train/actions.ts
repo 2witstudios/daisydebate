@@ -8,12 +8,13 @@ import {
   preparePractice,
 } from '../../../features/train/start-practice';
 import { readRoomTemplates } from '../../../features/rooms/read-catalog';
-import { moveOn } from '../../../server/form-action';
+import { moveOn } from '../../../features/forms/form-action';
 import { inProcessFetch } from '../../../server/in-process-fetch';
 import { processRoute } from '../../../server/process-app';
+import { roomComposition } from '../../../features/room-runtime/composition';
 
-const create = processRoute((routes) => routes.rooms.create);
-const catalog = processRoute((routes) => routes.rooms.catalog);
+const create = processRoute(roomComposition, (routes) => routes.create);
+const catalog = processRoute(roomComposition, (routes) => routes.catalog);
 
 /**
  * Start practice: the form's one act. It reads the one catalog (the same

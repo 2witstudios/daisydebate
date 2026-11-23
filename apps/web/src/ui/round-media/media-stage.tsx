@@ -1,6 +1,5 @@
 'use client';
-import { useBrowserEffect } from '../edge/browser-sync';
-import { Fragment, useRef } from 'react';
+import { Fragment, useCallback } from 'react';
 import { isJudgeSeat } from '@daisy/protocol/seats';
 import { type RoundView } from '@daisy/protocol/round-view';
 import { type RoundMediaState } from '@daisy/protocol/round-media';
@@ -19,17 +18,20 @@ function TrackElement({
   readonly observed: ObservedTrack;
   readonly handle: TrackHandle;
 }) {
-  const element = useRef<HTMLVideoElement & HTMLAudioElement>(null);
   const mediaTrack = handle.track;
-  useBrowserEffect(() => {
-    const node = element.current;
-    if (!node) return;
-    mediaTrack.attach(node);
-    return () => {
-      mediaTrack.detach(node);
-      node.srcObject = null;
-    };
-  }, [mediaTrack]);
+  // The element holds the track while both are on the page: a new track is a
+  // new ref callback, so React detaches the old one and attaches the new.
+  const element = useCallback(
+    (node: (HTMLVideoElement & HTMLAudioElement) | null) => {
+      if (!node) return;
+      mediaTrack.attach(node);
+      return () => {
+        mediaTrack.detach(node);
+        node.srcObject = null;
+      };
+    },
+    [mediaTrack],
+  );
   return observed.source === 'camera' ? (
     <video
       ref={element}

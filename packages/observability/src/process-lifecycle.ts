@@ -4,12 +4,14 @@
  * a signal or on their parent dying, not `index.ts`'s graceful HTTP drain
  * (`installShutdownSignals`).
  */
+import { afterMs, type Waits } from '@daisy/clock';
 
 /** The subset of `process` a signal handler needs; a test injects a fake. */
 export type SignalTarget = { readonly once: typeof process.once };
 
 /**
- * Forces a process to exit within `drainBudgetMs` of SIGTERM or SIGINT.
+ * Forces a process to exit within `drainBudgetMs` of SIGTERM or SIGINT,
+ * measured on `waits`.
  * Install this before any slow start-up work runs: a hang later can then
  * never leave the process ignoring the signal, since the handler is
  * already registered.
@@ -19,17 +21,17 @@ export function installForcedShutdown({
   exit,
   target = process,
   signals = ['SIGTERM', 'SIGINT'],
-  schedule = setTimeout,
+  waits,
 }: {
   readonly drainBudgetMs: number;
   readonly exit: (code: number) => void;
   readonly target?: SignalTarget;
   readonly signals?: readonly NodeJS.Signals[];
-  readonly schedule?: (callback: () => void, ms: number) => unknown;
+  readonly waits: Waits;
 }): void {
   for (const signal of signals)
     target.once(signal, () => {
-      schedule(() => exit(0), drainBudgetMs);
+      afterMs(waits, drainBudgetMs, () => exit(0));
     });
 }
 

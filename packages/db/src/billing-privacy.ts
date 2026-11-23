@@ -1,3 +1,6 @@
+import { privacyVendors } from './privacy/planner';
+import { listedWord } from './lifecycle-sql';
+import { billingModes } from '@daisy/protocol/billing-mode';
 import { sql } from 'drizzle-orm';
 import { readDatabaseTime } from './database-clock';
 import { eraseBillingReceipts } from './billing-inbox';
@@ -37,7 +40,7 @@ export const billingPrivacyAdopter: PrivacyAdopter = {
       z.object({
         id: z.string(),
         vendor_customer_id: z.string(),
-        mode: z.string(),
+        mode: z.enum(billingModes),
         closed_at: z.string().nullable(),
         created_at: z.string(),
       }),
@@ -77,7 +80,7 @@ export const billingPrivacyAdopter: PrivacyAdopter = {
       tx,
       z.object({
         id: z.string(),
-        mode: z.string(),
+        mode: z.enum(billingModes),
         price_id: z.string(),
         vendor_customer_id: z.string().nullable(),
         return_origin: z.string(),
@@ -93,7 +96,7 @@ export const billingPrivacyAdopter: PrivacyAdopter = {
       tx,
       z.object({
         id: z.string(),
-        mode: z.string(),
+        mode: z.enum(billingModes),
         vendor_customer_id: z.string(),
         vendor_charge_id: z.string(),
         vendor_invoice_id: z.string(),
@@ -119,7 +122,7 @@ export const billingPrivacyAdopter: PrivacyAdopter = {
       tx,
       z.object({
         id: z.string(),
-        mode: z.string(),
+        mode: z.enum(billingModes),
         vendor_customer_id: z.string(),
         vendor_invoice_id: z.string(),
         kind: z.string(),
@@ -143,7 +146,7 @@ export const billingPrivacyAdopter: PrivacyAdopter = {
       sql`select identity as vendor_invoice_id
       from privacy_jobs job cross join lateral
         jsonb_array_elements_text(job.billing_cleanup->'invoiceDebt'->'ids') identity
-      where job.subject_ref=${subject.userId} and job.vendor='stripe'
+      where job.subject_ref=${subject.userId} and job.vendor=${listedWord(privacyVendors, 'stripe')}
         and job.billing_cleanup->'invoiceDebt'->>'kind'='owed' order by identity`,
     );
     return {

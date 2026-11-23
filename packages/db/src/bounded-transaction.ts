@@ -1,5 +1,6 @@
 import { scopeReservedTransaction } from './tenant-scope';
 import type { ReservedSQL, SQL } from 'bun';
+import { afterMs, type Waits } from '@daisy/clock';
 import { createAppError, isAppError } from '@daisy/errors';
 import { drizzle } from 'drizzle-orm/bun-sql';
 import {
@@ -71,11 +72,15 @@ class TransactionAttempt {
     private readonly client: SQL,
     /** The admitted lane client a later recovery reserves through. */
     private readonly laneClient: SQL,
-    private readonly now: () => number,
+    private readonly waits: Waits,
     private readonly executionMs: number,
     private readonly lifecycle: TransactionLifecycle | undefined,
   ) {
-    this.deadline = now() + executionMs;
+    this.deadline = waits.nowMs() + executionMs;
+  }
+
+  private now() {
+    return this.waits.nowMs();
   }
 
   private checkBudget() {
@@ -195,7 +200,7 @@ class TransactionAttempt {
     this.controlInUse = true;
     await runTransactionLifecycle({
       control: watchdog,
-      now: this.now,
+      waits: this.waits,
       deadline,
       refuse: this.refuseControl,
       run: (tx) =>
@@ -242,7 +247,7 @@ class TransactionAttempt {
             client: this.laneClient,
             backend: this.backend,
             absent,
-            now: this.now,
+            waits: this.waits,
           }),
         },
       );
@@ -257,7 +262,7 @@ class TransactionAttempt {
   private async rollbackWriter(writer: ReservedSQL, deadline: number) {
     const remaining = deadline - this.now();
     if (remaining <= 0) return false;
-    let timer: ReturnType<typeof setTimeout> | undefined;
+    let cancel = () => {};
     const rollback = async () => {
       const receipt = await writer<{ command: string }>`rollback`;
       return receipt.command === 'ROLLBACK';
@@ -266,13 +271,13 @@ class TransactionAttempt {
       return await Promise.race([
         rollback(),
         new Promise<false>((resolve) => {
-          timer = setTimeout(() => resolve(false), remaining);
+          cancel = afterMs(this.waits, remaining, () => resolve(false));
         }),
       ]);
     } catch {
       return false;
     } finally {
-      if (timer !== undefined) clearTimeout(timer);
+      cancel();
     }
   }
 
@@ -307,19 +312,21 @@ class TransactionAttempt {
       remaining <= 0
     )
       return Promise.resolve(false);
-    return recoverTransactionBackend(this.watchdog, this.backend, remaining);
+    return recoverTransactionBackend(
+      this.waits,
+      this.watchdog,
+      this.backend,
+      remaining,
+    );
   }
 
   async run<T>(work: TransactionWork<T>): Promise<T> {
-    let timer: ReturnType<typeof setTimeout> | undefined;
+    let cancel = () => {};
     const budget = new Promise<never>((_, reject) => {
-      timer = setTimeout(
-        () => {
-          this.controller.abort(this.expired);
-          reject(this.expired);
-        },
-        Math.max(0, this.deadline - this.now()),
-      );
+      cancel = afterMs(this.waits, this.deadline - this.now(), () => {
+        this.controller.abort(this.expired);
+        reject(this.expired);
+      });
     });
     try {
       return await Promise.race([this.runWork(work), budget]);
@@ -328,7 +335,7 @@ class TransactionAttempt {
     } finally {
       this.scopeClosed = true;
       this.controller.abort(this.disposed);
-      if (timer !== undefined) clearTimeout(timer);
+      cancel();
       // A destroyed connection returns via Bun's onClose, never as a reusable socket.
       if (!this.destroyed) this.work?.release();
       if (this.controlRecovered) this.watchdog?.release();
@@ -344,12 +351,12 @@ class TransactionAttempt {
  */
 export function createBoundedTransaction({
   lane,
-  now,
+  waits,
   executionMs = TRANSACTION_MS,
 }: {
   readonly lane: Pick<Lane, 'client' | 'withSlots'>;
-  /** Monotonic milliseconds, injected by the composition root. */
-  readonly now: () => number;
+  /** The time every budget is measured on, injected by the composition root (R4.7). */
+  readonly waits: Waits;
   /** Execution slice including reservations/setup/commit; recovery may need another1000ms. */
   readonly executionMs?: number;
 }): BoundedTransaction {
@@ -370,7 +377,7 @@ export function createBoundedTransaction({
       new TransactionAttempt(
         pool,
         lane.client,
-        now,
+        waits,
         slice,
         options?.lifecycle,
       ).run(run),

@@ -1,7 +1,10 @@
+import { listedWord } from './lifecycle-sql';
 import {
   reuseLicensingWordings,
   type MediaReleaseRecord,
   type ReleaseRequest,
+  releaseWithdrawers,
+  mediaReleaseScopes,
 } from '@daisy/protocol/media-release';
 import { sql } from 'drizzle-orm';
 import { divisionAgeBand, divisionOfBandSql } from './ladder-division-band';
@@ -198,10 +201,10 @@ export const supersedeOldRelease = (tx: Tx, userId: string, now: Date) =>
   run(
     tx,
     sql`update media_releases r
-    set withdrawn_at = ${now.toISOString()}, withdrawn_by = 'superseded'
+    set withdrawn_at = ${now.toISOString()}, withdrawn_by = ${listedWord(releaseWithdrawers, 'superseded')}
     where r.user_id = ${userId} and r.withdrawn_at is null
       and exists (select 1 from media_releases old
-        where old.user_id = r.user_id and old.scope = 'publish'
+        where old.user_id = r.user_id and old.scope = ${listedWord(mediaReleaseScopes, 'publish')}
           and old.withdrawn_at is null
           and old.wording_version not in (${sql.join(
             reuseLicensingWordings.map((version) => sql`${version}`),

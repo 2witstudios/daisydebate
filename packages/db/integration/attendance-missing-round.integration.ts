@@ -1,3 +1,4 @@
+import { hostWaits } from '@daisy/worker/host';
 import { requireTestServices } from '@daisy/config';
 import { assertRejects } from '@daisy/errors/testing';
 import { createId } from '@paralleldrive/cuid2';
@@ -85,7 +86,7 @@ test('Round deletion winning the opening race is absence, never a marker FK fail
         checking,
         f.sql,
         holder!.pid,
-        { now: performance.now },
+        { waits: hostWaits },
       );
       await deleting`commit`;
       await refused;

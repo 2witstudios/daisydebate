@@ -1,3 +1,4 @@
+import { virtualClock } from '@daisy/clock/testing';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { stubCaseMap } from '@daisy/ai-voice/testing';
 import { createRoundJudgingOperations } from './operations';
@@ -89,6 +90,7 @@ test('provider failures are classified apart', async () => {
   const refused = harness(async () => {
     const { createOpenRouter } = await import('@daisy/ai-voice');
     return createOpenRouter({
+      waits: virtualClock(),
       apiKey: 'k',
       fetch: async () => new Response('', { status: 404 }),
     }).complete({ model: 'm', messages: [], maxTokens: 1 });
@@ -147,6 +149,7 @@ test('only a refusal of the request itself is final: a key or credit failure can
     const { log, operations } = harness(async () => {
       const { createOpenRouter } = await import('@daisy/ai-voice');
       return createOpenRouter({
+        waits: virtualClock(),
         apiKey: 'k',
         fetch: async () => new Response('', { status }),
       }).complete({ model: 'm', messages: [], maxTokens: 1 });
@@ -172,6 +175,7 @@ test('a rate limit may retry, and a timeout during the call stays counted as pai
   const limited = harness(async () => {
     const { createOpenRouter } = await import('@daisy/ai-voice');
     return createOpenRouter({
+      waits: virtualClock(),
       apiKey: 'k',
       fetch: async () => new Response('', { status: 429 }),
     }).complete({ model: 'm', messages: [], maxTokens: 1 });

@@ -1,4 +1,4 @@
-import { instantMs } from '@daisy/clock';
+import { instantMs } from '@daisy/clock/instant';
 import {
   attendanceTimingPolicy as policy,
   type AttendanceLedgerFacts,

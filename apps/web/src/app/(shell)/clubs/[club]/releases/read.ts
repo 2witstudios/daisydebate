@@ -4,7 +4,7 @@ import { z } from 'zod';
 import type { SearchParams } from '../../../../../features/access/decision';
 import { clubSeatsViewSchema } from '../../../../../features/clubs/views';
 import { needsRelease } from '../../../../../features/media-releases/club-releases';
-import { requireAccess } from '../../../../../lib/access';
+import { requireAccess } from '../../../../../features/access/page-access';
 import { GET as releasesRoute } from '../../../../api/clubs/[club]/releases/route';
 import { GET as seatsRoute } from '../../../../api/clubs/[club]/seats/route';
 import { readOwnRoute } from '../../../friends/read-route';
@@ -45,7 +45,10 @@ export async function readClubReleasePage(
   const seats =
     read.role === 'owner'
       ? await readOwnRoute(
-          seatsRoute,
+          (request) =>
+            seatsRoute(request, {
+              params: Promise.resolve({ club: read.club.id }),
+            }),
           `/api/clubs/${read.club.id}/seats`,
           clubSeatsViewSchema,
         )

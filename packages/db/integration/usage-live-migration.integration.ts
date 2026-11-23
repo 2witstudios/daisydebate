@@ -1,3 +1,4 @@
+import { hostWaits } from '@daisy/worker/host';
 import { roundDecisionReleasePolicy } from '@daisy/protocol/round-decision-release';
 import { instantMs } from '@daisy/clock';
 import { SQL } from 'bun';
@@ -71,8 +72,8 @@ for (const ending of ['ordinary', 'recovery_bound'] as const) {
             await f.sql`select source,state from usage_reservations where id=${reservationId}`;
           const client = new SQL(scratch.url, { max: 4 });
           const run = createBoundedTransaction({
-            lane: testLane(client, 4),
-            now: performance.now,
+            lane: testLane(client, hostWaits, 4),
+            waits: hostWaits,
           });
           try {
             await run(async (tx) => {

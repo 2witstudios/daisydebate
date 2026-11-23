@@ -1,3 +1,4 @@
+import { hostWaits } from '@daisy/worker/host';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { requireTestServices } from '@daisy/config';
 import { createId } from '@paralleldrive/cuid2';
@@ -46,6 +47,7 @@ test(
           return connection;
         };
         const database = createDatabase({
+          waits: hostWaits,
           url: databaseUrl,
           client: pool,
           nextActorId: createId,

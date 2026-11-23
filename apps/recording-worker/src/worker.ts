@@ -1,14 +1,18 @@
+import { deadlineSignal, type Waits } from '@daisy/clock';
 import type { createRecordingWorkerStore } from '@daisy/db/recording-worker';
 import type { PublicInterval } from '@daisy/protocol/public-interval';
 import type {
   RecordingBuildProgress,
   RecordingJobState,
 } from '@daisy/protocol/recording-processing';
+import { holdLease, pollWork } from '@daisy/worker';
 import { RecordingVerificationError } from './build-recording';
 
 const LEASE_MS = 60_000;
 const RENEW_MS = 15_000;
 const IDLE_MS = 2000;
+/** An idle slot polls for a claim at most this rarely; a failing store backs off to it too. */
+const IDLE_MAX_MS = 10_000;
 const FIRST_RETRY_MS = 60_000;
 const LONGEST_RETRY_MS = 60 * 60_000;
 /** After this many runs a build is reported failed; a discard never gives up. */
@@ -67,7 +71,7 @@ export const afterBuildFailure = (
  * its process runs out of attempts as one that throws does. A job the web moved to
  * discarding stops the build it is running at the next renewal.
  */
-export const runWorker = async (deps: {
+export const startRecordingSlot = (deps: {
   readonly owner: string;
   readonly store: Pick<
     Store,
@@ -95,9 +99,10 @@ export const runWorker = async (deps: {
   ) => Promise<void>;
   readonly workDirOf: (recordingId: string, owner: string) => string;
   readonly removeWorkDir: (path: string) => Promise<void>;
+  /** Wall-clock milliseconds, for the instants the store records. */
   readonly now: () => number;
-  readonly sleep: (ms: number) => Promise<void>;
-  readonly stopped: () => boolean;
+  /** Monotonic time and waits: the slot's pacing, its lease and a run's ceiling. */
+  readonly waits: Waits;
   readonly report: (event: WorkerEvent) => void;
 }) => {
   const { store, owner } = deps;
@@ -105,48 +110,49 @@ export const runWorker = async (deps: {
 
   /**
    * Keeps the lease until released, and aborts the moment the job is no longer
-   * ours: fenced, moved to discarding, or this process stopping. A run past its
+   * ours: fenced or moved to discarding (a renewal that finds it so), lapsed
+   * (no renewal held within the lease), or this slot stopping. A run past its
    * ceiling aborts too, marked as overrun: that one counts as a failed attempt.
    */
-  const holdLease = (job: Claimed, ceilingMs?: number) => {
-    const lost = new AbortController();
-    const startedAtMs = deps.now();
-    let released = false;
-    // Released by the caller while this loop sleeps, so it is read fresh.
-    const releasedNow = () => released;
-    let overran = false;
-    void (async () => {
-      while (!releasedNow()) {
-        await deps.sleep(RENEW_MS);
-        if (releasedNow()) return;
-        if (ceilingMs !== undefined && deps.now() - startedAtMs > ceilingMs) {
-          overran = true;
-          lost.abort();
-          return;
-        }
-        const ours =
-          !deps.stopped() &&
-          (await store
-            .renew({
-              recordingId: job.recordingId,
-              owner,
-              epoch: job.leaseEpoch,
-              expected: job.status,
-              leaseUntil: new Date(deps.now() + LEASE_MS),
-            })
-            // A blip is not a lost lease: the next renewal decides.
-            .catch(() => true));
-        if (!ours) {
-          lost.abort();
-          return;
-        }
-      }
-    })();
+  const leaseOf = (
+    job: Claimed,
+    stop: AbortSignal,
+    claimedAtMs: number,
+    ceilingMs?: number,
+  ) => {
+    const lease = holdLease({
+      waits: deps.waits,
+      facts: undefined,
+      claimedAtMs,
+      renewEveryMs: RENEW_MS,
+      retryMs: RENEW_MS,
+      horizonMs: LEASE_MS,
+      renew: async () =>
+        (await store.renew({
+          recordingId: job.recordingId,
+          owner,
+          epoch: job.leaseEpoch,
+          expected: job.status,
+          leaseUntil: new Date(deps.now() + LEASE_MS),
+        }))
+          ? { kind: 'held', facts: undefined }
+          : { kind: 'lost', reason: 'taken' },
+      // A blip is not a lost lease: the lease holds until it would lapse.
+      failed: () => undefined,
+    });
+    const ceiling =
+      ceilingMs === undefined ? null : deadlineSignal(deps.waits, ceilingMs);
     return {
-      signal: lost.signal,
-      overran: () => overran,
-      release: () => {
-        released = true;
+      signal: AbortSignal.any([
+        lease.signal,
+        stop,
+        ...(ceiling ? [ceiling.signal] : []),
+      ]),
+      overran: () => ceiling?.signal.aborted ?? false,
+      /** The store's finish or defer hands the job back; the lease is only stopped. */
+      release: async () => {
+        ceiling?.clear();
+        await lease.stop();
       },
     };
   };
@@ -199,6 +205,8 @@ export const runWorker = async (deps: {
     job: Claimed,
     attemptCount: number,
     intervals: readonly PublicInterval[],
+    stop: AbortSignal,
+    claimedAtMs: number,
     ceilingMs?: number,
   ) => {
     // Every attempt started and none answered: the last one died with its process.
@@ -212,7 +220,7 @@ export const runWorker = async (deps: {
       return;
     }
     const workDir = deps.workDirOf(job.recordingId, owner);
-    const lease = holdLease(job, ceilingMs);
+    const lease = leaseOf(job, stop, claimedAtMs, ceilingMs);
     try {
       const state = await Promise.race([
         deps.build(
@@ -231,7 +239,7 @@ export const runWorker = async (deps: {
     } catch (error) {
       if (lease.overran()) deps.report('recording.build_ceiling_exceeded');
       // A job taken away or a shutdown is nobody's failure: its run is given back.
-      else if (lease.signal.aborted || deps.stopped()) {
+      else if (lease.signal.aborted) {
         await defer(job, false);
         return;
       }
@@ -242,7 +250,7 @@ export const runWorker = async (deps: {
         await finish(job, gaveUp);
       } else await defer(job, true);
     } finally {
-      lease.release();
+      await lease.release();
       await deps.removeWorkDir(workDir);
     }
   };
@@ -250,8 +258,10 @@ export const runWorker = async (deps: {
   const runStrip = async (
     job: Claimed,
     intervals: readonly PublicInterval[],
+    stop: AbortSignal,
+    claimedAtMs: number,
   ) => {
-    const lease = holdLease(job);
+    const lease = leaseOf(job, stop, claimedAtMs);
     try {
       await deps.strip(job.holdPrefix, intervals);
       await finish(job, { status: 'stripped', strippedAt: iso() });
@@ -259,12 +269,16 @@ export const runWorker = async (deps: {
       deps.report('recording.source_discard_failed');
       await defer(job, true);
     } finally {
-      lease.release();
+      await lease.release();
     }
   };
 
-  const runDiscard = async (job: Claimed) => {
-    const lease = holdLease(job);
+  const runDiscard = async (
+    job: Claimed,
+    stop: AbortSignal,
+    claimedAtMs: number,
+  ) => {
+    const lease = leaseOf(job, stop, claimedAtMs);
     try {
       while ((await deps.discardPage(job.holdPrefix)) > 0)
         if (lease.signal.aborted) return;
@@ -273,39 +287,40 @@ export const runWorker = async (deps: {
       deps.report('recording.source_discard_failed');
       await defer(job, true);
     } finally {
-      lease.release();
+      await lease.release();
     }
   };
 
-  while (!deps.stopped()) {
-    // A database blip must not end this slot: report it and try again.
-    const job = await store
-      .claim({
+  return pollWork({
+    waits: deps.waits,
+    backoff: { busyMs: IDLE_MS, idleMaxMs: IDLE_MAX_MS },
+    // A database blip must not end this slot: the pass fails, is reported, and backs off.
+    pass: async (stop) => {
+      const claimedAtMs = deps.waits.nowMs();
+      const job = await store.claim({
         owner,
         now: new Date(deps.now()),
         leaseUntil: new Date(deps.now() + LEASE_MS),
         retryAtOf: (runs) => new Date(deps.now() + retryDelayMs(runs)),
-      })
-      .catch(() => {
-        deps.report('recording.processing_failed');
-        return null;
       });
-    if (!job) {
-      await deps.sleep(IDLE_MS);
-      continue;
-    }
-    const { state } = job;
-    await (
-      state.status === 'queued'
-        ? runBuild(
-            job,
-            state.attemptCount,
-            state.publicIntervals,
-            state.ceilingMs,
-          )
-        : state.status === 'stripping'
-          ? runStrip(job, state.publicIntervals)
-          : runDiscard(job)
-    ).catch(() => deps.report('recording.processing_failed'));
-  }
+      if (!job) return 'idle';
+      const { state } = job;
+      await (
+        state.status === 'queued'
+          ? runBuild(
+              job,
+              state.attemptCount,
+              state.publicIntervals,
+              stop,
+              claimedAtMs,
+              state.ceilingMs,
+            )
+          : state.status === 'stripping'
+            ? runStrip(job, state.publicIntervals, stop, claimedAtMs)
+            : runDiscard(job, stop, claimedAtMs)
+      ).catch(() => deps.report('recording.processing_failed'));
+      return 'worked';
+    },
+    failed: () => deps.report('recording.processing_failed'),
+  });
 };

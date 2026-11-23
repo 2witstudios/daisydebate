@@ -1,3 +1,4 @@
+import { hostWaits } from '@daisy/worker/host';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createMediaWorkerClient } from '@daisy/media/worker';
 import { createMediaWorkerAuthentication } from '@daisy/media/internal';
@@ -56,7 +57,7 @@ function server(answers: readonly Answer[], epochs: readonly number[] = [1]) {
         ),
       );
     },
-    nowMs: performance.now,
+    waits: hostWaits,
     deadlineSignal: () => AbortSignal.timeout(20),
   });
   const issue = () =>

@@ -1,3 +1,4 @@
+import { sha256Hex } from '@daisy/digest';
 /** Manual, local-only diagnostic. Run from the root through scripts/heavy.ts. */
 import { mkdtemp, readFile, writeFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -42,12 +43,8 @@ try {
         bun: Bun.version,
         nodeCompatibility: process.version,
         sourceFile: sourceFile.pathname,
-        sourceSha256: new Bun.CryptoHasher('sha256')
-          .update(source)
-          .digest('hex'),
-        adapterSha256: new Bun.CryptoHasher('sha256')
-          .update(adapter)
-          .digest('hex'),
+        sourceSha256: sha256Hex(source),
+        adapterSha256: sha256Hex(adapter),
         adapterMethod:
           'verbatim source extraction; export keyword added; no other rewrite',
         sampleRate: 24000,

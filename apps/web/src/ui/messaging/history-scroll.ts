@@ -1,51 +1,7 @@
 'use client';
-import { useBrowserLayoutEffect } from '../edge/browser-sync';
-import { useCallback, useRef } from 'react';
+import { useScrollAnchor } from '../edge/use-scroll-anchor';
 import type { MessageRow } from '../../features/messaging/message-rows';
 
 /** Keep the message being read in place; the reversed column sticks to newest at zero. */
-export function useHistoryScroll(rows: readonly MessageRow[]) {
-  const ref = useRef<HTMLDivElement>(null);
-  const anchor = useRef<{
-    readonly id: string;
-    readonly offset: number;
-  } | null>(null);
-  const capture = useCallback(() => {
-    const scroller = ref.current;
-    if (!scroller || scroller.scrollTop >= -1) {
-      anchor.current = null;
-      return;
-    }
-    const top = scroller.getBoundingClientRect().top;
-    const visible = [
-      ...scroller.querySelectorAll<HTMLElement>('[data-message-id]'),
-    ]
-      .flatMap((row) => {
-        const id = row.dataset.messageId;
-        return id === undefined ? [] : [{ row, id }];
-      })
-      .find(({ row }) => row.getBoundingClientRect().bottom > top);
-    anchor.current = visible
-      ? {
-          id: visible.id,
-          offset: visible.row.getBoundingClientRect().top - top,
-        }
-      : null;
-  }, []);
-  useBrowserLayoutEffect(() => {
-    const scroller = ref.current;
-    const held = anchor.current;
-    if (scroller && held) {
-      const row = [
-        ...scroller.querySelectorAll<HTMLElement>('[data-message-id]'),
-      ].find((row) => row.dataset.messageId === held.id);
-      if (row)
-        scroller.scrollTop +=
-          row.getBoundingClientRect().top -
-          scroller.getBoundingClientRect().top -
-          held.offset;
-    }
-    capture();
-  }, [rows, capture]);
-  return { ref, capture };
-}
+export const useHistoryScroll = (rows: readonly MessageRow[]) =>
+  useScrollAnchor<HTMLDivElement>(rows, 'data-message-id');

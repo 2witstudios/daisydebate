@@ -1,5 +1,8 @@
 import type { MailPurpose } from '../mail/types';
-import { isOperationName, type OperationName } from './operation-names';
+import {
+  isOperationName,
+  type OperationName,
+} from '../../server/operation-names';
 import {
   SCHEDULED_WORKERS,
   isScheduledWorker,

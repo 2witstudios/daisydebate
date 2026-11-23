@@ -2,14 +2,18 @@
 import { headers } from 'next/headers';
 import { messagingGroupInvitationResultSchema } from '@daisy/protocol/messaging/social';
 import { processRoute } from '../../../../../../server/process-app';
+import { messagingComposition } from '../../../../../../features/messaging/composition';
 import { inProcessFetch } from '../../../../../../server/in-process-fetch';
-import { moveOn } from '../../../../../../server/form-action';
+import { moveOn } from '../../../../../../features/forms/form-action';
 import { parseInvitationDecisionForm } from '../../../../../../features/messaging/forms/invitation-form';
 import {
   dmDecisionUnavailable,
   type DmDecisionFormState,
 } from '../../../../../../features/messaging/forms/decide-form';
-const decide = processRoute((routes) => routes.messaging.decideGroupInvitation);
+const decide = processRoute(
+  messagingComposition,
+  (routes) => routes.decideGroupInvitation,
+);
 export async function decideInvitationAction(
   channelId: unknown,
   generation: unknown,

@@ -1,10 +1,10 @@
-import { instantMs } from '@daisy/clock';
+import { instantMs } from '@daisy/clock/instant';
 import {
   captureWithinLimit,
   type FrozenCapture,
 } from '@daisy/protocol/capture-judging-limit';
 import { createInvariantError } from '@daisy/errors';
-import { isJudgeSeat, type SeatRef } from '@daisy/protocol/seats';
+import { isJudgeSeat } from '@daisy/protocol/seats';
 import {
   type JudgingPanel,
   type JudgingPanelFacts,
@@ -16,8 +16,14 @@ import { type RoundJudging } from '@daisy/protocol/ballot-definition';
 import { type RoundOutcome } from '@daisy/protocol/round-outcome';
 import { aiSeatStanding } from './judging-job-rules';
 import { debateInvariantIds } from './invariant-ids';
-import { completedLifecycle } from './round-clock-state';
-import { debateIsOver, type CommandContext } from './round-commands';
+import type { RoundRules } from '@daisy/protocol/format';
+import {
+  assertSeatCompleteness,
+  completeWith,
+  debateIsOver,
+  type StepFacts,
+} from './round-commands';
+import { clockOf, withCheckpoint, type RoundStep } from './round-step';
 import { deriveRoundOutcome, participatingRulings } from './round-outcome';
 
 /** Why a panel is still pending. */
@@ -229,21 +235,22 @@ const noOutcomeRuling = ({
 };
 
 const isClosedActiveRound = (
-  c: CommandContext,
+  step: RoundStep,
+  rules: RoundRules,
   judgeSeatIds: readonly string[],
 ) =>
-  c.rules.seats.judges === judgeSeatIds.length &&
-  c.on.lifecycle().status === 'active' &&
-  c.on.openRow() === undefined &&
-  debateIsOver(c);
+  rules.seats.judges === judgeSeatIds.length &&
+  clockOf(step).lifecycle.status === 'active' &&
+  clockOf(step).rows.every((row) => row.endedAtMs !== null) &&
+  debateIsOver(step, rules);
 
 /** The caller verifies immutable freeze and settled attendance under the Round lock. */
 export function applyPanelCompletion(
-  c: CommandContext,
+  step: RoundStep,
+  f: StepFacts,
   input: RoundPanelCompletion,
-  participants: readonly { readonly id: string; readonly seat: SeatRef }[],
-): void {
-  const judgeSeatIds = participants
+): RoundStep {
+  const judgeSeatIds = step.state.cast
     .filter((participant) => isJudgeSeat(participant.seat))
     .map((participant) => participant.id);
   const decision = decidePanelCompletion({
@@ -251,34 +258,30 @@ export function applyPanelCompletion(
     completeness: input.completeness,
     panel: input.panel,
     ballots: input.ballots,
-    nowMs: c.now,
+    nowMs: f.now,
   });
   const panelSeats = new Set(panelSeatIds(input.panel));
   if (
     panelSeats.size !== judgeSeatIds.length ||
     !judgeSeatIds.every((id) => panelSeats.has(id)) ||
-    !isClosedActiveRound(c, judgeSeatIds) ||
-    !Number.isFinite(c.now) ||
+    !isClosedActiveRound(step, f.rules, judgeSeatIds) ||
+    !Number.isFinite(f.now) ||
     decision.kind !== 'complete'
   )
     throw createInvariantError(
       debateInvariantIds.panelPlayedRound,
       'Panel completion requires a closed Round with no judge still able to rule',
     );
-  c.assertSeatCompleteness();
-  const finalEnd = c.on.rows().at(-1)?.endedAtMs;
-  if (finalEnd === undefined || finalEnd === null || c.now < finalEnd)
+  assertSeatCompleteness(step, f.rules);
+  const finalEnd = clockOf(step).rows.at(-1)?.endedAtMs;
+  if (finalEnd === undefined || finalEnd === null || f.now < finalEnd)
     throw createInvariantError(
       debateInvariantIds.panelPlayedRound,
       'Panel completion follows the actual final end',
     );
-  c.on.endPrep();
-  c.on.setLifecycle(
-    completedLifecycle(c.on.lifecycle(), decision.outcome, c.now),
+  return completeWith(
+    withCheckpoint(step, { active_prep: null }),
+    f,
+    decision.outcome,
   );
-  c.into.effects.push({
-    kind: 'round_completed',
-    outcome: decision.outcome,
-    at: new Date(c.now).toISOString(),
-  });
 }

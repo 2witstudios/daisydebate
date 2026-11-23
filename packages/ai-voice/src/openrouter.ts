@@ -1,3 +1,4 @@
+import { deadlineSignal, type Waits } from '@daisy/clock';
 import { createAppError, isAppError } from '@daisy/errors';
 import { z } from 'zod';
 import { readPcmSpeech, requireSpeechNotCancelled } from './pcm';
@@ -7,39 +8,6 @@ import { readCompletionStream } from './completion-stream';
 import { finishOf } from './completion-finish';
 
 export type Fetch = (url: string, init: RequestInit) => Promise<Response>;
-
-/** Resolves `ms` from now, or at once when `signal` aborts: what bounds a call in time. */
-type Sleep = (ms: number, signal: AbortSignal) => Promise<void>;
-
-const deadlineFor = (ms: number, streamed: boolean, sleep?: Sleep) => {
-  if (!streamed && sleep === undefined)
-    return { signal: AbortSignal.timeout(ms), disarm: () => {} };
-
-  const deadline = new AbortController();
-  if (sleep === undefined) {
-    const timer = setTimeout(() => deadline.abort(), ms);
-    return { signal: deadline.signal, disarm: () => clearTimeout(timer) };
-  }
-
-  const cancellation = new AbortController();
-  void sleep(ms, cancellation.signal).then(
-    () => {
-      if (cancellation.signal.aborted) return;
-      deadline.abort(
-        streamed
-          ? undefined
-          : new DOMException('The operation timed out.', 'TimeoutError'),
-      );
-    },
-    (cause: unknown) => deadline.abort(cause),
-  );
-  return {
-    signal: deadline.signal,
-    disarm: () => {
-      if (streamed) cancellation.abort();
-    },
-  };
-};
 
 export type ChatMessage = {
   readonly role: 'system' | 'user' | 'assistant';
@@ -144,13 +112,13 @@ export function createOpenRouter({
   fetch,
   timeoutMs = 60_000,
   appUrl,
-  sleep,
+  waits,
 }: {
   readonly apiKey: string;
   readonly fetch: Fetch;
   readonly timeoutMs?: number;
-  /** The clock that times each call's bound; the process's own by default. */
-  readonly sleep?: Sleep;
+  /** The time each call's bound is measured on (R4.7). */
+  readonly waits: Waits;
   /** Sent as HTTP-Referer for OpenRouter's app attribution. */
   readonly appUrl?: string;
 }) {
@@ -161,15 +129,16 @@ export function createOpenRouter({
     ...(appUrl ? { 'HTTP-Referer': appUrl } : {}),
   };
   /**
-   * `timeoutMs`, or the call's own `limitMs`, bounds the whole call, body
-   * included. A streamed answer is as long as it is, so for `streamed` it
-   * bounds only the wait for the response to begin; the caller watches the
-   * stream itself.
+   * Posts `body` and reads its answer with `read`. `timeoutMs`, or the
+   * call's own `limitMs`, bounds the whole call, body included. A streamed
+   * answer is as long as it is, so for `streamed` it bounds only the wait for
+   * the response to begin; the caller watches the stream itself.
    */
-  const post = async (
+  const post = async <T>(
     path: string,
     body: unknown,
-    signal?: AbortSignal,
+    signal: AbortSignal | undefined,
+    read: (response: Response) => Promise<T>,
     {
       streamed = false,
       limitMs = timeoutMs,
@@ -177,41 +146,49 @@ export function createOpenRouter({
       readonly streamed?: boolean;
       readonly limitMs?: number | undefined;
     } = {},
-  ) => {
+  ): Promise<T> => {
     if (signal?.aborted)
       throw definite(
         createAppError('CONFLICT', 'Provider operation cancelled'),
       );
-    // A streamed call's bound is disarmed once the response begins; any
-    // other call's bound stays armed through its body, as a timeout signal.
-    const { signal: bound, disarm } = deadlineFor(limitMs, streamed, sleep);
-    let response: Response;
+    const bound = deadlineSignal(waits, limitMs);
     try {
-      response = await fetch(`${BASE}${path}`, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify(body),
-        signal: signal ? AbortSignal.any([signal, bound]) : bound,
-      }).finally(disarm);
-    } catch (cause) {
-      requireProviderNotCancelled(signal);
-      throw createAppError(
-        'INFRASTRUCTURE',
-        `OpenRouter ${path} unreachable`,
-        cause,
-      );
+      let response: Response;
+      try {
+        response = await fetch(`${BASE}${path}`, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify(body),
+          signal: signal
+            ? AbortSignal.any([signal, bound.signal])
+            : bound.signal,
+        });
+      } catch (cause) {
+        requireProviderNotCancelled(signal);
+        throw createAppError(
+          'INFRASTRUCTURE',
+          `OpenRouter ${path} unreachable`,
+          cause,
+        );
+      } finally {
+        // A streamed call's bound ends once the response begins; any other
+        // call's bound stays armed through its body.
+        if (streamed) bound.clear();
+      }
+      if (!response.ok) {
+        await response.body?.cancel();
+        const failure = createAppError(
+          'INFRASTRUCTURE',
+          `OpenRouter ${path} answered ${response.status}`,
+        );
+        if (response.status === 429) rateLimits.add(failure);
+        if (requestRefusals.has(response.status)) unhealable.add(failure);
+        throw vendorRefused(response.status) ? definite(failure) : failure;
+      }
+      return await read(response);
+    } finally {
+      bound.clear();
     }
-    if (!response.ok) {
-      await response.body?.cancel();
-      const failure = createAppError(
-        'INFRASTRUCTURE',
-        `OpenRouter ${path} answered ${response.status}`,
-      );
-      if (response.status === 429) rateLimits.add(failure);
-      if (requestRefusals.has(response.status)) unhealable.add(failure);
-      throw vendorRefused(response.status) ? definite(failure) : failure;
-    }
-    return response;
   };
   const parse = <T>(schema: z.ZodType<T>, value: unknown, path: string): T => {
     const result = schema.safeParse(value);
@@ -272,18 +249,15 @@ export function createOpenRouter({
   });
   return {
     async complete(request: CompletionRequest) {
-      const response = await post(
-        '/chat/completions',
-        chatBody(request),
-        request.signal,
-        { limitMs: request.timeoutMs },
-      );
       const body = parse(
         completionSchema,
-        await reading(
+        await post(
           '/chat/completions',
-          () => response.json(),
+          chatBody(request),
           request.signal,
+          (response) =>
+            reading('/chat/completions', () => response.json(), request.signal),
+          { limitMs: request.timeoutMs },
         ),
         '/chat/completions',
       );
@@ -307,16 +281,17 @@ export function createOpenRouter({
       onText: (text: string) => void,
     ) {
       const path = '/chat/completions';
-      const response = await post(
+      return post(
         path,
         { ...chatBody(request), stream: true, usage: { include: true } },
         request.signal,
+        (response) =>
+          reading(
+            path,
+            () => readCompletionStream(response.body, onText, request.signal),
+            request.signal,
+          ),
         { streamed: true, limitMs: request.timeoutMs },
-      );
-      return reading(
-        path,
-        () => readCompletionStream(response.body, onText, request.signal),
-        request.signal,
       );
     },
     /** Validated in-memory PCM for the server publication worker, never a transcript. */
@@ -332,7 +307,7 @@ export function createOpenRouter({
       readonly signal?: AbortSignal;
     }) {
       requireSpeechNotCancelled(signal);
-      const response = await post(
+      return post(
         '/audio/speech',
         {
           model,
@@ -342,9 +317,10 @@ export function createOpenRouter({
           provider: DATA_POLICY,
         },
         signal,
-      );
-      return reading('/audio/speech', () =>
-        readPcmSpeech(response, text.length, signal),
+        (response) =>
+          reading('/audio/speech', () =>
+            readPcmSpeech(response, text.length, signal),
+          ),
       );
     },
     async transcribe({
@@ -358,7 +334,7 @@ export function createOpenRouter({
       readonly format: 'webm' | 'ogg' | 'mp4' | 'wav';
       readonly signal?: AbortSignal;
     }) {
-      const response = await post(
+      return post(
         '/audio/transcriptions',
         {
           model,
@@ -367,11 +343,12 @@ export function createOpenRouter({
           provider: DATA_POLICY,
         },
         signal,
-      );
-      return reading(
-        '/audio/transcriptions',
-        () => readTranscription(response, signal),
-        signal,
+        (response) =>
+          reading(
+            '/audio/transcriptions',
+            () => readTranscription(response, signal),
+            signal,
+          ),
       );
     },
   };

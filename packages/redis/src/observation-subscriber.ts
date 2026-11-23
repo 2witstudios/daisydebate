@@ -1,4 +1,5 @@
 import { RedisClient } from 'bun';
+import { afterMs, type Waits } from '@daisy/clock';
 import type { ObservationResource } from '@daisy/protocol/observation';
 import {
   createObservationKeys,
@@ -16,10 +17,6 @@ export type SubscriberTransport = {
   ): Promise<number>;
   unsubscribe(channel: string): Promise<void>;
   onclose: ((error: Error) => void) | null;
-};
-type Timers = {
-  readonly setTimeout: (callback: () => void, ms: number) => unknown;
-  readonly clearTimeout: (handle: unknown) => void;
 };
 type ObservationSubscriberState =
   'connecting' | 'synchronized' | 'lost' | 'closed';
@@ -40,10 +37,7 @@ export function createObservationSubscriber({
   onHint,
   onSynchronized,
   onLost,
-  timers = {
-    setTimeout: (callback, ms) => setTimeout(callback, ms),
-    clearTimeout: (handle) => clearTimeout(handle as number),
-  },
+  waits,
 }: {
   readonly namespace: string;
   /** Dials a fresh dedicated connection; never the command client. */
@@ -54,14 +48,16 @@ export function createObservationSubscriber({
   ) => void;
   readonly onSynchronized: () => void;
   readonly onLost: () => void;
-  readonly timers?: Timers;
+  /** The time the reconnect back-off waits on (R4.7). */
+  readonly waits: Waits;
 }) {
   const keys = createObservationKeys(namespace);
   const wanted = new Map<string, ObservationResource>();
   let state: ObservationSubscriberState = 'connecting';
   let connection: SubscriberTransport | null = null;
   let attempt = 0;
-  let retry: unknown = null;
+  /** Cancels the pending redial, while one waits out its back-off. */
+  let retry: (() => void) | null = null;
   let epoch = 0;
   const listener = (message: string, channel: string) => {
     const resource = keys.hintResource(channel);
@@ -78,10 +74,10 @@ export function createObservationSubscriber({
     state = 'lost';
     if (wasSynchronized) onLost();
     const delay = BACKOFF_MS[Math.min(attempt++, BACKOFF_MS.length - 1)]!;
-    retry = timers.setTimeout(() => {
+    retry = afterMs(waits, delay, () => {
       retry = null;
       void dial();
-    }, delay);
+    });
   }
   async function dial() {
     if (state === 'closed') return;
@@ -131,7 +127,7 @@ export function createObservationSubscriber({
     close() {
       state = 'closed';
       epoch++;
-      if (retry !== null) timers.clearTimeout(retry);
+      retry?.();
       retry = null;
       connection?.close();
       connection = null;

@@ -21,7 +21,7 @@ const routeOf = (file: string): string =>
 // reads the request's cookies through the process app): the test invokes
 // the page itself and observes what it asks the guard for.
 const guardCalls: Array<{ path: string; searchParams: unknown }> = [];
-mock.module(join(import.meta.dir, '../../lib/access.ts'), () => ({
+mock.module(join(import.meta.dir, './page-access.ts'), () => ({
   requireAccess: async (path: string, searchParams: unknown) => {
     guardCalls.push({ path, searchParams });
     return { state: 'anonymous' };
@@ -56,64 +56,47 @@ const youthRatingLobby = {
 const ladderReads: Array<{ lobbyId: string; ladder: { division: string } }> =
   [];
 let onlyYouthLobby = false;
-mock.module(join(import.meta.dir, '../../lib/request-session.ts'), () => ({
+mock.module(join(import.meta.dir, '../rooms/page-reads.ts'), () => ({
   requestRoomDraftAnswer: async () => ({ values: {} }),
+  requestRoomCreateLobbyChoice: async () => null,
+}));
+mock.module(join(import.meta.dir, '../../lib/page-reads.ts'), () => ({
   requestIdentity: async () =>
     onlyYouthLobby ? adultCoach : { state: 'anonymous' },
   // A stored league's people page words time by the process clock.
   requestNow: () => '2027-03-06T08:00:00.000Z',
+  // A Round page's transcript seed is bounded on the process's time.
+  renderReadDeadline: () => ({
+    signal: new AbortController().signal,
+    clear: () => {},
+  }),
+}));
+mock.module(join(import.meta.dir, '../flags/page-reads.ts'), () => ({
   // The event Room pages reach the release reader through their form action.
   requestReleaseEnabled: async () => false,
+}));
+mock.module(join(import.meta.dir, '../media-releases/page-reads.ts'), () => ({
   requestMediaReleaseSettings: async () => null,
+  requestGuardianRelease: async () => null,
+}));
+mock.module(join(import.meta.dir, '../documents/page-reads.ts'), () => ({
   requestMemberDrive: () => null,
+}));
+mock.module(join(import.meta.dir, '../leaderboard/page-reads.ts'), () => ({
   requestLadder: async (input: (typeof ladderReads)[number]) => {
     ladderReads.push(input);
     return null;
   },
-  requestOfficialRatingLadders: async () => [openRatingLobby, youthRatingLobby],
-  requestLandingLobby: async () => ({ id: openRatingLobby.lobbyId }),
-  // A stored league read answers no league for the placeholder slug.
-  requestLeaguePage: async () => null,
-  requestStandingLobbyManagement: async () => null,
-  requestHostedLeagues: async () => [],
-  requestStandingRoomPage: async () => null,
-  requestRoundRatings: async () => null,
-  requestWatchRound: async () => null,
-  requestWatchableRoundOfRoom: async () => null,
-  requestPresentedLink: async () => null,
-  requestHostedAudienceLink: async () => null,
-  requestFollowing: async () => ({ people: [], history: [] }),
-  requestHubCounts: async () => ({ live: 0, recordings: 0 }),
-  requestLeadingLive: async () => [],
   requestSeasonGlance: async () => null,
-  requestLiveRoundsOf: async () => new Map(),
-  requestStudentsLive: async (member: (typeof studentReads)[number]) => {
-    studentReads.push(member);
-    return [];
-  },
-  requestStudentRoundIds: async () => [],
-  requestLiveListing: async () => ({
-    featured: null,
-    rows: [],
-    total: 0,
-    nextBefore: null,
-  }),
-  requestAudience: async () => null,
-  requestNotifications: async () => ({ items: [], unread: 0 }),
-  requestAudienceSettings: async () => ({
-    preferences: { followed_debater_live: true, recording_ready: true },
-    history: [],
-    messageRequestSetting: { setting: 'everyone', locked: false },
-  }),
-  requestDebaterFollow: async () => null,
-  readRecordingArchive: async () => ({
-    page: { rows: [], nextBefore: null },
-    publicCount: 0,
-  }),
-  readRecordingHistory: async () => ({ kind: 'not-found' }),
+}));
+mock.module(join(import.meta.dir, '../ratings/page-reads.ts'), () => ({
+  requestOfficialRatingLadders: async () => [openRatingLobby, youthRatingLobby],
+  requestRoundRatings: async () => null,
   requestMemberStandings: async () => [],
   requestMemberDivision: async () => null,
-  requestRealtimeSocketUrl: () => undefined,
+}));
+mock.module(join(import.meta.dir, '../lobby/page-reads.ts'), () => ({
+  requestLandingLobby: async () => ({ id: openRatingLobby.lobbyId }),
   requestCompetitionAgeBand: async () => (onlyYouthLobby ? 'adult' : null),
   requestGuardianLobbyIds: async () => [],
   requestOfficialStandingLobbies: async () =>
@@ -126,18 +109,76 @@ mock.module(join(import.meta.dir, '../../lib/request-session.ts'), () => ({
             ageRule,
           }),
         ),
-  requestRoomCreateLobbyChoice: async () => null,
+}));
+mock.module(join(import.meta.dir, '../tab/page-reads.ts'), () => ({
+  // A stored league read answers no league for the placeholder slug.
+  requestLeaguePage: async () => null,
+  requestStandingLobbyManagement: async () => null,
+  requestHostedLeagues: async () => [],
+  requestStandingRoomPage: async () => null,
+}));
+mock.module(join(import.meta.dir, '../spectating/page-reads.ts'), () => ({
+  requestWatchRound: async () => null,
+  requestWatchableRoundOfRoom: async () => null,
+  requestAudience: async () => null,
+}));
+mock.module(join(import.meta.dir, '../audience-link/page-reads.ts'), () => ({
+  requestPresentedLink: async () => null,
+  requestHostedAudienceLink: async () => null,
+}));
+mock.module(join(import.meta.dir, '../watch/page-reads.ts'), () => ({
+  requestFollowing: async () => ({ people: [], history: [] }),
+  requestHubCounts: async () => ({ live: 0, recordings: 0 }),
+  requestLeadingLive: async () => [],
+  requestLiveRoundsOf: async () => new Map(),
+  requestStudentsLive: async (member: (typeof studentReads)[number]) => {
+    studentReads.push(member);
+    return [];
+  },
+  requestStudentRoundIds: async () => [],
+  requestLiveListing: async () => ({
+    featured: null,
+    rows: [],
+    total: 0,
+    nextBefore: null,
+  }),
+  requestDebaterFollow: async () => null,
+}));
+mock.module(join(import.meta.dir, '../notifications/page-reads.ts'), () => ({
+  requestNotifications: async () => ({ items: [], unread: 0 }),
+  requestAudienceSettings: async () => ({
+    preferences: { followed_debater_live: true, recording_ready: true },
+    history: [],
+    messageRequestSetting: { setting: 'everyone', locked: false },
+  }),
+}));
+mock.module(join(import.meta.dir, '../recording/page-reads.ts'), () => ({
+  readRecordingArchive: async () => ({
+    page: { rows: [], nextBefore: null },
+    publicCount: 0,
+  }),
+  readRecordingHistory: async () => ({ kind: 'not-found' }),
+}));
+mock.module(join(import.meta.dir, '../messaging/page-reads.ts'), () => ({
   privateGroupsOffered: () => false,
   messagingLatestPageItems: () => 50,
+}));
+mock.module(join(import.meta.dir, '../onboarding/page-reads.ts'), () => ({
   // Settings reads the member's own onboarding answers (ISSUE-324); a
   // visitor has none admitted.
   requestOptionalAnswersAdmitted: async () => false,
   requestOnboardingAnswers: async () => null,
-  requestFamilyViewer: async () => null,
-  requestGuardianRelease: async () => null,
-  requestFamilyRows: async () => null,
-  requestFriendApprovals: async () => [],
-  requestFamilyLobbyPermissions: async () => null,
+}));
+mock.module(
+  join(import.meta.dir, '../parental-controls/page-reads.ts'),
+  () => ({
+    requestFamilyViewer: async () => null,
+    requestFamilyRows: async () => null,
+    requestFriendApprovals: async () => [],
+    requestFamilyLobbyPermissions: async () => null,
+  }),
+);
+mock.module(join(import.meta.dir, '../analytics/page-reads.ts'), () => ({
   requestAnalytics: async () => ({
     choice: {
       kind: 'known',

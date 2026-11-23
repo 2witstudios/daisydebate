@@ -1,5 +1,5 @@
 'use client';
-import { StatusRegion } from '../components/status-region/status-region';
+import { Announcement } from '../components/announcement/announcement';
 import type { MessageRequestSetting } from '@daisy/protocol/messaging/social';
 import {
   initialSaveForm,
@@ -95,13 +95,13 @@ export function MessageRequestSettingForm({
             Save
           </Button>
           {notice ? (
-            <StatusRegion
+            <Announcement
               as="p"
-              role="status"
+              kind="progress"
               className="text-sm text-ink-muted"
             >
               {notice}
-            </StatusRegion>
+            </Announcement>
           ) : null}
         </div>
       )}

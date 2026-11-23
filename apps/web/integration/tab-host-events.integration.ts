@@ -7,7 +7,10 @@ import { hostEventsViewSchema } from '@daisy/protocol/lobby/host-events-read';
 import { lobbyCommandReceiptSchema } from '@daisy/protocol/lobby/command';
 import { z } from 'zod';
 import { noopErrorReporter } from '@daisy/observability';
-import { member, origin } from '../src/server/member-boundary.test-support';
+import {
+  member,
+  origin,
+} from '../src/features/auth/member-boundary.test-support';
 import { silentLogger } from '../src/server/test-loggers.test-support';
 import { eventAside, eventScheduleBoard } from '../src/features/tab/events';
 import { proveEventScheduleForms } from './tab-events-schedule.test-support';

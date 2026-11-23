@@ -1,5 +1,6 @@
-import { and, asc, countDistinct, desc, inArray, lt, sql } from 'drizzle-orm';
-import type { AdminExecutor, AdminTransaction } from '../db/client';
+import { and, asc, countDistinct, desc, inArray, lt } from 'drizzle-orm';
+import { adminTransactionLocks, takeLock } from '../db/locks';
+import type { AdminTransaction, AdminTx } from '../db/tx';
 import { auditEvents, chainCheckpoints } from '../db/schema';
 import {
   chainNext,
@@ -21,7 +22,7 @@ const toRow = (row: typeof auditEvents.$inferSelect): AuditRow => ({
 });
 
 /** The newest checkpoint: where the retained chain starts. */
-async function chainStart(db: AdminExecutor): Promise<ChainAnchor> {
+async function chainStart(db: AdminTx): Promise<ChainAnchor> {
   const [checkpoint] = await db
     .select({ seq: chainCheckpoints.seq, hash: chainCheckpoints.hash })
     .from(chainCheckpoints)
@@ -39,9 +40,7 @@ export async function appendAudit(
   tx: AdminTransaction,
   event: AuditEvent,
 ): Promise<AuditRow> {
-  await tx.execute(
-    sql`select pg_advisory_xact_lock(hashtext('daisy-admin-audit-chain'))`,
-  );
+  await takeLock(tx, adminTransactionLocks.auditChain());
   const [head] = await tx
     .select({ seq: auditEvents.seq, hash: auditEvents.hash })
     .from(auditEvents)
@@ -54,7 +53,7 @@ export async function appendAudit(
 
 /** Newest first, keyset-paged by seq. */
 export async function readAuditPage(
-  db: AdminExecutor,
+  db: AdminTx,
   input: { readonly before?: number; readonly limit: number },
 ): Promise<readonly AuditRow[]> {
   const rows = await db
@@ -72,7 +71,7 @@ export async function readAuditPage(
 
 /** Walks the whole retained chain from its checkpoint. */
 export async function verifyStoredChain(
-  db: AdminExecutor,
+  db: AdminTx,
   known: readonly ChainAnchor[] = [],
 ): Promise<ChainVerdict> {
   const start = await chainStart(db);
@@ -87,7 +86,7 @@ export async function verifyStoredChain(
  * Commands whose anchor the participant app acknowledged: a result came
  * back, directly or by reconciliation, so its receipt holds the chain head.
  */
-export async function acknowledgedAnchors(db: AdminExecutor): Promise<number> {
+export async function acknowledgedAnchors(db: AdminTx): Promise<number> {
   const [row] = await db
     .select({ anchors: countDistinct(auditEvents.commandId) })
     .from(auditEvents)

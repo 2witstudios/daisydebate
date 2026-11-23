@@ -1,14 +1,15 @@
 import { systemClock, systemId } from '@daisy/clock';
+import { hostWaits } from '@daisy/worker/host';
 import { createApp, type App } from './app';
 import type { Fetch } from '../features/mail/resend-sender';
-import { captureMail, fileRecorder, readDevMailFile } from './dev-mail';
+import {
+  captureMail,
+  fileRecorder,
+  readDevMailFile,
+} from '../features/mail/dev-capture';
 import { createProcessEdge, type ProcessHolder } from './process-edge';
 import { createRouteBinder } from './route-binding';
-import { createRoutes, type Routes } from './routes';
-import {
-  createLazyBillingRoutes,
-  type BillingRouteLoader,
-} from './billing-route-table';
+import { composedOn, type Composed, type Composition } from './composition';
 import { readStartOptions } from './start-options';
 import { nextWorkerToken } from './worker-token';
 import { fetchWithoutTracing } from '../features/telemetry/sentry-init';
@@ -19,41 +20,22 @@ import { fetchWithoutTracing } from '../features/telemetry/sentry-init';
  * and no-restricted-globals). Next loads route modules, the proxy and
  * instrumentation as separate bundles that share only `globalThis`, so the
  * one app this server process runs is kept there, built on first use from
- * the real environment, fetch, clock and ids. Only route bindings and the
- * process entries import this module (no-restricted-imports); everything
- * else receives the app, or a part of it, as an argument, and tests build
- * their own with `createApp`.
+ * the real environment, fetch, clock and ids. Only route bindings, page-read
+ * modules and the process entries import this module (no-restricted-imports,
+ * by path); everything else receives the app, or a part of it, as an
+ * argument, and tests build their own with `createApp`.
  */
 type ProcessState = {
   readonly app: App;
-  readonly routes: Routes & {
-    readonly billing: ReturnType<typeof createLazyBillingRoutes>;
-  };
   readonly vendorFetch: typeof globalThis.fetch;
-  readonly initializeBilling: (load: BillingRouteLoader) => void;
+  /** Each feature composition built on this app, by name. */
+  readonly composed: Composed;
 };
 
 const stateFor = (
   app: App,
   vendorFetch: typeof globalThis.fetch,
-): ProcessState => {
-  let billingLoader: BillingRouteLoader | undefined;
-  return {
-    app,
-    routes: {
-      ...createRoutes(app),
-      billing: createLazyBillingRoutes(app, vendorFetch, () => {
-        if (!billingLoader)
-          throw new Error('Billing bootstrap is not initialized');
-        return billingLoader();
-      }),
-    },
-    vendorFetch,
-    initializeBilling: (load) => {
-      billingLoader ??= load;
-    },
-  };
-};
+): ProcessState => ({ app, vendorFetch, composed: new Map() });
 
 /**
  * Outbound HTTP: the network, except in local development with
@@ -79,50 +61,100 @@ export const fetchPublicAttendanceProbe = (url: string, init: RequestInit) =>
 export const processVendorFetch = (): typeof globalThis.fetch =>
   edge.get().vendorFetch;
 
-const edge = createProcessEdge(
-  globalThis as typeof globalThis & ProcessHolder<ProcessState>,
-  () =>
-    stateFor(
-      createApp({
-        env: process.env,
-        fetch: outboundFetch(process.env),
-        clock: systemClock,
-        ids: systemId,
-        nextWorkerToken,
-      }),
-      globalThis.fetch,
-    ),
+type ProcessSlot = typeof globalThis & ProcessHolder<ProcessState>;
+/** The process-wide slot: one named property of the host, never the host itself. */
+const processHolder: ProcessHolder<ProcessState> = {
+  get daisyWebApp() {
+    return (globalThis as ProcessSlot).daisyWebApp;
+  },
+  set daisyWebApp(value) {
+    (globalThis as ProcessSlot).daisyWebApp = value;
+  },
+};
+const edge = createProcessEdge(processHolder, () =>
+  stateFor(
+    createApp({
+      env: process.env,
+      fetch: outboundFetch(process.env),
+      clock: systemClock,
+      waits: hostWaits,
+      ids: systemId,
+      nextWorkerToken,
+    }),
+    globalThis.fetch,
+  ),
 );
-
-/** The originating bootstrap installs once; later Next instrumentation cannot replace it. */
-export const initializeProcessBilling = (load: BillingRouteLoader) =>
-  edge.get().initializeBilling(load);
 
 /** This process's app, built on first use. */
 export const processApp = (): App => edge.get().app;
 
-type RouteSelector<Args extends unknown[]> = (
-  routes: ProcessState['routes'],
+type Handler<Args extends unknown[]> = (
+  request: Request,
+  ...args: Args
+) => Promise<Response>;
+
+/** Picks one handler of a composition; per request, so it may read the app. */
+type Pick<Routes, Args extends unknown[]> = (
+  routes: Routes,
   app: App,
   fetch: typeof globalThis.fetch,
-) => (request: Request, ...args: Args) => Promise<Response>;
+) => Handler<Args>;
 
-const bindProcessRoute = <Args extends unknown[]>(pick: RouteSelector<Args>) =>
-  createRouteBinder(() => edge.get())((state) =>
-    pick(state.routes, state.app, state.vendorFetch),
-  );
+/** `pick` on `composition`, built once per app, on the state's app. */
+const selectOn =
+  <Routes, Args extends unknown[]>(
+    composition: Composition<Routes>,
+    pick: Pick<Routes, Args>,
+  ) =>
+  (state: ProcessState) =>
+    pick(
+      composedOn(
+        state.composed,
+        state.app,
+        { vendorFetch: state.vendorFetch },
+        composition,
+      ),
+      state.app,
+      state.vendorFetch,
+    );
 
-const bindRequestRoute = (pick: RouteSelector<[]>) => {
-  const handler = bindProcessRoute(pick);
-  return (request: Request) => handler(request);
+/**
+ * A route module's handler: `pick` selects it from its feature's
+ * composition on this process's app, resolved on the first request so
+ * importing the module builds and dials nothing. `bindTo` selects the same
+ * handler on an app of the caller's own (tests, the route net).
+ */
+const bind = <Args extends unknown[]>(
+  select: (state: ProcessState) => Handler<Args>,
+) =>
+  Object.assign(createRouteBinder(() => edge.get())(select), {
+    bindTo: (
+      app: App,
+      vendorFetch: typeof globalThis.fetch = globalThis.fetch,
+    ) => select(stateFor(app, vendorFetch)),
+  });
+
+const bindRequestRoute = <Routes>(
+  composition: Composition<Routes>,
+  pick: Pick<Routes, []>,
+) => {
+  const bound = bind(selectOn(composition, pick));
+  return Object.assign((request: Request) => bound(request), {
+    bindTo: bound.bindTo,
+  });
 };
 
-const bindParameterizedRoute = <Params>(pick: RouteSelector<[Params]>) =>
-  bindProcessRoute((routes, app, fetch) => {
-    const handler = pick(routes, app, fetch);
-    return async (request, { params }: { params: Promise<Params> }) =>
+const bindParameterizedRoute = <Routes, Params>(
+  composition: Composition<Routes>,
+  pick: Pick<Routes, [Params]>,
+) => {
+  const select = selectOn(composition, pick);
+  return bind((state) => {
+    const handler = select(state);
+    return async (request: Request, { params }: { params: Promise<Params> }) =>
       handler(request, await params);
   });
+};
 
 /** Binds request-only handlers or unwraps the directory params supplied by Next. */
 export const processRoute = Object.assign(bindRequestRoute, {

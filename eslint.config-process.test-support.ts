@@ -19,6 +19,8 @@ import {
   launchEntryCases,
 } from './eslint.config.test-support';
 
+const hostTime = 'daisy-time/host-time';
+
 export function registerProcessEdgeTests() {
   describe('process edge: one module reads process.env and globalThis (ISSUE-7)', () => {
     test('rejects ambient reads and edge imports outside the edge', async () => {
@@ -34,20 +36,53 @@ export function registerProcessEdgeTests() {
           'apps/realtime/src/server.ts',
           props,
         ],
-        ["export const a = Reflect.get(globalThis, 'a');", route, globals],
+        // The host object handed out whole also reaches its timers (ADR 0915).
+        [
+          "export const a = Reflect.get(globalThis, 'a');",
+          route,
+          [...globals, hostTime],
+        ],
         [
           'export const a = globalThis as unknown;',
-          web('lib/identity.ts'),
-          globals,
+          web('lib/clock-display.ts'),
+          [...globals, hostTime],
         ],
         [
           edgeImport('../../server/'),
           web('features/foundation/leak.ts'),
           imports,
         ],
-        [edgeImport('../server/'), web('lib/identity.ts'), imports],
+        [edgeImport('../server/'), web('lib/clock-display.ts'), imports],
         [edgeImport('../../../../server/'), route, imports],
-        [edgeImport('./'), web('server/routes.ts'), imports],
+        [edgeImport('./'), web('server/composition.ts'), imports],
+        // A feature's own reads outside its page-reads module stay off the edge.
+        [
+          edgeImport('../../server/'),
+          web('features/tab/reads/league.ts'),
+          imports,
+        ],
+        // A feature's page reads reach the app through the request scope.
+        [
+          edgeImport('../../server/'),
+          web('features/tab/page-reads.ts'),
+          imports,
+        ],
+        [
+          edgeImport('../../../server/'),
+          web('features/watch/page-reads/live.ts'),
+          imports,
+        ],
+        [
+          edgeImport('../../server/'),
+          web('server/billing/page-reads.ts'),
+          imports,
+        ],
+        // A page read never binds a route.
+        [
+          edgeImport('../../server/', 'processRoute'),
+          web('features/tab/page-reads.ts'),
+          imports,
+        ],
         ...escapes.map(([code, file]): Case => [code, file, escapeRule(code)]),
       ];
       assert({
@@ -61,13 +96,14 @@ export function registerProcessEdgeTests() {
 
     test('admits the edges, route bindings and the documented process entries', async () => {
       const cases: Case[] = [
-        [reads, web('server/process-app.ts'), []],
-        [reads, 'apps/realtime/src/start.ts', []],
+        // A process entry may read the host, but not hand the host object out whole.
+        [reads, web('server/process-app.ts'), [hostTime]],
+        [reads, 'apps/realtime/src/start.ts', [hostTime]],
         [edgeImport('../../../../server/', 'processRoute'), route, []],
         [edgeImport('./server/'), web('proxy.ts'), []],
         [edgeImport('./server/'), web('instrumentation.ts'), []],
         [edgeImport('./'), web('server/start.ts'), []],
-        [edgeImport('../server/'), web('lib/request-session.ts'), []],
+        [edgeImport('../server/'), web('lib/page-reads.ts'), []],
         [lazyEdge('./server/process-app'), web('instrumentation.ts'), []],
         [edgeImport('../../src/server/', 'adoptProcessApp'), e2eServer, []],
         [

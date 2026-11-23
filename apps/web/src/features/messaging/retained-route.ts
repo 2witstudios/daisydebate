@@ -5,10 +5,7 @@ import { messagingRetainedSchemas } from '@daisy/protocol/messaging/retained';
 import type { App } from '../../server/app';
 import { parseValidated, readJson } from '../../server/http';
 import { requireAuthorization } from '@daisy/auth/request-authorization';
-import {
-  memberHttpBoundary,
-  runEvaluatedRoute,
-} from '../../server/member-boundary';
+import { memberHttpBoundary, runEvaluatedRoute } from '../auth/member-boundary';
 import { requireMemberActor } from '../access/actor';
 
 type Scope = { readonly actorId: string; readonly userId: string };

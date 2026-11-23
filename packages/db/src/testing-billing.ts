@@ -1,3 +1,6 @@
+import { retriedJobStatuses } from './schema/columns';
+import { privacyVendors } from './privacy/planner';
+import { listedValue } from './lifecycle-sql';
 import type { SQL } from 'bun';
 import { requireTestServices } from '@daisy/config';
 import type { createDatabase } from './index';
@@ -18,7 +21,7 @@ export async function completeControlledStripeCleanup(input: {
   requireTestServices(process.env);
   const { owner, database, userId, instanceId } = input;
   const [job] =
-    await owner`select id from privacy_jobs where subject_ref=${userId} and vendor='stripe' and status='pending'`;
+    await owner`select id from privacy_jobs where subject_ref=${userId} and vendor=${listedValue(privacyVendors, 'stripe')} and status=${listedValue(retriedJobStatuses, 'pending')}`;
   if (!job) throw Error('Missing controlled pending Stripe cleanup');
   const cleanup = database.billingCleanup(instanceId);
   for (let step = 0; step < 20; step++) {

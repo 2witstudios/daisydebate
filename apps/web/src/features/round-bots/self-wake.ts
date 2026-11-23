@@ -1,4 +1,4 @@
-import type { OneShotTimer } from '../../lib/worker-timers';
+import { afterMs, type Waits } from '@daisy/clock';
 
 /** An asking seat presses its question after this much silence from its peers. */
 const UNANSWERED_AFTER_MS = 8000;
@@ -10,46 +10,44 @@ const UNANSWERED_AFTER_MS = 8000;
  * for how long, is the duty's to say.
  */
 export function createSelfWake(input: {
-  readonly timer: OneShotTimer;
+  readonly waits: Waits;
   /** The pause after a setback is over. */
   readonly resume: () => void;
   /** The question has met silence for long enough. */
   readonly unanswered: () => void;
 }) {
-  let pause: { readonly handle: unknown } | null = null;
-  let reply: { readonly handle: unknown } | null = null;
+  let cancelPause: (() => void) | null = null;
+  let cancelReply: (() => void) | null = null;
   const stopPause = () => {
-    if (pause) input.timer.clearTimeout(pause.handle);
-    pause = null;
+    cancelPause?.();
+    cancelPause = null;
   };
   const stopAwaitingReply = () => {
-    if (reply) input.timer.clearTimeout(reply.handle);
-    reply = null;
+    cancelReply?.();
+    cancelReply = null;
   };
   return {
     /** Resumes after `ms`; a pause already running is replaced. */
     pauseFor(ms: number) {
       stopPause();
-      const mine = { handle: undefined as unknown };
-      pause = mine;
-      mine.handle = input.timer.setTimeout(() => {
-        if (pause !== mine) return;
-        pause = null;
+      const cancel = afterMs(input.waits, ms, () => {
+        if (cancelPause !== cancel) return;
+        cancelPause = null;
         input.resume();
-      }, ms);
+      });
+      cancelPause = cancel;
     },
     /** The paused turn is gone: its pause wakes nothing. */
     stopPause,
     /** Starts counting the silence after a question, from now. */
     awaitReply() {
       stopAwaitingReply();
-      const mine = { handle: undefined as unknown };
-      reply = mine;
-      mine.handle = input.timer.setTimeout(() => {
-        if (reply !== mine) return;
-        reply = null;
+      const cancel = afterMs(input.waits, UNANSWERED_AFTER_MS, () => {
+        if (cancelReply !== cancel) return;
+        cancelReply = null;
         input.unanswered();
-      }, UNANSWERED_AFTER_MS);
+      });
+      cancelReply = cancel;
     },
     stopAwaitingReply,
     /** The claim is ending: nothing wakes it again. */

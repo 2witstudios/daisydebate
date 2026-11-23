@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { systemId } from '@daisy/clock';
-import { requestReleaseEnabled } from '../../../../lib/request-session';
+import { requestReleaseEnabled } from '../../../../features/flags/page-reads';
 import { LeagueRequestPage } from '../../../../ui/league-requests/league-request-page';
 import { sendLeagueRequestAction } from './actions';
 

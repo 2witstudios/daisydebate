@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { readdir } from 'node:fs/promises';
 
@@ -52,7 +53,9 @@ describe('the migration history (ISSUE-6)', () => {
         'retire the completed ADR 0038 sanction and retain the ADR 0058 one-Round sanction',
       actual: registry.baselines.map(({ adr, reviewBy }) => ({
         adr,
-        live: new Date(reviewBy) >= new Date('2026-10-06'),
+        live:
+          instantMs(`${reviewBy}T00:00:00Z`) >=
+          instantMs('2026-10-06T00:00:00Z'),
       })),
       expected: [{ adr: 'docs/decisions/0058-one-round-model.md', live: true }],
     });

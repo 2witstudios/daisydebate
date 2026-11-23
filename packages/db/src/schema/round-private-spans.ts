@@ -9,6 +9,8 @@ import {
 import { oneOf, timestampColumn } from './columns';
 import { rounds } from './rounds';
 
+const privateSpanKinds = ['prep', 'judging'] as const;
+
 /**
  * When a Round was known to be private (ADR 0099), committed in the same transaction
  * as the transition: in-round prep, and judging after the final segment. With
@@ -21,7 +23,7 @@ export const roundPrivateSpans = pgTable(
     roundId: text('round_id')
       .notNull()
       .references(() => rounds.id, { onDelete: 'cascade' }),
-    kind: text('kind').$type<'prep' | 'judging'>().notNull(),
+    kind: text('kind').$type<(typeof privateSpanKinds)[number]>().notNull(),
     startedAt: timestampColumn('started_at').notNull(),
     endedAt: timestampColumn('ended_at'),
   },
@@ -33,7 +35,7 @@ export const roundPrivateSpans = pgTable(
       .where(sql`${table.endedAt} is null`),
     check(
       'round_private_spans_kind_check',
-      oneOf(table.kind, ['prep', 'judging']),
+      oneOf(table.kind, privateSpanKinds),
     ),
   ],
 );

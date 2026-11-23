@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import { requireTestServices } from '@daisy/config';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
@@ -16,8 +17,10 @@ requireTestServices(process.env);
 
 const before = '2026-10-22T12:00:00.000Z';
 const cutoff = '2026-10-22T12:02:00.000Z';
-const start = new Date('2026-10-22T11:50:00.000Z');
-const end = new Date('2026-10-22T11:53:00.000Z');
+const startMs = instantMs('2026-10-22T11:50:00.000Z');
+const start = new Date(startMs);
+const endMs = instantMs('2026-10-22T11:53:00.000Z');
+const end = new Date(endMs);
 
 /** Both debaters hold the floor for the whole cross-examination, as PR 544 opens it. */
 async function crossExamination(fixture: Fixture, roundId: string) {
@@ -32,7 +35,7 @@ async function crossExamination(fixture: Fixture, roundId: string) {
     rules_segment_key: 'CX',
     started_at: start,
     ended_at: end,
-    duration_ms: end.getTime() - start.getTime(),
+    duration_ms: endMs - startMs,
   });
   for (const seat of [asker, respondent])
     await fixture.sql.unsafe(

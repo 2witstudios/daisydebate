@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import { assertRejects } from '@daisy/errors/testing';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import {
@@ -7,7 +8,9 @@ import {
 
 setupRitewayBun();
 
-const now = new Date('2026-10-22T12:00:00.000Z');
+const nowMs = instantMs('2026-10-22T12:00:00.000Z');
+
+const now = new Date(nowMs);
 const target = {
   roundId: 'round',
   roundParticipantId: 'seat',
@@ -29,7 +32,7 @@ test('a new claim waits for the previous lease, then takes the next epoch', asyn
     should: 'refuse the new claim',
     actual: () =>
       nextPublicationClaim(
-        { leaseExpiresAt: new Date(now.getTime() + 1), publicationEpoch: 4 },
+        { leaseExpiresAt: new Date(nowMs + 1), publicationEpoch: 4 },
         now,
       ),
     code: 'CONFLICT',

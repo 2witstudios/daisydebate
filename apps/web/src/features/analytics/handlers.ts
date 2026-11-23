@@ -1,7 +1,7 @@
 import { createAppError } from '@daisy/errors';
 import { handleOperation, requireSameOrigin } from '../../server/http';
 import { readBoundedBody } from '../../server/bounded-body';
-import { identify } from '../../lib/identity';
+import { identify } from '../auth/identity';
 import type { App } from '../../server/app';
 import { analyticsConfiguration } from './config';
 import {

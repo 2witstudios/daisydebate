@@ -1,3 +1,4 @@
+import { hostWaits } from '@daisy/worker/host';
 import { join } from 'node:path';
 import { createId } from '@paralleldrive/cuid2';
 import { SQL } from 'bun';
@@ -54,7 +55,12 @@ test('currentDatabaseName reports the connected database rather than the URL pat
   const pretend = 'not_the_connected_database_test';
   const url = withDatabaseOverride(databaseUrl, pretend);
   const client = new SQL(url, { max: 1 });
-  const database = createDatabase({ client, url, nextActorId: createId });
+  const database = createDatabase({
+    waits: hostWaits,
+    client,
+    url,
+    nextActorId: createId,
+  });
   try {
     const [{ name }] = await client`select current_database() as name`;
     assert({

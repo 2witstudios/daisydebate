@@ -1,3 +1,4 @@
+import { hostWaits } from '@daisy/worker/host';
 import { dispose } from '@livekit/rtc-node';
 import { afterAll } from 'bun:test';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
@@ -39,7 +40,7 @@ test('actual16k subscription preserves decoder observations separately from stat
         capture: true,
       }),
       identities: [identity],
-      nowMs: () => performance.now(),
+      waits: hostWaits,
       onTrackStarted: (track) => {
         binding = {
           incarnation: track.incarnation,
@@ -186,7 +187,7 @@ test('two subscription objects cannot answer the old binding for one persistent 
           capture: true,
         }),
         identities: [identity],
-        nowMs: () => performance.now(),
+        waits: hostWaits,
         onTrackStarted: (track) => {
           binding = track;
         },

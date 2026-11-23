@@ -1,4 +1,6 @@
 import { and, eq, gt, isNull, ne, sql } from 'drizzle-orm';
+import { parsedColumn } from '../raw-rows';
+import { z } from 'zod';
 import { createAppError } from '@daisy/errors';
 import { messagingPreferenceSchemas } from '@daisy/protocol/messaging/preferences';
 import { messagingActorStates } from '../schema/messaging-channels';
@@ -43,7 +45,7 @@ export function channelPreferenceFrame(
         .from(messagingActorStates)
         .where(selected);
       const [count] = await tx
-        .select({ unread: sql<number>`count(*)::float8` })
+        .select({ unread: parsedColumn(z.number(), sql`count(*)::float8`) })
         .from(messagingMessages)
         .where(
           and(

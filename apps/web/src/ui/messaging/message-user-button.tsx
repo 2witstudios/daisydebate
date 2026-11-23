@@ -1,5 +1,5 @@
 'use client';
-import { StatusRegion } from '../components/status-region/status-region';
+import { Announcement } from '../components/announcement/announcement';
 import { useFormAction, type FormAction } from '../form-action/form-action';
 import { useMovedOn } from '../form-action/use-moved-on';
 import { Button } from '../components/button/button';
@@ -73,9 +73,9 @@ export function MessageUserFields({
         Message
       </Button>
       {notice ? (
-        <StatusRegion as="p" role="status" className="text-sm text-ink-muted">
+        <Announcement as="p" kind="progress" className="text-sm text-ink-muted">
           {`Could not open a conversation with @${username}. Try again.`}
-        </StatusRegion>
+        </Announcement>
       ) : null}
     </form>
   );

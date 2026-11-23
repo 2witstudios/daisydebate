@@ -1,3 +1,4 @@
+import { hostWaits } from '@daisy/worker/host';
 import { SQL } from 'bun';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
@@ -23,7 +24,11 @@ test('ISSUE-22: a session inserted while a revoke-all is in flight never survive
   const setup = new SQL(url, { max: 1 });
   const inserter = new SQL(url, { max: 1 });
   const observer = new SQL(url, { max: 1 });
-  const database = createDatabase({ url, nextActorId: createId });
+  const database = createDatabase({
+    waits: hostWaits,
+    url,
+    nextActorId: createId,
+  });
   try {
     await setup.unsafe('insert into users (id, email) values ($1, $2)', [
       userId,
@@ -49,7 +54,7 @@ test('ISSUE-22: a session inserted while a revoke-all is in flight never survive
       revoke,
       observer,
       inserterPid,
-      { now: Date.now },
+      { waits: hostWaits },
     );
     await inserter.unsafe('commit');
     const removed = await revoke;

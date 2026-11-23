@@ -1,7 +1,7 @@
 import { eventCaptureAdmission } from '../tab/tournament-capture-admission';
 import type { Store, Caller } from './operations';
 import { aiServesSeat } from './ai-seat';
-import type { AiSeatAvailability } from '../../server/round-worker-policy';
+import type { AiSeatAvailability } from '../round-runtime/worker-policy';
 import { currentRoomConsent, type PreparedRoomConsent } from './consent';
 import { castSeatsBotDebater, executeRoomCommand } from '@daisy/debate-engine';
 import { createAppError, createRefusal } from '@daisy/errors';

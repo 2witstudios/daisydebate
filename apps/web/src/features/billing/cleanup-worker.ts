@@ -1,0 +1,136 @@
+import type { Waits } from '@daisy/clock';
+import { passOf, pollWork, type LoopPass } from '@daisy/worker';
+import { HOUSEKEEPING_IDLE_MAX_MS } from '../../lib/worker-idle';
+import type { App } from '../../server/app';
+import { createBillingStripe, type BillingFetch } from './stripe-client';
+import { privacyJobRetryAt } from '../account/data-rights/privacy-jobs';
+import { workerFailures } from '../../server/recoverable-failure';
+import { createScheduledWorker } from '../ops/scheduled-worker';
+import { createBillingCleanupDelivery } from './cleanup-delivery';
+import { createCleanupRechecks } from './cleanup-rechecks';
+import { stripeCleanupPort } from './cleanup-vendor';
+import { createInvoicePassReader } from './invoice-pass-reader';
+import { createPaymentObservationReader } from './payment-observation-reader';
+import { stripeClosurePaymentReadPort } from './closure-payment-reader';
+
+/** Stripe delivery never enters generic Promise<void> erasure. Free closure remains operational without Stripe keys. */
+export function startBillingCleanup(input: {
+  readonly app: App;
+  readonly instanceId: string;
+  readonly waits: Waits;
+  readonly fetch: BillingFetch;
+}) {
+  const { app } = input,
+    store = app.database.billingCleanup(input.instanceId);
+  const stripe = createBillingStripe(app.config.billing, input.fetch);
+  const port = stripe ? stripeCleanupPort(stripe) : null;
+  const vendor =
+    stripe && port && app.config.billing.kind === 'stripe'
+      ? {
+          mode: app.config.billing.mode,
+          port,
+          readPass: createInvoicePassReader({
+            port,
+            clock: app.clock,
+            mode: app.config.billing.mode,
+          }),
+          readPayment: createPaymentObservationReader({
+            port: stripeClosurePaymentReadPort(stripe),
+            clock: app.clock,
+            mode: app.config.billing.mode,
+          }),
+        }
+      : null;
+  const failed = workerFailures(app, app.reporter)(
+    'billing.cleanup.failed',
+    'billing.cleanup',
+    'Closed-account billing cleanup remains owed',
+  );
+  const delivery = createBillingCleanupDelivery({
+    store,
+    vendor,
+    nextId: () => app.ids.next(),
+    retryAt: privacyJobRetryAt,
+  });
+  const rechecks = createCleanupRechecks({
+    store,
+    failed: (error, stage) => failed(error, `recheck_${stage}`),
+  });
+  let stopped = false;
+  /** Read at each use: `stop()` flips the flag while a pass awaits. */
+  const isStopped = () => stopped;
+  let counts = { deleted: 0, retried: 0 };
+  const run = async (): Promise<LoopPass> => {
+    if (isStopped()) return 'idle';
+    const jobs = await app.database.duePrivacyJobs({
+      now: app.clock.now(),
+      limit: 3,
+      vendors: ['stripe'],
+    });
+    for (const job of jobs) {
+      if (isStopped()) return 'worked';
+      try {
+        const result = await delivery.deliver(job.id);
+        if (result === 'complete')
+          counts = { ...counts, deleted: counts.deleted + 1 };
+        if (result === 'failure')
+          counts = { ...counts, retried: counts.retried + 1 };
+      } catch (error) {
+        if (!isStopped()) failed(error, 'delivery');
+      }
+    }
+    return passOf(jobs.length);
+  };
+  const health = createScheduledWorker({
+    name: 'billing_cleanup',
+    clock: app.clock,
+    logger: app.logger,
+    pass: async () => {
+      try {
+        const owed = await app.database.owedPrivacyJobs({
+          vendors: ['stripe'],
+        });
+        const measured = { ...counts, owed };
+        counts = { deleted: 0, retried: 0 };
+        return measured;
+      } catch (error) {
+        if (!isStopped()) failed(error, 'health');
+        throw error;
+      }
+    },
+  });
+  // A due privacy job is delivered within a second while any is due; an
+  // empty queue backs off to the housekeeping cap (ADR 0154).
+  const schedule = pollWork({
+    pass: run,
+    backoff: { busyMs: 1000, idleMaxMs: HOUSEKEEPING_IDLE_MAX_MS },
+    waits: input.waits,
+    failed: (error) => {
+      if (!isStopped()) failed(error, 'due');
+    },
+  });
+  // Health and acknowledged-job revisits have their own bounded minute cadence; empty queues do not emit 1Hz heartbeats.
+  const monitoring = pollWork({
+    pass: async () => {
+      if (isStopped()) return 'idle';
+      await rechecks.run();
+      if (!isStopped()) await health.run();
+      return 'idle';
+    },
+    // A fixed minute cadence: it measures, it does not poll for work.
+    backoff: { busyMs: 60_000, idleMaxMs: 60_000 },
+    waits: input.waits,
+    failed: (error) => {
+      if (!isStopped()) failed(error, 'monitor');
+    },
+  });
+  return {
+    started: Promise.all([schedule.started, monitoring.started]),
+    async stop() {
+      stopped = true;
+      delivery.stop();
+      rechecks.stop();
+      await Promise.all([schedule.stop(), monitoring.stop()]);
+    },
+  };
+}

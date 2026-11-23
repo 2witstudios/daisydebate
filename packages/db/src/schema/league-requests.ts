@@ -38,16 +38,24 @@ export const leagueRequests = pgTable(
     /** SHA3-256 of the request's fields: one row per version of a form. */
     fieldsDigest: text('fields_digest').notNull(),
     leagueName: text('league_name').notNull(),
-    schools: text('schools').notNull(),
-    seasons: text('seasons').notNull(),
-    style: text('style').notNull(),
-    divisions: text('divisions').notNull(),
+    schools: text('schools')
+      .$type<(typeof leagueRequestSchoolCounts)[number]>()
+      .notNull(),
+    seasons: text('seasons')
+      .$type<(typeof leagueRequestSeasonCounts)[number]>()
+      .notNull(),
+    style: text('style')
+      .$type<(typeof leagueRequestStyles)[number]>()
+      .notNull(),
+    divisions: text('divisions')
+      .$type<(typeof leagueRequestDivisions)[number]>()
+      .notNull(),
     needs: text('needs').notNull(),
     contactName: text('contact_name').notNull(),
     contactRole: text('contact_role').notNull(),
     contactEmail: text('contact_email').notNull(),
     contactPhone: text('contact_phone'),
-    ...mailJobColumns(),
+    ...mailJobColumns<typeof leagueRequestNoticeErrorCodes>(),
   },
   (table) => [
     check(

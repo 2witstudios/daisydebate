@@ -1,3 +1,4 @@
+import { virtualClock } from '@daisy/clock/testing';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';
 import { createOpenRouter } from './openrouter';
@@ -6,6 +7,7 @@ setupRitewayBun();
 test('Aura PCM validates actual wire format and returns signed samples without transcript credit', async () => {
   let body: unknown;
   const voice = createOpenRouter({
+    waits: virtualClock(),
     apiKey: 'test-only',
     fetch: async (_url, init) => {
       body = JSON.parse(String(init.body));
@@ -52,6 +54,7 @@ for (const [type, data] of [
 ] as const)
   test(`refuses unusable PCM envelope ${type}/${data.length}`, async () => {
     const voice = createOpenRouter({
+      waits: virtualClock(),
       apiKey: 'test-only',
       fetch: async () =>
         new Response(data, { headers: { 'content-type': type } }),
@@ -73,6 +76,7 @@ test('cancelled speech dispatch never calls the provider', async () => {
   cancelled.abort();
   let calls = 0;
   const voice = createOpenRouter({
+    waits: virtualClock(),
     apiKey: 'test-only',
     fetch: async () => {
       calls++;

@@ -7,6 +7,15 @@ const messagingFileMimeSchema = z.enum([
   'application/pdf',
 ]);
 /** No numeric policy is activated by this portable contract. */
+/** A message file's lifecycle, from reservation to deletion. */
+export const messagingFileLifecycles = [
+  'reserved',
+  'quarantined',
+  'attached',
+  'deleting',
+  'deleted',
+] as const;
+
 export function createMessagingFileSchemas(bounds: {
   readonly maxFileBytes: number;
   readonly maxFilenameUnits: number;

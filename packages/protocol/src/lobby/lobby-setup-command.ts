@@ -1,4 +1,4 @@
-import { isInstantBefore } from '@daisy/clock';
+import { isInstantBefore } from '@daisy/clock/instant';
 import { roomConfigSchema } from '../room';
 import { z } from 'zod';
 import { idSchema } from '../primitives';

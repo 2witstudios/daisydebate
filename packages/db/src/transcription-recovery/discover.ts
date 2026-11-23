@@ -1,5 +1,7 @@
+import { necessaryEvidenceStates } from '@daisy/protocol/necessary-evidence';
+import { transcriptionRecoveryStatuses } from '../schema/transcription-recovery';
 import { roundStatus } from '@daisy/protocol/round';
-import { lifecycleSql } from '../lifecycle-sql';
+import { lifecycleSql, listedWord } from '../lifecycle-sql';
 import { sql } from 'drizzle-orm';
 import type { Policy } from './policy';
 import { hasUnenrolledOriginals } from './readiness';
@@ -10,12 +12,12 @@ import { z } from 'zod';
 export const due = (
   options: Policy,
 ) => sql`c.next_attempt_at<=clock_timestamp() and (
- c.status in ('queued','retry') or (c.status='collecting' and c.last_source_at<=clock_timestamp()-${options.quietMs}*interval '1 millisecond') or (c.status='leased' and c.lease_expires_at<=clock_timestamp()))
+ c.status in (${listedWord(transcriptionRecoveryStatuses, 'queued')},${listedWord(transcriptionRecoveryStatuses, 'retry')}) or (c.status=${listedWord(transcriptionRecoveryStatuses, 'collecting')} and c.last_source_at<=clock_timestamp()-${options.quietMs}*interval '1 millisecond') or (c.status=${listedWord(transcriptionRecoveryStatuses, 'leased')} and c.lease_expires_at<=clock_timestamp()))
  and (c.model is null or (c.model=${options.model} and c.policy_digest=${options.policyDigest}))
  and not ${hasUnenrolledOriginals(sql`c.round_id`)}
  and exists(select 1 from transcription_recovery_sources s where s.context_id=c.id)
  and not exists(select 1 from transcription_recovery_sources s join necessary_evidence e on e.id=s.evidence_id where s.context_id=c.id and (
-   e.state<>'retained' or e.payload_accepted_at is null or e.expires_at<=clock_timestamp() or e.original_subject_actor_ids is null or e.original_speaker is null or e.authority_id is null
+   e.state<>${listedWord(necessaryEvidenceStates, 'retained')} or e.payload_accepted_at is null or e.expires_at<=clock_timestamp() or e.original_subject_actor_ids is null or e.original_speaker is null or e.authority_id is null
    or exists(select 1 from necessary_evidence_erasure_requests p where p.actor_id=any(e.original_subject_actor_ids))
    or exists(select 1 from actors a join users u on u.id=a.user_id where a.id=any(e.original_subject_actor_ids) and u.deleted_at is not null)))`;
 /** Bounded distinct eligible Rounds before LIMIT; another worker's live Round claim excludes all its siblings. No locks precede account discovery. */
@@ -28,7 +30,7 @@ export async function discover(tx: Tx, options: Policy) {
  ) chosen where r.status=${lifecycleSql(roundStatus.active)}
  and not exists(select 1 from round_transcript_freezes f where f.round_id=r.id)
  and not exists(select 1 from necessary_evidence_round_fences f where f.round_id=r.id and f.withdrawn_at is not null)
- and not exists(select 1 from transcription_recovery_contexts live where live.round_id=r.id and live.status='leased' and live.lease_expires_at>clock_timestamp())
+ and not exists(select 1 from transcription_recovery_contexts live where live.round_id=r.id and live.status=${listedWord(transcriptionRecoveryStatuses, 'leased')} and live.lease_expires_at>clock_timestamp())
  order by (select coalesce(max(history.last_claimed_at),min(history.created_at)) from transcription_recovery_contexts history where history.round_id=r.id),r.id limit 8`,
   );
 }

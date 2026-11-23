@@ -19,11 +19,11 @@ loop retried every tick and filled Sentry with deadline-expired errors
 ## Decision
 
 1. **One primitive.** Every polling background worker runs on
-   `startWorkerLoop` (`apps/web/src/lib/worker-loop.ts`). It runs one pass
+   `pollWork` (`@daisy/worker`, ADR 0915; was `startWorkerLoop`). It runs one pass
    at a time in each process: it runs a pass at once, then again after a
    wait. A pass reports `worked` or `idle`. A thrown pass is reported and
    counts as `failed`.
-2. **Pure idle back-off.** `nextWaitMs` (`idle-backoff.ts`) sets the wait
+2. **Pure idle back-off.** `nextWaitMs` (`@daisy/worker`) sets the wait
    before the next pass:
    - `busyMs`, the worker's old interval, after a pass that found work;
    - double the last wait after an empty or failed pass, up to `idleMaxMs`.
@@ -84,7 +84,7 @@ loop retried every tick and filled Sentry with deadline-expired errors
 6. **Not polls.** Availability's one-second lease renewal and health sample
    is per-second evidence by contract (one `availability_samples` row a second, ADR 0033), so it keeps its cadence.
    Lease renewals for held claims, and the hourly or minute schedules on
-   `startRunSchedule`, are heartbeats, not discovery.
+   `repeatEvery`, are heartbeats, not discovery.
 
 ## Consequences
 
@@ -95,6 +95,6 @@ loop retried every tick and filled Sentry with deadline-expired errors
 - The lane gauges log one window a minute per lane. A per-operation line
   appears only when the operation queued for the lane, held it for 1 s or
   more, or `LOG_LEVEL` is `debug` (the floor run sets it).
-- A new polling worker uses `startWorkerLoop`, reports `worked` or `idle`
+- A new polling worker uses `pollWork`, reports `worked` or `idle`
   honestly, and states its cap. If its work is created by a command, that
   command sends a work kind.

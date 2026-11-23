@@ -64,7 +64,14 @@ async function mountDialog(
   const dialog = client.container.querySelector(
     'dialog',
   ) as unknown as BrowserDialog;
-  dialog.showModal();
+  // The member opens it from its header button; the Dialog shows itself.
+  await client.act(async () =>
+    (
+      client.container.querySelector(
+        'button[aria-haspopup="dialog"]',
+      ) as unknown as BrowserButton
+    ).click(),
+  );
   const buttons = (label: string) =>
     [...client.container.querySelectorAll('button')].filter(
       (candidate) => candidate.textContent === label,

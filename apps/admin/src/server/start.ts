@@ -1,5 +1,7 @@
 import { createServer } from 'node:http';
 import { fileURLToPath } from 'node:url';
+import { repeatEvery } from '@daisy/worker';
+import { hostWaits } from '@daisy/worker/host';
 import next from 'next';
 import { SWEEP_INTERVAL_MS, sweepExpired } from '../db/retention';
 import { roleRefusal, schemaPowers } from '../db/runtime-role';
@@ -78,15 +80,18 @@ const sweep = () =>
         'Admin retention sweep failed',
       ),
   );
-const sweeper = setInterval(() => void sweep(), SWEEP_INTERVAL_MS);
-sweeper.unref();
-void sweep();
+const sweeper = repeatEvery({
+  waits: hostWaits,
+  everyMs: SWEEP_INTERVAL_MS,
+  runOnStart: true,
+  run: sweep,
+  failed: () => undefined,
+});
 
 const stop = async () => {
-  clearInterval(sweeper);
-  const deadline = setTimeout(() => process.exit(1), SHUTDOWN_DEADLINE_MS);
-  deadline.unref();
+  void hostWaits.sleep(SHUTDOWN_DEADLINE_MS).then(() => process.exit(1));
   server.close();
+  await sweeper.stop();
   await app.close();
   await database.close();
   logger.log('server.shutdown', { source: 'admin' }, 'Admin server stopped');

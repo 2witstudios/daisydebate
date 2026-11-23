@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import type { SearchParams } from '../../../../features/access/decision';
-import { requireAccess } from '../../../../lib/access';
+import { requireAccess } from '../../../../features/access/page-access';
 import { SecurityPage } from '../../../../ui/settings/security/security-page';
 import { prose } from '../../../ui/prose-class';
 import { changeEmailAction } from './actions';

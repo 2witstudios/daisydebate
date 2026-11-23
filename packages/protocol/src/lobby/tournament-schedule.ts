@@ -1,4 +1,4 @@
-import { isInstantBefore } from '@daisy/clock';
+import { isInstantBefore } from '@daisy/clock/instant';
 
 /** The tournament's first day: its earliest scheduled slot, or now while none is. */
 export const tournamentFirstDay = (

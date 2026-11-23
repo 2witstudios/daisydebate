@@ -1,3 +1,7 @@
+import { competitionTypes } from '@daisy/protocol/round';
+import { seasonStatuses } from './schema/seasons';
+import { lobbyKinds } from '@daisy/protocol/lobby';
+import { listedValue } from './lifecycle-sql';
 import type { SQL } from 'bun';
 
 /** Convert a stored fixture so its ranking-dependent consumers can be tested. */
@@ -14,11 +18,11 @@ export async function pinRankedFixturePool(
       join lobbies l on l.id=coalesce(rm.lobby_id, (
         select candidate.id from lobbies candidate
         join organizations o on o.id=candidate.owner_organization_id
-        where o.official and candidate.kind='standing' and candidate.age_rule='adults'
+        where o.official and candidate.kind=${listedValue(lobbyKinds, 'standing')} and candidate.age_rule='adults'
         order by candidate.created_at,candidate.id limit 1
       ))
       join ladders d on d.lobby_id=l.id
-      left join seasons s on s.lobby_id=l.id and s.status='active'
+      left join seasons s on s.lobby_id=l.id and s.status=${listedValue(seasonStatuses, 'active')}
       where r.id=${roundId}
       order by d.created_at,d.id limit 1`;
     if (!pool) throw new Error('Ranked fixture pool is missing');
@@ -26,9 +30,9 @@ export async function pinRankedFixturePool(
     if (archive)
       await tx`insert into seasons(id,lobby_id,organization_id,name,starts_at,ends_at,status)
         values (${archive},${pool.lobby_id},${pool.owner_organization_id},
-          'Archived fixture','2000-01-01','2000-01-02','closed')`;
+          'Archived fixture','2000-01-01','2000-01-02',${listedValue(seasonStatuses, 'closed')})`;
     await tx`alter table rounds disable trigger rounds_rating_pool_immutable`;
-    await tx`update rounds set competition_type='ranked',
+    await tx`update rounds set competition_type=${listedValue(competitionTypes, 'ranked')},
       format_id=${preset?.formatId ?? 'freestyle'},format_version=1,preset_version=${preset?.version ?? 1},
       ladder_id=${pool.ladder_id},rating_lobby_id=${pool.lobby_id},season_id=${pool.season_id ?? archive}
       where id=${roundId}`;

@@ -1,4 +1,4 @@
-import { tryInstantMs } from '@daisy/clock';
+import { tryInstantMs } from '@daisy/clock/instant';
 import { createAppError, createInvariantError } from '@daisy/errors';
 import {
   affirmativeSide,
@@ -38,7 +38,11 @@ export const ratingPolicy = {
   bounds: {
     rating: { min: 0, max: 4000 },
     deviation: { min: 30, max: 350 },
-    volatility: { max: 0.1 },
+    /**
+     * The floor keeps σ² a normal double: below it the volatility search takes
+     * log(0) and rates the debater to a volatility of zero (ISSUE-1498).
+     */
+    volatility: { min: 0.000_1, max: 0.1 },
   },
 } as const;
 
@@ -75,7 +79,7 @@ function assertBounded(state: Glicko2State): void {
     rating <= bounds.rating.max &&
     deviation >= bounds.deviation.min &&
     deviation <= bounds.deviation.max &&
-    volatility > 0 &&
+    volatility >= bounds.volatility.min &&
     volatility <= bounds.volatility.max;
   if (!inside)
     throw createInvariantError(
@@ -160,7 +164,11 @@ export function isProvisional(deviation: number): boolean {
 const toBounds = (state: Glicko2State): Glicko2State => ({
   rating: clamp(state.rating, bounds.rating.min, bounds.rating.max),
   deviation: clamp(state.deviation, bounds.deviation.min, bounds.deviation.max),
-  volatility: Math.min(state.volatility, bounds.volatility.max),
+  volatility: clamp(
+    state.volatility,
+    bounds.volatility.min,
+    bounds.volatility.max,
+  ),
 });
 
 const scores: Readonly<

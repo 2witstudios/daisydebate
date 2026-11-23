@@ -3,10 +3,8 @@ import {
   releaseKeys,
   type OpenReleases,
 } from '../../../features/guides/library';
-import {
-  requestIdentity,
-  requestReleaseEnabled,
-} from '../../../lib/request-session';
+import { requestIdentity } from '../../../lib/page-reads';
+import { requestReleaseEnabled } from '../../../features/flags/page-reads';
 
 /**
  * The releases open for this viewer, among those a guide waits on, so a

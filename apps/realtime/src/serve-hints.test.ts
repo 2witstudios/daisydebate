@@ -1,3 +1,4 @@
+import { virtualClock } from '@daisy/clock/testing';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { OUTBOX_ORIGIN } from '@daisy/db/outbox';
 import { serveRealtime } from './serve';
@@ -6,10 +7,8 @@ import { deferred } from './outbox-drain.test-support';
 import { refuseAllReading } from './authorization.test-support';
 
 setupRitewayBun();
-const timers = {
-  setInterval: () => 0 as unknown as ReturnType<typeof setInterval>,
-  clearInterval: () => {},
-};
+// Time never moves in these tests: no cadence runs.
+const waits = virtualClock();
 
 test('native server waits for the existing-pool transient LISTEN acknowledgement', async () => {
   const gate = deferred<{ unlisten: () => Promise<void> }>();
@@ -19,7 +18,7 @@ test('native server waits for the existing-pool transient LISTEN acknowledgement
   const opening = serveRealtime({
     readingPolicy: refuseAllReading,
     port: 0,
-    timers,
+    waits,
     resources: fakeApp({
       listenOutbox: async () => ({ unlisten: async () => {} }),
       readOutboxHighWaterMark: async () => OUTBOX_ORIGIN,
@@ -60,7 +59,7 @@ for (const failure of ['hint-listen', 'serve', 'shutdown'] as const)
       const runtime = await serveRealtime({
         readingPolicy: refuseAllReading,
         port: 0,
-        timers,
+        waits,
         resources: fakeApp({
           listenOutbox: async () => ({
             unlisten: async () => {

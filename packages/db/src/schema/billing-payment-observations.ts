@@ -1,3 +1,4 @@
+import { billingModes } from '@daisy/protocol/billing-mode';
 import {
   billingPaymentObservationStateSchema,
   paymentObservationSourceSchema,
@@ -20,7 +21,7 @@ export const billingPaymentObservations = pgTable(
     userId: text('user_id')
       .notNull()
       .references(() => users.id, { onDelete: 'restrict' }),
-    mode: text('mode').notNull(),
+    mode: text('mode').$type<(typeof billingModes)[number]>().notNull(),
     vendorCustomerId: text('vendor_customer_id').notNull(),
     vendorInvoiceId: text('vendor_invoice_id').notNull(),
     kind: text('kind').notNull(),
@@ -56,7 +57,7 @@ export const billingPaymentObservations = pgTable(
     index('billing_payment_observations_refund_idx').on(table.refundActionId),
     check(
       'billing_payment_observations_mode_check',
-      oneOf(table.mode, ['test', 'live']),
+      oneOf(table.mode, billingModes),
     ),
     check(
       'billing_payment_observations_identity_check',

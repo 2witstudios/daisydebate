@@ -1,3 +1,4 @@
+import { hostWaits } from '@daisy/worker/host';
 import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { SQL } from 'bun';
@@ -49,7 +50,11 @@ describe('a username claim enrols the account on the beta list (ADR 0075)', () =
   test('the first claim writes a pending row, its event and the window digest', async () => {
     await withFixture(url, async (fixture) => {
       const userId = await provisionalUser(fixture);
-      const database = createDatabase({ url, nextActorId: createId });
+      const database = createDatabase({
+        waits: hostWaits,
+        url,
+        nextActorId: createId,
+      });
       try {
         const first = await claimAs(fixture, database, userId, `b-${userId}`);
         const retry = await claimAs(fixture, database, userId, `b-${userId}`);
@@ -106,7 +111,11 @@ describe('a username claim enrols the account on the beta list (ADR 0075)', () =
   test('the runtime role cannot rewrite the audit or the receipts', async () => {
     await withFixture(url, async (fixture) => {
       const userId = await provisionalUser(fixture);
-      const database = createDatabase({ url, nextActorId: createId });
+      const database = createDatabase({
+        waits: hostWaits,
+        url,
+        nextActorId: createId,
+      });
       try {
         await claimAs(fixture, database, userId, `r-${userId}`);
       } finally {

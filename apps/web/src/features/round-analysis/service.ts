@@ -1,12 +1,8 @@
+import type { Waits } from '@daisy/clock';
+import { pollWork, type LoopPass, type WorkWake } from '@daisy/worker';
+import { HOUSEKEEPING_IDLE_MAX_MS } from '../../lib/worker-idle';
 import { isAppError } from '@daisy/errors';
 import type { RoundAnalysisSeat } from '@daisy/db/rounds';
-import type { WorkerTimers } from '../../lib/worker-timers';
-import type { LoopPass } from '../../lib/idle-backoff';
-import {
-  HOUSEKEEPING_IDLE_MAX_MS,
-  startWorkerLoop,
-  type WorkWake,
-} from '../../lib/worker-loop';
 
 /**
  * The round analysis worker: each scan lists debater seats that need an
@@ -25,7 +21,7 @@ export function startRoundAnalysisService(input: {
     readonly scanBatch: number;
     readonly scanMs: number;
   };
-  readonly timers: WorkerTimers;
+  readonly waits: Waits;
   /** An analysis was requested; scan now (ADR 0154). */
   readonly wake?: WorkWake | undefined;
   /** `stage` names the work that failed: analyse or scan. */
@@ -62,13 +58,13 @@ export function startRoundAnalysisService(input: {
     }
     return running.size > 0 || seats.length > 0 ? 'worked' : 'idle';
   };
-  const discovery = startWorkerLoop({
-    run: scan,
+  const discovery = pollWork({
+    pass: scan,
     backoff: {
       busyMs: input.limits.scanMs,
       idleMaxMs: Math.max(input.limits.scanMs, HOUSEKEEPING_IDLE_MAX_MS),
     },
-    timers: input.timers,
+    waits: input.waits,
     failed: (error) => input.failed(error, 'scan'),
     wake: input.wake,
   });

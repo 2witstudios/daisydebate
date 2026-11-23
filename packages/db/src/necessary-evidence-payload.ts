@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import { register as registerTranscriptionRecovery } from './transcription-recovery/register';
 import { eq } from 'drizzle-orm';
 import { z } from 'zod';
@@ -45,10 +46,12 @@ export async function adoptCaptureEvidencePayload(tx: Tx, raw: unknown) {
     sealed.ciphertext.byteLength !== encoded.byteLength
   )
     throw createAppError('CONFLICT');
-  const admittedAt = new Date(await sampleRoundExecutionTime(tx));
+  const admittedAtIso = await sampleRoundExecutionTime(tx);
+  const admittedAtMs = instantMs(admittedAtIso);
+  const admittedAt = new Date(admittedAtMs);
   if (
-    sealed.receipt.receivedAtMs > admittedAt.getTime() ||
-    sealed.receipt.expiresAtMs <= admittedAt.getTime()
+    sealed.receipt.receivedAtMs > admittedAtMs ||
+    sealed.receipt.expiresAtMs <= admittedAtMs
   )
     throw createAppError('CONFLICT', 'Original evidence receipt is ineligible');
   if (

@@ -9,7 +9,9 @@ import { UnavailableControl } from '../action-control/unavailable-control';
 import { BackButton } from '../action-control/action-control';
 import { eyebrowClass } from '../list-card/list-card';
 
-const stopClass = 'flex justify-between gap-3 rounded-sm px-3 py-2';
+/** A stop's shape as a link; its disabled stand-in is a menu row. */
+const stopShape = 'justify-between gap-3 rounded-sm px-3 py-2';
+const stopClass = `flex ${stopShape}`;
 
 function Stop({
   item,
@@ -35,7 +37,10 @@ function Stop({
     return <span className={cn(stopClass, 'text-ink-muted')}>{face}</span>;
   if (item.action.kind === 'unavailable')
     return (
-      <UnavailableControl className={cn(stopClass, 'text-ink')}>
+      <UnavailableControl
+        look={{ variant: 'row', size: 'menu' }}
+        className="justify-between"
+      >
         {face}
       </UnavailableControl>
     );

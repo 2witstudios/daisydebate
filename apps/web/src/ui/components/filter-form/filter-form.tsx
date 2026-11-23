@@ -1,7 +1,6 @@
 import { Button } from '../button/button';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
-import { buttonClass } from '../button/button-class';
 import { Icon } from '../icon/icon';
 
 /** "Clear" inside a filter panel: a link to the URL without the filters. */
@@ -37,11 +36,7 @@ export function FilterFooter({
         {`${count} ${count === 1 ? noun : `${noun}s`}`}
       </p>
       {children}
-      <Button
-        variant="unstyled"
-        type="submit"
-        className={`${buttonClass('secondary')} order-8`}
-      >
+      <Button variant="secondary" type="submit" className="order-8">
         Apply
       </Button>
     </div>

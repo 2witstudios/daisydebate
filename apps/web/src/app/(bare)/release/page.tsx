@@ -1,7 +1,10 @@
 import type { Metadata } from 'next';
 import type { SearchParams } from '../../../features/access/decision';
 import { signPageOf } from '../../../features/media-releases/parent-pages';
-import { readReleaseLink, releaseNowMs } from '../../../lib/request-session';
+import {
+  readReleaseLink,
+  releaseNowMs,
+} from '../../../features/media-releases/page-reads';
 import { AlreadySigned } from '../../../ui/media-releases/parent/link-forms';
 import {
   ReleaseFrame,

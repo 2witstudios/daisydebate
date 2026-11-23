@@ -1,3 +1,6 @@
+import { roundCommandTypes } from './schema/round-commands';
+import { attendanceDecisions } from '@daisy/protocol/attendance';
+import { listedWord } from './lifecycle-sql';
 import { sql } from 'drizzle-orm';
 
 /**
@@ -9,9 +12,9 @@ import { sql } from 'drizzle-orm';
 /** Whether the finalization alias `z` was committed by a forfeit. */
 export const forfeitRecorded = sql`(
   exists(select 1 from round_attendance_adjudications a
-    where a.round_id=z.round_id and a.command_id=z.command_id and a.decision='forfeit')
+    where a.round_id=z.round_id and a.command_id=z.command_id and a.decision=${listedWord(attendanceDecisions, 'forfeit')})
   or exists(select 1 from round_commands k
-    where k.round_id=z.round_id and k.command_id=z.command_id and k.type='forfeit'))`;
+    where k.round_id=z.round_id and k.command_id=z.command_id and k.type=${listedWord(roundCommandTypes, 'forfeit')}))`;
 
 /**
  * The ending over the Round alias `r` and its finalization `z`, left joined by

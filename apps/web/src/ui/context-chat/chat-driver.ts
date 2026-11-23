@@ -1,6 +1,6 @@
 import '../../lib/zod-jitless';
-import { cancelDelay, delay } from '../edge/browser-time';
-import { browserFetch } from '../edge/browser-request';
+import type { BrowserScheduler } from '../edge/browser-time';
+import { type BrowserTransport } from '../edge/browser-request';
 import { instantMs, nowMs, systemClock } from '@daisy/clock';
 import { idSchema } from '@daisy/protocol/primitives';
 import type { ChatContext } from '../../features/messaging/context-chat/chat-context';
@@ -34,7 +34,9 @@ const json = (body: unknown): RequestInit => ({
 export function createContextChatDriver(
   context: ChatContext,
   ownerId: string,
-  retryDiscovery = false,
+  retryDiscovery: boolean,
+  transport: BrowserTransport,
+  scheduler: BrowserScheduler,
 ) {
   const base = idSchema.safeParse(ownerId).success
     ? context.address(ownerId)
@@ -42,7 +44,7 @@ export function createContextChatDriver(
   const listeners = new Set<() => void>();
   let state = initialContextChatState;
   let stopped = false;
-  let expiry: ReturnType<typeof delay> | undefined;
+  let cancelExpiry: () => void = () => undefined;
 
   const send = (event: ContextChatEvent) => {
     if (stopped || base === null) return;
@@ -56,7 +58,7 @@ export function createContextChatDriver(
 
   const discover = async (base: string, { request }: Effect<'discover'>) => {
     try {
-      const readDiscovery = () => browserFetch(base, { cache: 'no-store' });
+      const readDiscovery = () => transport(base, { cache: 'no-store' });
       const waiting = () =>
         !stopped &&
         state.standing.kind === 'loading' &&
@@ -70,7 +72,7 @@ export function createContextChatDriver(
         response.headers.get('retry-after') === '1' &&
         waiting()
       ) {
-        await new Promise<void>((resolve) => delay(resolve, 1000));
+        await new Promise<void>((resolve) => scheduler.after(resolve, 1000));
         if (!waiting()) return;
         response = await readDiscovery();
       }
@@ -93,7 +95,7 @@ export function createContextChatDriver(
 
   const open = async (base: string, { request }: Effect<'open'>) => {
     try {
-      const response = await browserFetch(
+      const response = await transport(
         base,
         json({ version: 1, [context.ownerKey]: ownerId }),
       );
@@ -121,7 +123,7 @@ export function createContextChatDriver(
     const { request, channelId } = effect;
     const kind = effect.type === 'read-latest' ? 'latest' : 'older';
     try {
-      const response = await browserFetch(
+      const response = await transport(
         `${base}/messages?channelId=${channelId}${
           effect.type === 'read-older' ? `&before=${effect.before}` : ''
         }`,
@@ -151,7 +153,7 @@ export function createContextChatDriver(
   const markRead = async (base: string, effect: Effect<'mark-read'>) => {
     const { request, channelId, sequence } = effect;
     try {
-      const response = await browserFetch(
+      const response = await transport(
         `${base}/read`,
         json({ version: 1, channelId, cursor: { channelId, sequence } }),
       );
@@ -169,14 +171,18 @@ export function createContextChatDriver(
   };
 
   const watchExpiry = ({ expiresAt }: Effect<'watch-expiry'>) => {
-    cancelDelay(expiry);
+    cancelExpiry();
     if (expiresAt === null) return;
     const check = () => {
       const remaining = instantMs(expiresAt) - nowMs(systemClock);
       if (remaining <= 0) send({ type: 'expiry-reached', expiresAt });
-      else expiry = delay(check, Math.min(remaining, LONGEST_TIMER_MS));
+      else
+        cancelExpiry = scheduler.after(
+          check,
+          Math.min(remaining, LONGEST_TIMER_MS),
+        );
     };
-    expiry = delay(check, 0);
+    cancelExpiry = scheduler.after(check, 0);
   };
 
   /** Runs one effect against the chat's address, which only an addressable owner has. */
@@ -209,7 +215,7 @@ export function createContextChatDriver(
     /** Answers still on their way change nothing once the chat has left the page. */
     stop: () => {
       stopped = true;
-      cancelDelay(expiry);
+      cancelExpiry();
     },
   };
 }

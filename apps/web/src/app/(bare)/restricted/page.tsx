@@ -1,9 +1,7 @@
 import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
-import {
-  requestIdentity,
-  requestRestrictionEnd,
-} from '../../../lib/request-session';
+import { requestIdentity } from '../../../lib/page-reads';
+import { requestRestrictionEnd } from '../../../features/moderation/page-reads';
 import type { SearchParams } from '../../../features/access/decision';
 import { RestrictedAccount } from '../../../ui/moderation/restricted-account';
 

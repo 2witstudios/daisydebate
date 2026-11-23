@@ -11,11 +11,6 @@ import type { RoundSnapshot } from './round';
 import { RoundClock } from './round-clock';
 import { toneInk } from './side-tone';
 
-const button =
-  'inline-flex h-room-target shrink-0 cursor-pointer items-center justify-center gap-2 rounded-sm border px-4 text-sm font-strong whitespace-nowrap transition-colors disabled:cursor-not-allowed disabled:opacity-60';
-const quiet = `${button} border-border-strong bg-transparent text-ink hover:bg-surface-raised`;
-const primary = `${button} border-transparent bg-accent text-accent-ink hover:bg-accent-strong`;
-
 type Props = {
   readonly round: RoundSnapshot;
   readonly actions?: ReactNode;
@@ -32,15 +27,15 @@ function PhaseActions({
   readonly round: RoundSnapshot;
   readonly wide?: boolean;
 }) {
-  const grow = wide ? 'flex-1 h-12 text-md' : '';
   if (round.phase === 'prep')
     return (
       <>
         <Button
-          variant="unstyled"
+          variant="primary"
+          size={wide ? 'bar' : 'room'}
           type="button"
           disabled
-          className={cn(primary, grow)}
+          className={wide ? 'flex-1 shrink-0' : 'shrink-0'}
         >
           {startSpeechLabel(round.speeches[round.liveIndex]?.name ?? 'speech')}
         </Button>
@@ -49,10 +44,11 @@ function PhaseActions({
   if (round.phase === 'own-speech')
     return (
       <Button
-        variant="unstyled"
+        variant="primary"
+        size={wide ? 'bar' : 'room'}
         type="button"
         disabled
-        className={cn(primary, grow)}
+        className={wide ? 'flex-1 shrink-0' : 'shrink-0'}
       >
         End speech
       </Button>
@@ -73,10 +69,11 @@ function TechIssue({
 }) {
   return (
     <Button
-      variant="unstyled"
+      variant="secondary"
+      size={wide ? 'bar' : 'room'}
       type="button"
       disabled
-      className={cn(quiet, wide && 'h-12')}
+      className="shrink-0"
     >
       {round.phase === 'judging' ? 'Report a problem' : 'Tech issue'}
     </Button>

@@ -1,5 +1,8 @@
 const dateMessage = 'Read an ISO instant through @daisy/clock.';
-const digestMessage = 'Use sha3Hex or commandDigest from @daisy/digest.';
+const millisecondsMessage =
+  "Read an instant's milliseconds with instantMs from @daisy/clock, or parse the row with postgresInstantMs.";
+const digestMessage =
+  'Hash only through @daisy/digest (sha3Hex, sha256Hex, hmacSha256Hex and the rest); no hasher or MAC is constructed elsewhere.';
 
 function bindingAt(node, sourceCode) {
   if (node?.type !== 'Identifier') return;
@@ -61,10 +64,32 @@ function isDate(node, sourceCode, seen = new Set()) {
   );
 }
 
+/** `new Date(x)` with an argument, directly or through a const. */
+function isDateConstruction(node, sourceCode, seen = new Set()) {
+  if (node?.type === 'Identifier')
+    return isDateConstruction(
+      constant(node, sourceCode, seen),
+      sourceCode,
+      seen,
+    );
+  return (
+    node?.type === 'NewExpression' &&
+    node.arguments.length > 0 &&
+    isDate(node.callee, sourceCode)
+  );
+}
+
+const coercingOperators = new Set(['-', '*', '/', '%', '<', '>', '<=', '>=']);
+
 const dateRule = {
-  meta: { messages: { required: dateMessage } },
+  meta: {
+    messages: { required: dateMessage, milliseconds: millisecondsMessage },
+  },
   create(context) {
     const report = (node) => context.report({ node, messageId: 'required' });
+    const constructed = (node) => isDateConstruction(node, context.sourceCode);
+    const reportMilliseconds = (node) =>
+      context.report({ node, messageId: 'milliseconds' });
     const readsParse = (pattern) =>
       pattern.type === 'ObjectPattern' &&
       pattern.properties.some(
@@ -75,11 +100,39 @@ const dateRule = {
       );
     return {
       MemberExpression(node) {
-        if (
-          property(node, context.sourceCode) === 'parse' &&
-          isDate(node.object, context.sourceCode)
-        )
+        const name = property(node, context.sourceCode);
+        if (name === 'parse' && isDate(node.object, context.sourceCode))
           report(node);
+        if (
+          (name === 'getTime' || name === 'valueOf') &&
+          constructed(node.object)
+        )
+          reportMilliseconds(node);
+      },
+      UnaryExpression(node) {
+        if (
+          (node.operator === '+' || node.operator === '-') &&
+          constructed(node.argument)
+        )
+          reportMilliseconds(node);
+      },
+      // Relational and arithmetic coercion: only a Date built in place.
+      // A named Date compared with another is ordinary Date work.
+      BinaryExpression(node) {
+        const inPlace = (side) =>
+          side.type === 'NewExpression' && constructed(side);
+        if (
+          coercingOperators.has(node.operator) &&
+          (inPlace(node.left) || inPlace(node.right))
+        )
+          reportMilliseconds(node);
+      },
+      CallExpression(node) {
+        if (
+          isGlobal(node.callee, 'Number', context.sourceCode) &&
+          constructed(node.arguments[0])
+        )
+          reportMilliseconds(node);
       },
       VariableDeclarator(node) {
         if (readsParse(node.id) && isDate(node.init, context.sourceCode))
@@ -97,15 +150,70 @@ const dateRule = {
   },
 };
 
+const nodeHashers = new Set([
+  'createHash',
+  'createHmac',
+  'hash',
+  'Hash',
+  'Hmac',
+]);
+
 function nativeHashName(source, name) {
   return (
     (source === 'bun' && name === 'CryptoHasher') ||
-    (['node:crypto', 'crypto'].includes(source) && name === 'createHash')
+    (['node:crypto', 'crypto'].includes(source) && nodeHashers.has(name))
   );
 }
 
+/** A `@noble/hashes` module that hashes; only its byte utilities are not. */
+const isNobleHasher = (source) =>
+  typeof source === 'string' &&
+  /^@noble\/hashes(?:\/|$)/.test(source) &&
+  !/^@noble\/hashes\/utils(?:\.js)?$/.test(source);
+
+function isSubtle(node, sourceCode, seen = new Set()) {
+  if (node?.type === 'MemberExpression')
+    return property(node, sourceCode) === 'subtle';
+  if (node?.type !== 'Identifier') return false;
+  const [definition] = bindingAt(node, sourceCode)?.defs ?? [];
+  if (
+    definition?.type === 'Variable' &&
+    definition.node.id.type === 'ObjectPattern'
+  )
+    return definition.node.id.properties.some(
+      ({ key, value }) =>
+        (value?.type === 'AssignmentPattern' ? value.left : value) ===
+          definition.name && (key?.name ?? staticText(key)) === 'subtle',
+    );
+  return isSubtle(constant(node, sourceCode, seen), sourceCode, seen);
+}
+
+/** An argument naming HMAC: `'HMAC'` or `{ name: 'HMAC', … }`. */
+const namesHmac = (node, sourceCode) =>
+  (typeof staticText(node, sourceCode) === 'string' &&
+    staticText(node, sourceCode).toUpperCase() === 'HMAC') ||
+  (node?.type === 'ObjectExpression' &&
+    node.properties.some(
+      (entry) =>
+        entry.type === 'Property' &&
+        (entry.key.name ?? staticText(entry.key)) === 'name' &&
+        String(staticText(entry.value, sourceCode)).toUpperCase() === 'HMAC',
+    ));
+
+const webCryptoKeyed = new Set([
+  'importKey',
+  'generateKey',
+  'deriveKey',
+  'sign',
+  'verify',
+]);
+
 function nativeModule(node, sourceCode, seen) {
   if (isGlobal(node, 'Bun', sourceCode)) return 'bun';
+  // `(await import('node:crypto')).createHash`, inline or through a const.
+  if (node?.type === 'AwaitExpression') node = node.argument;
+  if (node?.type === 'ImportExpression')
+    return staticText(node.source, sourceCode);
   if (
     node?.type === 'CallExpression' &&
     isGlobal(node.callee, 'require', sourceCode) &&
@@ -164,33 +272,32 @@ function isNativeHasher(node, sourceCode, seen = new Set()) {
 const hashRule = {
   meta: { messages: { required: digestMessage } },
   create(context) {
+    const { sourceCode } = context;
     const report = (node) => context.report({ node, messageId: 'required' });
     const check = (node) => {
-      const algorithm = staticText(node.arguments[0], context.sourceCode);
+      if (isNativeHasher(node.callee, sourceCode)) return report(node);
+      if (node.type !== 'CallExpression') return;
       if (
-        typeof algorithm === 'string' &&
-        algorithm.toLowerCase() === 'sha3-256' &&
-        isNativeHasher(node.callee, context.sourceCode)
+        isGlobal(node.callee, 'require', sourceCode) &&
+        isNobleHasher(staticText(node.arguments[0], sourceCode))
+      )
+        return report(node);
+      if (node.callee.type !== 'MemberExpression') return;
+      const method = property(node.callee, sourceCode);
+      if (!isSubtle(node.callee.object, sourceCode)) return;
+      if (
+        method === 'digest' ||
+        (webCryptoKeyed.has(method) &&
+          node.arguments.some((argument) => namesHmac(argument, sourceCode)))
       )
         report(node);
     };
     return {
-      Program(node) {
-        for (const statement of node.body) {
-          if (statement.type !== 'ImportDeclaration') continue;
-          const source = statement.source.value;
-          if (
-            (source === '@noble/hashes/sha3.js' ||
-              source === '@noble/hashes/sha3') &&
-            statement.specifiers.some(
-              (specifier) =>
-                specifier.type !== 'ImportSpecifier' ||
-                (specifier.imported.name ?? specifier.imported.value) ===
-                  'sha3_256',
-            )
-          )
-            report(statement);
-        }
+      ImportDeclaration(node) {
+        if (isNobleHasher(node.source.value)) report(node);
+      },
+      ImportExpression(node) {
+        if (isNobleHasher(staticText(node.source, sourceCode))) report(node);
       },
       CallExpression: check,
       NewExpression: check,
@@ -199,7 +306,7 @@ const hashRule = {
 };
 
 const plugin = {
-  rules: { 'iso-instant': dateRule, 'sha3-digest': hashRule },
+  rules: { 'iso-instant': dateRule, 'digest-home': hashRule },
 };
 
 const files = ['**/*.{js,jsx,cjs,mjs,ts,tsx,cts,mts}'];
@@ -215,6 +322,6 @@ export const clockDigestRules = [
     files,
     ignores: ['packages/digest/**'],
     plugins: { 'clock-digest': plugin },
-    rules: { 'clock-digest/sha3-digest': 'error' },
+    rules: { 'clock-digest/digest-home': 'error' },
   },
 ];

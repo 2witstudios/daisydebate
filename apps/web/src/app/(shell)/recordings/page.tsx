@@ -3,11 +3,9 @@ import type { SearchParams } from '../../../features/access/decision';
 import { archiveEntries } from '../../../features/recording/archive';
 import { parseRecordingsQuery } from '../../../features/recording/archive-query';
 import { recordingViewerOf } from '../../../features/recording/viewer';
-import {
-  readRecordingArchive,
-  requestHubCounts,
-  requestIdentity,
-} from '../../../lib/request-session';
+import { readRecordingArchive } from '../../../features/recording/page-reads';
+import { requestHubCounts } from '../../../features/watch/page-reads';
+import { requestIdentity } from '../../../lib/page-reads';
 import { RecordingsTab } from '../../../ui/watch/recordings-tab/recordings-tab';
 import { WatchHub } from '../../../ui/watch/watch-hub/watch-hub';
 

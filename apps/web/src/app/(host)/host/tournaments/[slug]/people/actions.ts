@@ -11,7 +11,7 @@ import {
   type LobbyPeopleCommandContext,
   type LobbyPeopleCommandState,
 } from '../../../../../../features/tab/lobby-people-forms';
-import { requestLobbyGrantTarget } from '../../../../../../lib/request-session';
+import { requestLobbyGrantTarget } from '../../../../../../features/tab/page-reads';
 import { hostRoutes } from '../../../../../../features/tab/routes';
 import { runTabCommandForm } from '../../../../../../features/tab/command-form-action';
 import { POST } from '../../../../../api/tab/organization-command/route';

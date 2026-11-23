@@ -4,7 +4,7 @@ import {
   lobbyPeopleViewSchema,
   type LobbyPeopleView,
 } from '@daisy/protocol/lobby/lobby-people-read';
-import type { MemberBoundary } from '../../server/member-boundary';
+import type { MemberBoundary } from '../auth/member-boundary';
 import { bindTabRead } from './read-route';
 import type { TabPrincipal } from './tab-principal';
 

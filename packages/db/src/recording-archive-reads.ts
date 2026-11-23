@@ -1,7 +1,11 @@
+import { recordingStatuses } from '@daisy/protocol/recording';
+import { listedWord } from './lifecycle-sql';
 import { currentRoundParticipant } from './round-current-participant';
-import { roundStatus } from '@daisy/protocol/round';
-import { isJudgeSeat } from '@daisy/protocol/seats';
+import { roundStatus, competitionTypes } from '@daisy/protocol/round';
+import { isJudgeSeat, seatKinds } from '@daisy/protocol/seats';
 import { and, desc, eq, isNotNull, or, sql, type SQL } from 'drizzle-orm';
+import { parsedColumn, postgresInstantMs } from './raw-rows';
+import { z } from 'zod';
 import { broadcastStopOf } from './broadcast-operations';
 import { namedSeats } from './member-history-rows';
 import { outcomeOfColumns } from './round-outcome-columns';
@@ -32,11 +36,15 @@ export type ArchiveInput = {
   readonly limit: number;
 };
 
-const visibility = sql<
-  'public' | 'unlisted' | 'private'
->`coalesce(${rooms.visibility}, ${rounds.visibility}, 'private')`;
+const visibility = parsedColumn(
+  z.enum(['public', 'unlisted', 'private']),
+  sql`coalesce(${rooms.visibility}, ${rounds.visibility}, 'private')`,
+);
 
-const hasTranscript = sql<boolean>`exists (select 1 from ${roundTranscriptFreezes} where ${roundTranscriptFreezes.roundId} = ${rounds.id})`;
+const hasTranscript = parsedColumn(
+  z.boolean(),
+  sql`exists (select 1 from ${roundTranscriptFreezes} where ${roundTranscriptFreezes.roundId} = ${rounds.id})`,
+);
 
 const roundColumns = {
   id: rounds.id,
@@ -55,7 +63,7 @@ const finishedWithSomethingToFind = or(
 );
 
 /** Moderation hid the footage: its Round leaves the archive, whatever else remains. */
-const moderationHid = sql<boolean>`coalesce(${recordings.status} = 'taken_down' or ${recordings.lifecycle}->>'cause' in ('moderation', 'legal_removal'), false)`;
+const moderationHid = sql`coalesce(${recordings.status} = ${listedWord(recordingStatuses, 'taken_down')} or ${recordings.lifecycle}->>'cause' in ('moderation', 'legal_removal'), false)`;
 
 /**
  * A public Round with something the audience may have: ready video or ranked
@@ -67,7 +75,7 @@ const publicScope = (clock: SpectatorClock) =>
     sql`${visibility} = 'public'`,
     factReleasedSql(rounds.completedAt, roundColumns, clock),
     // Only an operator's stop withholds the video (ADR 0157).
-    sql`((${recordings.status} = 'ready' and not ${operatorWithheldSql(sql`${broadcasts}`)}) or (${rounds.competitionType} = 'ranked' and ${hasTranscript} and not ${moderationHid}))`,
+    sql`((${recordings.status} = ${listedWord(recordingStatuses, 'ready')} and not ${operatorWithheldSql(sql`${broadcasts}`)}) or (${rounds.competitionType} = ${listedWord(competitionTypes, 'ranked')} and ${hasTranscript} and not ${moderationHid}))`,
   );
 
 const seatedScope = (actorId: string | null) =>
@@ -85,12 +93,13 @@ const searched = (q: string): SQL | undefined => {
     select 1 from round_participants p
     join actors a on a.id = p.actor_id
     join users u on u.id = a.user_id
-    where p.round_id = ${rounds.id} and p.seat_kind <> 'judge' and u.username ilike ${like}))`;
+    where p.round_id = ${rounds.id} and p.seat_kind <> ${listedWord(seatKinds, 'judge')} and u.username ilike ${like}))`;
 };
 
-const durationMs = sql<
-  number | null
->`(${recordings.lifecycle}->'media'->>'durationMs')::int`;
+const durationMs = parsedColumn(
+  z.number().int().nullable(),
+  sql`(${recordings.lifecycle}->'media'->>'durationMs')::int`,
+);
 
 const sortKeys = {
   newest: rounds.completedAt,
@@ -155,12 +164,17 @@ export const recordingArchiveReadOperations = ({
           status: recordings.status,
           durationMs,
           hasTranscript,
-          horizon: sql<
-            Date | string | null
-          >`${spectatorHorizonSql(roundColumns, input.clock)}`,
-          stopped: sql<boolean>`${broadcasts.stoppedAt} is not null`,
-          mediaWithheld: operatorWithheldSql(sql`${broadcasts}`).mapWith(
-            Boolean,
+          horizonMs: parsedColumn(
+            postgresInstantMs.nullable(),
+            sql`${spectatorHorizonSql(roundColumns, input.clock)}`,
+          ),
+          stopped: parsedColumn(
+            z.boolean(),
+            sql`${broadcasts.stoppedAt} is not null`,
+          ),
+          mediaWithheld: parsedColumn(
+            z.boolean(),
+            operatorWithheldSql(sql`${broadcasts}`),
           ),
         })
         .from(rounds)
@@ -232,8 +246,7 @@ export const recordingArchiveReadOperations = ({
             .filter((seat) => !isJudgeSeat(seat.seat))
             .map((seat) => ({ seat: seat.seat, label: seat.label })),
           release: {
-            releasedThroughMs:
-              row.horizon === null ? null : new Date(row.horizon).getTime(),
+            releasedThroughMs: row.horizonMs,
             stop: broadcastStopOf(row.stopped === true, row.mediaWithheld),
           },
         })),
@@ -243,7 +256,7 @@ export const recordingArchiveReadOperations = ({
 
   async countPublicRecordingArchive(input: { readonly clock: SpectatorClock }) {
     const [row] = await database
-      .select({ count: sql<number>`count(*)::int` })
+      .select({ count: parsedColumn(z.number().int(), sql`count(*)::int`) })
       .from(rounds)
       .leftJoin(rooms, eq(rooms.id, rounds.roomId))
       .leftJoin(recordings, eq(recordings.roundId, rounds.id))

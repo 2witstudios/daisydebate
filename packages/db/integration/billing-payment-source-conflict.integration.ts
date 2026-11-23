@@ -1,3 +1,4 @@
+import { hostWaits } from '@daisy/worker/host';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { requireTestServices } from '@daisy/config';
 import { createId } from '@paralleldrive/cuid2';
@@ -22,6 +23,7 @@ for (const variant of ['verified', 'chronology'] as const) {
       const { fixture, pool, subject, cleanup, instanceId, renew } = input;
       const read = await fullRead(input);
       const database = createDatabase({
+        waits: hostWaits,
         url: process.env.TEST_DATABASE_URL!,
         client: pool,
         nextActorId: createId,

@@ -1,3 +1,7 @@
+import { ballotDecisions } from './schema/ballots';
+import { roundStatuses } from '@daisy/protocol/round';
+import { roomVisibilities } from '@daisy/protocol/room-contract';
+import { resolutionStrikeKinds } from './schema/resolution-draws';
 import { sql } from 'drizzle-orm';
 import type { PrivacyAdopter } from './privacy/contracts';
 import { query } from './raw-rows';
@@ -65,7 +69,7 @@ export const competitiveRecordPrivacyAdopter: PrivacyAdopter = {
         position: z.int(),
         draw_size: z.int(),
         side: z.string(),
-        kind: z.string(),
+        kind: z.enum(resolutionStrikeKinds),
         actor_id: z.string().nullable(),
         command_id: z.string().nullable(),
         struck_at: z.string(),
@@ -146,10 +150,10 @@ export const competitiveRecordPrivacyAdopter: PrivacyAdopter = {
       z.object({
         id: z.string(),
         room_id: z.string().nullable(),
-        visibility: z.string().nullable(),
+        visibility: z.enum(roomVisibilities).nullable(),
         resolution: z.string().nullable(),
         competition_type: z.string(),
-        status: z.string(),
+        status: z.enum(roundStatuses),
         winning_side: z.string().nullable(),
         ranking: z.json().nullable(),
         ladder_id: z.string().nullable(),
@@ -174,7 +178,7 @@ export const competitiveRecordPrivacyAdopter: PrivacyAdopter = {
         id: z.string(),
         round_id: z.string(),
         rubric_version: z.string(),
-        decision: z.string(),
+        decision: z.enum(ballotDecisions),
         winner: z.string().nullable(),
         ranking: z.json().nullable(),
         scores: z.json().nullable(),

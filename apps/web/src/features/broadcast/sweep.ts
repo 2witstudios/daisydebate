@@ -1,3 +1,4 @@
+import { type LoopPass } from '@daisy/worker';
 import {
   createRoundRuntime,
   plannedBroadcast,
@@ -12,7 +13,6 @@ import { createSweepPass } from '../../lib/sweep-pass';
 import { reconcileFacts } from './reconcile-facts';
 import { releaseOverdue } from './release-lag';
 import { reconcileStep, type ReconcilePorts } from './reconcile-step';
-import type { LoopPass } from '../../lib/idle-backoff';
 
 type Database = ReturnType<typeof createDatabase>;
 type Store = Database['broadcasts'];

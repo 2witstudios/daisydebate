@@ -1,3 +1,4 @@
+import { deadlineSignal, type Waits } from '@daisy/clock';
 import { S3Client } from 'bun';
 
 /** A stalled store must not hold every later publish: passes run each second. */
@@ -10,8 +11,18 @@ export const createPublicObjects = (config: {
   readonly key: string;
   readonly secret: string;
   readonly timeoutMs?: number;
+  readonly waits: Waits;
 }) => {
   const timeoutMs = config.timeoutMs ?? PUBLIC_OBJECT_TIMEOUT_MS;
+  /** One request under the object timeout; its wait is cleared once it answers. */
+  const bounded = async (url: string, init: RequestInit = {}) => {
+    const deadline = deadlineSignal(config.waits, timeoutMs);
+    try {
+      return await fetch(url, { ...init, signal: deadline.signal });
+    } finally {
+      deadline.clear();
+    }
+  };
   const bucket = new S3Client({
     endpoint: config.endpoint,
     bucket: config.bucket,
@@ -25,30 +36,24 @@ export const createPublicObjects = (config: {
       body: string,
       headers: Readonly<Record<string, string>>,
     ) => {
-      const response = await fetch(
+      const response = await bounded(
         bucket.presign(key, { method: 'PUT', expiresIn: 60 }),
-        {
-          method: 'PUT',
-          body,
-          headers,
-          signal: AbortSignal.timeout(timeoutMs),
-        },
+        { method: 'PUT', body, headers },
       );
       if (!response.ok) throw new Error(`public put ${response.status}`);
     },
     readState: async (key: string) => {
-      const response = await fetch(
+      const response = await bounded(
         bucket.presign(key, { method: 'GET', expiresIn: 60 }),
-        { signal: AbortSignal.timeout(timeoutMs) },
       );
       if (response.status === 404) return null;
       if (!response.ok) throw new Error(`public get ${response.status}`);
       return response.text();
     },
     deletePublic: async (key: string) => {
-      const response = await fetch(
+      const response = await bounded(
         bucket.presign(key, { method: 'DELETE', expiresIn: 60 }),
-        { method: 'DELETE', signal: AbortSignal.timeout(timeoutMs) },
+        { method: 'DELETE' },
       );
       if (!response.ok) throw new Error(`public delete ${response.status}`);
     },

@@ -8,9 +8,12 @@ import {
   type PersonBlockState,
 } from '../../../features/contacts/block-form';
 import { processRoute } from '../../../server/process-app';
+import { contactComposition } from '../../../features/contacts/composition';
 import { post, text } from '../form-post';
 
-const routes = { block: processRoute((all) => all.contacts.blockByUsername) };
+const routes = {
+  block: processRoute(contactComposition, (all) => all.blockByUsername),
+};
 
 /** Blocks a member, through Contacts' own route. */
 export async function blockAction(

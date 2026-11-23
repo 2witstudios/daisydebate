@@ -1,4 +1,5 @@
-import { sha3Hex } from '@daisy/digest';
+import { hostWaits } from '@daisy/worker/host';
+import { hmacSha256Base64, sha3Hex } from '@daisy/digest';
 import { SQL } from 'bun';
 import { systemId } from '@daisy/clock';
 import { createDatabase } from '@daisy/db';
@@ -12,7 +13,11 @@ export async function createStagingAttendanceMember(input: {
 }) {
   const nextId = () => systemId.next();
   const userId = nextId();
-  const database = createDatabase({ url: input.url, nextActorId: nextId });
+  const database = createDatabase({
+    waits: hostWaits,
+    url: input.url,
+    nextActorId: nextId,
+  });
   try {
     await input.sql`insert into users (id,email,email_verified) values (${userId},${`attendance-${userId}@example.test`},true)`;
     await database.recordAgeStep({
@@ -63,16 +68,7 @@ export async function createStagingAttendanceMember(input: {
       crypto.getRandomValues(new Uint8Array(32)),
     ).toString('base64url');
     await input.sql`insert into session (id,user_id,token,expires_at) values (${sessionId},${userId},${token},now()+interval '7 days')`;
-    const key = await crypto.subtle.importKey(
-      'raw',
-      new TextEncoder().encode(input.secret),
-      { name: 'HMAC', hash: 'SHA-256' },
-      false,
-      ['sign'],
-    );
-    const signature = Buffer.from(
-      await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(token)),
-    ).toString('base64');
+    const signature = hmacSha256Base64(input.secret, token);
     return {
       userId,
       sessionId,

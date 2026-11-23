@@ -1,13 +1,18 @@
+import { sha256Hex } from '@daisy/digest';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { boundedStep } from '../e2e/support/bounded-step';
 import { observeRecoveryConsumer } from '../e2e/support/messaging-recovery-consumer';
 setupRitewayBun();
 
+const digestOf = async (bytes: Uint8Array) => sha256Hex(bytes);
+
 test('the actual consumer reader retains its read promise and reports successful EOF separately', async () => {
   const response = new Response('controlled bytes');
   const seen: ReturnType<typeof observeRecoveryConsumer>[] = [];
-  const state = observeRecoveryConsumer(response, () =>
-    seen.push({ ...state }),
+  const state = observeRecoveryConsumer(
+    response,
+    () => seen.push({ ...state }),
+    digestOf,
   );
   const reader = response.body!.getReader();
   const first = await reader.read();
@@ -35,7 +40,7 @@ test('the actual consumer reader retains its read promise and reports successful
 
 test('an explicit reader cancellation is distinct from an upstream read rejection', async () => {
   const cancelResponse = new Response(new ReadableStream());
-  const cancelled = observeRecoveryConsumer(cancelResponse, () => {});
+  const cancelled = observeRecoveryConsumer(cancelResponse, () => {}, digestOf);
   await cancelResponse.body!.getReader().cancel();
   const failure = new Error('controlled transport rejection');
   const failedResponse = new Response(
@@ -45,7 +50,7 @@ test('an explicit reader cancellation is distinct from an upstream read rejectio
       },
     }),
   );
-  const failed = observeRecoveryConsumer(failedResponse, () => {});
+  const failed = observeRecoveryConsumer(failedResponse, () => {}, digestOf);
   const sameFailure = await failedResponse
     .body!.getReader()
     .read()
@@ -88,7 +93,7 @@ test('observation returns the original reader promise and never initiates a read
   const response = {
     body: { getReader: () => reader, cancel: () => Promise.resolve() },
   } as unknown as Response;
-  const state = observeRecoveryConsumer(response, () => {});
+  const state = observeRecoveryConsumer(response, () => {}, digestOf);
   const before = reads;
   const actualReader = response.body!.getReader();
   const returned = actualReader.read();
@@ -113,10 +118,15 @@ test('the serialized page witness preserves fetch identity and excludes speculat
   const { watchRecoveryConsumer } =
     await import('../e2e/support/messaging-recovery-consumer');
   let binding: (id: string, value: Record<string, unknown>) => void = () => {};
+  let digestBinding: (base64: string) => Promise<string> = async () => '';
   let script = '';
   const page = {
-    exposeFunction: async (_name: string, callback: typeof binding) => {
-      binding = callback;
+    exposeFunction: async (
+      name: string,
+      callback: typeof binding & typeof digestBinding,
+    ) => {
+      if (name === '__messagingRecoveryDigest') digestBinding = callback;
+      else binding = callback;
     },
     addInitScript: async ({ content }: { content: string }) => {
       script = content;
@@ -133,6 +143,7 @@ test('the serialized page witness preserves fetch identity and excludes speculat
   const digestReady = Promise.withResolvers<void>();
   const browser = {
     fetch: () => promised,
+    __messagingRecoveryDigest: (base64: string) => digestBinding(base64),
     __messagingRecoveryConsumer: async (
       id: string,
       value: Record<string, unknown>,
@@ -215,10 +226,15 @@ test('the same passive witness observes only the accepted Home GET consumer', as
   const { watchRecoveryConsumer } =
     await import('../e2e/support/messaging-recovery-consumer');
   let binding: (id: string, value: Record<string, boolean>) => void = () => {};
+  let digestBinding: (base64: string) => Promise<string> = async () => '';
   let script = '';
   const page = {
-    exposeFunction: async (_name: string, callback: typeof binding) => {
-      binding = callback;
+    exposeFunction: async (
+      name: string,
+      callback: typeof binding & typeof digestBinding,
+    ) => {
+      if (name === '__messagingRecoveryDigest') digestBinding = callback;
+      else binding = callback;
     },
     addInitScript: async ({ content }: { content: string }) => {
       script = content;
@@ -231,6 +247,7 @@ test('the same passive witness observes only the accepted Home GET consumer', as
   const original = Promise.resolve(response);
   const browser = {
     fetch: () => original,
+    __messagingRecoveryDigest: (base64: string) => digestBinding(base64),
     __messagingRecoveryConsumer: async (
       id: string,
       value: Record<string, boolean>,
@@ -283,9 +300,7 @@ test('the same passive witness observes only the accepted Home GET consumer', as
 
 test('consumed bytes identify the exact response independently of network termination', async () => {
   const bytes = new TextEncoder().encode('actual Flight 🌼\nrequest-identity');
-  const digest = Buffer.from(
-    await crypto.subtle.digest('SHA-256', bytes),
-  ).toString('hex');
+  const digest = sha256Hex(bytes);
   const consume = async (parts: Uint8Array[]) => {
     const response = new Response(
       new ReadableStream({
@@ -296,10 +311,14 @@ test('consumed bytes identify the exact response independently of network termin
       }),
     );
     const digestReady = Promise.withResolvers<void>();
-    const state = observeRecoveryConsumer(response, () => {
-      if (state.bodyDigest !== null || state.digestFailed)
-        digestReady.resolve();
-    });
+    const state = observeRecoveryConsumer(
+      response,
+      () => {
+        if (state.bodyDigest !== null || state.digestFailed)
+          digestReady.resolve();
+      },
+      digestOf,
+    );
     const reader = response.body!.getReader();
     while (!(await reader.read()).done) {
       /* the real consumer owns reads */

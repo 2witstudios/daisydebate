@@ -1,3 +1,4 @@
+import { hostWaits } from '@daisy/worker/host';
 import { requireTestServices } from '@daisy/config';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createId } from '@paralleldrive/cuid2';
@@ -6,6 +7,8 @@ import { createAccountFlows, uniqueName } from './auth-account-helpers';
 import { withAttendanceRound } from './attendance.test-support';
 import { createPublicCheckInProbe } from '../src/features/availability/public-probe';
 import { verifyAvailabilityLeaseCadence } from './availability-lease.test-support';
+import { attendanceComposition } from '../src/features/attendance/composition';
+import { authComposition } from '../src/features/auth/composition';
 setupRitewayBun();
 requireTestServices(process.env);
 
@@ -46,7 +49,7 @@ test('real public ingress probe uses ordinary signed session, scoped seat and du
   try {
     await withAttendanceRound(async ({ f, roundId, segmentId }) => {
       try {
-        const mounted = app.routes.attendance;
+        const mounted = app.routes(attendanceComposition);
         handler = (request) => {
           const { pathname } = new URL(request.url);
           if (
@@ -56,7 +59,7 @@ test('real public ingress probe uses ordinary signed session, scoped seat and du
             return mounted.checkIn(request, roundId);
           // The probe's hourly session read reaches the real auth route.
           if (pathname.startsWith('/api/auth/') && request.method === 'GET')
-            return app.routes.auth.GET(request);
+            return app.routes(authComposition).GET(request);
           return Promise.resolve(new Response('Not found', { status: 404 }));
         };
         const participant = (await f.store.getRound(
@@ -71,7 +74,7 @@ test('real public ingress probe uses ordinary signed session, scoped seat and du
             cookie: signed.cookie,
           },
           nextId: createId,
-          nowMs: () => performance.now(),
+          waits: hostWaits,
           fetch,
         });
         const healthy = [await probe(), await probe()];
@@ -126,7 +129,7 @@ test('real public ingress probe uses ordinary signed session, scoped seat and du
             cookie: signed.cookie,
           },
           nextId: createId,
-          nowMs: () => performance.now(),
+          waits: hostWaits,
           fetch: (url, init) => {
             const response = fetch(url, init);
             if (url.endsWith('/api/auth/get-session')) sessionRead = response;

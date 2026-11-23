@@ -1,3 +1,4 @@
+import { defineComposition } from '../../server/composition';
 import { captureAdmissionPolicy } from './capture-policy';
 import { nowMs } from '@daisy/clock';
 import { captureRule } from '@daisy/debate-engine';
@@ -13,11 +14,11 @@ import { CAPTURE_STT_LAG_MS } from '@daisy/protocol/capture-timing';
 
 type Capture = ReturnType<App['database']['createMediaCaptureOperations']>;
 /** Inert without configuration; the shared router mounts only this authenticated handler. */
-export function composeMediaCaptureRoutes(app: App) {
+function composeMediaCaptureRoutes(app: App) {
   let capture: Capture | undefined;
   let authentication:
     ReturnType<typeof createMediaWorkerAuthentication> | undefined;
-  const media = createRoundMediaRuntime(app);
+  const media = createRoundMediaRuntime(app, app.waits);
   const operations = () =>
     (capture ??= app.database.createMediaCaptureOperations({
       admission: captureAdmissionPolicy,
@@ -63,3 +64,9 @@ export function composeMediaCaptureRoutes(app: App) {
     }),
   });
 }
+
+/** media-capture: its route files bind here (`processRoute`). */
+export const mediaCaptureComposition = defineComposition(
+  'media-capture',
+  (app) => composeMediaCaptureRoutes(app),
+);

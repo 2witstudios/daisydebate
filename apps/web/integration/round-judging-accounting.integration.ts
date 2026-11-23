@@ -1,3 +1,4 @@
+import { hostWaits } from '@daisy/worker/host';
 import { judgingProgression } from '../src/features/round-judging/progression';
 import { canUseAiAllowance } from '@daisy/auth/authorization';
 import { atFinalJudgingStage } from '@daisy/db/testing';
@@ -56,6 +57,7 @@ for (const mode of ['terminal', 'invalid-ballot', 'http-error'] as const)
         });
         const voice = createOpenRouter({
           apiKey: 'noncredential-loopback-fixture',
+          waits: hostWaits,
           fetch: (_url, init) =>
             fetch(server.url, {
               ...init,

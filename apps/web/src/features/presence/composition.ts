@@ -1,10 +1,11 @@
+import { defineComposition } from '../../server/composition';
 import { nowMs } from '@daisy/clock';
 import type { AuthorizationPrincipal } from '@daisy/auth/authorization';
 import { requireAuthorization } from '@daisy/auth/request-authorization';
 import type { OwnCollectionFence } from '@daisy/db/authorization';
 import type { App } from '../../server/app';
 import { consumeOrThrow } from '../../server/rate-limit';
-import { memberHttpBoundary } from '../../server/member-boundary';
+import { memberHttpBoundary } from '../auth/member-boundary';
 import { createPresenceHandlers } from './handlers';
 import { ONLINE_LEASES_MAX } from '@daisy/db/presence-people-list';
 import { readPeopleList } from './people-list';
@@ -45,7 +46,7 @@ const ownList =
       context: { account },
     });
 
-export function composePresenceRoutes(app: App) {
+function composePresenceRoutes(app: App) {
   const onlineActorIds = cachedScan(
     () => app.redis.readOnlineActorIds(ONLINE_LEASES_MAX),
     () => nowMs(app.clock),
@@ -96,3 +97,8 @@ export function composePresenceRoutes(app: App) {
       }),
   });
 }
+
+/** presence: its route files bind here (`processRoute`). */
+export const presenceComposition = defineComposition('presence', (app) =>
+  composePresenceRoutes(app),
+);

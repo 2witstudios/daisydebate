@@ -1,3 +1,4 @@
+import { hostWaits } from '@daisy/worker/host';
 import { SQL } from 'bun';
 import { createId } from '@paralleldrive/cuid2';
 import {
@@ -37,12 +38,17 @@ export function withBillingPurchases(
   return withFlags(async (flags) => {
     const pool = new SQL(databaseUrl, { max: 6 });
     const run = createBoundedTransaction({
-      lane: createLane('control', pool, {
-        connections: 6,
-        queue: 64,
-        maxWaitMs: 1000,
-      }),
-      now: performance.now,
+      lane: createLane(
+        'control',
+        pool,
+        {
+          connections: 6,
+          queue: 64,
+          maxWaitMs: 1000,
+        },
+        { waits: hostWaits },
+      ),
+      waits: hostWaits,
     });
     await admitParticipants(flags.fixture.sql, [flags.userId]);
     await flags.fixture

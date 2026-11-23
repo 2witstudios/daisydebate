@@ -1,5 +1,5 @@
 import { notFound } from 'next/navigation';
-import { requestIdentity } from '../../lib/request-session';
+import { requestIdentity } from '../../lib/page-reads';
 import { isReleaseEnabled } from '../flags/server';
 
 /** Whether Daisy Tab's screens are released to this request's viewer. */

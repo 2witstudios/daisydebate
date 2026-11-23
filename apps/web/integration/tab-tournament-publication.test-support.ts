@@ -5,7 +5,7 @@ import { createId } from '@paralleldrive/cuid2';
 import { assert } from 'riteway/bun';
 import { drawFormEnvelope } from '../src/features/tab/draw-form';
 import { readHostRound } from '../src/features/tab/reads/host-round';
-import { origin } from '../src/server/member-boundary.test-support';
+import { origin } from '../src/features/auth/member-boundary.test-support';
 import {
   acceptedDrawResponse,
   drawHttp,

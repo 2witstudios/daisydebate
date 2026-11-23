@@ -6,7 +6,6 @@ import {
   phonePanels,
   type PhonePanel,
 } from '../../features/debate-room/workspace';
-import { cn } from '../cn';
 import { Icon } from '../components/icon/icon';
 import type { IconName } from '../components/icon/icons';
 import { phonePanelOf, type RoomAction, type RoomState } from './room-state';
@@ -57,16 +56,12 @@ export function RoundTabs({
         const dot = panel === 'channels' && !current && unread > 0;
         return (
           <Button
-            variant="unstyled"
+            variant="nav-tab"
             key={panel}
             type="button"
             aria-current={current ? 'page' : undefined}
             aria-label={dot ? `${name}, ${unread} unread` : undefined}
             onClick={() => dispatch({ type: 'phone/panel', panel })}
-            className={cn(
-              'relative flex h-12 cursor-pointer flex-col items-center justify-center gap-px text-xs',
-              current ? 'font-strong text-accent' : 'text-ink-muted',
-            )}
           >
             <Icon name={icon} size={20} />
             {name}

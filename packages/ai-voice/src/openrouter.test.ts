@@ -32,7 +32,11 @@ describe('complete', () => {
         ],
       }),
     );
-    const result = await createOpenRouter({ apiKey: 'k', fetch }).complete({
+    const result = await createOpenRouter({
+      apiKey: 'k',
+      fetch,
+      waits: virtualClock(),
+    }).complete({
       model: 'm',
       messages: [],
       maxTokens: 1,
@@ -66,6 +70,7 @@ describe('complete', () => {
   test('reduces finish reasons and refusals to closed facts', async () => {
     const read = async (choice: unknown) =>
       createOpenRouter({
+        waits: virtualClock(),
         apiKey: 'k',
         fetch: async () => Response.json({ choices: [choice] }),
       }).complete({ model: 'm', messages: [], maxTokens: 1 });
@@ -97,7 +102,11 @@ describe('complete', () => {
         usage: { prompt_tokens: 12, completion_tokens: 4 },
       }),
     );
-    const client = createOpenRouter({ apiKey: 'key-1', fetch });
+    const client = createOpenRouter({
+      apiKey: 'key-1',
+      fetch,
+      waits: virtualClock(),
+    });
     const result = await client.complete({
       model: 'openai/gpt-6-luna',
       messages: [{ role: 'user', content: 'Hi' }],
@@ -157,7 +166,7 @@ describe('complete', () => {
         apiKey: 'k',
         fetch: own.fetch,
         timeoutMs: 5,
-        sleep: clock.sleep,
+        waits: clock,
       }).complete({ model: 'm', messages: [], maxTokens: 1, timeoutMs: 5000 }),
     );
     const fallback = waiting(40);
@@ -166,7 +175,7 @@ describe('complete', () => {
         apiKey: 'k',
         fetch: fallback.fetch,
         timeoutMs: 5,
-        sleep: clock.sleep,
+        waits: clock,
       }).complete({ model: 'm', messages: [], maxTokens: 1 }),
     );
     assert({
@@ -183,7 +192,11 @@ describe('complete', () => {
     const { fetch } = recording(
       () => new Response('secret provider detail', { status: 502 }),
     );
-    const client = createOpenRouter({ apiKey: 'k', fetch });
+    const client = createOpenRouter({
+      apiKey: 'k',
+      fetch,
+      waits: virtualClock(),
+    });
     await assertRejects({
       given: 'a 502 from OpenRouter',
       should: 'refuse with INFRASTRUCTURE',
@@ -198,7 +211,11 @@ describe('reasoning', () => {
     const { calls, fetch } = recording(() =>
       Response.json({ choices: [{ message: { content: 'Ok.' } }] }),
     );
-    const client = createOpenRouter({ apiKey: 'k', fetch });
+    const client = createOpenRouter({
+      apiKey: 'k',
+      fetch,
+      waits: virtualClock(),
+    });
     await client.complete({
       model: 'm',
       messages: [],
@@ -219,7 +236,11 @@ describe('transcribe', () => {
     const { calls, fetch } = recording(() =>
       Response.json({ text: ' I affirm. ' }),
     );
-    const client = createOpenRouter({ apiKey: 'k', fetch });
+    const client = createOpenRouter({
+      apiKey: 'k',
+      fetch,
+      waits: virtualClock(),
+    });
     const result = await client.transcribe({
       model: 'openai/whisper-large-v3-turbo',
       audioBase64: 'AAAA',
@@ -262,6 +283,7 @@ describe('unreadable answers', () => {
 
   test('every unreadable answer is an infrastructure error', async () => {
     const malformed = createOpenRouter({
+      waits: virtualClock(),
       apiKey: 'k',
       fetch: async () => new Response('not json', { status: 200 }),
     });
@@ -277,6 +299,7 @@ describe('unreadable answers', () => {
       code: 'INFRASTRUCTURE',
     });
     const dropped = createOpenRouter({
+      waits: virtualClock(),
       apiKey: 'k',
       fetch: async () => failingBody(),
     });

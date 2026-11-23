@@ -1,3 +1,4 @@
+import { hostWaits } from '@daisy/worker/host';
 import { nowMs } from '@daisy/clock';
 import { asc } from 'drizzle-orm';
 import {
@@ -13,7 +14,6 @@ import {
   createOperatorClient,
   type OperatorFetch,
 } from '../src/features/operator-client/client';
-import { bunOperatorCrypto } from '../src/features/operator-client/bun-crypto';
 import { auditEvents, operators, pendingCommands } from '../src/db/schema';
 import { testDeps, type suiteDatabase } from './admin.test-support';
 
@@ -59,8 +59,8 @@ export async function setupCommands(
   });
   const client = createOperatorClient({
     config: { baseUrl: 'http://operator.test', keyId, key, audience },
-    crypto: bunOperatorCrypto,
     clock: base.clock,
+    waits: hostWaits,
     random: systemRandom,
     fetch: wrapFetch(async (url, init) => {
       if (init.body) await observe(JSON.parse(String(init.body)));

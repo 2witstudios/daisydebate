@@ -26,9 +26,6 @@ const miniClass: Readonly<Record<PeopleRailPreference, string>> = {
   auto: 'people-mini-auto',
 };
 
-const tab =
-  'inline-flex min-h-10 items-center gap-2 rounded-sm px-3 text-sm font-semibold text-ink-muted hover:bg-surface-overlay hover:text-ink aria-pressed:bg-accent-soft aria-pressed:text-ink';
-
 /** The list's search and tabs, shared with the phone's view. */
 function PeopleControls() {
   const { query, setQuery, filter, setFilter, list } = usePeople();
@@ -46,11 +43,10 @@ function PeopleControls() {
       </label>
       <div role="group" aria-label="Show" className="flex gap-1">
         <Button
-          variant="unstyled"
+          variant="filter"
           type="button"
           aria-pressed={filter === 'all'}
           onClick={() => setFilter('all')}
-          className={tab}
         >
           All
           <span className="font-book text-ink-faint tabular-nums">
@@ -58,11 +54,10 @@ function PeopleControls() {
           </span>
         </Button>
         <Button
-          variant="unstyled"
+          variant="filter"
           type="button"
           aria-pressed={filter === 'friends'}
           onClick={() => setFilter('friends')}
-          className={tab}
         >
           Friends
           <span className="font-book text-ink-faint tabular-nums">
@@ -87,11 +82,11 @@ function RailToggle({
     <form action={action}>
       <input type="hidden" name="rail" value={to} />
       <Button
-        variant="unstyled"
+        variant="icon"
         type="submit"
         aria-label={label}
         title={label}
-        className="flex size-nav-target items-center justify-center rounded-sm text-ink-muted hover:bg-surface-overlay hover:text-ink"
+        size="nav"
       >
         <Icon name="panelRight" size={20} />
       </Button>
@@ -169,7 +164,7 @@ export function PeopleRail({
                 <hr className="mx-auto my-1 w-8 border-border" />
               ) : null}
               <Button
-                variant="unstyled"
+                variant="icon"
                 {...overlay.rowProps(member.username)}
                 type="button"
                 onClick={(event) =>
@@ -177,10 +172,8 @@ export function PeopleRail({
                 }
                 aria-haspopup="dialog"
                 aria-label={`${publicNameLabel(member)}, ${statusLabels[member.status]}, ${ratingsLabel(member)}`}
-                className={cn(
-                  'flex size-nav-target items-center justify-center rounded-md hover:bg-surface-overlay',
-                  overlay.menuName === member.username && 'bg-surface-overlay',
-                )}
+                size="nav"
+                aria-expanded={overlay.menuName === member.username}
               >
                 <Avatar
                   name={member.displayName ?? member.username}

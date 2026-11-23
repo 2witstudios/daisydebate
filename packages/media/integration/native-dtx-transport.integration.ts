@@ -1,3 +1,4 @@
+import { hostWaits } from '@daisy/worker/host';
 import { dispose } from '@livekit/rtc-node';
 import { afterAll } from 'bun:test';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
@@ -43,7 +44,7 @@ test('actual DTX-requested zero source continues capture callbacks with sparse p
         capture: true,
       }),
       identities: [source.identity],
-      nowMs: () => performance.now(),
+      waits: hostWaits,
       onTrackStarted: (value) => {
         binding = {
           incarnation: value.incarnation,

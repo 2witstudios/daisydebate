@@ -6,5 +6,5 @@ import { sql, type SQL } from 'drizzle-orm';
  * "is the video withheld" asks this. `broadcast` is the Broadcast row's alias
  * or table in the caller's query.
  */
-export const operatorWithheldSql = (broadcast: SQL): SQL<boolean> =>
-  sql<boolean>`coalesce(${broadcast}.media_withheld, false)`;
+export const operatorWithheldSql = (broadcast: SQL): SQL =>
+  sql`coalesce(${broadcast}.media_withheld, false)`;

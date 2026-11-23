@@ -1,3 +1,4 @@
+import { listedWord } from '../lifecycle-sql';
 import {
   membershipStatuses,
   organizationKinds,
@@ -98,13 +99,13 @@ export const memberships = pgTable(
     check(
       'memberships_joined_once_accepted',
       sql`case ${table.status}
-        when 'active' then ${table.joinedAt} is not null
-        when 'ended' then true
+        when ${listedWord(membershipStatuses, 'active')} then ${table.joinedAt} is not null
+        when ${listedWord(membershipStatuses, 'ended')} then true
         else ${table.joinedAt} is null end`,
     ),
     check(
       'memberships_ended_consistent',
-      sql`(${table.status} = 'ended') = (${table.endedAt} is not null)`,
+      sql`(${table.status} = ${listedWord(membershipStatuses, 'ended')}) = (${table.endedAt} is not null)`,
     ),
     versionPositive('memberships', table.version),
   ],

@@ -1,3 +1,4 @@
+import { virtualClock } from '@daisy/clock/testing';
 import { createResendSender } from './resend-sender';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { instantMs, fixedClock } from '@daisy/clock';
@@ -132,6 +133,7 @@ test('an invitation deadline is checked after a delayed suppression lookup', asy
       record: async () => {},
     },
     emailSender: createResendSender({
+      waits: virtualClock(),
       apiKey: 'test',
       from: 'test@example.test',
       ids: { next: () => 'intent' },

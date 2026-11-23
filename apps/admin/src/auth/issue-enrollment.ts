@@ -1,6 +1,6 @@
 import type { Clock, IdGenerator } from '@daisy/clock';
 import { appendAudit } from '../audit/store';
-import type { AdminDatabase } from '../db/client';
+import { inTransaction, type AdminTxSource } from '../db/tx';
 import { operatorEnrollments, operators } from '../db/schema';
 import { isUniqueViolation } from './attempts';
 import { enrollmentExpiry } from './lifetimes';
@@ -25,7 +25,7 @@ const ownerExists =
 class Refused extends Error {}
 
 async function operatorFor(
-  tx: Parameters<Parameters<AdminDatabase['transaction']>[0]>[0],
+  tx: Parameters<Parameters<AdminTxSource['transaction']>[0]>[0],
   input: { readonly name: string; readonly mode: EnrollmentMode },
   deps: { readonly ids: IdGenerator; readonly now: string },
 ): Promise<string> {
@@ -47,7 +47,7 @@ async function operatorFor(
 
 export async function issueEnrollment(
   deps: {
-    readonly db: AdminDatabase;
+    readonly db: AdminTxSource;
     readonly clock: Clock;
     readonly ids: IdGenerator;
     readonly random: RandomBytes;
@@ -58,7 +58,7 @@ export async function issueEnrollment(
   const now = deps.clock.now();
   const token = mintSecret(deps.random);
   try {
-    await deps.db.transaction(async (tx) => {
+    await inTransaction(deps.db, async (tx) => {
       const operatorId = await operatorFor(tx, input, { ids: deps.ids, now });
       await revokeOpenEnrollments(tx, operatorId, now);
       await tx.insert(operatorEnrollments).values({

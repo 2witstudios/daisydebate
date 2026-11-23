@@ -4,7 +4,7 @@ import { parseValidated, readJson } from '../../server/http';
 import {
   runMemberRoute,
   type BudgetedMemberBoundary,
-} from '../../server/member-boundary';
+} from '../auth/member-boundary';
 import { isMediaDeferred, type createRoundMediaOperations } from './operations';
 
 type Operations = Pick<

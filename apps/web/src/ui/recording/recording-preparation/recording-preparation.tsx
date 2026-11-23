@@ -1,4 +1,4 @@
-import { StatusRegion } from '../../components/status-region/status-region';
+import { Announcement } from '../../components/announcement/announcement';
 import { assertNever } from '@daisy/protocol/assert-never';
 import {
   recordingBuildSteps,
@@ -54,12 +54,12 @@ export function RecordingPreparationStatus({
       aria-label="Recording preparation"
       className="flex flex-col gap-1 text-sm"
     >
-      <StatusRegion as="p" role="status">
+      <Announcement as="p" kind="progress">
         {progress
           ? `Step ${recordingBuildSteps.indexOf(progress.step) + 1} of ${recordingBuildSteps.length}. `
           : null}
         {preparationCopy(preparation ?? null)}
-      </StatusRegion>
+      </Announcement>
       {progress && progress.total > 0 ? (
         <progress
           value={progress.done}

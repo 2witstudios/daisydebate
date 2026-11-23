@@ -2,14 +2,15 @@
 
 import { headers } from 'next/headers';
 import { inProcessFetch } from '../../../../../server/in-process-fetch';
-import { moveOn } from '../../../../../server/form-action';
+import { moveOn } from '../../../../../features/forms/form-action';
 import { processRoute } from '../../../../../server/process-app';
+import { messagingComposition } from '../../../../../features/messaging/composition';
 import {
   retainedDeleteRefused,
   type RetainedDeleteState,
 } from '../../../../../features/messaging/forms/retained-delete-form';
 
-const remove = processRoute((all) => all.messaging.retained.remove);
+const remove = processRoute(messagingComposition, (all) => all.retained.remove);
 
 /** Deletes the survivor's retained conversation, then returns to Messages. */
 export async function deleteRetainedAction(

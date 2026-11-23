@@ -1,3 +1,5 @@
+import { hostWaits } from '@daisy/worker/host';
+import { virtualClock } from '@daisy/clock/testing';
 import { requireTestServices } from '@daisy/config';
 import { createOpenRouter } from '@daisy/ai-voice';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
@@ -17,6 +19,7 @@ test('actual generation caller refuses opponent speech without dispatch or trans
       voice: () =>
         createOpenRouter({
           apiKey: 'unused-test-capability',
+          waits: hostWaits,
           fetch: async () => {
             calls++;
             throw Error('must not dispatch');
@@ -24,8 +27,8 @@ test('actual generation caller refuses opponent speech without dispatch or trans
         }),
       withProvider: createProviderBudget(1),
       nowMs: () => Date.now(),
-      pause: async () => undefined,
-      timer: { setTimeout: () => null, clearTimeout: () => undefined },
+      // Time that never moves: generation refuses before any wait.
+      waits: virtualClock(),
       stallMs: 1000,
       maxTokens: 1000,
       reasoning: 'none',

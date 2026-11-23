@@ -1,4 +1,4 @@
-import { tryInstantMs } from '@daisy/clock';
+import { tryInstantMs } from '@daisy/clock/instant';
 import type { BetaAccessState } from '@daisy/protocol/beta-access';
 import type { Principal } from './index';
 import { ageAdmitted, participantAccess } from './authorization';

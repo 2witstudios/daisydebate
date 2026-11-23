@@ -1,3 +1,4 @@
+import { hostWaits } from '@daisy/worker/host';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { requireTestServices } from '@daisy/config';
 import { createId } from '@paralleldrive/cuid2';
@@ -65,7 +66,7 @@ test(
             candidate,
             fixture.sql,
             Number(backendA!.pid),
-            { now: performance.now, deadlineMs: 400 },
+            { waits: hostWaits, deadlineMs: 400 },
           );
           if (firstWait !== 'blocked')
             throw Error(
@@ -102,7 +103,7 @@ test(
             candidate,
             fixture.sql,
             Number(backendB!.pid),
-            { now: performance.now, deadlineMs: 400 },
+            { waits: hostWaits, deadlineMs: 400 },
           );
           await candidate;
           await migration`commit`;

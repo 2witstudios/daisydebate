@@ -1,4 +1,4 @@
-import { StatusRegion } from '../../../../ui/components/status-region/status-region';
+import { Announcement } from '../../../../ui/components/announcement/announcement';
 import { headers } from 'next/headers';
 import {
   ConversationNavigation,
@@ -9,8 +9,8 @@ import { notFound } from 'next/navigation';
 import { systemClock, systemId } from '@daisy/clock';
 import { idSchema } from '@daisy/protocol/primitives';
 import { messagingBetaLimits } from '@daisy/protocol/messaging/core';
-import { requireAccess } from '../../../../lib/access';
-import { messagingLatestPageItems } from '../../../../lib/request-session';
+import { requireAccess } from '../../../../features/access/page-access';
+import { messagingLatestPageItems } from '../../../../features/messaging/page-reads';
 import type { SearchParams } from '../../../../features/access/decision';
 import {
   readConversationResponse,
@@ -105,13 +105,13 @@ export default async function ConversationPage({
             }
           />
         ) : conversation === null ? (
-          <StatusRegion
+          <Announcement
             as="p"
-            role="status"
+            kind="progress"
             className="flex-1 p-6 text-ink-muted"
           >
             This conversation is unavailable. Refresh to try again.
-          </StatusRegion>
+          </Announcement>
         ) : (
           <>
             {searchQuery === undefined && !paging ? (

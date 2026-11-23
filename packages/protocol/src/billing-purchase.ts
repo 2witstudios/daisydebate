@@ -1,4 +1,5 @@
-import { instantMs } from '@daisy/clock';
+import { billingModes } from './billing-mode';
+import { instantMs } from '@daisy/clock/instant';
 import { z } from 'zod';
 import { idSchema } from './primitives';
 import { billingOwnerSchema, maxPurchaseQuantity } from './billing-owner';
@@ -89,7 +90,7 @@ export const purchaseSchema = z
     owner: billingOwnerSchema,
     /** Seats bought: 1 for Premium, the Club plan's seat count otherwise. */
     quantity: z.number().int().min(1).max(maxPurchaseQuantity),
-    mode: z.enum(['test', 'live']),
+    mode: z.enum(billingModes),
     priceId: z
       .string()
       .regex(/^price_[A-Za-z0-9_]+$/)

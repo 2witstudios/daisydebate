@@ -1,4 +1,4 @@
-import { instantMs, tryInstantMs } from '@daisy/clock';
+import { instantMs, tryAddMs, tryInstantMs } from '@daisy/clock/instant';
 import type { RoundAnalysisReport } from './round-analysis';
 import {
   analysisRequest,
@@ -220,14 +220,14 @@ function requestWork(
   if (state && state.kind !== 'unrequested') return unchanged;
   if (!context.evidenceAvailable || remainingAnalysisCalls(state) === 0)
     return refuse;
-  const deadline = new Date(at(context.now) + analysisWorkBounds.requestMs);
-  if (!Number.isFinite(deadline.getTime())) return refuse;
+  const deadline = tryAddMs(context.now, analysisWorkBounds.requestMs);
+  if (deadline === undefined) return refuse;
   return changed({
     kind: 'queued',
     requestId: event.requestId,
     evidenceLines: event.evidenceLines,
     requestedAt: context.now,
-    deadlineAt: deadline.toISOString(),
+    deadlineAt: deadline,
     historical: state?.historical ?? null,
     claims: 0,
     calls: [],

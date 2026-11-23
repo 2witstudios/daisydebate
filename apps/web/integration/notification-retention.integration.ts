@@ -1,3 +1,4 @@
+import { hostWaits } from '@daisy/worker/host';
 import { expect, test } from 'bun:test';
 import type { SavepointSQL } from 'bun';
 import { fixedClock } from '@daisy/clock';
@@ -8,9 +9,8 @@ import {
   withRolledBackDatabase,
 } from '@daisy/db/testing';
 import { createId } from '@paralleldrive/cuid2';
-import { provisionalLinkPurposes } from '../src/features/auth/mail/provisional-mail';
 import { createRetentionSweep } from '../src/server/retention-sweep';
-import { retentionTargets } from '../src/server/retention-targets';
+import { retentionTargets } from '../src/server/retention-targets.test-support';
 import { silentLogger } from '../src/server/test-loggers.test-support';
 
 const { databaseUrl } = requireTestServices(process.env);
@@ -22,6 +22,7 @@ test('the scheduled notification sweep drains bounded batches and keeps recent p
   const expired = new Date(at.getTime() - 91 * day);
   const recent = new Date(at.getTime() - day);
   const appDatabase = createDatabase({
+    waits: hostWaits,
     url: databaseUrl,
     nextActorId: createId,
   });
@@ -75,7 +76,6 @@ test('the scheduled notification sweep drains bounded batches and keeps recent p
               }),
           },
           redis: { sweepOnlinePresence: async () => 0 },
-          provisionalLinks: provisionalLinkPurposes,
         }).filter(({ name }) => name === 'retention.notifications');
         expect<unknown>(await sql`select current_user as role`).toEqual([
           { role: 'daisy_web' },

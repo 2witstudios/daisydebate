@@ -14,7 +14,7 @@ import {
   runMemberRoute,
   type BudgetedMemberBoundary,
   type MemberCaller,
-} from '../../server/member-boundary';
+} from '../auth/member-boundary';
 import { consumeOrThrow, type RateRule } from '../../server/rate-limit';
 import { recipientKey } from '../mail/recipient-key';
 import { isReleaseLinkToken, releaseLinkDigest } from './link-token';

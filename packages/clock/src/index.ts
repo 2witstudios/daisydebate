@@ -1,8 +1,7 @@
 import { createId } from '@paralleldrive/cuid2';
+import type { Clock } from './instant';
 
-export type Clock = {
-  now(): string;
-};
+export type { Clock } from './instant';
 
 export type IdGenerator = {
   next(): string;
@@ -38,11 +37,15 @@ export function fixedIds(values: readonly string[]): IdGenerator {
   };
 }
 
+export { waitsOf, type Waits } from './waits';
+export { afterMs, deadlineSignal } from './deadline';
 export {
   addMs,
   instantMs,
   isInstantAtOrBefore,
   isInstantBefore,
   nowMs,
+  tryAddMs,
+  tryCanonicalInstantMs,
   tryInstantMs,
 } from './instant';

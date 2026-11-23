@@ -1,18 +1,25 @@
-import { createAppError, isRefusal } from '@daisy/errors';
-import type { WorkerTimers } from '../../lib/worker-timers';
-import type { LoopPass } from '../../lib/idle-backoff';
+import type { Waits } from '@daisy/clock';
+import { createAppError, isAppError, isRefusal } from '@daisy/errors';
 import {
-  LIVE_IDLE_MAX_MS,
-  startWorkerLoop,
+  holdLease,
+  pollWork,
+  repeatEvery,
+  type Lease,
+  type LeaseLoss,
+  type LoopPass,
   type WorkWake,
-} from '../../lib/worker-loop';
+} from '@daisy/worker';
+import { LIVE_IDLE_MAX_MS } from '../../lib/worker-idle';
 type Target = {
   readonly roundId: string;
   readonly roundParticipantId: string;
   readonly segmentId: string;
 };
 type Claim = { readonly scope: Target; readonly token: string };
+/** How soon a renewal that failed without a refusal is tried again, at most. */
+const RENEW_RETRY_MS = 1000;
 type Control = {
+  /** Attendance receipts, and a nudge to the seat's speaker. */
   readonly pulse: () => Promise<unknown>;
   /** Ends speaking work before its lease is revoked or abandoned. */
   readonly stop?: () => Promise<void>;
@@ -20,10 +27,12 @@ type Control = {
 type Owned<C> = {
   readonly claim: C;
   readonly control: Control;
+  /** The claim's worker lease, renewed on its own cadence until the seat ends. */
+  readonly lease: Lease<void>;
   pending: Promise<void> | null;
   /** Set once the seat starts ending; it stays owned until the ending (or its handoff) settles. */
   ending: Promise<void> | null;
-  /** Its pulse found the lease already gone: there is nothing to revoke. */
+  /** Its lease or its pulse found the lease already gone: there is nothing to revoke. */
   lost: boolean;
   /** The part of its ending that overran and was reported; that part's late failure is not. */
   overran: 'stop' | 'pulse' | null;
@@ -43,15 +52,28 @@ export function startBotControlService<C extends Claim>(input: {
       scope: C['scope'],
       token: string,
     ) => Promise<unknown>;
+    /**
+     * Extends the claim's lease; it refuses (CONFLICT or AUTHORIZATION) once
+     * the lease has expired, been rotated or its Round has ended.
+     */
+    readonly renewRoundBotWorker: (
+      scope: C['scope'],
+      token: string,
+    ) => Promise<unknown>;
   };
   readonly control: (claim: C) => Control;
   readonly limits: {
     readonly maxControllers: number;
     readonly scanBatch: number;
     readonly scanMs: number;
+    /** How often each owned seat checks in its attendance receipts. */
+    readonly checkInMs: number;
+    /** How often each owned seat's lease is renewed. */
     readonly renewMs: number;
+    /** How long a lease holds after the start of its last renewal that held. */
+    readonly leaseMs: number;
   };
-  readonly timers: WorkerTimers;
+  readonly waits: Waits;
   /** A Round changed; a bot's turn may be due (ADR 0154). */
   readonly wake?: WorkWake | undefined;
   /**
@@ -61,8 +83,8 @@ export function startBotControlService<C extends Claim>(input: {
    */
   readonly overdue: (signal: AbortSignal) => Promise<void>;
   /**
-   * `stage` names the work that failed: pulse, stop, revoke, claim or
-   * discover. It must never throw (the worker sink guards itself), so no
+   * `stage` names the work that failed: pulse, renew, stop, revoke, claim
+   * or discover. It must never throw (the worker sink guards itself), so no
    * promise here rejects because reporting failed (ISSUE-789).
    */
   readonly failed: (error: unknown, stage: string) => void;
@@ -111,10 +133,10 @@ export function startBotControlService<C extends Claim>(input: {
     if (owned.get(seat) === entry) owned.delete(seat);
   };
   /**
-   * Ends a seat once, apart from the heartbeat and discovery: its speaking
-   * work stops at once (a hung receipt pulse never keeps a speaker alive),
-   * and its pulse in flight settles, within `overdue`; then its lease is
-   * revoked when `revoke` is set. The seat stays in `owned` until then (or,
+   * Ends a seat once, apart from the check-ins and discovery: its lease
+   * renews no more, its speaking work stops at once (a hung receipt pulse
+   * never keeps a speaker alive), and its pulse in flight settles, within
+   * `overdue`; then its lease is revoked when `revoke` is set. The seat stays in `owned` until then (or,
    * when it is handing off, until the rotation's chained claim settles and
    * releases it), so it still counts against `maxControllers` and no
    * replacement is claimed beside a speaker still stopping. A stop that fails
@@ -123,6 +145,9 @@ export function startBotControlService<C extends Claim>(input: {
   const end = (entry: Owned<C>, revoke: boolean): Promise<void> => {
     if (entry.ending) return entry.ending;
     const ending = (async () => {
+      // An ending seat renews no more: the ending deadline sits inside the
+      // lease, so a stop that hangs still lets the lease lapse by itself.
+      const leaseStopped = entry.lease.stop();
       let silenced = false;
       // Read live: the stopping task sets it while the race below is awaited.
       const isSilenced = () => silenced;
@@ -163,6 +188,7 @@ export function startBotControlService<C extends Claim>(input: {
           stage,
         );
       }
+      await leaseStopped;
       if (revoke && !entry.lost) await revokeClaim(entry.claim);
     })()
       // Defence only: every step above guards itself while `failed` keeps its
@@ -195,6 +221,40 @@ export function startBotControlService<C extends Claim>(input: {
       }
     })();
     return entry.pending;
+  };
+  /**
+   * Keeps a fresh claim's lease alive from when its claim started. A refused
+   * renewal is a loss (another controller took the seat, or the lease ended
+   * with its Round or by expiry); any other failure is a blip, reported and
+   * retried until the lease's own term has passed.
+   */
+  const holdClaim = (claim: C, claimedAtMs: number) =>
+    holdLease<void>({
+      waits: input.waits,
+      facts: undefined,
+      claimedAtMs,
+      renewEveryMs: input.limits.renewMs,
+      retryMs: Math.min(RENEW_RETRY_MS, input.limits.renewMs),
+      horizonMs: input.limits.leaseMs,
+      renew: async () => {
+        await input.store.renewRoundBotWorker(claim.scope, claim.token);
+        return { kind: 'held', facts: undefined };
+      },
+      lossOf: (error): LeaseLoss | null =>
+        isAppError(error) && error.code === 'AUTHORIZATION'
+          ? 'taken'
+          : isRefusal(error)
+            ? 'released'
+            : null,
+      failed: (error) => failed(error, 'renew'),
+    });
+  /** A lease that ends by itself ends its seat: there is nothing left to revoke. */
+  const watchLease = (entry: Owned<C>) => {
+    void entry.lease.ended.then((how) => {
+      if (how === 'stopped') return;
+      entry.lost = true;
+      void end(entry, false);
+    });
   };
   /** Another controller claiming or rotating the seat first is no fault. */
   const claimFailed = (error: unknown) => {
@@ -239,28 +299,34 @@ export function startBotControlService<C extends Claim>(input: {
     claiming.add(seat);
     let entry: Owned<C>;
     try {
+      const claimedAtMs = input.waits.nowMs();
       const claim = await input.store.claimRoundBotWorker(target);
       if (isStopped()) {
         await revokeClaim(claim);
         return;
       }
+      let lease: Lease<void> | null = null;
       let control: Control;
       try {
+        lease = holdClaim(claim, claimedAtMs);
         control = input.control(claim);
       } catch (error) {
         // A seat that cannot start never holds its lease for a full term.
+        await lease?.stop();
         await revokeClaim(claim);
         throw error;
       }
       entry = {
         claim,
         control,
+        lease,
         pending: null,
         ending: null,
         lost: false,
         overran: null,
         handingOff: false,
       };
+      watchLease(entry);
       owned.set(seat, entry);
     } finally {
       claiming.delete(seat);
@@ -283,23 +349,25 @@ export function startBotControlService<C extends Claim>(input: {
     return owned.size > 0 || targets.length > 0 ? 'worked' : 'idle';
   };
   /**
-   * Pulses each live seat with no pulse in flight, on its own: a seat whose
-   * pulse fails or hangs never holds another seat's renewal, and a hung one
-   * is not awaited again on every tick (ISSUE-789). It never rejects.
+   * Pulses each live seat with no pulse in flight, on its own and without
+   * waiting for it: a seat whose pulse fails or hangs never holds another
+   * seat's check-ins or the cadence, and a hung one is not pulsed again on
+   * every tick (ISSUE-789).
    */
-  const heartbeat = async (): Promise<void> => {
-    if (isStopped()) return;
-    await Promise.allSettled(
-      [...owned.values()]
-        .filter((entry) => !entry.pending && !entry.ending)
-        .map(pulse),
-    );
-  };
-  const pulseTimer = input.timers.setInterval(heartbeat, input.limits.renewMs);
-  const discovery = startWorkerLoop({
-    run: discover,
+  const checkIns = repeatEvery({
+    waits: input.waits,
+    everyMs: input.limits.checkInMs,
+    run: async () => {
+      if (isStopped()) return;
+      for (const entry of owned.values())
+        if (!entry.pending && !entry.ending) void pulse(entry);
+    },
+    failed: (error) => failed(error, 'pulse'),
+  });
+  const discovery = pollWork({
+    waits: input.waits,
     backoff: { busyMs: input.limits.scanMs, idleMaxMs: LIVE_IDLE_MAX_MS },
-    timers: input.timers,
+    pass: discover,
     failed: (error) => failed(error, 'discover'),
     wake: input.wake,
   });
@@ -307,11 +375,11 @@ export function startBotControlService<C extends Claim>(input: {
     started: discovery.started,
     async stop() {
       stopped = true;
-      input.timers.clearInterval(pulseTimer);
+      const checking = checkIns.stop();
       const discovering = discovery.stop();
       // Speakers end at once; a claim still in flight revokes itself.
       for (const entry of [...owned.values()]) void end(entry, true);
-      await Promise.allSettled([discovering, ...endings]);
+      await Promise.allSettled([checking, discovering, ...endings]);
     },
   };
 }

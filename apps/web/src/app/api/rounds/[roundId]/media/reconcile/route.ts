@@ -1,11 +1,13 @@
 import { processRoute } from '../../../../../../server/process-app';
+import { roundMediaComposition } from '../../../../../../features/round-media/composition';
 type Params = Awaited<
   RouteContext<'/api/rounds/[roundId]/media/reconcile'>['params']
 >;
 
 export const runtime = 'nodejs';
-export const POST = processRoute.withParams<Params>(
+export const POST = processRoute.withParams(
+  roundMediaComposition,
   (routes) =>
-    (request, { roundId }) =>
-      routes.roundMedia.reconcile(request, roundId),
+    (request, { roundId }: Params) =>
+      routes.reconcile(request, roundId),
 );

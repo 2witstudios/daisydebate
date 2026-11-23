@@ -1,3 +1,4 @@
+import { hostWaits } from '@daisy/worker/host';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { requireTestServices } from '@daisy/config';
 import { assertRejects } from '@daisy/errors/testing';
@@ -189,7 +190,7 @@ test('account withdrawal wins a concurrent recovery and leaves the purchase undi
             recovery,
             fixture.sql,
             pid,
-            { now: performance.now, deadlineMs: 1000 },
+            { waits: hostWaits, deadlineMs: 1000 },
           );
           if (wait !== 'blocked')
             throw Error('Recovery did not wait on the canonical account fence');

@@ -7,13 +7,17 @@ import { unavailableRead } from '../resource-sync/temporary-read';
 import type { ResourceRead } from '../resource-sync/driver';
 
 type FetchLike = (url: string, init: RequestInit) => Promise<Response>;
-/** A read an outage leaves hanging must not hold its single-flight sync. */
-const READ_DEADLINE_MS = 10_000;
+/**
+ * How long a caller lets one read run: a read an outage leaves hanging must
+ * not hold its single-flight sync. The caller owns the deadline signal, on
+ * its own time (the browser's, or the server's injected `Waits`).
+ */
+export const TRANSCRIPT_READ_DEADLINE_MS = 10_000;
 /** Every result is reauthorized by the same protected read, including native reloads. */
 export async function readTranscript(
   fetch: FetchLike,
   roundId: string,
-  deadline: AbortSignal = AbortSignal.timeout(READ_DEADLINE_MS),
+  deadline: AbortSignal,
 ): Promise<ResourceRead<LiveTranscriptRead>> {
   if (!idSchema.safeParse(roundId).success) return { kind: 'missing' };
   try {

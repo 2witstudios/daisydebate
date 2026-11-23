@@ -1,4 +1,4 @@
-import { tryInstantMs } from '@daisy/clock';
+import { tryInstantMs } from '@daisy/clock/instant';
 /** One segment of an Egress attempt, as its held playlist states it. */
 export type HoldEntry = {
   readonly name: string;

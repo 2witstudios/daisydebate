@@ -198,8 +198,8 @@ operator API (ADR 0079), with this client:
 - **Signing** (`apps/admin/src/features/operator-client`). Every request is
   signed fresh by `@daisy/auth/operator-signature`: the injected clock's epoch
   milliseconds and a 16-byte CSPRNG nonce, so a retry never reuses a nonce.
-  The admin edge hashes with Bun's hasher; a parity test holds it
-  byte-identical to the participant app's `node:crypto`.
+  Its hashes come from `@daisy/digest`, the same functions the
+  participant app verifies with.
 - **Responses.** Parsed strictly with the protocol schemas
   (`operatorAccountsPageSchema`, `betaAccessCommandResultSchema`,
   `operatorCommandStateSchema`). The seven refusals the API makes before or

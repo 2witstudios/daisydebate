@@ -1,3 +1,5 @@
+import { mailJobStates } from './schema/columns';
+import { listedWord } from './lifecycle-sql';
 import { commandDigest } from '@daisy/digest';
 import type { LeagueRequest } from '@daisy/protocol/league-request';
 import {
@@ -235,7 +237,7 @@ export function leagueRequestOperations({
             table: leagueRequests,
             key: leagueRequests.id,
             at: leagueRequests.createdAt,
-            eligible: sql`${leagueRequests.state} <> 'leased'`,
+            eligible: sql`${leagueRequests.state} <> ${listedWord(mailJobStates, 'leased')}`,
           },
           batch,
         ),
