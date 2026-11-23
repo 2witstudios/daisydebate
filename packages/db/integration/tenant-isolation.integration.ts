@@ -8,12 +8,10 @@ import {
   tenantIsolationFactsSql,
   tenantIsolationProblems,
   type TenantTableFacts,
-} from '../src/tenant-isolation';
-import {
   tenantDefinerFactsSql,
   tenantDefinerProblems,
   type TenantDefinerFacts,
-} from '../src/tenant-definers';
+} from '../src/tenant-isolation';
 import { tenantIsolationManifest } from '../src/tenant-isolation-manifest';
 import {
   ddlTimeoutMs,
