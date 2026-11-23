@@ -12,11 +12,12 @@ import { createAppError } from '@daisy/errors';
 import { and, eq, isNull, sql } from 'drizzle-orm';
 import type { RoundOutcome } from '@daisy/protocol/round-outcome';
 import type { RoundProjection } from '@daisy/protocol/runtime';
-import type { RoundRules } from '@daisy/protocol/format';
+import { roundRulesSchema } from '@daisy/protocol/format';
 import { prepConsumedOf, runtimeCheckpointSchema } from '@daisy/protocol/round';
 import { privateSpanChanges } from '@daisy/protocol/public-interval';
 import { buildRoundTopic } from '@daisy/protocol/topics';
 import type { z } from 'zod';
+import { parsedColumn } from './raw-rows';
 import { appendOutboxEvent } from './outbox';
 import { appendRoundStrikes, revealEvidence } from './room-draw-persistence';
 import { refundUnservedPracticeLocked } from './round-bot-admission';
@@ -206,9 +207,10 @@ export async function lockedRoundVersion(
       completedAt: rounds.completedAt,
       winningSide: rounds.winningSide,
       ranking: rounds.ranking,
-      rulesOutcome: sql<
-        RoundRules['outcome']
-      >`${rounds.rulesSnapshot}->'outcome'`,
+      rulesOutcome: parsedColumn(
+        roundRulesSchema.shape.outcome,
+        sql`${rounds.rulesSnapshot}->'outcome'`,
+      ),
       runtimeState: rounds.runtimeState,
     })
     .from(rounds)

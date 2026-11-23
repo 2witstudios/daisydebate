@@ -5,7 +5,9 @@ import {
 import { isRoundOver } from '@daisy/protocol/round';
 import { recordingHiddenByModeration } from '@daisy/protocol/recording';
 import { SPECTATOR_MARGIN_MS } from '@daisy/protocol/broadcast';
+import { ballotScoresRecordSchema } from '@daisy/protocol/ballot-schema';
 import { and, asc, desc, eq, sql } from 'drizzle-orm';
+import { parsedColumn } from './raw-rows';
 import { instrumented, type DatabaseEventSink } from './instrumented';
 import { actors } from './schema/actors';
 import { ballots } from './schema/ballots';
@@ -210,9 +212,10 @@ export const spectatorTimelineReads = ({
               ? await tx
                   .select({
                     winner: ballots.winner,
-                    scores: sql<
-                      Record<string, number | Record<string, number>>
-                    >`coalesce(${ballots.scores}, '{}'::jsonb)`,
+                    scores: parsedColumn(
+                      ballotScoresRecordSchema,
+                      sql`coalesce(${ballots.scores}, '{}'::jsonb)`,
+                    ),
                     reason: ballots.reason,
                   })
                   .from(ballots)

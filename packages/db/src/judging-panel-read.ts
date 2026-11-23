@@ -6,7 +6,7 @@ import { and, eq, sql } from 'drizzle-orm';
 import { ballots } from './schema/ballots';
 import { roundJudgingJobs } from './schema/round-judging-jobs';
 import type { Tx } from './tx';
-import { query } from './raw-rows';
+import { parsedColumn, query } from './raw-rows';
 import { z } from 'zod';
 
 const iso = (column: string) =>
@@ -58,7 +58,10 @@ export async function readJudgingPanelFacts(
       judgeParticipantId: roundJudgingJobs.judgeParticipantId,
       status: roundJudgingJobs.status,
       generationDeadlineAt: roundJudgingJobs.generationDeadlineAt,
-      holdsBallot: sql<boolean>`${roundJudgingJobs.pendingBallot} is not null`,
+      holdsBallot: parsedColumn(
+        z.boolean(),
+        sql`${roundJudgingJobs.pendingBallot} is not null`,
+      ),
     })
     .from(roundJudgingJobs)
     .where(

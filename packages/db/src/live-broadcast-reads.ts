@@ -1,5 +1,7 @@
 import { roundLadderOf } from './member-history-rows';
 import { and, desc, eq, inArray, sql, type SQL } from 'drizzle-orm';
+import { parsedColumn, postgresInstantMs } from './raw-rows';
+import { z } from 'zod';
 import { actors } from './schema/actors';
 import { botProfiles } from './schema/bot-profiles';
 import { broadcasts } from './schema/broadcasts';
@@ -171,9 +173,10 @@ export const liveBroadcastReads = ({
             startedAt: rounds.startedAt,
             ladderId: rounds.ladderId,
             ladderAgeRule: rounds.standingAgeRule,
-            horizon: sql<
-              Date | string | null
-            >`${spectatorHorizonSql(roundColumns, input.clock)}`,
+            horizonMs: parsedColumn(
+              postgresInstantMs.nullable(),
+              sql`${spectatorHorizonSql(roundColumns, input.clock)}`,
+            ),
           })
           .from(rounds)
           .innerJoin(rooms, eq(rooms.id, rounds.roomId))
@@ -249,8 +252,6 @@ export const liveBroadcastReads = ({
               competitionType: row.competitionType,
             }),
             competitionType: row.competitionType,
-            horizonMs:
-              row.horizon === null ? null : new Date(row.horizon).getTime(),
             seats: seats.filter((seat) => seat.roundId === row.id),
             segments: segments.filter((segment) => segment.roundId === row.id),
           })),
@@ -266,7 +267,7 @@ export const liveBroadcastReads = ({
     readonly lobbyId?: string;
   }) {
     const [row] = await database
-      .select({ count: sql<number>`count(*)::int` })
+      .select({ count: parsedColumn(z.number().int(), sql`count(*)::int`) })
       .from(rounds)
       .innerJoin(broadcasts, eq(broadcasts.roundId, rounds.id))
       .innerJoin(rooms, eq(rooms.id, rounds.roomId))

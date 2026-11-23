@@ -11,6 +11,8 @@ import {
   ne,
   or,
 } from 'drizzle-orm';
+import { parsedColumn } from '../raw-rows';
+import { z } from 'zod';
 import { alias } from 'drizzle-orm/pg-core';
 import { actors } from '../schema/actors';
 import { users } from '../schema/users';
@@ -181,7 +183,9 @@ function loadSchedule(tx: Tx, lobbyId: string, roundId?: string) {
       number: tabRounds.number,
       stage: stages.kind,
       resolution: poolResolutions.text,
-      published: exists(
+      published: parsedColumn(
+        z.boolean(),
+        exists(
         tx
           .select({ id: draws.id })
           .from(draws)
@@ -191,7 +195,8 @@ function loadSchedule(tx: Tx, lobbyId: string, roundId?: string) {
               eq(draws.status, 'published'),
             ),
           ),
-      ).mapWith(Boolean),
+        ),
+      ),
       startsAt: timeSlots.startsAt,
     })
     .from(events)

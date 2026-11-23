@@ -1,4 +1,4 @@
-import { query } from './raw-rows';
+import { postgresInstantMs, query } from './raw-rows';
 import { z } from 'zod';
 export { loanRoundAssignmentInterface } from './testing-round-assignment-interface';
 import { SQL } from 'bun';
@@ -156,7 +156,7 @@ export async function readSpectatorHorizon(
   try {
     const rows = await query(
       drizzle({ client }),
-      z.object({ horizon: z.union([z.date(), z.string()]).nullable() }),
+      z.object({ horizon: postgresInstantMs.nullable() }),
       sql`select ${spectatorHorizonSql(
         {
           id: sql`r.id`,
@@ -167,8 +167,7 @@ export async function readSpectatorHorizon(
         clock,
       )} as horizon from rounds r where r.id=${roundId}`,
     );
-    const horizon = rows[0]?.horizon ?? null;
-    return horizon === null ? null : new Date(horizon).getTime();
+    return rows[0]?.horizon ?? null;
   } finally {
     await client.close();
   }

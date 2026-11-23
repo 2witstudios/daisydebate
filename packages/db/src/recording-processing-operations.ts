@@ -31,7 +31,7 @@ import { recordingCaptures } from './schema/recording-captures';
 import { recordingProcessingJobs as jobs } from './schema/recording-processing-jobs';
 import { recordings } from './schema/recordings';
 import type { Tx } from './tx';
-import { run, query } from './raw-rows';
+import { parsedColumn, run, query } from './raw-rows';
 import { z } from 'zod';
 
 const stateColumns = (state: RecordingJobState) => ({
@@ -377,7 +377,9 @@ export const listUnsettledRecordingJobs = (
       recordingId: jobs.recordingId,
       state: jobs.state,
       lifecycle: recordings.lifecycle,
-      sourcesInUse: sql<boolean>`(
+      sourcesInUse: parsedColumn(
+        z.boolean(),
+        sql`(
         exists (select 1 from ${broadcasts}
           where ${broadcasts.roundId} = ${recordings.roundId}
             and ${broadcasts.completedAt} is null
@@ -386,6 +388,7 @@ export const listUnsettledRecordingJobs = (
           where ${recordingCaptures.recordingId} = ${recordings.id}
             and ${recordingCaptures.endedAt} is null)
       )`,
+      ),
     })
     .from(jobs)
     .innerJoin(recordings, eq(recordings.id, jobs.recordingId))

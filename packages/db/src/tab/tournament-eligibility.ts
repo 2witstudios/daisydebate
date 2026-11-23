@@ -1,6 +1,8 @@
 import { and, eq, inArray, sql } from 'drizzle-orm';
+import { parsedColumn } from '../raw-rows';
+import { z } from 'zod';
 import { createAppError } from '@daisy/errors';
-import type { AgeBand } from '@daisy/protocol/ladder';
+import { ageBands } from '@daisy/protocol/ladder';
 import { mayDebate } from '@daisy/protocol/lobby/eligibility';
 import { tournamentFirstDay } from '@daisy/protocol/lobby/tournament-schedule';
 import { divisionAgeBand } from '../ladder-division-band';
@@ -84,7 +86,10 @@ export async function tournamentAgeSource(
 export function tournamentDebaterAgeBand(source: TournamentAgeSource) {
   return source.kind === 'standing'
     ? divisionAgeBand(source.lobbyId)
-    : sql<AgeBand | null>`case when public.daisy_age_band(${accountAge.birthMonth}, ${accountAge.version}, ${accountAge.recordedAt}, clock_timestamp()) is null then null else public.daisy_age_band(${accountAge.birthMonth}, ${accountAge.version}, ${accountAge.recordedAt}, greatest(${source.ageAsOf}::timestamptz, ${accountAge.recordedAt})) end`;
+    : parsedColumn(
+        z.enum(ageBands).nullable(),
+        sql`case when public.daisy_age_band(${accountAge.birthMonth}, ${accountAge.version}, ${accountAge.recordedAt}, clock_timestamp()) is null then null else public.daisy_age_band(${accountAge.birthMonth}, ${accountAge.version}, ${accountAge.recordedAt}, greatest(${source.ageAsOf}::timestamptz, ${accountAge.recordedAt})) end`,
+      );
 }
 
 /** Call after authorization, with the named cast and competition already fenced. */

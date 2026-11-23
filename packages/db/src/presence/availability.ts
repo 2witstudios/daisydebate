@@ -1,12 +1,11 @@
 import { sql, type SQL } from 'drizzle-orm';
-import type { MemberPlacement } from '@daisy/protocol/presence-setting';
 import { roomIsOpen } from '../room-open';
 import type { Tx } from '../tx';
-import { query as queryRows } from '../raw-rows';
+import { parsedColumn, query as queryRows } from '../raw-rows';
 import { z } from 'zod';
 
 /** Rooms' and Rounds' published fact, for the membership row `m` joined to `rooms`. */
-const placementSql = sql<MemberPlacement>`case
+const placementSql = sql`case
   when rooms.id is null then null
   when ${roomIsOpen()} then 'room'
   else 'round' end`;
@@ -16,7 +15,10 @@ const placementSql = sql<MemberPlacement>`case
  * `actorId` is. Null when they hold no active Room.
  */
 export const placementOf = (actorId: SQL) =>
-  sql<MemberPlacement>`(select ${placementSql} from active_seats m join rooms on rooms.id = m.room_id where m.actor_id = ${actorId})`;
+  parsedColumn(
+    z.enum(['room', 'round']).nullable(),
+    sql`(select ${placementSql} from active_seats m join rooms on rooms.id = m.room_id where m.actor_id = ${actorId})`,
+  );
 
 /** Whether a member can take a challenge now: their choice and placement. */
 export async function readAvailability(tx: Tx, actorId: string) {

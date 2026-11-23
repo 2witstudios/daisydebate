@@ -5,7 +5,7 @@ import { type WinnerOutcome } from '@daisy/protocol/round-outcome';
 import { and, asc, eq, inArray, isNull, sql } from 'drizzle-orm';
 import { lifecycleSqlList } from './lifecycle-sql';
 import { runningRoundStatuses } from '@daisy/protocol/round';
-import { query } from './raw-rows';
+import { parsedColumn, query } from './raw-rows';
 import { z } from 'zod';
 import { instrumented, type DatabaseEventSink } from './instrumented';
 import { readOfficialRatingLadderCatalog } from './official-standing-lobbies';
@@ -342,11 +342,14 @@ async function readStandingsWithin(
       occurredAt: ratingChanges.occurredAt,
       side: roundParticipants.side,
       winningSide: rounds.winningSide,
-      released: sql<boolean>`${rounds.visibility} = 'public' and ${factReleasedSql(
-        sql`greatest(${ratingChanges.occurredAt}, ${rounds.completedAt})`,
-        rounds,
-        input.clock,
-      )}`,
+      released: parsedColumn(
+        z.boolean(),
+        sql`${rounds.visibility} = 'public' and ${factReleasedSql(
+          sql`greatest(${ratingChanges.occurredAt}, ${rounds.completedAt})`,
+          rounds,
+          input.clock,
+        )}`,
+      ),
     })
     .from(ratingChanges)
     .innerJoin(rounds, eq(rounds.id, ratingChanges.roundId))

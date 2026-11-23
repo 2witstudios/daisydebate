@@ -1,8 +1,8 @@
 import { and, eq, sql } from 'drizzle-orm';
 import { inTransaction, type TxSource } from './tx';
-import { query } from './raw-rows';
+import { parsedColumn, query } from './raw-rows';
 import { z } from 'zod';
-import type { LobbyAgeRule } from '@daisy/protocol/lobby/eligibility';
+import { lobbyAgeRules } from '@daisy/protocol/lobby/eligibility';
 import { type RatingDivision } from '@daisy/protocol/ladder';
 import { type RatingStyle } from '@daisy/protocol/primitives';
 import { roundOutcomeSchema } from '@daisy/protocol/round-outcome';
@@ -53,7 +53,10 @@ const readCardRatings = (
             await tx
               .select({
                 lobbyId: standingLobbies.id,
-                ageRule: sql<LobbyAgeRule>`${standingLobbies.ageRule}`,
+                ageRule: parsedColumn(
+                  z.enum(lobbyAgeRules),
+                  sql`${standingLobbies.ageRule}`,
+                ),
               })
               .from(standingLobbies)
               .where(

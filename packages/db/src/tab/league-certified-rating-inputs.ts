@@ -1,4 +1,5 @@
 import { and, asc, eq, lte, sql } from 'drizzle-orm';
+import { parsedColumn, postgresInstantMs } from '../raw-rows';
 import { sanctions } from '../schema/sanctions';
 import { results } from '../schema/results';
 import { certificationResults, certifications } from '../schema/certifications';
@@ -69,10 +70,10 @@ export async function loadLeagueCertifiedRatingInputs(
         supersedesResultId: results.supersedesResultId,
         competitionRecord: results.competitionRecord,
         recordedAt: results.recordedAt,
-        playedAt:
-          sql`(select min(original_result.recorded_at) from results original_result where original_result.fixture_id = ${results.fixtureId})`.mapWith(
-            results.recordedAt,
-          ),
+        playedAt: parsedColumn(
+          postgresInstantMs.transform((ms) => new Date(ms)),
+          sql`(select min(original_result.recorded_at) from results original_result where original_result.fixture_id = ${results.fixtureId})`,
+        ),
       })
       .from(results)
       .innerJoin(

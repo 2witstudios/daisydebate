@@ -5,6 +5,8 @@ import {
   type AgeBand,
 } from '@daisy/protocol/ladder';
 import { eq, sql, type SQL } from 'drizzle-orm';
+import { parsedColumn } from './raw-rows';
+import { z } from 'zod';
 import { accountAge } from './schema/account-age';
 import type { Tx } from './tx';
 
@@ -22,9 +24,7 @@ import type { Tx } from './tx';
  * in SQL; only the band leaves it. Over the `account_age` row joined into the
  * caller's query.
  */
-export const divisionAgeBand = (
-  lobbyId?: string | SQL,
-): SQL<AgeBand | null> => {
+export const divisionAgeBand = (lobbyId?: string | SQL) => {
   const seasonStart =
     lobbyId === undefined
       ? sql`(select s.starts_at from seasons s join lobbies l on l.id = s.lobby_id
@@ -35,7 +35,10 @@ export const divisionAgeBand = (
       : sql`(select s.starts_at from seasons s where s.status = 'active' and s.lobby_id = ${lobbyId})`;
 
   const agedAt = sql`least(clock_timestamp(), greatest(coalesce(${seasonStart}, clock_timestamp()), ${accountAge.recordedAt}, clock_timestamp() - make_interval(months => ${YOUTH_CARRY_MONTHS}::int)))`;
-  return sql<AgeBand | null>`case when public.daisy_age_band(${accountAge.birthMonth}, ${accountAge.version}, ${accountAge.recordedAt}, clock_timestamp()) is null then null else public.daisy_age_band(${accountAge.birthMonth}, ${accountAge.version}, ${accountAge.recordedAt}, ${agedAt}) end`;
+  return parsedColumn(
+    z.enum(ageBands).nullable(),
+    sql`case when public.daisy_age_band(${accountAge.birthMonth}, ${accountAge.version}, ${accountAge.recordedAt}, clock_timestamp()) is null then null else public.daisy_age_band(${accountAge.birthMonth}, ${accountAge.version}, ${accountAge.recordedAt}, ${agedAt}) end`,
+  );
 };
 
 /** The age band used by competition during the staged ladder migration. */

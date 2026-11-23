@@ -2,11 +2,12 @@ import { instantMs } from '@daisy/clock';
 import type { JudgingTerminalReason } from '@daisy/protocol/round-judging-attempt';
 import type { RoundEnding } from '@daisy/protocol/round-panel-completion';
 import { and, eq, inArray, sql } from 'drizzle-orm';
+import { z } from 'zod';
 import { roundJudgingJobs } from './schema/round-judging-jobs';
 import { judgingJobWhere } from './round-judging-context';
 import { settleCasualJudgeUsageLocked } from './casual-judge-usage';
 import type { Tx } from './tx';
-import { run } from './raw-rows';
+import { parsedColumn, run } from './raw-rows';
 
 /** The engine's rule: judging names why a Round's end ended a job. */
 export type JudgingEndRule = (
@@ -33,7 +34,10 @@ export async function endOpenJudgingJobs(
     .select({
       judgeParticipantId: roundJudgingJobs.judgeParticipantId,
       generationDeadlineAt: roundJudgingJobs.generationDeadlineAt,
-      holdsBallot: sql<boolean>`${roundJudgingJobs.pendingBallot} is not null`,
+      holdsBallot: parsedColumn(
+        z.boolean(),
+        sql`${roundJudgingJobs.pendingBallot} is not null`,
+      ),
     })
     .from(roundJudgingJobs)
     .where(

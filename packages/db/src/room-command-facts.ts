@@ -29,7 +29,7 @@ import { users } from './schema/users';
 import { accountAge } from './schema/account-age';
 import type { AgeBand } from '@daisy/protocol/ladder';
 import { lobbies } from './schema/lobbies';
-import type { LobbyAgeRule } from '@daisy/protocol/lobby/eligibility';
+import { lobbyAgeRules } from '@daisy/protocol/lobby/eligibility';
 import { divisionAgeBand } from './ladder-division-band';
 import { botProfiles } from './schema/bot-profiles';
 import { aiJudgeProfiles } from './schema/ai-judge-profiles';
@@ -44,7 +44,7 @@ import { formats } from './schema/formats';
 import { formatRevisions } from './schema/format-revisions';
 import type { Tx } from './tx';
 import { takeLock, transactionLocks } from './locks';
-import { query } from './raw-rows';
+import { parsedColumn, query } from './raw-rows';
 import { z } from 'zod';
 
 export type Caller = { readonly userId: string; readonly actorId: string };
@@ -237,7 +237,9 @@ const hydrateRoom = async (
   const [lobby] = await tx
     .select({
       // Room chat projects frozen and mixed-cast tournament privacy from this view.
-      ageRule: sql<LobbyAgeRule>`case
+      ageRule: parsedColumn(
+        z.enum(lobbyAgeRules),
+        sql`case
         when ${row.legacyTournamentYouth === false}::boolean then 'adults'::lobby_age_rule
         when ${lobbies.kind} = 'tournament' and public.daisy_room_is_youth(${row.id})
           then 'under-18'::lobby_age_rule
@@ -245,6 +247,7 @@ const hydrateRoom = async (
           (select round.standing_age_rule from public.rounds round
             where round.room_id = ${row.id} and ${lobbies.kind} = 'tournament'),
           ${standingParent.ageRule}, ${lobbies.ageRule}) end`,
+      ),
     })
     .from(lobbies)
     .leftJoin(standingParent, eq(standingParent.id, lobbies.standingLobbyId))

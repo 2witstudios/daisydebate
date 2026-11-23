@@ -1,7 +1,8 @@
 import { and, asc, eq, isNull, sql } from 'drizzle-orm';
+import { z } from 'zod';
 import { alias } from 'drizzle-orm/pg-core';
 import { lockAuthorizationActors } from '../authorization';
-import { run } from '../raw-rows';
+import { parsedColumn, run } from '../raw-rows';
 import { actors } from '../schema/actors';
 import {
   guardianLinks,
@@ -117,12 +118,18 @@ export function createLobbyPermissionStore(database: TxOpener) {
             lobbyId: restrictionLobbies.lobbyId,
             linkId: restrictionLobbies.guardianLinkId,
             signedAt: restrictionLobbies.signedAt,
-            hasActiveSeason: sql<boolean>`exists (select 1 from seasons season
+            hasActiveSeason: parsedColumn(
+              z.boolean(),
+              sql`exists (select 1 from seasons season
               where season.lobby_id = ${restrictionLobbies.lobbyId} and season.status = 'active')`,
-            rankedWaiverSigned: sql<boolean>`exists (select 1 from restriction_lobby_waivers waiver
+            ),
+            rankedWaiverSigned: parsedColumn(
+              z.boolean(),
+              sql`exists (select 1 from restriction_lobby_waivers waiver
               join seasons season on season.id = waiver.season_id and season.status = 'active'
               where waiver.guardian_link_id = ${restrictionLobbies.guardianLinkId}
                 and waiver.lobby_id = ${restrictionLobbies.lobbyId} and waiver.waiver_version = ${waiverVersion})`,
+            ),
           })
           .from(restrictionLobbies)
           .innerJoin(
