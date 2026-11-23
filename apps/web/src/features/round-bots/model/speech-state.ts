@@ -38,6 +38,11 @@ type SpeechState = SpeakerState & {
         readonly stage: 'generate' | 'synthesize' | 'publish';
         /** The speech's hard stop on the monotonic clock, read once per turn. */
         readonly stopAtMs: number | null;
+        /**
+         * Holding a short opening for the voices after it: the last one
+         * confirmed in hand, or done once one is missing or none is owed.
+         */
+        readonly opening: { readonly through: number } | 'done';
       };
   readonly turn: Turn;
 };
@@ -80,6 +85,14 @@ export type SpeechEvent =
     }
   | { readonly type: 'publishing'; readonly active: boolean }
   | { readonly type: 'deadline'; readonly atMs: number }
+  /** The opening is about to play: its hold starts over. */
+  | { readonly type: 'opening-begins' }
+  /** The voice the opening waited on is in hand (`held`), or will not be. */
+  | {
+      readonly type: 'opening-held';
+      readonly index: number;
+      readonly held: boolean;
+    }
   | {
       readonly type: 'duty';
       readonly event: DutyEvent;
@@ -172,6 +185,78 @@ export function setbackOf(
     reported: true,
   };
 }
+/**
+ * What the speaker does: a duty effect, with the duty's own decisions made
+ * (a cut silences queued audio only when nothing is being published, a drop
+ * applies only between runs, a pause is armed only while the duty is not
+ * over), plus the timers and floor waiters a duty change releases.
+ */
+export type SpeechEffect =
+  | Exclude<DutyEffect, 'cut'>
+  | 'stop-awaiting-reply'
+  | 'stop-pause'
+  | 'floor-free';
+const dutyEffects = (
+  state: SpeechState,
+  effects: readonly DutyEffect[],
+): readonly SpeechEffect[] => [
+  ...(state.duty.status === 'waiting' && state.duty.unanswered
+    ? []
+    : ['stop-awaiting-reply' as const]),
+  ...(state.duty.status === 'owed' && state.duty.paused
+    ? []
+    : ['stop-pause' as const]),
+  ...(state.midTurn.length === 0 ? ['floor-free' as const] : []),
+  ...effects.flatMap((effect): SpeechEffect[] => {
+    switch (effect) {
+      case 'cut':
+        return isPublishing(state) ? ['restart'] : ['restart', 'silence'];
+      case 'drop':
+        return state.run.status === 'idle' ? ['drop'] : [];
+      case 'retry-soon':
+        return state.duty.status === 'over' ? [] : ['retry-soon'];
+      default:
+        return [effect];
+    }
+  }),
+];
+/**
+ * The next voice a short opening waits for before it plays, so the speech
+ * never stalls after it, or null once none is owed or one will not come.
+ */
+export const openingToHold = (state: SpeechState) => {
+  const { run } = state;
+  if (
+    run.status === 'idle' ||
+    run.opening === 'done' ||
+    state.turn.cursor !== 0
+  )
+    return null;
+  const next = run.opening.through + 1;
+  if (
+    next > 2 ||
+    !openingVoices(state).includes(next) ||
+    !phraseAt(state, next)
+  )
+    return null;
+  return next;
+};
+/** Whether the next phrase must wait for a peer mid-turn to finish (cross-examination). */
+export const awaitsFloor = (state: SpeechState, rules: DutyRules) =>
+  rules.crossEx && state.midTurn.length > 0;
+/** What a publish's outcome means for the speech. */
+export const phraseVerdict = (outcome: {
+  readonly complete: boolean;
+  readonly segmentEnded: boolean;
+}) =>
+  outcome.segmentEnded
+    ? 'segment-ended'
+    : outcome.complete
+      ? 'said'
+      : 'stopped';
+/** Whether an answer that stopped short is still to be reported. */
+export const reportsCut = (state: SpeechState, cut: boolean) =>
+  cut && state.turn.cut === 'unreported';
 export const hasBought = (state: SpeechState) =>
   state.turn.language !== 'empty';
 export const isPublishing = (state: SpeechState) =>
@@ -215,10 +300,11 @@ export const openingVoices = (state: SpeechState) => {
 export function nextSpeechState(
   state: SpeechState,
   event: SpeechEvent,
-): { readonly state: SpeechState; readonly effects: readonly DutyEffect[] } {
+): { readonly state: SpeechState; readonly effects: readonly SpeechEffect[] } {
   if (event.type === 'duty') {
     const next = nextSpeakerState(state, event.event, event.rules);
-    return { state: { ...state, ...next.state }, effects: next.effects };
+    const after = { ...state, ...next.state };
+    return { state: after, effects: dutyEffects(after, next.effects) };
   }
   if (event.type === 'reset')
     return {
@@ -228,11 +314,13 @@ export function nextSpeechState(
   if (event.type === 'run-ended')
     return { state: { ...state, run: { status: 'idle' } }, effects: [] };
   const stopAtMs = stopAt(state);
+  const opening =
+    state.run.status === 'idle' ? { through: 0 } : state.run.opening;
   if (event.type === 'work')
     return {
       state: {
         ...state,
-        run: { status: 'working', stage: event.stage, stopAtMs },
+        run: { status: 'working', stage: event.stage, stopAtMs, opening },
       },
       effects: [],
     };
@@ -244,10 +332,24 @@ export function nextSpeechState(
           status: event.active ? 'publishing' : 'working',
           stage: 'publish',
           stopAtMs,
+          opening,
         },
       },
       effects: [],
     };
+  if (event.type === 'opening-begins' || event.type === 'opening-held') {
+    if (state.run.status === 'idle') return { state, effects: [] };
+    const held =
+      event.type === 'opening-begins'
+        ? { through: 0 }
+        : event.held
+          ? { through: event.index }
+          : ('done' as const);
+    return {
+      state: { ...state, run: { ...state.run, opening: held } },
+      effects: [],
+    };
+  }
   if (event.type === 'deadline')
     return {
       state:

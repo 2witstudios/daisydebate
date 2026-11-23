@@ -1,12 +1,7 @@
 import type { BotPublicationScope } from '@daisy/db/bot-publication';
 import { createAppError } from '@daisy/errors';
 import type { Waits } from '@daisy/clock';
-import {
-  retryPauseMs,
-  type DutyEffect,
-  type DutyEvent,
-  type Owed,
-} from './duty';
+import { retryPauseMs, type DutyEvent, type Owed } from './duty';
 import {
   initialSpeechState,
   nextSpeechState,
@@ -16,11 +11,15 @@ import {
   hasVoice,
   isPublishing,
   needsLine,
-  openingVoices,
+  openingToHold,
+  awaitsFloor,
+  phraseVerdict,
+  reportsCut,
   setbackOf,
   stopAt,
   tailWasCut,
   voicesToBuy,
+  type SpeechEffect,
   type SpeechEvent,
 } from './model/speech-state';
 import type { PhraseSource } from './phrase-source';
@@ -153,8 +152,10 @@ export function createBotSpeaker(input: {
     voicing: new AbortController(),
   });
   let goods = freshGoods();
+  // The running turn's abort and its end: resources, not progress.
   let running: { abort: AbortController; done: Promise<void> } | null = null;
-  let held: (() => void)[] = [];
+  // Woken whenever the duty changes, so a wait for the floor reads the state again.
+  let floorWaiters: (() => void)[] = [];
   const record = (event: SpeechEvent) => {
     const next = nextSpeechState(state, event);
     state = next.state;
@@ -276,37 +277,41 @@ export function createBotSpeaker(input: {
       await buying;
     }
   };
-  const holdShortOpening = async (signal: AbortSignal) => {
+  /** Waits on what the state says the opening is held for, until it says go. */
+  const holdOpening = async (signal: AbortSignal) => {
+    record({ type: 'opening-begins' });
     const stopped = Promise.withResolvers<void>();
     const stop = () => stopped.resolve();
-    const isAborted = () => signal.aborted;
     signal.addEventListener('abort', stop, { once: true });
     try {
-      for (const index of [1, 2]) {
-        if (!openingVoices(state).includes(index) || isAborted()) return;
-        const pending = goods.buying.get(index);
-        if (!pending) return;
-        await Promise.race([pending.catch(() => undefined), stopped.promise]);
-        if (isAborted() || !goods.voices.has(index)) return;
+      for (
+        let index = openingToHold(state);
+        index !== null && !signal.aborted;
+        index = openingToHold(state)
+      ) {
+        const pending = goods.buying.get(index)?.catch(() => undefined);
+        await Promise.race([pending, stopped.promise]);
+        const held = !signal.aborted && hasVoice(state, index);
+        record({ type: 'opening-held', index, held });
       }
     } finally {
       signal.removeEventListener('abort', stop);
     }
   };
+  /** Waits while the state says a peer holds the floor. */
   const floorClear = async (signal: AbortSignal) => {
-    while (state.midTurn.length > 0)
+    while (awaitsFloor(state, rules))
       await unlessStopped(
-        new Promise<void>((resolve) => held.push(resolve)),
+        new Promise<void>((resolve) => floorWaiters.push(resolve)),
         signal,
       );
     if (signal.aborted) throw createAppError('CONFLICT', STOPPED);
   };
   const speak = async (signal: AbortSignal) => {
     const index = state.turn.cursor;
-    const answer = goods.voices.get(index);
+    const answer = hasVoice(state, index) ? goods.voices.get(index) : undefined;
     const stopAtMs = stopAt(state);
-    if (!phraseAt(state, index) || !answer || stopAtMs === null)
-      throw createAppError('CONFLICT', STOPPED);
+    if (!answer || stopAtMs === null) throw createAppError('CONFLICT', STOPPED);
     if (needsLine(state, index, input.publication.lineClosed))
       record({
         type: 'line',
@@ -377,7 +382,7 @@ export function createBotSpeaker(input: {
         case 'finish': {
           dropAhead();
           const cut = phrases.cutBy();
-          if (cut && state.turn.cut === 'unreported') {
+          if (cut && reportsCut(state, true)) {
             record({ type: 'cut-reported', generation });
             input.failed(cut.error, 'generate');
           }
@@ -401,8 +406,8 @@ export function createBotSpeaker(input: {
         case 'publish': {
           work('synthesize');
           voiceAhead(phrases, signal);
-          if (state.turn.cursor === 0) await holdShortOpening(signal);
-          if (crossEx) await floorClear(signal);
+          if (state.turn.cursor === 0) await holdOpening(signal);
+          await floorClear(signal);
           work('publish');
           const speaking = speak(signal);
           prepareAhead(state.turn.cursor + 1);
@@ -410,57 +415,50 @@ export function createBotSpeaker(input: {
             stepBackIfTailCut();
             throw error;
           });
-          if (outcome.segmentEnded) return dropAhead();
-          if (!outcome.complete) throw createAppError('CONFLICT', STOPPED);
+          const verdict = phraseVerdict(outcome);
+          if (verdict === 'segment-ended') return dropAhead();
+          if (verdict === 'stopped') throw createAppError('CONFLICT', STOPPED);
           record({ type: 'phrase-sent', generation });
-          for (const index of current.voices.keys()) {
-            if (index < state.turn.cursor - 1) {
+          // Paid voices the state no longer keeps are released.
+          for (const index of current.voices.keys())
+            if (!phraseAt(state, index)) {
               current.voices.delete(index);
               current.buying.delete(index);
             }
-          }
           apply({ type: 'phrase-said' });
         }
       }
     }
   };
   const cancel = () => running?.abort.abort();
-  const effect = (kind: DutyEffect) => {
+  const effect = (kind: SpeechEffect) => {
     switch (kind) {
       case 'start':
         return start();
-      case 'cut': {
-        const writing = isPublishing(state);
-        cancel();
-        if (!writing) input.publication.silence();
-        return;
-      }
       case 'restart':
         return cancel();
       case 'drop':
-        return state.run.status === 'idle' ? resetProgress() : undefined;
+        return resetProgress();
       case 'silence':
         return input.publication.silence();
       case 'retry-soon':
-        return state.duty.status === 'over'
-          ? undefined
-          : selfWake.pauseFor(retryPauseMs(state.duty));
+        return selfWake.pauseFor(retryPauseMs(state.duty));
       case 'await-reply':
         return selfWake.awaitReply();
+      case 'stop-awaiting-reply':
+        return selfWake.stopAwaitingReply();
+      case 'stop-pause':
+        return selfWake.stopPause();
+      case 'floor-free': {
+        const waiting = floorWaiters;
+        floorWaiters = [];
+        for (const release of waiting) release();
+        return;
+      }
     }
   };
   const apply = (event: DutyEvent) => {
-    const effects = record({ type: 'duty', event, rules });
-    if (state.duty.status !== 'waiting' || !state.duty.unanswered)
-      selfWake.stopAwaitingReply();
-    if (state.duty.status !== 'owed' || !state.duty.paused)
-      selfWake.stopPause();
-    if (state.midTurn.length === 0) {
-      const waiting = held;
-      held = [];
-      for (const release of waiting) release();
-    }
-    for (const kind of effects) effect(kind);
+    for (const kind of record({ type: 'duty', event, rules })) effect(kind);
   };
   const recover = (error: unknown, stage: string) => {
     const phrases = goods.generated?.value.phrases;
