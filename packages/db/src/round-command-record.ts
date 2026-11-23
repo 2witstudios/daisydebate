@@ -1,5 +1,5 @@
-import { eq } from 'drizzle-orm';
-import { createAppError, createRefusal } from '@daisy/errors';
+import { createAppError } from '@daisy/errors';
+import { storedCommand } from './command-log';
 import { idSchema } from '@daisy/protocol/primitives';
 import { roundCommands } from './schema/round-commands';
 import type { Tx } from './tx';
@@ -19,33 +19,11 @@ export type CommandBinding = {
  * already holds. A stored row is returned only when it binds the exact same
  * Round, principal, type and payload; a reused id with anything else refuses.
  */
-export async function storedRoundCommand(
+export const storedRoundCommand = (
   tx: Tx,
   commandId: string,
   expected: CommandBinding,
-) {
-  const [previous] = await tx
-    .select()
-    .from(roundCommands)
-    .where(eq(roundCommands.commandId, commandId));
-  if (previous) requireSameCommand(previous, expected);
-  return previous ?? null;
-}
-
-/** A reused command id replays only for the exact same Round, principal, type and payload. */
-export function requireSameCommand(
-  previous: CommandBinding,
-  expected: CommandBinding,
-): void {
-  if (
-    previous.roundId !== expected.roundId ||
-    previous.actorId !== expected.actorId ||
-    previous.serviceId !== expected.serviceId ||
-    previous.payloadDigest !== expected.payloadDigest ||
-    previous.type !== expected.type
-  )
-    throw createRefusal('CONFLICT', 'command-conflict');
-}
+) => storedCommand(tx, roundCommands, commandId, expected);
 
 /** A Round write names a cuid2 Round, a schema-valid envelope and a SHA3-256 hex digest. */
 export function requireCommandInput(

@@ -14,7 +14,8 @@ import { buildRoomTopic } from '@daisy/protocol/topics';
 import { botDifficulties } from '@daisy/protocol/room-read';
 import { idSchema } from '@daisy/protocol/primitives';
 import { roomRoundLinkOf } from '@daisy/protocol/room-contract';
-import { createAppError, createRefusal } from '@daisy/errors';
+import { createAppError } from '@daisy/errors';
+import { storedCommand } from './command-log';
 import {
   authorizationAccountFact,
   authorizationAccountRow,
@@ -345,17 +346,12 @@ export const replayReceipt = async (
   payloadDigest: string,
   roomId?: string,
 ): Promise<RoomCommandReceipt | null> => {
-  const [previous] = await tx
-    .select()
-    .from(roomCommands)
-    .where(eq(roomCommands.commandId, commandId));
+  const previous = await storedCommand(tx, roomCommands, commandId, {
+    actorId,
+    payloadDigest,
+    roomId,
+  });
   if (!previous) return null;
-  if (
-    previous.actorId !== actorId ||
-    previous.payloadDigest !== payloadDigest ||
-    (roomId !== undefined && previous.roomId !== roomId)
-  )
-    throw createRefusal('CONFLICT', 'command-conflict');
   return {
     ...(previous.result as Omit<RoomCommandReceipt, 'replayed'>),
     replayed: true,

@@ -5,8 +5,8 @@ import {
   fencedActorIds,
   requireCommandInput,
   requireFencedParticipants,
-  requireSameCommand,
 } from './round-command-record';
+import { requireSameBinding } from './command-log';
 
 setupRitewayBun();
 
@@ -22,7 +22,7 @@ test('a reused command id replays only for the identical binding', async () => {
   assert({
     given: 'a stored command with the same Round, principal, type and payload',
     should: 'admit the replay',
-    actual: requireSameCommand(binding, { ...binding }),
+    actual: requireSameBinding(binding, { ...binding }),
     expected: undefined,
   });
   for (const [field, value] of [
@@ -36,7 +36,7 @@ test('a reused command id replays only for the identical binding', async () => {
     await assertRejects({
       given: `a stored command whose ${field} differs`,
       should: 'refuse the reused command id as a conflict',
-      actual: () => requireSameCommand({ ...binding, [field]: value }, binding),
+      actual: () => requireSameBinding({ ...binding, [field]: value }, binding),
       code: 'CONFLICT',
     });
 });
@@ -98,5 +98,33 @@ test('fenced actors are distinct, seats first, without absent extras', () => {
       'host',
     ),
     expected: ['a', 'b', 'host'],
+  });
+});
+
+test('a Room replay binds only the values its writer names', async () => {
+  const stored = {
+    roomId: 'roomaaaaa1b2c3d4e5f6g7h8',
+    actorId: binding.actorId,
+    payloadDigest: binding.payloadDigest,
+  };
+  assert({
+    given: 'a Room command replayed by a write that names no Room',
+    should: 'admit the replay',
+    actual: requireSameBinding(stored, {
+      actorId: stored.actorId,
+      payloadDigest: stored.payloadDigest,
+      roomId: undefined,
+    }),
+    expected: undefined,
+  });
+  await assertRejects({
+    given: 'a Room command replayed for another Room',
+    should: 'refuse the reused command id as a conflict',
+    actual: () =>
+      requireSameBinding(stored, {
+        ...stored,
+        roomId: 'otherroom1b2c3d4e5f6g7h8',
+      }),
+    code: 'CONFLICT',
   });
 });
