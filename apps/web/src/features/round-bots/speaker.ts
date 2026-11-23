@@ -282,6 +282,7 @@ export function createBotSpeaker(input: {
     record({ type: 'opening-begins' });
     const stopped = Promise.withResolvers<void>();
     const stop = () => stopped.resolve();
+    const isAborted = () => signal.aborted;
     signal.addEventListener('abort', stop, { once: true });
     try {
       for (
@@ -291,7 +292,8 @@ export function createBotSpeaker(input: {
       ) {
         const pending = goods.buying.get(index)?.catch(() => undefined);
         await Promise.race([pending, stopped.promise]);
-        const held = !signal.aborted && hasVoice(state, index);
+        // Read live: the abort can land while the voice is awaited.
+        const held = !isAborted() && hasVoice(state, index);
         record({ type: 'opening-held', index, held });
       }
     } finally {

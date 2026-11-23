@@ -215,7 +215,10 @@ const dutyEffects = (
         return state.run.status === 'idle' ? ['drop'] : [];
       case 'retry-soon':
         return state.duty.status === 'over' ? [] : ['retry-soon'];
-      default:
+      case 'start':
+      case 'restart':
+      case 'silence':
+      case 'await-reply':
         return [effect];
     }
   }),
