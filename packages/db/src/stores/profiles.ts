@@ -3,7 +3,7 @@ import { memberProfileReadOperations } from '../member-profile-reads';
 import { publicProfileOperations } from '../public-profile-operations';
 import { resourcesOf } from '../resource-handles';
 import type { DatabaseResources } from '../resources';
-import { namedLaneOperations } from '../workload';
+import { namedLaneOperations } from '../instrumented';
 
 /** Public profiles and member cards on the social lane; their rating reads on the browse lane. */
 export const createProfileStore = (resources: DatabaseResources) => {

@@ -4,7 +4,7 @@ import { recordingRoundReadOperations } from '../recording-round-reads';
 import { youthLiveReadOperations } from '../youth-live-reads';
 import { resourcesOf } from '../resource-handles';
 import type { DatabaseResources } from '../resources';
-import { namedLaneOperations } from '../workload';
+import { namedLaneOperations } from '../instrumented';
 
 /** Recordings: their Round, archive and Youth reads on the browse lane, their commands on the control lane. */
 export const createRecordingStore = (resources: DatabaseResources) => {

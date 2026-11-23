@@ -1,7 +1,7 @@
 import { watchHistoryOperations } from '../watch-history';
 import { resourcesOf } from '../resource-handles';
 import type { DatabaseResources } from '../resources';
-import { namedLaneOperations } from '../workload';
+import { namedLaneOperations } from '../instrumented';
 
 /** Watch history, on the social lane. */
 export const createWatchHistoryStore = (resources: DatabaseResources) => {

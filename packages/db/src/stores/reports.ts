@@ -4,7 +4,7 @@ import { moderationReactions } from '../moderation/store';
 import { createReportStore, reportOperations } from '../reports/store';
 import { resourcesOf } from '../resource-handles';
 import type { DatabaseResources } from '../resources';
-import { namedLaneOperations } from '../workload';
+import { namedLaneOperations } from '../instrumented';
 
 /**
  * What each capability does when a member is restricted (ADR 0103); the

@@ -4,7 +4,7 @@ import { friendshipReadOperations } from '../friends/reads';
 import { createFriendStore } from '../friends/store';
 import { resourcesOf } from '../resource-handles';
 import type { DatabaseResources } from '../resources';
-import { namedLaneOperations } from '../workload';
+import { namedLaneOperations } from '../instrumented';
 
 /** Friends: the friendship reads and commands, on the social lane. */
 export const createFriendsStore = (

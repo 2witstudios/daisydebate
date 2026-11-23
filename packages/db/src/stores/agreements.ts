@@ -1,7 +1,7 @@
 import { agreementSignatureOperations } from '../agreement-signatures';
 import { resourcesOf } from '../resource-handles';
 import type { DatabaseResources } from '../resources';
-import { namedLaneOperations } from '../workload';
+import { namedLaneOperations } from '../instrumented';
 
 /** Agreement signatures, on the control lane. */
 export const createAgreementsStore = (resources: DatabaseResources) => {

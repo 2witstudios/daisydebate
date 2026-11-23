@@ -54,6 +54,7 @@ test('accepts a module that reads a storage primitive by any of them', () => {
     "import { query } from './raw-rows';\nexport const read = () => query;",
     "import { createBoundedTransaction } from './bounded-transaction';\nexport const runner = createBoundedTransaction;",
     "import { createWorkload } from './workload';\nexport const lanes = createWorkload;",
+    "import { resourcesOf } from './resource-handles';\nexport const lanes = (resources: object) => resourcesOf(resources);",
   ];
   assert({
     given: 'a decision beside each storage primitive it reads as a value',
@@ -72,6 +73,7 @@ test('accepts a function that takes and uses a transaction, connection or runner
     "import type { BoundedTransaction } from './bounded-transaction';\nexport const store = ({ run }: { readonly run: BoundedTransaction }) => ({ go: () => run(async () => 1) });",
     "export const read = (client: import('bun').SQL) => client.unsafe('x');",
     "import type { SQL } from 'bun';\ntype Opener = { readonly pool: SQL };\nexport const open = (opener: Opener) => opener.pool;",
+    "import type { DatabaseResources } from './resources';\nexport const store = (resources: DatabaseResources) => ({ close: resources.close });",
   ];
   assert({
     given:
@@ -96,6 +98,8 @@ test('refuses a pure decision dressed with a type-only or unused storage import'
     "export { query } from './raw-rows';",
     "import type { WorkloadLane } from './workload';\nexport const isBusy = (lane: WorkloadLane) => lane === 'social';",
     "type Facts = { readonly status: string };\nexport const check = (facts: Facts) => facts.status === 'live';",
+    "import type { DatabaseResources } from './resources';\nexport const ignore = (resources: DatabaseResources, status: string) => status === 'live';",
+    "import { namedLaneOperations } from './instrumented';\nexport const named = namedLaneOperations;",
   ];
   assert({
     given:

@@ -2,7 +2,7 @@ import { channelObservationReads } from '../messaging/observation-reads';
 export type { ChannelObservationReads } from '../messaging/observation-reads';
 import { resourcesOf } from '../resource-handles';
 import type { DatabaseResources } from '../resources';
-import { namedLaneOperations } from '../workload';
+import { namedLaneOperations } from '../instrumented';
 
 /**
  * Channel observation owner reads (ADR 0089), only on a profile that

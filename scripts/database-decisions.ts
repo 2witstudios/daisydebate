@@ -6,7 +6,8 @@ import ts from 'typescript';
  * module of the package that exports a function must touch storage: use a
  * value from PostgreSQL's client, Drizzle, or one of the package's own
  * storage primitives (its tables, its transaction, its query, its bounded
- * transaction runner or its lanes), or take and use a parameter they type. A module that touches none of them is a
+ * transaction runner, its lanes or the handle a process's resources open
+ * them through), or take and use a parameter they type. A module that touches none of them is a
  * pure function file, and its rule belongs to the owner of the rule: the
  * engine, the protocol or the application feature.
  */
@@ -25,6 +26,8 @@ const storagePrimitives = [
   'raw-rows',
   'bounded-transaction',
   'workload',
+  'resources',
+  'resource-handles',
 ].map((name) => `${databaseSource}${name}`);
 
 const isProductionModule = (path: string) =>
@@ -48,7 +51,8 @@ const isStoragePrimitive = (path: string, specifier: string) => {
 
 /**
  * The package's storage handles, which a parameter may be typed by: a
- * transaction, its opener or runner, a bounded transaction, a lane. Any type
+ * transaction, its opener or runner, a bounded transaction, a lane, a
+ * process's opened resources. Any type
  * from Bun's client or Drizzle is a handle too. A vocabulary type (a lane's
  * name, a table's row) is not: a rule over a row is still a pure rule.
  */
@@ -56,6 +60,8 @@ const packageHandles: Readonly<Record<string, readonly string[]>> = {
   [`${databaseSource}tx`]: ['Tx', 'TxSource', 'TxOpener', 'TransactionRunner'],
   [`${databaseSource}bounded-transaction`]: ['BoundedTransaction'],
   [`${databaseSource}workload`]: ['Lane', 'LaneGate', 'LaneConnector'],
+  [`${databaseSource}resources`]: ['DatabaseResources'],
+  [`${databaseSource}resource-handles`]: ['OpenedResources'],
 };
 
 const isHandleType = (path: string, specifier: string, name: string) => {

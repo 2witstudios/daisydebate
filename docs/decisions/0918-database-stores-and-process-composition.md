@@ -23,9 +23,11 @@ that needed three operations was typed by, and opened lanes for, all 374.
 1. **`packages/db` holds no pure function module.** A production module of
    the package that exports a function must touch storage: read a value it
    imported from a storage primitive (Bun's client, Drizzle, the package's
-   `schema/`, `tx`, `raw-rows`, `bounded-transaction` or `workload`), or take
-   and use a parameter typed by a storage handle (a transaction, its opener
-   or runner, a bounded transaction, a lane, any Bun or Drizzle type). A
+   `schema/`, `tx`, `raw-rows`, `bounded-transaction`, `workload`, or the
+   resource handle `resources`/`resource-handles`), or take and use a
+   parameter typed by a storage handle (a transaction, its opener or runner,
+   a bounded transaction, a lane, a process's opened resources, any Bun or
+   Drizzle type). A
    type-only or unused import, a lane's name or a table's row type does not
    count. `scripts/check-boundaries.ts` refuses any other module
    (`scripts/database-decisions.ts`, with fixtures); there is no exemption list.
@@ -42,7 +44,12 @@ that needed three operations was typed by, and opened lanes for, all 374.
    runner, the dedicated LISTEN and election connections and the event sink,
    behind an opaque `DatabaseResources` whose only members are `close`,
    `laneGauges` and `drainLaneHolds`. Stores reach the handles through the
-   package-private `resourcesOf`; no caller holds a raw handle.
+   package-private `resourcesOf`; no caller holds a raw handle. Subpaths a
+   process outside Bun loads (Playwright's Node runner: `capacity`,
+   `service-lease-lapse`, `database-failure`, `tab`, `reference-formats`)
+   never reach Bun's client at runtime (`node-safe-subpaths.test.ts`), so
+   the capacity-refusal identity lives with the driver failures in
+   `raw-rows` and the operation labels in `instrumented`, not in `workload`.
 4. **One store factory per area, on its own subpath.**
    `@daisy/db/stores/<area>` exports `create<Area>Store(resources, options)`
    and its type. Options carry only what that area needs. A cross-area need

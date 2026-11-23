@@ -6,7 +6,7 @@ import {
 import { subscribeWorkWakes, type WorkWakeHandlers } from '../work-wake';
 import { resourcesOf } from '../resource-handles';
 import type { DatabaseResources } from '../resources';
-import { namedLaneOperations } from '../workload';
+import { namedLaneOperations } from '../instrumented';
 
 /**
  * The process's LISTEN subscriptions on its dedicated connections, outside

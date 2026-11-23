@@ -4,7 +4,7 @@ import { roundBotAdmissionEntrypoints } from '../round-bot-admission-entrypoints
 import type { RoundBotAdmissionOptions } from './round-bot-admission';
 import { resourcesOf } from '../resource-handles';
 import type { DatabaseResources } from '../resources';
-import { namedLaneOperations } from '../workload';
+import { namedLaneOperations } from '../instrumented';
 
 /**
  * Rooms: their commands on the competitive lane, Room preparation through

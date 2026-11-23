@@ -3,7 +3,7 @@ import { mediaReleaseMailOperations } from '../media-release-mail';
 import { createMediaReleases } from '../media-releases';
 import { resourcesOf } from '../resource-handles';
 import type { DatabaseResources } from '../resources';
-import { namedLaneOperations } from '../workload';
+import { namedLaneOperations } from '../instrumented';
 
 /** Media releases (ADR 0151): the minor, the parent, the club and their mail. */
 export const createMediaReleaseStore = (

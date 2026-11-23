@@ -6,7 +6,7 @@ import {
 } from '../round-worker-entrypoints';
 import { resourcesOf } from '../resource-handles';
 import type { DatabaseResources } from '../resources';
-import { namedLaneOperations } from '../workload';
+import { namedLaneOperations } from '../instrumented';
 
 /** The Round's leased workers, AI judging and bot publication, on the competitive lane's bounded transaction. */
 export const createRoundWorkerStore = (

@@ -2,7 +2,7 @@ import { billingOperations } from '../billing-operations';
 import { usageRecoveryOperations } from '../usage-recovery';
 import { resourcesOf } from '../resource-handles';
 import type { DatabaseResources } from '../resources';
-import { namedLaneOperations } from '../workload';
+import { namedLaneOperations } from '../instrumented';
 
 /** Billing and usage recovery, through the control lane's bounded transaction. */
 export const createBillingStore = (

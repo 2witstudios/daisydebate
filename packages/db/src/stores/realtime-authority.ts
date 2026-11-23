@@ -10,7 +10,7 @@ import { roomAuthorizationRead } from '../room-authorization-read';
 import type { TxSource } from '../tx';
 import { resourcesOf } from '../resource-handles';
 import type { DatabaseResources } from '../resources';
-import { namedLaneOperations } from '../workload';
+import { namedLaneOperations } from '../instrumented';
 
 /**
  * The shared-fence authority reads a socket subscription needs, on one

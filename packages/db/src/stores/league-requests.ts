@@ -1,7 +1,7 @@
 import { leagueRequestOperations } from '../league-requests';
 import { resourcesOf } from '../resource-handles';
 import type { DatabaseResources } from '../resources';
-import { namedLaneOperations } from '../workload';
+import { namedLaneOperations } from '../instrumented';
 
 /** League requests and their owner mail, on the control lane. */
 export const createLeagueRequestsStore = (resources: DatabaseResources) => {

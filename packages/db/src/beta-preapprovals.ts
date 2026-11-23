@@ -25,7 +25,7 @@ import { inTransaction, type Tx, type TxSource } from './tx';
 import { commandGate, storedResult, writeReceipt } from './operator-command';
 import { run, query } from './raw-rows';
 import { z } from 'zod';
-import { withLaneOperation } from './workload';
+import { withLaneOperation } from './instrumented';
 
 /** Delivery is unknown while a send may have happened without settlement. */
 const invitationStatusSql = sql`case when m.last_error_code = ${listedWord(mailIntentErrorCodes, 'delivery-unknown')} then 'unknown' when m.last_error_code = ${listedWord(mailIntentErrorCodes, 'suppressed')} then 'suppressed' when m.state = ${listedWord(mailJobStates, 'leased')} or (m.state = ${listedWord(mailJobStates, 'queued')} and m.attempts > 0) then 'unknown' else coalesce(m.state, 'none') end`;

@@ -2,7 +2,7 @@ import type { DecisionReleasePolicy } from '@daisy/protocol/round-decision-relea
 import { createMediaSessionStore as create } from '../media-session';
 import { resourcesOf } from '../resource-handles';
 import type { DatabaseResources } from '../resources';
-import { namedLaneOperations } from '../workload';
+import { namedLaneOperations } from '../instrumented';
 
 /** A Round's media sessions and their reconcile, on the competitive lane. */
 export const createMediaSessionStore = (

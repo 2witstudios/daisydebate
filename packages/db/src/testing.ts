@@ -137,7 +137,7 @@ export {
   approveBetaAccess,
   removeUnowedBetaDigests,
 } from './beta-access-testing';
-export { refuseCapacity } from './workload';
+export { refuseCapacity } from './raw-rows';
 export {
   eraseRoomAccountClosure,
   exportRoomAccountClosure,

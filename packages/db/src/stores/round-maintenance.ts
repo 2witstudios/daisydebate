@@ -4,7 +4,7 @@ import { roundMaintenanceOperations } from '../round-maintenance';
 import { roundPanelCompletionOperations } from '../round-panel-completion';
 import { resourcesOf } from '../resource-handles';
 import type { DatabaseResources } from '../resources';
-import { namedLaneOperations } from '../workload';
+import { namedLaneOperations } from '../instrumented';
 
 /** The Round maintenance sweep and panel completion, on the competitive lane's bounded transaction. */
 export const createRoundMaintenanceStore = (

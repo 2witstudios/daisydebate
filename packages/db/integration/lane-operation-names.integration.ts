@@ -7,7 +7,7 @@ import { openDatabaseResources, WORKLOAD_PROFILES } from '../src/resources';
 import { createAuthStore } from '../src/stores/auth';
 import { createChannelObservationStore } from '../src/stores/channel-observation';
 import { createRoundStore } from '../src/stores/rounds';
-import { currentLaneOperation } from '../src/workload';
+import { currentLaneOperation } from '../src/instrumented';
 
 setupRitewayBun();
 const { databaseUrl: url } = requireTestServices(process.env);

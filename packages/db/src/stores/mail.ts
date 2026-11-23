@@ -2,7 +2,7 @@ import { emailDeliveryOperations } from '../email-delivery-operations';
 import { mailIntentOperations } from '../mail-intents';
 import { resourcesOf } from '../resource-handles';
 import type { DatabaseResources } from '../resources';
-import { namedLaneOperations } from '../workload';
+import { namedLaneOperations } from '../instrumented';
 
 /** Email delivery records and the mail intent queue, on the control lane. */
 export const createMailStore = (resources: DatabaseResources) => {

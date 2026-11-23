@@ -5,7 +5,7 @@ import { readOutboxRetentionBoundary } from '../outbox-retention-boundary';
 import type { WorkloadLane } from '../workload';
 import { resourcesOf } from '../resource-handles';
 import type { DatabaseResources } from '../resources';
-import { namedLaneOperations } from '../workload';
+import { namedLaneOperations } from '../instrumented';
 
 /**
  * The outbox's append, drain and retention on the control lane, and its

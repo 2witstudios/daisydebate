@@ -2,7 +2,7 @@ import type { DecisionReleasePolicy } from '@daisy/protocol/round-decision-relea
 import { createRoundIncidentStore as create } from '../round-incident-store';
 import { resourcesOf } from '../resource-handles';
 import type { DatabaseResources } from '../resources';
-import { namedLaneOperations } from '../workload';
+import { namedLaneOperations } from '../instrumented';
 
 /** The platform incident watch, on the competitive lane's bounded transaction. */
 export const createRoundIncidentStore = (

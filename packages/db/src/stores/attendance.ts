@@ -3,7 +3,7 @@ import { attendanceEntrypoints } from '../attendance-entrypoints';
 import type { RoundTimeSource } from '../round-execution-time';
 import { resourcesOf } from '../resource-handles';
 import type { DatabaseResources } from '../resources';
-import { namedLaneOperations } from '../workload';
+import { namedLaneOperations } from '../instrumented';
 
 /** Attendance check-in, discovery and evaluation, on the competitive lane's bounded transaction. */
 export const createAttendanceStore = (

@@ -5,7 +5,7 @@ import type { ContactReactions } from '../contacts/reactions';
 import { createContactStore as create } from '../contacts/store';
 import { resourcesOf } from '../resource-handles';
 import type { DatabaseResources } from '../resources';
-import { namedLaneOperations } from '../workload';
+import { namedLaneOperations } from '../instrumented';
 
 /**
  * Every capability's reaction to a contact change (DEC-251): the process

@@ -2,7 +2,7 @@ import { transcriptFinalizationOperations } from '../transcript-finalization';
 import { transcriptRetention } from '../transcript-retention';
 import { resourcesOf } from '../resource-handles';
 import type { DatabaseResources } from '../resources';
-import { namedLaneOperations } from '../workload';
+import { namedLaneOperations } from '../instrumented';
 
 /** A Round's transcript: its finalization on the competitive lane, its retention on the control lane. */
 export const createTranscriptStore = (resources: DatabaseResources) => {

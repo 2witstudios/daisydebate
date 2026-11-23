@@ -1,7 +1,7 @@
 import { audienceReactionOperations } from '../audience-reactions';
 import { resourcesOf } from '../resource-handles';
 import type { DatabaseResources } from '../resources';
-import { namedLaneOperations } from '../workload';
+import { namedLaneOperations } from '../instrumented';
 
 /** Audience reactions, on the social lane. */
 export const createAudienceReactionsStore = (resources: DatabaseResources) => {

@@ -1,7 +1,7 @@
 import { notificationOperations } from '../notifications';
 import { resourcesOf } from '../resource-handles';
 import type { DatabaseResources } from '../resources';
-import { namedLaneOperations } from '../workload';
+import { namedLaneOperations } from '../instrumented';
 
 /** Notifications and their digests, on the social lane. */
 export const createNotificationsStore = (resources: DatabaseResources) => {

@@ -5,7 +5,7 @@ import { retainedConversationOperations } from '../messaging/retained-store';
 import { messagingUnreadEmailOperations } from '../messaging/unread-emails';
 import { resourcesOf } from '../resource-handles';
 import type { DatabaseResources } from '../resources';
-import { namedLaneOperations } from '../workload';
+import { namedLaneOperations } from '../instrumented';
 
 /** Messaging: conversations, retained conversations, request settings and unread email, on the social lane. */
 export const createMessagingStore = (

@@ -8,7 +8,7 @@ import { roundSpeakingRead } from '../round-speaking-read';
 import { utteranceOperations } from '../utterance-operations';
 import { resourcesOf } from '../resource-handles';
 import type { DatabaseResources } from '../resources';
-import { namedLaneOperations } from '../workload';
+import { namedLaneOperations } from '../instrumented';
 
 export type RoundStoreOptions = {
   /** Trusted Round persistence time resource; absent in production composition. */

@@ -5,7 +5,7 @@ import {
 import type { AiAllowanceOptions } from '../usage-ledger';
 import { resourcesOf } from '../resource-handles';
 import type { DatabaseResources } from '../resources';
-import { namedLaneOperations } from '../workload';
+import { namedLaneOperations } from '../instrumented';
 
 export type RoundBotAdmissionOptions = {
   readonly nextId: () => string;

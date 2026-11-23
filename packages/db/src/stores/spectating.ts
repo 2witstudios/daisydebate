@@ -8,7 +8,7 @@ import { spectatorFactLogOperations } from '../spectator-fact-log';
 import { spectatorTimelineReads } from '../spectator-timeline-reads';
 import { resourcesOf } from '../resource-handles';
 import type { DatabaseResources } from '../resources';
-import { namedLaneOperations } from '../workload';
+import { namedLaneOperations } from '../instrumented';
 
 /**
  * What an audience reads (the timeline, live broadcasts, snapshots, the

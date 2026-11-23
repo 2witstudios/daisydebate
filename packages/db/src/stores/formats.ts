@@ -1,7 +1,7 @@
 import { formatOperations } from '../format-operations';
 import { resourcesOf } from '../resource-handles';
 import type { DatabaseResources } from '../resources';
-import { namedLaneOperations } from '../workload';
+import { namedLaneOperations } from '../instrumented';
 
 /** Formats and presets, on the competitive lane. */
 export const createFormatsStore = (resources: DatabaseResources) => {

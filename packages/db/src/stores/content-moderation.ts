@@ -5,7 +5,7 @@ import { spectatorChatModeration } from '../messaging/spectator-chat';
 import { recordingModeration } from '../recording-moderation';
 import { resourcesOf } from '../resource-handles';
 import type { DatabaseResources } from '../resources';
-import { namedLaneOperations } from '../workload';
+import { namedLaneOperations } from '../instrumented';
 
 /** The moderation ports each content owner provides; the process passes them in. */
 export const contentModerationPorts = {

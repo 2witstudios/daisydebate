@@ -1,7 +1,7 @@
 import { debaterFollowOperations } from '../debater-follows';
 import { resourcesOf } from '../resource-handles';
 import type { DatabaseResources } from '../resources';
-import { namedLaneOperations } from '../workload';
+import { namedLaneOperations } from '../instrumented';
 
 /** Debater follows, on the social lane. */
 export const createDebaterFollowsStore = (resources: DatabaseResources) => {

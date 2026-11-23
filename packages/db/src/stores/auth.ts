@@ -3,7 +3,7 @@ import { authorizationSessionOperations } from '../authorization-session';
 import { provisionalRetentionOperations } from '../provisional-retention';
 import { resourcesOf } from '../resource-handles';
 import type { DatabaseResources } from '../resources';
-import { namedLaneOperations } from '../workload';
+import { namedLaneOperations } from '../instrumented';
 
 /** Sign-in records, provisional account retention and the request's authorization session, on the control lane. */
 export const createAuthStore = (resources: DatabaseResources) => {

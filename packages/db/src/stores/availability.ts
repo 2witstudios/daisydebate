@@ -1,7 +1,7 @@
 import { availabilityOperations } from '../availability-operations';
 import { resourcesOf } from '../resource-handles';
 import type { DatabaseResources } from '../resources';
-import { namedLaneOperations } from '../workload';
+import { namedLaneOperations } from '../instrumented';
 
 /** Service instances' leases and the availability election (ADR 0033), on control and dedicated connections. */
 export const createAvailabilityStore = (resources: DatabaseResources) => {

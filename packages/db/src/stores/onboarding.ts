@@ -3,7 +3,7 @@ import { onboardingOperations } from '../onboarding-operations';
 import { claimUsername } from '../username-claim';
 import { resourcesOf } from '../resource-handles';
 import type { DatabaseResources } from '../resources';
-import { namedLaneOperations } from '../workload';
+import { namedLaneOperations } from '../instrumented';
 
 /** Onboarding: the username claim, the member's actor and the onboarding steps, on the control lane. */
 export const createOnboardingStore = (

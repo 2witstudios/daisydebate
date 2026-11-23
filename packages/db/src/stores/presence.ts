@@ -2,7 +2,7 @@ import { peopleListOperations } from '../presence/people-list';
 import { presenceSettingOperations } from '../presence/settings';
 import { resourcesOf } from '../resource-handles';
 import type { DatabaseResources } from '../resources';
-import { namedLaneOperations } from '../workload';
+import { namedLaneOperations } from '../instrumented';
 
 /** Presence settings and the People list, on the social lane. */
 export const createPresenceStore = (resources: DatabaseResources) => {

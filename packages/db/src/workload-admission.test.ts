@@ -1,13 +1,13 @@
 import { virtualClock } from '@daisy/clock/testing';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import {
-  capacityRefusalDetail,
-  withLaneOperation,
   createLaneGate,
   profileConnections,
   validateWorkloadProfile,
   WORKLOAD_PROFILES,
 } from './workload';
+import { withLaneOperation } from './instrumented';
+import { capacityRefusalDetail } from './raw-rows';
 import { RUNTIME_SESSION } from './session-bounds';
 
 setupRitewayBun();

@@ -8,7 +8,7 @@ import { createGuardianStore } from '../guardians/store';
 import { inTransaction } from '../tx';
 import { resourcesOf } from '../resource-handles';
 import type { DatabaseResources } from '../resources';
-import { namedLaneOperations } from '../workload';
+import { namedLaneOperations } from '../instrumented';
 
 /** Guardian links, lobby permissions and their retention on the control lane; waiver reads on the browse lane. */
 export const createGuardiansStore = (resources: DatabaseResources) => {

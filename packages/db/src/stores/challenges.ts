@@ -7,7 +7,7 @@ import {
 import type { ContactAuthorizationFence } from '../contacts/fence';
 import { resourcesOf } from '../resource-handles';
 import type { DatabaseResources } from '../resources';
-import { namedLaneOperations } from '../workload';
+import { namedLaneOperations } from '../instrumented';
 
 /** Challenges: reads and commands on the social lane; a profile's challenge modes on the browse lane. */
 export const createChallengesStore = (resources: DatabaseResources) => {
