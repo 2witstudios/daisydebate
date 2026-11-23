@@ -41,7 +41,14 @@ export const allowedWorkspaceDependencies: Record<string, readonly string[]> = {
   // VIDEO-1.4: isolated LiveKit vendor adapter; no competitive authority.
   media: ['clock', 'digest', 'errors', 'protocol'],
   // ADR 0099: the hold worker's only credential is its broadcasts role.
-  'broadcast-worker': ['clock', 'db', 'debate-engine', 'logger', 'protocol'],
+  'broadcast-worker': [
+    'clock',
+    'db',
+    'debate-engine',
+    'logger',
+    'protocol',
+    'worker',
+  ],
   // ADR 0112: publishes released facts; its role reads them and nothing else.
   'audience-publisher': [
     'clock',

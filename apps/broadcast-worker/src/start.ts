@@ -1,15 +1,20 @@
 import { createBroadcastWorkerStore } from '@daisy/db/broadcast-worker';
 import { createLogger } from '@daisy/logger';
+import { stopAll } from '@daisy/worker';
+import { hostWaits } from '@daisy/worker/host';
 import { createId } from '@paralleldrive/cuid2';
 import { rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { readWorkerConfig } from './config';
 import { createObjects } from './objects';
-import { runFeedWithdrawals } from './withdrawal';
-import { runWorker } from './worker';
+import { startFeedWithdrawals } from './withdrawal';
+import { startBroadcastSlot } from './worker';
 
-// The deployment edge: the real environment, clock and process signals.
+/** Within Fly's 30 s grace: a slot stuck on a silent store is abandoned, not awaited. */
+const DRAIN_MS = 20_000;
+
+// The deployment edge: the real environment, clock, time and process signals.
 const config = readWorkerConfig(process.env);
 const store = createBroadcastWorkerStore(config.BROADCAST_WORKER_DATABASE_URL);
 const objects = createObjects({
@@ -26,20 +31,13 @@ const objects = createObjects({
   },
 });
 const logger = createLogger({ service: 'broadcast-worker' });
-const shutdown = new AbortController();
-for (const signal of ['SIGTERM', 'SIGINT'] as const)
-  process.on(signal, () => {
-    shutdown.abort();
-  });
 const scratchDir = (broadcastId: string) =>
   join(tmpdir(), 'broadcast-worker', broadcastId);
 const edges = {
   store,
   objects,
   now: Date.now,
-  sleep: Bun.sleep,
-  stopped: () => shutdown.signal.aborted,
-  signal: shutdown.signal,
+  waits: hostWaits,
   report: (
     event:
       | 'broadcast.release_failed'
@@ -48,10 +46,10 @@ const edges = {
       | 'broadcast.clip_skipped',
   ) => logger.log(event, {}, 'Broadcast worker'),
 };
-await Promise.all([
-  runFeedWithdrawals({ ...edges, owner: createId() }),
+const workers = [
+  startFeedWithdrawals({ ...edges, owner: createId() }),
   ...Array.from({ length: config.BROADCAST_WORKER_SLOTS }, () =>
-    runWorker({
+    startBroadcastSlot({
       ...edges,
       owner: createId(),
       scratch: {
@@ -60,5 +58,16 @@ await Promise.all([
       },
     }),
   ),
-]);
-await store.close();
+];
+const shutdown = async () => {
+  const drain = await stopAll({
+    waits: hostWaits,
+    workers,
+    deadlineMs: DRAIN_MS,
+  });
+  if (drain === 'overdue') process.exit(1);
+  await store.close();
+  process.exit(0);
+};
+for (const signal of ['SIGTERM', 'SIGINT'] as const)
+  process.once(signal, () => void shutdown());

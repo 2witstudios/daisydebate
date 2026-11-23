@@ -30,6 +30,8 @@ export type Lease<Facts> = {
   readonly signal: AbortSignal;
   /** Resolves with how the lease ended. */
   readonly ended: Promise<LeaseEnd>;
+  /** Whether the lease holds now, judged at the call, past the horizon included. */
+  readonly holds: () => boolean;
   /** The facts of the last renewal that held, or the claim's. */
   readonly facts: () => Facts;
   /**
@@ -161,6 +163,7 @@ export function holdLease<Facts>(input: {
   return {
     signal: ending.signal,
     ended,
+    holds,
     facts: () => facts,
     guard: async (write) => {
       if (!holds()) throw new LeaseEnded(end ?? 'expired');
