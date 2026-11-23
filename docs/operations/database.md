@@ -117,16 +117,28 @@ Staging, from a checkout of the merge commit with `flyctl` logged in as the
 owner (the same operator access as [deploy-staging](deploy-staging.md#database-credentials-issue-39)).
 No agent runs any of it; no builder has run these commands against Fly.
 
-0. **Check before merging**, while the old image can still ship a fix. Run
-   steps 3 and 4 from a checkout of the PR's head instead of the merge
-   commit, with `--check` after the script path:
-   `bun /app/packages/db/scripts/adopt-baseline.ts --check`. It proves
-   everything the adoption proves and stops before the swap, printing
-   `adopt-baseline --check: adoptable; … nothing changed`. If it refuses,
-   fix the cause on main the ordinary way, with a folder after the cut-off
-   that staging applies (a CHECK that staging left `NOT VALID` is one such
-   cause, because the reference validates it), take main into the PR, and
-   check again. Drop and recreate the reference between runs (steps 6 and 3).
+0. **Check before merging**, while the old image can still ship a fix. Do
+   step 3, then build the PR head's image as in step 4 (from a checkout of
+   the PR's head, `SHA` its commit) and run the check, which proves
+   everything the adoption proves and stops before the swap. The fly flags
+   come first and `--` ends them, so `--check` reaches the script:
+
+   ```sh
+   fly machine run "registry.fly.io/daisy-debate-staging-migrate:baseline-${SHA::7}" \
+     -a daisy-debate-staging-migrate --rm --restart no --region ord \
+     --vm-size shared-cpu-1x --vm-memory 512 \
+     --env ADOPTION_REFERENCE_DATABASE=daisy_baseline_reference \
+     -- bun /app/packages/db/scripts/adopt-baseline.ts --check
+   fly logs -a daisy-debate-staging-migrate --no-tail
+   ```
+
+   Expect `adopt-baseline --check: adoptable; … nothing changed`. If it
+   refuses, fix the cause on main the ordinary way, with a folder after the
+   cut-off that staging applies (a CHECK that staging left `NOT VALID` is one
+   such cause, because the reference validates it), take main into the PR,
+   and check again. Drop and recreate the reference between runs (steps 6
+   and 3).
+
 1. **Pause the deploy rail** before merging, so the merge does not release
    on its own: `gh workflow disable deploy-staging.yml`. A disabled
    `workflow_run` workflow drops the CI event, so step 5 dispatches it by
@@ -154,10 +166,10 @@ No agent runs any of it; no builder has run these commands against Fly.
      --image-label "baseline-${SHA::7}" \
      --build-arg APP_VERSION="${SHA::7}" --build-arg GIT_COMMIT="$SHA"
    fly machine run "registry.fly.io/daisy-debate-staging-migrate:baseline-${SHA::7}" \
-     bun /app/packages/db/scripts/adopt-baseline.ts \
      -a daisy-debate-staging-migrate --rm --restart no --region ord \
      --vm-size shared-cpu-1x --vm-memory 512 \
-     --env ADOPTION_REFERENCE_DATABASE=daisy_baseline_reference
+     --env ADOPTION_REFERENCE_DATABASE=daisy_baseline_reference \
+     -- bun /app/packages/db/scripts/adopt-baseline.ts
    fly logs -a daisy-debate-staging-migrate --no-tail
    ```
 

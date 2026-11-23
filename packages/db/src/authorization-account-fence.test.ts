@@ -65,11 +65,17 @@ test('the account fence source is the function the migrations install', async ()
       sourceName: newestName(source),
       header: canonical && header(canonical.statement),
       body: canonical?.body === installed?.body,
+      // Never a vacuous match: both headers must parse.
+      parsed:
+        installed !== undefined &&
+        header(installed.statement).args !== undefined &&
+        header(installed.statement).returns !== undefined,
     },
     expected: {
       sourceName: name,
       header: installed && header(installed.statement),
       body: true,
+      parsed: true,
     },
   });
 });

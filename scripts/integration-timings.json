@@ -1,6 +1,6 @@
 {
   "source": "https://github.com/2witstudios/daisydebate/actions/runs/40812076331",
-  "measurement": "Sum of passing test durations per suite in milliseconds; scheduling estimates only. Unknown suites use 1000 ms.",
+  "measurement": "Sum of passing test durations per suite in milliseconds; scheduling estimates only. Unknown suites use 1000 ms. The baseline-adoption, baseline-catalog and reference-rows entries are local measurements (RECON-5.1, RECON-5.2) until the next refresh from CI.",
   "durationsMs": {
     "apps/admin/integration/audit-grants.integration.ts": 180,
     "apps/admin/integration/commands-reconcile.integration.ts": 324,
