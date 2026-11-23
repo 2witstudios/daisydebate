@@ -120,6 +120,7 @@ export const allowedWorkspaceDependencies: Record<string, readonly string[]> = {
     'logger',
     'observability',
     'presence',
+    'worker',
   ],
 };
 
