@@ -54,8 +54,8 @@ These rules are blockers in every plan and review (owner, 2026-10-27 and
   Drizzle, Bun SQL, Redis, HTTP, or framework session globals.
 - Import workspace public APIs only. Declare every direct dependency in the
   owning package. The ESLint rules and `scripts/check-boundaries.ts` enforce
-  declared dependencies, the acyclic graph, explicit exports, and Adobe ECS
-  isolation.
+  declared dependencies, the acyclic graph, explicit exports, and the ban on
+  Adobe packages (ADR 0911).
 - Put new work in its owning feature or package. Do not add broad `utils`,
   service, registry, or barrel files. Shared abstractions require two real
   consumers. A foundation whose reader is a committed leaf is the exception:

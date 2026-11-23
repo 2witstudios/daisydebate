@@ -213,7 +213,7 @@ test('hydration rejects overlapping intervals before either reader advances', as
   });
   await assertRejects({
     given: 'the same malformed intervals at server hydration',
-    should: 'reject before creating ECS execution storage',
+    should: 'reject before creating the runtime',
     actual: () =>
       createRoundRuntime({
         ...malformed,

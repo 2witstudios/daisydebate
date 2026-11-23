@@ -31,14 +31,14 @@ const mutations: readonly Mutation[] = [
   {
     name: 'a panel completes a debate still in its countdown',
     file: 'packages/debate-engine/src/round-panel-completion.ts',
-    find: '  debateIsOver(c);',
+    find: '  debateIsOver(step, rules);',
     replace: '  true;',
   },
   {
     name: 'an ending leaves prep running',
     file: 'packages/debate-engine/src/round-commands.ts',
-    find: '  c.on.endPrep();\n  c.on.setPrepEndedAt(null);',
-    replace: '  c.on.setPrepEndedAt(null);',
+    find: '  closed = withCheckpoint(closed, { active_prep: null, prep_ended_at: null });',
+    replace: '  closed = withCheckpoint(closed, { prep_ended_at: null });',
   },
   {
     name: 'a format with no yield policy takes a yield',
