@@ -1,1 +1,0 @@
-DROP TABLE "ai_allowance_grants";

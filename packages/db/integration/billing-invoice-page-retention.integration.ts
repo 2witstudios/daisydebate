@@ -1,4 +1,3 @@
-import { installInvoicePassGuards } from './billing-invoice-pass-current.test-support';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { requireTestServices } from '@daisy/config';
 import { cleanupWork } from '@daisy/protocol/billing';
@@ -7,17 +6,12 @@ import { withBillingRefunds } from './billing-refunds.test-support';
 
 requireTestServices(process.env);
 setupRitewayBun();
-const candidate = new URL(
-  '../migrations/20261107080513_fair_midnight/migration.sql',
-  import.meta.url,
-);
 
 test('runtime invoice page admission requires durable exact witnesses before retaining its cursor', async () => {
   await withBillingRefunds(async ({ fixture, userId, actorId }) => {
     const rollback = new Error('Owned invoice-page rollback');
     try {
       await fixture.sql.begin(async (tx) => {
-        await installInvoicePassGuards(tx, candidate);
         await tx`set local role daisy_web`;
         await tx`select * from public.daisy_authorization_accounts_v2(array[${actorId}]::text[],null::text,true)`;
         const [row] =

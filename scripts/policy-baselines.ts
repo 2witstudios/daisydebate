@@ -1,6 +1,7 @@
 // The greenfield baseline registry (`policy/migration-baselines.json`): a
 // sanctioned history rewrite of the shared migration chain, recorded with the
-// base hash it replaced and a date to be judged by. ADR 0038 defines what a
+// baseline folder, the cut-off it replaces through, the fingerprint of the
+// folders it superseded and a date to be judged by (ADR 0913). ADR 0038 defines what a
 // baseline is; docs/architecture/rules.md makes it the only sanctioned way to rewrite applied
 // migrations, at the cost of resetting every local and test database once.
 //
@@ -18,7 +19,10 @@ import {
 import { utcToday } from './review-date';
 
 export type MigrationBaseline = {
-  readonly baseMigrationsHash: string;
+  readonly tag: string;
+  readonly cutoff: string;
+  readonly commit: string;
+  readonly supersededHash: string;
   readonly adr: string;
   readonly owner: string;
   readonly reason: string;
@@ -38,20 +42,27 @@ function baselineProblems(
   const problems: string[] = [];
   problems.push(
     ...requiredFieldProblems(entry, prefix, [
-      'baseMigrationsHash',
+      'tag',
+      'cutoff',
+      'commit',
+      'supersededHash',
       'adr',
       'owner',
       'reason',
       'reviewBy',
     ]),
   );
-  if (
-    typeof entry.baseMigrationsHash === 'string' &&
-    !/^sha256:[0-9a-f]{64}$/.test(entry.baseMigrationsHash)
-  )
-    problems.push(
-      `${prefix}: baseMigrationsHash must be sha256:<64 lowercase hex>`,
-    );
+  const formats = [
+    ['tag', /^\d{14}_baseline$/, '<14-digit timestamp>_baseline'],
+    ['cutoff', /^\d{14}_[a-z0-9_]+$/, 'a migration folder name'],
+    ['commit', /^[0-9a-f]{40}$/, 'a full commit id'],
+    ['supersededHash', /^sha256:[0-9a-f]{64}$/, 'sha256:<64 lowercase hex>'],
+  ] as const;
+  for (const [field, pattern, shape] of formats) {
+    const value = entry[field];
+    if (typeof value === 'string' && !pattern.test(value))
+      problems.push(`${prefix}: ${field} must be ${shape}`);
+  }
   problems.push(...adrProblems(entry.adr, prefix, options.knownPaths));
   problems.push(...reviewDateProblems(entry.reviewBy, prefix, today));
   return problems;

@@ -1,1 +1,0 @@
-ALTER TABLE "media_sessions" ADD COLUMN "reconcile_last_pass_clean" boolean DEFAULT true NOT NULL;

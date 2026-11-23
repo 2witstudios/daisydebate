@@ -1,38 +1,81 @@
-import { readdirSync, readFileSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
+import {
+  committedMigrationSql,
+  installedFunction,
+} from './migrations.test-support';
 
 setupRitewayBun();
 
-/** The fence from its name on, however it was created. */
-const declaration =
-  /CREATE (?:OR REPLACE )?FUNCTION (public\.daisy_authorization_accounts_v\d+\([\s\S]*?\$authorization_accounts\$;)/i;
-const bodyOf = (sql: string) => declaration.exec(sql)?.[1];
-const migrations = join(import.meta.dir, '../migrations');
+const family = 'daisy_authorization_accounts_v';
 
-test('the account fence source is the function the migrations install', () => {
-  const installed = readdirSync(migrations)
-    .sort()
-    .map((tag) => {
-      try {
-        return readFileSync(join(migrations, tag, 'migration.sql'), 'utf8');
-      } catch {
-        return '';
-      }
-    })
-    .flatMap((sql) => bodyOf(sql) ?? [])
-    .at(-1);
-  const source = bodyOf(
-    readFileSync(
-      join(import.meta.dir, 'authorization-account-fence.sql'),
-      'utf8',
+/** The newest version of the fence any text defines. */
+const newestName = (sql: string) => {
+  const versions = [
+    ...sql.matchAll(
+      new RegExp(
+        `CREATE (?:OR REPLACE )?FUNCTION public\\.${family}(\\d+)\\(`,
+        'gi',
+      ),
     ),
+  ].map(([, version]) => Number(version));
+  return versions.length === 0
+    ? undefined
+    : `${family}${Math.max(...versions)}`;
+};
+
+/** A definition's header as PostgreSQL keeps it, however it is spelled. */
+const header = (statement: string) => {
+  const head = statement.slice(0, statement.search(/\bAS\s+\$/i));
+  const flat = head.replace(/"/g, '').replace(/\s+/g, ' ').toLowerCase();
+  const args = /\(([^)]*)\)\s*returns/.exec(flat)?.[1]?.replace(/\s/g, '');
+  const returns = /returns table\s*\(([^)]*)\)/
+    .exec(flat)?.[1]
+    ?.replace(/\s/g, '');
+  const searchPath = /set search_path (?:=|to) ([^\n]*?)(?: as|$)/
+    .exec(flat)?.[1]
+    ?.replace(/'/g, '')
+    .split(',')
+    .map((schema) => schema.trim());
+  return {
+    args,
+    returns,
+    language: /language (\w+)/.exec(flat)?.[1],
+    securityDefiner: flat.includes('security definer'),
+    searchPath,
+  };
+};
+
+test('the account fence source is the function the migrations install', async () => {
+  const migrated = await committedMigrationSql();
+  const name = newestName(migrated);
+  const source = readFileSync(
+    join(import.meta.dir, 'authorization-account-fence.sql'),
+    'utf8',
   );
+  const installed = name ? installedFunction(migrated, name) : undefined;
+  const canonical = name ? installedFunction(source, name) : undefined;
   assert({
-    given: 'the canonical account fence and the newest migration creating it',
+    given:
+      'the canonical account fence and the newest fence version the migrations create',
     should:
-      'be the same function, so the restriction rule is the one SQL function',
-    actual: [typeof installed, source === installed],
-    expected: ['string', true],
+      'be that same version, with the same signature, security attributes and body, so the restriction rule is the one SQL function',
+    actual: {
+      sourceName: newestName(source),
+      header: canonical && header(canonical.statement),
+      body: canonical?.body === installed?.body,
+      // Never a vacuous match: both headers must parse.
+      parsed:
+        installed !== undefined &&
+        header(installed.statement).args !== undefined &&
+        header(installed.statement).returns !== undefined,
+    },
+    expected: {
+      sourceName: name,
+      header: installed && header(installed.statement),
+      body: true,
+      parsed: true,
+    },
   });
 });

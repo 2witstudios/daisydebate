@@ -1,6 +1,5 @@
 import { postgresInstantMs, query } from './raw-rows';
 import { z } from 'zod';
-export { loanRoundAssignmentInterface } from './testing-round-assignment-interface';
 import { SQL } from 'bun';
 import type { Waits } from '@daisy/clock';
 import { sql } from 'drizzle-orm';

@@ -60,3 +60,28 @@ export const canonicalPresets = <
     .sort((a, b) =>
       `${a.formatId}@${a.version}`.localeCompare(`${b.formatId}@${b.version}`),
     );
+
+/**
+ * The newest committed definition of function `public.<name>`, as its
+ * statement and its body (the text between its dollar quotes, which
+ * PostgreSQL stores and `pg_dump` writes back verbatim, whatever tag
+ * quotes it). Undefined when no folder defines it.
+ */
+export const installedFunction = (sql: string, name: string) => {
+  const header = new RegExp(
+    `CREATE (?:OR REPLACE )?FUNCTION public\\.${name}\\(`,
+    'gi',
+  );
+  const last = [...sql.matchAll(header)].at(-1);
+  if (!last) return undefined;
+  const quote = /\$([A-Za-z_]*)\$/g;
+  quote.lastIndex = last.index;
+  const open = quote.exec(sql);
+  if (!open) return undefined;
+  const close = sql.indexOf(open[0], open.index + open[0].length);
+  if (close === -1) return undefined;
+  return {
+    statement: sql.slice(last.index, close + open[0].length),
+    body: sql.slice(open.index + open[0].length, close),
+  };
+};

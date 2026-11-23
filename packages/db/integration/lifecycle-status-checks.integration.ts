@@ -192,8 +192,7 @@ test('installed nonranked capture admission uses the running Round statuses', as
       [...(values ?? '').matchAll(/'([^']+)'/g)].map(([, value]) => value),
     );
     assert({
-      given:
-        'the tenant-boundary function installed by 20261117122353_tab_wiring',
+      given: 'the installed tenant-boundary capacity function',
       should: 'count the exact protocol vocabulary for a running Round',
       actual: statusLists,
       expected: [[...runningRoundStatuses]],

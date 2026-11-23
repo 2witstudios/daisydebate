@@ -1,4 +1,3 @@
-import { installInvoicePassGuards } from './billing-invoice-pass-current.test-support';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { requireTestServices } from '@daisy/config';
 import { createId } from '@paralleldrive/cuid2';
@@ -7,18 +6,12 @@ import { retainCandidateInvoice } from './billing-cleanup-witness.test-support';
 import { sqlStateOf } from './constraint-helpers';
 requireTestServices(process.env);
 setupRitewayBun();
-const candidate = new URL(
-  '../migrations/20261107080513_fair_midnight/migration.sql',
-  import.meta.url,
-);
 
 test('retained last payment alone cannot create or replace invoice enumeration coverage without a current pass', async () =>
   withClosedPurchase(true, async ({ fixture, subject, jobId }) => {
     const rollback = Error('Owned enumeration admission rollback');
     try {
       await fixture.sql.begin(async (tx) => {
-        if (process.env.BILLING_INVOICE_PASS_TEST_CANDIDATE === 'installed')
-          await installInvoicePassGuards(tx, candidate);
         await tx`set local role daisy_web`;
         await tx`select id from users where id=${subject.userId} for update`;
         const invoiceId = `in_${createId()}`,

@@ -1,1 +1,0 @@
-ALTER TABLE "rooms" ADD COLUMN "change_version" integer DEFAULT 1 NOT NULL;

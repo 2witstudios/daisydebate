@@ -6,21 +6,12 @@ import { sqlStateOf } from './constraint-helpers';
 import { exerciseObservedMoney } from './billing-payment-observation-money.test-support';
 requireTestServices(process.env);
 setupRitewayBun();
-const candidate = new URL(
-  './fixtures/billing-private-113/20261106000213_billing_payment_observations.sql',
-  import.meta.url,
-);
 
 test('observation candidate preserves immutable owned evidence and real runtime privileges inside a rollback fixture', async () =>
   withClosedPurchase(true, async ({ fixture, subject, session }) => {
     const rollback = new Error('Observation candidate rollback');
     try {
       await fixture.sql.begin(async (tx) => {
-        const [schema] =
-          await tx`select to_regclass('public.billing_payment_observations') as relation`;
-        // The isolated predecessor proof installs draft DDL in this rollback; normal CI uses its migrated schema.
-        if (schema!.relation === null)
-          await tx.unsafe(await Bun.file(candidate).text());
         await tx`set local role daisy_web`;
         await tx`select * from public.daisy_authorization_accounts_v2(array[${subject.actorId}]::text[],null::text,true)`;
         const [purchase] =

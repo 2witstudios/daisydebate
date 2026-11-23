@@ -2,7 +2,6 @@ import { createAvailabilityStore } from '../src/stores/availability';
 import { createBillingStore } from '../src/stores/billing';
 import { openDatabaseResources } from '../src/resources';
 import { hostWaits } from '@daisy/worker/host';
-import { installInvoicePassGuards } from './billing-invoice-pass-current.test-support';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { requireTestServices } from '@daisy/config';
 import { createId } from '@paralleldrive/cuid2';
@@ -25,10 +24,6 @@ const openStores = (
 
 const { databaseUrl } = requireTestServices(process.env);
 setupRitewayBun();
-const candidate = new URL(
-  '../migrations/20261107080513_fair_midnight/migration.sql',
-  import.meta.url,
-);
 
 test('current unlinked original refund action cannot be skipped by public resolution or raw deletion admission', async () => {
   await withBillingRefunds(
@@ -41,9 +36,6 @@ test('current unlinked original refund action cannot be skipped by public resolu
       refunds,
       payment,
     }) => {
-      await fixture.sql.begin(async (tx) =>
-        installInvoicePassGuards(tx, candidate),
-      );
       const reserve = pool.reserve.bind(pool);
       pool.reserve = async (options) => {
         const connection = await reserve(options);

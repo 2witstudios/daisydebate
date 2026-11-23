@@ -255,10 +255,10 @@ export type PlatformUsageCredit =
     };
 
 /** Observed historical relief does not authorize a new live credit. */
-export type UsageCreditProvenance =
+type UsageCreditProvenance =
   PlatformUsageCredit | { readonly kind: 'recorded_restoration' };
 
-export type UsageProviderOutcome =
+type UsageProviderOutcome =
   'dispatched' | 'unknown' | 'delivered' | 'definite_failure';
 
 /** States that still consume their original allowance; restoration never moves periods. */

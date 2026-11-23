@@ -1,7 +1,7 @@
 import { createStandingsStore } from '../src/stores/standings';
 import { openDatabaseResources } from '../src/resources';
 import { hostWaits } from '@daisy/worker/host';
-import { publicLobbyId } from '../src/daisy-reference';
+import { daisyOrganizationId, publicLobbyId } from '../src/daisy-reference';
 import { createId } from '@paralleldrive/cuid2';
 import { requireTestServices } from '@daisy/config';
 import { assertRejects } from '@daisy/errors/testing';
@@ -134,6 +134,97 @@ describe('standings reads (RATE-1.4.1)', () => {
           should: 'list only Freestyle (ADR 0142)',
           actual: listedFormats,
           expected: ['freestyle'],
+        });
+      } finally {
+        await database.close();
+      }
+    });
+  });
+
+  test('the Open ladder read with a Youth season returns the Open posting alone', async () => {
+    await withFixture(url, async (fixture) => {
+      const database = openStores({
+        waits: hostWaits,
+        url,
+      });
+      try {
+        const [youth] =
+          (await fixture.sql`select d.id as ladder, d.lobby_id as lobby
+          from ladders d join lobbies l on l.id = d.lobby_id
+          where l.owner_organization_id = ${daisyOrganizationId}
+            and l.kind = 'standing' and l.age_rule = 'under-18'
+          order by d.created_at, d.id limit 1`) as {
+            ladder: string;
+            lobby: string;
+          }[];
+        const openSeason = await season(fixture, 'closed', at(1));
+        const youthSeason = createId();
+        await fixture.insert('seasons', {
+          id: youthSeason,
+          organization_id: daisyOrganizationId,
+          lobby_id: youth!.lobby,
+          name: 'Season youth',
+          starts_at: at(1),
+          ends_at: at(2),
+          status: 'closed',
+        });
+        const [winner, loser] = [await fixture.actor(), await fixture.actor()];
+        /** One rated debate in a pool: both postings. */
+        const posted = async (pool: {
+          seasonId: string;
+          ladder: string;
+          lobby: string;
+        }) => {
+          const roundId = await completed(fixture, {
+            formatId: 'freestyle',
+            affirmative: winner,
+            negative: loser,
+            outcome: 'affirmative',
+            seasonId: pool.seasonId,
+            visibility: 'public',
+            pool,
+          });
+          for (const [actorId, after] of [
+            [winner, 1516],
+            [loser, 1484],
+          ] as const)
+            await fixture.insert('rating_changes', {
+              id: createId(),
+              round_id: roundId,
+              actor_id: actorId,
+              format_id: 'freestyle',
+              season_id: pool.seasonId,
+              ladder: pool.ladder,
+              lobby_id: pool.lobby,
+              rating_before: 1500,
+              rating_after: after,
+              deviation_before: 350,
+              deviation_after: 300,
+              volatility_before: 0.06,
+              volatility_after: 0.06,
+              calculation_version: 'glicko2-v1',
+              occurred_at: at(5),
+            });
+          return roundId;
+        };
+        await posted({
+          seasonId: openSeason,
+          ladder: 'freestyle',
+          lobby: publicLobbyId,
+        });
+        await posted({ seasonId: youthSeason, ...youth! });
+        const read = await database.readStandings({
+          ladderId: 'freestyle',
+          lobbyId: publicLobbyId,
+          seasonIds: [youthSeason, openSeason],
+          clock: { now: '2099-01-01T00:00:00.000Z', rankedDelaySeconds: 0 },
+        });
+        assert({
+          given:
+            'postings in an Open and a Youth season, and the Open ladder queried with both season ids',
+          should: 'return the Open postings alone',
+          actual: [...new Set(read.changes.map(({ seasonId }) => seasonId))],
+          expected: [openSeason],
         });
       } finally {
         await database.close();
