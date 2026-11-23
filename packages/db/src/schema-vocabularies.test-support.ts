@@ -93,7 +93,7 @@ function constrains(call: ts.CallExpression, column: ts.Expression) {
 
 /** The `pgTable('name', columns, extras)` call `node` is inside, and its export. */
 function enclosingTable(node: ts.Node) {
-  for (let at: ts.Node | undefined = node; at; at = at.parent) {
+  for (let at: ts.Node = node; !ts.isSourceFile(at); at = at.parent) {
     if (
       ts.isCallExpression(at) &&
       ts.isIdentifier(at.expression) &&

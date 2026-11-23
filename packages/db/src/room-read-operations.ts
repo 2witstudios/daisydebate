@@ -307,7 +307,7 @@ export const roomReadOperations = ({
                   ...bot,
                   persona: row.persona,
                   difficulty:
-                    row.difficulty as (typeof botDifficulties)[number],
+                    row.difficulty,
                 }
               : bot;
           }),
