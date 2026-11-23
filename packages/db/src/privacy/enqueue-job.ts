@@ -1,7 +1,7 @@
 import { retriedJobStatuses } from '../schema/columns';
 import { listedWord } from '../lifecycle-sql';
 import { sql } from 'drizzle-orm';
-import type { PrivacyVendor } from './planner';
+import type { PrivacyVendor } from '../schema/privacy-jobs';
 import type { Tx } from '../tx';
 import { run } from '../raw-rows';
 

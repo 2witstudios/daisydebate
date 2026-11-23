@@ -150,3 +150,30 @@ test('reads only production modules of packages/db that export a function', () =
     expected: [false, false, false, false, false, false, false, false],
   });
 });
+
+test('counts a schema object as storage, never a vocabulary constant beside it', () => {
+  const schema = [
+    "import { pgEnum, pgTable, text } from 'drizzle-orm/pg-core';",
+    "export const privacyVendors = ['posthog', 'stripe'] as const;",
+    "export const privacyJobs = pgTable('privacy_jobs', { id: text('id') });",
+    "export const guarded = pgTable('guarded', { id: text('id') }).enableRLS();",
+    "export const jobStatus = pgEnum('job_status', ['pending']);",
+  ].join('\n');
+  const read = (path: string) =>
+    path === 'packages/db/src/schema/privacy-jobs.ts' ? schema : undefined;
+  const issue = (source: string) =>
+    pureDatabaseModuleIssue('packages/db/src/privacy/plan.ts', source, read) !==
+    null;
+  assert({
+    given:
+      'a module reading a schema vocabulary constant, a table, an RLS table and an enum',
+    should: 'report only the one that reads the vocabulary constant',
+    actual: [
+      "import { privacyVendors } from '../schema/privacy-jobs';\nexport const mayErase = (vendor: string) => privacyVendors.some((known) => known === vendor);",
+      "import { privacyJobs } from '../schema/privacy-jobs';\nexport const table = () => privacyJobs;",
+      "import { guarded } from '../schema/privacy-jobs';\nexport const table = () => guarded;",
+      "import { jobStatus } from '../schema/privacy-jobs';\nexport const kind = () => jobStatus;",
+    ].map(issue),
+    expected: [true, false, false, false],
+  });
+});

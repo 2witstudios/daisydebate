@@ -1,4 +1,4 @@
-import { privacyVendors } from './privacy/planner';
+import { privacyVendors } from './schema/privacy-jobs';
 import { retriedJobStatuses } from './schema/columns';
 import { listedWord } from './lifecycle-sql';
 import { tryInstantMs } from '@daisy/clock';

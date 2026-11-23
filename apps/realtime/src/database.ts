@@ -1,5 +1,6 @@
 import type { Waits } from '@daisy/clock';
 import {
+  composeStores,
   openDatabaseResources,
   WORKLOAD_PROFILES,
   type DatabaseEventSink,
@@ -45,17 +46,21 @@ export function openRealtimeDatabase({
     waits,
   });
   const listen = createListenStore(resources);
-  return {
-    ...createRealtimeAuthorityStore(resources, 'admission'),
-    ...createRealtimeAuthorityStore(resources, 'renewal'),
-    ...createChannelObservationStore(resources),
-    ...createOutboxStore(resources, { catchupLane: 'admission' }),
-    renewServiceInstance:
-      createAvailabilityStore(resources).renewServiceInstance,
-    ...createHealthStore(resources),
-    listenOutbox: listen.listenOutbox,
-    listenRealtimeHints: listen.listenRealtimeHints,
-    close: resources.close,
-  };
+  return composeStores(
+    createRealtimeAuthorityStore(resources, 'admission'),
+    createRealtimeAuthorityStore(resources, 'renewal'),
+    createChannelObservationStore(resources),
+    createOutboxStore(resources, { catchupLane: 'admission' }),
+    {
+      renewServiceInstance:
+        createAvailabilityStore(resources).renewServiceInstance,
+    },
+    createHealthStore(resources),
+    {
+      listenOutbox: listen.listenOutbox,
+      listenRealtimeHints: listen.listenRealtimeHints,
+      close: resources.close,
+    },
+  );
 }
 export type RealtimeDatabase = ReturnType<typeof openRealtimeDatabase>;

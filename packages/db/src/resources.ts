@@ -115,3 +115,31 @@ export function openDatabaseResources({
   });
   return resources;
 }
+
+type Composed<
+  Stores extends readonly object[],
+  Into = unknown,
+> = Stores extends readonly [
+  infer First,
+  ...infer Rest extends readonly object[],
+]
+  ? Composed<Rest, Into & First>
+  : Into;
+
+/**
+ * A process's database: its stores' operations in one object. Two stores
+ * that expose the same name refuse here, when the process composes them,
+ * instead of the later one silently answering for both.
+ */
+export function composeStores<const Stores extends readonly object[]>(
+  ...stores: Stores
+): Composed<Stores> {
+  const composed: Record<string, unknown> = {};
+  for (const store of stores)
+    for (const [name, operation] of Object.entries(store)) {
+      if (Object.hasOwn(composed, name))
+        throw new Error(`Two composed stores both expose ${name}`);
+      composed[name] = operation;
+    }
+  return composed as Composed<Stores>;
+}

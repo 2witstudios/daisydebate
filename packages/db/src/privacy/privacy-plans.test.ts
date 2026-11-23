@@ -1,6 +1,6 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';
-import { planPrivacyErasure, planPrivacyExport } from './planner';
+import { planPrivacyErasure, planPrivacyExport } from './operations';
 import type { PrivacyAdopter } from './contracts';
 
 setupRitewayBun();

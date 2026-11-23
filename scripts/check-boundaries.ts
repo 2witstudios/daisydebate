@@ -1,4 +1,4 @@
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { readdir } from 'node:fs/promises';
 import { resolve, relative, dirname } from 'node:path';
 import ts from 'typescript';
@@ -131,7 +131,11 @@ for (const { path, source } of repositorySources(root)) {
       `${path}:${line + 1}: open @daisy/db/resources and compose @daisy/db/stores/* instead of ${specifier.text} (R4.5)`,
     );
   }
-  const pureDatabaseModule = pureDatabaseModuleIssue(path, source);
+  const pureDatabaseModule = pureDatabaseModuleIssue(path, source, (file) =>
+    existsSync(resolve(root, file))
+      ? readFileSync(resolve(root, file), 'utf8')
+      : undefined,
+  );
   if (pureDatabaseModule) issues.push(pureDatabaseModule);
 }
 const flagSources = new Map<string, string>();

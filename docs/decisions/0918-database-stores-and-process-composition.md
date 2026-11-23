@@ -7,7 +7,7 @@ delegation, Delivery 6865 and 6947). Amends [ADR 0088](0088-database-workload-ad
 
 ## Context
 
-Measured on main at `17174b840`: `packages/db/src` held 65 production
+Measured on main at `17174b840`: `packages/db/src` held 73 production
 modules that exported a function and touched no table, connection,
 transaction or query (seat eligibility, viewer projections, group plans,
 standings release, transcript freeze, lease digests copied three times,
@@ -22,8 +22,9 @@ that needed three operations was typed by, and opened lanes for, all 374.
 
 1. **`packages/db` holds no pure function module.** A production module of
    the package that exports a function must touch storage: read a value it
-   imported from a storage primitive (Bun's client, Drizzle, the package's
-   `schema/`, `tx`, `raw-rows`, `bounded-transaction`, `workload`, or the
+   imported from a storage primitive (Bun's client, Drizzle, a schema object
+   of the package's `schema/` (a table, view or enum, never a vocabulary
+   constant beside one), `tx`, `raw-rows`, `bounded-transaction`, `workload`, or the
    resource handle `resources`/`resource-handles`), or take and use a
    parameter typed by a storage handle (a transaction, its opener or runner,
    a bounded transaction, a lane, a process's opened resources, any Bun or

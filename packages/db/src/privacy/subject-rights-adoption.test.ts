@@ -16,7 +16,6 @@ const adoption = subjectRightsAdoption(rooms);
 /** The subject-rights machinery itself, which defines no feature step. */
 const machinery = new Set([
   'privacy/contracts.ts',
-  'privacy/planner.ts',
   'privacy/operations.ts',
   'privacy/subject-rights.ts',
   'privacy/adoption.ts',

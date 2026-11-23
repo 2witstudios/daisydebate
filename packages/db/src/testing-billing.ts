@@ -1,5 +1,5 @@
 import { retriedJobStatuses } from './schema/columns';
-import { privacyVendors } from './privacy/planner';
+import { privacyVendors } from './schema/privacy-jobs';
 import { listedValue } from './lifecycle-sql';
 import type { SQL } from 'bun';
 import { requireTestServices } from '@daisy/config';

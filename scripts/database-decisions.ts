@@ -1,3 +1,4 @@
+import { existsSync, readFileSync } from 'node:fs';
 import { posix } from 'node:path';
 import ts from 'typescript';
 
@@ -5,7 +6,8 @@ import ts from 'typescript';
  * R4.4: `packages/db` stores and reads; it does not decide. A production
  * module of the package that exports a function must touch storage: use a
  * value from PostgreSQL's client, Drizzle, or one of the package's own
- * storage primitives (its tables, its transaction, its query, its bounded
+ * storage primitives (its tables (a schema object, never a vocabulary
+ * constant beside one), its transaction, its query, its bounded
  * transaction runner, its lanes or the handle a process's resources open
  * them through), or take and use a parameter they type. A module that touches none of them is a
  * pure function file, and its rule belongs to the owner of the rule: the
@@ -63,6 +65,67 @@ const packageHandles: Readonly<Record<string, readonly string[]>> = {
   [`${databaseSource}resources`]: ['DatabaseResources'],
   [`${databaseSource}resource-handles`]: ['OpenedResources'],
 };
+
+/** Drizzle's schema constructors: what makes a `schema/` export storage. */
+const schemaConstructors = new Set([
+  'pgTable',
+  'pgView',
+  'pgMaterializedView',
+  'pgEnum',
+  'pgSequence',
+  'pgSchema',
+  'relations',
+]);
+
+/** Reads a repository file by its path, or undefined when it does not exist. */
+export type SourceReader = (path: string) => string | undefined;
+const readRepositoryFile: SourceReader = (path) =>
+  existsSync(path) ? readFileSync(path, 'utf8') : undefined;
+
+/**
+ * The names a `schema/` module exports that are schema objects (a table, a
+ * view, an enum): built by a Drizzle schema constructor. A vocabulary
+ * constant beside them (`privacyVendors`) is not storage.
+ */
+function schemaObjects(source: string | undefined): ReadonlySet<string> {
+  const names = new Set<string>();
+  if (source === undefined) return names;
+  const file = ts.createSourceFile('schema.ts', source, ts.ScriptTarget.Latest);
+  for (const statement of file.statements) {
+    if (!ts.isVariableStatement(statement)) continue;
+    for (const declaration of statement.declarationList.declarations) {
+      let init = declaration.initializer;
+      while (
+        init &&
+        ts.isCallExpression(init) &&
+        ts.isPropertyAccessExpression(init.expression) &&
+        ts.isCallExpression(init.expression.expression)
+      )
+        init = init.expression.expression;
+      const callee =
+        init && ts.isCallExpression(init)
+          ? ts.isIdentifier(init.expression)
+            ? init.expression.text
+            : ts.isPropertyAccessExpression(init.expression)
+              ? init.expression.name.text
+              : undefined
+          : undefined;
+      if (
+        ts.isIdentifier(declaration.name) &&
+        callee !== undefined &&
+        schemaConstructors.has(callee)
+      )
+        names.add(declaration.name.text);
+    }
+  }
+  return names;
+}
+
+const resolvedModule = (path: string, specifier: string) =>
+  posix
+    .normalize(posix.join(posix.dirname(path), specifier))
+    .replace(/\.[jt]s$/, '')
+    .replace(/\/index$/, '');
 
 const isHandleType = (path: string, specifier: string, name: string) => {
   if (!specifier.startsWith('.')) return storagePackages(specifier);
@@ -216,7 +279,11 @@ const referencesIn = (node: ts.Node, names: ReadonlySet<string>) => {
  * transaction, a connection, a transaction runner) and uses it. A type-only
  * or unused import of a primitive touches nothing.
  */
-function touchesStorage(path: string, file: ts.SourceFile): boolean {
+function touchesStorage(
+  path: string,
+  file: ts.SourceFile,
+  read: SourceReader,
+): boolean {
   const values = new Set<string>();
   const types = new Set<string>();
   for (const statement of file.statements) {
@@ -229,8 +296,17 @@ function touchesStorage(path: string, file: ts.SourceFile): boolean {
       continue;
     const clause = statement.importClause;
     const specifier = statement.moduleSpecifier.text;
+    const target = specifier.startsWith('.')
+      ? resolvedModule(path, specifier)
+      : undefined;
+    const schema =
+      target !== undefined && target.startsWith(`${databaseSource}schema/`)
+        ? schemaObjects(read(`${target}.ts`))
+        : undefined;
     const into = (local: string, imported: string, typeOnly: boolean) => {
-      if (!typeOnly && !clause.isTypeOnly) values.add(local);
+      const storage =
+        schema === undefined || imported === '*' || schema.has(imported);
+      if (!typeOnly && !clause.isTypeOnly && storage) values.add(local);
       if (isHandleType(path, specifier, imported)) types.add(local);
     };
     if (clause.name) into(clause.name.text, 'default', false);
@@ -317,10 +393,11 @@ const leftmost = (name: ts.EntityName): string =>
 export function pureDatabaseModuleIssue(
   path: string,
   source: string,
+  read: SourceReader = readRepositoryFile,
 ): string | null {
   if (!isProductionModule(path)) return null;
   const file = ts.createSourceFile(path, source, ts.ScriptTarget.Latest, true);
   const functions = exportedFunctions(file);
-  if (!functions.length || touchesStorage(path, file)) return null;
+  if (!functions.length || touchesStorage(path, file, read)) return null;
   return `${path}: exports ${functions.join(', ')} and touches no table, connection, transaction or query; a pure rule belongs to its owner (engine, protocol or the owning feature), not packages/db (R4.4)`;
 }

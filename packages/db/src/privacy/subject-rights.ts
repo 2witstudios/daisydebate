@@ -6,7 +6,7 @@ import {
   runPrivacyExport,
   type PrivacyVerificationBinding,
 } from './operations';
-import type { PrivacyErasureInput, PrivacyAdoption } from './planner';
+import type { PrivacyErasureInput, PrivacyAdoption } from './operations';
 import type { TxOpener } from '../tx';
 import type { GuardianChildAuthority } from '../guardians/active-child';
 import { necessaryEvidencePrivacyAdopter } from '../necessary-evidence-privacy';
