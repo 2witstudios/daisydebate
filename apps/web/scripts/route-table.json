@@ -1,9 +1,7 @@
 [
   {
     "path": "/api/account/age",
-    "methods": [
-      "POST"
-    ],
+    "methods": ["POST"],
     "runtime": "nodejs",
     "config": {
       "dynamic": "force-dynamic"
@@ -11,9 +9,7 @@
   },
   {
     "path": "/api/account/onboarding",
-    "methods": [
-      "POST"
-    ],
+    "methods": ["POST"],
     "runtime": "nodejs",
     "config": {
       "dynamic": "force-dynamic"
@@ -21,9 +17,7 @@
   },
   {
     "path": "/api/account/sessions",
-    "methods": [
-      "GET"
-    ],
+    "methods": ["GET"],
     "runtime": "nodejs",
     "config": {
       "dynamic": "force-dynamic"
@@ -31,9 +25,7 @@
   },
   {
     "path": "/api/account/sessions/revoke",
-    "methods": [
-      "POST"
-    ],
+    "methods": ["POST"],
     "runtime": "nodejs",
     "config": {
       "dynamic": "force-dynamic"
@@ -41,9 +33,7 @@
   },
   {
     "path": "/api/account/username",
-    "methods": [
-      "POST"
-    ],
+    "methods": ["POST"],
     "runtime": "nodejs",
     "config": {
       "dynamic": "force-dynamic"
@@ -51,29 +41,19 @@
   },
   {
     "path": "/api/agreements/content-waiver",
-    "methods": [
-      "POST"
-    ],
+    "methods": ["POST"],
     "runtime": "nodejs",
     "config": {}
   },
   {
     "path": "/api/analytics/consent",
-    "methods": [
-      "POST"
-    ],
+    "methods": ["POST"],
     "runtime": "nodejs",
     "config": {}
   },
   {
     "path": "/api/auth/[...all]",
-    "methods": [
-      "DELETE",
-      "GET",
-      "PATCH",
-      "POST",
-      "PUT"
-    ],
+    "methods": ["DELETE", "GET", "PATCH", "POST", "PUT"],
     "runtime": "nodejs",
     "config": {
       "dynamic": "force-dynamic"
@@ -81,34 +61,25 @@
   },
   {
     "path": "/api/billing/checkout",
-    "methods": [
-      "POST"
-    ],
+    "methods": ["POST"],
     "runtime": "nodejs",
     "config": {}
   },
   {
     "path": "/api/billing/portal",
-    "methods": [
-      "POST"
-    ],
+    "methods": ["POST"],
     "runtime": "nodejs",
     "config": {}
   },
   {
     "path": "/api/billing/settings",
-    "methods": [
-      "GET"
-    ],
+    "methods": ["GET"],
     "runtime": "nodejs",
     "config": {}
   },
   {
     "path": "/api/challenges",
-    "methods": [
-      "GET",
-      "POST"
-    ],
+    "methods": ["GET", "POST"],
     "runtime": "nodejs",
     "config": {
       "dynamic": "force-dynamic"
@@ -116,33 +87,25 @@
   },
   {
     "path": "/api/challenges/accept",
-    "methods": [
-      "POST"
-    ],
+    "methods": ["POST"],
     "runtime": "nodejs",
     "config": {}
   },
   {
     "path": "/api/challenges/cancel",
-    "methods": [
-      "POST"
-    ],
+    "methods": ["POST"],
     "runtime": "nodejs",
     "config": {}
   },
   {
     "path": "/api/challenges/decline",
-    "methods": [
-      "POST"
-    ],
+    "methods": ["POST"],
     "runtime": "nodejs",
     "config": {}
   },
   {
     "path": "/api/clubs",
-    "methods": [
-      "POST"
-    ],
+    "methods": ["POST"],
     "runtime": "nodejs",
     "config": {
       "dynamic": "force-dynamic"
@@ -150,9 +113,7 @@
   },
   {
     "path": "/api/clubs/[club]/billing",
-    "methods": [
-      "GET"
-    ],
+    "methods": ["GET"],
     "runtime": "nodejs",
     "config": {
       "dynamic": "force-dynamic"
@@ -160,9 +121,7 @@
   },
   {
     "path": "/api/clubs/[club]/billing/checkout",
-    "methods": [
-      "POST"
-    ],
+    "methods": ["POST"],
     "runtime": "nodejs",
     "config": {
       "dynamic": "force-dynamic"
@@ -170,9 +129,7 @@
   },
   {
     "path": "/api/clubs/[club]/billing/portal",
-    "methods": [
-      "POST"
-    ],
+    "methods": ["POST"],
     "runtime": "nodejs",
     "config": {
       "dynamic": "force-dynamic"
@@ -180,9 +137,7 @@
   },
   {
     "path": "/api/clubs/[club]/billing/seats",
-    "methods": [
-      "POST"
-    ],
+    "methods": ["POST"],
     "runtime": "nodejs",
     "config": {
       "dynamic": "force-dynamic"
@@ -190,10 +145,7 @@
   },
   {
     "path": "/api/clubs/[club]/releases",
-    "methods": [
-      "GET",
-      "POST"
-    ],
+    "methods": ["GET", "POST"],
     "runtime": "nodejs",
     "config": {
       "dynamic": "force-dynamic"
@@ -201,10 +153,7 @@
   },
   {
     "path": "/api/clubs/[club]/seats",
-    "methods": [
-      "GET",
-      "POST"
-    ],
+    "methods": ["GET", "POST"],
     "runtime": "nodejs",
     "config": {
       "dynamic": "force-dynamic"
@@ -212,10 +161,7 @@
   },
   {
     "path": "/api/clubs/invitations/[invitation]",
-    "methods": [
-      "GET",
-      "POST"
-    ],
+    "methods": ["GET", "POST"],
     "runtime": "nodejs",
     "config": {
       "dynamic": "force-dynamic"
@@ -223,171 +169,127 @@
   },
   {
     "path": "/api/contacts/block",
-    "methods": [
-      "POST"
-    ],
+    "methods": ["POST"],
     "runtime": "nodejs",
     "config": {}
   },
   {
     "path": "/api/contacts/username",
-    "methods": [
-      "POST"
-    ],
+    "methods": ["POST"],
     "runtime": "nodejs",
     "config": {}
   },
   {
     "path": "/api/content-reports",
-    "methods": [
-      "POST"
-    ],
+    "methods": ["POST"],
     "runtime": "nodejs",
     "config": {}
   },
   {
     "path": "/api/debater-follows",
-    "methods": [
-      "POST"
-    ],
+    "methods": ["POST"],
     "runtime": "nodejs",
     "config": {}
   },
   {
     "path": "/api/documents/create",
-    "methods": [
-      "POST"
-    ],
+    "methods": ["POST"],
     "runtime": "nodejs",
     "config": {}
   },
   {
     "path": "/api/documents/delete",
-    "methods": [
-      "POST"
-    ],
+    "methods": ["POST"],
     "runtime": "nodejs",
     "config": {}
   },
   {
     "path": "/api/documents/folders",
-    "methods": [
-      "POST"
-    ],
+    "methods": ["POST"],
     "runtime": "nodejs",
     "config": {}
   },
   {
     "path": "/api/documents/folders/count",
-    "methods": [
-      "POST"
-    ],
+    "methods": ["POST"],
     "runtime": "nodejs",
     "config": {}
   },
   {
     "path": "/api/documents/folders/create",
-    "methods": [
-      "POST"
-    ],
+    "methods": ["POST"],
     "runtime": "nodejs",
     "config": {}
   },
   {
     "path": "/api/documents/folders/delete",
-    "methods": [
-      "POST"
-    ],
+    "methods": ["POST"],
     "runtime": "nodejs",
     "config": {}
   },
   {
     "path": "/api/documents/folders/move",
-    "methods": [
-      "POST"
-    ],
+    "methods": ["POST"],
     "runtime": "nodejs",
     "config": {}
   },
   {
     "path": "/api/documents/folders/rename",
-    "methods": [
-      "POST"
-    ],
+    "methods": ["POST"],
     "runtime": "nodejs",
     "config": {}
   },
   {
     "path": "/api/documents/list",
-    "methods": [
-      "POST"
-    ],
+    "methods": ["POST"],
     "runtime": "nodejs",
     "config": {}
   },
   {
     "path": "/api/documents/move",
-    "methods": [
-      "POST"
-    ],
+    "methods": ["POST"],
     "runtime": "nodejs",
     "config": {}
   },
   {
     "path": "/api/documents/read",
-    "methods": [
-      "POST"
-    ],
+    "methods": ["POST"],
     "runtime": "nodejs",
     "config": {}
   },
   {
     "path": "/api/documents/recent",
-    "methods": [
-      "POST"
-    ],
+    "methods": ["POST"],
     "runtime": "nodejs",
     "config": {}
   },
   {
     "path": "/api/documents/rename",
-    "methods": [
-      "POST"
-    ],
+    "methods": ["POST"],
     "runtime": "nodejs",
     "config": {}
   },
   {
     "path": "/api/documents/save",
-    "methods": [
-      "POST"
-    ],
+    "methods": ["POST"],
     "runtime": "nodejs",
     "config": {}
   },
   {
     "path": "/api/documents/search",
-    "methods": [
-      "POST"
-    ],
+    "methods": ["POST"],
     "runtime": "nodejs",
     "config": {}
   },
   {
     "path": "/api/foundation/proof",
-    "methods": [
-      "GET",
-      "POST"
-    ],
+    "methods": ["GET", "POST"],
     "runtime": "nodejs",
     "config": {}
   },
   {
     "path": "/api/friends",
-    "methods": [
-      "GET",
-      "POST"
-    ],
+    "methods": ["GET", "POST"],
     "runtime": "nodejs",
     "config": {
       "dynamic": "force-dynamic"
@@ -395,9 +297,7 @@
   },
   {
     "path": "/api/friends/online",
-    "methods": [
-      "GET"
-    ],
+    "methods": ["GET"],
     "runtime": "nodejs",
     "config": {
       "dynamic": "force-dynamic"
@@ -405,57 +305,43 @@
   },
   {
     "path": "/api/friends/remove",
-    "methods": [
-      "POST"
-    ],
+    "methods": ["POST"],
     "runtime": "nodejs",
     "config": {}
   },
   {
     "path": "/api/friends/respond",
-    "methods": [
-      "POST"
-    ],
+    "methods": ["POST"],
     "runtime": "nodejs",
     "config": {}
   },
   {
     "path": "/api/health/live",
-    "methods": [
-      "GET"
-    ],
+    "methods": ["GET"],
     "runtime": null,
     "config": {}
   },
   {
     "path": "/api/health/ready",
-    "methods": [
-      "GET"
-    ],
+    "methods": ["GET"],
     "runtime": "nodejs",
     "config": {}
   },
   {
     "path": "/api/internal/media/[roundId]/capture/[operation]",
-    "methods": [
-      "POST"
-    ],
+    "methods": ["POST"],
     "runtime": "nodejs",
     "config": {}
   },
   {
     "path": "/api/judge/assignments",
-    "methods": [
-      "GET"
-    ],
+    "methods": ["GET"],
     "runtime": "nodejs",
     "config": {}
   },
   {
     "path": "/api/league-requests",
-    "methods": [
-      "POST"
-    ],
+    "methods": ["POST"],
     "runtime": "nodejs",
     "config": {
       "dynamic": "force-dynamic"
@@ -463,9 +349,7 @@
   },
   {
     "path": "/api/media-releases/answer",
-    "methods": [
-      "POST"
-    ],
+    "methods": ["POST"],
     "runtime": "nodejs",
     "config": {
       "dynamic": "force-dynamic"
@@ -473,9 +357,7 @@
   },
   {
     "path": "/api/media-releases/ask",
-    "methods": [
-      "POST"
-    ],
+    "methods": ["POST"],
     "runtime": "nodejs",
     "config": {
       "dynamic": "force-dynamic"
@@ -483,9 +365,7 @@
   },
   {
     "path": "/api/media-releases/ask-club",
-    "methods": [
-      "POST"
-    ],
+    "methods": ["POST"],
     "runtime": "nodejs",
     "config": {
       "dynamic": "force-dynamic"
@@ -493,9 +373,7 @@
   },
   {
     "path": "/api/media-releases/cancel",
-    "methods": [
-      "POST"
-    ],
+    "methods": ["POST"],
     "runtime": "nodejs",
     "config": {
       "dynamic": "force-dynamic"
@@ -503,9 +381,7 @@
   },
   {
     "path": "/api/media-releases/manage-link",
-    "methods": [
-      "POST"
-    ],
+    "methods": ["POST"],
     "runtime": "nodejs",
     "config": {
       "dynamic": "force-dynamic"
@@ -513,9 +389,7 @@
   },
   {
     "path": "/api/media-releases/paid-ads",
-    "methods": [
-      "POST"
-    ],
+    "methods": ["POST"],
     "runtime": "nodejs",
     "config": {
       "dynamic": "force-dynamic"
@@ -523,9 +397,7 @@
   },
   {
     "path": "/api/media-releases/resend",
-    "methods": [
-      "POST"
-    ],
+    "methods": ["POST"],
     "runtime": "nodejs",
     "config": {
       "dynamic": "force-dynamic"
@@ -533,9 +405,7 @@
   },
   {
     "path": "/api/media-releases/sign",
-    "methods": [
-      "POST"
-    ],
+    "methods": ["POST"],
     "runtime": "nodejs",
     "config": {
       "dynamic": "force-dynamic"
@@ -543,9 +413,7 @@
   },
   {
     "path": "/api/media-releases/stop",
-    "methods": [
-      "POST"
-    ],
+    "methods": ["POST"],
     "runtime": "nodejs",
     "config": {
       "dynamic": "force-dynamic"
@@ -553,9 +421,7 @@
   },
   {
     "path": "/api/media-releases/withdraw",
-    "methods": [
-      "POST"
-    ],
+    "methods": ["POST"],
     "runtime": "nodejs",
     "config": {
       "dynamic": "force-dynamic"
@@ -563,17 +429,13 @@
   },
   {
     "path": "/api/messaging/channels/[channelId]/changes",
-    "methods": [
-      "GET"
-    ],
+    "methods": ["GET"],
     "runtime": "nodejs",
     "config": {}
   },
   {
     "path": "/api/messaging/channels/[channelId]/entry",
-    "methods": [
-      "GET"
-    ],
+    "methods": ["GET"],
     "runtime": "nodejs",
     "config": {
       "dynamic": "force-dynamic"
@@ -581,297 +443,223 @@
   },
   {
     "path": "/api/messaging/channels/[channelId]/files",
-    "methods": [
-      "GET"
-    ],
+    "methods": ["GET"],
     "runtime": "nodejs",
     "config": {}
   },
   {
     "path": "/api/messaging/channels/[channelId]/files/[fileId]",
-    "methods": [
-      "GET"
-    ],
+    "methods": ["GET"],
     "runtime": "nodejs",
     "config": {}
   },
   {
     "path": "/api/messaging/channels/[channelId]/files/[fileId]/upload",
-    "methods": [
-      "POST"
-    ],
+    "methods": ["POST"],
     "runtime": "nodejs",
     "config": {}
   },
   {
     "path": "/api/messaging/channels/[channelId]/files/discard",
-    "methods": [
-      "POST"
-    ],
+    "methods": ["POST"],
     "runtime": "nodejs",
     "config": {}
   },
   {
     "path": "/api/messaging/channels/[channelId]/messages",
-    "methods": [
-      "GET"
-    ],
+    "methods": ["GET"],
     "runtime": "nodejs",
     "config": {}
   },
   {
     "path": "/api/messaging/channels/[channelId]/messages/[messageId]/attachments",
-    "methods": [
-      "POST"
-    ],
+    "methods": ["POST"],
     "runtime": "nodejs",
     "config": {}
   },
   {
     "path": "/api/messaging/channels/[channelId]/messages/search",
-    "methods": [
-      "GET"
-    ],
+    "methods": ["GET"],
     "runtime": "nodejs",
     "config": {}
   },
   {
     "path": "/api/messaging/channels/[channelId]/preferences",
-    "methods": [
-      "GET"
-    ],
+    "methods": ["GET"],
     "runtime": "nodejs",
     "config": {}
   },
   {
     "path": "/api/messaging/channels/[channelId]/reactions",
-    "methods": [
-      "GET"
-    ],
+    "methods": ["GET"],
     "runtime": "nodejs",
     "config": {}
   },
   {
     "path": "/api/messaging/channels/[channelId]/typing",
-    "methods": [
-      "GET"
-    ],
+    "methods": ["GET"],
     "runtime": "nodejs",
     "config": {}
   },
   {
     "path": "/api/messaging/files/cancel",
-    "methods": [
-      "POST"
-    ],
+    "methods": ["POST"],
     "runtime": "nodejs",
     "config": {}
   },
   {
     "path": "/api/messaging/files/cleanup",
-    "methods": [
-      "POST"
-    ],
+    "methods": ["POST"],
     "runtime": "nodejs",
     "config": {}
   },
   {
     "path": "/api/messaging/files/finalize",
-    "methods": [
-      "POST"
-    ],
+    "methods": ["POST"],
     "runtime": "nodejs",
     "config": {}
   },
   {
     "path": "/api/messaging/files/renew",
-    "methods": [
-      "POST"
-    ],
+    "methods": ["POST"],
     "runtime": "nodejs",
     "config": {}
   },
   {
     "path": "/api/messaging/files/reserve",
-    "methods": [
-      "POST"
-    ],
+    "methods": ["POST"],
     "runtime": "nodejs",
     "config": {}
   },
   {
     "path": "/api/messaging/groups",
-    "methods": [
-      "POST"
-    ],
+    "methods": ["POST"],
     "runtime": "nodejs",
     "config": {}
   },
   {
     "path": "/api/messaging/groups/[channelId]/invitation",
-    "methods": [
-      "GET"
-    ],
+    "methods": ["GET"],
     "runtime": "nodejs",
     "config": {}
   },
   {
     "path": "/api/messaging/groups/invitations/cancel",
-    "methods": [
-      "POST"
-    ],
+    "methods": ["POST"],
     "runtime": "nodejs",
     "config": {}
   },
   {
     "path": "/api/messaging/groups/invitations/decide",
-    "methods": [
-      "POST"
-    ],
+    "methods": ["POST"],
     "runtime": "nodejs",
     "config": {}
   },
   {
     "path": "/api/messaging/groups/invite",
-    "methods": [
-      "POST"
-    ],
+    "methods": ["POST"],
     "runtime": "nodejs",
     "config": {}
   },
   {
     "path": "/api/messaging/groups/manage",
-    "methods": [
-      "POST"
-    ],
+    "methods": ["POST"],
     "runtime": "nodejs",
     "config": {}
   },
   {
     "path": "/api/messaging/groups/username",
-    "methods": [
-      "POST"
-    ],
+    "methods": ["POST"],
     "runtime": "nodejs",
     "config": {}
   },
   {
     "path": "/api/messaging/inbox",
-    "methods": [
-      "GET"
-    ],
+    "methods": ["GET"],
     "runtime": null,
     "config": {}
   },
   {
     "path": "/api/messaging/messages",
-    "methods": [
-      "POST"
-    ],
+    "methods": ["POST"],
     "runtime": "nodejs",
     "config": {}
   },
   {
     "path": "/api/messaging/messages/edit",
-    "methods": [
-      "POST"
-    ],
+    "methods": ["POST"],
     "runtime": "nodejs",
     "config": {}
   },
   {
     "path": "/api/messaging/messages/remove",
-    "methods": [
-      "POST"
-    ],
+    "methods": ["POST"],
     "runtime": "nodejs",
     "config": {}
   },
   {
     "path": "/api/messaging/preferences",
-    "methods": [
-      "POST"
-    ],
+    "methods": ["POST"],
     "runtime": "nodejs",
     "config": {}
   },
   {
     "path": "/api/messaging/preferences/clear",
-    "methods": [
-      "POST"
-    ],
+    "methods": ["POST"],
     "runtime": "nodejs",
     "config": {}
   },
   {
     "path": "/api/messaging/reactions",
-    "methods": [
-      "POST"
-    ],
+    "methods": ["POST"],
     "runtime": "nodejs",
     "config": {}
   },
   {
     "path": "/api/messaging/read",
-    "methods": [
-      "POST"
-    ],
+    "methods": ["POST"],
     "runtime": "nodejs",
     "config": {}
   },
   {
     "path": "/api/messaging/request-setting",
-    "methods": [
-      "POST"
-    ],
+    "methods": ["POST"],
     "runtime": "nodejs",
     "config": {}
   },
   {
     "path": "/api/messaging/requests",
-    "methods": [
-      "POST"
-    ],
+    "methods": ["POST"],
     "runtime": "nodejs",
     "config": {}
   },
   {
     "path": "/api/messaging/requests/[channelId]",
-    "methods": [
-      "GET"
-    ],
+    "methods": ["GET"],
     "runtime": "nodejs",
     "config": {}
   },
   {
     "path": "/api/messaging/requests/[channelId]/status",
-    "methods": [
-      "GET"
-    ],
+    "methods": ["GET"],
     "runtime": null,
     "config": {}
   },
   {
     "path": "/api/messaging/requests/decide",
-    "methods": [
-      "POST"
-    ],
+    "methods": ["POST"],
     "runtime": "nodejs",
     "config": {}
   },
   {
     "path": "/api/messaging/requests/username",
-    "methods": [
-      "POST"
-    ],
+    "methods": ["POST"],
     "runtime": "nodejs",
     "config": {}
   },
   {
     "path": "/api/messaging/retained",
-    "methods": [
-      "GET"
-    ],
+    "methods": ["GET"],
     "runtime": "nodejs",
     "config": {
       "dynamic": "force-dynamic"
@@ -879,9 +667,7 @@
   },
   {
     "path": "/api/messaging/retained/[channelId]",
-    "methods": [
-      "GET"
-    ],
+    "methods": ["GET"],
     "runtime": "nodejs",
     "config": {
       "dynamic": "force-dynamic"
@@ -889,25 +675,19 @@
   },
   {
     "path": "/api/messaging/retained/delete",
-    "methods": [
-      "POST"
-    ],
+    "methods": ["POST"],
     "runtime": "nodejs",
     "config": {}
   },
   {
     "path": "/api/messaging/typing",
-    "methods": [
-      "POST"
-    ],
+    "methods": ["POST"],
     "runtime": "nodejs",
     "config": {}
   },
   {
     "path": "/api/messaging/unread",
-    "methods": [
-      "GET"
-    ],
+    "methods": ["GET"],
     "runtime": null,
     "config": {
       "dynamic": "force-dynamic"
@@ -915,10 +695,7 @@
   },
   {
     "path": "/api/moderation/notices",
-    "methods": [
-      "GET",
-      "POST"
-    ],
+    "methods": ["GET", "POST"],
     "runtime": "nodejs",
     "config": {
       "dynamic": "force-dynamic"
@@ -926,33 +703,25 @@
   },
   {
     "path": "/api/notifications/preferences",
-    "methods": [
-      "POST"
-    ],
+    "methods": ["POST"],
     "runtime": "nodejs",
     "config": {}
   },
   {
     "path": "/api/notifications/presentation",
-    "methods": [
-      "POST"
-    ],
+    "methods": ["POST"],
     "runtime": "nodejs",
     "config": {}
   },
   {
     "path": "/api/notifications/read",
-    "methods": [
-      "POST"
-    ],
+    "methods": ["POST"],
     "runtime": "nodejs",
     "config": {}
   },
   {
     "path": "/api/notifications/shell",
-    "methods": [
-      "GET"
-    ],
+    "methods": ["GET"],
     "runtime": "nodejs",
     "config": {
       "dynamic": "force-dynamic"
@@ -960,9 +729,7 @@
   },
   {
     "path": "/api/notifications/unsubscribe",
-    "methods": [
-      "POST"
-    ],
+    "methods": ["POST"],
     "runtime": "nodejs",
     "config": {
       "dynamic": "force-dynamic"
@@ -970,25 +737,19 @@
   },
   {
     "path": "/api/ops/alerts",
-    "methods": [
-      "GET"
-    ],
+    "methods": ["GET"],
     "runtime": "nodejs",
     "config": {}
   },
   {
     "path": "/api/ops/metrics",
-    "methods": [
-      "GET"
-    ],
+    "methods": ["GET"],
     "runtime": "nodejs",
     "config": {}
   },
   {
     "path": "/api/parental-controls/command",
-    "methods": [
-      "POST"
-    ],
+    "methods": ["POST"],
     "runtime": "nodejs",
     "config": {
       "dynamic": "force-dynamic"
@@ -996,9 +757,7 @@
   },
   {
     "path": "/api/parental-controls/lobby-permission",
-    "methods": [
-      "POST"
-    ],
+    "methods": ["POST"],
     "runtime": "nodejs",
     "config": {
       "dynamic": "force-dynamic"
@@ -1006,9 +765,7 @@
   },
   {
     "path": "/api/parental-controls/more",
-    "methods": [
-      "POST"
-    ],
+    "methods": ["POST"],
     "runtime": "nodejs",
     "config": {
       "dynamic": "force-dynamic"
@@ -1016,9 +773,7 @@
   },
   {
     "path": "/api/people",
-    "methods": [
-      "GET"
-    ],
+    "methods": ["GET"],
     "runtime": "nodejs",
     "config": {
       "dynamic": "force-dynamic"
@@ -1026,35 +781,25 @@
   },
   {
     "path": "/api/presence",
-    "methods": [
-      "GET",
-      "POST"
-    ],
+    "methods": ["GET", "POST"],
     "runtime": "nodejs",
     "config": {}
   },
   {
     "path": "/api/privacy/erase",
-    "methods": [
-      "POST"
-    ],
+    "methods": ["POST"],
     "runtime": "nodejs",
     "config": {}
   },
   {
     "path": "/api/privacy/export",
-    "methods": [
-      "POST"
-    ],
+    "methods": ["POST"],
     "runtime": "nodejs",
     "config": {}
   },
   {
     "path": "/api/profile",
-    "methods": [
-      "GET",
-      "PUT"
-    ],
+    "methods": ["GET", "PUT"],
     "runtime": "nodejs",
     "config": {
       "dynamic": "force-dynamic"
@@ -1062,9 +807,7 @@
   },
   {
     "path": "/api/profile-photos/[photoId]/[size]",
-    "methods": [
-      "GET"
-    ],
+    "methods": ["GET"],
     "runtime": "nodejs",
     "config": {
       "dynamic": "force-dynamic"
@@ -1072,10 +815,7 @@
   },
   {
     "path": "/api/profile/photo",
-    "methods": [
-      "DELETE",
-      "POST"
-    ],
+    "methods": ["DELETE", "POST"],
     "runtime": "nodejs",
     "config": {
       "dynamic": "force-dynamic"
@@ -1083,9 +823,7 @@
   },
   {
     "path": "/api/realtime/ticket",
-    "methods": [
-      "POST"
-    ],
+    "methods": ["POST"],
     "runtime": "nodejs",
     "config": {
       "dynamic": "force-dynamic"
@@ -1093,336 +831,247 @@
   },
   {
     "path": "/api/recordings/[recordingId]/download",
-    "methods": [
-      "GET"
-    ],
+    "methods": ["GET"],
     "runtime": "nodejs",
     "config": {}
   },
   {
     "path": "/api/recordings/[recordingId]/playback/[...path]",
-    "methods": [
-      "GET"
-    ],
+    "methods": ["GET"],
     "runtime": "nodejs",
     "config": {}
   },
   {
     "path": "/api/recordings/[recordingId]/removal",
-    "methods": [
-      "POST"
-    ],
+    "methods": ["POST"],
     "runtime": "nodejs",
     "config": {}
   },
   {
     "path": "/api/reports",
-    "methods": [
-      "POST"
-    ],
+    "methods": ["POST"],
     "runtime": "nodejs",
     "config": {}
   },
   {
     "path": "/api/room-invitations/decline",
-    "methods": [
-      "POST"
-    ],
+    "methods": ["POST"],
     "runtime": "nodejs",
     "config": {}
   },
   {
     "path": "/api/room-invitations/withdraw",
-    "methods": [
-      "POST"
-    ],
+    "methods": ["POST"],
     "runtime": "nodejs",
     "config": {}
   },
   {
     "path": "/api/rooms",
-    "methods": [
-      "GET",
-      "POST"
-    ],
+    "methods": ["GET", "POST"],
     "runtime": "nodejs",
     "config": {}
   },
   {
     "path": "/api/rooms/[roomId]",
-    "methods": [
-      "GET"
-    ],
+    "methods": ["GET"],
     "runtime": "nodejs",
     "config": {}
   },
   {
     "path": "/api/rooms/[roomId]/chat",
-    "methods": [
-      "GET",
-      "POST"
-    ],
+    "methods": ["GET", "POST"],
     "runtime": "nodejs",
     "config": {}
   },
   {
     "path": "/api/rooms/[roomId]/chat/edit",
-    "methods": [
-      "POST"
-    ],
+    "methods": ["POST"],
     "runtime": "nodejs",
     "config": {}
   },
   {
     "path": "/api/rooms/[roomId]/chat/messages",
-    "methods": [
-      "GET",
-      "POST"
-    ],
+    "methods": ["GET", "POST"],
     "runtime": "nodejs",
     "config": {}
   },
   {
     "path": "/api/rooms/[roomId]/chat/read",
-    "methods": [
-      "POST"
-    ],
+    "methods": ["POST"],
     "runtime": "nodejs",
     "config": {}
   },
   {
     "path": "/api/rooms/[roomId]/chat/remove",
-    "methods": [
-      "POST"
-    ],
+    "methods": ["POST"],
     "runtime": "nodejs",
     "config": {}
   },
   {
     "path": "/api/rooms/[roomId]/chat/report",
-    "methods": [
-      "POST"
-    ],
+    "methods": ["POST"],
     "runtime": "nodejs",
     "config": {}
   },
   {
     "path": "/api/rooms/[roomId]/commands",
-    "methods": [
-      "POST"
-    ],
+    "methods": ["POST"],
     "runtime": "nodejs",
     "config": {}
   },
   {
     "path": "/api/rooms/[roomId]/invitations",
-    "methods": [
-      "POST"
-    ],
+    "methods": ["POST"],
     "runtime": "nodejs",
     "config": {}
   },
   {
     "path": "/api/rooms/[roomId]/rematch",
-    "methods": [
-      "POST"
-    ],
+    "methods": ["POST"],
     "runtime": "nodejs",
     "config": {}
   },
   {
     "path": "/api/rooms/active",
-    "methods": [
-      "GET"
-    ],
+    "methods": ["GET"],
     "runtime": "nodejs",
     "config": {}
   },
   {
     "path": "/api/rooms/catalog",
-    "methods": [
-      "GET"
-    ],
+    "methods": ["GET"],
     "runtime": "nodejs",
     "config": {}
   },
   {
     "path": "/api/rooms/hosted",
-    "methods": [
-      "GET"
-    ],
+    "methods": ["GET"],
     "runtime": "nodejs",
     "config": {}
   },
   {
     "path": "/api/rounds/[roundId]",
-    "methods": [
-      "GET"
-    ],
+    "methods": ["GET"],
     "runtime": "nodejs",
     "config": {}
   },
   {
     "path": "/api/rounds/[roundId]/audience",
-    "methods": [
-      "GET"
-    ],
+    "methods": ["GET"],
     "runtime": "nodejs",
     "config": {}
   },
   {
     "path": "/api/rounds/[roundId]/ballots",
-    "methods": [
-      "GET",
-      "POST"
-    ],
+    "methods": ["GET", "POST"],
     "runtime": "nodejs",
     "config": {}
   },
   {
     "path": "/api/rounds/[roundId]/chat",
-    "methods": [
-      "POST"
-    ],
+    "methods": ["POST"],
     "runtime": "nodejs",
     "config": {}
   },
   {
     "path": "/api/rounds/[roundId]/check-in",
-    "methods": [
-      "POST"
-    ],
+    "methods": ["POST"],
     "runtime": "nodejs",
     "config": {}
   },
   {
     "path": "/api/rounds/[roundId]/commands",
-    "methods": [
-      "POST"
-    ],
+    "methods": ["POST"],
     "runtime": "nodejs",
     "config": {}
   },
   {
     "path": "/api/rounds/[roundId]/floor",
-    "methods": [
-      "GET",
-      "POST"
-    ],
+    "methods": ["GET", "POST"],
     "runtime": "nodejs",
     "config": {}
   },
   {
     "path": "/api/rounds/[roundId]/floor/edit",
-    "methods": [
-      "POST"
-    ],
+    "methods": ["POST"],
     "runtime": "nodejs",
     "config": {}
   },
   {
     "path": "/api/rounds/[roundId]/floor/messages",
-    "methods": [
-      "GET",
-      "POST"
-    ],
+    "methods": ["GET", "POST"],
     "runtime": "nodejs",
     "config": {}
   },
   {
     "path": "/api/rounds/[roundId]/floor/read",
-    "methods": [
-      "POST"
-    ],
+    "methods": ["POST"],
     "runtime": "nodejs",
     "config": {}
   },
   {
     "path": "/api/rounds/[roundId]/floor/remove",
-    "methods": [
-      "POST"
-    ],
+    "methods": ["POST"],
     "runtime": "nodejs",
     "config": {}
   },
   {
     "path": "/api/rounds/[roundId]/floor/report",
-    "methods": [
-      "POST"
-    ],
+    "methods": ["POST"],
     "runtime": "nodejs",
     "config": {}
   },
   {
     "path": "/api/rounds/[roundId]/media",
-    "methods": [
-      "GET"
-    ],
+    "methods": ["GET"],
     "runtime": "nodejs",
     "config": {}
   },
   {
     "path": "/api/rounds/[roundId]/media/reconcile",
-    "methods": [
-      "POST"
-    ],
+    "methods": ["POST"],
     "runtime": "nodejs",
     "config": {}
   },
   {
     "path": "/api/rounds/[roundId]/media/session",
-    "methods": [
-      "POST"
-    ],
+    "methods": ["POST"],
     "runtime": "nodejs",
     "config": {}
   },
   {
     "path": "/api/rounds/[roundId]/reactions",
-    "methods": [
-      "POST"
-    ],
+    "methods": ["POST"],
     "runtime": "nodejs",
     "config": {}
   },
   {
     "path": "/api/rounds/[roundId]/round-analysis",
-    "methods": [
-      "GET",
-      "POST"
-    ],
+    "methods": ["GET", "POST"],
     "runtime": "nodejs",
     "config": {}
   },
   {
     "path": "/api/rounds/[roundId]/transcript",
-    "methods": [
-      "GET"
-    ],
+    "methods": ["GET"],
     "runtime": null,
     "config": {}
   },
   {
     "path": "/api/rounds/[roundId]/viewers",
-    "methods": [
-      "POST"
-    ],
+    "methods": ["POST"],
     "runtime": "nodejs",
     "config": {}
   },
   {
     "path": "/api/stage/[captureId]",
-    "methods": [
-      "GET"
-    ],
+    "methods": ["GET"],
     "runtime": "nodejs",
     "config": {}
   },
   {
     "path": "/api/tab/confirmation-command",
-    "methods": [
-      "POST"
-    ],
+    "methods": ["POST"],
     "runtime": "nodejs",
     "config": {
       "dynamic": "force-dynamic"
@@ -1430,9 +1079,7 @@
   },
   {
     "path": "/api/tab/draw-command",
-    "methods": [
-      "POST"
-    ],
+    "methods": ["POST"],
     "runtime": "nodejs",
     "config": {
       "dynamic": "force-dynamic"
@@ -1440,9 +1087,7 @@
   },
   {
     "path": "/api/tab/entries-command",
-    "methods": [
-      "POST"
-    ],
+    "methods": ["POST"],
     "runtime": "nodejs",
     "config": {
       "dynamic": "force-dynamic"
@@ -1450,9 +1095,7 @@
   },
   {
     "path": "/api/tab/event-ballot",
-    "methods": [
-      "GET"
-    ],
+    "methods": ["GET"],
     "runtime": "nodejs",
     "config": {
       "dynamic": "force-dynamic"
@@ -1460,9 +1103,7 @@
   },
   {
     "path": "/api/tab/fixture-command",
-    "methods": [
-      "POST"
-    ],
+    "methods": ["POST"],
     "runtime": "nodejs",
     "config": {
       "dynamic": "force-dynamic"
@@ -1470,9 +1111,7 @@
   },
   {
     "path": "/api/tab/host-ballots",
-    "methods": [
-      "GET"
-    ],
+    "methods": ["GET"],
     "runtime": "nodejs",
     "config": {
       "dynamic": "force-dynamic"
@@ -1480,9 +1119,7 @@
   },
   {
     "path": "/api/tab/host-draw",
-    "methods": [
-      "GET"
-    ],
+    "methods": ["GET"],
     "runtime": "nodejs",
     "config": {
       "dynamic": "force-dynamic"
@@ -1490,9 +1127,7 @@
   },
   {
     "path": "/api/tab/host-events",
-    "methods": [
-      "GET"
-    ],
+    "methods": ["GET"],
     "runtime": "nodejs",
     "config": {
       "dynamic": "force-dynamic"
@@ -1500,9 +1135,7 @@
   },
   {
     "path": "/api/tab/host-navigation",
-    "methods": [
-      "GET"
-    ],
+    "methods": ["GET"],
     "runtime": "nodejs",
     "config": {
       "dynamic": "force-dynamic"
@@ -1510,9 +1143,7 @@
   },
   {
     "path": "/api/tab/host-results",
-    "methods": [
-      "GET"
-    ],
+    "methods": ["GET"],
     "runtime": "nodejs",
     "config": {
       "dynamic": "force-dynamic"
@@ -1520,9 +1151,7 @@
   },
   {
     "path": "/api/tab/host-roster",
-    "methods": [
-      "GET"
-    ],
+    "methods": ["GET"],
     "runtime": "nodejs",
     "config": {
       "dynamic": "force-dynamic"
@@ -1530,9 +1159,7 @@
   },
   {
     "path": "/api/tab/host-round",
-    "methods": [
-      "GET"
-    ],
+    "methods": ["GET"],
     "runtime": "nodejs",
     "config": {
       "dynamic": "force-dynamic"
@@ -1540,9 +1167,7 @@
   },
   {
     "path": "/api/tab/host-standings",
-    "methods": [
-      "GET"
-    ],
+    "methods": ["GET"],
     "runtime": "nodejs",
     "config": {
       "dynamic": "force-dynamic"
@@ -1550,9 +1175,7 @@
   },
   {
     "path": "/api/tab/hosted-tournaments",
-    "methods": [
-      "GET"
-    ],
+    "methods": ["GET"],
     "runtime": "nodejs",
     "config": {
       "dynamic": "force-dynamic"
@@ -1560,9 +1183,7 @@
   },
   {
     "path": "/api/tab/hosting",
-    "methods": [
-      "GET"
-    ],
+    "methods": ["GET"],
     "runtime": "nodejs",
     "config": {
       "dynamic": "force-dynamic"
@@ -1570,9 +1191,7 @@
   },
   {
     "path": "/api/tab/hosting-checkout",
-    "methods": [
-      "POST"
-    ],
+    "methods": ["POST"],
     "runtime": "nodejs",
     "config": {
       "dynamic": "force-dynamic"
@@ -1580,9 +1199,7 @@
   },
   {
     "path": "/api/tab/judges-command",
-    "methods": [
-      "POST"
-    ],
+    "methods": ["POST"],
     "runtime": "nodejs",
     "config": {
       "dynamic": "force-dynamic"
@@ -1590,9 +1207,7 @@
   },
   {
     "path": "/api/tab/league-school-command",
-    "methods": [
-      "POST"
-    ],
+    "methods": ["POST"],
     "runtime": "nodejs",
     "config": {
       "dynamic": "force-dynamic"
@@ -1600,9 +1215,7 @@
   },
   {
     "path": "/api/tab/lobby-command",
-    "methods": [
-      "POST"
-    ],
+    "methods": ["POST"],
     "runtime": "nodejs",
     "config": {
       "dynamic": "force-dynamic"
@@ -1610,9 +1223,7 @@
   },
   {
     "path": "/api/tab/lobby-people",
-    "methods": [
-      "GET"
-    ],
+    "methods": ["GET"],
     "runtime": "nodejs",
     "config": {
       "dynamic": "force-dynamic"
@@ -1620,9 +1231,7 @@
   },
   {
     "path": "/api/tab/organization-command",
-    "methods": [
-      "POST"
-    ],
+    "methods": ["POST"],
     "runtime": "nodejs",
     "config": {
       "dynamic": "force-dynamic"
@@ -1630,9 +1239,7 @@
   },
   {
     "path": "/api/tab/organization-people",
-    "methods": [
-      "GET"
-    ],
+    "methods": ["GET"],
     "runtime": "nodejs",
     "config": {
       "dynamic": "force-dynamic"
@@ -1640,9 +1247,7 @@
   },
   {
     "path": "/api/tab/participant",
-    "methods": [
-      "GET"
-    ],
+    "methods": ["GET"],
     "runtime": "nodejs",
     "config": {
       "dynamic": "force-dynamic"
@@ -1650,9 +1255,7 @@
   },
   {
     "path": "/api/tab/release-command",
-    "methods": [
-      "POST"
-    ],
+    "methods": ["POST"],
     "runtime": "nodejs",
     "config": {
       "dynamic": "force-dynamic"
@@ -1660,9 +1263,7 @@
   },
   {
     "path": "/api/tab/result-command",
-    "methods": [
-      "POST"
-    ],
+    "methods": ["POST"],
     "runtime": "nodejs",
     "config": {
       "dynamic": "force-dynamic"
@@ -1670,9 +1271,7 @@
   },
   {
     "path": "/api/tab/sanction-command",
-    "methods": [
-      "POST"
-    ],
+    "methods": ["POST"],
     "runtime": "nodejs",
     "config": {
       "dynamic": "force-dynamic"
@@ -1680,9 +1279,7 @@
   },
   {
     "path": "/api/tab/settings-command",
-    "methods": [
-      "POST"
-    ],
+    "methods": ["POST"],
     "runtime": "nodejs",
     "config": {
       "dynamic": "force-dynamic"
@@ -1690,9 +1287,7 @@
   },
   {
     "path": "/api/tab/tournament-event-settings",
-    "methods": [
-      "GET"
-    ],
+    "methods": ["GET"],
     "runtime": "nodejs",
     "config": {
       "dynamic": "force-dynamic"
@@ -1700,9 +1295,7 @@
   },
   {
     "path": "/api/tab/tournament-setup",
-    "methods": [
-      "GET"
-    ],
+    "methods": ["GET"],
     "runtime": "nodejs",
     "config": {
       "dynamic": "force-dynamic"
@@ -1710,17 +1303,13 @@
   },
   {
     "path": "/api/watch-history",
-    "methods": [
-      "POST"
-    ],
+    "methods": ["POST"],
     "runtime": "nodejs",
     "config": {}
   },
   {
     "path": "/api/webhooks/resend",
-    "methods": [
-      "POST"
-    ],
+    "methods": ["POST"],
     "runtime": "nodejs",
     "config": {
       "dynamic": "force-dynamic"
@@ -1728,9 +1317,7 @@
   },
   {
     "path": "/api/webhooks/stripe",
-    "methods": [
-      "POST"
-    ],
+    "methods": ["POST"],
     "runtime": "nodejs",
     "config": {
       "dynamic": "force-dynamic"
@@ -1738,11 +1325,7 @@
   },
   {
     "path": "/auth/confirm",
-    "methods": [
-      "GET",
-      "HEAD",
-      "POST"
-    ],
+    "methods": ["GET", "HEAD", "POST"],
     "runtime": "nodejs",
     "config": {
       "dynamic": "force-dynamic"
@@ -1750,11 +1333,7 @@
   },
   {
     "path": "/auth/confirm-email",
-    "methods": [
-      "GET",
-      "HEAD",
-      "POST"
-    ],
+    "methods": ["GET", "HEAD", "POST"],
     "runtime": "nodejs",
     "config": {
       "dynamic": "force-dynamic"
@@ -1762,9 +1341,7 @@
   },
   {
     "path": "/auth/sign-out",
-    "methods": [
-      "POST"
-    ],
+    "methods": ["POST"],
     "runtime": "nodejs",
     "config": {
       "dynamic": "force-dynamic"
@@ -1772,25 +1349,19 @@
   },
   {
     "path": "/foundation/share/[format]/[scheme]",
-    "methods": [
-      "GET"
-    ],
+    "methods": ["GET"],
     "runtime": null,
     "config": {}
   },
   {
     "path": "/play/room/submit",
-    "methods": [
-      "POST"
-    ],
+    "methods": ["POST"],
     "runtime": "nodejs",
     "config": {}
   },
   {
     "path": "/watch/[roundId]/link",
-    "methods": [
-      "GET"
-    ],
+    "methods": ["GET"],
     "runtime": "nodejs",
     "config": {}
   }

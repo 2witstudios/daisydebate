@@ -6,7 +6,6 @@ import { betaMessagingPolicy } from '../src/features/messaging/beta-policy';
 import { createApp } from '../src/server/app';
 import {
   TABLE,
-  renderTable,
   routeFiles,
   routeModule,
   routeTable,
@@ -27,8 +26,8 @@ test('every route module keeps its path, methods and segment config', async () =
     given: 'the route modules under src/app',
     should:
       'match route-table.json (`bun run scripts/route-table.ts` rewrites it)',
-    actual: renderTable(await routeTable()),
-    expected: await Bun.file(TABLE).text(),
+    actual: await routeTable(),
+    expected: await Bun.file(TABLE).json(),
   });
 });
 
