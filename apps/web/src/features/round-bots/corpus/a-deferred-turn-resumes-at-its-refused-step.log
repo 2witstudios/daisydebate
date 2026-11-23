@@ -3,7 +3,6 @@
 0 settle answer 1 -> INFRASTRUCTURE
 0 failed generate INFRASTRUCTURE
 200 settle answer 1
-200 verify
 200 tts "One."
 200 tts "Two."
 200 tts "Three."
@@ -13,18 +12,18 @@
 200 settle tts "Two." -> INFRASTRUCTURE
 200 tts "Three."
 200 settle tts "Three."
+200 settle tts "Two."
+200 tts "Four."
+200 settle tts "Four."
+200 verify
 200 verify
 200 token
 200 join TR_0
 200 begin id1 120ms in=0 at=2027-01-15T08:00:00.200Z room
-200..200 frames TR_0 x12
 200 reveal id1 room at=2027-01-15T08:00:00.200Z
-200 settle tts "Two."
-200 tts "Four."
-200 settle tts "Four."
 200 begin id3 260ms in=120 at=2027-01-15T08:00:00.320Z room
 200 begin id7 80ms in=380 at=2027-01-15T08:00:00.580Z room
-200..270 frames TR_0 x26
+200..270 frames TR_0 x38
 320 end id1 whole
 320 reveal id3 room at=2027-01-15T08:00:00.320Z
 320 begin id10 400ms in=340 at=2027-01-15T08:00:00.660Z room
@@ -34,8 +33,9 @@
 580..650 frames TR_0 x30
 660 end id7 whole
 660 reveal id10 room at=2027-01-15T08:00:00.660Z
-660..750 frames TR_0 x10
+660..740 frames TR_0 x9
 750 close answer 1
 750 abandon answer 1
+750..750 frames TR_0 x1
 1060 end id10 whole
 9500 close TR_0

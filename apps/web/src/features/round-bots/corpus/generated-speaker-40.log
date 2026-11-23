@@ -3,15 +3,15 @@
 2618 heard peer@1000
 2618 generate peer-turn peer@1000
 2618 settle answer 1
-2618 verify
 2618 tts "One."
 2618 settle tts "One."
+2618 peer barge-in peer
+2618 abandon answer 1
+2618 verify
 2618 verify
 2618 token
 2618 join TR_0
 2618 begin id1 120ms in=0 at=2027-01-15T08:00:02.618Z room
-2618..2618 frames TR_0 x12
-2618 peer barge-in peer
 2618 clear TR_0 queued=120
-2618 abandon answer 1
+2618..2618 frames TR_0 x12
 12618 close TR_0

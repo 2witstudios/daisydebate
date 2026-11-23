@@ -1,28 +1,29 @@
 1770 generate opening
 1770 settle answer 1
-2070 verify
 2070 tts "One."
 2070 tts "Two."
 2070 tts "Three."
 2070 settle tts "One."
 2070 settle tts "Two."
 2070 settle tts "Three."
+2070 tts "Four."
+2070 settle tts "Four."
+2070 verify
 2070 verify
 2070 token
 2070 join TR_0
 2070 begin id1 120ms in=0 at=2027-01-15T08:00:02.070Z room
 2070 begin id3 260ms in=120 at=2027-01-15T08:00:02.190Z room
-2070..2070 frames TR_0 x12
 2070 reveal id1 room at=2027-01-15T08:00:02.070Z
-2070 tts "Four."
-2070 settle tts "Four."
 2070 begin id5 80ms in=380 at=2027-01-15T08:00:02.450Z room
-2070..2140 frames TR_0 x26
+2070..2140 frames TR_0 x38
 2190 end id1 whole
 2190 reveal id3 room at=2027-01-15T08:00:02.190Z
 2230 reveal -> CONFLICT/bot-room-changed
 2230 clear TR_0 queued=220
 2230 end id3 cut 40ms ""
+2480 tts "Five."
+2480 settle tts "Five."
 2480 verify
 2480 close TR_0
 2480 verify
@@ -30,24 +31,21 @@
 2480 join TR_1
 2480 begin id10 260ms in=0 at=2027-01-15T08:00:02.480Z room
 2480 begin id5 80ms in=260 at=2027-01-15T08:00:02.740Z room
-2480..2480 frames TR_1 x26
 2480 reveal id10 room at=2027-01-15T08:00:02.480Z
-2480 tts "Five."
-2480 settle tts "Five."
 2480 begin id8 400ms in=340 at=2027-01-15T08:00:02.820Z room
-2480..2510 frames TR_1 x8
+2480..2510 frames TR_1 x34
 2740 end id10 whole
 2740 reveal id5 room at=2027-01-15T08:00:02.740Z
 2740 begin id12 120ms in=480 at=2027-01-15T08:00:03.220Z room
 2740..2810 frames TR_1 x30
 2820 reveal id8 room at=2027-01-15T08:00:02.820Z
-2820..2940 frames TR_1 x13
+2820..2930 frames TR_1 x12
 2940 end id5 whole
-2950..3030 frames TR_1 x9
-3220 reveal id12 room at=2027-01-15T08:00:03.220Z
+2940..3030 frames TR_1 x10
 3220 failed generate Error
 3220 close answer 1
 3220 abandon answer 1
+3220 reveal id12 room at=2027-01-15T08:00:03.220Z
 3220 end id8 whole
 3340 end id12 whole
 12355 close TR_1

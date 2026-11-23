@@ -1,26 +1,26 @@
 1463 generate opening
 1463 settle answer 1
-1463 verify
 1463 tts "One."
 1463 tts "Two."
 1463 settle tts "One."
 1463 settle tts "Two."
 1463 settle tts "Two." -> CONFLICT/platform-incident
 1463 verify
+1463 verify
 1463 token
 1463 join TR_0
 1463 begin id1 120ms in=0 at=2027-01-15T08:00:01.463Z room
-1513..1513 frames TR_0 x12
-1513 reveal id1 room at=2027-01-15T08:00:01.513Z
 1513 settle tts "Two."
+1513 reveal id1 room at=2027-01-15T08:00:01.513Z
 1513 begin id3 260ms in=120 at=2027-01-15T08:00:01.633Z room
+1513..1513 frames TR_0 x12
 1553 begin -> CONFLICT/platform-incident
 1633 end id1 whole
-1753 verify
-1753 begin id3 260ms in=0 at=2027-01-15T08:00:01.753Z room
-1753..1753 frames TR_0 x26
-1753 reveal id3 room at=2027-01-15T08:00:01.753Z
 1753 close answer 1
 1753 abandon answer 1
+1753 verify
+1753 begin id3 260ms in=0 at=2027-01-15T08:00:01.753Z room
+1753 reveal id3 room at=2027-01-15T08:00:01.753Z
+1753..1753 frames TR_0 x26
 2013 end id3 whole
 14048 close TR_0

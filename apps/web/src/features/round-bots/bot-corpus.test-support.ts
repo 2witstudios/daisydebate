@@ -70,6 +70,8 @@ export type PublisherStep =
       readonly abortAfterMs?: number;
       /** Asked with its signal already aborted. */
       readonly preAborted?: boolean;
+      /** Goes on to the next step without waiting for this publish to end. */
+      readonly detach?: boolean;
     }
   | { readonly writeAhead: string; readonly ms: number }
   | { readonly silence: true }
@@ -143,7 +145,10 @@ type FactBody =
       readonly phraseId: string | null;
       readonly playsUntilMs: number;
     }
-  | { readonly kind: 'begin' | 'reveal'; readonly phraseId: string }
+  | { readonly kind: 'begin'; readonly phraseId: string }
+  /** A start the store granted. */
+  | { readonly kind: 'authorized'; readonly phraseId: string }
+  | { readonly kind: 'reveal'; readonly phraseId: string }
   | {
       readonly kind: 'end';
       readonly phraseId: string;
@@ -175,26 +180,12 @@ export async function traceCorpus(script: CorpusScript): Promise<{
   readonly sleepers: number;
 }> {
   const clock = virtualClock();
-  const lines: string[] = [];
+  const lines: Line[] = [];
   const facts: Fact[] = [];
   const note: Note = (body) => facts.push({ ...body, at: clock.nowMs() });
   let playing: string | null = null;
-  let frames: {
-    track: string;
-    count: number;
-    from: number;
-    to: number;
-  } | null = null;
-  const flush = () => {
-    if (!frames) return;
-    lines.push(
-      `${frames.from}..${frames.to} frames ${frames.track} x${frames.count}`,
-    );
-    frames = null;
-  };
-  const log = (line: string) => {
-    flush();
-    lines.push(`${clock.nowMs()} ${line}`);
+  const log = (text: string) => {
+    lines.push({ at: clock.nowMs(), text });
   };
   const queues = new Map<string, readonly Reply[]>();
   const calls = new Map<string, number>();
@@ -258,6 +249,7 @@ export async function traceCorpus(script: CorpusScript): Promise<{
             `begin ${phrase.phraseId} ${phrase.durationMs}ms in=${phrase.startsInMs} at=${phrase.startsAt ?? '-'} ${room}`,
           );
           await reply('begin', store.begin);
+          note({ kind: 'authorized', phraseId: phrase.phraseId });
           return { duplicate: false };
         }),
       revealRoundBotPhrase: (
@@ -314,13 +306,7 @@ export async function traceCorpus(script: CorpusScript): Promise<{
             throw new Error('native source failed');
           }
           const now = clock.nowMs();
-          if (frames?.track === track && frames.to + 10 >= now) {
-            frames.count += 1;
-            frames.to = now;
-          } else {
-            flush();
-            frames = { track, count: 1, from: now, to: now };
-          }
+          lines.push({ at: now, text: `frame ${track}`, frame: track });
           playedUntil = Math.max(playedUntil, now) + 10;
           note({ kind: 'frame', phraseId: playing, playsUntilMs: playedUntil });
         },
@@ -373,12 +359,63 @@ export async function traceCorpus(script: CorpusScript): Promise<{
       reply,
       () => `id${++ids}`,
     );
-  flush();
   return {
-    log: `${lines.join('\n')}\n`,
+    log: logText(lines),
     facts,
     sleepers: clock.sleepers(),
   };
+}
+
+type Line = {
+  readonly at: number;
+  readonly text: string;
+  readonly frame?: string;
+};
+/** The publisher's side of the edge: the store, the token and the native track. */
+const PUBLISHER =
+  /^(?:(?:verify|token|join|begin|reveal|end|floor|clear|frame)\b|close TR_)/;
+/**
+ * The log as committed. Within one instant the speaker's calls come first,
+ * then the publisher's calls, then the frames handed over, each in its own
+ * order: which of two independent calls in the same instant ran first is a
+ * matter of promise turns, not of behaviour, and no one on the wire can
+ * tell. What must come first is a walk property instead (a phrase's audio
+ * only after its start was granted). Consecutive frames are one line.
+ */
+function logText(lines: readonly Line[]): string {
+  const rank = (line: Line) =>
+    line.frame !== undefined ? 2 : PUBLISHER.test(line.text) ? 1 : 0;
+  const ordered = lines
+    .map((line, index) => ({ line, index }))
+    .sort(
+      (a, b) =>
+        a.line.at - b.line.at ||
+        rank(a.line) - rank(b.line) ||
+        a.index - b.index,
+    )
+    .map(({ line }) => line);
+  type Run = { track: string; from: number; to: number; count: number };
+  const out: string[] = [];
+  const runs: Run[] = [];
+  const flush = () => {
+    for (const run of runs.splice(0))
+      out.push(`${run.from}..${run.to} frames ${run.track} x${run.count}`);
+  };
+  for (const line of ordered) {
+    const run = runs[0];
+    if (line.frame === undefined) {
+      flush();
+      out.push(`${line.at} ${line.text}`);
+    } else if (run?.track === line.frame && run.to + 10 >= line.at) {
+      run.count += 1;
+      run.to = line.at;
+    } else {
+      flush();
+      runs.push({ track: line.frame, from: line.at, to: line.at, count: 1 });
+    }
+  }
+  flush();
+  return `${out.join('\n')}\n`;
 }
 
 type Claim = ReturnType<ReturnType<typeof createBotPublisher>>;
@@ -445,7 +482,8 @@ async function runPublisher(
             log(`published ${step.publish} -> ${describeError(error)}`),
         );
       pending.push(outcome);
-      await clock.run(outcome);
+      if (step.detach) await clock.advance(0);
+      else await clock.run(outcome);
     } else if ('writeAhead' in step) {
       seen.add(step.writeAhead);
       claim.writeAhead(jobOf(step.writeAhead, WORDS, step.ms));

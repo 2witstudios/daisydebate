@@ -1,19 +1,19 @@
 0 verify
 0 token
 0 join TR_0
-10 verify
 10 deadline 60000
+10 verify
 10 begin a 600ms in=0 at=2027-01-15T08:00:00.010Z room
-10..10 frames TR_0 x31
 10 reveal a room at=2027-01-15T08:00:00.010Z
-20..250 frames TR_0 x24
+10..250 frames TR_0 x55
 260 floor room
-260..300 frames TR_0 x5
+260..290 frames TR_0 x4
 300 published a complete=true ended=false
 300 begin b 200ms in=310 at=2027-01-15T08:00:00.610Z room
+300..300 frames TR_0 x1
 600..600 frames TR_0 x20
+610 published b complete=true ended=false
 610 end a whole
 610 reveal b room at=2027-01-15T08:00:00.610Z
-610 published b complete=true ended=false
 810 end b whole
 1110 close TR_0

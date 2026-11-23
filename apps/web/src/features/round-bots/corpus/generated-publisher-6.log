@@ -1,34 +1,34 @@
 0 verify
 0 token
 0 join TR_0
-10 verify
 10 deadline 60000
+10 verify
 10 begin p0 500ms in=0 at=2027-01-15T08:00:00.010Z room
-50 begin -> CONFLICT/bot-room-changed
 50 published p0 -> CONFLICT/bot-room-changed
+50 begin -> CONFLICT/bot-room-changed
 385 close TR_0
 385 verify
 385 token
 385 join TR_1
 385 begin p1 580ms in=0 at=2027-01-15T08:00:00.385Z room
-685..685 frames TR_1 x31
 685 reveal p1 room at=2027-01-15T08:00:00.685Z
-695..925 frames TR_1 x24
+685..925 frames TR_1 x55
 935 floor room
-935..955 frames TR_1 x3
+935..945 frames TR_1 x2
 955 published p1 complete=true ended=false
 955 clear TR_1 queued=310
+955..955 frames TR_1 x1
 1015 floor -> CONFLICT/bot-room-changed
 1192 close TR_1
 1192 verify
 1192 token
 1192 join TR_2
 1192 begin p2 150ms in=0 at=2027-01-15T08:00:01.192Z room
-1242..1242 frames TR_2 x15
-1242 reveal p2 room at=2027-01-15T08:00:01.242Z
 1242 published p2 complete=true ended=false
 1242 query audible=true p0:open p1:open p2:open
+1242 reveal p2 room at=2027-01-15T08:00:01.242Z
 1242 clear TR_2 queued=150
 1242 end p1 cut 270ms "one two three four"
 1242 end p2 cut 0ms ""
 1242 close TR_2
+1242..1242 frames TR_2 x15

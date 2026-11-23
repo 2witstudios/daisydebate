@@ -1,16 +1,16 @@
 0 generate opening
 0 settle answer 1
-0 verify
 0 tts "One."
+0 verify
 250 settle tts "One."
+250 close answer 1
+250 abandon answer 1
 250 verify
 250 token
 250 join TR_0
 250 begin id1 120ms in=0 at=2027-01-15T08:00:00.250Z room
-250..250 frames TR_0 x12
 250 reveal id1 room at=2027-01-15T08:00:00.250Z
-250 close answer 1
-250 abandon answer 1
+250..250 frames TR_0 x12
 370 end id1 whole
 410 end -> CONFLICT/bot-room-changed
 13363 close TR_0

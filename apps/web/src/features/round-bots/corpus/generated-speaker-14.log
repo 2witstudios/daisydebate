@@ -1,19 +1,19 @@
 1020 generate opening
 1020 settle answer 1
-1120 verify
 1120 tts "One."
 1120 tts "Two."
 1120 tts "Three."
 1120 settle tts "Two."
 1120 settle tts "Three."
+1120 verify
 1200 tts "One." -> CONFLICT
-1400 verify
 1400 tts "One."
 1400 settle tts "One."
 1400 settle tts "One." -> Error
 1400 failed synthesize Error
-1800 verify
+1400 verify
 1800 settle tts "One."
+1800 verify
 1800 verify
 1800 token
 1800 join TR_0
@@ -21,17 +21,16 @@
 1800 begin -> CONFLICT/platform-incident
 2600 verify
 2600 begin id7 120ms in=0 at=2027-01-15T08:00:02.600Z room
-2750 begin id3 260ms in=120 at=2027-01-15T08:00:02.870Z room
-2750..2750 frames TR_0 x12
-2750 reveal id7 room at=2027-01-15T08:00:02.750Z
 2750 tts "Four."
 2750 settle tts "Four."
+2750 begin id3 260ms in=120 at=2027-01-15T08:00:02.870Z room
+2750 reveal id7 room at=2027-01-15T08:00:02.750Z
 2750 begin id5 80ms in=380 at=2027-01-15T08:00:03.130Z room
-2750..2820 frames TR_0 x26
-2870 end id7 whole
-2870 reveal id3 room at=2027-01-15T08:00:02.870Z
+2750..2820 frames TR_0 x38
 2870 tts "Five."
 2870 settle tts "Five."
+2870 end id7 whole
+2870 reveal id3 room at=2027-01-15T08:00:02.870Z
 2870 begin id10 400ms in=340 at=2027-01-15T08:00:03.210Z room
 2870..2900 frames TR_0 x8
 2950 settle tts "Five." -> CONFLICT/platform-incident
@@ -40,14 +39,14 @@
 3130..3200 frames TR_0 x30
 3210 end id5 whole
 3210 reveal id10 room at=2027-01-15T08:00:03.210Z
-3210..3300 frames TR_0 x10
+3210..3290 frames TR_0 x9
 3300 settle tts "Five."
 3300 begin id12 120ms in=310 at=2027-01-15T08:00:03.610Z room
-3310..3420 frames TR_0 x12
-3610 end id10 whole
-3610 reveal id12 room at=2027-01-15T08:00:03.610Z
+3300..3420 frames TR_0 x13
 3610 failed generate Error
 3610 close answer 1
 3610 abandon answer 1
+3610 end id10 whole
+3610 reveal id12 room at=2027-01-15T08:00:03.610Z
 3730 end id12 whole
 12798 close TR_0

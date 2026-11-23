@@ -1,16 +1,16 @@
 0 verify
 0 token
 0 join TR_0
-10 verify
 10 deadline 60000
+10 verify
 10 begin a 400ms in=0 at=2027-01-15T08:00:00.010Z room
-10..10 frames TR_0 x31
 10 reveal a room at=2027-01-15T08:00:00.010Z
-20..100 frames TR_0 x9
+10..90 frames TR_0 x39
 100 published a complete=true ended=false
-100 begin b 200ms in=310 at=2027-01-15T08:00:00.410Z room
 100 abort b
+100 begin b 200ms in=310 at=2027-01-15T08:00:00.410Z room
 100 clear TR_0 queued=310
+100..100 frames TR_0 x1
 150 published b -> CONFLICT
 410 end a cut 90ms "one two"
 650 close TR_0

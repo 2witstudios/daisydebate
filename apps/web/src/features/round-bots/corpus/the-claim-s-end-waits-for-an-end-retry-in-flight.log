@@ -1,24 +1,24 @@
 0 verify
 0 token
 0 join TR_0
-10 verify
 10 deadline 60000
-10 begin a 100ms in=0 at=2027-01-15T08:00:00.010Z room
-10..10 frames TR_0 x10
-10 reveal a room at=2027-01-15T08:00:00.010Z
 10 published a complete=true ended=false
+10 verify
+10 begin a 100ms in=0 at=2027-01-15T08:00:00.010Z room
+10 reveal a room at=2027-01-15T08:00:00.010Z
+10..10 frames TR_0 x10
 110 end a whole
 110 end -> Error
 210 end a whole
 210 end -> Error
+410 published b complete=true ended=false
 410 end a whole
 410 end -> Error
 410 begin b 100ms in=0 at=2027-01-15T08:00:00.410Z room
 410 end a whole
-410..410 frames TR_0 x10
 410 reveal b room at=2027-01-15T08:00:00.410Z
-410 published b complete=true ended=false
 410 clear TR_0 queued=100
 410 end b cut 0ms ""
-510 close TR_0
+410..410 frames TR_0 x10
 510 closed
+510 close TR_0

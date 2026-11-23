@@ -1,21 +1,20 @@
 0 generate opening
 0 settle answer 1
-0 verify
 0 tts "One long."
 0 tts "Two."
 0 settle tts "One long."
 0 settle tts "Two."
 0 verify
+0 verify
 0 token
 0 join TR_0
 0 begin id1 120ms in=0 at=2027-01-15T08:00:00.000Z room
 0 begin id3 260ms in=120 at=2027-01-15T08:00:00.120Z room
-0..0 frames TR_0 x12
 0 reveal id1 room at=2027-01-15T08:00:00.000Z
-0..70 frames TR_0 x26
-120 end id1 whole
-120 reveal id3 room at=2027-01-15T08:00:00.120Z
+0..70 frames TR_0 x38
 120 close answer 1
 120 abandon answer 1
+120 end id1 whole
+120 reveal id3 room at=2027-01-15T08:00:00.120Z
 380 end id3 whole
 3500 close TR_0

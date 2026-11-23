@@ -13,50 +13,48 @@
 1227 heard peer@2000
 1227 generate peer-turn peer@2000
 1227 settle answer 3
-1227 verify
 1227 tts "One."
 1227 tts "Two."
 1227 tts "Three."
 1227 settle tts "Two."
 1227 settle tts "Three."
+1227 verify
 1307 tts "One." -> CONFLICT/platform-incident
-1707 verify
 1707 tts "One."
 1707 settle tts "One."
+1707 abandon answer 3
+1707 verify
 1707 verify
 1707 token
 1707 join TR_0
 1707 begin id7 120ms in=0 at=2027-01-15T08:00:01.707Z room
 1707 begin id3 260ms in=120 at=2027-01-15T08:00:01.827Z room
-1707..1707 frames TR_0 x2
 1707 begin -> CONFLICT
-1707..1707 frames TR_0 x10
 1707 reveal id7 room at=2027-01-15T08:00:01.707Z
-1707 abandon answer 3
+1707..1707 frames TR_0 x12
 1827 end id7 whole
 1907 heard peer@2000
 1907 generate peer-turn peer@2000
 1907 settle answer 4
-1907 verify
 1907 tts "One."
 1907 tts "Two."
 1907 tts "Three."
 1907 settle tts "One."
 1907 settle tts "Two."
 1907 settle tts "Three."
+1907 verify
 1907 begin id10 120ms in=0 at=2027-01-15T08:00:01.907Z room
 1907 begin id12 260ms in=120 at=2027-01-15T08:00:02.027Z room
-1907..1907 frames TR_0 x12
 1907 end -> CONFLICT/platform-incident
 1907 reveal id10 room at=2027-01-15T08:00:01.907Z
 1907 begin id14 80ms in=380 at=2027-01-15T08:00:02.287Z room
-1907..1977 frames TR_0 x26
+1907..1977 frames TR_0 x38
 2027 end id10 whole
 2027 reveal id12 room at=2027-01-15T08:00:02.027Z
 2027..2027 frames TR_0 x5
 2029 peer barge-in peer
-2029 clear TR_0 queued=308
 2029 abandon answer 4
 2029 peer barge-in peer
+2029 clear TR_0 queued=308
 2287 end id12 cut 2ms ""
 12029 close TR_0

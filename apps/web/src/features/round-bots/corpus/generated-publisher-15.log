@@ -1,40 +1,39 @@
 0 verify
 0 token
 0 join TR_0
-10 verify
 10 deadline 60000
+10 verify
 10 begin p0 430ms in=0 at=2027-01-15T08:00:00.010Z room
-10..10 frames TR_0 x31
 10 reveal p0 room at=2027-01-15T08:00:00.010Z
-20..80 frames TR_0 x7
+10..80 frames TR_0 x38
+90 published p0 -> CONFLICT
 90 reveal -> CONFLICT
 90 clear TR_0 queued=300
 90 end p0 cut 80ms "one"
-90 published p0 -> CONFLICT
 90 begin p1 290ms in=0 at=2027-01-15T08:00:00.090Z room
-190..190 frames TR_0 x29
-190 reveal p1 room at=2027-01-15T08:00:00.190Z
 190 published p1 complete=true ended=false
+190 reveal p1 room at=2027-01-15T08:00:00.190Z
+190..190 frames TR_0 x29
 280 begin p2 360ms in=200 at=2027-01-15T08:00:00.480Z room
 280..330 frames TR_0 x16
 334 abort p0
 340..350 frames TR_0 x2
+360 published p2 -> Error
 360 frame TR_0 #85 failed
 360 clear TR_0 queued=300
-360 published p2 -> Error
 360 begin p3 350ms in=0 at=2027-01-15T08:00:00.360Z room
-360..360 frames TR_0 x31
 360 reveal p3 room at=2027-01-15T08:00:00.360Z
-370..400 frames TR_0 x4
+360..390 frames TR_0 x34
 400 published p3 complete=true ended=false
 400 clear TR_0 queued=310
+400..400 frames TR_0 x1
 480 end p1 cut 170ms "one two three four five"
 518 query audible=false p0:closed p1:closed p2:open p3:open/tail-cut
 560 end -> Error
+660 closed
+660 published late -> CONFLICT
 660 end p1 cut 170ms "one two three four five"
 660 end -> CONFLICT
 660 end p3 cut 40ms "one"
 660 close TR_0
-660 closed
-660 published late -> CONFLICT
 698 abort p3

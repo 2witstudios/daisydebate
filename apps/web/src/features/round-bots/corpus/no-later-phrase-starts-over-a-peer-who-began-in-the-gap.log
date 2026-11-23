@@ -1,46 +1,44 @@
 0 generate opening
 0 settle answer 1
-0 verify
 0 tts "One."
 0 tts "Two."
 0 tts "Three."
 0 settle tts "One."
 0 settle tts "Two."
 0 settle tts "Three."
+0 tts "Four."
+0 settle tts "Four."
+0 verify
 0 verify
 0 token
 0 join TR_0
 0 begin id1 120ms in=0 at=2027-01-15T08:00:00.000Z room
 0 begin id3 260ms in=120 at=2027-01-15T08:00:00.120Z room
-0..0 frames TR_0 x12
 0 reveal id1 room at=2027-01-15T08:00:00.000Z
-0 tts "Four."
-0 settle tts "Four."
 0 begin id5 80ms in=380 at=2027-01-15T08:00:00.380Z room
-0..70 frames TR_0 x26
+0..70 frames TR_0 x38
 115 peer speech-start peer
-115 clear TR_0 queued=265
 115 abandon answer 1
+115 clear TR_0 queued=265
 120 end id1 cut 115ms ""
 615 peer end-of-turn peer
 615 heard peer@1000
 615 generate peer-turn peer@1000
 615 settle answer 2
-615 verify
 615 tts "One."
 615 tts "Two."
 615 tts "Three."
 615 settle tts "One."
 615 settle tts "Two."
 615 settle tts "Three."
-615 begin id10 120ms in=0 at=2027-01-15T08:00:00.615Z room
-615 begin id12 260ms in=120 at=2027-01-15T08:00:00.735Z room
-615..615 frames TR_0 x12
-615 reveal id10 room at=2027-01-15T08:00:00.615Z
 615 tts "Four."
 615 settle tts "Four."
+615 verify
+615 begin id10 120ms in=0 at=2027-01-15T08:00:00.615Z room
+615 begin id12 260ms in=120 at=2027-01-15T08:00:00.735Z room
+615 reveal id10 room at=2027-01-15T08:00:00.615Z
 615 begin id14 80ms in=380 at=2027-01-15T08:00:00.995Z room
-615..685 frames TR_0 x26
+615..685 frames TR_0 x38
 735 end id10 whole
 735 reveal id12 room at=2027-01-15T08:00:00.735Z
 735 begin id16 400ms in=340 at=2027-01-15T08:00:01.075Z room
@@ -50,8 +48,9 @@
 995..1065 frames TR_0 x30
 1075 end id14 whole
 1075 reveal id16 room at=2027-01-15T08:00:01.075Z
-1075..1165 frames TR_0 x10
+1075..1155 frames TR_0 x9
 1165 close answer 2
 1165 abandon answer 2
+1165..1165 frames TR_0 x1
 1475 end id16 whole
 3615 close TR_0

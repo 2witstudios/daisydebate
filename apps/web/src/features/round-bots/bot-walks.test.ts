@@ -94,7 +94,26 @@ function nothingAfterClaimEnd(facts: Facts): string[] {
     .map((fact) => `${fact.kind} at ${fact.at} after the claim ended`);
 }
 
+/** A phrase's audio is handed over only once its start was granted (ADR 0122). */
+function authorizedBeforeAudio(facts: Facts): string[] {
+  const granted = new Set<string>();
+  const problems = new Set<string>();
+  for (const fact of facts) {
+    if (fact.kind === 'authorized') granted.add(fact.phraseId);
+    if (
+      fact.kind === 'frame' &&
+      fact.phraseId !== null &&
+      !granted.has(fact.phraseId)
+    )
+      problems.add(
+        `audio of ${fact.phraseId} handed before its start was granted`,
+      );
+  }
+  return [...problems];
+}
+
 const publisherProperties = [
+  authorizedBeforeAudio,
   oneEndPerLine,
   creditWithinHandoff,
   noFramePastStop,
@@ -252,7 +271,7 @@ describe('the bot’s generated walks (R4.3)', () => {
     assert({
       given: `generated publisher rounds over seeds ${SEEDS.join(', ')}`,
       should:
-        'end each revealed line once, credit only handed audio, play nothing past the stop and begin nothing after the claim ends',
+        'hand audio only once authorized, end each revealed line once, credit only handed audio, play nothing past the stop and begin nothing after the claim ends',
       actual: await holds(
         walk((draw) => generatedPublisher('walk', draw), publisherProperties),
       ),

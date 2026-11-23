@@ -1,14 +1,14 @@
 0 verify
 0 token
 0 join TR_0
-10 verify
 10 deadline 60000
+10 verify
 10 begin a 500ms in=0 at=2027-01-15T08:00:00.010Z room
-10..10 frames TR_0 x31
 10 reveal a room at=2027-01-15T08:00:00.010Z
-20..200 frames TR_0 x19
+10..190 frames TR_0 x49
 200 published a complete=true ended=false
 200 clear TR_0 queued=310
+200..200 frames TR_0 x1
 510 end a cut 190ms "one two three"
 700 query audible=false a:closed/tail-cut
 700 close TR_0

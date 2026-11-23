@@ -1,26 +1,25 @@
 1187 generate opening
 1187 settle answer 1
-1187 verify
 1187 tts "One."
 1187 tts "Two."
 1187 tts "Three."
 1187 tts "One." -> CONFLICT/bot-room-changed
 1187 settle tts "Two."
 1187 settle tts "Three."
-1387 verify
+1187 verify
 1387 tts "One."
 1387 settle tts "One."
+1387 verify
 1387 verify
 1387 token
 1387 join TR_0
 1387 begin id7 120ms in=0 at=2027-01-15T08:00:01.387Z room
-1537 begin id3 260ms in=120 at=2027-01-15T08:00:01.657Z room
-1537..1537 frames TR_0 x12
-1537 reveal id7 room at=2027-01-15T08:00:01.537Z
 1537 tts "Four."
 1537 settle tts "Four."
+1537 begin id3 260ms in=120 at=2027-01-15T08:00:01.657Z room
+1537 reveal id7 room at=2027-01-15T08:00:01.537Z
 1537 begin id5 80ms in=380 at=2027-01-15T08:00:01.917Z room
-1537..1607 frames TR_0 x26
+1537..1607 frames TR_0 x38
 1657 end id7 whole
 1657 end -> CONFLICT
 1657 reveal id3 room at=2027-01-15T08:00:01.657Z
@@ -28,11 +27,11 @@
 1657..1687 frames TR_0 x8
 1917 end id3 whole
 1917 reveal id5 room at=2027-01-15T08:00:01.917Z
-2017..2017 frames TR_0 x31
 2017 end id5 whole
 2017 reveal id10 room at=2027-01-15T08:00:02.017Z
-2027..2107 frames TR_0 x9
+2017..2097 frames TR_0 x39
 2107 close answer 1
 2107 abandon answer 1
+2107..2107 frames TR_0 x1
 2417 end id10 whole
 12940 close TR_0

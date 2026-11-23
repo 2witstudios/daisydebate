@@ -195,6 +195,28 @@ const publisherCases: readonly CorpusScript[] = [
     { begin: [ok, slow(50)] },
   ),
   publisher(
+    'the claim ends while a start backs off',
+    [
+      ...opened,
+      p('a', 100, { detach: true }),
+      advance(20),
+      { close: true },
+      advance(400),
+    ],
+    { begin: [fail('lost'), fail('lost')] },
+  ),
+  publisher(
+    'a cut line whose end keeps failing is asked again at its credit',
+    [
+      ...opened,
+      p('a', 1000, { abortAfterMs: 400 }),
+      advance(500),
+      p('b', 100),
+      advance(500),
+    ],
+    { end: [fail('lost'), fail('lost'), fail('lost')] },
+  ),
+  publisher(
     'a start backing off writes nothing once the claim ends',
     [...opened, p('a', 100, { abortAfterMs: 50 }), { close: true }],
     { begin: [fail('lost'), fail('lost')] },

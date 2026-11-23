@@ -3,10 +3,10 @@
 0 heard peer@1000
 0 generate peer-turn peer@1000
 0 settle answer 1
-50 verify
 50 tts "One."
 50 tts "Two."
 50 settle tts "One."
+50 verify
 350 settle tts "Two."
 350 verify
 350 token
@@ -15,63 +15,61 @@
 350 begin -> Error
 450 begin id1 120ms in=0 at=2027-01-15T08:00:00.350Z room
 450 begin id3 260ms in=120 at=2027-01-15T08:00:00.570Z room
-450..450 frames TR_0 x12
 450 reveal id1 room at=2027-01-15T08:00:00.450Z
-650..650 frames TR_0 x26
+450..450 frames TR_0 x12
 650 end id1 whole
 650 reveal id3 room at=2027-01-15T08:00:00.650Z
+650..650 frames TR_0 x26
 690 reveal -> Error
-790 reveal id3 room at=2027-01-15T08:00:00.650Z
 790 close answer 1
 790 abandon answer 1
+790 reveal id3 room at=2027-01-15T08:00:00.650Z
 910 end id3 whole
 912 peer speech-start peer
 2220 peer end-of-turn peer
 2220 heard peer@2000
 2220 generate peer-turn peer@2000
 2220 settle answer 2
-2220 verify
 2220 tts "One."
+2220 verify
 2320 settle tts "One."
+2320 abandon answer 2
 2320 begin id6 120ms in=0 at=2027-01-15T08:00:02.320Z room
 2320 begin -> CONFLICT
-2320 abandon answer 2
 2520 heard peer@2000
 2520 generate peer-turn peer@2000
 2520 settle answer 3
-2520 verify
 2520 tts "One."
 2520 tts "Two."
 2520 settle tts "One."
 2520 settle tts "Two."
+2520 verify
 2520 begin id8 120ms in=0 at=2027-01-15T08:00:02.520Z room
 2520 begin id10 260ms in=120 at=2027-01-15T08:00:02.640Z room
-2520..2520 frames TR_0 x12
 2520 reveal id8 room at=2027-01-15T08:00:02.520Z
-2520..2590 frames TR_0 x26
-2640 end id8 whole
-2640 reveal id10 room at=2027-01-15T08:00:02.640Z
+2520..2590 frames TR_0 x38
 2640 failed generate Error
 2640 close answer 3
 2640 abandon answer 3
+2640 end id8 whole
+2640 reveal id10 room at=2027-01-15T08:00:02.640Z
 2720 end -> CONFLICT/bot-room-changed
 2900 end id10 whole
 10640 generate unanswered
 10640 settle answer 4
-10640 verify
 10640 tts "One."
 10640 tts "Two."
 10640 settle tts "One."
 10640 settle tts "Two."
+10640 verify
 10640 begin id12 120ms in=0 at=2027-01-15T08:00:10.640Z room
 10640 begin id14 260ms in=120 at=2027-01-15T08:00:10.760Z room
-10640..10640 frames TR_0 x12
 10640 reveal id12 room at=2027-01-15T08:00:10.640Z
-10640..10710 frames TR_0 x26
-10760 end id12 whole
-10760 reveal id14 room at=2027-01-15T08:00:10.760Z
+10640..10710 frames TR_0 x38
 10760 failed generate Error
 10760 close answer 4
 10760 abandon answer 4
+10760 end id12 whole
+10760 reveal id14 room at=2027-01-15T08:00:10.760Z
 11020 end id14 whole
 12220 close TR_0

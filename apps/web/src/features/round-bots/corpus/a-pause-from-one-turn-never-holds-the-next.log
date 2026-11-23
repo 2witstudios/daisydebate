@@ -5,22 +5,21 @@
 100 heard peer@1000
 100 generate peer-turn peer@1000
 100 settle answer 2
-100 verify
 100 tts "One."
 100 tts "Two."
 100 settle tts "One."
 100 settle tts "Two."
 100 verify
+100 verify
 100 token
 100 join TR_0
 100 begin id1 120ms in=0 at=2027-01-15T08:00:00.100Z room
 100 begin id3 260ms in=120 at=2027-01-15T08:00:00.220Z room
-100..100 frames TR_0 x12
 100 reveal id1 room at=2027-01-15T08:00:00.100Z
-100..170 frames TR_0 x26
-220 end id1 whole
-220 reveal id3 room at=2027-01-15T08:00:00.220Z
+100..170 frames TR_0 x38
 220 close answer 2
 220 abandon answer 2
+220 end id1 whole
+220 reveal id3 room at=2027-01-15T08:00:00.220Z
 480 end id3 whole
 3100 close TR_0

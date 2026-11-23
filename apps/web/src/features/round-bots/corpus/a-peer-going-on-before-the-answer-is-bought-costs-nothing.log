@@ -4,40 +4,39 @@
 0 peer speech-start peer
 0 peer end-of-turn peer
 0 settle answer 1
-0 verify
 0 tts "One."
 0 tts "Two."
 0 abandon answer 1
 0 heard peer@2000
 0 generate peer-turn peer@2000
 0 peer speech-start peer
+0 verify
 50 settle answer 2
-50 verify
 50 tts "One."
 50 tts "Two."
 50 settle tts "One."
 50 settle tts "Two."
+50 verify
 3000 peer end-of-turn peer
 3000 abandon answer 2
 3000 heard peer@3000
 3000 generate peer-turn peer@3000
 3050 settle answer 3
-3050 verify
 3050 tts "One."
 3050 tts "Two."
 3050 settle tts "One."
 3050 settle tts "Two."
 3050 verify
+3050 verify
 3050 token
 3050 join TR_0
 3050 begin id9 120ms in=0 at=2027-01-15T08:00:03.050Z room
 3050 begin id11 260ms in=120 at=2027-01-15T08:00:03.170Z room
-3050..3050 frames TR_0 x12
 3050 reveal id9 room at=2027-01-15T08:00:03.050Z
-3050..3120 frames TR_0 x26
-3170 end id9 whole
-3170 reveal id11 room at=2027-01-15T08:00:03.170Z
+3050..3120 frames TR_0 x38
 3170 close answer 3
 3170 abandon answer 3
+3170 end id9 whole
+3170 reveal id11 room at=2027-01-15T08:00:03.170Z
 3430 end id11 whole
 6000 close TR_0

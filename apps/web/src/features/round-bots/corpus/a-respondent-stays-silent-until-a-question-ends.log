@@ -3,22 +3,21 @@
 800 heard peer@1000
 800 generate peer-turn peer@1000
 800 settle answer 1
-800 verify
 800 tts "One."
 800 tts "Two."
 800 settle tts "One."
 800 settle tts "Two."
 800 verify
+800 verify
 800 token
 800 join TR_0
 800 begin id1 120ms in=0 at=2027-01-15T08:00:00.800Z room
 800 begin id3 260ms in=120 at=2027-01-15T08:00:00.920Z room
-800..800 frames TR_0 x12
 800 reveal id1 room at=2027-01-15T08:00:00.800Z
-800..870 frames TR_0 x26
-920 end id1 whole
-920 reveal id3 room at=2027-01-15T08:00:00.920Z
+800..870 frames TR_0 x38
 920 close answer 1
 920 abandon answer 1
+920 end id1 whole
+920 reveal id3 room at=2027-01-15T08:00:00.920Z
 1180 end id3 whole
 3800 close TR_0

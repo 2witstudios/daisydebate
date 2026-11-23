@@ -1,21 +1,20 @@
 0 verify
 0 token
 0 join TR_0
-10 verify
 10 deadline 60000
+10 verify
 10 begin p0 80ms in=0 at=2027-01-15T08:00:00.010Z room
-110..110 frames TR_0 x8
-110 reveal p0 room at=2027-01-15T08:00:00.110Z
 110 published p0 complete=true ended=false
+110 reveal p0 room at=2027-01-15T08:00:00.110Z
 110 clear TR_0 queued=80
+110..110 frames TR_0 x8
 190 end p0 cut 0ms ""
 223 begin p1 450ms in=0 at=2027-01-15T08:00:00.223Z room
-323..323 frames TR_0 x31
 323 reveal p1 room at=2027-01-15T08:00:00.323Z
-333..463 frames TR_0 x14
+323..453 frames TR_0 x44
 463 published p1 complete=true ended=false
 463 begin p2 410ms in=310 at=2027-01-15T08:00:00.773Z room
-473..703 frames TR_0 x24
+463..703 frames TR_0 x25
 713 floor room
 713..763 frames TR_0 x6
 773 end p1 whole
@@ -23,21 +22,20 @@
 773..783 frames TR_0 x2
 793 floor -> CONFLICT/platform-incident
 793 clear TR_0 queued=300
-873 end p2 cut 20ms ""
 873 published p2 -> CONFLICT/platform-incident
+873 end p2 cut 20ms ""
 873 begin p3 500ms in=0 at=2027-01-15T08:00:00.873Z room
-873..873 frames TR_0 x31
 873 reveal p3 room at=2027-01-15T08:00:00.873Z
-883..943 frames TR_0 x7
+873..943 frames TR_0 x38
 947 abort p2
-953..1063 frames TR_0 x12
+953..1053 frames TR_0 x11
 1063 published p3 complete=true ended=false
+1063..1063 frames TR_0 x1
 1353 abort p3
 1373 end p3 whole
 1406 begin p4 450ms in=0 at=2027-01-15T08:00:01.406Z room
-1456..1456 frames TR_0 x31
 1456 reveal p4 room at=2027-01-15T08:00:01.456Z
-1466..1596 frames TR_0 x14
+1456..1596 frames TR_0 x45
 1606 published p4 complete=true ended=false
 1606 query audible=true p0:closed p1:closed p2:closed p3:closed p4:open
 1606 clear TR_0 queued=300

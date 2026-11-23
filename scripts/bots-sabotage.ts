@@ -28,10 +28,10 @@ const bots = 'apps/web/src/features/round-bots';
 
 const mutations: readonly Mutation[] = [
   {
-    name: 'a line is ended again at a new credit',
+    name: 'a retried end credits the whole phrase',
     file: `${bots}/model/line-ledger.ts`,
-    find: "      if (line.ending.status !== 'open') break;",
-    replace: "      if (line.ending.status === 'closed') break;",
+    find: "        fraction: line.ending.status === 'open' ? 0 : line.ending.fraction,",
+    replace: '        fraction: 1,',
   },
   {
     name: 'a cleared tail is still credited',

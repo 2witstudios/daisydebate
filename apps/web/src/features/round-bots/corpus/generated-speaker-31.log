@@ -10,11 +10,11 @@
 854 heard peer@2000
 854 generate peer-turn peer@2000
 854 settle answer 2
-854 verify
 854 tts "One."
 854 tts "Two."
 854 settle tts "One."
 854 settle tts "Two."
 854 peer barge-in peer
+854 verify
 894 settle tts "One." -> CONFLICT
 894 abandon answer 2

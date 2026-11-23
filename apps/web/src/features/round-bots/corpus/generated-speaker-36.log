@@ -1,7 +1,7 @@
 4116 generate opening
 4116 settle answer 1
-4116 verify
 4116 tts "One."
+4116 verify
 4310 tts "Two."
 4390 tts "Two." -> Error
 4466 tts "Two."
@@ -10,15 +10,15 @@
 4504 tts "Three."
 4504 settle tts "Three."
 4506 settle tts "One." -> CONFLICT/platform-incident
-4706 verify
 4706 settle tts "One."
+4706 verify
 4706 verify
 4706 token
 4706 join TR_0
 4706 begin id1 120ms in=0 at=2027-01-15T08:00:04.706Z room
 4706 begin id5 260ms in=120 at=2027-01-15T08:00:04.826Z room
-4706..4706 frames TR_0 x12
 4706 reveal id1 room at=2027-01-15T08:00:04.706Z
+4706..4706 frames TR_0 x12
 4806 tts "Four."
 4806 begin id7 80ms in=280 at=2027-01-15T08:00:05.086Z room
 4806..4806 frames TR_0 x26
@@ -33,12 +33,12 @@
 5086 clear TR_0 queued=80
 5086 end id7 cut 0ms ""
 5156 tts "Four." -> CONFLICT/platform-incident
-5286 verify
 5286 tts "Four."
 5286 settle tts "Four."
+5286 verify
 5286 begin id16 80ms in=0 at=2027-01-15T08:00:05.286Z room
-5286..5286 frames TR_0 x8
 5286 reveal id16 room at=2027-01-15T08:00:05.286Z
+5286..5286 frames TR_0 x8
 5326 reveal -> CONFLICT/bot-room-changed
 5326 clear TR_0 queued=40
 5326 end id16 cut 40ms ""
@@ -49,13 +49,13 @@
 5726 join TR_1
 5726 begin id17 80ms in=0 at=2027-01-15T08:00:05.726Z room
 5726 begin id14 400ms in=80 at=2027-01-15T08:00:05.806Z room
-5726..5726 frames TR_1 x8
 5726 reveal id17 room at=2027-01-15T08:00:05.726Z
-5726..5796 frames TR_1 x30
+5726..5796 frames TR_1 x38
 5806 end id17 whole
 5806 reveal id14 room at=2027-01-15T08:00:05.806Z
-5806..5896 frames TR_1 x10
+5806..5886 frames TR_1 x9
 5896 close answer 1
 5896 abandon answer 1
+5896..5896 frames TR_1 x1
 6206 end id14 whole
 15476 close TR_1

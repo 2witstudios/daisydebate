@@ -1,16 +1,16 @@
 0 verify
 0 token
 0 join TR_0
-10 verify
 10 deadline 60000
+10 verify
 10 begin a 800ms in=0 at=2027-01-15T08:00:00.010Z room
-10..10 frames TR_0 x31
 10 reveal a room at=2027-01-15T08:00:00.010Z
-20..250 frames TR_0 x24
+10..250 frames TR_0 x55
 260 floor room
 260 floor -> Error
-260..500 frames TR_0 x25
+260..490 frames TR_0 x24
 500 published a complete=true ended=false
 500 clear TR_0 queued=310
 500 end a cut 490ms "one two three four five six"
 500 close TR_0
+500..500 frames TR_0 x1

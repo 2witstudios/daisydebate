@@ -1,45 +1,43 @@
 0 generate opening
 0 settle answer 1
-0 verify
 0 tts "One."
 0 tts "Two."
 0 tts "Three."
 0 settle tts "One."
 0 settle tts "Three."
 0 settle tts "Three." -> CONFLICT/platform-incident
+0 verify
 150 settle tts "Two."
+150 tts "Four."
+150 settle tts "Four."
 150 verify
 150 token
 150 join TR_0
 150 begin id1 120ms in=0 at=2027-01-15T08:00:00.150Z room
 150 begin id3 260ms in=120 at=2027-01-15T08:00:00.270Z room
-150..150 frames TR_0 x12
 150 reveal id1 room at=2027-01-15T08:00:00.150Z
-150 tts "Four."
-150 settle tts "Four."
-150..220 frames TR_0 x26
-270 end id1 whole
-270 reveal id3 room at=2027-01-15T08:00:00.270Z
+150..220 frames TR_0 x38
 270 settle tts "Three."
 270 tts "Five."
 270 settle tts "Five."
+270 end id1 whole
+270 reveal id3 room at=2027-01-15T08:00:00.270Z
 270 begin id5 80ms in=260 at=2027-01-15T08:00:00.530Z room
 350 begin -> CONFLICT/platform-incident
 530 end id3 whole
 550 verify
 550 begin id5 80ms in=0 at=2027-01-15T08:00:00.550Z room
 550 begin id8 400ms in=80 at=2027-01-15T08:00:00.630Z room
-550..550 frames TR_0 x8
 550 reveal id5 room at=2027-01-15T08:00:00.550Z
 550 begin id10 120ms in=480 at=2027-01-15T08:00:01.030Z room
-550..620 frames TR_0 x30
+550..620 frames TR_0 x38
 630 end id5 whole
 630 reveal id8 room at=2027-01-15T08:00:00.630Z
 630..840 frames TR_0 x22
-1030 end id8 whole
-1030 reveal id10 room at=2027-01-15T08:00:01.030Z
 1030 failed generate Error
 1030 close answer 1
 1030 abandon answer 1
+1030 end id8 whole
+1030 reveal id10 room at=2027-01-15T08:00:01.030Z
 1150 end id10 whole
 14958 close TR_0

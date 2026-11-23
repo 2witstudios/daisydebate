@@ -1,22 +1,22 @@
 0 generate opening
 0 settle answer 1
-0 verify
 0 tts "One."
 0 settle tts "One."
+0 verify
 0 verify
 0 token
 0 join TR_0
 0 begin id1 120ms in=0 at=2027-01-15T08:00:00.000Z room
-0..0 frames TR_0 x12
 0 reveal id1 room at=2027-01-15T08:00:00.000Z
+0..0 frames TR_0 x12
 100 tts "Two."
 100 settle tts "Two."
 100 begin id4 260ms in=20 at=2027-01-15T08:00:00.120Z room
 100..100 frames TR_0 x26
-120 end id1 whole
-120 reveal id4 room at=2027-01-15T08:00:00.120Z
 120 failed generate Error
 120 close answer 1
 120 abandon answer 1
+120 end id1 whole
+120 reveal id4 room at=2027-01-15T08:00:00.120Z
 380 end id4 whole
 6000 close TR_0
