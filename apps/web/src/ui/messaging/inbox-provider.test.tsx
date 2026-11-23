@@ -52,11 +52,12 @@ const mount = async (
   const render = (current = seed) =>
     client.act(async () =>
       client.root.render(
-        client.createElement(
-          client.InboxProvider,
-          { seed: current, actorId: channel(99), socketUrl: null },
-          client.createElement(Probe),
-        ),
+        client.createElement(client.InboxProvider, {
+          seed: current,
+          actorId: channel(99),
+          socketUrl: null,
+          children: client.createElement(Probe),
+        }),
       ),
     );
   await render();
