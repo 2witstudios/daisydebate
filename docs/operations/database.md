@@ -113,23 +113,59 @@ from it and needs no adoption.
 sides of the swap. An old image needs the superseded journal rows; this image
 needs the baseline's. The check runs only when a machine starts, so:
 
-1. Pause the staging deploy workflow, so that the merge does not release on
-   its own, and hold staging restarts.
-2. Merge. Check that staging has applied every folder main had up to the
-   merge, so that its journal is the superseded history plus later folders.
-3. As `postgres`, create an empty reference database on the same cluster,
-   owned by the migration owner (`create database daisy_baseline_reference
-owner daisy_migrator`).
-4. From the merge commit's migrator image, as the migration owner, run
-   `MIGRATION_DATABASE_URL=<owner URL> ADOPTION_REFERENCE_DATABASE_URL=<reference
-URL> bun db:adopt-baseline`. Expect `adopt-baseline: 20261121235720_baseline
-replaces 153 journal rows; N later folders kept`. If it refuses, nothing
-   has changed: read the differences, fix the cause forward, and run it again
-   with a new, empty reference database.
-5. Resume the deploy workflow for the merge commit. The migrator finds nothing
-   pending before the baseline, applies any newer folder, and the web,
-   realtime and worker images from that commit start.
-6. Drop the reference database.
+Staging, from a checkout of the merge commit with `flyctl` logged in as the
+owner (the same operator access as [deploy-staging](deploy-staging.md#database-credentials-issue-39)).
+No agent runs any of it; no builder has run these commands against Fly.
+
+1. **Pause the deploy rail** before merging, so the merge does not release
+   on its own: `gh workflow disable deploy-staging.yml`. A disabled
+   `workflow_run` workflow drops the CI event, so step 5 dispatches it by
+   hand. Hold staging restarts until step 5 finishes.
+2. **Merge**, then check that staging had applied every folder main held up
+   to the merge (the last green deploy's `DEPLOY_SHA` is main's tip before
+   the merge), so its journal is the superseded history plus later folders.
+3. **Create the empty reference database**, as `postgres`, owned by the
+   migration owner:
+
+   ```sh
+   printf 'CREATE DATABASE daisy_baseline_reference OWNER daisy_migrator;\n' \
+     | fly ssh console -a daisy-debate-staging-db \
+         -C 'sh -c "psql -X -q -v ON_ERROR_STOP=1 postgres://postgres:\$OPERATOR_PASSWORD@localhost:5433/postgres"'
+   ```
+
+4. **Build the merge commit's migrator image without releasing it, then run
+   the adoption on a one-off machine of the migrator app**, which alone holds
+   `MIGRATION_DATABASE_URL`. The command reaches the reference through that
+   same credential, so only the reference's name is passed:
+
+   ```sh
+   SHA=$(git rev-parse HEAD)   # the merge commit
+   fly deploy -c fly.migrate.toml --local-only --build-only --push \
+     --image-label "baseline-${SHA::7}" \
+     --build-arg APP_VERSION="${SHA::7}" --build-arg GIT_COMMIT="$SHA"
+   fly machine run "registry.fly.io/daisy-debate-staging-migrate:baseline-${SHA::7}" \
+     bun /app/packages/db/scripts/adopt-baseline.ts \
+     -a daisy-debate-staging-migrate --rm --restart no --region ord \
+     --vm-size shared-cpu-1x --vm-memory 512 \
+     --env ADOPTION_REFERENCE_DATABASE=daisy_baseline_reference
+   fly logs -a daisy-debate-staging-migrate --no-tail
+   ```
+
+   It runs by absolute path for the same reason as the release command
+   (`fly.migrate.toml`): the image's WORKDIR, `apps/web`, has no such script.
+   Expect `adopt-baseline: 20261121235720_baseline replaces 153 journal rows;
+N later folders kept`. If it refuses, nothing has changed: read the
+   differences, fix the cause forward, drop and recreate the reference
+   (steps 6 and 3), and run step 4 again.
+
+5. **Release the merge commit**: `gh workflow enable deploy-staging.yml`, then
+   `gh workflow run deploy-staging.yml --ref main`. Confirm the run's
+   `DEPLOY_SHA`, the image's `GIT_COMMIT` and the health response's deployment
+   metadata all name the merge commit. The migrator finds nothing pending
+   before the baseline and applies any newer folder, and then the web,
+   realtime and worker images start.
+6. **Drop the reference database**: the same `fly ssh console` line as step 3
+   with `DROP DATABASE daisy_baseline_reference;`.
 
 Between steps 4 and 5, machines on the old image keep serving, but one that
 restarts refuses to start, so keep that window short. After the swap, roll

@@ -53,6 +53,8 @@ export const completed = async (
     outcome: string;
     seasonId: string;
     visibility?: 'public' | 'private';
+    /** Another standing pool than Open's: its ladder and lobby. */
+    pool?: { readonly ladder: string; readonly lobby: string };
   },
 ) => {
   // A ranked round is constructed from a sanctioned preset, so it pins one.
@@ -72,8 +74,8 @@ export const completed = async (
       winning_side: input.outcome,
       runtime_state: emptyRuntimeCheckpointFor(validRules),
       judging: frozenJudgingFor(validRules),
-      ladder_id: input.formatId,
-      rating_lobby_id: publicLobbyId,
+      ladder_id: input.pool?.ladder ?? input.formatId,
+      rating_lobby_id: input.pool?.lobby ?? publicLobbyId,
       season_id: input.seasonId,
       visibility: input.visibility ?? null,
       ...(await openDivision(fixture, 'rounds', 'ladder_division')),

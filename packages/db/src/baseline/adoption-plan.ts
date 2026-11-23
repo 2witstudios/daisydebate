@@ -126,6 +126,16 @@ export function planAdoption({
   };
 }
 
+/**
+ * Whether the journal read under the lock plans a different swap from the
+ * one the reference was built for: another row to delete, or another set of
+ * later folders. The reference then no longer describes the live database.
+ */
+export const journalMoved = (built: AdoptionPlan, locked: AdoptionPlan) =>
+  built.deleteIds.join() !== locked.deleteIds.join() ||
+  built.later.map(({ name }) => name).join() !==
+    locked.later.map(({ name }) => name).join();
+
 export const describeRefusal = (refusal: AdoptionRefusal): string => {
   switch (refusal.kind) {
     case 'already-adopted':

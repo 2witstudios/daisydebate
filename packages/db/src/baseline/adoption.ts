@@ -17,6 +17,7 @@ import { MIGRATOR_SESSION } from '../session-bounds';
 import { inTransaction, type Tx } from '../tx';
 import {
   describeRefusal,
+  journalMoved,
   planAdoption,
   supersededJournal,
   type JournalRow,
@@ -143,7 +144,14 @@ export async function adoptBaseline({
       referenceUrl,
       migrationsFolder,
       folders: [baseline.name, ...first.plan.later.map(({ name }) => name)],
-    });
+    }).catch(() => undefined);
+    if (expected === undefined)
+      return {
+        kind: 'refused',
+        reasons: [
+          'The reference database could not be built; the live database is unchanged. Drop the reference and run again with a new, empty one',
+        ],
+      };
     if (expected === null)
       return {
         kind: 'refused',
@@ -160,7 +168,7 @@ export async function adoptBaseline({
       const locked = plan(await readJournal(tx));
       if (!locked.ok)
         return { kind: 'refused', reasons: [describeRefusal(locked.refusal)] };
-      if (locked.plan.later.length !== first.plan.later.length)
+      if (journalMoved(first.plan, locked.plan))
         return {
           kind: 'refused',
           reasons: [

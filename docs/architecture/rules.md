@@ -141,7 +141,10 @@ These rules are blockers in every plan and review (owner, 2026-10-27 and
   rolling deployments. Until then, a merge to staging needs no deploy window,
   rolling-deploy compatibility or expand/contract staging, and a destructive
   migration only needs stating in its PR (DEC-304). A migration must never be
-  able to refuse and block a deploy, and production keeps human sign-off. Never
+  able to refuse and block a deploy, and production keeps human sign-off. The
+  one sanctioned exception is a baseline on a database that has not adopted it
+  (ADR 0913): its release refuses, and rolls back, until the owner, with
+  deploys paused, has run the adoption. Never
   rewrite an applied migration or reset production; the only sanctioned history
   rewrite is a baseline recorded in `policy/migration-baselines.json`
   (ADR 0023, ADR 0038, ADR 0913): every local and test database resets once,

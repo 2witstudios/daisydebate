@@ -103,7 +103,7 @@ const startup = async () => {
   }
 };
 
-const live2 = (async () => {
+const seeded = (async () => {
   // The old history, then every folder the image adds after the baseline:
   // a database as staging holds it on the day of adoption.
   const superseded = await supersededFolders(record);
@@ -157,7 +157,7 @@ const live2 = (async () => {
 test(
   'a seeded database migrated the old way starts only on an old image before adoption',
   async () => {
-    await live2;
+    await seeded;
     assert({
       given:
         'the seeded database before adoption, and this image (which starts from the baseline)',
@@ -174,7 +174,7 @@ test(
 test(
   'adoption refuses a catalog that drifted from the baseline and changes nothing',
   async () => {
-    await live2;
+    await seeded;
     const [rows, names] = [await tableRows(), await journal()];
     const client = new SQL(live.url, { max: 1 });
     try {
@@ -212,7 +212,7 @@ test(
 test(
   'adoption refuses a journal it does not know and changes nothing',
   async () => {
-    await live2;
+    await seeded;
     const names = await journal();
     const client = new SQL(live.url, { max: 1 });
     try {
@@ -243,9 +243,42 @@ test(
 );
 
 test(
+  'adoption refuses a reference database that is not empty and changes nothing',
+  async () => {
+    await seeded;
+    const names = await journal();
+    const used = scratchDatabase(databaseUrl, 'adoptref');
+    references.push(used);
+    await used.create();
+    await used.migrate(() => true);
+    const outcome = await adoptBaseline({
+      databaseUrl: live.url,
+      referenceUrl: used.url,
+      migrationsFolder,
+    });
+    assert({
+      given: 'a reference database that already holds the baseline',
+      should:
+        'refuse, so a stale or reused reference is never compared, and leave the journal unchanged',
+      actual: { outcome, journal: (await journal()).join() },
+      expected: {
+        outcome: {
+          kind: 'refused',
+          reasons: [
+            'The reference database is not empty; give the command a new, empty one',
+          ],
+        },
+        journal: names.join(),
+      },
+    });
+  },
+  historyTimeoutMs,
+);
+
+test(
   'adoption swaps the journal, keeps every row, and the image then starts and has nothing to apply (RECON-5.2)',
   async () => {
-    await live2;
+    await seeded;
     const [rows, names] = [await tableRows(), await journal()];
     const later = names.filter((name) => name > record.cutoff);
     const outcome = await adopt();
@@ -283,7 +316,7 @@ test(
 test(
   'adoption refuses a database that already records the baseline',
   async () => {
-    await live2;
+    await seeded;
     assert({
       given: 'the adopted database',
       should: 'refuse a second adoption',

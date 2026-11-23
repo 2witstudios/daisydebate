@@ -9,7 +9,7 @@ import type { Tx } from './tx';
  * schema exactly when their catalogs are equal. The value is the object's
  * definition as canonical JSON text, so a difference names the object.
  *
- * It covers what a migration can create: schemas, extensions, types,
+ * It covers what this schema's migrations create: schemas, extensions, types,
  * tables and their columns, constraints, indexes, sequences, views,
  * functions, triggers, rules, policies, every privilege (schema, relation,
  * column, sequence, function, type, default privileges), comments,
@@ -18,6 +18,10 @@ import type { Tx } from './tx';
  * sequence positions and object identifiers are not schema and are not read;
  * neither is the database object itself (its name, encoding, CONNECT grants
  * and settings), which the operator provisions and no migration writes.
+ * Not read, because no migration here creates them: aggregate definitions
+ * (an aggregate is keyed, its body is not), statistics objects, collations,
+ * operators and operator classes, casts, text-search objects and attribute
+ * options. A migration that adds one adds its read here first.
  */
 export type SchemaCatalog = ReadonlyMap<string, string>;
 

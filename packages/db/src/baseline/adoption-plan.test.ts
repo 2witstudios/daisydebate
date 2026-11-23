@@ -1,5 +1,5 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { planAdoption, type JournalRow } from './adoption-plan';
+import { journalMoved, planAdoption, type JournalRow } from './adoption-plan';
 
 setupRitewayBun();
 
@@ -62,6 +62,28 @@ describe('planAdoption', () => {
         },
         { kind: 'unknown-folder', position: 2, found: '20260109000000_x' },
       ],
+    });
+  });
+});
+
+describe('journalMoved', () => {
+  const plan = {
+    deleteIds: [7, 8],
+    baselineId: 7,
+    later: imageLater.slice(0, 1),
+  };
+
+  test('names a journal that moved while the reference was built', () => {
+    assert({
+      given:
+        'the plan the reference was built for, against the same plan, one with another later folder, and one with another superseded id',
+      should: 'pass only the same plan',
+      actual: [
+        journalMoved(plan, { ...plan }),
+        journalMoved(plan, { ...plan, later: imageLater }),
+        journalMoved(plan, { ...plan, deleteIds: [7, 9] }),
+      ],
+      expected: [false, true, true],
     });
   });
 });
