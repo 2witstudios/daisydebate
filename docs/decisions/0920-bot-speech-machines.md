@@ -86,14 +86,15 @@ Measured at `bfb17fa8d`, 23 November 2026:
    not behaviour, and the causal order that ordering hid is a walk property
    instead.
 6. **Properties are generated walks** (`round-bots/bot-walks.test.ts`, three
-   fixed seeds, 40 walks each, over the same harness). Publisher: audio only
+   fixed seeds, 150 walks each, over the same harness). Publisher: audio only
    after its start was granted; every revealed line ends exactly once; no
    end credits more than was handed over; no frame plays past its stop;
    nothing begins after the claim ends. Speaker: each phrase voiced once per
    answer unless it failed; lines in order; one answer per turn (with
    replayed end-of-turn reports); quiet while a peer is mid-turn in
    cross-examination; nothing bought or said once over; timed waits wake the
-   speaker by themselves; no wait outlives the claim. `bun bots:sabotage`
+   speaker by themselves; no wait the bot armed outlives the claim; a turn
+   reported again at any moment is bought and said once. `bun bots:sabotage`
    applies named mutations in a scratch worktree and prints which net
    (unit tests, corpus, walks) catches each.
 
@@ -108,7 +109,7 @@ Measured at `bfb17fa8d`, 23 November 2026:
   ledger's and schedule's suites); the corpus and the walks cover them.
 - The explicit machine is longer than the closure it replaces: state the
   closure kept in its awaits is now named. round-bots non-test code went
-  from 4,396 to about 4,970 lines; its tests from 8,088 to about 5,950.
+  from 4,396 to 4,970 lines; its tests from 8,088 to 6,012.
 - A change to what the bot sends across its edge shows as a corpus diff;
   `GOLDEN_UPDATE=1` rewrites the logs, and a PR that does so lists each
   changed log and why.
