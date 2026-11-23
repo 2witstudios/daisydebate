@@ -3,10 +3,9 @@ import { organizationKinds } from '@daisy/protocol/lobby';
 import { listedWord, listedWords } from './lifecycle-sql';
 import { sql } from 'drizzle-orm';
 import type { PrivacyAdopter } from './privacy/contracts';
-import { exportRows } from './privacy/export-rows';
+import { exportRows, query, run } from './raw-rows';
 import { scopeTransaction } from './tenant-scope';
 import type { Tx } from './tx';
-import { query, run } from './raw-rows';
 import { z } from 'zod';
 
 const page = 100;

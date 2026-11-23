@@ -1,7 +1,6 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { startupSchemaProblems, type ImageSchema } from './startup-schema';
-import type { TenantDefinerFacts } from './tenant-definers';
-import type { TenantTableFacts } from './tenant-isolation';
+import type { TenantDefinerFacts, TenantTableFacts } from './tenant-isolation';
 setupRitewayBun();
 const image: ImageSchema = {
   migrations: [{ hash: 'a'.repeat(64), createdAt: 100 }],

@@ -1,6 +1,6 @@
+import type { RecordingStore } from '@daisy/db/stores/recordings';
 import { linkedAdultsFor, type LinkedAdults } from '@daisy/db/youth-live';
 import type { YouthLiveFact } from '@daisy/auth/live-audience';
-import type { Database } from '@daisy/db';
 import { isAppError } from '@daisy/errors';
 
 /** A Round's linked adults for its live audience; null on any Round that is not a Youth one. */
@@ -19,7 +19,10 @@ export const noLinkedAdults: LinkedAdultsOf = Object.assign(async () => null, {
  * watcher within that window.
  */
 export const liveLinkedAdults = (app: {
-  readonly database: Pick<Database, 'readRoundYouth' | 'readYouthRoundPeople'>;
+  readonly database: Pick<
+    RecordingStore,
+    'readRoundYouth' | 'readYouthRoundPeople'
+  >;
 }): LinkedAdultsOf => linkedAdultsFor(app.database);
 
 /**

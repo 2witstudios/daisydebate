@@ -1,5 +1,5 @@
 import type { createAudioPublication } from '@daisy/media/audio';
-import type { Database } from '@daisy/db';
+import type { RoundWorkerStore } from '@daisy/db/stores/round-workers';
 import { createStreamingAudioWriter } from '@daisy/media/publication';
 import type { BotPublicationScope } from '@daisy/db/bot-publication';
 import { createAppError } from '@daisy/errors';
@@ -25,7 +25,7 @@ export type BotSpeechJob = {
 /** What a claim's publisher is given. */
 export type Input = {
   readonly store: Pick<
-    Database,
+    RoundWorkerStore,
     | 'verifyRoundBotPublication'
     | 'beginRoundBotPhrase'
     | 'endRoundBotPhrase'

@@ -8,7 +8,7 @@ import { parsedColumn, postgresInstantMs } from './raw-rows';
 import { z } from 'zod';
 import { broadcastStopOf } from './broadcast-operations';
 import { namedSeats } from './member-history-rows';
-import { outcomeOfColumns } from './round-outcome-columns';
+import { outcomeOfColumns } from './round-hydration';
 import { broadcasts } from './schema/broadcasts';
 import { recordings } from './schema/recordings';
 import { roundParticipants } from './schema/round-participants';

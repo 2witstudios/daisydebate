@@ -2,7 +2,7 @@ import { virtualClock } from '@daisy/clock/testing';
 import { SQL } from 'bun';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { laneClient } from './lane-client';
-import { createLaneGate } from './workload-admission';
+import { createLaneGate } from './workload';
 
 setupRitewayBun();
 

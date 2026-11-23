@@ -1,3 +1,5 @@
+import { createMailStore } from '../src/stores/mail';
+import { openDatabaseResources } from '../src/resources';
 import { hostWaits } from '@daisy/worker/host';
 import { SQL } from 'bun';
 import { createId } from '@paralleldrive/cuid2';
@@ -7,7 +9,14 @@ import type {
   EmailDeliveryStatus,
   EmailSuppressionReason,
 } from '@daisy/protocol/email-delivery';
-import { createDatabase } from '../src';
+/** This file's database: the area stores it reads, over one set of resources. */
+const openStores = (options: Parameters<typeof openDatabaseResources>[0]) => {
+  const resources = openDatabaseResources(options);
+  return {
+    ...createMailStore(resources),
+    close: resources.close,
+  };
+};
 
 setupRitewayBun();
 
@@ -31,10 +40,9 @@ const cleanup = async (messageIds: string[], hashes: string[]) => {
 test('delivery events dedupe, never lower status, and suppress only after hard failure', async () => {
   const messageId = `msg-${createId()}`;
   const hash = `hash-${createId()}`;
-  const database = createDatabase({
+  const database = openStores({
     waits: hostWaits,
     url,
-    nextActorId: createId,
   });
   try {
     await database.recordEmailDelivery({
@@ -110,10 +118,9 @@ test('delivery events dedupe, never lower status, and suppress only after hard f
 });
 
 test('an event for an unrecorded message is retryable and leaves no dedupe row', async () => {
-  const database = createDatabase({
+  const database = openStores({
     waits: hostWaits,
     url,
-    nextActorId: createId,
   });
   const eventId = `evt-${createId()}`;
   const messageId = `msg-${createId()}`;
@@ -149,11 +156,10 @@ test('an event for an unrecorded message is retryable and leaves no dedupe row',
 test('permission failures report only the safe delivery operation names', async () => {
   const client = new SQL(url, { max: 1 });
   const telemetry: unknown[] = [];
-  const database = createDatabase({
+  const database = openStores({
     waits: hostWaits,
     url,
     client,
-    nextActorId: createId,
     eventSink: (event, fields, message) =>
       telemetry.push({ event, fields, message }),
   });

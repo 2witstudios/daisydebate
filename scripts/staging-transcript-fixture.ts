@@ -2,7 +2,10 @@ import { hmacSha256Base64, sha3Hex } from '@daisy/digest';
 import { hostWaits } from '@daisy/worker/host';
 import { SQL } from 'bun';
 import { systemId } from '@daisy/clock';
-import { createDatabase } from '@daisy/db';
+import { openDatabaseResources } from '@daisy/db/resources';
+import { createAgeStepStore } from '@daisy/db/stores/age-step';
+import { createBetaAccessStore } from '@daisy/db/stores/beta-access';
+import { createOnboardingStore } from '@daisy/db/stores/onboarding';
 import { ageAdmitted } from '@daisy/auth/authorization';
 import { decideBetaAccessChange } from '@daisy/protocol/beta-access';
 
@@ -16,11 +19,12 @@ export async function transcriptProofFixture(
   url: string,
   secret: string,
 ) {
-  const database = createDatabase({
-    url,
-    nextActorId: createId,
-    waits: hostWaits,
-  });
+  const resources = openDatabaseResources({ url, waits: hostWaits });
+  const database = {
+    ...createOnboardingStore(resources, { nextId: createId }),
+    ...createAgeStepStore(resources),
+    ...createBetaAccessStore(resources),
+  };
   try {
     await sql`insert into users (id,email,email_verified) values (${createId()},${email},true) on conflict (email) do nothing`;
     const [user] =
@@ -93,6 +97,6 @@ export async function transcriptProofFixture(
       },
     };
   } finally {
-    await database.close();
+    await resources.close();
   }
 }

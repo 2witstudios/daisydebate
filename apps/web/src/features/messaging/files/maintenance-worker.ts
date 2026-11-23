@@ -1,16 +1,14 @@
+import type { MessagingStore } from '@daisy/db/stores/messaging';
 import { repeatEvery } from '@daisy/worker';
 import type { Waits } from '@daisy/clock';
 import type { Clock } from '@daisy/clock';
-import type { createDatabase } from '@daisy/db';
 import { createAppError } from '@daisy/errors';
 import type { Logger } from '@daisy/logger';
 import { createScheduledWorker } from '../../ops/scheduled-worker';
 
 /** Explicit reservation expiry/deletion cadence; no collection or retention approval is inferred. */
 export function startMessagingFileMaintenance(input: {
-  readonly maintenance: ReturnType<
-    typeof createDatabase
-  >['messagingFileMaintenance'];
+  readonly maintenance: MessagingStore['messagingFileMaintenance'];
   readonly config: { readonly intervalMs: number; readonly maxItems: number };
   readonly remove: (key: string) => Promise<void>;
   readonly clock: Clock;

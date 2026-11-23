@@ -45,7 +45,7 @@ export async function lockFinalizationStreams(
   return { streams, expected };
 }
 
-export const streamKey = (stream: ExpectedTranscriptStream) =>
+const streamKey = (stream: ExpectedTranscriptStream) =>
   `${stream.segmentId}:${stream.roundParticipantId}`;
 
 export async function closeUnresolvedStreams(

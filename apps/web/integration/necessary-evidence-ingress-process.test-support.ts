@@ -1,10 +1,10 @@
+import { openWebDatabase } from '../src/server/database';
 import { hostWaits } from '@daisy/worker/host';
 import { captureAdmissionPolicy } from '../src/features/media-capture/capture-policy';
 import { sha3Hex } from '@daisy/digest';
 import { existsSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { randomBytes } from 'node:crypto';
-import { createDatabase } from '@daisy/db';
 import { requireTestServices } from '@daisy/config';
 import { createId } from '@paralleldrive/cuid2';
 import { captureRule } from '@daisy/debate-engine';
@@ -17,7 +17,7 @@ import { createNecessaryEvidenceIngress } from '../src/features/media-capture/ne
 if (import.meta.main) {
   const request = await Bun.stdin.json();
   const services = requireTestServices(process.env);
-  const database = createDatabase({
+  const database = openWebDatabase({
     waits: hostWaits,
     url: services.databaseUrl,
     nextActorId: createId,

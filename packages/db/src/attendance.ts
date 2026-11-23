@@ -8,7 +8,7 @@ export type {
   AttendanceEvaluation,
   AttendanceReceiptFacts,
 } from './attendance-evaluator';
-export type { AttendanceResolution } from './attendance-adjudication';
+export type { AttendanceResolution } from './attendance-evaluator';
 export type {
   AttendanceStore,
   AttendanceEvaluator,

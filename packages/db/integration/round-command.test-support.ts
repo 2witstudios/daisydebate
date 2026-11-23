@@ -1,10 +1,33 @@
+import { createHealthStore } from '../src/stores/health';
+import { createRoundStore } from '../src/stores/rounds';
+import { openDatabaseResources } from '../src/resources';
 import { hostWaits } from '@daisy/worker/host';
 import { roundDecisionReleasePolicy } from '@daisy/protocol/round-decision-release';
 import { createId } from '@paralleldrive/cuid2';
 import type { RoundCommandEnvelope } from '@daisy/protocol/round-command';
-import { createDatabase } from '../src';
 import { createAuthorizationSubject } from './authorization.test-support';
 import { withFixture, type Fixture } from './constraint-helpers';
+/** This file's database: the area stores it reads, over one set of resources. */
+const openStores = (
+  options: Parameters<typeof openDatabaseResources>[0] & {
+    readonly roundTime?: NonNullable<
+      Parameters<typeof createRoundStore>[1]
+    >['roundTime'];
+    readonly decisionRelease?: NonNullable<
+      Parameters<typeof createRoundStore>[1]
+    >['decisionRelease'];
+  },
+) => {
+  const resources = openDatabaseResources(options);
+  return {
+    ...createHealthStore(resources),
+    ...createRoundStore(resources, {
+      roundTime: options.roundTime,
+      decisionRelease: options.decisionRelease,
+    }),
+    close: resources.close,
+  };
+};
 
 /** A fixture Round authored by a fresh canonical subject, with the real database API. */
 export const withAuthoredRound = (
@@ -15,7 +38,7 @@ export const withAuthoredRound = (
     authored: {
       readonly actorId: string;
       readonly roundId: string;
-      readonly database: ReturnType<typeof createDatabase>;
+      readonly database: ReturnType<typeof openStores>;
     },
   ) => Promise<void>,
 ) =>
@@ -25,11 +48,10 @@ export const withAuthoredRound = (
       created_by_actor_id: actorId,
       ...round,
     });
-    const database = createDatabase({
+    const database = openStores({
       waits: hostWaits,
       decisionRelease: roundDecisionReleasePolicy,
       url,
-      nextActorId: createId,
     });
     await work(fixture, { actorId, roundId, database });
   });

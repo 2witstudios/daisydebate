@@ -1,9 +1,9 @@
+import { openWebDatabase } from '../src/server/database';
 import { hostWaits } from '@daisy/worker/host';
 import { expect, test } from 'bun:test';
 import type { SavepointSQL } from 'bun';
 import { fixedClock } from '@daisy/clock';
 import { requireTestServices } from '@daisy/config';
-import { createDatabase } from '@daisy/db';
 import {
   notificationInboxOperations,
   withRolledBackDatabase,
@@ -21,7 +21,7 @@ test('the scheduled notification sweep drains bounded batches and keeps recent p
   const cutoff = new Date(at.getTime() - 90 * day).toISOString();
   const expired = new Date(at.getTime() - 91 * day);
   const recent = new Date(at.getTime() - day);
-  const appDatabase = createDatabase({
+  const appDatabase = openWebDatabase({
     waits: hostWaits,
     url: databaseUrl,
     nextActorId: createId,

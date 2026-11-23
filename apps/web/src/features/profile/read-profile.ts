@@ -1,3 +1,4 @@
+import type { ProfileStore as ProfileAreaStore } from '@daisy/db/stores/profiles';
 import { consumeOrThrow, type RateLimiter } from '../../server/rate-limit';
 import { spectatorClockAt } from '../spectating/spectator-clock';
 import type { Identity } from '@daisy/auth';
@@ -5,7 +6,6 @@ import {
   authorize,
   type AccountAuthorizationFact,
 } from '@daisy/auth/authorization';
-import type { Database } from '@daisy/db';
 import { recordResult, tallyRecord } from '@daisy/debate-engine';
 import { createAppError } from '@daisy/errors';
 import {
@@ -22,7 +22,7 @@ import {
 } from '@daisy/protocol/member-profile';
 
 export type ProfileStore = Pick<
-  Database,
+  ProfileAreaStore,
   'readMemberProfile' | 'readPublicProfile'
 >;
 
@@ -51,7 +51,7 @@ const nothingShown: ShownPublicProfile = {
 };
 
 type HistoryRow = NonNullable<
-  Awaited<ReturnType<Database['readMemberProfile']>>
+  Awaited<ReturnType<ProfileAreaStore['readMemberProfile']>>
 >['rows'][number];
 
 type Caller = { readonly userId: string; readonly actorId: string };

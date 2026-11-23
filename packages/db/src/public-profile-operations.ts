@@ -42,15 +42,6 @@ export type PublicProfileCard = {
   readonly photoId: string | null;
 };
 
-/** One photo, as the image route and the moderation commands read it. */
-export type StoredProfilePhoto = {
-  readonly photoId: string;
-  readonly actorId: string;
-  readonly status: ProfilePhotoStatus;
-  readonly objectPrefix: string;
-  readonly version: number;
-};
-
 /** One terminal photo whose stored image the sweep must delete. */
 export type PhotoDeletion = {
   readonly photoId: string;

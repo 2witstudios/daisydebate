@@ -4,7 +4,8 @@ import {
   readRealtimeTransportConfig,
   readTrustedProxyConfig,
 } from '@daisy/config';
-import { createRealtimeDatabase, WORKLOAD_PROFILES } from '@daisy/db';
+import { WORKLOAD_PROFILES } from '@daisy/db/resources';
+import { openRealtimeDatabase, type RealtimeDatabase } from './database';
 import { createLogger } from '@daisy/logger';
 import { createDrainState } from '@daisy/observability';
 import { createRedis } from '@daisy/redis';
@@ -27,7 +28,7 @@ export function createRealtimeApp({
   readonly clock: Clock;
   /** Injected time for the database's lane waits and every other bound (ADR 0915). */
   readonly waits: Waits;
-  readonly database?: ReturnType<typeof createRealtimeDatabase>;
+  readonly database?: RealtimeDatabase;
 }) {
   const config = readRealtimeConfig(env);
   const logger = createLogger({
@@ -40,7 +41,7 @@ export function createRealtimeApp({
   // An eligible owner reserves the observation lanes; a fanout-only one does not.
   const database =
     injectedDatabase ??
-    createRealtimeDatabase({
+    openRealtimeDatabase({
       url: config.DATABASE_URL,
       profile: transport.observationOwner
         ? WORKLOAD_PROFILES['realtime-observer']

@@ -1,7 +1,7 @@
-import type { Database } from '@daisy/db';
+import type { ContentModerationStore } from '@daisy/db/stores/content-moderation';
 import { createAppError } from '@daisy/errors';
 
-type Store = Pick<Database, 'recordingWithdrawalCommand'>;
+type Store = Pick<ContentModerationStore, 'recordingWithdrawalCommand'>;
 type Input = Parameters<Store['recordingWithdrawalCommand']>[0];
 
 /** Preparing effects, feed termination and receipt remain in the same bounded transaction. */

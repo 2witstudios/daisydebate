@@ -17,7 +17,7 @@ import {
   type ContactInput,
 } from '../contacts/fence';
 import { instrumented, type DatabaseEventSink } from '../instrumented';
-import type { RestrictionRules } from '../moderation-composition';
+import type { RestrictionRules } from '../moderation/store';
 import {
   applySanction,
   type ModerationReactions,

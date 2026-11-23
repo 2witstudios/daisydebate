@@ -22,7 +22,7 @@ import { rooms } from './schema/rooms';
 import { rounds } from './schema/rounds';
 import { users } from './schema/users';
 import { utterances } from './schema/utterances';
-import { outcomeOfColumns } from './round-outcome-columns';
+import { outcomeOfColumns } from './round-hydration';
 import { scopeTransaction } from './tenant-scope';
 import { isDebatingSeatSql, seatOfColumns, seatRowOrder } from './seat-columns';
 import { inTransaction, type TxSource } from './tx';
@@ -306,11 +306,3 @@ export const spectatorTimelineReads = ({
     );
   },
 });
-
-export type SpectatorTimelineRead = NonNullable<
-  Awaited<
-    ReturnType<
-      ReturnType<typeof spectatorTimelineReads>['readSpectatorTimeline']
-    >
-  >
->;

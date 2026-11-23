@@ -9,8 +9,10 @@ import {
 import type { BoundedTransaction } from './bounded-transaction';
 import { lockCleanupJob, cleanupContext } from './billing-cleanup-authority';
 import { billingPaymentObservations } from './schema/billing-payment-observations';
-import { paymentObservationFromRow } from './billing-payment-observation-record';
-import { writePaymentObservation } from './billing-payment-observation-write';
+import {
+  paymentObservationFromRow,
+  writePaymentObservation,
+} from './billing-payment-observation-write';
 import { requireRefundCustomer } from './billing-refund-authority';
 import { commitObservationProgress } from './billing-observation-progress';
 import type { Tx } from './tx';

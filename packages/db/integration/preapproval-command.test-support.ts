@@ -1,14 +1,31 @@
+import { type AgeStepStore } from '../src/stores/age-step';
+import { type BetaAccessStore } from '../src/stores/beta-access';
+import { type MailStore } from '../src/stores/mail';
+import { type OnboardingStore } from '../src/stores/onboarding';
+import { type OperatorAccountsStore } from '../src/stores/operator-accounts';
 import { createAppError } from '@daisy/errors';
 import type { decidePreapprovalChange } from '@daisy/protocol/beta-preapproval';
-import type { Database } from '../src';
 
-type Input = Parameters<Database['preapprovalCommand']>[0] & {
+type Input = Parameters<
+  (AgeStepStore &
+    BetaAccessStore &
+    MailStore &
+    OnboardingStore &
+    OperatorAccountsStore)['preapprovalCommand']
+>[0] & {
   readonly decide: typeof decidePreapprovalChange;
 };
 
 /** Store-test composition only; production route exercises its own application driver. */
 export async function executePreapprovalCommand(
-  store: Pick<Database, 'preapprovalCommand'>,
+  store: Pick<
+    AgeStepStore &
+      BetaAccessStore &
+      MailStore &
+      OnboardingStore &
+      OperatorAccountsStore,
+    'preapprovalCommand'
+  >,
   input: Input,
 ) {
   for (let attempt = 0; attempt < 3; attempt += 1) {

@@ -1,14 +1,14 @@
 import type { TenantScope } from '../tenant-scope';
 import { eq } from 'drizzle-orm';
 import { lobbies } from '../schema/lobbies';
-import { staffMinimumBandOf } from './staff-minimum-band';
-import { loadGrantRows } from './grant-rows';
-import { loadTabAuthorization, type TabAuthorization } from './authority-facts';
 import {
+  staffMinimumBandOf,
   loadMemberships,
   loadStaffMinimumBand,
   lockOrganization,
 } from './organization-facts';
+import { loadGrantRows } from './grant-rows';
+import { loadTabAuthorization, type TabAuthorization } from './authority-facts';
 import type { Tx } from '../tx';
 
 /** Current authority at the addressed organization and/or exact lobby, under its metadata fences. */

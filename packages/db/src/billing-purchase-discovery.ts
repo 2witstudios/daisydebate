@@ -1,7 +1,7 @@
 import { and, asc, eq, gt, sql } from 'drizzle-orm';
 import { nextPurchaseWork } from '@daisy/protocol/billing';
 import type { BoundedTransaction } from './bounded-transaction';
-import { checkBillingPage, type BillingPage } from './billing-pagination';
+import { checkBillingPage, type BillingPage } from './billing-discovery';
 import { lockPurchaseId } from './billing-purchase-authority';
 import { billingPurchases } from './schema/billing-purchases';
 

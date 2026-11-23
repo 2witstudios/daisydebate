@@ -1,3 +1,5 @@
+import { createBillingStore } from '../src/stores/billing';
+import { openDatabaseResources } from '../src/resources';
 import { hostWaits } from '@daisy/worker/host';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { requireTestServices } from '@daisy/config';
@@ -9,11 +11,23 @@ import {
   paymentObservationComplete,
   refundIdempotencyKey,
 } from '@daisy/protocol/billing';
-import { createDatabase } from '../src/index';
 import { billingPaymentObservations } from '../src/schema/billing-payment-observations';
-import { paymentObservationFromRow } from '../src/billing-payment-observation-record';
+import { paymentObservationFromRow } from '../src/billing-payment-observation-write';
 import { withClosedPurchase } from './billing-cleanup-purchases.test-support';
 import { fullRead } from './billing-payment-read.test-support';
+/** This file's database: the area stores it reads, over one set of resources. */
+const openStores = (
+  options: Parameters<typeof openDatabaseResources>[0] & {
+    readonly nextActorId: () => string;
+  },
+) => {
+  const resources = openDatabaseResources(options);
+  return {
+    ...createBillingStore(resources, { nextId: options.nextActorId }),
+    close: resources.close,
+  };
+};
+
 requireTestServices(process.env);
 setupRitewayBun();
 
@@ -22,7 +36,7 @@ for (const variant of ['verified', 'chronology'] as const) {
     withClosedPurchase(true, async (input) => {
       const { fixture, pool, subject, cleanup, instanceId, renew } = input;
       const read = await fullRead(input);
-      const database = createDatabase({
+      const database = openStores({
         waits: hostWaits,
         url: process.env.TEST_DATABASE_URL!,
         client: pool,

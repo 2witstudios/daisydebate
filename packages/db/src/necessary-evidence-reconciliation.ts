@@ -4,11 +4,9 @@ import { createAppError } from '@daisy/errors';
 import type { CaptureDependencies } from './media-capture-context';
 import { lockOriginalNecessaryEvidence } from './necessary-evidence-subjects';
 import { requireRoundEvidenceOpen } from './necessary-evidence-rounds';
-import {
-  evidenceLeaseDigest,
-  evidencePolicyOf,
-} from './necessary-evidence-policy';
-import { nextEpoch } from './lease-policy';
+import { evidencePolicyOf } from './capture-evidence-intents';
+import { leaseTokenDigest } from './lease';
+import { nextEpoch } from './lease';
 import { sampleRoundExecutionTime } from './round-execution-time';
 import { necessaryEvidence } from './schema/necessary-evidence';
 import type { Tx } from './tx';
@@ -41,7 +39,7 @@ export async function claimEvidenceAcquisition(
     'Evidence execution epoch exhausted',
   );
   const token = policy.nextToken();
-  const digest = evidenceLeaseDigest(token);
+  const digest = leaseTokenDigest(token);
   const admittedAtIso = await sampleRoundExecutionTime(tx);
   const admittedAt = new Date(admittedAtIso);
   if (current.row.expiresAt && current.row.expiresAt <= admittedAt)

@@ -1,4 +1,4 @@
-import type { Database } from '@daisy/db';
+import type { BillingStore } from '@daisy/db/stores/billing';
 import { createAppError } from '@daisy/errors';
 import { observedTerms } from './subscription-observation';
 import {
@@ -7,7 +7,7 @@ import {
   type SubscriptionReadPort,
 } from './subscription-reader';
 
-type Store = ReturnType<Database['billingSynchronization']>;
+type Store = ReturnType<BillingStore['billingSynchronization']>;
 type FailureStage = 'receipts' | 'discover' | 'synchronize';
 
 /** Each tick advances bounded keyset pages. Failed identities remain durable and cannot starve later pages. */

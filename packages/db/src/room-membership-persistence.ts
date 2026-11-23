@@ -3,7 +3,7 @@ import { roomRoundLinkOf } from '@daisy/protocol/room-contract';
 import { type ActiveRoomFacts } from '@daisy/protocol/active-room';
 import { createRefusal } from '@daisy/errors';
 import { activeSeats, roomParticipants, rooms } from './schema/rooms';
-import { hostPersonOf } from './room-host';
+import { hostPersonOf } from './room-command-facts';
 import { rounds } from './schema/rounds';
 import type { Tx } from './tx';
 import { run } from './raw-rows';

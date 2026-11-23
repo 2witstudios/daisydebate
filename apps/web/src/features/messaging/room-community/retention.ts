@@ -1,4 +1,4 @@
-import type { Database } from '@daisy/db';
+import type { MessagingStore } from '@daisy/db/stores/messaging';
 import { roomCommunityRetentionMs } from '@daisy/protocol/room-community';
 import {
   retentionAfter,
@@ -7,7 +7,7 @@ import {
 
 export const roomCommunityRetentionTargets = (
   database: Pick<
-    Database,
+    MessagingStore,
     | 'purgeExpiredRoomCommunityReceipts'
     | 'purgeExpiredRoomCommunityMessages'
     | 'purgeExpiredRoomCommunityReadStates'

@@ -1,4 +1,4 @@
-import type { Database } from '@daisy/db';
+import type { FlagsStore } from '@daisy/db/stores/flags';
 import {
   DAY_MS,
   retentionAfter,
@@ -7,7 +7,7 @@ import {
 
 export const flagRetentionTargets = (
   database: Pick<
-    Database,
+    FlagsStore,
     'purgeExpiredFlagOverrides' | 'purgeExpiredFlagEvidence'
   >,
 ): readonly RetentionTarget[] => [

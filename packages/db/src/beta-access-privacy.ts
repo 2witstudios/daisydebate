@@ -2,9 +2,8 @@ import { betaAccessStates } from '@daisy/protocol/beta-access';
 import { eraseBetaPreapprovals } from './beta-preapproval-erasure';
 import { normalizedEmailSql } from './email-identity';
 import { sql } from 'drizzle-orm';
-import { exportRows } from './privacy/export-rows';
+import { exportRows, run, query } from './raw-rows';
 import type { PrivacyAdopter } from './privacy/contracts';
-import { run, query } from './raw-rows';
 import { z } from 'zod';
 
 /**

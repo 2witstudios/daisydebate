@@ -1,10 +1,10 @@
+import { openWebDatabase } from '../src/server/database';
 import { hostWaits } from '@daisy/worker/host';
 import { decisionRelease as roundDecisionReleasePolicy } from '../src/features/notifications/decision-release';
 import { createId } from '@paralleldrive/cuid2';
 import type { RatingDivision } from '@daisy/protocol/ladder';
 import type { RatingStyle } from '@daisy/protocol/primitives';
 import { fixedIds } from '@daisy/clock';
-import { createDatabase } from '@daisy/db';
 import { affirmativeSide, negativeSide } from '@daisy/protocol/seats';
 import { emptyRuntimeCheckpointFor } from '@daisy/protocol/round';
 import { validRules, daisyOrganizationId } from '@daisy/db/testing';
@@ -57,7 +57,7 @@ export async function arena(
     readonly season?: boolean;
   } = {},
 ) {
-  const database = createDatabase({
+  const database = openWebDatabase({
     waits: hostWaits,
     decisionRelease: roundDecisionReleasePolicy,
     url: testDatabaseUrl,

@@ -1,6 +1,6 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';
-import { requireFilePolicy } from './policy';
+import { requireFilePolicy } from './frame';
 setupRitewayBun();
 const policy = {
   maxFileBytes: 10,

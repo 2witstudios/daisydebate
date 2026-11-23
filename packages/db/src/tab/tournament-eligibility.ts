@@ -3,13 +3,10 @@ import { parsedColumn } from '../raw-rows';
 import { z } from 'zod';
 import { createAppError } from '@daisy/errors';
 import { ageBands } from '@daisy/protocol/ladder';
-import { mayDebate } from '@daisy/protocol/lobby/eligibility';
+import { mayDebate, isMinorAgeBand } from '@daisy/protocol/lobby/eligibility';
 import { tournamentFirstDay } from '@daisy/protocol/lobby/tournament-schedule';
 import { divisionAgeBand } from '../ladder-division-band';
-import {
-  isMinorAgeBand,
-  readGuardianLobbyIds,
-} from '../guardians/lobby-permissions';
+import { readGuardianLobbyIds } from '../guardians/lobby-permissions';
 import { accountAge } from '../schema/account-age';
 import { actors } from '../schema/actors';
 import { timeSlots } from '../schema/events';

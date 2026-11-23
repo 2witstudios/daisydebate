@@ -7,7 +7,7 @@ import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createMessagingTestFixture } from '../src/testing';
 import { lockAuthorizationActors } from '../src/authorization';
 import { createMessagingPrivacyAdopter } from '../src/messaging';
-import { socialPrivacyAdoption } from '../src/social-privacy-composition';
+import { socialPrivacyAdoption } from '../src/privacy/subject-rights';
 import { readMessagingChannelFact } from '../src/messaging/social';
 
 setupRitewayBun();

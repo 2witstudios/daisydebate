@@ -1,3 +1,5 @@
+import { createRoundWorkerStore } from '../src/stores/round-workers';
+import { openDatabaseResources } from '../src/resources';
 import { hostWaits } from '@daisy/worker/host';
 import { roundDecisionReleasePolicy } from '@daisy/protocol/round-decision-release';
 import { fixtureJudgingProgression } from './judging-progression.test-support';
@@ -10,10 +12,36 @@ import { randomBytes } from 'node:crypto';
 import { requireTestServices } from '@daisy/config';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';
-import { createDatabase } from '../src/index';
 import { judgingSponsor } from './round-judging.test-support';
 import { createBotSeat } from './bot-seat.test-support';
 import { withBoundedRound } from './bounded-transaction.test-support';
+/** This file's database: the area stores it reads, over one set of resources. */
+const openStores = (
+  options: Parameters<typeof openDatabaseResources>[0] & {
+    readonly nextActorId: () => string;
+    readonly decisionRelease?: NonNullable<
+      Parameters<typeof createRoundWorkerStore>[1]
+    >['decisionRelease'];
+    readonly judging?: NonNullable<
+      Parameters<typeof createRoundWorkerStore>[1]
+    >['judging'];
+    readonly botPublication?: NonNullable<
+      Parameters<typeof createRoundWorkerStore>[1]
+    >['botPublication'];
+  },
+) => {
+  const resources = openDatabaseResources(options);
+  return {
+    ...createRoundWorkerStore(resources, {
+      nextId: options.nextActorId,
+      decisionRelease: options.decisionRelease,
+      judging: options.judging,
+      botPublication: options.botPublication,
+    }),
+    close: resources.close,
+  };
+};
+
 setupRitewayBun();
 const services = requireTestServices(process.env);
 
@@ -29,7 +57,7 @@ test('configured root judging aliases share the owned pool and claim actual froz
       judgeParticipantId: seat.id,
     });
     try {
-      const inert = createDatabase({
+      const inert = openStores({
         waits: hostWaits,
         decisionRelease: roundDecisionReleasePolicy,
         url: services.databaseUrl,
@@ -101,7 +129,7 @@ test('configured root judging aliases share the owned pool and claim actual froz
           actual: attempt,
           code: 'INFRASTRUCTURE',
         });
-      const store = createDatabase({
+      const store = openStores({
         waits: hostWaits,
         decisionRelease: roundDecisionReleasePolicy,
         url: services.databaseUrl,

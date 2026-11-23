@@ -15,13 +15,12 @@ import { lobbies } from '../schema/lobbies';
 import { tournamentSponsorshipVersions } from '../schema/tournament-sponsorships';
 import { scopeTransaction } from '../tenant-scope';
 import { readDatabaseTime } from '../database-clock';
-import { retryStale } from '../retry-stale';
+import { retryStale, inTransaction, type Tx, type TxOpener } from '../tx';
 import { loadAuthorizationAccount } from '../authorization';
 import { lockTabCommandAccounts } from './command-accounts';
 import { loadAuthorityContext } from './authority-context';
 import { loadAccountHostingFacts } from './account-hosting-facts';
 import { appendHistory, storedCommand } from './command-record';
-import { inTransaction, type Tx, type TxOpener } from '../tx';
 
 export const currentTournamentSponsorship = async (
   tx: Tx,

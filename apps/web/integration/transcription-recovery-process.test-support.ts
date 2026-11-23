@@ -1,13 +1,13 @@
+import { openWebDatabase } from '../src/server/database';
 import { hostWaits } from '@daisy/worker/host';
 import { existsSync, writeFileSync } from 'node:fs';
-import { createDatabase } from '@daisy/db';
 import { requireTestServices } from '@daisy/config';
 import { createId } from '@paralleldrive/cuid2';
 import { recognitionTestOptions } from './transcription-recovery.test-support';
 if (import.meta.main) {
   const request = await Bun.stdin.json();
   const services = requireTestServices(process.env);
-  const database = createDatabase({
+  const database = openWebDatabase({
     waits: hostWaits,
     url: services.databaseUrl,
     nextActorId: createId,

@@ -14,7 +14,7 @@ import {
 import { idSchema } from '@daisy/protocol/primitives';
 import { messagingBetaLimits } from '@daisy/protocol/messaging/core';
 import { loadAuthorizationAccount } from '../authorization';
-import type { authorizationAccountFact } from '../authorization-account';
+import type { authorizationAccountFact } from '../authorization';
 import {
   loadAuthorizationAgeFacts,
   type AuthorizationAgeFact,

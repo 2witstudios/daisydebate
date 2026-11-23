@@ -1,8 +1,17 @@
+import { createMailStore } from '../src/stores/mail';
+import { openDatabaseResources } from '../src/resources';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { requireTestServices } from '@daisy/config';
-import type { createDatabase } from '../src';
 import { withFixture, type Fixture, withDatabase } from './constraint-helpers';
+/** This file's database: the area stores it reads, over one set of resources. */
+const openStores = (options: Parameters<typeof openDatabaseResources>[0]) => {
+  const resources = openDatabaseResources(options);
+  return {
+    ...createMailStore(resources),
+    close: resources.close,
+  };
+};
 
 setupRitewayBun();
 
@@ -65,7 +74,7 @@ const stateOf = async (fixture: Fixture, id: string) => {
   return row;
 };
 
-const claim = (database: ReturnType<typeof createDatabase>) =>
+const claim = (database: ReturnType<typeof openStores>) =>
   database.claimMailIntents({
     limit: 50,
     leaseMs: 60_000,
@@ -78,7 +87,7 @@ const withApprovedIntent = (
   run: (input: {
     readonly fixture: Fixture;
     readonly id: string;
-    readonly database: ReturnType<typeof createDatabase>;
+    readonly database: ReturnType<typeof openStores>;
   }) => Promise<void>,
 ) =>
   withFixture(url, async (fixture) => {

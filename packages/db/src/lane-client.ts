@@ -1,6 +1,6 @@
 import type { ReservedSQL, SQL } from 'bun';
 import { createAppError } from '@daisy/errors';
-import type { LaneGate, LaneRelease } from './workload-admission';
+import type { LaneGate, LaneRelease } from './workload';
 
 type Settles<T> = PromiseLike<T> & {
   readonly values: () => Promise<unknown>;

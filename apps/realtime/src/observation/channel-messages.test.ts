@@ -1,6 +1,6 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createAppError } from '@daisy/errors';
-import type { RealtimeAuthorityReads } from '@daisy/db';
+import type { RealtimeAuthorityReads } from '@daisy/db/stores/realtime-authority';
 import { channelMessagesResource } from './channel-messages';
 
 setupRitewayBun();

@@ -1,9 +1,9 @@
-import type { Database } from '@daisy/db';
+import type { BillingStore } from '@daisy/db/stores/billing';
 import type { CleanupDeliveryRequest } from './cleanup-delivery-request';
 import type { CleanupVendorPort } from './cleanup-vendor';
 import { readCleanupInvoiceIdentity } from './cleanup-invoice-identity';
 type Store = Pick<
-  ReturnType<Database['billingCleanup']>,
+  ReturnType<BillingStore['billingCleanup']>,
   'inspect' | 'retainInvoiceIdentity' | 'recordInvoices' | 'record'
 >;
 

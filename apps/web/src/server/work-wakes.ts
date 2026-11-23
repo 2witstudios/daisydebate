@@ -1,6 +1,6 @@
+import type { WorkKind } from '@daisy/db/stores/listen';
 import { afterMs, type Waits } from '@daisy/clock';
 import { nextWaitMs, type IdleBackoff, type WorkWake } from '@daisy/worker';
-import type { WorkKind } from '@daisy/db';
 
 /**
  * The process's worker wakes (ADR 0154): each worker loop subscribes to the

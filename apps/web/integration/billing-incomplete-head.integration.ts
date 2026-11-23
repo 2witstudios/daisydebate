@@ -1,8 +1,8 @@
+import { openWebDatabase } from '../src/server/database';
 import { hostWaits } from '@daisy/worker/host';
 import { SQL } from 'bun';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { requireTestServices } from '@daisy/config';
-import { createDatabase } from '@daisy/db';
 import { systemClock } from '@daisy/clock';
 import { createId } from '@paralleldrive/cuid2';
 import { invoicePassSchema } from '@daisy/protocol/billing';
@@ -30,7 +30,7 @@ test('incomplete owned payment HEAD facts enter the real fenced intake once with
     roles.add(role!.role);
     return connection;
   };
-  const database = createDatabase({
+  const database = openWebDatabase({
       waits: hostWaits,
       url: databaseUrl,
       client: pool,

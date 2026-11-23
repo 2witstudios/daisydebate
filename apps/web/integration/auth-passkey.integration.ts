@@ -1,8 +1,8 @@
+import { openWebDatabase } from '../src/server/database';
 import { hostWaits } from '@daisy/worker/host';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { requireTestServices } from '@daisy/config';
-import { createDatabase } from '@daisy/db';
 import {
   counts,
   emptyCounts,
@@ -41,7 +41,7 @@ type AuthAdapter = {
  * The runtime adapter (with create/findOne/update/delete) lives on the
  * Better Auth context bound to the same Bun SQL pool.
  */
-const runtimeAdapter = async (database: ReturnType<typeof createDatabase>) => {
+const runtimeAdapter = async (database: ReturnType<typeof openWebDatabase>) => {
   const auth = createTestAuthServer(database.authAdapter, { sent: [] });
   const context = (await auth.instance.$context) as { adapter: AuthAdapter };
   return context.adapter;
@@ -78,7 +78,7 @@ const passkeyData = (userId: string, credentialID: string) => ({
 });
 
 test('passkey records round-trip through the Better Auth adapter on the shared pool', async () => {
-  const database = createDatabase({
+  const database = openWebDatabase({
     waits: hostWaits,
     url,
     nextActorId: createId,

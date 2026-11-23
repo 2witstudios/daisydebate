@@ -3,7 +3,7 @@ import { createAppError, createRefusal } from '@daisy/errors';
 import { isJudgeSeat } from '@daisy/protocol/seats';
 import { lockRoundAgentContext } from './round-agent-runs';
 import { readDatabaseTime } from './database-clock';
-import { requireAgentLeaseToken } from './round-agent-lease';
+import { requireLeaseToken } from './lease';
 import { agentRuns } from './schema/agent-runs';
 import { roundBotPublications } from './schema/round-bot-publications';
 import type { Tx } from './tx';
@@ -235,7 +235,7 @@ export async function verifyLockedBotWorker(
     )
     .for('update');
   requireClaimScope(claim, scope);
-  requireAgentLeaseToken(token, claim.leaseTokenDigest);
+  requireLeaseToken(token, claim.leaseTokenDigest);
   const now = await readDatabaseTime(tx);
   if (claim.leaseExpiresAt.getTime() <= now.getTime())
     throw createAppError('CONFLICT', 'Publication lease expired');

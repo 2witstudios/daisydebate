@@ -1,5 +1,5 @@
+import type { BillingStore } from '@daisy/db/stores/billing';
 import { hasObservationConflict } from './cleanup-observation-conflict';
-import type { Database } from '@daisy/db';
 import {
   invoicePassOwnerSchema,
   type InvoicePass,
@@ -11,7 +11,7 @@ import type { CleanupDeliveryRequest } from './cleanup-delivery-request';
 import type { createInvoicePassReader } from './invoice-pass-reader';
 import type { CleanupVendorPort } from './cleanup-vendor';
 type Store = Pick<
-  ReturnType<Database['billingCleanup']>,
+  ReturnType<BillingStore['billingCleanup']>,
   | 'inspect'
   | 'selectedObservation'
   | 'retainObservation'

@@ -5,7 +5,7 @@ import {
   daisyBallotSource,
 } from '@daisy/protocol/ballot-definition';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { ballotReadView, ownJudgeSeat } from './round-ballot-view';
+import { ballotReadView, ownJudgeSeat } from './round-ballot-reads';
 
 setupRitewayBun();
 
