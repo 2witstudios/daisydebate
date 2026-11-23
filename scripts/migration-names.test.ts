@@ -1,5 +1,9 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { isGeneratedName, readGeneratedNameWords } from './migration-names';
+import {
+  isGeneratedName,
+  readGeneratedNameWords,
+  readPinnedDrizzleKitWords,
+} from './migration-names';
 
 setupRitewayBun();
 
@@ -17,5 +21,19 @@ test('reads the word lists drizzle-kit draws migration names from', async () => 
       isGeneratedName('20261121235720_guardian_pending_friend_holds', words),
     ],
     expected: [true, true, true, true, false],
+  });
+});
+
+test('the committed word lists are the pinned drizzle-kit lists', async () => {
+  const [committed, pinned] = [
+    await readGeneratedNameWords(),
+    await readPinnedDrizzleKitWords(),
+  ];
+  assert({
+    given: 'scripts/migration-name-words.json and the installed drizzle-kit',
+    should:
+      'hold the same adjectives and heroes; regenerate the copy on upgrade',
+    actual: [[...committed.adjectives], [...committed.heroes]],
+    expected: [[...pinned.adjectives], [...pinned.heroes]],
   });
 });

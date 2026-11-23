@@ -3,9 +3,8 @@ import { dirname, join, resolve } from 'node:path';
 /**
  * drizzle-kit names a migration `<adjective>_<hero>` from two word lists
  * when `generate` gets no `--name` (`dark_silver_centurion`). Such a name
- * says nothing about the change, so the migration check refuses it. The
- * lists are read from the pinned drizzle-kit itself, so a name it can
- * generate is refused whatever words it draws.
+ * says nothing about the change, so the migration check refuses it,
+ * whatever words drizzle-kit draws.
  */
 export type GeneratedNameWords = {
   readonly adjectives: ReadonlySet<string>;
@@ -25,7 +24,7 @@ const list = (source: string, name: string): ReadonlySet<string> => {
 };
 
 /** The word lists of the drizzle-kit `@daisy/db` generates with. */
-export async function readGeneratedNameWords(): Promise<GeneratedNameWords> {
+export async function readPinnedDrizzleKitWords(): Promise<GeneratedNameWords> {
   const manifest = Bun.resolveSync(
     'drizzle-kit/package.json',
     resolve(import.meta.dir, '../packages/db'),
@@ -34,6 +33,21 @@ export async function readGeneratedNameWords(): Promise<GeneratedNameWords> {
   return {
     adjectives: list(source, 'adjectives'),
     heroes: list(source, 'heroes'),
+  };
+}
+
+/**
+ * The committed copy of those lists, which the check reads so it runs
+ * without installed dependencies; `migration-names.test.ts` fails when the
+ * copy and the pinned drizzle-kit differ.
+ */
+export async function readGeneratedNameWords(): Promise<GeneratedNameWords> {
+  const words = (await Bun.file(
+    join(import.meta.dir, 'migration-name-words.json'),
+  ).json()) as { adjectives: string[]; heroes: string[] };
+  return {
+    adjectives: new Set(words.adjectives),
+    heroes: new Set(words.heroes),
   };
 }
 
