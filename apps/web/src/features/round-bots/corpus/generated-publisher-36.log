@@ -9,19 +9,20 @@
 170..400 frames TR_0 x24 every 10ms
 410 floor room
 410 frames TR_0 x1
-420 published p0 complete=true ended=false
 420 begin p1 570ms in=310 at=2027-01-15T08:00:00.730Z room
-420..480 frames TR_0 x7 every 10ms
+420 frames TR_0 x1
+420 published p0 complete=true ended=false
+430..480 frames TR_0 x6 every 10ms
 490 floor -> CONFLICT
 490..660 frames TR_0 x18 every 10ms
 670 floor room
 670..710 frames TR_0 x5 every 10ms
 714 abort p1
-714 published p1 complete=false ended=false
 714 clear TR_0 queued=306
 714 begin p2 420ms in=0 at=2027-01-15T08:00:00.714Z room
 714 reveal p2 room at=2027-01-15T08:00:00.714Z
 714 frames TR_0 x31
+714 published p1 complete=false ended=false
 724 frames TR_0 x1
 730 end p0 cut 554ms "one two three four five six seven eight nine"
 734..824 frames TR_0 x10 every 10ms
@@ -29,12 +30,12 @@
 1111 begin p3 50ms in=23 at=2027-01-15T08:00:01.134Z room
 1134 end p2 whole
 1134 end -> CONFLICT/bot-room-changed
-1411 published p3 complete=true ended=false
 1411 query audible=false p0:closed p1:open p2:closed p3:open/tail-cut
-1411 closed
-1411 published late -> CONFLICT
 1411 reveal p3 room at=2027-01-15T08:00:01.411Z
 1411 clear TR_0 queued=50
 1411 end p3 cut 0ms ""
 1411 close TR_0
 1411 frames TR_0 x5
+1411 closed
+1411 published late -> CONFLICT
+1411 published p3 complete=true ended=false

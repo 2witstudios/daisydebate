@@ -9,10 +9,10 @@
 20..250 frames TR_0 x24 every 10ms
 260 floor room
 260..500 frames TR_0 x25 every 10ms
-510 published a -> CONFLICT
 510 query audible=false a:closed
 510 floor room
 510 floor -> CONFLICT
 510 clear TR_0 queued=300
 510 end a cut 500ms "one two three four five"
 510 close TR_0
+510 published a -> CONFLICT

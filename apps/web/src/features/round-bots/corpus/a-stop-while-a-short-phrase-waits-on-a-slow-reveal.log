@@ -7,6 +7,6 @@
 10 reveal a room at=2027-01-15T08:00:00.010Z
 10 frames TR_0 x5
 390 abort a
-510 published a -> CONFLICT
 510 end a whole
+510 published a -> CONFLICT
 1010 close TR_0

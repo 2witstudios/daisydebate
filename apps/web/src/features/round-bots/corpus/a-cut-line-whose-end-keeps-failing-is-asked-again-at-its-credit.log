@@ -15,13 +15,13 @@
 410 end -> Error
 510 end a cut 400ms "one two three four"
 510 end -> Error
-710 published a complete=false ended=false
 710 end a cut 400ms "one two three four"
 710 end -> Error
-1210 published b complete=true ended=false
+710 published a complete=false ended=false
 1210 begin b 100ms in=0 at=2027-01-15T08:00:01.210Z room
 1210 end a cut 400ms "one two three four"
 1210 reveal b room at=2027-01-15T08:00:01.210Z
 1210 frames TR_0 x10
+1210 published b complete=true ended=false
 1310 end b whole
 1710 close TR_0

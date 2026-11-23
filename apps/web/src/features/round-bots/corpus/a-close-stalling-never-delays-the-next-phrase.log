@@ -2,19 +2,19 @@
 0 token
 0 join TR_0
 10 deadline 60000
-10 published a complete=true ended=false
 10 verify
 10 begin a 100ms in=0 at=2027-01-15T08:00:00.010Z room
 10 reveal a room at=2027-01-15T08:00:00.010Z
 10 begin b 100ms in=100 at=2027-01-15T08:00:00.110Z room
 10 frames TR_0 x20
-110 published b complete=true ended=false
+10 published a complete=true ended=false
 110 end a whole
 110 reveal b room at=2027-01-15T08:00:00.110Z
 110 begin c 100ms in=100 at=2027-01-15T08:00:00.210Z room
 110 frames TR_0 x10
-210 published c complete=true ended=false
+110 published b complete=true ended=false
 210 reveal c room at=2027-01-15T08:00:00.210Z
+210 published c complete=true ended=false
 310 end b whole
 510 end c whole
 710 close TR_0

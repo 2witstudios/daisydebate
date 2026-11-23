@@ -2,10 +2,10 @@
 0 token
 0 join TR_0
 10 deadline 60000
-10 published a -> Error
 10 verify
 10 begin a 200ms in=0 at=2027-01-15T08:00:00.010Z room
 10 frame TR_0 #3 failed
 10 clear TR_0 queued=30
 10 frames TR_0 x3
+10 published a -> Error
 510 close TR_0

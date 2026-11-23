@@ -2,7 +2,6 @@
 0 token
 0 join TR_0
 10 deadline 60000
-10 published p0 complete=true ended=false
 10 verify
 10 begin p0 160ms in=0 at=2027-01-15T08:00:00.010Z room
 10 reveal p0 room at=2027-01-15T08:00:00.010Z
@@ -10,11 +9,12 @@
 10 begin p1 420ms in=0 at=2027-01-15T08:00:00.010Z room
 10 reveal p1 room at=2027-01-15T08:00:00.010Z
 10 frames TR_0 x47
+10 published p0 complete=true ended=false
 20..40 frames TR_0 x3 every 10ms
-50 published p1 -> CONFLICT/bot-room-changed
 50 reveal -> CONFLICT/bot-room-changed
 50 clear TR_0 queued=300
 50 end p1 cut 40ms ""
+50 published p1 -> CONFLICT/bot-room-changed
 170 end p0 cut 0ms ""
 231 close TR_0
 231 verify
@@ -24,11 +24,11 @@
 431 reveal p2 room at=2027-01-15T08:00:00.431Z
 431 frames TR_1 x31
 441..491 frames TR_1 x6 every 10ms
-501 published p2 complete=true ended=false
 501 query audible=true p0:closed p1:closed p2:open
-501 closed
-501 published late -> CONFLICT
 501 clear TR_1 queued=310
 501 end p2 cut 70ms "one"
 501 close TR_1
 501 frames TR_1 x1
+501 closed
+501 published late -> CONFLICT
+501 published p2 complete=true ended=false

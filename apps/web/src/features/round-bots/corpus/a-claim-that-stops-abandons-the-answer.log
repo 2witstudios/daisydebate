@@ -10,7 +10,7 @@
 0 reveal id1 room at=2027-01-15T08:00:00.000Z
 0 frames TR_0 x12
 50 abandon answer 1
-50 stopped
 50 clear TR_0 queued=70
 50 end id1 cut 50ms ""
 50 close TR_0
+50 stopped

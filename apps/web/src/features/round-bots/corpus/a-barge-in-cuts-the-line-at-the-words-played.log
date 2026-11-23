@@ -10,8 +10,8 @@
 260 floor room
 260..400 frames TR_0 x15 every 10ms
 410 abort a
-410 published a complete=false ended=false
 410 query audible=false a:closed
 410 clear TR_0 queued=300
 410 end a cut 400ms "one two three four"
 410 close TR_0
+410 published a complete=false ended=false

@@ -6,19 +6,19 @@
 10 begin p0 320ms in=0 at=2027-01-15T08:00:00.010Z room
 10 reveal p0 room at=2027-01-15T08:00:00.010Z
 10 frames TR_0 x31
-20 published p0 complete=true ended=false
 20 begin p1 370ms in=310 at=2027-01-15T08:00:00.330Z room
-20..260 frames TR_0 x25 every 10ms
+20 frames TR_0 x1
+20 published p0 complete=true ended=false
+30..260 frames TR_0 x24 every 10ms
 270 floor room
 270..320 frames TR_0 x6 every 10ms
 330 end p0 whole
 330 reveal p1 room at=2027-01-15T08:00:00.330Z
-330..380 frames TR_0 x6 every 10ms
+330..390 frames TR_0 x7 every 10ms
 390 published p1 complete=true ended=false
-390 frames TR_0 x1
 685 query audible=true p0:closed p1:open
 685 clear TR_0 queued=15
 685 end p1 cut 355ms "one two three four five six seven eight nine"
+935 close TR_0
 935 closed
 935 published late -> CONFLICT
-935 close TR_0

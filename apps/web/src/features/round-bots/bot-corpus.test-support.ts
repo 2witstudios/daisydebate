@@ -306,6 +306,7 @@ export async function traceCorpus(script: CorpusScript): Promise<{
       log(`join ${track}`);
       await reply('join', store.join);
       let closed = false;
+      let closing: Promise<{ consumedSamples: number }> | undefined;
       const broken = store.unusable?.includes(index) ?? false;
       return {
         trackSid: track,
@@ -330,15 +331,17 @@ export async function traceCorpus(script: CorpusScript): Promise<{
           );
           playedUntil = clock.nowMs();
         },
-        close: async () => {
-          closed = true;
-          log(`close ${track}`);
-          await reply('leave', store.leave).catch((error: unknown) => {
-            log(`close ${track} -> ${describeError(error)}`);
-            throw error;
-          });
-          return { consumedSamples: 0 };
-        },
+        // One close per track, shared by every caller, as the native one is.
+        close: () =>
+          (closing ??= (async () => {
+            closed = true;
+            log(`close ${track}`);
+            await reply('leave', store.leave).catch((error: unknown) => {
+              log(`close ${track} -> ${describeError(error)}`);
+              throw error;
+            });
+            return { consumedSamples: 0 };
+          })()),
       };
     }) as never,
     nextId: () => `id${++ids}`,
@@ -392,22 +395,35 @@ type Line = {
 const PUBLISHER =
   /^(?:(?:verify|token|join|begin|reveal|end|floor|clear|frame)\b|close TR_)/;
 /**
+ * What the script saw settle: a publish's outcome, the claim's close, a
+ * deadline read, the speaker's stop. Two settling in one instant are
+ * independent promises, so they are listed last, in text order.
+ */
+const SETTLED = /^(?:published|closed|deadline \d|stopped)\b/;
+/**
  * The log as committed. Within one instant the speaker's calls come first,
  * then the publisher's calls, then the frames handed over, each in its own
- * order: which of two independent calls in the same instant ran first is a
+ * order, then what the script saw settle: which of two independent calls in the same instant ran first is a
  * matter of promise turns, not of behaviour, and no one on the wire can
  * tell. What must come first is a walk property instead (a phrase's audio
  * only after its start was granted). Consecutive frames are one line.
  */
 function logText(lines: readonly Line[]): string {
   const rank = (line: Line) =>
-    line.frame !== undefined ? 2 : PUBLISHER.test(line.text) ? 1 : 0;
+    SETTLED.test(line.text)
+      ? 3
+      : line.frame !== undefined
+        ? 2
+        : PUBLISHER.test(line.text)
+          ? 1
+          : 0;
   const ordered = lines
     .map((line, index) => ({ line, index }))
     .sort(
       (a, b) =>
         a.line.at - b.line.at ||
         rank(a.line) - rank(b.line) ||
+        (rank(a.line) === 3 ? a.line.text.localeCompare(b.line.text) : 0) ||
         a.index - b.index,
     )
     .map(({ line }) => line);

@@ -7,23 +7,23 @@
 10 reveal p0 room at=2027-01-15T08:00:00.010Z
 10 frames TR_0 x31
 20..100 frames TR_0 x9 every 10ms
-110 published p0 complete=true ended=false
 110 begin p1 40ms in=310 at=2027-01-15T08:00:00.420Z room
 110 frames TR_0 x1
+110 published p0 complete=true ended=false
 190 begin -> Error
 290 begin p1 40ms in=310 at=2027-01-15T08:00:00.420Z room
 323 abort p1
 323 clear TR_0 queued=97
-330 published p1 -> CONFLICT/platform-incident
 330 begin -> CONFLICT/platform-incident
 330 begin p2 330ms in=0 at=2027-01-15T08:00:00.330Z room
 330 reveal p2 room at=2027-01-15T08:00:00.330Z
 330 frames TR_0 x31
+330 published p1 -> CONFLICT/platform-incident
 340 frames TR_0 x1
-350 published p2 complete=true ended=false
 350 query audible=true p0:open p1:open p2:open
 350 clear TR_0 queued=310
 350 end p0 cut 313ms "one two three four five six seven"
 350 end p2 cut 20ms ""
 350 close TR_0
 350 frames TR_0 x1
+350 published p2 complete=true ended=false

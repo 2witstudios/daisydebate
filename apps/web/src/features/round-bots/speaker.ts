@@ -168,9 +168,10 @@ export function createBotSpeaker(input: {
   const voiceLength = (job: BotSpeechJob) =>
     (job.pcm.length / job.sampleRate) * 1000;
   const prepareAhead = (index: number) => {
-    const answer = goods.voices.get(index);
     if (!isPublishing(state) || phraseAt(state, index)?.status !== 'settled')
       return;
+    // The settled voice's paid answer: the state said it is in hand.
+    const answer = goods.voices.get(index);
     if (!answer) return;
     if (needsLine(state, index, input.publication.lineClosed))
       record({
@@ -384,7 +385,7 @@ export function createBotSpeaker(input: {
         case 'finish': {
           dropAhead();
           const cut = phrases.cutBy();
-          if (cut && reportsCut(state, true)) {
+          if (cut && reportsCut(state)) {
             record({ type: 'cut-reported', generation });
             input.failed(cut.error, 'generate');
           }
@@ -408,7 +409,7 @@ export function createBotSpeaker(input: {
         case 'publish': {
           work('synthesize');
           voiceAhead(phrases, signal);
-          if (state.turn.cursor === 0) await holdOpening(signal);
+          await holdOpening(signal);
           await floorClear(signal);
           work('publish');
           const speaking = speak(signal);

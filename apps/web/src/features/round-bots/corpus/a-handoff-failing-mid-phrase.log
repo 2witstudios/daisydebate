@@ -7,8 +7,8 @@
 10 reveal a room at=2027-01-15T08:00:00.010Z
 10 frames TR_0 x31
 20..200 frames TR_0 x19 every 10ms
-210 published a -> Error
 210 frame TR_0 #50 failed
 210 clear TR_0 queued=300
 210 end a cut 200ms "one two"
+210 published a -> Error
 710 close TR_0

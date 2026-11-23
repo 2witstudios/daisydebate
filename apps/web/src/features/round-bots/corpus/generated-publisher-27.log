@@ -2,7 +2,6 @@
 0 token
 0 join TR_0
 10 deadline 60000
-10 published p0 -> Error
 10 verify
 10 begin p0 530ms in=0 at=2027-01-15T08:00:00.010Z room
 10 frame TR_0 #12 failed
@@ -10,26 +9,27 @@
 10 begin p1 570ms in=0 at=2027-01-15T08:00:00.010Z room
 10 reveal p1 room at=2027-01-15T08:00:00.010Z
 10 frames TR_0 x43
+10 published p0 -> Error
 20..250 frames TR_0 x24 every 10ms
 260 floor room
 260 frames TR_0 x1
-270 published p1 complete=true ended=false
 270 begin p2 430ms in=310 at=2027-01-15T08:00:00.580Z room
 270 frames TR_0 x1
+270 published p1 complete=true ended=false
 285 abort p2
 285 clear TR_0 queued=295
 340 floor -> Error
-570 published p2 -> CONFLICT
 570 begin p3 430ms in=0 at=2027-01-15T08:00:00.570Z room
+570 published p2 -> CONFLICT
 580 end p1 cut 275ms "one two three four"
 720 reveal p3 room at=2027-01-15T08:00:00.720Z
 720 frames TR_0 x31
 730..830 frames TR_0 x11 every 10ms
-840 published p3 complete=true ended=false
 840 query audible=true p0:open p1:closed p2:open p3:open
-840 closed
-840 published late -> CONFLICT
 840 clear TR_0 queued=310
 840 end p3 cut 120ms "one two"
 840 close TR_0
 840 frames TR_0 x1
+840 closed
+840 published late -> CONFLICT
+840 published p3 complete=true ended=false

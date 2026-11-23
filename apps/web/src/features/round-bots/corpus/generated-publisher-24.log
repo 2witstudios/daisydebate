@@ -2,11 +2,11 @@
 0 token
 0 join TR_0
 10 deadline 60000
-10 published p0 complete=true ended=false
 10 verify
 10 begin p0 280ms in=0 at=2027-01-15T08:00:00.010Z room
 10 reveal p0 room at=2027-01-15T08:00:00.010Z
 10 frames TR_0 x28
+10 published p0 complete=true ended=false
 290 end p0 whole
 320 published p1 complete=false ended=true
 601 published p2 complete=false ended=true
@@ -14,6 +14,6 @@
 834 published p3 complete=false ended=true
 1074 published p4 complete=false ended=true
 1082 abort p4
-1412 published p5 complete=false ended=true
 1412 query audible=false p0:closed p1:open p2:open p3:open p4:open p5:open
 1412 close TR_0
+1412 published p5 complete=false ended=true

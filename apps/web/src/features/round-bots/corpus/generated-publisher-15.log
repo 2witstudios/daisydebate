@@ -7,36 +7,36 @@
 10 reveal p0 room at=2027-01-15T08:00:00.010Z
 10 frames TR_0 x31
 20..80 frames TR_0 x7 every 10ms
-90 published p0 -> CONFLICT
 90 reveal -> CONFLICT
 90 clear TR_0 queued=300
 90 end p0 cut 80ms "one"
 90 begin p1 290ms in=0 at=2027-01-15T08:00:00.090Z room
-190 published p1 complete=true ended=false
+90 published p0 -> CONFLICT
 190 reveal p1 room at=2027-01-15T08:00:00.190Z
 190 frames TR_0 x29
+190 published p1 complete=true ended=false
 280 begin p2 360ms in=200 at=2027-01-15T08:00:00.480Z room
 280 frames TR_0 x11
 290..330 frames TR_0 x5 every 10ms
 334 abort p0
 340..350 frames TR_0 x2 every 10ms
-360 published p2 -> Error
 360 frame TR_0 #85 failed
 360 clear TR_0 queued=300
 360 begin p3 350ms in=0 at=2027-01-15T08:00:00.360Z room
 360 reveal p3 room at=2027-01-15T08:00:00.360Z
 360 frames TR_0 x31
+360 published p2 -> Error
 370..390 frames TR_0 x3 every 10ms
-400 published p3 complete=true ended=false
 400 clear TR_0 queued=310
 400 frames TR_0 x1
+400 published p3 complete=true ended=false
 480 end p1 cut 170ms "one two three four five"
 518 query audible=false p0:closed p1:closed p2:open p3:open/tail-cut
 560 end -> Error
-660 closed
-660 published late -> CONFLICT
 660 end p1 cut 170ms "one two three four five"
 660 end -> CONFLICT
 660 end p3 cut 40ms "one"
 660 close TR_0
+660 closed
+660 published late -> CONFLICT
 698 abort p3

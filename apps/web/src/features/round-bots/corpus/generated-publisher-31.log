@@ -2,7 +2,6 @@
 0 token
 0 join TR_0
 10 deadline 60000
-10 published p0 complete=true ended=false
 10 verify
 10 begin p0 100ms in=0 at=2027-01-15T08:00:00.010Z room
 10 reveal p0 room at=2027-01-15T08:00:00.010Z
@@ -10,6 +9,7 @@
 10 begin p1 330ms in=100 at=2027-01-15T08:00:00.110Z room
 10 reveal p1 room at=2027-01-15T08:00:00.010Z
 10 frames TR_0 x41
+10 published p0 complete=true ended=false
 20..30 frames TR_0 x2 every 10ms
 60 published p1 complete=true ended=false
 110 end p0 cut 0ms ""
@@ -18,13 +18,13 @@
 459 reveal p2 room at=2027-01-15T08:00:00.459Z
 459 frames TR_0 x31
 469..619 frames TR_0 x16 every 10ms
-629 published p2 complete=true ended=false
 629 begin p3 120ms in=310 at=2027-01-15T08:00:00.939Z room
 629 frames TR_0 x1
+629 published p2 complete=true ended=false
 929 frames TR_0 x12
-939 published p3 complete=true ended=false
 939 end p2 whole
 939 reveal p3 room at=2027-01-15T08:00:00.939Z
+939 published p3 complete=true ended=false
 1021 published p4 complete=false ended=true
 1059 end p3 whole
 1139 end -> Error

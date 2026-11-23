@@ -258,8 +258,8 @@ export const phraseVerdict = (outcome: {
       ? 'said'
       : 'stopped';
 /** Whether an answer that stopped short is still to be reported. */
-export const reportsCut = (state: SpeechState, cut: boolean) =>
-  cut && state.turn.cut === 'unreported';
+export const reportsCut = (state: SpeechState) =>
+  state.turn.cut === 'unreported';
 export const hasBought = (state: SpeechState) =>
   state.turn.language !== 'empty';
 export const isPublishing = (state: SpeechState) =>
@@ -286,7 +286,7 @@ export const voicesToBuy = (state: SpeechState) =>
         const voice = phraseAt(state, index);
         return !voice || voice.status === 'failed';
       });
-export const openingVoices = (state: SpeechState) => {
+const openingVoices = (state: SpeechState) => {
   const first = phraseAt(state, 0);
   if (!first || !('durationMs' in first)) return [];
   let durationMs = first.durationMs;

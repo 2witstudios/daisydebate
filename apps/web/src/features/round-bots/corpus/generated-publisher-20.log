@@ -7,22 +7,22 @@
 10 reveal p0 room at=2027-01-15T08:00:00.010Z
 10 frames TR_0 x31
 20..230 frames TR_0 x22 every 10ms
-240 published p0 complete=true ended=false
-240 published p1 -> CONFLICT
 240 clear TR_0 queued=310
 240 begin p1 520ms in=0 at=2027-01-15T08:00:00.240Z room
 240 begin -> CONFLICT
 240 begin p2 90ms in=310 at=2027-01-15T08:00:00.550Z room
 240 reveal p2 room at=2027-01-15T08:00:00.240Z
 240 frames TR_0 x10
+240 published p0 complete=true ended=false
+240 published p1 -> CONFLICT
 320 reveal -> CONFLICT/platform-incident
 320 clear TR_0 queued=10
 320 end p2 cut 80ms "one two three four five six seven eight"
 320 end -> Error
-420 published p2 -> CONFLICT/platform-incident
 420 query audible=false p0:open/tail-cut p1:open p2:closed
-420 closed
-420 published late -> CONFLICT
 420 end p2 cut 80ms "one two three four five six seven eight"
 420 end p0 cut 230ms "one two three four"
 420 close TR_0
+420 closed
+420 published late -> CONFLICT
+420 published p2 -> CONFLICT/platform-incident

@@ -2,8 +2,6 @@
 0 token
 0 join TR_0
 10 deadline 60000
-10 published a -> CONFLICT
-10 published b complete=true ended=false
 10 verify
 10 begin a 100ms in=0 at=2027-01-15T08:00:00.010Z room
 10 begin -> CONFLICT
@@ -13,3 +11,5 @@
 10 end b cut 0ms ""
 10 close TR_0
 10 frames TR_0 x10
+10 published a -> CONFLICT
+10 published b complete=true ended=false

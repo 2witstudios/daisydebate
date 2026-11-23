@@ -7,9 +7,9 @@
 10 reveal a room at=2027-01-15T08:00:00.010Z
 10 frames TR_0 x31
 20..190 frames TR_0 x18 every 10ms
-200 published a complete=true ended=false
 200 clear TR_0 queued=310
 200 frames TR_0 x1
+200 published a complete=true ended=false
 510 end a cut 190ms "one two three"
 700 query audible=false a:closed/tail-cut
 700 close TR_0

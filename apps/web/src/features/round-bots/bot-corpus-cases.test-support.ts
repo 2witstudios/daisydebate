@@ -352,7 +352,18 @@ const publisherCases: readonly CorpusScript[] = [
     { leave: [fail('lost')] },
   ),
   publisher(
-    'a broken track is replaced and the claim waits for the replacement',
+    'the claim closing while a replacement track joins waits for it',
+    [
+      { start: true },
+      advance(10),
+      p('a', 100, { stopAtMs: 60_000, detach: true }),
+      advance(90),
+      { close: true },
+    ],
+    { unusable: [0], leave: [slow(50)], join: [ok, slow(200)] },
+  ),
+  publisher(
+    'a broken track is closed once, and the claim waits for its close',
     [
       { start: true },
       advance(10),

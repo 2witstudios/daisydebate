@@ -8,7 +8,7 @@
 60 abort a
 110 begin a 100ms in=0 at=2027-01-15T08:00:00.010Z room
 110 begin -> Error
-310 published a -> CONFLICT
-310 closed
 310 begin a 100ms in=0 at=2027-01-15T08:00:00.010Z room
 310 close TR_0
+310 closed
+310 published a -> CONFLICT

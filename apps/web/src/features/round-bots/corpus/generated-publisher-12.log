@@ -7,22 +7,22 @@
 10 reveal p0 room at=2027-01-15T08:00:00.010Z
 10 frames TR_0 x31
 20..170 frames TR_0 x16 every 10ms
-180 published p0 complete=true ended=false
 180 clear TR_0 queued=310
 180 begin p1 560ms in=310 at=2027-01-15T08:00:00.490Z room
 180 reveal p1 room at=2027-01-15T08:00:00.180Z
 180 frames TR_0 x32
+180 published p0 complete=true ended=false
 190 frames TR_0 x1
 198 abort p0
 200..210 frames TR_0 x2 every 10ms
-220 published p1 -> CONFLICT/bot-room-changed
 220 query audible=false p0:open/tail-cut p1:closed
-220 closed
-220 published late -> CONFLICT
 220 reveal -> CONFLICT/bot-room-changed
 220 clear TR_0 queued=300
 220 end p1 cut 40ms ""
 220 end p0 cut 170ms "one two three"
 220 end -> CONFLICT/platform-incident
 220 close TR_0
+220 closed
+220 published late -> CONFLICT
+220 published p1 -> CONFLICT/bot-room-changed
 238 abort p1

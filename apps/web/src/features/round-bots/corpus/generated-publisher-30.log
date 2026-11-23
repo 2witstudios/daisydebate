@@ -11,18 +11,17 @@
 202 clear TR_0 queued=308
 202 end p0 cut 40ms ""
 282 end -> Error
-382 published p0 complete=false ended=false
 382 end p0 cut 40ms ""
 382 begin p1 550ms in=0 at=2027-01-15T08:00:00.382Z room
 382 reveal p1 room at=2027-01-15T08:00:00.382Z
 382 frames TR_0 x31
+382 published p0 complete=false ended=false
 392..622 frames TR_0 x24 every 10ms
-632 published p1 complete=true ended=false
 632 begin p2 110ms in=300 at=2027-01-15T08:00:00.932Z room
+632 published p1 complete=true ended=false
 712 begin -> Error
 812 begin p2 110ms in=300 at=2027-01-15T08:00:00.932Z room
 812 frames TR_0 x11
-932 published p2 -> CONFLICT
 932 end p1 whole
 932 reveal p2 room at=2027-01-15T08:00:00.932Z
 932 reveal -> CONFLICT
@@ -31,14 +30,16 @@
 932 begin p3 460ms in=0 at=2027-01-15T08:00:00.932Z room
 932 reveal p3 room at=2027-01-15T08:00:00.932Z
 932 frames TR_0 x31
+932 published p2 -> CONFLICT
 942..1072 frames TR_0 x14 every 10ms
-1082 published p3 complete=true ended=false
 1082 begin p4 450ms in=310 at=2027-01-15T08:00:01.392Z room
-1082..1322 frames TR_0 x25 every 10ms
-1332 published p4 -> CONFLICT
+1082 frames TR_0 x1
+1082 published p3 complete=true ended=false
+1092..1322 frames TR_0 x24 every 10ms
 1332 floor room
 1332 floor -> CONFLICT
 1332 clear TR_0 queued=300
+1332 published p4 -> CONFLICT
 1392 end p3 cut 400ms "one two three four five six seven eight"
 1509 query audible=false p0:closed p1:closed p2:closed p3:closed/tail-cut p4:open
 1509 close TR_0

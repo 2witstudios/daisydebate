@@ -9,8 +9,8 @@
 20..250 frames TR_0 x24 every 10ms
 260 floor room
 260..690 frames TR_0 x44 every 10ms
-700 published a complete=true ended=false
 700 clear TR_0 queued=310
 700 end a cut 690ms "one two three four five six"
 700 close TR_0
 700 frames TR_0 x1
+700 published a complete=true ended=false

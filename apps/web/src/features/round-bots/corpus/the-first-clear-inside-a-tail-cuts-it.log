@@ -2,11 +2,11 @@
 0 token
 0 join TR_0
 10 deadline 60000
-10 published a complete=true ended=false
 10 verify
 10 begin a 300ms in=0 at=2027-01-15T08:00:00.010Z room
 10 reveal a room at=2027-01-15T08:00:00.010Z
 10 clear TR_0 queued=300
 10 frames TR_0 x30
+10 published a complete=true ended=false
 310 end a cut 0ms ""
 560 close TR_0

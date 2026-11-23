@@ -9,12 +9,12 @@
 20..250 frames TR_0 x24 every 10ms
 260 floor room
 260..290 frames TR_0 x4 every 10ms
-300 published a complete=true ended=false
 300 begin b 200ms in=310 at=2027-01-15T08:00:00.610Z room
 300 frames TR_0 x1
+300 published a complete=true ended=false
 600 frames TR_0 x20
-610 published b complete=true ended=false
 610 end a whole
 610 reveal b room at=2027-01-15T08:00:00.610Z
+610 published b complete=true ended=false
 810 end b whole
 1110 close TR_0

@@ -2,12 +2,12 @@
 0 token
 0 join TR_0
 10 deadline 60000
-10 published p0 complete=true ended=false
 10 verify
 10 begin p0 130ms in=0 at=2027-01-15T08:00:00.010Z room
 10 reveal p0 room at=2027-01-15T08:00:00.010Z
 10 begin p1 490ms in=130 at=2027-01-15T08:00:00.140Z room
 10 frames TR_0 x31
+10 published p0 complete=true ended=false
 20..80 frames TR_0 x7 every 10ms
 84 abort p0
 90..130 frames TR_0 x5 every 10ms
@@ -18,7 +18,6 @@
 220..250 frames TR_0 x4 every 10ms
 260 floor room
 260..290 frames TR_0 x4 every 10ms
-300 published p1 -> CONFLICT/bot-room-changed
 300 floor -> CONFLICT/bot-room-changed
 300 clear TR_0 queued=300
 300 end p1 cut 160ms "one two three"
@@ -29,9 +28,9 @@
 300 join TR_1
 300 reveal p2 room at=2027-01-15T08:00:00.300Z
 300 frames TR_1 x31
-310..320 frames TR_1 x2 every 10ms
+300 published p1 -> CONFLICT/bot-room-changed
+310..330 frames TR_1 x3 every 10ms
 330 published p2 complete=true ended=false
-330 frames TR_1 x1
 494 begin p3 330ms in=146 at=2027-01-15T08:00:00.640Z room
 494 frames TR_1 x16
 500..630 frames TR_1 x14 every 10ms
@@ -40,10 +39,10 @@
 640..660 frames TR_1 x3 every 10ms
 720 reveal -> Error
 820 reveal p3 room at=2027-01-15T08:00:00.640Z
-920 published p3 complete=true ended=false
 920 clear TR_1 queued=50
+920 published p3 complete=true ended=false
 970 end p3 cut 280ms "one two three four five six seven eight"
 1233 query audible=false p0:closed p1:closed p2:closed p3:closed/tail-cut
+1233 close TR_1
 1233 closed
 1233 published late -> CONFLICT
-1233 close TR_1
