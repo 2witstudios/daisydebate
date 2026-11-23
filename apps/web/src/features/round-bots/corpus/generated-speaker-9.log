@@ -1,0 +1,38 @@
+0 peer end-of-turn peer
+0 heard peer@1000
+0 generate peer-turn peer@1000
+0 settle answer 1
+350 tts "One."
+350 tts "Two."
+350 settle tts "One."
+350 settle tts "Two."
+350 verify
+350 verify
+350 token
+350 join TR_0
+350 begin id1 120ms in=0 at=2027-01-15T08:00:00.350Z room
+350 begin id3 260ms in=120 at=2027-01-15T08:00:00.470Z room
+350 reveal id1 room at=2027-01-15T08:00:00.350Z
+350 frames TR_0 x12
+430 reveal -> CONFLICT/platform-incident
+430 clear TR_0 queued=40
+430 end id1 cut 80ms ""
+630 abandon answer 1
+630 verify
+630 begin id6 120ms in=0 at=2027-01-15T08:00:00.630Z room
+630 begin id3 260ms in=120 at=2027-01-15T08:00:00.750Z room
+630 reveal id6 room at=2027-01-15T08:00:00.630Z
+630 reveal -> CONFLICT
+630 clear TR_0 queued=120
+630 end id6 cut 0ms ""
+630 frames TR_0 x12
+1030 heard peer@1000
+1030 generate peer-turn peer@1000
+1030 generate -> lost
+1030 failed generate Error
+1097 peer barge-in peer
+1097 peer barge-in peer
+1097 peer speech-start peer
+1097 peer speech-start peer
+1464 peer speech-start peer
+11464 close TR_0

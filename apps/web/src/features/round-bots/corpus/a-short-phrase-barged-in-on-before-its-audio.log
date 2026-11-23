@@ -1,0 +1,18 @@
+0 verify
+0 token
+0 join TR_0
+10 deadline 60000
+10 verify
+10 begin a 400ms in=0 at=2027-01-15T08:00:00.010Z room
+10 reveal a room at=2027-01-15T08:00:00.010Z
+10 frames TR_0 x31
+20..90 frames TR_0 x8 every 10ms
+100 begin b 50ms in=310 at=2027-01-15T08:00:00.410Z room
+100 frames TR_0 x1
+100 published a complete=true ended=false
+110..150 frames TR_0 x5 every 10ms
+200 abort b
+200 clear TR_0 queued=260
+200 published b -> CONFLICT
+410 end a cut 190ms "one two three four"
+700 close TR_0

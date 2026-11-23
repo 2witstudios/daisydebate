@@ -1,0 +1,15 @@
+651 generate opening
+651 generate -> lost
+651 failed generate Error
+851 generate opening
+851 settle answer 2
+851 settle answer 2 -> CONFLICT
+1251 settle answer 2
+1251 tts "One."
+1251 settle tts "One."
+1251 abandon answer 2
+1251 verify
+1251 verify
+1251 token
+1251 join TR_0
+11014 close TR_0

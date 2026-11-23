@@ -1,0 +1,41 @@
+0 generate opening
+0 settle answer 1
+0 tts "One."
+0 tts "Two."
+0 tts "Three."
+0 tts "Two." -> Error
+0 tts "Three." -> INFRASTRUCTURE
+0 settle tts "One."
+0 tts "Two."
+0 tts "Three."
+0 settle tts "Two."
+0 settle tts "Three."
+0 tts "Four."
+0 settle tts "Four."
+0 verify
+0 verify
+0 token
+0 join TR_0
+0 begin id1 120ms in=0 at=2027-01-15T08:00:00.000Z room
+0 begin id7 260ms in=120 at=2027-01-15T08:00:00.120Z room
+0 reveal id1 room at=2027-01-15T08:00:00.000Z
+0 begin id9 80ms in=380 at=2027-01-15T08:00:00.380Z room
+0 frames TR_0 x31
+10..70 frames TR_0 x7 every 10ms
+120 end id1 whole
+120 reveal id7 room at=2027-01-15T08:00:00.120Z
+120 begin id12 400ms in=340 at=2027-01-15T08:00:00.460Z room
+120 frames TR_0 x5
+130..150 frames TR_0 x3 every 10ms
+380 end id7 whole
+380 reveal id9 room at=2027-01-15T08:00:00.380Z
+380 frames TR_0 x23
+390..450 frames TR_0 x7 every 10ms
+460 end id9 whole
+460 reveal id12 room at=2027-01-15T08:00:00.460Z
+460..540 frames TR_0 x9 every 10ms
+550 close answer 1
+550 abandon answer 1
+550 frames TR_0 x1
+860 end id12 whole
+3000 close TR_0

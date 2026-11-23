@@ -267,6 +267,11 @@ report in CI's advisory job) is the live audit:
   walk over the moves each state allows. Each run has a fixed seed and
   reports its shrunk failure. The round engine's oracle,
   `scripts/round-oracle.test.ts`, walks the public runtime in every format.
+  The bot's walks (`round-bots/bot-walks.test.ts`) and its corpus
+  (`round-bots/bot-corpus.test.ts`, logs under `round-bots/corpus/`,
+  rewritten only by `GOLDEN_UPDATE=1`) drive the real speaker and publisher
+  at the bot's edge; `bun bots:sabotage` shows which net catches each named
+  mutation (ADR 0920).
 - **Size and complexity.** `bun metrics` reports each file's size, churn and
   complexity. They are not lint rules: `bun lint` prints errors only, so a
   line of its output is always something to fix.

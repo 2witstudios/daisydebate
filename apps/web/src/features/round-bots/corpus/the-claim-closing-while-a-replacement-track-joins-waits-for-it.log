@@ -1,0 +1,10 @@
+0 verify
+0 token
+0 join TR_0
+10 close TR_0
+60 verify
+60 token
+60 join TR_1
+260 close TR_1
+260 closed
+260 published a -> CONFLICT

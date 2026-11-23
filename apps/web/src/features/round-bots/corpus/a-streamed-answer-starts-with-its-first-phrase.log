@@ -1,0 +1,35 @@
+0 generate opening
+0 settle answer 1
+0 tts "One."
+0 settle tts "One."
+0 verify
+0 verify
+0 token
+0 join TR_0
+0 begin id1 120ms in=0 at=2027-01-15T08:00:00.000Z room
+0 reveal id1 room at=2027-01-15T08:00:00.000Z
+0 frames TR_0 x12
+120 end id1 whole
+300 tts "Two."
+300 settle tts "Two."
+300 begin id4 260ms in=0 at=2027-01-15T08:00:00.300Z room
+300 reveal id4 room at=2027-01-15T08:00:00.300Z
+300 frames TR_0 x26
+560 end id4 whole
+600 tts "Three."
+600 settle tts "Three."
+600 begin id6 80ms in=0 at=2027-01-15T08:00:00.600Z room
+600 reveal id6 room at=2027-01-15T08:00:00.600Z
+600 frames TR_0 x8
+680 end id6 whole
+900 tts "Four."
+900 settle tts "Four."
+900 begin id8 400ms in=0 at=2027-01-15T08:00:00.900Z room
+900 reveal id8 room at=2027-01-15T08:00:00.900Z
+900 frames TR_0 x31
+910..980 frames TR_0 x8 every 10ms
+990 close answer 1
+990 abandon answer 1
+990 frames TR_0 x1
+1300 end id8 whole
+6000 close TR_0
