@@ -27,6 +27,11 @@ import {
 } from './drive-driver';
 
 export type DriveActions = {
+  /**
+   * Whether the drive has started. It starts after the first commit, and an
+   * action before then does nothing, so a mount-time request waits for this.
+   */
+  readonly ready: boolean;
   readonly problem: string | null;
   readonly folderProblem: string | null;
   readonly folders: readonly FolderRow[];
@@ -122,6 +127,7 @@ export function useDrive({
   );
   useWindowEvent('focus', () => drive?.focused(), sync !== undefined);
   return {
+    ready: drive !== null,
     problem: shown.problem?.message ?? null,
     folderProblem: shown.folderProblem,
     folders: shown.folders,

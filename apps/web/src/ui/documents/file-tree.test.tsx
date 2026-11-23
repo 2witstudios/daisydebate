@@ -9,6 +9,7 @@ import type { DriveActions } from './use-drive';
 setupRitewayBun();
 
 const drive: DriveActions = {
+  ready: true,
   problem: null,
   folderProblem: null,
   folders: [{ id: 'folder-a', name: 'Cases', parentFolderId: null }],

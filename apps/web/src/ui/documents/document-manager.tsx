@@ -168,7 +168,9 @@ export function ManagerWorkspace({
       focusPane(visible);
   });
   const opened = useRef(false);
-  useDeliver(openId, (id) => {
+  // A linked document opens once the drive has started; before then an open does nothing.
+  const linked = drive.ready ? openId : null;
+  useDeliver(linked, (id) => {
     if (id === null || opened.current) return;
     opened.current = true;
     drive.open(id, 'your document', 'link');
