@@ -422,7 +422,7 @@ jobs:
           - messaging
         # Nightly only. The first-word and bot Freestyle drills voice their
         # human speakers with espeak-ng, which `speech` installs.
-        include: ${{ fromJSON(github.event_name == 'schedule' && '[{"cohort":"node-kill"},{"cohort":"first-word","speech":"espeak-ng"},{"cohort":"bot-freestyle","speech":"espeak-ng"}]' || '[]') }}
+        include: ${{ fromJSON(github.event_name == 'schedule' && '[{"cohort":"node-kill"},{"cohort":"first-word","speech":"espeak-ng"},{"cohort":"bot-freestyle","speech":"espeak-ng"}]' || github.event_name == 'pull_request' && '[{"cohort":"first-word","speech":"espeak-ng"},{"cohort":"bot-freestyle","speech":"espeak-ng"}]' || '[]') }}
     env:
       CLAMD_TEST_PORT: '3310'
     defaults:
