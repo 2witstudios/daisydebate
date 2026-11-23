@@ -95,10 +95,16 @@ const mutations: readonly Mutation[] = [
     replace: '          : undefined;',
   },
   {
-    name: 'a stopped claim keeps its pause armed',
+    name: 'a pause outlives the turn it held',
     file: `${bots}/speaker.ts`,
-    find: '      selfWake.stop();\n',
+    find: '      selfWake.stopPause();\n',
     replace: '',
+  },
+  {
+    name: 'a turn reported again while answered is answered again',
+    file: `${bots}/duty.ts`,
+    find: '    duty.to.spokeUntilMs >= event.spokeUntilMs',
+    replace: '    duty.to.spokeUntilMs > event.spokeUntilMs',
   },
 ];
 

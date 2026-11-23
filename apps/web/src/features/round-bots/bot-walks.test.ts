@@ -7,6 +7,7 @@ import {
 import {
   traceCorpus,
   type CorpusScript,
+  type SpeakerStep,
   type Fact,
   type Fault,
   type Reply,
@@ -23,7 +24,7 @@ setupRitewayBun();
  * mutations only these walks catch.
  */
 const SEEDS = [4317, 4318, 4319] as const;
-const RUNS = 40;
+const RUNS = 150;
 /** Draws on one walk's tape: more than any generated round takes. */
 const DRAWS = 400;
 
@@ -266,6 +267,48 @@ function deferredSpeech(draw: Draw): CorpusScript {
   };
 }
 
+/**
+ * A respondent answering peer turns whose ends the hearing reports again, at
+ * any moment: before the answer is bought, while it plays, after it ended.
+ */
+function repeatedTurns(draw: Draw): CorpusScript {
+  const steps: SpeakerStep[] = [];
+  for (let turn = 0; turn < 1 + draw(4); turn++) {
+    steps.push({ peer: 'end-of-turn' }, { wake: true });
+    for (let echo = 0; echo < draw(4); echo++)
+      steps.push(
+        { advance: draw(600) },
+        { peer: 'end-of-turn', replay: true },
+        { wake: true },
+      );
+    if (draw(3) === 0) steps.push({ peer: 'speech-start' });
+    steps.push({ advance: draw(3000) });
+  }
+  steps.push({ advance: 5000 });
+  const phrases = PLACES.slice(0, 1 + draw(3)).map((text) => ({
+    text,
+    ms: (1 + draw(40)) * 10,
+  }));
+  return {
+    kind: 'speaker',
+    name: 'repeated turns',
+    segment: 'cross_ex',
+    opensExchange: false,
+    answers: [{ phrases, ...(draw(2) === 0 ? { delayMs: draw(400) } : {}) }],
+    steps,
+  };
+}
+
+/** With nothing failing, each peer turn is bought one answer at most. */
+function boughtOncePerTurn(facts: Facts): string[] {
+  const bought = of(facts, 'generate')
+    .filter(({ ok }) => ok)
+    .map(({ to }) => to);
+  return bought
+    .filter((to, index) => bought.indexOf(to) !== index)
+    .map((to) => `turn ${to} bought twice`);
+}
+
 describe('the bot’s generated walks (R4.3)', () => {
   test('publisher walks', async () => {
     assert({
@@ -324,6 +367,22 @@ describe('the bot’s generated walks (R4.3)', () => {
           ...(sleepers === 0 ? [] : [`${sleepers} waits outlived the claim`]),
         ];
       }),
+      expected: [],
+    });
+  });
+
+  test('a turn reported again is answered once', async () => {
+    assert({
+      given: `a respondent's peer turns reported again at any moment, over seeds ${SEEDS.join(', ')}`,
+      should:
+        'buy and say one answer per turn, never over the peer, and leave no wait',
+      actual: await holds(
+        walk(repeatedTurns, [
+          ...speakerProperties,
+          quietOverPeers,
+          boughtOncePerTurn,
+        ]),
+      ),
       expected: [],
     });
   });

@@ -181,7 +181,7 @@ export async function traceCorpus(script: CorpusScript): Promise<{
   /** Waits still armed once the claim ended and every timer ran out. */
   readonly sleepers: number;
 }> {
-  const clock = virtualClock();
+  const clock: Clock = Object.assign(virtualClock(), { stubbed: 0 });
   const lines: Line[] = [];
   const facts: Fact[] = [];
   const note: Note = (body) => facts.push({ ...body, at: clock.nowMs() });
@@ -197,7 +197,7 @@ export async function traceCorpus(script: CorpusScript): Promise<{
     const call = calls.get(key) ?? 0;
     calls.set(key, call + 1);
     const answer = queues.get(key)?.[call] ?? {};
-    if (answer.delayMs) await clock.sleep(answer.delayMs);
+    if (answer.delayMs) await stubWait(clock, clock.sleep(answer.delayMs));
     if (answer.fail === 'final') note({ kind: 'final' });
     if (answer.fail) throw faultOf(answer.fail);
   };
@@ -349,22 +349,22 @@ export async function traceCorpus(script: CorpusScript): Promise<{
       return opened.close();
     },
   };
-  if (script.kind === 'publisher')
-    await runPublisher(script, claim, clock, log);
-  else
-    await runSpeaker(
-      script,
-      claim,
-      clock,
-      log,
-      note,
-      reply,
-      () => `id${++ids}`,
-    );
+  const left =
+    script.kind === 'publisher'
+      ? await runPublisher(script, claim, clock, log)
+      : await runSpeaker(
+          script,
+          claim,
+          clock,
+          log,
+          note,
+          reply,
+          () => `id${++ids}`,
+        );
   return {
     log: logText(lines),
     facts,
-    sleepers: clock.sleepers(),
+    sleepers: left,
   };
 }
 
@@ -421,7 +421,16 @@ function logText(lines: readonly Line[]): string {
 }
 
 type Claim = ReturnType<ReturnType<typeof createBotPublisher>>;
-type Clock = ReturnType<typeof virtualClock>;
+/** The virtual clock, counting the waits the stubs and the script arm: not the bot's. */
+type Clock = ReturnType<typeof virtualClock> & { stubbed: number };
+const stubWait = async (clock: Clock, wait: Promise<void>) => {
+  clock.stubbed += 1;
+  try {
+    await wait;
+  } finally {
+    clock.stubbed -= 1;
+  }
+};
 type Log = (line: string) => void;
 const scopeOf = () =>
   ({
@@ -464,7 +473,7 @@ async function runPublisher(
       if (step.preAborted) stop.abort();
       if (step.abortAfterMs !== undefined) {
         const at = asked + step.abortAfterMs;
-        void clock.waitUntilMs(at).then(() => {
+        void stubWait(clock, clock.waitUntilMs(at)).then(() => {
           log(`abort ${step.publish}`);
           stop.abort();
         });
@@ -506,7 +515,9 @@ async function runPublisher(
   }
   await clock.run(Promise.all(pending));
   await clock.run(claim.close());
+  const left = clock.sleepers() - clock.stubbed;
   await clock.advance(DRAIN_MS);
+  return left;
 }
 
 async function runSpeaker(
@@ -535,7 +546,8 @@ async function runSpeaker(
       log(
         `generate ${to.kind}${to.kind === 'peer-turn' ? ` ${to.peer}@${to.spokeUntilMs}` : ''}`,
       );
-      if (answer?.delayMs) await clock.sleep(answer.delayMs, signal);
+      if (answer?.delayMs)
+        await stubWait(clock, clock.sleep(answer.delayMs, signal));
       note({ kind: 'generate', to: turn, ok: !answer?.fail });
       if (answer?.fail) {
         log(`generate -> ${answer.fail}`);
@@ -546,7 +558,8 @@ async function runSpeaker(
       const phrases = answer?.phrases ?? [];
       void (async () => {
         for (const [index, phrase] of phrases.entries()) {
-          if (index > 0 && answer?.gapMs) await clock.sleep(answer.gapMs);
+          if (index > 0 && answer?.gapMs)
+            await stubWait(clock, clock.sleep(answer.gapMs));
           producer.push([phrase.text]);
         }
         if (answer?.cut) producer.cut(faultOf('lost'));
@@ -636,5 +649,7 @@ async function runSpeaker(
   note({ kind: 'stop' });
   await clock.run(speaker.stop());
   await clock.run(claim.close());
+  const left = clock.sleepers() - clock.stubbed;
   await clock.advance(DRAIN_MS);
+  return left;
 }
