@@ -405,10 +405,14 @@ async function fixture(
           await sql`delete from actors where id=${c.actorId}`;
           await sql`delete from users where id=${c.userId}`;
         }
-        // Overrides and receipts went with their users; the change events and
-        // the flag row the operator commands wrote go once no suite holds one.
-        if (flagCommands.length > 0)
+        // Overrides went with their users. The receipts and change events
+        // the operator commands wrote go by command id: an erased account's
+        // flag receipts outlive the account (daisy_erase_flag_subject). The
+        // flag row goes once no suite holds one.
+        if (flagCommands.length > 0) {
+          await sql`delete from operator_command_receipts where command_id in ${sql(flagCommands)}`;
           await sql`delete from flag_change_events where command_id in ${sql(flagCommands)}`;
+        }
         await sql`delete from release_flags where key = 'bot-debates'
           and not exists (select 1 from flag_account_overrides where key = 'bot-debates')
           and not exists (select 1 from flag_change_events where key = 'bot-debates')`;
