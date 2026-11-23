@@ -1,4 +1,4 @@
-import { createHash } from 'node:crypto';
+import { sha256Bytes } from '@daisy/digest';
 
 /**
  * A software WebAuthn authenticator for integration tests: it performs the
@@ -15,8 +15,7 @@ const b64url = (bytes: Uint8Array): string =>
 
 const utf8 = (value: string): Uint8Array => new TextEncoder().encode(value);
 
-const sha256 = (data: Uint8Array): Uint8Array =>
-  new Uint8Array(createHash('sha256').update(data).digest());
+const sha256 = (data: Uint8Array): Uint8Array => sha256Bytes(data);
 
 // --- Minimal CBOR encoder: just enough for a "none" attestation object and
 // a COSE_Key EC2/ES256 map. Not a general-purpose encoder. ---

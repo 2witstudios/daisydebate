@@ -1,9 +1,6 @@
 import { instantMs } from '@daisy/clock';
 import type { Clock } from '@daisy/clock';
-import {
-  signOperatorRequest,
-  type OperatorCrypto,
-} from '@daisy/auth/operator-signature';
+import { signOperatorRequest } from '@daisy/auth/operator-signature';
 import { betaAccessCommandResultSchema } from '@daisy/protocol/beta-access';
 import {
   moderationLiftResultSchema,
@@ -119,7 +116,6 @@ type Signed = {
 
 export function createOperatorClient(deps: {
   readonly config: OperatorClientConfig;
-  readonly crypto: OperatorCrypto;
   readonly clock: Clock;
   readonly random: RandomBytes;
   readonly fetch: OperatorFetch;
@@ -144,7 +140,6 @@ export function createOperatorClient(deps: {
         body: new TextEncoder().encode(request.body ?? ''),
       },
       config.key,
-      deps.crypto,
     );
     const url = new URL(request.path, config.baseUrl);
     for (const [name, value] of request.query)

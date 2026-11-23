@@ -1,3 +1,4 @@
+import { hmacSha256Base64 } from '@daisy/digest';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { signOutFailsClosedPlugin } from './sign-out-fails-closed';
 
@@ -14,18 +15,8 @@ const secret = 'a-test-secret-of-sufficient-length';
 
 /** better-call's signed cookie: `value.base64(HMAC-SHA256)`, URI-encoded. */
 const signedCookie = async (value: string) => {
-  const key = await crypto.subtle.importKey(
-    'raw',
-    new TextEncoder().encode(secret),
-    { name: 'HMAC', hash: 'SHA-256' },
-    false,
-    ['sign'],
-  );
-  const signature = new Uint8Array(
-    await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(value)),
-  );
   return `${cookieName}=${encodeURIComponent(
-    `${value}.${btoa(String.fromCharCode(...signature))}`,
+    `${value}.${hmacSha256Base64(secret, value)}`,
   )}`;
 };
 

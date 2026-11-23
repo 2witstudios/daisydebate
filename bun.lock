@@ -245,6 +245,7 @@
       "version": "0.0.0",
       "dependencies": {
         "@daisy/clock": "workspace:*",
+        "@daisy/digest": "workspace:*",
         "@daisy/errors": "workspace:*",
         "@daisy/protocol": "workspace:*",
       },

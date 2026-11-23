@@ -14,7 +14,6 @@ import {
   createOperatorClient,
   OPERATOR_TIMEOUT_MS,
 } from '../features/operator-client/client';
-import { bunOperatorCrypto } from '../features/operator-client/bun-crypto';
 import {
   createSecurityStore,
   type SecurityStore,
@@ -69,7 +68,6 @@ export function adminRuntime(): AdminRuntime {
       ids: systemId,
       client: createOperatorClient({
         config: operatorApi,
-        crypto: bunOperatorCrypto,
         clock: systemClock,
         random: systemRandom,
         fetch: (url, init) => fetch(url, init),

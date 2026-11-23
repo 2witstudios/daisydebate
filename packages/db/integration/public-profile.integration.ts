@@ -1,3 +1,4 @@
+import { sha256Hex } from '@daisy/digest';
 import { requireTestServices } from '@daisy/config';
 import { assertRejects } from '@daisy/errors/testing';
 import { createId } from '@paralleldrive/cuid2';
@@ -107,9 +108,7 @@ const command = (change: object) => ({
   commandId: createId(),
   serviceId: 'daisy-admin',
   operatorRef: 'o'.repeat(24),
-  requestDigest: new Bun.CryptoHasher('sha256')
-    .update(createId())
-    .digest('hex'),
+  requestDigest: sha256Hex(createId()),
   adminAuditHead: head,
   live: () => true,
   change: change as never,

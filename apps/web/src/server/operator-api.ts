@@ -3,10 +3,6 @@ import { lookup } from 'node:dns/promises';
 import { parseOperatorKeys } from '@daisy/auth/operator-signature';
 import { createOperatorApi } from '../features/operator-api/router';
 import { startOperatorListener } from '../features/operator-api/listener';
-import {
-  decodeBase64url,
-  nodeOperatorCrypto,
-} from '../features/operator-api/node-crypto';
 import type { ErrorReporter } from '@daisy/observability';
 import type { App } from './app';
 
@@ -32,7 +28,10 @@ export async function startOperatorApi(app: App, reporter: ErrorReporter) {
     throw new Error(
       'The config schema requires OPERATOR_LISTEN_HOST and OPERATOR_AUDIENCE whenever OPERATOR_API_KEYS is set',
     );
-  const keys = parseOperatorKeys(config.OPERATOR_API_KEYS, decodeBase64url);
+  const keys = parseOperatorKeys(
+    config.OPERATOR_API_KEYS,
+    (text) => new Uint8Array(Buffer.from(text, 'base64url')),
+  );
   const listener = await startOperatorListener({
     host,
     port: config.OPERATOR_PORT,
@@ -44,7 +43,6 @@ export async function startOperatorApi(app: App, reporter: ErrorReporter) {
       profilePhotos: app.profilePhotoObjects,
       audience,
       keys,
-      crypto: nodeOperatorCrypto,
       nowMs: () => nowMs(app.clock),
       admitNonce: (input) => app.redis.admitOperatorNonce(input),
       store: app.database,

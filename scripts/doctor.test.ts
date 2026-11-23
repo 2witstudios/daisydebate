@@ -1,3 +1,4 @@
+import { sha256Hex } from '@daisy/digest';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {
   checkoutCheck,
@@ -209,9 +210,7 @@ describe('migration currency', () => {
     const paths = [...new Bun.Glob('*/migration.sql').scanSync(root)].sort();
     const expected = await Promise.all(
       paths.map(async (path) =>
-        new Bun.CryptoHasher('sha256')
-          .update(await Bun.file(`${root}${path}`).bytes())
-          .digest('hex'),
+        sha256Hex(await Bun.file(`${root}${path}`).bytes()),
       ),
     );
     assert({
