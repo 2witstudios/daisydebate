@@ -176,10 +176,12 @@ export function LeaveRoom({ links }: { readonly links: LeaveLinks }) {
   const [open, setOpen] = useState(links.confirming);
   const leaveLabel = links.call ? 'Leave call' : 'Leave round';
   const stay = useRef<HTMLAnchorElement>(null);
+  const trigger = useRef<HTMLAnchorElement>(null);
   const close = () => setOpen(false);
   return (
     <>
       <a
+        ref={trigger}
         href={links.confirmHref}
         aria-haspopup="dialog"
         onClick={(event) => {
@@ -196,6 +198,7 @@ export function LeaveRoom({ links }: { readonly links: LeaveLinks }) {
         modal={false}
         onClose={close}
         initialFocus={stay}
+        returnFocus={trigger}
         aria-labelledby="leave-room-title"
         className="fixed inset-0 z-50 m-auto flex w-room-dialog max-w-full flex-col gap-4 rounded-lg border border-border-strong bg-surface p-6 text-ink shadow-3 not-open:hidden"
       >

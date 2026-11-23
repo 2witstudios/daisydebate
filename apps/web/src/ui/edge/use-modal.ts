@@ -17,6 +17,8 @@ export type DialogLifetime = {
   readonly onClose: () => void;
   /** Takes focus when the dialog opens; otherwise the platform's first control. */
   readonly initialFocus?: RefObject<HTMLElement | null> | undefined;
+  /** Takes focus back on closing, in place of whatever opened the dialog. */
+  readonly returnFocus?: RefObject<HTMLElement | null> | undefined;
   /** Asks the owner to open: another part of the page requested this dialog. */
   readonly onOpenRequested?: (() => void) | undefined;
 };
@@ -39,7 +41,14 @@ const focusLostOrInside = (dialog: HTMLDialogElement) => {
  */
 export function useModal(
   dialog: RefObject<HTMLDialogElement | null>,
-  { open, modal, onClose, initialFocus, onOpenRequested }: DialogLifetime,
+  {
+    open,
+    modal,
+    onClose,
+    initialFocus,
+    returnFocus,
+    onOpenRequested,
+  }: DialogLifetime,
 ): void {
   const opener = useRef<HTMLElement | null>(null);
   const shown = useRef(false);
@@ -47,7 +56,7 @@ export function useModal(
   const requested = useEffectEvent(() => onOpenRequested?.());
   const giveBack = useEffectEvent(() => {
     const node = dialog.current;
-    const back = opener.current;
+    const back = returnFocus?.current ?? opener.current;
     opener.current = null;
     if (back !== null && back !== document.body && back.isConnected)
       if (node === null || focusLostOrInside(node)) back.focus();

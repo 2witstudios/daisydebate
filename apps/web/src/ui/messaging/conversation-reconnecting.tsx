@@ -1,6 +1,6 @@
 'use client';
 
-import { useDeliver } from '../edge/use-answer';
+import { useAnswer, useDeliver } from '../edge/use-answer';
 import { useResource } from '../edge/use-driver';
 import { useDocumentEvent, useWindowEvent } from '../edge/use-dom-events';
 import { useRouteReads, type RouteRead } from '../edge/use-route-reads';
@@ -13,6 +13,12 @@ import { createConversationRecovery } from './conversation-recovery';
 import { shellNavigationEvent } from '../layout/app-shell/shell-navigation';
 
 type ConversationRecovery = ReturnType<typeof createConversationRecovery>;
+
+/**
+ * How long a refresh may go without a recorded read before it is taken as
+ * settled. Longer than any wait the recovery schedules (10 s at most).
+ */
+const refreshReadLimitMs = 30_000;
 
 /** A same-tab target: the link or form leaves this page in place of a new one. */
 const sameTab = (target: string | null | undefined) =>
@@ -41,32 +47,60 @@ export function ConversationReconnecting({
   const held = useResource(router, (current) => {
     const address = window.location.href;
     const owner = {
-      /** A refresh has asked and its read has not yet finished arriving. */
-      awaitingRead: false,
+      /** The page's timers, injected as the recovery's are. */
+      wait: browserScheduler.after,
+      /**
+       * The refresh in flight. It settles once a route read of this page
+       * has finished arriving after it asked and no refresh transition is
+       * running, or, if no read is ever recorded (a failed or aborted fetch
+       * gets no Resource Timing entry), after the bounded wait.
+       */
+      inFlight: null as {
+        readArrived: boolean;
+        readonly cancelFallback: () => void;
+      } | null,
+      /** Whether the page's refresh transition is running, as last rendered. */
+      transitionRunning: false,
+      settle: () => {
+        owner.inFlight?.cancelFallback();
+        owner.inFlight = null;
+        owner.recovery.settled();
+      },
+      settleWhenDone: () => {
+        if (owner.inFlight?.readArrived && !owner.transitionRunning)
+          owner.settle();
+      },
       recovery: createConversationRecovery({
         refresh: () => {
           if (window.location.href !== address) {
             owner.recovery.stop();
             return;
           }
-          owner.awaitingRead = true;
+          owner.inFlight?.cancelFallback();
+          owner.inFlight = {
+            readArrived: false,
+            cancelFallback: owner.wait(
+              () => owner.settle(),
+              refreshReadLimitMs,
+            ),
+          };
           startTransition(() => current.refresh());
         },
         schedule: browserScheduler.after,
         exhausted: () => setExhausted(true),
       }),
-      /**
-       * The first read of this page to finish after a refresh asked settles
-       * it. Recovery holds one refresh at a time, so nothing but that refresh
-       * reads this page in between (an action posts without a route read).
-       */
       readFinished: ({ url }: RouteRead) => {
-        if (!owner.awaitingRead) return;
+        if (owner.inFlight === null) return;
         if (url.pathname !== new URL(address).pathname) return;
-        owner.awaitingRead = false;
-        owner.recovery.settled();
+        owner.inFlight.readArrived = true;
+        owner.settleWhenDone();
+      },
+      transitionRan: (running: boolean) => {
+        owner.transitionRunning = running;
+        owner.settleWhenDone();
       },
       dispose: () => {
+        owner.inFlight?.cancelFallback();
         owner.recovery.stop();
         if (active.current === owner.recovery) active.current = null;
       },
@@ -75,11 +109,16 @@ export function ConversationReconnecting({
     return owner;
   });
   const recovery = held?.recovery;
-  // A discarded held refresh settles its transition on discard while its
-  // network read is still in flight. The buffered newest render is adopted
-  // only once the route read the latest refresh made has finished arriving,
-  // so a wait never dispatches while the held refresh is still on the wire.
+  // A discarded held refresh ends its transition while its network read is
+  // still in flight, and a prefetch of this page can finish while the
+  // refresh's transition is still running. Neither alone settles: the
+  // buffered newest render is adopted only once both have happened, so a
+  // wait never dispatches while the held refresh is still on the wire.
   useRouteReads((read) => held?.readFinished(read));
+  const transition = useMemo(() => ({ owner: held, pending }), [held, pending]);
+  useAnswer(transition, ({ owner, pending: running }) =>
+    owner?.transitionRan(running),
+  );
   // Native default actions are separate from Next's accepted-link notice.
   useDocumentEvent('click', (event) => {
     if (

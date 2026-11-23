@@ -146,13 +146,13 @@ describe('UI primitive gate', () => {
     const component = 'apps/web/src/ui/components/upgrade-panel/panel.tsx';
     assert({
       given:
-        'a component calling showModal, a page calling show, an unstyled Button, and the Dialog’s own lifetime',
+        'a component calling showModal, a page calling showModal and an unrelated show, an unstyled Button, and the Dialog’s own lifetime',
       should: 'report the calls and the variant, and allow the owner',
       actual: [
         uiPrimitiveIssues(component, 'dialog.current?.showModal();'),
         uiPrimitiveIssues(
           path,
-          'node.show();\nconst b = <Button variant={"unstyled"} />;',
+          'node.showModal();\npopup.show();\nconst b = <Button variant={"unstyled"} />;',
         ),
         uiPrimitiveIssues(
           'apps/web/src/ui/edge/use-modal.ts',
@@ -165,7 +165,7 @@ describe('UI primitive gate', () => {
         ],
         [
           `${path}:1: open a dialog through Dialog, which owns its lifetime`,
-          `${path}:2: give this Button a variant that owns its look`,
+          `${path}:3: give this Button a variant that owns its look`,
         ],
         [],
       ],

@@ -224,3 +224,30 @@ test('focus moves on a later change and leaves a row for its neighbour', async (
     expected: [null, 'Step 2', 'After'],
   });
 });
+
+test('useSettled keeps only the result of the key it was read for', async () => {
+  const { act, createElement, root, Settled } = await mount();
+  const reads = new Map<string, (value: string) => void>();
+  const read = (key: string) =>
+    new Promise<string>((done) => reads.set(key, done));
+  const shown: string[] = [];
+  const show = (readKey: string | null) =>
+    act(async () =>
+      root.render(
+        createElement(Settled, { readKey, read, seen: (s) => shown.push(s) }),
+      ),
+    );
+  await show('a');
+  await show('b');
+  await act(async () => reads.get('a')?.('from a'));
+  const afterStale = shown.at(-1);
+  await act(async () => reads.get('b')?.('from b'));
+  const afterCurrent = shown.at(-1);
+  await act(async () => root.unmount());
+  assert({
+    given: 'a read for a, the key moving to b, then a answering before b',
+    should: 'drop a’s late answer and show b’s',
+    actual: [afterStale, afterCurrent],
+    expected: ['none', 'from b'],
+  });
+});

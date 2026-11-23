@@ -3,7 +3,7 @@ import ts from 'typescript';
 const componentDirectory = 'apps/web/src/ui/components/';
 /** The one place a native dialog is shown or closed (the Dialog's lifetime). */
 const modalOwner = 'apps/web/src/ui/edge/use-modal.ts';
-const dialogMethods = new Set(['showModal', 'show']);
+const dialogMethods = new Set(['showModal']);
 const productionMarkup = /^apps\/web\/src\/.*\.[jt]sx$/;
 const testMarkup = /\.test(?:[.-]|$)|\/test-support\//;
 

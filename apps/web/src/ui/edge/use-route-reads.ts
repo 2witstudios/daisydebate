@@ -14,11 +14,16 @@ export type RouteRead = {
  */
 const rscQuery = '_rsc';
 
-const routeReadOf = (entry: PerformanceEntry): RouteRead | null => {
-  const timing = entry as PerformanceResourceTiming;
-  if (timing.initiatorType !== 'fetch') return null;
-  const url = new URL(timing.name, window.location.href);
-  if (url.origin !== window.location.origin) return null;
+type PageLocation = Pick<Location, 'href' | 'origin'>;
+
+/** The route read a Resource Timing entry records, if it is one. */
+export const routeReadOf = (
+  entry: Pick<PerformanceResourceTiming, 'initiatorType' | 'name'>,
+  page: PageLocation,
+): RouteRead | null => {
+  if (entry.initiatorType !== 'fetch') return null;
+  const url = new URL(entry.name, page.href);
+  if (url.origin !== page.origin) return null;
   return url.searchParams.has(rscQuery) ? { url } : null;
 };
 
@@ -33,7 +38,10 @@ export function useRouteReads(onRead: (read: RouteRead) => void): void {
     if (typeof PerformanceObserver === 'undefined') return;
     const observer = new PerformanceObserver((list) => {
       for (const entry of list.getEntries()) {
-        const read = routeReadOf(entry);
+        const read = routeReadOf(
+          entry as PerformanceResourceTiming,
+          window.location,
+        );
         if (read !== null) report(read);
       }
     });

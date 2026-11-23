@@ -3,6 +3,7 @@
 import {
   useEffect,
   useEffectEvent,
+  useMemo,
   useSyncExternalStore,
   type RefObject,
 } from 'react';
@@ -123,8 +124,14 @@ export function useMediaQuery(
   query: string | null,
   serverMatches = false,
 ): boolean {
+  // One subscription per query: a new subscribe each render would re-add
+  // the listener every time.
+  const subscribe = useMemo(
+    () => (query === null ? subscribeNothing : subscribeMedia(query)),
+    [query],
+  );
   return useSyncExternalStore(
-    query === null ? subscribeNothing : subscribeMedia(query),
+    subscribe,
     () => (query === null ? serverMatches : window.matchMedia(query).matches),
     () => serverMatches,
   );

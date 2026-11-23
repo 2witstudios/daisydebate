@@ -112,3 +112,44 @@ test('the dialog opens, tells its owner of a close and hands focus back', async 
     expected: [true, [false, 1, 'opener'], true],
   });
 });
+
+test('an in-place dialog shown on arrival hands focus to its trigger on Escape and on close', async () => {
+  const {
+    act,
+    createElement: h,
+    root,
+    ShownOnArrival,
+    browser,
+  } = await mountBrowserClient<typeof Client>(
+    Bun.resolveSync('./dialog.test-support', import.meta.dir),
+  );
+  const byId = (id: string) =>
+    browser.document.getElementById(id) as unknown as HTMLElement;
+  let closes = 0;
+  await act(async () =>
+    root.render(h(ShownOnArrival, { closes: () => (closes += 1) })),
+  );
+  const shown = browser.document.querySelector('dialog')?.hasAttribute('open');
+  await act(async () => byId('stay').focus());
+  await act(async () =>
+    byId('stay').dispatchEvent(
+      new browser.KeyboardEvent('keydown', {
+        key: 'Escape',
+        bubbles: true,
+      }) as unknown as Event,
+    ),
+  );
+  const afterEscape = [closes, browser.document.activeElement?.id];
+  await act(async () => byId('trigger').click());
+  await act(async () => byId('stay').click());
+  const afterStay = browser.document.activeElement?.id;
+  await act(async () => root.unmount());
+  assert({
+    given:
+      'a confirm rendered open with nothing focused, closed by Escape, then reopened and closed by Stay',
+    should:
+      'tell the owner of the Escape and return focus to the trigger each time',
+    actual: [shown, afterEscape, afterStay],
+    expected: [true, [1, 'trigger'], 'trigger'],
+  });
+});

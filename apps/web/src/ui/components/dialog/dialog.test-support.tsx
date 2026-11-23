@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Dialog, requestDialog } from './dialog';
 
 export { act, createElement } from 'react';
@@ -35,6 +35,34 @@ export function Opened({
         <form method="dialog">
           <button id="inside">Done</button>
         </form>
+      </Dialog>
+    </>
+  );
+}
+
+/** An in-place confirm shown on arrival, with a trigger to give focus back to. */
+export function ShownOnArrival({ closes }: { readonly closes: () => void }) {
+  const [open, setOpen] = useState(true);
+  const trigger = useRef<HTMLButtonElement>(null);
+  return (
+    <>
+      <button id="trigger" ref={trigger} onClick={() => setOpen(true)}>
+        Leave
+      </button>
+      <Dialog
+        open={open}
+        modal={false}
+        returnFocus={trigger}
+        onClose={() => {
+          closes();
+          setOpen(false);
+        }}
+        aria-labelledby="confirm"
+      >
+        <h2 id="confirm">Leave?</h2>
+        <button id="stay" onClick={() => setOpen(false)}>
+          Stay
+        </button>
       </Dialog>
     </>
   );

@@ -4,6 +4,7 @@ import { useMediaQuery } from './use-dom-events';
 import { useResource, type Disposable } from './use-driver';
 import { useFocusOnChange, useFocusOnLeave } from './use-focus';
 import { useDelay, useTick } from './use-tick';
+import { useSettled } from './use-settled';
 
 export { act, createElement } from 'react';
 export { createRoot } from 'react-dom/client';
@@ -101,4 +102,24 @@ function Row() {
       <button id="inside">Inside</button>
     </div>
   );
+}
+
+export function Settled({
+  readKey,
+  read,
+  seen,
+}: {
+  readonly readKey: string | null;
+  readonly read: (key: string) => Promise<string>;
+  readonly seen: (shown: string) => void;
+}) {
+  const settled = useSettled(readKey, read);
+  seen(
+    settled === null
+      ? 'none'
+      : settled.kind === 'ready'
+        ? settled.value
+        : 'failed',
+  );
+  return null;
 }

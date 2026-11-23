@@ -16,6 +16,12 @@ export type DialogProps = {
   readonly modal?: boolean;
   /** Takes focus on opening; otherwise the platform's first control. */
   readonly initialFocus?: RefObject<HTMLElement | null>;
+  /**
+   * Takes focus back on closing. Without it focus returns to the control
+   * that opened the dialog; give one when the dialog may open with nothing
+   * focused (shown on arrival, or opened by a click that focuses nothing).
+   */
+  readonly returnFocus?: RefObject<HTMLElement | null>;
   /** A press on the backdrop closes a modal. */
   readonly closeOnBackdrop?: boolean;
   /** Another part of the page asked for this dialog (`requestDialog`). */
@@ -32,13 +38,21 @@ export function Dialog({
   onClose,
   modal = true,
   initialFocus,
+  returnFocus,
   closeOnBackdrop = false,
   onOpenRequested,
   onClick,
   ...attributes
 }: DialogProps) {
   const dialog = useRef<HTMLDialogElement>(null);
-  useModal(dialog, { open, modal, onClose, initialFocus, onOpenRequested });
+  useModal(dialog, {
+    open,
+    modal,
+    onClose,
+    initialFocus,
+    returnFocus,
+    onOpenRequested,
+  });
   return (
     <dialog
       {...attributes}
