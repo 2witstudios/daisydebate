@@ -33,7 +33,6 @@ export const messagingDmRequestStates = [
   'declined',
   'cancelled',
 ] as const;
-export type MessagingDmRequestState = (typeof messagingDmRequestStates)[number];
 /** A group invitation's lifecycle: sent, then answered or withdrawn once. */
 export const messagingGroupInvitationStates = [
   'pending',
@@ -41,8 +40,6 @@ export const messagingGroupInvitationStates = [
   'declined',
   'cancelled',
 ] as const;
-export type MessagingGroupInvitationState =
-  (typeof messagingGroupInvitationStates)[number];
 
 export const messagingDmResultSchema = z.strictObject({
   version: z.literal(1),

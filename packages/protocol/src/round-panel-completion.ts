@@ -55,12 +55,11 @@ export const judgingJobStatuses = [
   'succeeded',
   'failed',
 ] as const;
-export type JudgingJobStatus = (typeof judgingJobStatuses)[number];
 
 /** One judging job as read; the engine decides what it means. */
 export type JudgingJobFacts = {
   readonly judgeParticipantId: string;
-  readonly status: JudgingJobStatus;
+  readonly status: (typeof judgingJobStatuses)[number];
   readonly generationDeadlineAt: string;
   readonly holdsBallot: boolean;
 };

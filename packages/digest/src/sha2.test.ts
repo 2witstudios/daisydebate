@@ -9,6 +9,7 @@ import {
   sha256Hex,
   sha256Stream,
 } from './index';
+import { standaloneHmacSha256Hex } from './standalone';
 
 setupRitewayBun();
 
@@ -79,5 +80,14 @@ test('SHA-1 serves only the WebSocket accept value', () => {
       'dGhlIHNhbXBsZSBub25jZQ==258EAFA5-E914-47DA-95CA-C5AB0DC85B11',
     ),
     expected: 's3pPLMBiTxaQ9kYGzzhZRbK+xOo=',
+  });
+});
+
+test('the standalone HMAC for the uninstalled Incidents poster matches', () => {
+  assert({
+    given: 'the Incidents signing key and a message',
+    should: 'give the bytes the package HMAC gives',
+    actual: standaloneHmacSha256Hex('incidents-secret', 'v0:1:{"a":1}'),
+    expected: hmacSha256Hex('incidents-secret', 'v0:1:{"a":1}'),
   });
 });

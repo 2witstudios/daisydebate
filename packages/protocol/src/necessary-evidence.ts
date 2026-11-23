@@ -10,7 +10,6 @@ export const necessaryEvidenceStates = [
   'retiring',
   'retired',
 ] as const;
-export type NecessaryEvidenceState = (typeof necessaryEvidenceStates)[number];
 
 export const necessaryEvidencePolicy = {
   maxAgeMs: 7 * 24 * 60 * 60 * 1000,

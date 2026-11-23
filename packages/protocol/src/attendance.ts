@@ -16,7 +16,6 @@ export const checkInAttemptStates = [
   'committed',
   'aborted',
 ] as const;
-export type CheckInAttemptState = (typeof checkInAttemptStates)[number];
 
 export const attendanceRefusalSchema = z.enum([
   'attendance-terminal',

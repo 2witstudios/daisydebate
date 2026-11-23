@@ -88,7 +88,7 @@ export const sha1Base64 = (value: Input): string =>
   base64(sha1(bytesOf(value)));
 
 /** HMAC-SHA256 bytes of `message` under `key`. */
-export const hmacSha256 = (key: Input, message: Input): Uint8Array =>
+const hmacSha256 = (key: Input, message: Input): Uint8Array =>
   hmac(sha256, bytesOf(key), bytesOf(message));
 
 /** HMAC-SHA256 as lowercase hex. */

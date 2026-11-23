@@ -27,7 +27,6 @@ const utteranceFields = {
 export const transcriptCompletenesses = ['complete', 'incomplete'] as const;
 /** A speech's captured stream: open while captured, then complete or partial. */
 export const transcriptStreamStates = ['open', 'complete', 'partial'] as const;
-export type TranscriptStreamState = (typeof transcriptStreamStates)[number];
 export const roundUtteranceSchema = z.strictObject(utteranceFields);
 /** Raised only when an open tab could not render the new reply correctly. */
 export const TRANSCRIPT_CONTRACT_VERSION = 1;

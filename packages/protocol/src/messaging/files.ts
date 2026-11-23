@@ -15,7 +15,6 @@ export const messagingFileLifecycles = [
   'deleting',
   'deleted',
 ] as const;
-export type MessagingFileLifecycle = (typeof messagingFileLifecycles)[number];
 
 export function createMessagingFileSchemas(bounds: {
   readonly maxFileBytes: number;

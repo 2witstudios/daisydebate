@@ -1,5 +1,5 @@
 #!/usr/bin/env bun
-import { hmacSha256Hex } from '@daisy/digest';
+import { standaloneHmacSha256Hex } from '../packages/digest/src/standalone';
 import { assessEventText } from './docs-contracts';
 
 /**
@@ -54,7 +54,7 @@ export function signPayload(
   rawBody: string,
 ): string {
   const message = `v0:${timestampSeconds}:${rawBody}`;
-  return 'v0=' + hmacSha256Hex(secret, message);
+  return 'v0=' + standaloneHmacSha256Hex(secret, message);
 }
 
 function taskList(taskIds: string[]): string {
