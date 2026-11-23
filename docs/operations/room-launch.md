@@ -1,7 +1,7 @@
 # Room assembly and Launch
 
-The canonical Room HTTP producer composes through `createApp` and
-`createRoutes`. Its explicit `roomPolicy` injection supplies the consent
+The canonical Room HTTP producer composes through `createApp` and the Room
+feature's composition (`roomComposition`). Its explicit `roomPolicy` injection supplies the consent
 lease duration, open Rooms per host, body bound, and create/read/command
 rate limits. The ordinary process currently supplies no Room policy and
 returns a masked unavailable response. Browser and durable proofs supply

@@ -4,6 +4,7 @@ import { createTestApp, type TestApp } from './fixtures';
 import { elapse, recipientBucket, statuses } from './auth-rate-limit-helpers';
 import { CLIENT_IP_HEADER } from '@daisy/ingress/client-ip';
 import { requireTestServices } from '@daisy/config';
+import { authComposition } from '../src/features/auth/composition';
 
 requireTestServices(process.env);
 setupRitewayBun();
@@ -29,9 +30,11 @@ const magicLink = (
   headers: Record<string, string> = {},
   email = globalApp.freshEmail(),
 ) =>
-  globalApp.routes.auth.POST(
-    globalApp.jsonPost('/api/auth/sign-in/magic-link', { email }, headers),
-  );
+  globalApp
+    .routes(authComposition)
+    .POST(
+      globalApp.jsonPost('/api/auth/sign-in/magic-link', { email }, headers),
+    );
 
 describe('ISSUE-5 AC4 per-recipient and global mail-volume ceilings', () => {
   test('one recipient across many clients: the real hour ceiling denies the eleventh', async () => {
@@ -42,13 +45,15 @@ describe('ISSUE-5 AC4 per-recipient and global mail-volume ceilings', () => {
       // buckets keep their real Redis counts.
       await elapse(hourApp, recipientKey(hourApp, email, 60));
       responses.push(
-        await hourApp.routes.auth.POST(
-          hourApp.jsonPost(
-            '/api/auth/sign-in/magic-link',
-            { email },
-            { [CLIENT_IP_HEADER]: hourApp.newClient() },
+        await hourApp
+          .routes(authComposition)
+          .POST(
+            hourApp.jsonPost(
+              '/api/auth/sign-in/magic-link',
+              { email },
+              { [CLIENT_IP_HEADER]: hourApp.newClient() },
+            ),
           ),
-        ),
       );
     }
     assert({
@@ -76,13 +81,15 @@ describe('ISSUE-5 AC4 per-recipient and global mail-volume ceilings', () => {
         recipientKey(dayApp, email, 3_600),
       );
       responses.push(
-        await dayApp.routes.auth.POST(
-          dayApp.jsonPost(
-            '/api/auth/sign-in/magic-link',
-            { email },
-            { [CLIENT_IP_HEADER]: dayApp.newClient() },
+        await dayApp
+          .routes(authComposition)
+          .POST(
+            dayApp.jsonPost(
+              '/api/auth/sign-in/magic-link',
+              { email },
+              { [CLIENT_IP_HEADER]: dayApp.newClient() },
+            ),
           ),
-        ),
       );
     }
     assert({
@@ -109,13 +116,15 @@ describe('ISSUE-5 AC4 per-recipient and global mail-volume ceilings', () => {
       responses.push(
         ...(await Promise.all(
           Array.from({ length: Math.min(100, 3_001 - sent) }, () =>
-            globalDayApp.routes.auth.POST(
-              globalDayApp.jsonPost(
-                '/api/auth/sign-in/magic-link',
-                { email: globalDayApp.freshEmail() },
-                { [CLIENT_IP_HEADER]: globalDayApp.newClient() },
+            globalDayApp
+              .routes(authComposition)
+              .POST(
+                globalDayApp.jsonPost(
+                  '/api/auth/sign-in/magic-link',
+                  { email: globalDayApp.freshEmail() },
+                  { [CLIENT_IP_HEADER]: globalDayApp.newClient() },
+                ),
               ),
-            ),
           ),
         )),
       );

@@ -1,5 +1,5 @@
 import { emptyRuntimeCheckpointFor } from '@daisy/protocol/round';
-import { frozenJudgingFor } from '../src/round-judging-freeze';
+import { frozenJudgingFor } from '@daisy/protocol/ballot-definition';
 import { createId } from '@paralleldrive/cuid2';
 import type { Fixture } from './constraint-helpers';
 import { validRules } from './round-fixtures';
@@ -53,6 +53,8 @@ export const completed = async (
     outcome: string;
     seasonId: string;
     visibility?: 'public' | 'private';
+    /** Another standing pool than Open's: its ladder and lobby. */
+    pool?: { readonly ladder: string; readonly lobby: string };
   },
 ) => {
   // A ranked round is constructed from a sanctioned preset, so it pins one.
@@ -72,8 +74,8 @@ export const completed = async (
       winning_side: input.outcome,
       runtime_state: emptyRuntimeCheckpointFor(validRules),
       judging: frozenJudgingFor(validRules),
-      ladder_id: input.formatId,
-      rating_lobby_id: publicLobbyId,
+      ladder_id: input.pool?.ladder ?? input.formatId,
+      rating_lobby_id: input.pool?.lobby ?? publicLobbyId,
       season_id: input.seasonId,
       visibility: input.visibility ?? null,
       ...(await openDivision(fixture, 'rounds', 'ladder_division')),

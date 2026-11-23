@@ -6,11 +6,22 @@ import {
   ownedClaim,
   seat,
 } from './control-service.test-support';
-import { failureLog, manualTimers } from '../../lib/worker-timers.test-support';
+import {
+  failureLog,
+  inertWaits,
+  manualWaits,
+} from '../../lib/manual-waits.test-support';
 import { within } from '../../lib/deadline.test-support';
 setupRitewayBun();
 
-const limits = { maxControllers: 2, scanBatch: 4, scanMs: 500, renewMs: 3000 };
+const limits = {
+  maxControllers: 2,
+  scanBatch: 4,
+  scanMs: 500,
+  checkInMs: 3000,
+  renewMs: 4000,
+  leaseMs: 15000,
+};
 
 test('a stop that overruns its deadline is reported, and the seat is revoked and claimed again (ISSUE-789)', async () => {
   const { failures, failed } = failureLog();
@@ -19,7 +30,7 @@ test('a stop that overruns its deadline is reported, and the seat is revoked and
   let deadlines = 0;
   const incoming = Promise.withResolvers<void>();
   let segment = 'first';
-  const { tasks, timers } = manualTimers();
+  const { tasks, waits } = manualWaits();
   const service = startBotControlService({
     store: {
       scanRoundBotWorkers: async () => [seat('seat', segment)],
@@ -30,6 +41,7 @@ test('a stop that overruns its deadline is reported, and the seat is revoked and
       revokeRoundBotWorker: async (scope) => {
         log.push(`revoke:${scope.segmentId}`);
       },
+      renewRoundBotWorker: async () => {},
       verifyRoundBotWorker: async () => {},
     },
     control: (claim) => ({
@@ -44,7 +56,7 @@ test('a stop that overruns its deadline is reported, and the seat is revoked and
           : Promise.resolve(),
     }),
     limits,
-    timers,
+    waits,
     // Each ending has its own deadline; only the outgoing one trips.
     overdue: () => (deadlines++ === 0 ? due.promise : neverOverdue()),
     failed,
@@ -80,12 +92,13 @@ test('an ending whose receipt pulse overruns blames the pulse, not the stop (ISS
   let segment = 'first',
     hang = false,
     deadlines = 0;
-  const { tasks, timers } = manualTimers();
+  const { tasks, waits } = manualWaits();
   const service = startBotControlService({
     store: {
       scanRoundBotWorkers: async () => [seat('seat', segment)],
       claimRoundBotWorker: async (target) => ownedClaim(target),
       revokeRoundBotWorker: async () => {},
+      renewRoundBotWorker: async () => {},
       verifyRoundBotWorker: async () => {},
     },
     control: (claim) => ({
@@ -97,7 +110,7 @@ test('an ending whose receipt pulse overruns blames the pulse, not the stop (ISS
       stop: async () => {},
     }),
     limits,
-    timers,
+    waits,
     overdue: () => (deadlines++ === 0 ? due.promise : neverOverdue()),
     failed,
   });
@@ -125,7 +138,7 @@ test('shutdown waits for a claim chained on an ending (ISSUE-789)', async () => 
   const claiming = Promise.withResolvers<void>();
   const answer = Promise.withResolvers<void>();
   let segment = 'first';
-  const { tasks, timers } = manualTimers();
+  const { tasks, waits } = manualWaits();
   const service = startBotControlService({
     store: {
       scanRoundBotWorkers: async () => [seat('seat', segment)],
@@ -139,11 +152,12 @@ test('shutdown waits for a claim chained on an ending (ISSUE-789)', async () => 
       revokeRoundBotWorker: async (scope) => {
         log.push(`revoke:${scope.segmentId}`);
       },
+      renewRoundBotWorker: async () => {},
       verifyRoundBotWorker: async () => {},
     },
     control: () => ({ pulse: async () => [], stop: async () => {} }),
     limits,
-    timers,
+    waits,
     overdue: neverOverdue,
     failed,
   });
@@ -171,12 +185,13 @@ test('a stop that fails after its overrun is reported once, as the overrun (ISSU
   const incoming = Promise.withResolvers<void>();
   let segment = 'first',
     deadlines = 0;
-  const { tasks, timers } = manualTimers();
+  const { tasks, waits } = manualWaits();
   const service = startBotControlService({
     store: {
       scanRoundBotWorkers: async () => [seat('seat', segment)],
       claimRoundBotWorker: async (target) => ownedClaim(target),
       revokeRoundBotWorker: async () => {},
+      renewRoundBotWorker: async () => {},
       verifyRoundBotWorker: async () => {},
     },
     control: (claim) => ({
@@ -192,7 +207,7 @@ test('a stop that fails after its overrun is reported once, as the overrun (ISSU
       },
     }),
     limits,
-    timers,
+    waits,
     overdue: () => (deadlines++ === 0 ? due.promise : neverOverdue()),
     failed,
   });
@@ -219,7 +234,7 @@ test('claims in flight count against maxControllers, and a failed handoff claim 
   const handing = Promise.withResolvers<void>();
   const release = Promise.withResolvers<void>();
   let targets = [seat('rotating', 'first')];
-  const { tasks, timers } = manualTimers();
+  const { tasks, waits } = manualWaits();
   const service = startBotControlService({
     store: {
       scanRoundBotWorkers: async () => targets,
@@ -233,11 +248,12 @@ test('claims in flight count against maxControllers, and a failed handoff claim 
         return ownedClaim(target);
       },
       revokeRoundBotWorker: async () => {},
+      renewRoundBotWorker: async () => {},
       verifyRoundBotWorker: async () => {},
     },
     control: () => ({ pulse: async () => [], stop: async () => {} }),
     limits: { ...limits, maxControllers: 1 },
-    timers,
+    waits,
     overdue: neverOverdue,
     failed,
   });
@@ -267,13 +283,14 @@ test('a claim whose seat cannot start is revoked at once (ISSUE-789)', async () 
       revokeRoundBotWorker: async (scope) => {
         revoked.push(scope.roundParticipantId);
       },
+      renewRoundBotWorker: async () => {},
       verifyRoundBotWorker: async () => {},
     },
     control: () => {
       throw broken;
     },
     limits,
-    timers: manualTimers().timers,
+    waits: inertWaits,
     overdue: neverOverdue,
     failed,
   });

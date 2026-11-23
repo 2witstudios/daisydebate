@@ -1,35 +1,35 @@
 import { createElement as h } from 'react';
-import { renderToString } from 'react-dom/server';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
+import { renderAccessible } from '../../../test-support/rendered/accessible';
 import { ProfileActions } from './profile-actions';
 
 setupRitewayBun();
 
 const render = (me: boolean) =>
-  renderToString(h(ProfileActions, { username: 'debater-a', me }));
+  renderAccessible(h(ProfileActions, { username: 'debater-a', me }));
 
 describe('ProfileActions', () => {
   test('your own profile', () => {
-    const html = render(true);
+    const view = render(true);
     assert({
       given: 'the owner of the profile',
       should: 'offer Edit profile, leading to Settings’ Profile section',
       actual: [
-        html.includes('>Edit profile<'),
-        html.includes('href="/settings#profile"'),
+        view.has('group', 'Your profile actions'),
+        view.attribute('link', 'Edit profile', 'href'),
       ],
-      expected: [true, true],
+      expected: [true, '/settings#profile'],
     });
   });
 
   test('someone else’s profile', () => {
-    const html = render(false);
+    const view = render(false);
     assert({
       given: 'another member’s profile',
       should: 'name the member and offer no edit link',
       actual: [
-        html.includes('aria-label="Actions for @debater-a"'),
-        html.includes('>Edit profile<'),
+        view.has('group', 'Actions for @debater-a'),
+        view.textContent().includes('Edit profile'),
       ],
       expected: [true, false],
     });
@@ -37,13 +37,13 @@ describe('ProfileActions', () => {
 
   test('actions toward another member', () => {
     const toward = (me: boolean) =>
-      renderToString(
+      renderAccessible(
         h(
           ProfileActions,
           { username: 'debater-a', me },
           h('button', null, 'Add friend'),
         ),
-      ).includes('Add friend');
+      ).has('button', 'Add friend');
     assert({
       given: 'actions toward the member on their profile and on your own',
       should: 'show them only on someone else’s profile',

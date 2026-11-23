@@ -1,7 +1,7 @@
 import { ConversationPane } from '../../../../ui/messaging/conversation-pane';
 import { systemId } from '@daisy/clock';
-import { requireAccess } from '../../../../lib/access';
-import { privateGroupsOffered } from '../../../../lib/request-session';
+import { requireAccess } from '../../../../features/access/page-access';
+import { privateGroupsOffered } from '../../../../features/messaging/page-reads';
 import type { SearchParams } from '../../../../features/access/decision';
 import { ConversationCreation } from '../../../../ui/messaging/conversation-creation';
 import { createConversationAction } from './actions';

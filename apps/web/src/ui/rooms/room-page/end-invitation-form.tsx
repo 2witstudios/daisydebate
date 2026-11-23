@@ -1,14 +1,14 @@
 'use client';
 
 import { Button } from '../../components/button/button';
-import { StatusRegion } from '../../components/status-region/status-region';
+import { Announcement } from '../../components/announcement/announcement';
 import {
   initialInvitationForm,
   invitationFields,
   invitationFormUnavailable,
   type InvitationFormState,
 } from '../../../features/room-invitations/submit';
-import { buttonClass } from '../../components/button/button-class';
+import type { ButtonLook } from '../../components/button/button-class';
 import {
   useFocusAfterAnswer,
   useFormAction,
@@ -29,13 +29,17 @@ export function EndInvitationForm({
   invitationId,
   label,
   focusAfterAnswer,
-  className = buttonClass('secondary'),
+  look = { variant: 'secondary' },
+  className,
 }: {
   readonly action: FormAction<InvitationFormState>;
   readonly intent: 'withdraw' | 'decline';
   readonly invitationId: string;
   readonly label: string;
   readonly focusAfterAnswer: string;
+  /** The look of the list it sits in. */
+  readonly look?: ButtonLook;
+  /** Layout only. */
   readonly className?: string;
 }) {
   const [answer, post, pending] = useFormAction(
@@ -52,22 +56,17 @@ export function EndInvitationForm({
     <form action={post} className="flex items-center gap-2">
       <input type="hidden" name="intent" value={intent} />
       <input type="hidden" name="invitationId" value={invitationId} />
-      <Button
-        variant="unstyled"
-        type="submit"
-        className={className}
-        disabled={pending}
-      >
+      <Button {...look} type="submit" className={className} disabled={pending}>
         {label}
       </Button>
       {fields.notice ? (
-        <StatusRegion
+        <Announcement
           as="span"
-          role="status"
+          kind="progress"
           className="text-sm text-ink-muted"
         >
           {fields.notice}
-        </StatusRegion>
+        </Announcement>
       ) : null}
     </form>
   );

@@ -1,5 +1,7 @@
 import { sql } from 'drizzle-orm';
-import type { AdminExecutor } from './client';
+import { z } from 'zod';
+import { query } from './raw-rows';
+import type { AdminTx } from './tx';
 
 /**
  * The admin app serves only as `daisy_admin_app` (ADR 0077): a role that
@@ -7,8 +9,11 @@ import type { AdminExecutor } from './client';
  * the audit chain), is refused at startup. The catalog is read for
  * `current_user`; membership counts as ownership.
  */
-export async function schemaPowers(db: AdminExecutor): Promise<string[]> {
-  const rows = (await db.execute(sql`
+export async function schemaPowers(db: AdminTx): Promise<string[]> {
+  const rows = await query(
+    db,
+    z.object({ powers: z.array(z.string()) }),
+    sql`
     select array_remove(array[
       case when r.rolsuper then 'is a superuser' end,
       case when has_schema_privilege('public', 'CREATE')
@@ -22,7 +27,8 @@ export async function schemaPowers(db: AdminExecutor): Promise<string[]> {
       ) then 'owns admin tables' end
     ], null) as powers
     from pg_roles r where r.rolname = current_user
-  `)) as unknown as { powers: string[] }[];
+  `,
+  );
   return rows[0]?.powers ?? ['is not a known role'];
 }
 

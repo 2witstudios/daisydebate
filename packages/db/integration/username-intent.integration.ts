@@ -1,12 +1,26 @@
+import { createOnboardingStore } from '../src/stores/onboarding';
+import { openDatabaseResources } from '../src/resources';
+import { hostWaits } from '@daisy/worker/host';
 import { createId } from '@paralleldrive/cuid2';
 import { requireTestServices } from '@daisy/config';
 import { assertRejects } from '@daisy/errors/testing';
 import { drizzle } from 'drizzle-orm/bun-sql';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { createDatabase } from '../src';
 import { actorOperations } from '../src/actor-operations';
 import { createAuthorizationSubject } from './authorization.test-support';
 import { withFixture } from './constraint-helpers';
+/** This file's database: the area stores it reads, over one set of resources. */
+const openStores = (
+  options: Parameters<typeof openDatabaseResources>[0] & {
+    readonly nextActorId: () => string;
+  },
+) => {
+  const resources = openDatabaseResources(options);
+  return {
+    ...createOnboardingStore(resources, { nextId: options.nextActorId }),
+    close: resources.close,
+  };
+};
 
 setupRitewayBun();
 const { databaseUrl } = requireTestServices(process.env);
@@ -14,7 +28,8 @@ const { databaseUrl } = requireTestServices(process.env);
 test('public username intent follows verified human binding and account erasure', async () => {
   await withFixture(databaseUrl, async (fixture) => {
     const { userId, actorId } = await createAuthorizationSubject(fixture);
-    const database = createDatabase({
+    const database = openStores({
+      waits: hostWaits,
       url: databaseUrl,
       client: fixture.sql,
       nextActorId: createId,

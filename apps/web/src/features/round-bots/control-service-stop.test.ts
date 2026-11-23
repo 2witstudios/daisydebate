@@ -2,7 +2,7 @@ import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createAppError } from '@daisy/errors';
 import { startBotControlService } from './control-service';
 import { neverOverdue, ownedClaim } from './control-service.test-support';
-import { failureLog, manualTimers } from '../../lib/worker-timers.test-support';
+import { failureLog, manualWaits } from '../../lib/manual-waits.test-support';
 import { within } from '../../lib/deadline.test-support';
 setupRitewayBun();
 
@@ -15,12 +15,13 @@ test('a seat whose stop fails at completion never halts the other seats’ heart
     roundParticipantId: seat,
     segmentId: 's',
   }));
-  const { tasks, timers } = manualTimers();
+  const { tasks, waits } = manualWaits();
   const service = startBotControlService({
     store: {
       scanRoundBotWorkers: async () => targets,
       claimRoundBotWorker: async (target) => ownedClaim(target),
       revokeRoundBotWorker: async () => {},
+      renewRoundBotWorker: async () => {},
       verifyRoundBotWorker: async (scope) => {
         if (scope.roundParticipantId === 'ended')
           throw createAppError('CONFLICT', 'Worker lease expired');
@@ -38,8 +39,15 @@ test('a seat whose stop fails at completion never halts the other seats’ heart
         if (claim.scope.roundParticipantId === 'ended') throw stopFault;
       },
     }),
-    limits: { maxControllers: 2, scanBatch: 4, scanMs: 500, renewMs: 3000 },
-    timers,
+    limits: {
+      maxControllers: 2,
+      scanBatch: 4,
+      scanMs: 500,
+      checkInMs: 3000,
+      renewMs: 4000,
+      leaseMs: 15000,
+    },
+    waits,
     overdue: neverOverdue,
     failed,
   });
@@ -67,7 +75,7 @@ test('a rotated claim whose stop fails is still revoked and its next segment cla
   const stopFault = new Error('The operation was aborted.');
   let segment = 'first',
     leased = false;
-  const { tasks, timers } = manualTimers();
+  const { tasks, waits } = manualWaits();
   const service = startBotControlService({
     store: {
       scanRoundBotWorkers: async () => [
@@ -85,6 +93,7 @@ test('a rotated claim whose stop fails is still revoked and its next segment cla
         leased = false;
         log.push(`revoke:${scope.segmentId}`);
       },
+      renewRoundBotWorker: async () => {},
       verifyRoundBotWorker: async () => {},
     },
     control: (claim) => ({
@@ -96,8 +105,15 @@ test('a rotated claim whose stop fails is still revoked and its next segment cla
         if (claim.scope.segmentId === 'first') throw stopFault;
       },
     }),
-    limits: { maxControllers: 1, scanBatch: 4, scanMs: 500, renewMs: 3000 },
-    timers,
+    limits: {
+      maxControllers: 1,
+      scanBatch: 4,
+      scanMs: 500,
+      checkInMs: 3000,
+      renewMs: 4000,
+      leaseMs: 15000,
+    },
+    waits,
     overdue: neverOverdue,
     failed,
   });
@@ -127,12 +143,13 @@ test('a seat whose stop never settles never holds another seat’s renewal (ISSU
     roundParticipantId: seat,
     segmentId: 's',
   }));
-  const { tasks, timers } = manualTimers();
+  const { tasks, waits } = manualWaits();
   const service = startBotControlService({
     store: {
       scanRoundBotWorkers: async () => targets,
       claimRoundBotWorker: async (target) => ownedClaim(target),
       revokeRoundBotWorker: async () => {},
+      renewRoundBotWorker: async () => {},
       verifyRoundBotWorker: async (scope) => {
         if (ended && scope.roundParticipantId === 'ending')
           throw createAppError('CONFLICT', 'Worker lease expired');
@@ -152,8 +169,15 @@ test('a seat whose stop never settles never holds another seat’s renewal (ISSU
         return new Promise<void>(() => {});
       },
     }),
-    limits: { maxControllers: 2, scanBatch: 4, scanMs: 500, renewMs: 3000 },
-    timers,
+    limits: {
+      maxControllers: 2,
+      scanBatch: 4,
+      scanMs: 500,
+      checkInMs: 3000,
+      renewMs: 4000,
+      leaseMs: 15000,
+    },
+    waits,
     overdue: neverOverdue,
     failed,
   });
@@ -179,7 +203,7 @@ test('a heartbeat during a rotation never pulses the outgoing claim or drops the
   const stopping = Promise.withResolvers<void>();
   const release = Promise.withResolvers<void>();
   let segment = 'first';
-  const { tasks, timers } = manualTimers();
+  const { tasks, waits } = manualWaits();
   const service = startBotControlService({
     store: {
       scanRoundBotWorkers: async () => [
@@ -189,6 +213,7 @@ test('a heartbeat during a rotation never pulses the outgoing claim or drops the
       revokeRoundBotWorker: async (scope) => {
         revoked.add(scope.segmentId);
       },
+      renewRoundBotWorker: async () => {},
       verifyRoundBotWorker: async (scope) => {
         if (revoked.has(scope.segmentId))
           throw createAppError('CONFLICT', 'Worker claim rotated');
@@ -208,8 +233,15 @@ test('a heartbeat during a rotation never pulses the outgoing claim or drops the
         await release.promise;
       },
     }),
-    limits: { maxControllers: 1, scanBatch: 4, scanMs: 500, renewMs: 3000 },
-    timers,
+    limits: {
+      maxControllers: 1,
+      scanBatch: 4,
+      scanMs: 500,
+      checkInMs: 3000,
+      renewMs: 4000,
+      leaseMs: 15000,
+    },
+    waits,
     overdue: neverOverdue,
     failed,
   });

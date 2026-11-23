@@ -1,4 +1,7 @@
+import { organizationKinds } from '@daisy/protocol/lobby';
+import { listedWord } from './lifecycle-sql';
 import type { SQL } from 'bun';
+import type { Waits } from '@daisy/clock';
 import { createId } from '@paralleldrive/cuid2';
 import { sql } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/bun-sql/postgres';
@@ -33,15 +36,18 @@ export async function fundTestClub(
     readonly seats: number;
     readonly policies: BillingPurchasePolicies;
     readonly grants: GrantProjections;
+    /** The time the club's transactions are bounded on. */
+    readonly waits: Waits;
   },
 ) {
   const run = createBoundedTransaction({
-    lane: createLane('control', client, {
-      connections: 4,
-      queue: 16,
-      maxWaitMs: 5_000,
-    }),
-    now: performance.now,
+    lane: createLane(
+      'control',
+      client,
+      { connections: 4, queue: 16, maxWaitMs: 5_000 },
+      { waits: input.waits },
+    ),
+    waits: input.waits,
   });
   const organizationId = createId();
   await inTransaction(drizzle({ client }), async (tx) => {
@@ -49,7 +55,7 @@ export async function fundTestClub(
     await runStatement(
       tx,
       sql`insert into organizations (id, kind, name, handle, owner_user_id)
-      values (${organizationId}, 'school', ${input.name}, ${`club-${organizationId}`}, ${input.owner.userId})`,
+      values (${organizationId}, ${listedWord(organizationKinds, 'school')}, ${input.name}, ${`club-${organizationId}`}, ${input.owner.userId})`,
     );
     await runStatement(
       tx,

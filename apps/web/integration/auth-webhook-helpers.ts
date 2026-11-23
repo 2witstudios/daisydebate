@@ -1,13 +1,14 @@
-import { createHmac } from 'node:crypto';
+import { hmacSha256Base64 } from '@daisy/digest';
 import { afterAll } from 'bun:test';
 import { createId } from '@paralleldrive/cuid2';
 import { createTestApp, webhookSecret, withSql } from './fixtures';
 import { deriveRecipientSubkey } from '../src/features/mail/recipient-key';
+import { authComposition } from '../src/features/auth/composition';
+import { confirmComposition } from '../src/features/auth/composition';
+import { mailWebhookComposition } from '../src/features/mail/composition';
 
 const sign = (id: string, timestamp: string, body: string) =>
-  `v1,${createHmac('sha256', Buffer.from(webhookSecret.slice(6), 'base64'))
-    .update(`${id}.${timestamp}.${body}`)
-    .digest('base64')}`;
+  `v1,${hmacSha256Base64(Buffer.from(webhookSecret.slice(6), 'base64'), `${id}.${timestamp}.${body}`)}`;
 
 /** A provider delivery exactly as Resend would sign it (payload holds the recipient). */
 export const providerEvent = (
@@ -65,7 +66,7 @@ export function createMailSuite() {
   const messageIds: string[] = [];
   const requestLink = async (email: string) => {
     const before = mailbox.mails.length;
-    const response = await routes.auth.POST(
+    const response = await routes(authComposition).POST(
       jsonPost('/api/auth/sign-in/magic-link', { email }),
     );
     const mail = mailbox.mails[before];
@@ -84,9 +85,9 @@ export function createMailSuite() {
     mailbox,
     jsonPost,
     formPost,
-    authRoute: routes.auth,
-    confirmRoute: routes.confirm,
-    webhookRoute: routes.mailWebhook,
+    authRoute: routes(authComposition),
+    confirmRoute: routes(confirmComposition),
+    webhookRoute: routes(mailWebhookComposition),
     recipientSubkey,
     messageIds,
     fresh: freshEmail,

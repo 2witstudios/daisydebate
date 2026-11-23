@@ -9,7 +9,6 @@ import { viewerPulseSchema } from '@daisy/protocol/audience';
 import { createAppError } from '@daisy/errors';
 import { presentedLinkHash } from '../audience-link/audience-link';
 import { admitAudience } from '../spectating/read-timeline';
-import { roundIdOf } from '../../server/account-route';
 import {
   handleOperation,
   parseValidated,
@@ -84,7 +83,7 @@ export function createViewerPulseRoute(deps: {
     readRoundAudienceLink: (roundId: string) =>
       links(roundId, () => deps.store.readRoundAudienceLink(roundId)),
   };
-  return (request: Request) =>
+  return (request: Request, roundId: string) =>
     handleOperation(
       deps.logger,
       request,
@@ -92,7 +91,6 @@ export function createViewerPulseRoute(deps: {
       () =>
         answerUnlessRefused(async () => {
           requireSameOrigin(request, deps.origin());
-          const roundId = roundIdOf(request);
           if (!idSchema.safeParse(roundId).success)
             throw createAppError('NOT_FOUND');
           await consumeOrThrow(

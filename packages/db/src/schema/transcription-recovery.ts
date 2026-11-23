@@ -1,3 +1,4 @@
+import { listedWord } from '../lifecycle-sql';
 import { sql } from 'drizzle-orm';
 import {
   bigint,
@@ -10,6 +11,25 @@ import {
 import { createdAtColumn, oneOf, timestampColumn } from './columns';
 import { rounds } from './rounds';
 import { necessaryEvidence } from './necessary-evidence';
+
+export const transcriptionRecoveryStatuses = [
+  'collecting',
+  'queued',
+  'leased',
+  'retry',
+  'blocked',
+  'selected',
+  'erased',
+  'expired',
+] as const;
+const transcriptionRecoveryBlockedReasons = [
+  'provider',
+  'budget',
+  'quality',
+  'privacy',
+  'expired',
+  'unreceived',
+] as const;
 
 /** Private recognition work. No provisional text, PCM or provider reply is stored here. */
 export const transcriptionRecoveryContexts = pgTable(
@@ -28,16 +48,7 @@ export const transcriptionRecoveryContexts = pgTable(
     lastSequence: bigint('last_sequence', { mode: 'number' }).notNull(),
     units: integer('units').notNull(),
     status: text('status')
-      .$type<
-        | 'collecting'
-        | 'queued'
-        | 'leased'
-        | 'retry'
-        | 'blocked'
-        | 'selected'
-        | 'erased'
-        | 'expired'
-      >()
+      .$type<(typeof transcriptionRecoveryStatuses)[number]>()
       .notNull(),
     lastSourceAt: timestampColumn('last_source_at').notNull(),
     nextAttemptAt: timestampColumn('next_attempt_at').notNull().defaultNow(),
@@ -49,9 +60,10 @@ export const transcriptionRecoveryContexts = pgTable(
     attempts: integer('attempts').notNull().default(0),
     model: text('model'),
     policyDigest: text('policy_digest'),
-    blockedReason: text('blocked_reason').$type<
-      'provider' | 'budget' | 'quality' | 'privacy' | 'expired' | 'unreceived'
-    >(),
+    blockedReason:
+      text('blocked_reason').$type<
+        (typeof transcriptionRecoveryBlockedReasons)[number]
+      >(),
     selectedRevision: integer('selected_revision'),
     selectedDigest: text('selected_digest'),
     selectedAt: timestampColumn('selected_at'),
@@ -66,16 +78,7 @@ export const transcriptionRecoveryContexts = pgTable(
     index('transcription_recovery_due_idx').on(table.nextAttemptAt, table.id),
     check(
       'transcription_recovery_status_check',
-      oneOf(table.status, [
-        'collecting',
-        'queued',
-        'leased',
-        'retry',
-        'blocked',
-        'selected',
-        'erased',
-        'expired',
-      ]),
+      oneOf(table.status, transcriptionRecoveryStatuses),
     ),
     check(
       'transcription_recovery_source_check',
@@ -84,8 +87,8 @@ export const transcriptionRecoveryContexts = pgTable(
     check(
       'transcription_recovery_claim_check',
       sql`${table.claimEpoch}>=0 and ${table.attempts}>=0 and (
-    (${table.status}='leased' and ${table.workerId} is not null and ${table.leaseDigest} is not null and ${table.leaseDigest} ~ '^[a-f0-9]{64}$' and ${table.leaseExpiresAt} is not null and ${table.claimEpoch}>0)
-    or (${table.status}<>'leased' and ${table.leaseDigest} is null and ${table.leaseExpiresAt} is null))`,
+    (${table.status}=${listedWord(transcriptionRecoveryStatuses, 'leased')} and ${table.workerId} is not null and ${table.leaseDigest} is not null and ${table.leaseDigest} ~ '^[a-f0-9]{64}$' and ${table.leaseExpiresAt} is not null and ${table.claimEpoch}>0)
+    or (${table.status}<>${listedWord(transcriptionRecoveryStatuses, 'leased')} and ${table.leaseDigest} is null and ${table.leaseExpiresAt} is null))`,
     ),
     check(
       'transcription_recovery_model_check',
@@ -93,11 +96,11 @@ export const transcriptionRecoveryContexts = pgTable(
     ),
     check(
       'transcription_recovery_blocked_check',
-      sql`(${table.status}='blocked')=(${table.blockedReason} is not null) and (${table.blockedReason} is null or ${oneOf(table.blockedReason, ['provider', 'budget', 'quality', 'privacy', 'expired', 'unreceived'])})`,
+      sql`(${table.status}=${listedWord(transcriptionRecoveryStatuses, 'blocked')})=(${table.blockedReason} is not null) and (${table.blockedReason} is null or ${oneOf(table.blockedReason, transcriptionRecoveryBlockedReasons)})`,
     ),
     check(
       'transcription_recovery_selection_check',
-      sql`(${table.status}='selected' and ${table.selectedRevision} is not null and ${table.selectedRevision}>=0 and ${table.selectedDigest} is not null and ${table.selectedDigest} ~ '^[a-f0-9]{64}$' and ${table.selectedAt} is not null) or (${table.status}<>'selected' and ${table.selectedRevision} is null and ${table.selectedDigest} is null and ${table.selectedAt} is null)`,
+      sql`(${table.status}=${listedWord(transcriptionRecoveryStatuses, 'selected')} and ${table.selectedRevision} is not null and ${table.selectedRevision}>=0 and ${table.selectedDigest} is not null and ${table.selectedDigest} ~ '^[a-f0-9]{64}$' and ${table.selectedAt} is not null) or (${table.status}<>${listedWord(transcriptionRecoveryStatuses, 'selected')} and ${table.selectedRevision} is null and ${table.selectedDigest} is null and ${table.selectedAt} is null)`,
     ),
   ],
 );

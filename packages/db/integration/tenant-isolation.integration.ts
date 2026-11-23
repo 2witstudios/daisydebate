@@ -1,18 +1,18 @@
+import { createHealthStore } from '../src/stores/health';
+import { openDatabaseResources } from '../src/resources';
+import { hostWaits } from '@daisy/worker/host';
 import { afterAll } from 'bun:test';
+import { readdir } from 'node:fs/promises';
 import { SQL } from 'bun';
-import { createId } from '@paralleldrive/cuid2';
 import { assert, test } from 'riteway/bun';
-import { createDatabase } from '../src/index';
 import {
   tenantIsolationFactsSql,
   tenantIsolationProblems,
   type TenantTableFacts,
-} from '../src/tenant-isolation';
-import {
   tenantDefinerFactsSql,
   tenantDefinerProblems,
   type TenantDefinerFacts,
-} from '../src/tenant-definers';
+} from '../src/tenant-isolation';
 import { tenantIsolationManifest } from '../src/tenant-isolation-manifest';
 import {
   ddlTimeoutMs,
@@ -20,10 +20,18 @@ import {
 } from './scratch-migrations.test-support';
 import { integrationSuite } from './suite.test-support';
 import { inRolledBackTransaction } from './tab.test-support';
+/** This file's database: the area stores it reads, over one set of resources. */
+const openStores = (options: Parameters<typeof openDatabaseResources>[0]) => {
+  const resources = openDatabaseResources(options);
+  return {
+    ...createHealthStore(resources),
+    close: resources.close,
+  };
+};
 
 const { databaseUrl: url } = integrationSuite();
 
-const schema = '20261117122348_tab_schema';
+const migrationsFolder = new URL('../migrations', import.meta.url).pathname;
 const scratch = scratchDatabase(url, 'tenantisolation');
 afterAll(() => scratch.drop());
 
@@ -50,7 +58,10 @@ const problemsOf = async (
  * `bun doctor` read it.
  */
 test('the migrated schema is fenced exactly as the manifest declares', async () => {
-  const database = createDatabase({ url, nextActorId: createId });
+  const database = openStores({
+    waits: hostWaits,
+    url,
+  });
   try {
     assert({
       given: 'every committed migration applied to an empty database',
@@ -64,95 +75,30 @@ test('the migrated schema is fenced exactly as the manifest declares', async () 
 });
 
 test(
-  'the isolation check passes after each migration step, and not before the schema exists',
+  'the isolation check passes after the baseline and after each later folder, and not before the schema exists',
   async () => {
     await scratch.create();
-    await scratch.migrate((folder) => folder < schema);
     const before = await problemsOf(scratch.url);
-    await scratch.migrate((folder) => folder <= schema);
-    // The original schema predates protected-person history and league extensions. Verify its own
-    // two-scope contract, then the current contract after the forward migration.
-    const originalTables = tenantIsolationManifest.tables
-      .filter(
-        (table) =>
-          ![
-            'tournament_sponsorship_versions',
-            'tournament_capture_admissions',
-            'tournament_hosting_purchases',
-            'fixture_room_sources',
-            'league_schools',
-            'membership_periods',
-            'tournament_rating_snapshots',
-            // Club seats arrive later (ADR 0148).
-            'club_seats',
-            'club_seat_invitations',
-            // Media releases arrive later (ADR 0151).
-            'media_release_club_attestations',
-            'guardian_consent_evidence',
-            'child_account_requests',
-            // Protection levels and approval holds arrive later (ADR 0165).
-            'protection_levels',
-            'friend_guardian_approvals',
-            'restriction_lobby_waivers',
-            // Rating state gains a lobby key and isolation in LL-2.
-            'ratings',
-            'rating_changes',
-          ].includes(table.table),
-      )
-      .map((table) =>
-        table.table === 'action_history'
-          ? { ...table, key: 'either' as const }
-          : table.table === 'guardian_links' ||
-              table.table === 'restriction_lobbies'
-            ? {
-                table: table.table,
-                key: 'person' as const,
-                subject: 'guardian' as const,
-              }
-            : table,
-      );
-    const afterSchema = await problemsOf(scratch.url, {
-      ...tenantIsolationManifest,
-      tables: [
-        ...originalTables,
-        { table: 'restrictions', key: 'person', subject: 'guardian' },
-      ],
-      exempt: [
-        ...tenantIsolationManifest.exempt.filter(
-          (entry) => entry.table !== 'media_release_club_asks',
-        ),
-        {
-          table: 'ratings',
-          reason: 'The pre-LL-2 projection was public across ladders.',
-        },
-        {
-          table: 'rating_changes',
-          reason: 'The pre-LL-2 ledger had no tenant key.',
-        },
-      ],
-    });
-    await scratch.migrate(() => true);
-    const afterAllFolders = await problemsOf(scratch.url);
+    const folders = (await readdir(migrationsFolder)).sort();
+    const after: (readonly string[])[] = [];
+    for (const last of folders) {
+      await scratch.migrate((folder) => folder <= last);
+      after.push(await problemsOf(scratch.url));
+    }
     assert({
       given:
-        'a database migrated to the folder before the tab schema, then to it, then to the end',
+        'an empty database, then the baseline, then each committed folder after it in turn',
       should:
-        'report every declared table missing before, and nothing after each step',
+        'report every declared table missing before, and nothing after each folder',
       actual: {
-        before: before.length,
-        firstBefore: before[0],
-        afterSchema,
-        afterAllFolders,
+        undeclaredBefore: tenantIsolationManifest.tables
+          .map(({ table }) => `${table} is declared but does not exist`)
+          .filter((problem) => !before.includes(problem)),
+        after,
       },
       expected: {
-        before:
-          tenantIsolationManifest.tables.length +
-          // The media release club asks arrive later. Ratings and the ledger
-          // already exist here, with one additional unfenced-key diagnostic each.
-          3,
-        firstBefore: 'organizations is declared but does not exist',
-        afterSchema: [],
-        afterAllFolders: [],
+        undeclaredBefore: [],
+        after: folders.map(() => []),
       },
     });
   },

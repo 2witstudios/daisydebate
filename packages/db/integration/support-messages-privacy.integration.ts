@@ -1,6 +1,6 @@
 import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { supportMessagePrivacyAdopter } from '../src/support-messages';
+import { supportMessagePrivacyAdopter } from '../src/support-messages-privacy';
 import { exportThenErase, withPrivacySubject } from './privacy.test-support';
 
 setupRitewayBun();

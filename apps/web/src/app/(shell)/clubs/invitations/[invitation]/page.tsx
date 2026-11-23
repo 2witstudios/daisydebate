@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { claimedUsername } from '@daisy/auth';
-import { requireAccess } from '../../../../../lib/access';
+import { requireAccess } from '../../../../../features/access/page-access';
 import type { SearchParams } from '../../../../../features/access/decision';
 import { clubInvitationViewSchema } from '../../../../../features/clubs/views';
 import { ClubInvitationPage } from '../../../../../ui/clubs/invitation-page';
@@ -33,7 +33,7 @@ export default async function ClubInvitation({
   await requireClubRelease(identity);
   if (!reference.test(invitation)) notFound();
   const view = await readOwnRoute(
-    GET,
+    (request) => GET(request, { params: Promise.resolve({ invitation }) }),
     `/api/clubs/invitations/${invitation}`,
     clubInvitationViewSchema,
   );

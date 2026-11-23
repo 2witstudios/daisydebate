@@ -7,7 +7,7 @@ import {
   type MessagingSocialBounds,
 } from '@daisy/protocol/messaging/social';
 import { readJson } from '../../server/http';
-import { runEvaluatedRoute } from '../../server/member-boundary';
+import { runEvaluatedRoute } from '../auth/member-boundary';
 
 type Operation = (
   input: unknown,

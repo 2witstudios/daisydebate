@@ -1,5 +1,10 @@
-import { lifecycleSql, lifecycleSqlList } from './lifecycle-sql';
-import { overRoundStatuses, roundStatus } from '@daisy/protocol/round';
+import { roomVisibilities } from '@daisy/protocol/room-contract';
+import { lifecycleSql, lifecycleSqlList, listedWord } from './lifecycle-sql';
+import {
+  overRoundStatuses,
+  roundStatus,
+  competitionTypes,
+} from '@daisy/protocol/round';
 import { SPECTATOR_MARGIN_MS } from '@daisy/protocol/broadcast';
 import { sql } from 'drizzle-orm';
 import {
@@ -32,13 +37,13 @@ const factsOfRound = sql`(
   select 'result', r.id, r.completed_at where r.status=${lifecycleSql(roundStatus.completed)}
   union all
   select 'ballot', b.id, r.completed_at from ballots b
-    where b.round_id=r.id and r.competition_type='ranked' and r.status=${lifecycleSql(roundStatus.completed)}
+    where b.round_id=r.id and r.competition_type=${listedWord(competitionTypes, 'ranked')} and r.status=${lifecycleSql(roundStatus.completed)}
   union all
   select 'rating', c.id, greatest(c.occurred_at,r.completed_at)
     from daisy_round_rating_release_facts(r.id) c
   union all
   select 'caption', u.id, ${heardAt} from utterances u
-    where u.round_id=r.id and r.competition_type='ranked' and u.complete
+    where u.round_id=r.id and r.competition_type=${listedWord(competitionTypes, 'ranked')} and u.complete
       and ${captionKnownPublicSql({ segmentId: sql`u.segment_id`, createdAt: heardAt })}
 ) f`;
 
@@ -62,7 +67,7 @@ export async function recordFactReleases(
       case
         when b.released_through_at >= f.captured_at + ${margin} then 'watermark'
         when b.id is not null then 'broadcast_ended'
-        when r.competition_type = 'ranked' then 'clock_fallback'
+        when r.competition_type = ${listedWord(competitionTypes, 'ranked')} then 'clock_fallback'
         else 'no_broadcast'
       end
     from rounds r
@@ -79,7 +84,7 @@ export async function recordFactReleases(
 const unlogged = sql`not exists (
   select 1 from spectator_fact_releases l
   where l.round_id=r.id and l.kind=f.kind and l.fact_id=f.fact_id)`;
-const hasAudience = sql`r.room_id is not null and r.visibility in ('public','unlisted')`;
+const hasAudience = sql`r.room_id is not null and r.visibility in (${listedWord(roomVisibilities, 'public')},${listedWord(roomVisibilities, 'unlisted')})`;
 
 /**
  * The open Rounds with an audience holding a fact that has left and no row

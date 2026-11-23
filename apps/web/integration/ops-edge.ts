@@ -2,10 +2,13 @@ import type { AlertSnapshot } from '../src/features/ops/alert-state';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import type { App } from '../src/server/app';
-import type { Routes } from '../src/server/routes';
 import { createProductionServer } from '../src/server/server-wiring';
 import { origin } from './fixtures';
 import { requestFrom } from './socket-request';
+import { authComposition } from '../src/features/auth/composition';
+import { opsComposition } from '../src/features/ops/composition';
+import { ticketComposition } from '../src/features/realtime/composition';
+import { type Composer } from '../src/server/composition.test-support';
 
 /**
  * The composed app behind the server start.ts runs (`createProductionServer`
@@ -14,15 +17,17 @@ import { requestFrom } from './socket-request';
  * (ISSUE-173, ISSUE-190). Next's handler is stood in for by the same route
  * handlers the app binds.
  */
-const routeFor = (routes: Routes, method: string, path: string) => {
+const routeFor = (routes: Composer, method: string, path: string) => {
   if (path.startsWith('/api/auth/'))
-    return method === 'POST' ? routes.auth.POST : routes.auth.GET;
+    return method === 'POST'
+      ? routes(authComposition).POST
+      : routes(authComposition).GET;
   if (method === 'POST' && path === '/api/realtime/ticket')
-    return routes.ticket.POST;
+    return routes(ticketComposition).POST;
   if (method === 'GET' && path === '/api/ops/metrics')
-    return routes.ops.metrics.GET;
+    return routes(opsComposition).ops.metrics.GET;
   if (method === 'GET' && path === '/api/ops/alerts')
-    return routes.ops.alerts.GET;
+    return routes(opsComposition).ops.alerts.GET;
   return undefined;
 };
 
@@ -34,7 +39,7 @@ export async function serveEdge({
   opsToken,
 }: {
   readonly app: App;
-  readonly routes: Routes;
+  readonly routes: Composer;
   readonly opsToken: string;
 }) {
   const handle = async (

@@ -1,3 +1,4 @@
+import { billingModes } from '@daisy/protocol/billing-mode';
 import { refundClaimSchema, refundStateSchema } from '@daisy/protocol/billing';
 import { sql } from 'drizzle-orm';
 import {
@@ -25,7 +26,7 @@ export const billingRefundActions = pgTable(
     userId: text('user_id')
       .notNull()
       .references(() => users.id, { onDelete: 'restrict' }),
-    mode: text('mode').notNull(),
+    mode: text('mode').$type<(typeof billingModes)[number]>().notNull(),
     vendorCustomerId: text('vendor_customer_id').notNull(),
     vendorChargeId: text('vendor_charge_id').notNull(),
     vendorInvoiceId: text('vendor_invoice_id').notNull(),
@@ -51,10 +52,7 @@ export const billingRefundActions = pgTable(
     ),
     index('billing_refund_actions_user_idx').on(table.userId, table.id),
     index('billing_refund_actions_mode_idx').on(table.mode, table.id),
-    check(
-      'billing_refund_actions_mode_check',
-      oneOf(table.mode, ['test', 'live']),
-    ),
+    check('billing_refund_actions_mode_check', oneOf(table.mode, billingModes)),
     check(
       'billing_refund_actions_identity_check',
       sql`${table.id} ~ '^[a-z0-9]{24}$'

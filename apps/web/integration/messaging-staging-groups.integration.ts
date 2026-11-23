@@ -3,6 +3,8 @@ import { SQL } from 'bun';
 import { createId } from '@paralleldrive/cuid2';
 import { createTestApp, testDatabaseUrl } from './fixtures';
 import { createAccountFlows, uniqueName } from './auth-account-helpers';
+import { contactComposition } from '../src/features/contacts/composition';
+import { messagingComposition } from '../src/features/messaging/composition';
 
 test('deployed staging routes preserve invitation privacy, all-pairs admission and member revocation', async () => {
   const f = createTestApp({ MESSAGING_PRIVATE_GROUPS: 'staging' });
@@ -26,7 +28,7 @@ test('deployed staging routes preserve invitation privacy, all-pairs admission a
   const sql = new SQL(testDatabaseUrl);
   let channelId: string | undefined;
   try {
-    const created = await f.routes.messaging.createGroupByUsername(
+    const created = await f.routes(messagingComposition).createGroupByUsername(
       post(manager, {
         version: 1,
         requestId: createId(),
@@ -38,29 +40,38 @@ test('deployed staging routes preserve invitation privacy, all-pairs admission a
     channelId = (await created.json()).channelId;
     if (!channelId) throw new Error('Channel required');
     const history = (member: typeof manager) =>
-      f.routes.messaging.history(
-        read(member, `/api/messaging/channels/${channelId}/messages?limit=20`),
-        channelId!,
-      );
+      f
+        .routes(messagingComposition)
+        .history(
+          read(
+            member,
+            `/api/messaging/channels/${channelId}/messages?limit=20`,
+          ),
+          channelId!,
+        );
     const entry = (member: typeof manager) =>
-      f.routes.messaging.channelEntry(
-        read(member, `/api/messaging/channels/${channelId}`),
-        channelId!,
-      );
+      f
+        .routes(messagingComposition)
+        .channelEntry(
+          read(member, `/api/messaging/channels/${channelId}`),
+          channelId!,
+        );
     expect((await history(peer)).status).toBe(404);
     expect((await entry(peer)).status).toBe(404);
     expect((await history(outsider)).status).toBe(404);
-    const invitation = await f.routes.messaging.groupInvitation(
-      read(peer, `/api/messaging/groups/${channelId}/invitation`),
-      channelId,
-    );
+    const invitation = await f
+      .routes(messagingComposition)
+      .groupInvitation(
+        read(peer, `/api/messaging/groups/${channelId}/invitation`),
+        channelId,
+      );
     expect(await invitation.json()).toEqual({
       version: 1,
       channelId,
       generation: 1,
       state: 'pending',
     });
-    const accept = await f.routes.messaging.decideGroupInvitation(
+    const accept = await f.routes(messagingComposition).decideGroupInvitation(
       post(peer, {
         version: 1,
         channelId,
@@ -71,7 +82,7 @@ test('deployed staging routes preserve invitation privacy, all-pairs admission a
     );
     expect(accept.status).toBe(200);
     expect((await history(peer)).status).toBe(200);
-    const block = await f.routes.contacts.block(
+    const block = await f.routes(contactComposition).block(
       post(peer, {
         version: 1,
         requestId: createId(),
@@ -81,7 +92,7 @@ test('deployed staging routes preserve invitation privacy, all-pairs admission a
     );
     expect(block.status).toBe(200);
     const invite = () =>
-      f.routes.messaging.inviteGroup(
+      f.routes(messagingComposition).inviteGroup(
         post(manager, {
           version: 1,
           channelId,
@@ -95,13 +106,15 @@ test('deployed staging routes preserve invitation privacy, all-pairs admission a
     expect(pending.count).toBe(0);
     expect(
       (
-        await f.routes.messaging.groupInvitation(
-          read(outsider, `/api/messaging/groups/${channelId}/invitation`),
-          channelId,
-        )
+        await f
+          .routes(messagingComposition)
+          .groupInvitation(
+            read(outsider, `/api/messaging/groups/${channelId}/invitation`),
+            channelId,
+          )
       ).status,
     ).toBe(404);
-    const removed = await f.routes.messaging.manageGroup(
+    const removed = await f.routes(messagingComposition).manageGroup(
       post(manager, {
         version: 1,
         channelId,

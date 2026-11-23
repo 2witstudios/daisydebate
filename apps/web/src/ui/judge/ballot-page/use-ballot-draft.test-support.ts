@@ -1,3 +1,4 @@
+import { browserScheduler } from '../../edge/browser-time';
 import { createElement } from 'react';
 import type { RoundBallotRead } from '@daisy/protocol/round-ballot-read';
 import type { BallotDisplay } from '../../../features/round-ballots/presentation';
@@ -18,6 +19,7 @@ export function DraftProbe(props: {
     props.view,
     props.display,
     props.posted,
+    browserScheduler,
   );
   return createElement(
     'output',

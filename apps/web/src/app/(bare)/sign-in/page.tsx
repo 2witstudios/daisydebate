@@ -1,8 +1,8 @@
-import { StatusRegion } from '../../../ui/components/status-region/status-region';
+import { Announcement } from '../../../ui/components/announcement/announcement';
 import type { Metadata } from 'next';
 import { claimedUsername } from '@daisy/auth';
 import { redirect } from 'next/navigation';
-import { readAuthEntry } from '../../../lib/auth-entry';
+import { readAuthEntry } from '../../../features/access/auth-entry';
 import {
   onboardingHref,
   type SearchParams,
@@ -37,9 +37,9 @@ export default async function SignInPage({
   return (
     <>
       {closed ? (
-        <StatusRegion
+        <Announcement
           as="p"
-          role="status"
+          kind="progress"
           className="px-6 pt-4 text-center text-base text-ink"
         >
           Your account is closed. Read the{' '}
@@ -47,7 +47,7 @@ export default async function SignInPage({
             privacy policy
           </a>{' '}
           for what erasure keeps.
-        </StatusRegion>
+        </Announcement>
       ) : null}
       <SignIn
         destination={destination}

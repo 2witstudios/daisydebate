@@ -1,6 +1,8 @@
 import { processRoute } from '../../../server/process-app';
+import { contentModerationComposition } from '../../../features/content-moderation/composition';
 
 export const runtime = 'nodejs';
 export const POST = processRoute(
-  (routes) => routes.contentModeration.report.POST,
+  contentModerationComposition,
+  (routes) => routes.report.POST,
 );

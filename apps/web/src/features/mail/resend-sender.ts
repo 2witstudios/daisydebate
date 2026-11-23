@@ -1,5 +1,5 @@
-import { instantMs } from '@daisy/clock';
-import type { IdGenerator } from '@daisy/clock';
+import { deadlineSignal, instantMs } from '@daisy/clock';
+import type { IdGenerator, Waits } from '@daisy/clock';
 import type { EmailMessage, EmailSender } from './types';
 
 const ENDPOINT = 'https://api.resend.com/emails';
@@ -70,7 +70,7 @@ export function createResendSender({
   ids,
   fetch: fetchImpl = fetch,
   timeoutMs = 10_000,
-  elapsed = () => performance.now(),
+  waits,
   nowMs,
 }: {
   readonly apiKey: string;
@@ -78,19 +78,16 @@ export function createResendSender({
   readonly ids: IdGenerator;
   readonly fetch?: Fetch;
   readonly timeoutMs?: number;
-  readonly elapsed?: () => number;
+  /** The time the delivery deadline is measured and enforced on (R4.7). */
+  readonly waits: Waits;
   readonly nowMs: () => number;
 }): EmailSender {
-  const attempt = async (
+  /** One request under `signal`, its answer read in full. */
+  const deliver = async (
     message: EmailMessage,
     idempotencyKey: string,
-    budgetMs: number,
+    signal: AbortSignal,
   ) => {
-    if (
-      message.sendBefore !== undefined &&
-      nowMs() >= instantMs(message.sendBefore)
-    )
-      throw new DeliveryError(false, 408);
     let response: Response;
     try {
       response = await fetchImpl(ENDPOINT, {
@@ -108,7 +105,7 @@ export function createResendSender({
           html: message.html,
           ...(message.headers ? { headers: message.headers } : {}),
         }),
-        signal: AbortSignal.timeout(budgetMs),
+        signal,
       });
     } catch {
       throw new DeliveryError(true);
@@ -129,11 +126,28 @@ export function createResendSender({
       throw new DeliveryError(false, response.status);
     return { providerMessageId: id };
   };
+  const attempt = async (
+    message: EmailMessage,
+    idempotencyKey: string,
+    budgetMs: number,
+  ) => {
+    if (
+      message.sendBefore !== undefined &&
+      nowMs() >= instantMs(message.sendBefore)
+    )
+      throw new DeliveryError(false, 408);
+    const deadline = deadlineSignal(waits, budgetMs);
+    try {
+      return await deliver(message, idempotencyKey, deadline.signal);
+    } finally {
+      deadline.clear();
+    }
+  };
   return {
     async send(message) {
       const idempotencyKey = message.idempotencyKey ?? ids.next();
-      const started = elapsed();
-      const remaining = () => timeoutMs - (elapsed() - started);
+      const started = waits.nowMs();
+      const remaining = () => timeoutMs - (waits.nowMs() - started);
       try {
         return await attempt(message, idempotencyKey, timeoutMs);
       } catch (error) {

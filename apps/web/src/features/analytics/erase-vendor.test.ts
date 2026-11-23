@@ -1,5 +1,6 @@
 import { describe, test, assert, setupRitewayBun } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';
+import { virtualClock } from '@daisy/clock/testing';
 import { createPostHogErasure } from './erase-vendor';
 
 setupRitewayBun();
@@ -9,6 +10,7 @@ describe('PostHog erasure acknowledgement', () => {
       host: 'https://us.posthog.com',
       projectId: '1',
       key: 'test-management',
+      waits: virtualClock(),
       fetch: async () =>
         Response.json(
           {
@@ -33,6 +35,7 @@ describe('PostHog erasure acknowledgement', () => {
       host: 'https://us.posthog.com',
       projectId: '1',
       key: 'test-management',
+      waits: virtualClock(),
       fetch: async () =>
         Response.json(
           {
@@ -57,6 +60,7 @@ describe('PostHog erasure acknowledgement', () => {
       host: 'https://eu.posthog.com',
       projectId: '1',
       key: 'test-management',
+      waits: virtualClock(),
       fetch: async (_url, init) => {
         body = JSON.parse(String(init.body));
         return Response.json(
@@ -87,6 +91,7 @@ describe('PostHog erasure acknowledgement', () => {
       host: 'https://us.posthog.com',
       projectId: '1',
       key: 'test-management',
+      waits: virtualClock(),
       fetch: async () =>
         Response.json(
           {
@@ -102,6 +107,35 @@ describe('PostHog erasure acknowledgement', () => {
       should: 'leave the durable job eligible for retry',
       actual: () => port.erase('u'.repeat(24)),
       code: 'INFRASTRUCTURE',
+    });
+  });
+});
+
+describe('PostHog erasure deadline', () => {
+  test('a request that never answers is refused after five seconds', async () => {
+    const clock = virtualClock();
+    const port = createPostHogErasure({
+      host: 'https://us.posthog.com',
+      projectId: '1',
+      key: 'test-management',
+      waits: clock,
+      fetch: (_url, init) =>
+        new Promise<Response>((_, reject) =>
+          init.signal?.addEventListener('abort', () =>
+            reject(init.signal?.reason),
+          ),
+        ),
+    });
+    const erased = port.erase('u'.repeat(24)).then(
+      () => 'erased',
+      (error: unknown) => (error as Error).name,
+    );
+    await clock.advance(5000);
+    assert({
+      given: 'a vendor request held open for five seconds of injected time',
+      should: 'abort it with a timeout so the retry obligation remains',
+      actual: await erased,
+      expected: 'TimeoutError',
     });
   });
 });

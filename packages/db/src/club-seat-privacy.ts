@@ -1,10 +1,11 @@
+import { organizationKinds } from '@daisy/protocol/lobby';
+import { listedWords } from './lifecycle-sql';
 import { sql } from 'drizzle-orm';
 import { normalizedEmailSql } from './email-identity';
 import type { PrivacyAdopter } from './privacy/contracts';
-import { exportRows } from './privacy/export-rows';
+import { exportRows, run, query } from './raw-rows';
 import { scopeTransaction } from './tenant-scope';
 import type { Tx } from './tx';
-import { run, query } from './raw-rows';
 import { z } from 'zod';
 
 const page = 100;
@@ -21,7 +22,7 @@ async function eachClub(
         tx,
         z.object({ id: z.string() }),
         sql`select id from organizations
-        where kind in ('school', 'family') and id > ${after} order by id limit ${page}`,
+        where kind in ${listedWords(organizationKinds, ['school', 'family'])} and id > ${after} order by id limit ${page}`,
       );
       for (const club of clubs) {
         await scopeTransaction(tx, { organizationId: club.id });

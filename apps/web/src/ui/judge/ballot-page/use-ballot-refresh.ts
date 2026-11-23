@@ -1,9 +1,9 @@
 'use client';
-import { useBrowserEffect } from '../../edge/browser-sync';
-import { cancelWindowDelay, windowDelay } from '../../edge/browser-time';
+import { useResource } from '../../edge/use-driver';
+import { browserScheduler } from '../../edge/browser-time';
 import { nowMs, systemClock } from '@daisy/clock';
 import type { RoundBallotRead } from '@daisy/protocol/round-ballot-read';
-import { useRef } from 'react';
+import { useMemo, useRef } from 'react';
 import {
   ballotRefresh,
   ballotWaitSince,
@@ -14,8 +14,8 @@ import { countdownNowMs } from '../../../features/round-ballots/settling';
 
 /** The browser, as the refresh schedule uses it. */
 export type RefreshEdges = {
-  readonly setTimeout: (run: () => void, inMs: number) => number;
-  readonly clearTimeout: (timer: number) => void;
+  /** Runs `run` once after `inMs`; returns how to cancel it. */
+  readonly after: (run: () => void, inMs: number) => () => void;
   /** Whether the judge can see the page. */
   readonly visible: () => boolean;
   /** Calls `run` whenever the page is shown or hidden; returns how to stop. */
@@ -42,14 +42,14 @@ export function refreshOnSchedule({
   readonly refresh: () => void;
   readonly edges: RefreshEdges;
 }): () => void {
-  let timer: number | null = null;
+  let cancel: (() => void) | null = null;
   const disarm = () => {
-    if (timer !== null) edges.clearTimeout(timer);
-    timer = null;
+    cancel?.();
+    cancel = null;
   };
   const arm = (inMs: number) => {
-    timer = edges.setTimeout(() => {
-      timer = null;
+    cancel = edges.after(() => {
+      cancel = null;
       refreshIfDue();
     }, inMs);
   };
@@ -80,15 +80,16 @@ const deviceInstant = () => ({
   monotonicMs: performance.now(),
 });
 
-const browserEdges: RefreshEdges = {
-  setTimeout: (run, inMs) => windowDelay(run, inMs),
-  clearTimeout: (timer) => cancelWindowDelay(timer),
+/** The page's own visibility, on the timer it is handed. */
+const pageEdges = (after: RefreshEdges['after']): RefreshEdges => ({
+  after,
   visible: () => document.visibilityState === 'visible',
   onVisibilityChange: (run) => {
     document.addEventListener('visibilitychange', run);
     return () => document.removeEventListener('visibilitychange', run);
   },
-};
+});
+const browserEdges = pageEdges(browserScheduler.after);
 
 /**
  * Keeps the judge's page current without a manual refresh, on the present
@@ -106,24 +107,35 @@ export function useBallotRefresh(
 ): void {
   const { status, waitingOn } = view.round;
   const wait = useRef<BallotWait | null>(null);
-  useBrowserEffect(() => {
+  // Each new render instant, view or hold decides the schedule afresh.
+  const schedule = useMemo(
+    () => ({ status, waitingOn, held, renderedAtMs, router }),
+    [status, waitingOn, held, renderedAtMs, router],
+  );
+  useResource(schedule, (now) => {
     const mounted = deviceInstant();
     const { sinceMs } = (wait.current = ballotWaitSince(
       wait.current,
-      waitingOn,
-      renderedAtMs,
+      now.waitingOn,
+      now.renderedAtMs,
     ));
-    return refreshOnSchedule({
-      next: (nowMs) =>
-        ballotRefresh({ round: { status, waitingOn } }, held, {
-          nowMs,
-          renderedAtMs,
-          waitingSinceMs: sinceMs,
-        }),
-      nowMs: () =>
-        countdownNowMs({ renderedAtMs, mounted, current: deviceInstant() }),
-      refresh: () => router.refresh(),
-      edges: browserEdges,
-    });
-  }, [status, waitingOn, held, renderedAtMs, router]);
+    return {
+      dispose: refreshOnSchedule({
+        next: (nowMs) =>
+          ballotRefresh(
+            { round: { status: now.status, waitingOn: now.waitingOn } },
+            now.held,
+            { nowMs, renderedAtMs: now.renderedAtMs, waitingSinceMs: sinceMs },
+          ),
+        nowMs: () =>
+          countdownNowMs({
+            renderedAtMs: now.renderedAtMs,
+            mounted,
+            current: deviceInstant(),
+          }),
+        refresh: () => now.router.refresh(),
+        edges: browserEdges,
+      }),
+    };
+  });
 }

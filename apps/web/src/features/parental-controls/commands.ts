@@ -1,6 +1,11 @@
+import type {
+  GuardianSession,
+  GuardiansStore,
+} from '@daisy/db/stores/guardians';
+import type { SocialRequestLimits } from '@daisy/db/stores/contacts';
+import { instantMs } from '@daisy/clock';
 import { createId } from '@paralleldrive/cuid2';
 import { createAppError } from '@daisy/errors';
-import type { Database, GuardianSession, SocialRequestLimits } from '@daisy/db';
 import type {
   ConsentMethod,
   GuardianCommand,
@@ -302,7 +307,7 @@ async function actOnLink(
   if (!row) return refused('not-found');
   if (row.status === 'requested') {
     const invitation = await session.requestForLink(row.id);
-    if (invitation && invitation.expiresAt <= new Date(at))
+    if (invitation && invitation.expiresAt.getTime() <= instantMs(at))
       return refused('not-waiting');
   }
   if (action === 'send') {
@@ -374,7 +379,7 @@ async function actOnRequest(
   const { id, status, email, requestedLinkId, expiresAt } = pending;
   if (
     !email ||
-    expiresAt <= new Date(at) ||
+    expiresAt.getTime() <= instantMs(at) ||
     (status !== 'open' && status !== 'linked')
   )
     return refused('not-waiting');
@@ -499,7 +504,7 @@ export function runGuardianCommand(
 
 /** A conflicting invitation write leaves no evidence or token for a losing request. */
 export async function submitGuardianCommand(
-  store: Database['guardians'],
+  store: GuardiansStore['guardians'],
   caller: Caller,
   at: string,
   command: GuardianCommand,

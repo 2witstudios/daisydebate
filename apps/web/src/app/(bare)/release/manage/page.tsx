@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import type { SearchParams } from '../../../../features/access/decision';
 import { managePageOf } from '../../../../features/media-releases/parent-pages';
-import { readReleaseLink } from '../../../../lib/request-session';
+import { readReleaseLink } from '../../../../features/media-releases/page-reads';
 import { AskForLink } from '../../../../ui/media-releases/parent/link-forms';
 import { ManageRelease } from '../../../../ui/media-releases/parent/manage-release';
 import {

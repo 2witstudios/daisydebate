@@ -83,6 +83,8 @@ async function close(
     signal.throwIfAborted();
   };
   const consuming = consumeCaptureClips({
+    // Its pauses are what this asserts; the read deadline is not.
+    historyDeadline: () => new AbortController().signal,
     client,
     epoch: 1,
     voice: { transcribe } as never,

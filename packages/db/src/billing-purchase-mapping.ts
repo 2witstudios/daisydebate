@@ -3,6 +3,7 @@ import { createAppError } from '@daisy/errors';
 import {
   advanceBillingSync,
   billingSyncStateSchema,
+  isEndedSubscription,
   subscriptionEvidenceSchema,
   billingOwnerColumns,
   type Purchase,
@@ -30,7 +31,7 @@ export function permitsNewSubscription(
   if (!row) return true;
   const evidence = subscriptionEvidenceSchema.safeParse(row.evidence);
   if (!evidence.success) throw createAppError('VALIDATION');
-  return ['canceled', 'incomplete_expired'].includes(evidence.data.lifecycle);
+  return isEndedSubscription(evidence.data.lifecycle);
 }
 
 /** A verified completed Session establishes identity, never paid evidence or grants. */

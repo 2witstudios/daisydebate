@@ -1,3 +1,8 @@
+import { waitsOf } from '@daisy/clock';
+import { repeatEvery } from '@daisy/worker';
+
+/** How often heard tracks are reported. */
+const REPORT_EVERY_MS = 250;
 import type { CaptureState } from './capture-history';
 
 type HeardTrack = {
@@ -73,9 +78,18 @@ export async function reportHeardTracks(input: {
   readonly nowMs: () => number;
   readonly waitUntilMs: (due: number, signal: AbortSignal) => Promise<void>;
 }) {
-  while (!input.signal.aborted) {
-    const due = input.nowMs() + 250;
-    await input.reporter.report(input.state(), input.epoch, input.signal);
-    await input.waitUntilMs(due, input.signal).catch(() => undefined);
-  }
+  const reporting = repeatEvery({
+    waits: waitsOf(input),
+    everyMs: REPORT_EVERY_MS,
+    runOnStart: true,
+    run: () => input.reporter.report(input.state(), input.epoch, input.signal),
+    // The reporter settles every report itself.
+    failed: () => undefined,
+  });
+  await new Promise<void>((resolve) => {
+    if (input.signal.aborted) resolve();
+    else
+      input.signal.addEventListener('abort', () => resolve(), { once: true });
+  });
+  await reporting.stop();
 }

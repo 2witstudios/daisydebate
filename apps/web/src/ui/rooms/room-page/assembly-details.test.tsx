@@ -1,6 +1,9 @@
-import { renderToStaticMarkup } from 'react-dom/server';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assemblySnapshot } from '../../../features/rooms/assembly.test-support';
+import {
+  renderAccessible,
+  type AccessibleView,
+} from '../../../test-support/rendered/accessible';
 import { AssemblyDetailsFields } from './assembly-details';
 import {
   commandUnavailable,
@@ -9,8 +12,22 @@ import {
 
 setupRitewayBun();
 
+/**
+ * The hidden fields the details post with (their type, revision and command
+ * id), which no role states. The fields render without their form, so they
+ * are read from the rendered fields themselves.
+ */
+const hiddenFields = (view: AccessibleView) =>
+  [
+    ...view
+      .get('textbox', 'Room name')
+      .ownerDocument.body.querySelectorAll('input[type="hidden"]'),
+  ].map(
+    (field) => `${field.getAttribute('name')}=${field.getAttribute('value')}`,
+  );
+
 test('refused detail drafts preserve values and the submitted revision', () => {
-  const html = renderToStaticMarkup(
+  const view = renderAccessible(
     <AssemblyDetailsFields
       view={{ ...assemblySnapshot, version: 4 }}
       commandId="fresh-command"
@@ -31,18 +48,18 @@ test('refused detail drafts preserve values and the submitted revision', () => {
     should:
       'keep their intent and offer explicit recovery rather than silently adopting the new revision',
     actual: [
-      html.includes('Typed title'),
-      html.includes('Typed topic'),
-      html.includes('name="expectedVersion" value="3"'),
-      html.includes('previous-command'),
-      html.includes('Review latest room'),
+      view.attribute('textbox', 'Room name', 'value'),
+      view.get('textbox', 'Resolution').textContent,
+      hiddenFields(view).includes('expectedVersion=3'),
+      hiddenFields(view).includes('commandId=previous-command'),
+      view.has('link', 'Review latest room'),
     ],
-    expected: [true, true, true, true, true],
+    expected: ['Typed title', 'Typed topic', true, true, true],
   });
 });
 
 test('non-host details remain visible but cannot submit an edit', () => {
-  const html = renderToStaticMarkup(
+  const view = renderAccessible(
     <AssemblyDetailsFields
       view={{
         ...assemblySnapshot,
@@ -57,17 +74,19 @@ test('non-host details remain visible but cannot submit an edit', () => {
     given: 'a canonical non-editable projection',
     should: 'show stored details, mark inputs read-only and omit Save',
     actual: [
-      html.includes('Persisted room'),
-      html.includes('readOnly=""'),
-      html.includes('Only the host can edit this room.'),
-      html.includes('Save room details'),
+      view.attribute('textbox', 'Room name', 'value') === 'Persisted room',
+      ['Room name', 'Resolution'].every((field) =>
+        view.get('textbox', field).hasAttribute('readonly'),
+      ),
+      view.textContent().includes('Only the host can edit this room.'),
+      view.has('button', 'Save room'),
     ],
     expected: [true, true, true, false],
   });
 });
 
 test('the details form keeps who can join as saved (ADR 0145)', () => {
-  const html = renderToStaticMarkup(
+  const view = renderAccessible(
     <AssemblyDetailsFields
       view={{ ...assemblySnapshot, visibility: 'unlisted' }}
       commandId="fresh-command"
@@ -78,11 +97,12 @@ test('the details form keeps who can join as saved (ADR 0145)', () => {
   assert({
     given: 'an unlisted Room’s details form in Edit settings',
     should: 'post the saved visibility unchanged, with no choice of its own',
-    actual: [...html.matchAll(/<input[^>]*name="visibility"[^>]*>/g)].map(
-      ([input]) =>
-        input.includes('type="hidden"') && input.includes('value="unlisted"'),
-    ),
-    expected: [true],
+    actual: [
+      hiddenFields(view).filter((field) => field.startsWith('visibility=')),
+      view.count('combobox', /who can join/i),
+      view.count('radio'),
+    ],
+    expected: [['visibility=unlisted'], 0, 0],
   });
 });
 
@@ -97,7 +117,7 @@ test('a details save whose answer was lost is offered again as a new command on 
     visibility: 'public',
   }))
     lost.set(name, value);
-  const html = renderToStaticMarkup(
+  const view = renderAccessible(
     <AssemblyDetailsFields
       view={{ ...assemblySnapshot, version: 4 }}
       commandId="fresh-command"
@@ -111,14 +131,14 @@ test('a details save whose answer was lost is offered again as a new command on 
     should:
       'keep what was typed, take the version and command identifier from the latest room, and say the save may have landed',
     actual: [
-      html.includes('Typed title'),
-      html.includes('Typed topic'),
-      html.includes('name="expectedVersion" value="4"'),
-      html.includes('name="commandId" value="fresh-command"'),
-      html.includes('previous-command'),
-      html.includes('These changes may have been saved.'),
-      html.includes('Review latest room'),
+      view.attribute('textbox', 'Room name', 'value'),
+      view.get('textbox', 'Resolution').textContent,
+      hiddenFields(view).includes('expectedVersion=4'),
+      hiddenFields(view).includes('commandId=fresh-command'),
+      hiddenFields(view).includes('commandId=previous-command'),
+      view.textContent().includes('These changes may have been saved.'),
+      view.has('link', 'Review latest room'),
     ],
-    expected: [true, true, true, true, false, true, true],
+    expected: ['Typed title', 'Typed topic', true, true, false, true, true],
   });
 });

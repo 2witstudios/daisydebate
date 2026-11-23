@@ -1,21 +1,51 @@
+import { createAvailabilityStore } from '../src/stores/availability';
+import { createRoundMaintenanceStore } from '../src/stores/round-maintenance';
+import { createRoundStore } from '../src/stores/rounds';
+import { openDatabaseResources } from '../src/resources';
+import { hostWaits } from '@daisy/worker/host';
 import { roundDecisionReleasePolicy } from '@daisy/protocol/round-decision-release';
 import { createId } from '@paralleldrive/cuid2';
 import { requireTestServices } from '@daisy/config';
 import { assertRejects } from '@daisy/errors/testing';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { createDatabase } from '../src/index';
 import { withBoundedRound } from './bounded-transaction.test-support';
 import { createBotSeat } from './bot-seat.test-support';
 import { finishedOrBlockedBehind } from '../src/testing';
 import type { SQL } from 'bun';
+/** This file's database: the area stores it reads, over one set of resources. */
+const openStores = (
+  options: Parameters<typeof openDatabaseResources>[0] & {
+    readonly roundTime?: NonNullable<
+      Parameters<typeof createRoundMaintenanceStore>[1]
+    >['roundTime'];
+    readonly decisionRelease?: NonNullable<
+      Parameters<typeof createRoundMaintenanceStore>[1]
+    >['decisionRelease'];
+  },
+) => {
+  const resources = openDatabaseResources(options);
+  return {
+    ...createAvailabilityStore(resources),
+    ...createRoundMaintenanceStore(resources, {
+      roundTime: options.roundTime,
+      decisionRelease: options.decisionRelease,
+    }),
+    ...createRoundStore(resources, {
+      roundTime: options.roundTime,
+      decisionRelease: options.decisionRelease,
+    }),
+    close: resources.close,
+  };
+};
+
 setupRitewayBun();
 const { databaseUrl } = requireTestServices(process.env);
 const maintenanceStore = (client: SQL) =>
-  createDatabase({
+  openStores({
+    waits: hostWaits,
     decisionRelease: roundDecisionReleasePolicy,
     url: databaseUrl,
     client,
-    nextActorId: createId,
   });
 
 test('maintenance discovery includes every cast without sessions and requires a current web principal', async () =>
@@ -162,7 +192,7 @@ test('maintenance rechecks service authority after a competing Round lock before
         pending,
         f.sql,
         backend.pid,
-        { now: performance.now, deadlineMs: 800 },
+        { waits: hostWaits, deadlineMs: 800 },
       );
       await f.sql`update service_instances set renewed_at=clock_timestamp()-interval '4 seconds' where instance_id=${instanceId}`;
       await holder`commit`;

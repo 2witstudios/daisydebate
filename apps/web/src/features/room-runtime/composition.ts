@@ -1,22 +1,18 @@
+import { defineComposition } from '../../server/composition';
 import { liveLinkedAdults } from '../spectating/linked-adults';
 import { trackRequest } from '../analytics/track-request';
 import { createRoomDraftHandler } from '../rooms/create-room-draft-handler';
 import { createAppError } from '@daisy/errors';
 import type { App } from '../../server/app';
 import { handleOperation } from '../../server/http';
-import { memberHttpBoundary } from '../../server/member-boundary';
+import { memberHttpBoundary } from '../auth/member-boundary';
 import { createRoomHandlers } from './handlers';
 import { createRoomRuntimeOperations } from './operations';
 import { drawEntropy } from './entropy';
-/** Explicit policy injection; proof choices do not silently activate production. */
-export type RoomPolicy = {
-  readonly consentTtlMs: number;
-  /** How long an open Room may go without a command before maintenance closes it; absent leaves expiry inert (ADR 0070). */
-  readonly idleTimeoutMs?: number;
-  readonly maxBodyBytes: number;
-  readonly limits: Parameters<typeof createRoomHandlers>[0]['limits'];
-};
-export function composeRoomRoutes(app: App) {
+import { routeReleaseFor } from '../flags/route-release';
+import { releaseAdmission } from '../flags/admission';
+import { releaseFlagDefault } from '../flags/release-default';
+function composeRoomRoutes(app: App) {
   let handlers: ReturnType<typeof createRoomHandlers> | undefined;
   const run = (
     request: Request,
@@ -47,6 +43,12 @@ export function composeRoomRoutes(app: App) {
 
         consentTtlMs: () => policy.consentTtlMs,
         aiSeats: () => app.aiSeats,
+        botDebatesReleased: (userId) =>
+          routeReleaseFor(app)('bot-debates', userId),
+        botRelease: releaseAdmission(
+          'bot-debates',
+          releaseFlagDefault(app.config),
+        ),
         betaGrantsPremium: app.config.PREMIUM_BETA_GRANT,
         entropy: drawEntropy,
         linkedAdults: liveLinkedAdults(app),
@@ -93,3 +95,8 @@ export function composeRoomRoutes(app: App) {
     }),
   };
 }
+
+/** rooms: its route files bind here (`processRoute`). */
+export const roomComposition = defineComposition('rooms', (app) =>
+  composeRoomRoutes(app),
+);

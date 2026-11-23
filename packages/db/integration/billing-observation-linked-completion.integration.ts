@@ -1,5 +1,4 @@
 import { addMs } from '@daisy/clock';
-import { installInvoicePassGuards } from './billing-invoice-pass-current.test-support';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { requireTestServices } from '@daisy/config';
 import { createId } from '@paralleldrive/cuid2';
@@ -13,10 +12,6 @@ import { withClosedPurchase } from './billing-cleanup-purchases.test-support';
 import { seedObservedMoney } from './billing-payment-observation-money.test-support';
 requireTestServices(process.env);
 setupRitewayBun();
-const candidate = new URL(
-  '../migrations/20261107080513_fair_midnight/migration.sql',
-  import.meta.url,
-);
 
 test(
   'resolved observation routing still defeats absence and linked money completion requires current original known success',
@@ -25,7 +20,6 @@ test(
       const rollback = new Error('Linked completion matrix rollback');
       try {
         await fixture.sql.begin(async (tx) => {
-          await installInvoicePassGuards(tx, candidate);
           await tx`set local role daisy_web`;
           await tx`select * from public.daisy_authorization_accounts_v2(array[${subject.actorId}]::text[],null::text,true)`;
           const [purchase] =

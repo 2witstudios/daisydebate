@@ -1,9 +1,14 @@
+import { listedWord } from './lifecycle-sql';
 import { createAppError } from '@daisy/errors';
 import {
   capturedMediaMs,
   recordingBuildCeilingMs,
 } from '@daisy/protocol/recording-processing';
-import { recordingLifecycleSchema } from '@daisy/protocol/recording';
+import {
+  recordingLifecycleSchema,
+  recordingStatuses,
+  recordingClasses,
+} from '@daisy/protocol/recording';
 import {
   transitionRecording,
   type RecordingTransition,
@@ -203,7 +208,7 @@ export const recordingModeration: RecordingModeration = {
       }),
       sql`select id, round_id, version, lifecycle
       from recordings
-      where status='failed' and recording_class='ranked' and lifecycle ? 'capture'
+      where status=${listedWord(recordingStatuses, 'failed')} and recording_class=${listedWord(recordingClasses, 'ranked')} and lifecycle ? 'capture'
       order by updated_at, id limit ${limit}`,
     );
     return rows.flatMap((row) => {

@@ -1,3 +1,4 @@
+import { hostWaits } from '@daisy/worker/host';
 import { requireTestServices } from '@daisy/config';
 import {
   activeRoomMembers,
@@ -62,7 +63,7 @@ const withRoom = (
         database,
         invitations: roomInvitationOperations({
           database,
-          transaction: roomCommandTransaction(f.sql, 2),
+          transaction: roomCommandTransaction(f.sql, 2, hostWaits),
         }),
         notifications: notificationOperations({ database }),
       });

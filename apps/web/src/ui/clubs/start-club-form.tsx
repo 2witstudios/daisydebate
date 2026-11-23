@@ -158,8 +158,8 @@ export function StartClubForm({
             </dl>
             <ul className="flex flex-col gap-1 text-sm text-ink-muted">
               <li>
-                Every seat gets Premium: unlimited bot Rounds, AI judging and
-                analysis.
+                Every seat gets Premium: AI judging, analysis, and recording
+                casual Rounds.
               </li>
               <li>Adding seats mid-month is charged for the days left.</li>
               <li>Taxes are added at checkout where they apply.</li>

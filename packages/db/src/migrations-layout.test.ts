@@ -40,21 +40,24 @@ describe('the migration history (ISSUE-6)', () => {
     });
   });
 
-  test('retires the completed Drizzle sanction and retains the one-Round sanction', async () => {
+  test('records the one baseline it starts from', async () => {
     const registry = (await Bun.file(
       `${repository}policy/migration-baselines.json`,
     ).json()) as {
-      baselines: ReadonlyArray<{ adr: string; reviewBy: string }>;
+      baselines: ReadonlyArray<{ tag: string; adr: string }>;
     };
+    const [first] = (await readdir(migrations)).sort();
     assert({
-      given: 'policy/migration-baselines.json',
+      given: 'policy/migration-baselines.json and packages/db/migrations',
       should:
-        'retire the completed ADR 0038 sanction and retain the ADR 0058 one-Round sanction',
-      actual: registry.baselines.map(({ adr, reviewBy }) => ({
-        adr,
-        live: new Date(reviewBy) >= new Date('2026-10-06'),
-      })),
-      expected: [{ adr: 'docs/decisions/0058-one-round-model.md', live: true }],
+        'record exactly the baseline the folder starts from, under ADR 0913',
+      actual: registry.baselines.map(({ tag, adr }) => ({ tag, adr })),
+      expected: [
+        {
+          tag: first,
+          adr: 'docs/decisions/0913-one-baseline-adopted-in-place.md',
+        },
+      ],
     });
   });
 

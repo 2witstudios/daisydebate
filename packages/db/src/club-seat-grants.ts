@@ -1,3 +1,5 @@
+import { actorKinds } from './schema/actors';
+import { listedWord } from './lifecycle-sql';
 import { createAppError } from '@daisy/errors';
 import {
   entitlementKinds,
@@ -76,7 +78,7 @@ export async function lockClubSeatHolderAccounts(
   const actors = await query(
     tx,
     z.object({ id: z.string(), user_id: z.string().nullable() }),
-    sql`select id, user_id from actors where kind='human'
+    sql`select id, user_id from actors where kind=${listedWord(actorKinds, 'human')}
       and user_id in (${sql.join(
         userIds.map((id) => sql`${id}`),
         sql`, `,

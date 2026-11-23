@@ -1,6 +1,9 @@
 import { SQL } from 'bun';
 import { systemId } from '@daisy/clock';
-import { createRealtimeDatabase } from '@daisy/db';
+import type { Waits } from '@daisy/clock';
+import { WORKLOAD_PROFILES } from '@daisy/db/resources';
+import { openRealtimeDatabase } from '../src/database';
+import { hostWaits } from '@daisy/worker/host';
 import { requireTestServices } from '@daisy/config';
 import { ENVELOPE_VERSION, PROTOCOL_VERSION } from '@daisy/protocol/realtime';
 import { testNamespace } from '@daisy/redis/testing';
@@ -13,9 +16,56 @@ import {
   authorityParticipant,
   issueAuthorityTicket,
 } from './socket-authority.test-support';
-import { testOrigin } from './support';
+import { heldCadence, testOrigin } from './support';
 
 const instant = '2026-10-09T00:00:00.000Z';
+
+type LaneWaiter = { readonly ms: number; readonly fire: () => void };
+
+/** Every realtime lane's waiter bound: the waits `expireWaiters` ends by hand. */
+const laneBounds = new Set(
+  Object.values(WORKLOAD_PROFILES.realtime.lanes).map(
+    (budget) => budget.maxWaitMs,
+  ),
+);
+
+/**
+ * Host time, except that a wait as long as a lane's waiter bound is queued
+ * in `waiters` and ends only when fired: firing moves this clock to the
+ * wait's end, so the lane sees its bound reached. Every other wait (a
+ * connection bound, a sampler deadline) runs on the host.
+ */
+function heldLaneWaits(waiters: Set<LaneWaiter>): Waits {
+  let skippedMs = 0;
+  const nowMs = () => hostWaits.nowMs() + skippedMs;
+  const waitUntilMs = (dueMs: number, signal?: AbortSignal) => {
+    const ms = Math.round(dueMs - nowMs());
+    if (!laneBounds.has(ms))
+      return hostWaits.waitUntilMs(dueMs - skippedMs, signal);
+    return new Promise<void>((resolve) => {
+      if (signal?.aborted) return resolve();
+      const done = () => {
+        waiters.delete(waiter);
+        signal?.removeEventListener('abort', done);
+        resolve();
+      };
+      const waiter: LaneWaiter = {
+        ms,
+        fire: () => {
+          skippedMs = Math.max(skippedMs, dueMs - hostWaits.nowMs());
+          done();
+        },
+      };
+      signal?.addEventListener('abort', done, { once: true });
+      waiters.add(waiter);
+    });
+  };
+  return {
+    nowMs,
+    waitUntilMs,
+    sleep: (ms, signal) => waitUntilMs(nowMs() + Math.max(0, ms), signal),
+  };
+}
 
 /**
  * The production lane pools and session bounds on the real socket and
@@ -29,22 +79,10 @@ export async function productionLanes(
 ) {
   const services = requireTestServices(process.env);
   const admin = new SQL(services.databaseUrl);
-  const waiters = new Set<{ readonly ms: number; readonly fire: () => void }>();
+  const waiters = new Set<LaneWaiter>();
+  const waits = realWaiters ? hostWaits : heldLaneWaits(waiters);
   const resources = createRealtimeApp({
-    database: createRealtimeDatabase({
-      url: services.databaseUrl,
-      ...(realWaiters
-        ? {}
-        : {
-            laneTimer: (ms: number, fire: () => void) => {
-              const waiter = { ms, fire };
-              waiters.add(waiter);
-              return () => {
-                waiters.delete(waiter);
-              };
-            },
-          }),
-    }),
+    database: openRealtimeDatabase({ url: services.databaseUrl, waits }),
     env: {
       NODE_ENV: 'test',
       DATABASE_URL: services.databaseUrl,
@@ -54,6 +92,7 @@ export async function productionLanes(
       REALTIME_ALLOWED_ORIGINS: testOrigin,
     },
     clock: { now: () => instant },
+    waits,
   });
   const causes: unknown[] = [];
   const log = resources.logger.log;
@@ -65,7 +104,7 @@ export async function productionLanes(
   const debater = authorityParticipant(admin);
   const fenced = authorityParticipant(admin);
   const rounds = roundAudienceFixture(admin, debater.actorId);
-  let revalidate: (() => void) | undefined;
+  const revalidation = heldCadence(50_000);
   let runtime: Awaited<ReturnType<typeof serveRealtime>> | undefined;
   try {
     await debater.seed();
@@ -76,13 +115,7 @@ export async function productionLanes(
       port: 0,
       hostname: '127.0.0.1',
       now: () => 0,
-      timers: {
-        setInterval: (callback, ms) => {
-          if (ms === 50_000) revalidate = callback;
-          return setInterval(callback, ms);
-        },
-        clearInterval,
-      },
+      waits: revalidation.waits,
     });
     const port = runtime.server.port!;
     const ticket = (participant: typeof debater) =>
@@ -97,14 +130,11 @@ export async function productionLanes(
       causes,
       connect: async (participant) =>
         openAuthorityPeer(port, await ticket(participant)),
-      revalidate: () => revalidate?.(),
+      revalidate: () => void revalidation.fire(),
       /** Fires each queued lane waiter whose bound is at most `elapsedMs`. */
       expireWaiters(elapsedMs) {
         for (const waiter of [...waiters])
-          if (waiter.ms <= elapsedMs) {
-            waiters.delete(waiter);
-            waiter.fire();
-          }
+          if (waiter.ms <= elapsedMs) waiter.fire();
       },
       queuedBounds: () => [...waiters].map(({ ms }) => ms),
     });

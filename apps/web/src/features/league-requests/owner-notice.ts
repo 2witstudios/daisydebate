@@ -1,10 +1,10 @@
-import type { Database } from '@daisy/db';
+import type { LeagueRequestsStore } from '@daisy/db/stores/league-requests';
 import type { EmailMessage } from '../mail/types';
 import { createOwnerNotices } from '../mail/owner-notices';
 import { renderLeagueRequestEmail } from './owner-email';
 
 type Store = Pick<
-  Database,
+  LeagueRequestsStore,
   | 'claimLeagueRequestNotices'
   | 'readLeagueRequestNotice'
   | 'settleLeagueRequestNotice'

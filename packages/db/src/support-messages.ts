@@ -1,3 +1,5 @@
+import { mailJobStates } from './schema/columns';
+import { listedWord } from './lifecycle-sql';
 import { commandDigest } from '@daisy/digest';
 import {
   supportTopics,
@@ -11,9 +13,7 @@ import {
   type MailJobClaimInput,
   type MailJobOutcome,
 } from './mail-queue';
-import type { PrivacyAdopter } from './privacy/contracts';
-import { exportRows } from './privacy/export-rows';
-import { query, run } from './raw-rows';
+import { query } from './raw-rows';
 import { deleteExpiredBatch, type RetentionBatch } from './retention';
 import {
   supportMessageNoticeErrorCodes,
@@ -236,44 +236,10 @@ export function supportMessageOperations({
             table: supportMessages,
             key: supportMessages.id,
             at: supportMessages.createdAt,
-            eligible: sql`${supportMessages.state} <> 'leased'`,
+            eligible: sql`${supportMessages.state} <> ${listedWord(mailJobStates, 'leased')}`,
           },
           batch,
         ),
       ),
   };
 }
-
-/**
- * A signed-in sender's support messages are theirs (compliance: support
- * messages): export returns them and erasure deletes them, sent or not. A
- * message sent signed out carries no account and is erased on request by
- * its reply address (docs/operations/support.md).
- */
-export const supportMessagePrivacyAdopter: PrivacyAdopter = {
-  id: 'support-messages',
-  phase: 'after-close',
-  erase: async (tx, subject) => {
-    await run(
-      tx,
-      sql`delete from support_messages where member_user_id = ${subject.userId}`,
-    );
-  },
-  export: async (tx, subject) => ({
-    support_messages: exportRows(
-      await query(
-        tx,
-        z.object({
-          id: z.string(),
-          topic: z.string(),
-          message: z.string(),
-          about: z.string().nullable(),
-          reply_email: z.string(),
-          created_at: z.date(),
-        }),
-        sql`select id, topic, message, about, reply_email, created_at from support_messages
-          where member_user_id = ${subject.userId} order by created_at, id`,
-      ),
-    ),
-  }),
-};

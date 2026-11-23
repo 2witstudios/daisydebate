@@ -1,6 +1,6 @@
 'use client';
 
-import { StatusRegion } from '../../components/status-region/status-region';
+import { Announcement } from '../../components/announcement/announcement';
 import { Button } from '../../components/button/button';
 import {
   ReleasePaidAdsFields,
@@ -33,10 +33,10 @@ export function LinkedGuardianReleaseForm({
   );
   if (state.kind === 'done')
     return (
-      <StatusRegion as="p" role="status">
+      <Announcement as="p" kind="progress">
         Media release signed. A copy and a withdrawal link will be sent to your
         account email.
-      </StatusRegion>
+      </Announcement>
     );
   const { error, values } = formFields(state);
   return (
@@ -48,15 +48,15 @@ export function LinkedGuardianReleaseForm({
       <ReleasePaidAdsFields minor={minor} values={values} />
       <ReleaseSignatureFields minor={minor} values={values} />
       {error ? (
-        <StatusRegion as="p" role="alert" className="text-sm text-live">
+        <Announcement as="p" kind="problem" className="text-sm text-live">
           {error}
-        </StatusRegion>
+        </Announcement>
       ) : null}
       {state.kind === 'unacknowledged' ? (
-        <StatusRegion as="p" role="alert">
+        <Announcement as="p" kind="problem">
           We couldn’t confirm the signature. Reload to check whether it was
           saved.
-        </StatusRegion>
+        </Announcement>
       ) : null}
       <Button type="submit" className="self-start" aria-disabled={pending}>
         Sign release
@@ -90,15 +90,15 @@ export function CloseChildAccountForm({ action }: { readonly action: Action }) {
         I withdraw my consent and confirm that Daisy should close this account.
       </label>
       {error ? (
-        <StatusRegion as="p" role="alert" className="text-sm text-live">
+        <Announcement as="p" kind="problem" className="text-sm text-live">
           {error}
-        </StatusRegion>
+        </Announcement>
       ) : null}
       {state.kind === 'unacknowledged' ? (
-        <StatusRegion as="p" role="alert">
+        <Announcement as="p" kind="problem">
           We couldn’t confirm closure. Return to Parental controls to check the
           account.
-        </StatusRegion>
+        </Announcement>
       ) : null}
       <Button type="submit" variant="secondary" aria-disabled={pending}>
         Withdraw consent and close account

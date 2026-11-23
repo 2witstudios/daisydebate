@@ -1,12 +1,28 @@
+import { createAvailabilityStore } from '../src/stores/availability';
+import { createBillingStore } from '../src/stores/billing';
+import { openDatabaseResources } from '../src/resources';
+import { hostWaits } from '@daisy/worker/host';
 import { createId } from '@paralleldrive/cuid2';
 import { drizzle } from 'drizzle-orm/bun-sql';
-import { createDatabase } from '../src/index';
 import type { createBillingCleanup } from '../src/billing-cleanup';
 import { erasePrivacySubject } from '../src/privacy';
 import { bindings } from './privacy.test-support';
 import { refundRooms } from './billing-refunds.test-support';
 import { executeFlagCommand, flagCommand } from './flags.test-support';
 import { offer, withBillingPurchases } from './billing-purchases.test-support';
+/** This file's database: the area stores it reads, over one set of resources. */
+const openStores = (
+  options: Parameters<typeof openDatabaseResources>[0] & {
+    readonly nextActorId: () => string;
+  },
+) => {
+  const resources = openDatabaseResources(options);
+  return {
+    ...createAvailabilityStore(resources),
+    ...createBillingStore(resources, { nextId: options.nextActorId }),
+    close: resources.close,
+  };
+};
 
 type Fixture = Parameters<Parameters<typeof withBillingPurchases>[0]>[0];
 type CleanupFixture = Fixture & {
@@ -61,7 +77,8 @@ export function withClosedPurchase(
       await connection`set role daisy_web`;
       return connection;
     };
-    const database = createDatabase({
+    const database = openStores({
+      waits: hostWaits,
       url: process.env.TEST_DATABASE_URL!,
       client: pool,
       nextActorId: createId,

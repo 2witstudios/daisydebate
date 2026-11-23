@@ -18,6 +18,7 @@
  * roundId defaults to the most recently pulled Round.
  */
 import { existsSync, mkdirSync, readdirSync, statSync } from 'node:fs';
+import { hostWaits } from '@daisy/worker/host';
 import { join } from 'node:path';
 import { parseArgs } from 'node:util';
 import {
@@ -272,7 +273,12 @@ async function run(
   const source = await Bun.file(path).text();
   const file = parsePromptFile(source);
   const placeholders = placeholdersFor(stored.evidence);
-  const voice = createOpenRouter({ apiKey, fetch, timeoutMs: 300_000 });
+  const voice = createOpenRouter({
+    apiKey,
+    fetch,
+    timeoutMs: 300_000,
+    waits: hostWaits,
+  });
   const stamp = new Date().toISOString().replace(/[:.]/g, '-');
   const dir = join(
     roundDir(roundId),

@@ -1,5 +1,7 @@
 import { destinationHref } from '../destinations/destinations';
+import { guideEntryLinks } from '../guides/entry-links';
 import { leaderboardDestinations } from '../leaderboard/actions';
+import { openRoomHref } from '../play/options';
 
 type Link = { readonly label: string; readonly href: string };
 
@@ -60,7 +62,10 @@ export const helpTopics: readonly HelpTopic[] = [
     question: 'Who judges debates?',
     answer:
       'Every round has a judge, who scores each side and gives a decision with a written reason. Both debaters can read it once the ballot is submitted. A room’s host can invite a person to judge, or seat an AI judge so the round never waits for one. An AI judge is free on ranked rounds and premium on casual rounds.',
-    links: [{ label: 'Judge', href: '/judge' }],
+    links: [
+      { label: 'Judge', href: '/judge' },
+      { label: 'Judging guides', href: guideEntryLinks.judging },
+    ],
   },
   {
     id: 'teams',
@@ -98,14 +103,14 @@ export const helpTopics: readonly HelpTopic[] = [
     id: 'learn-the-rules',
     question: 'Where can I learn the rules and practise?',
     answer:
-      'The Train area pairs you with a bot opponent for a practice debate in an ordinary room; the room’s setup shows each format’s speeches and rules.',
-    links: [{ label: 'Train', href: destinationHref('train') }],
+      'Open a casual room in the format you want to learn and debate it unranked, with your team or anyone else; the room’s setup shows each format’s speeches and rules.',
+    links: [{ label: 'Open a room', href: openRoomHref }],
   },
   {
     id: pricingTopicId,
     question: 'What does Daisy cost?',
     answer:
-      'Debating people is free. Premium, Club, Host and League pay for AI practice, video and running events.',
+      'Debating people is free. Premium, Club, Host and League pay for Round analysis, the AI judge on casual Rounds, video and running events.',
     links: [{ label: 'Plans and pricing', href: '/pricing' }],
   },
   {

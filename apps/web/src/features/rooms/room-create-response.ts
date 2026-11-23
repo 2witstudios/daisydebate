@@ -12,6 +12,7 @@ export type RoomCreateRefusal =
   | 'ranked-unavailable'
   | 'actor-ineligible'
   | 'seat-unavailable'
+  | 'bot-debates-coming-soon'
   | 'ai-judge-premium'
   | 'capture-premium'
   | 'notice-changed';
@@ -35,6 +36,7 @@ const conflictAnswer = (
     case 'ranked-unavailable':
     case 'actor-ineligible':
     case 'seat-unavailable':
+    case 'bot-debates-coming-soon':
     case 'ai-judge-premium':
     case 'capture-premium':
       return { kind: 'refused', reason: body.refusal };

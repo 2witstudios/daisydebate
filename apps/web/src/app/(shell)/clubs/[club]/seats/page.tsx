@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
-import { requireAccess } from '../../../../../lib/access';
+import { requireAccess } from '../../../../../features/access/page-access';
 import type { SearchParams } from '../../../../../features/access/decision';
 import { clubSeatsViewSchema } from '../../../../../features/clubs/views';
 import {
@@ -32,7 +32,7 @@ export default async function ClubSeats({
   await requireClubRelease(identity);
   if (!clubId.test(club)) notFound();
   const view = await readOwnRoute(
-    GET,
+    (request) => GET(request, { params: Promise.resolve({ club }) }),
     `/api/clubs/${club}/seats`,
     clubSeatsViewSchema,
   );

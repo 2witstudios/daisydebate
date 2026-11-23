@@ -1,5 +1,5 @@
 import type { Identity } from '@daisy/auth';
-import type { Database } from '@daisy/db';
+import type { SupportStore } from '@daisy/db/stores/support';
 import { CLIENT_IP_HEADER } from '@daisy/ingress/client-ip';
 import type { Logger } from '@daisy/logger';
 import type { ErrorReporter } from '@daisy/observability';
@@ -70,7 +70,7 @@ export const createSupportHandlers = (deps: {
   /** The id a changed resend is stored under: a stored message never changes. */
   readonly newId: () => string;
   readonly store: Pick<
-    Database,
+    SupportStore,
     'supportMessageUnchanged' | 'recordSupportMessage'
   >;
 }) => ({

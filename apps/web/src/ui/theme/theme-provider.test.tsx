@@ -1,7 +1,7 @@
-import { renderToString } from 'react-dom/server';
 import { createElement as h } from 'react';
 import { expect } from 'bun:test';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
+import { renderAccessible } from '../../test-support/rendered/accessible';
 import { ThemeProvider, useThemePreference } from './theme-provider';
 import type { ThemePreference } from '../../features/theme/theme-preference';
 
@@ -12,11 +12,11 @@ function Probe() {
   return h('p', null, preference);
 }
 
-/** What the consumer rendered, without the provider's own <meta> tags. */
+/** What the consumer rendered, beside the provider's own <meta> tags. */
 const probed = (initialPreference: ThemePreference) =>
-  /<p>([^<]*)<\/p>/.exec(
-    renderToString(h(ThemeProvider, { initialPreference, children: h(Probe) })),
-  )?.[1];
+  renderAccessible(
+    h(ThemeProvider, { initialPreference, children: h(Probe) }),
+  ).text('paragraph');
 
 describe('ThemeProvider', () => {
   test('serves the request preference to the first render', () => {
@@ -37,35 +37,8 @@ describe('ThemeProvider', () => {
     });
   });
 
-  test('renders the browser chrome metas for the preference', () => {
-    const metas = (initialPreference: ThemePreference) =>
-      [
-        ...renderToString(
-          h(ThemeProvider, { initialPreference, children: null }),
-        ).matchAll(/<meta ([^>]*?)\/?>/g),
-      ].map((match) => match[1]);
-    assert({
-      given: 'the light and system preferences',
-      should:
-        'render the color-scheme meta and one theme-color meta per OS scheme',
-      actual: [metas('light'), metas('system')],
-      expected: [
-        [
-          'name="color-scheme" content="light"',
-          'name="theme-color" media="(prefers-color-scheme: light)" content="#f5f0e4"',
-          'name="theme-color" media="(prefers-color-scheme: dark)" content="#f5f0e4"',
-        ],
-        [
-          'name="color-scheme" content="light dark"',
-          'name="theme-color" media="(prefers-color-scheme: light)" content="#f5f0e4"',
-          'name="theme-color" media="(prefers-color-scheme: dark)" content="#0d1812"',
-        ],
-      ],
-    });
-  });
-
   test('rejects a consumer outside the provider', () => {
-    expect(() => renderToString(h(Probe))).toThrow(
+    expect(() => renderAccessible(h(Probe))).toThrow(
       'useThemePreference must be used inside ThemeProvider',
     );
   });

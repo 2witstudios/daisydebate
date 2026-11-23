@@ -1,3 +1,4 @@
+import type { RoundStore } from '@daisy/db/stores/rounds';
 import { commandDigest } from '@daisy/digest';
 import { bindRoundCommandPrincipal } from '@daisy/auth';
 import {
@@ -6,7 +7,6 @@ import {
   strikeInOpening,
 } from '@daisy/debate-engine';
 import { roundTickProjection } from '../round-finalization/operations';
-import type { Database } from '@daisy/db';
 import type { LockedRoundCommandContext } from '@daisy/db/rounds';
 import { createAppError, isAppError, createRefusal } from '@daisy/errors';
 import {
@@ -17,7 +17,7 @@ import {
 
 /** One shared command operation for session callers and seat-scoped AgentRuns. */
 export function createRoundRuntimeOperations(input: {
-  readonly store: Pick<Database, 'executeRoundCommand' | 'executeRoundTick'>;
+  readonly store: Pick<RoundStore, 'executeRoundCommand' | 'executeRoundTick'>;
   readonly nextSegmentId: () => string;
 }) {
   return {

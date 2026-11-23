@@ -1,7 +1,8 @@
 'use client';
 
-import { useBrowserEffect } from '../edge/browser-sync';
-import { StatusRegion } from '../components/status-region/status-region';
+import { useNavigation } from '../edge/use-navigation';
+import { navigateDocument } from '../edge/browser-navigation';
+import { Announcement } from '../components/announcement/announcement';
 import { useId, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import {
@@ -53,12 +54,14 @@ export function ClubForm({
   const router = useRouter();
   const errorId = useId();
   const next = answered.kind === 'moved' ? answered.next : undefined;
-  useBrowserEffect(() => {
-    if (next === undefined) return;
-    if (/^https?:\/\//.test(next) && new URL(next).origin !== location.origin)
-      location.assign(next);
-    else router.replace(next);
-  }, [next, router]);
+  useNavigation(router, next, (navigator, destination) => {
+    if (
+      /^https?:\/\//.test(destination) &&
+      new URL(destination).origin !== location.origin
+    )
+      navigateDocument(destination);
+    else navigator.replace(destination);
+  });
   const pending = posting || answered.kind === 'moved';
   useFocusAfterAnswer(answered, focusTarget, !posting, { onlyWhenLost });
   const fields = clubFields(answered);
@@ -78,10 +81,10 @@ export function ClubForm({
       <div id={errorId}>
         <FormError error={fields.error} />
         {answered.kind === 'unacknowledged' ? (
-          <StatusRegion as="p" role="alert" className="text-sm text-live">
+          <Announcement as="p" kind="problem" className="text-sm text-live">
             We could not tell whether that went through. Check the page, then
             try again.
-          </StatusRegion>
+          </Announcement>
         ) : null}
       </div>
     </form>

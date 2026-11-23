@@ -1,4 +1,4 @@
-import type { SupportMessageNotice } from '@daisy/db';
+import type { SupportMessageNotice } from '@daisy/db/stores/support';
 import { renderEmailLayout } from '../mail/layout';
 import { supportTopicLabels } from './labels';
 

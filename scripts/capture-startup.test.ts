@@ -1,4 +1,5 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
+import { hostWaits } from '@daisy/worker/host';
 import { createAppError, isAppError } from '@daisy/errors';
 import { createMediaWorkerClient } from '@daisy/media/worker';
 import { createMediaWorkerAuthentication } from '@daisy/media/internal';
@@ -62,7 +63,7 @@ function superviseCapture(
           now: () => 1000,
         }),
         unavailableRetryMs: [0, 0, 0],
-        nowMs: () => run.now,
+        waits: { ...hostWaits, nowMs: () => run.now },
         deadlineSignal: () => new AbortController().signal,
         fetch: async (url) => {
           if (url.endsWith('/lease'))

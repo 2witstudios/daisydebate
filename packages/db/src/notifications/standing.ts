@@ -1,3 +1,6 @@
+import { messagingDmRequestStates } from '@daisy/protocol/messaging/social';
+import { roomVisibilities } from '@daisy/protocol/room-contract';
+import { listedWord } from '../lifecycle-sql';
 import {
   notificationKinds,
   type NotificationKind,
@@ -63,7 +66,7 @@ const subjectStands = (
   switch (kind) {
     case 'followed_debater_live':
       // A follower is sent only to a public Round on air, by a live account.
-      return sql`(r.visibility='public' and u.username is not null
+      return sql`(r.visibility=${listedWord(roomVisibilities, 'public')} and u.username is not null
         and ${broadcastOnAir(sql`n.round_id`)})`;
     case 'recording_ready':
       return recordingReady(sql`rc`);
@@ -86,7 +89,7 @@ const subjectStands = (
     case 'dm_request':
       // Until the request is answered or withdrawn, only as its sender's,
       // and never across a block either way.
-      return sql`(dmp.request_state='pending'
+      return sql`(dmp.request_state=${listedWord(messagingDmRequestStates, 'pending')}
         and dmp.request_sender_actor_id=n.actor_id
         and not exists (select 1 from contact_pairs cp
           where cp.low_actor_id=dmp.low_actor_id and cp.high_actor_id=dmp.high_actor_id

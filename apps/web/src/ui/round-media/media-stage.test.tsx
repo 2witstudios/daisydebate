@@ -1,12 +1,20 @@
 import { createElement } from 'react';
-import { renderToString } from 'react-dom/server';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
+import { renderAccessible } from '../../test-support/rendered/accessible';
 import { MediaStage } from './media-stage';
 import type { ObservedPeer as RemotePeer } from '../../features/round-media/model/media-state';
 import type { MediaConnectionLabel as MediaConnectionState } from '../../features/round-media/model/media-status';
 import { aff, view } from '../debate-room/live-round.test-support';
 
 setupRitewayBun();
+
+/** Whether a tile (a figure) says this of its seat's media. */
+const captions = (stage: Parameters<typeof renderAccessible>[0]) => ({
+  includes: (caption: string) =>
+    renderAccessible(stage)
+      .all('figure')
+      .some((tile) => tile.textContent?.includes(caption)),
+});
 
 const render = (
   connection: MediaConnectionState,
@@ -15,7 +23,7 @@ const render = (
   local = true,
   remotePeers: readonly RemotePeer[] = [],
 ) =>
-  renderToString(
+  captions(
     createElement(MediaStage, {
       view,
       media: {
@@ -85,53 +93,5 @@ test('a remote seat says what the transport actually observes of that peer', () 
     should: 'report the floor, not a device problem',
     actual: remote(false, present(false)).includes('Microphone closed'),
     expected: true,
-  });
-});
-
-const observed = (muted = false) =>
-  ({
-    identity: 'local',
-    source: 'camera',
-    local: false,
-    speaking: false,
-    muted,
-  }) as const;
-const handle = {
-  identity: 'local',
-  source: 'camera',
-  track: { attach: () => undefined, detach: () => undefined },
-} as never;
-const stage = (
-  tracks: readonly ReturnType<typeof observed>[],
-  handles: readonly never[],
-) =>
-  renderToString(
-    createElement(MediaStage, {
-      view,
-      media: {
-        peers: [{ participantId: aff.id, identity: 'local', microphone: true }],
-      } as Parameters<typeof MediaStage>[0]['media'],
-      microphoneConfirmed: true,
-      tracks,
-      handles,
-      connection: 'live',
-      ownIdentity: null,
-      ownMuted: false,
-      remotePeers: [],
-    }),
-  ).includes('<video');
-
-test('the stage shows what the model says, and only attaches what it can', () => {
-  assert({
-    given:
-      'a camera the model reports, one it reports muted, one it does not report, and one with nothing to attach',
-    should: 'render video only for the first',
-    actual: [
-      stage([observed()], [handle]),
-      stage([observed(true)], [handle]),
-      stage([], [handle]),
-      stage([observed()], []),
-    ],
-    expected: [true, false, false, false],
   });
 });

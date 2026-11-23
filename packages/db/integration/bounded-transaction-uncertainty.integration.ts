@@ -1,3 +1,4 @@
+import { hostWaits } from '@daisy/worker/host';
 import { requireTestServices } from '@daisy/config';
 import { createAppError, isAppError } from '@daisy/errors';
 import { assertRejects } from '@daisy/errors/testing';
@@ -52,7 +53,7 @@ for (const fault of ['cleanup-failure', 'lost-commit-reply']) {
       } finally {
         restore();
       }
-      const sampler = createAvailabilitySampler(client);
+      const sampler = createAvailabilitySampler(client, hostWaits);
       let stamp: string | undefined;
       try {
         const sample = await sampler.sample({
@@ -147,7 +148,7 @@ test(
           work,
           f.sql,
           holding!.pid,
-          { now: performance.now },
+          { waits: hostWaits },
         );
         await refused;
         const elapsed = performance.now() - started;

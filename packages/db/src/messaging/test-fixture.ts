@@ -1,3 +1,10 @@
+import {
+  messagingChannelLifecycles,
+  messagingDmRequestStates,
+} from '@daisy/protocol/messaging/social';
+import { messagingChannelKinds } from '../schema/messaging-channels';
+import { actorKinds } from '../schema/actors';
+import { listedValue } from '../lifecycle-sql';
 import type { SQL } from 'bun';
 import { createId } from '@paralleldrive/cuid2';
 import { drizzle } from 'drizzle-orm/bun-sql';
@@ -5,7 +12,7 @@ import { runPrivacyErasure, runPrivacyExport } from '../privacy/operations';
 import { deliverPrivacyJob } from '../privacy';
 import { accountAgePrivacyAdopter } from '../account-age';
 import { admitParticipants } from '../beta-access-testing';
-import { socialPrivacyAdoption } from '../social-privacy-composition';
+import { socialPrivacyAdoption } from '../privacy/subject-rights';
 import { notificationPrivacyAdopter } from '../notifications/privacy';
 
 /** Isolated integration data only; never collection or production policy authority. */
@@ -75,8 +82,14 @@ export async function createMessagingTestFixture(client: SQL) {
       [userId, otherUserId],
     );
     await client.unsafe(
-      "insert into actors(id,kind,user_id) values($1,'human',$2),($3,'human',$4)",
-      [actorId, userId, otherActorId, otherUserId],
+      'insert into actors(id,kind,user_id) values($1,$5,$2),($3,$5,$4)',
+      [
+        actorId,
+        userId,
+        otherActorId,
+        otherUserId,
+        listedValue(actorKinds, 'human'),
+      ],
     );
     // Both are admitted participants (ADR 0075); deleting the users cascades.
     await admitParticipants(client, [userId, otherUserId], now);
@@ -160,15 +173,26 @@ export async function seedMessagingTestDm(
     [low, high],
   );
   await client.unsafe(
-    "insert into messaging_channels(id,kind,policy_key,policy_revision,lifecycle) values($1,'dm','social.dm',1,'active')",
-    [channelId],
+    "insert into messaging_channels(id,kind,policy_key,policy_revision,lifecycle) values($1,$2,'social.dm',1,$3)",
+    [
+      channelId,
+      listedValue(messagingChannelKinds, 'dm'),
+      listedValue(messagingChannelLifecycles, 'active'),
+    ],
   );
   await client.unsafe(
     'insert into messaging_channel_streams(channel_id) values($1)',
     [channelId],
   );
   await client.unsafe(
-    "insert into messaging_dm_pairs(low_actor_id,high_actor_id,channel_id,request_sender_actor_id,request_state,requested_at,decided_at) values($1,$2,$3,$4,'accepted',$5,$5)",
-    [low, high, channelId, actorId, now],
+    'insert into messaging_dm_pairs(low_actor_id,high_actor_id,channel_id,request_sender_actor_id,request_state,requested_at,decided_at) values($1,$2,$3,$4,$6,$5,$5)',
+    [
+      low,
+      high,
+      channelId,
+      actorId,
+      now,
+      listedValue(messagingDmRequestStates, 'accepted'),
+    ],
   );
 }

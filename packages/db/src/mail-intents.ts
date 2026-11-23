@@ -1,3 +1,7 @@
+import { organizationKinds } from '@daisy/protocol/lobby';
+import { listedWord, listedWords } from './lifecycle-sql';
+import { mailJobStates } from './schema/columns';
+import { betaAccessStates } from '@daisy/protocol/beta-access';
 import type { PreapprovalAccountEligibility } from '@daisy/protocol/beta-preapproval';
 import { normalizedEmailSql } from './email-identity';
 import { loadAuthorizationAccount } from './authorization';
@@ -97,7 +101,7 @@ const claimRow = z.object({
 const memberRow = z.object({
   email: z.string().nullable(),
   username: z.string().nullable(),
-  state: z.string().nullable(),
+  state: z.enum(betaAccessStates).nullable(),
 });
 const digestRow = z.object({
   new_requests: z.coerce.number().int().nonnegative(),
@@ -139,7 +143,7 @@ export function mailIntentOperations({
           z.object({
             purpose: z.string(),
             invitation_deadline: z.string(),
-            state: z.string(),
+            state: z.enum(mailJobStates),
             preapproval_id: z.string().nullable(),
             recipient_user_id: z.string().nullable(),
             window_start: z.date().nullable(),
@@ -170,7 +174,7 @@ export function mailIntentOperations({
                     erased: z.boolean(),
                     verified: z.boolean().nullable(),
                     email_matches: z.boolean().nullable(),
-                    state: z.string().nullable(),
+                    state: z.enum(betaAccessStates).nullable(),
                   }),
                   sql`select p.email, p.claimed_user_id,
                 u.deleted_at is not null as erased, u.email_verified as verified,
@@ -236,7 +240,7 @@ export function mailIntentOperations({
             count(*) filter (where requested_at >= ${intent.window_start}
               and requested_at < ${intent.window_start}::timestamptz + ${DIGEST_WINDOW}) as new_requests,
             count(*) as waiting
-          from account_beta_access where state = 'pending'`,
+          from account_beta_access where state = ${listedWord(betaAccessStates, 'pending')}`,
         );
         if (!row)
           throw createAppError('INVARIANT', 'Digest counts are missing');
@@ -269,7 +273,7 @@ export function mailIntentOperations({
             database,
             z.object({ id: z.string() }),
             sql`select id from organizations
-            where kind in ('school', 'family') and id > ${after}
+            where kind in ${listedWords(organizationKinds, ['school', 'family'])} and id > ${after}
             order by id limit 100`,
           );
           for (const club of clubs) {

@@ -2,10 +2,7 @@ import type { App } from '../../server/app';
 import { readJson } from '../../server/http';
 
 import { composeMessagingCreationOperation } from './creation-operation';
-import {
-  memberHttpBoundary,
-  runEvaluatedRoute,
-} from '../../server/member-boundary';
+import { memberHttpBoundary, runEvaluatedRoute } from '../auth/member-boundary';
 export function composeMessagingGroupCreationRoute(app: App) {
   return (request: Request) => {
     const policy = app.messagingPolicy;

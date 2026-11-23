@@ -1,5 +1,6 @@
+import { actorKinds } from './schema/actors';
 import { roundStatus } from '@daisy/protocol/round';
-import { lifecycleSql } from './lifecycle-sql';
+import { lifecycleSql, listedWord } from './lifecycle-sql';
 import { sql } from 'drizzle-orm';
 import { isDebatingSeatSql } from './seat-columns';
 import { createAppError } from '@daisy/errors';
@@ -22,7 +23,7 @@ export async function scanBotWorkers(tx: Tx, limit: number) {
     select r.id as round_id,p.id as seat_id,s.id as segment_id
     from rounds r
     join round_participants p on p.round_id=r.id and ${isDebatingSeatSql(sql`p.seat_kind`)}
-    join actors a on a.id=p.actor_id and a.kind='bot'
+    join actors a on a.id=p.actor_id and a.kind=${listedWord(actorKinds, 'bot')}
     join bot_profiles b on b.actor_id=a.id
     cross join observed n
     join lateral (select id from round_segments where round_id=r.id and started_at<=n.at

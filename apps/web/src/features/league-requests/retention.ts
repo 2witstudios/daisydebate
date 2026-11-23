@@ -1,4 +1,4 @@
-import type { Database } from '@daisy/db';
+import type { LeagueRequestsStore } from '@daisy/db/stores/league-requests';
 import {
   DAY_MS,
   retentionAfter,
@@ -10,7 +10,7 @@ import {
  * kept 365 days after it was made, sent or not (compliance).
  */
 export const leagueRequestRetentionTarget = (
-  database: Pick<Database, 'purgeExpiredLeagueRequests'>,
+  database: Pick<LeagueRequestsStore, 'purgeExpiredLeagueRequests'>,
 ): RetentionTarget =>
   retentionAfter('league_requests', 365 * DAY_MS, (batch) =>
     database.purgeExpiredLeagueRequests(batch),

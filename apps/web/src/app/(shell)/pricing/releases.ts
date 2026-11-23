@@ -1,9 +1,7 @@
 import type { PlanReleases } from '../../../features/pricing/plan-actions';
-import { releaseAccountOf } from '../../../features/pricing/release-account';
-import {
-  requestIdentity,
-  requestReleaseEnabled,
-} from '../../../lib/request-session';
+import { releaseAccountOf } from '../../../features/flags/release-account';
+import { requestIdentity } from '../../../lib/page-reads';
+import { requestReleaseEnabled } from '../../../features/flags/page-reads';
 
 /**
  * The release reads behind /pricing, in one place: whether the page (and

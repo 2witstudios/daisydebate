@@ -12,12 +12,14 @@ import {
 import { createdAtColumn, oneOf, timestampColumn } from './columns';
 import { users } from './users';
 
+const flagChangeKinds = ['state', 'override'] as const;
+
 /** One revision serializes every state or targeting change for a flag. */
 export const releaseFlags = pgTable(
   'release_flags',
   {
     key: text('key').primaryKey(),
-    state: text('state').notNull(),
+    state: text('state').$type<(typeof flagStates)[number]>().notNull(),
     revision: integer('revision').notNull(),
   },
   (table) => [
@@ -62,13 +64,13 @@ export const flagChangeEvents = pgTable(
     key: text('key').notNull(),
     revision: integer('revision').notNull(),
     commandId: text('command_id').notNull(),
-    change: text('change').notNull(),
+    change: text('change').$type<(typeof flagChangeKinds)[number]>().notNull(),
     createdAt: createdAtColumn(),
   },
   (table) => [
     check(
       'flag_change_events_change_check',
-      oneOf(table.change, ['state', 'override']),
+      oneOf(table.change, flagChangeKinds),
     ),
     check('flag_change_events_revision_check', sql`${table.revision} > 0`),
     index('flag_change_events_key_idx').on(table.key, table.revision),

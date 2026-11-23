@@ -3,7 +3,7 @@ import { headers } from 'next/headers';
 import { notFound } from 'next/navigation';
 import { idSchema } from '@daisy/protocol/primitives';
 import { messagingRetainedSchemas } from '@daisy/protocol/messaging/retained';
-import { requireAccess } from '../../../../../lib/access';
+import { requireAccess } from '../../../../../features/access/page-access';
 import type { MessagingChannelPageProps } from '../../../../../features/messaging/channel-page';
 import { RetainedDeleteForm } from '../../../../../ui/messaging/retained-delete-form';
 import { GET } from '../../../../api/messaging/retained/[channelId]/route';

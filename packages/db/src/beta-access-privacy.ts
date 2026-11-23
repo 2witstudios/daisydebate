@@ -1,9 +1,9 @@
+import { betaAccessStates } from '@daisy/protocol/beta-access';
 import { eraseBetaPreapprovals } from './beta-preapproval-erasure';
 import { normalizedEmailSql } from './email-identity';
 import { sql } from 'drizzle-orm';
-import { exportRows } from './privacy/export-rows';
+import { exportRows, run, query } from './raw-rows';
 import type { PrivacyAdopter } from './privacy/contracts';
-import { run, query } from './raw-rows';
 import { z } from 'zod';
 
 /**
@@ -32,7 +32,7 @@ export const betaAccessPrivacyAdopter: PrivacyAdopter = {
       tx,
       z.object({
         user_id: z.string(),
-        state: z.string(),
+        state: z.enum(betaAccessStates),
         revision: z.int(),
         requested_at: z.string(),
         decided_at: z.string().nullable(),

@@ -1,5 +1,7 @@
 import { and, asc, desc, eq, inArray, isNull, or, sql } from 'drizzle-orm';
-import type { LobbyAgeRule } from '@daisy/protocol/lobby/eligibility';
+import { parsedColumn } from '../raw-rows';
+import { z } from 'zod';
+import { lobbyAgeRules } from '@daisy/protocol/lobby/eligibility';
 import { grants } from '../schema/grants';
 import { scopeTransaction } from '../tenant-scope';
 import { ladders } from '../schema/ladders';
@@ -16,7 +18,7 @@ async function loadStandingLobbies(tx: Tx, organizationId: string) {
       id: lobbies.id,
       name: lobbies.name,
       handle: lobbies.handle,
-      ageRule: sql<LobbyAgeRule>`${lobbies.ageRule}`,
+      ageRule: parsedColumn(z.enum(lobbyAgeRules), sql`${lobbies.ageRule}`),
       version: lobbies.version,
     })
     .from(lobbies)

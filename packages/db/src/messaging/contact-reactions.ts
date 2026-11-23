@@ -1,3 +1,5 @@
+import { messagingDmRequestStates } from '@daisy/protocol/messaging/social';
+import { listedWord } from '../lifecycle-sql';
 import { and, eq, sql } from 'drizzle-orm';
 import { createAppError } from '@daisy/errors';
 import { messagingDmPairs } from '../schema/messaging-social';
@@ -32,7 +34,7 @@ const acceptedDm = (pair: ContactPairKey) =>
   sql`exists(select 1 from ${messagingDmPairs}
     where ${messagingDmPairs.lowActorId} = ${pair.lowActorId}
       and ${messagingDmPairs.highActorId} = ${pair.highActorId}
-      and ${messagingDmPairs.requestState} = 'accepted')`;
+      and ${messagingDmPairs.requestState} = ${listedWord(messagingDmRequestStates, 'accepted')})`;
 
 /** What Messaging registers with Contacts (ADR 0061). */
 export const messagingContactReactions = {

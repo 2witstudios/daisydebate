@@ -2,14 +2,15 @@
 import { headers } from 'next/headers';
 import { messagingDmDecisionResultSchema } from '@daisy/protocol/messaging/social';
 import { processRoute } from '../../../../../server/process-app';
+import { messagingComposition } from '../../../../../features/messaging/composition';
 import { inProcessFetch } from '../../../../../server/in-process-fetch';
-import { moveOn } from '../../../../../server/form-action';
+import { moveOn } from '../../../../../features/forms/form-action';
 import {
   parseDmDecisionForm,
   dmDecisionUnavailable,
   type DmDecisionFormState,
 } from '../../../../../features/messaging/forms/decide-form';
-const decide = processRoute((routes) => routes.messaging.decideDm);
+const decide = processRoute(messagingComposition, (routes) => routes.decideDm);
 export async function decideDmAction(
   channelId: unknown,
   _previous: DmDecisionFormState,

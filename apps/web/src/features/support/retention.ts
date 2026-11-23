@@ -1,4 +1,4 @@
-import type { Database } from '@daisy/db';
+import type { SupportStore } from '@daisy/db/stores/support';
 import {
   DAY_MS,
   retentionAfter,
@@ -10,7 +10,7 @@ import {
  * 365 days after it was sent, emailed or not (compliance).
  */
 export const supportMessageRetentionTarget = (
-  database: Pick<Database, 'purgeExpiredSupportMessages'>,
+  database: Pick<SupportStore, 'purgeExpiredSupportMessages'>,
 ): RetentionTarget =>
   retentionAfter('support_messages', 365 * DAY_MS, (batch) =>
     database.purgeExpiredSupportMessages(batch),

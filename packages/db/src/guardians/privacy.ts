@@ -1,9 +1,10 @@
+import { guardianLinkStatuses } from '@daisy/protocol/guardians';
+import { listedWord, listedWords } from '../lifecycle-sql';
 import { protectionLevelSchema } from '@daisy/protocol/protection-level';
 import { sql } from 'drizzle-orm';
 import { z } from 'zod';
 import type { PrivacyAdopter } from '../privacy/contracts';
-import { exportRows } from '../privacy/export-rows';
-import { query, run } from '../raw-rows';
+import { exportRows, query, run } from '../raw-rows';
 import { scopeTransaction } from '../tenant-scope';
 
 const linkRow = z.object({
@@ -53,10 +54,10 @@ export const guardianLinksPrivacyAdopter: PrivacyAdopter = {
     await run(
       tx,
       sql`update guardian_links
-      set status = case when status = 'active' then 'ended' else 'cancelled' end,
+      set status = case when status = ${listedWord(guardianLinkStatuses, 'active')} then 'ended' else 'cancelled' end,
         version = version + 1, closed_at = ${closedAt}, updated_at = ${closedAt}
       where (guardian_user_id = ${subject.userId} or minor_user_id = ${subject.userId})
-        and status in ('active', 'requested')`,
+        and status in ${listedWords(guardianLinkStatuses, ['active', 'requested'])}`,
     );
     await run(tx, sql`select public.daisy_erase_protection_choice()`);
     await scopeTransaction(tx, {});

@@ -1,5 +1,5 @@
 'use client';
-import { StatusRegion } from '../../components/status-region/status-region';
+import { Announcement } from '../../components/announcement/announcement';
 import { useId } from 'react';
 import type { TournamentSetup } from '../../../features/tab/setup';
 import { formFields, destinationOf } from '../../../features/forms/form-state';
@@ -75,17 +75,17 @@ export function SetupPairingForm({
         </Button>
       </fieldset>
       {fields.error || state.kind === 'unacknowledged' ? (
-        <StatusRegion
+        <Announcement
           as="p"
           id={noticeId}
           tabIndex={-1}
-          role="status"
+          kind="progress"
           className="text-sm text-ink"
         >
           {state.kind === 'unacknowledged'
             ? 'The answer was lost. Retry the same selection, or reload to check what was saved.'
             : fields.error}
-        </StatusRegion>
+        </Announcement>
       ) : null}
     </form>
   );

@@ -1,4 +1,4 @@
-import type { OperationName } from '../ops/operation-names';
+import type { OperationName } from '../../server/operation-names';
 import type { AuthorizationPrincipal } from '@daisy/auth/authorization';
 import type { App } from '../../server/app';
 import { readJson } from '../../server/http';
@@ -6,10 +6,7 @@ import { consumeWindowsOrThrow } from '../../server/rate-limit';
 
 import type { MessagingRuntimePolicy } from './composition';
 import type { MessagingSocialRuntimePolicy } from './social-composition';
-import {
-  memberHttpBoundary,
-  runEvaluatedRoute,
-} from '../../server/member-boundary';
+import { memberHttpBoundary, runEvaluatedRoute } from '../auth/member-boundary';
 type Context = {
   readonly policy: MessagingRuntimePolicy;
   readonly social: MessagingSocialRuntimePolicy;

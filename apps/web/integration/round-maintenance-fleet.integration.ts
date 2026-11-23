@@ -1,3 +1,4 @@
+import { hostWaits } from '@daisy/worker/host';
 import { mediaPhase } from '@daisy/debate-engine';
 import { admitsPrincipalAccess } from '@daisy/auth/authorization';
 import { requireTestServices } from '@daisy/config';
@@ -5,10 +6,7 @@ import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { withAttendanceRound } from './attendance.test-support';
 import { launchRuntimeRound } from './round-runtime.test-support';
-import {
-  maintenanceAvailability,
-  maintenanceTestTimers as timers,
-} from './round-maintenance.test-support';
+import { maintenanceAvailability } from './round-maintenance.test-support';
 import { createRoundMaintenanceOperations } from '../src/features/round-finalization/maintenance';
 import { roundTickProjection } from '../src/features/round-finalization/operations';
 import { startRoundMaintenance } from '../src/features/round-finalization/service';
@@ -47,7 +45,7 @@ test('five actual Rounds leave shared bounded capacity for media and first-recei
       maintenance = startRoundMaintenance({
         now: () => performance.now(),
         ...operations,
-        timers,
+        waits: hostWaits,
         failed: (error) => failures.push(error),
       });
       await maintenance.ready;

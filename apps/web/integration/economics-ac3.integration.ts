@@ -1,3 +1,4 @@
+import { sha256Hex } from '@daisy/digest';
 import {
   mkdtemp,
   writeFile,
@@ -11,7 +12,7 @@ import { join } from 'node:path';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { requireTestServices } from '@daisy/config';
 import { billingEconomicsReadSchema } from '@daisy/protocol/billing-economics';
-import { composeBillingEconomics } from '../src/server/billing-economics';
+import { composeBillingEconomics } from '../src/features/billing/economics-worker';
 import {
   withAc3Runtime,
   untilCommitted,
@@ -294,9 +295,7 @@ test('actual composed AI workers observe increasing beta workload separately fro
             events: observer.events,
             capacity,
             report,
-            privateReportSha256: new Bun.CryptoHasher('sha256')
-              .update(await readFile(file))
-              .digest('hex'),
+            privateReportSha256: sha256Hex(await readFile(file)),
             limits,
             units:
               'simultaneous complete() provider requests in this single TEST web process',

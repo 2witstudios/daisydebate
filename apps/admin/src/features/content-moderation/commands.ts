@@ -1,3 +1,4 @@
+import { inTransaction } from '../../db/tx';
 import { appendAudit } from '../../audit/store';
 import {
   authorizeOperator,
@@ -50,7 +51,7 @@ export async function submitModeration(
     : ({ allowed: false, reason: 'disabled' } as const);
   const targetUserId = auditedUser(request);
   if (!decision.allowed) {
-    await deps.db.transaction((tx) =>
+    await inTransaction(deps.db, (tx) =>
       appendAudit(tx, {
         id: deps.ids.next(),
         kind: 'access.denied',
@@ -64,7 +65,7 @@ export async function submitModeration(
     );
     return 'denied';
   }
-  const intent = await deps.db.transaction((tx) =>
+  const intent = await inTransaction(deps.db, (tx) =>
     appendAudit(tx, {
       id: deps.ids.next(),
       kind: 'command.intent',
@@ -81,7 +82,7 @@ export async function submitModeration(
     adminAuditHead: intent.hash,
   });
   const call = await deps.client.moderate(operatorId, path, body);
-  await deps.db.transaction((tx) =>
+  await inTransaction(deps.db, (tx) =>
     appendAudit(tx, {
       id: deps.ids.next(),
       kind: 'command.outcome',

@@ -1,6 +1,6 @@
 import type { lockAuthorizationActors } from '../authorization';
 import type { MessagingChannelFact } from './social';
-import type { GroupManagementOperation } from './group-management-plan';
+import type { GroupManagementOperation } from '@daisy/protocol/messaging/group-management-plan';
 import type { Tx } from '../tx';
 
 export type MessagingGroupManagementScope = {

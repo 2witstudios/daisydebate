@@ -1,8 +1,9 @@
+import { openWebDatabase } from '../src/server/database';
+import { hostWaits } from '@daisy/worker/host';
 import { deriveRecipientSubkey } from '../src/features/mail/recipient-key';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { systemClock, systemId } from '@daisy/clock';
 import { noopErrorReporter } from '@daisy/observability';
-import { createDatabase } from '@daisy/db';
 import { createTestApp, fixtureEmail } from './fixtures';
 import { createAuthRouteHandlers } from '../src/features/auth/handlers';
 import { createConfirmHandlers } from '../src/features/auth/confirmation/confirm';
@@ -17,7 +18,8 @@ const { jsonPost, formPost } = testApp;
 const silent = { log: () => {}, child: () => silent };
 /** An auth server whose PostgreSQL is unreachable: persistence must fail. */
 const unreachableDatabase = () => {
-  const database = createDatabase({
+  const database = openWebDatabase({
+    waits: hostWaits,
     url: 'postgres://daisy:unused-password@127.0.0.1:1/daisy_test',
     nextActorId: () => systemId.next(),
   });

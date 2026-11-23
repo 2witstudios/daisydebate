@@ -1,8 +1,9 @@
+import { listedWord } from './lifecycle-sql';
+import { profilePhotoStatuses } from '@daisy/protocol/public-profile';
 import { sql } from 'drizzle-orm';
 import { idSchema } from '@daisy/protocol/primitives';
 import type { PrivacyAdopter, PrivacyExport } from './privacy/contracts';
-import { exportRows } from './privacy/export-rows';
-import { query, run } from './raw-rows';
+import { exportRows, query, run } from './raw-rows';
 import { z } from 'zod';
 
 /**
@@ -24,14 +25,14 @@ export const publicProfilePrivacyAdopter: PrivacyAdopter = {
     // landing, so the sweep must not delete the prefix before they have.
     await run(
       tx,
-      sql`update profile_photos set status = 'erased',
+      sql`update profile_photos set status = ${listedWord(profilePhotoStatuses, 'erased')},
         ended_at = ${now}::timestamptz,
-        delete_after = case when status = 'uploading'
+        delete_after = case when status = ${listedWord(profilePhotoStatuses, 'uploading')}
           then greatest(delete_after, ${now}::timestamptz)
           else ${now}::timestamptz end,
         version = version + 1
       where actor_id = ${actorId}
-        and (ended_at is null or status = 'uploading')`,
+        and (ended_at is null or status = ${listedWord(profilePhotoStatuses, 'uploading')})`,
     );
   },
   async export(tx, subject): Promise<PrivacyExport> {
@@ -59,7 +60,7 @@ export const publicProfilePrivacyAdopter: PrivacyAdopter = {
           tx,
           z.object({
             id: z.string(),
-            status: z.string(),
+            status: z.enum(profilePhotoStatuses),
             check_verdict: z.string().nullable(),
             created_at: z.date(),
             decided_at: z.date().nullable(),

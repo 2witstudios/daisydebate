@@ -1,4 +1,4 @@
-import { tryInstantMs } from '@daisy/clock';
+import { tryInstantMs } from '@daisy/clock/instant';
 import { currentAgeFact } from './authorization-age';
 import type {
   ChannelAuthorizationFact,

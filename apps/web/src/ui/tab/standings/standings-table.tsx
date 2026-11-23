@@ -4,7 +4,6 @@ import { Button } from '../../components/button/button';
 import { useState } from 'react';
 import { matchesQuery } from '../../../features/tab/at-scale';
 import type { StandingsTable as Read } from '../../../features/tab/standings';
-import { buttonClass } from '../../components/button/button-class';
 import { cn } from '../../cn';
 import { eyebrowClass } from '../list-card/list-card';
 
@@ -139,11 +138,10 @@ function BreakRanking({
       </h2>
       {clear === 0 || query !== '' ? null : (
         <Button
-          variant="unstyled"
+          variant="secondary"
           type="button"
           aria-expanded={expanded.clear}
           onClick={() => setExpanded({ ...expanded, clear: !expanded.clear })}
-          className={buttonClass('secondary')}
         >
           {expanded.clear ? 'Hide' : `Show ${clear}`} · Seeds 1 to {clear} clear
           of the line
@@ -152,11 +150,10 @@ function BreakRanking({
       <Ranking table={{ ...line, rows, divisions: [] }} />
       {line.rows.length <= seeds + 3 || query !== '' ? null : (
         <Button
-          variant="unstyled"
+          variant="secondary"
           type="button"
           aria-expanded={expanded.tail}
           onClick={() => setExpanded({ ...expanded, tail: !expanded.tail })}
-          className={buttonClass('secondary')}
         >
           {line.rows.length - seeds - 3} more below ·{' '}
           {expanded.tail ? 'Hide' : `Show all ${line.rows.length}`}

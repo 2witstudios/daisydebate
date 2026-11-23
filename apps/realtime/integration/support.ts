@@ -1,6 +1,7 @@
 import { SQL } from 'bun';
 import { requireTestServices } from '@daisy/config';
-import { systemClock, systemId } from '@daisy/clock';
+import { systemClock, systemId, type Waits } from '@daisy/clock';
+import { hostWaits } from '@daisy/worker/host';
 import { waitForOutboxFinality } from '@daisy/db/testing';
 import { testNamespace } from '@daisy/redis/testing';
 import { createRealtimeApp } from '../src/app';
@@ -9,6 +10,44 @@ import type { OutboxRowsSink } from '../src/outbox-drain';
 import { refuseAllReading } from '../src/authorization.test-support';
 
 export const testOrigin = 'https://realtime.integration.test';
+
+/**
+ * Host time, except a cadence of `everyMs` waits until the test fires it:
+ * a test drives that one cadence (the 50 s principal revalidation) by hand
+ * while every other wait runs on real time. A stop still ends the held wait.
+ */
+export function heldCadence(everyMs: number): {
+  readonly waits: Waits;
+  /** Wakes the held cadence; false when none is waiting. */
+  readonly fire: () => boolean;
+} {
+  let wake: (() => void) | undefined;
+  const held = (dueMs: number) =>
+    Math.abs(dueMs - hostWaits.nowMs() - everyMs) < 1_000;
+  return {
+    waits: {
+      ...hostWaits,
+      waitUntilMs: (dueMs, signal) =>
+        held(dueMs)
+          ? new Promise<void>((resolve) => {
+              if (signal?.aborted) return resolve();
+              const done = () => {
+                signal?.removeEventListener('abort', done);
+                if (wake === done) wake = undefined;
+                resolve();
+              };
+              wake = done;
+              signal?.addEventListener('abort', done, { once: true });
+            })
+          : hostWaits.waitUntilMs(dueMs, signal),
+    },
+    fire: () => {
+      if (!wake) return false;
+      wake();
+      return true;
+    },
+  };
+}
 const testServices = requireTestServices(process.env);
 export const databaseUrl = testServices.databaseUrl;
 const redisUrl = testServices.redisUrl;
@@ -45,8 +84,10 @@ export async function bootServer(
       REALTIME_ALLOWED_ORIGINS: testOrigin,
     },
     clock: systemClock,
+    waits: hostWaits,
   });
   const { server, drain, close } = await serveRealtime({
+    waits: hostWaits,
     readingPolicy: refuseAllReading,
     resources,
     port: 0,
@@ -104,7 +145,7 @@ export async function insertOutboxRow(
     seq: string | number | bigint;
   };
   const position = { txid: String(record.txid), seq: BigInt(record.seq) };
-  await waitForOutboxFinality(client, position.txid, { now: Date.now });
+  await waitForOutboxFinality(client, position.txid, { waits: hostWaits });
   return position;
 }
 
@@ -158,7 +199,7 @@ export async function insertAndNotifyBurst(
   });
   const [txid] = (positions[0] ?? '').split(':');
   if (!txid) throw new Error('The burst inserted no rows');
-  await waitForOutboxFinality(client, txid, { now: Date.now });
+  await waitForOutboxFinality(client, txid, { waits: hostWaits });
   await client.begin(async (tx) => {
     for (const position of positions) await tx.notify('outbox', position);
   });

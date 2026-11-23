@@ -1,5 +1,6 @@
+import { sha1Base64 } from '@daisy/digest';
 import { connect } from 'node:net';
-import { randomBytes, createHash } from 'node:crypto';
+import { randomBytes } from 'node:crypto';
 import type { ServerMessage } from '@daisy/protocol/realtime-server';
 import type { SocketData } from '../src/socket';
 import { createNativeCloseReader } from '../src/native-close-reader.test-support';
@@ -62,9 +63,9 @@ export async function pausedNativePeer(port: number) {
   const socket = connect({ host: '127.0.0.1', port });
   const key = randomBytes(16).toString('base64');
   // RFC6455 mandates SHA-1 for this public upgrade nonce, not stored bearer material.
-  const expectedAccept = createHash('sha1')
-    .update(key + '258EAFA5-E914-47DA-95CA-C5AB0DC85B11')
-    .digest('base64');
+  const expectedAccept = sha1Base64(
+    key + '258EAFA5-E914-47DA-95CA-C5AB0DC85B11',
+  );
   let bytes = Buffer.alloc(0);
   let upgraded = false;
   let failure = false;

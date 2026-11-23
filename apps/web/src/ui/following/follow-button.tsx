@@ -1,5 +1,5 @@
 'use client';
-import { StatusRegion } from '../components/status-region/status-region';
+import { Announcement } from '../components/announcement/announcement';
 import { ActionForm, type FormStateAction } from '../form-action/action-form';
 import { Button } from '../components/button/button';
 
@@ -24,9 +24,9 @@ export function FollowButton({
             {following ? 'Following' : 'Follow'}
           </Button>
           {error ? (
-            <StatusRegion as="p" role="alert" className="text-sm text-live">
+            <Announcement as="p" kind="problem" className="text-sm text-live">
               {error}
-            </StatusRegion>
+            </Announcement>
           ) : null}
         </>
       )}

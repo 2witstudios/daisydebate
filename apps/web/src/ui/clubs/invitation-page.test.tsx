@@ -1,8 +1,8 @@
 import { mock } from 'bun:test';
-import { renderToStaticMarkup } from 'react-dom/server';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import type { ClubInvitationView } from '../../features/clubs/views';
-import { noAction, words } from './club-view.test-support';
+import { renderAccessible } from '../../test-support/rendered/accessible';
+import { noAction } from './club-view.test-support';
 
 setupRitewayBun();
 const navigation = await import('next/navigation');
@@ -24,18 +24,13 @@ const open: ClubInvitationView = {
   ownPremium: false,
 };
 const render = (view: ClubInvitationView) =>
-  words(
-    renderToStaticMarkup(
-      <ClubInvitationPage
-        view={view}
-        username="sam.rivera"
-        action={noAction}
-      />,
-    ),
+  renderAccessible(
+    <ClubInvitationPage view={view} username="sam.rivera" action={noAction} />,
   );
 
 test('an open invitation names the club and offers Accept and Decline', () => {
-  const text = render(open);
+  const view = render(open);
+  const text = view.textContent();
   assert({
     given: 'an open invitation for the signed-in invitee',
     should: 'name the inviter, the club and the seat, with both answers',
@@ -44,8 +39,8 @@ test('an open invitation names the club and offers Accept and Decline', () => {
       text.includes('Dana Mensah invited you to'),
       text.includes('Lakeside Debate'),
       text.includes('A Premium seat, paid by the club'),
-      text.includes('Accept the seat'),
-      text.includes('Decline'),
+      view.has('button', 'Accept the seat'),
+      view.has('button', 'Decline'),
       text.includes('Open until 1 Dec 2026'),
       text.includes('Your own subscription stays'),
       text.includes('Your coach sees'),
@@ -55,23 +50,19 @@ test('an open invitation names the club and offers Accept and Decline', () => {
 });
 
 test('an invitee who pays for Premium is told their own subscription stays until they cancel it', () => {
-  const html = renderToStaticMarkup(
-    <ClubInvitationPage
-      view={{ ...open, ownPremium: true }}
-      username="sam.rivera"
-      action={noAction}
-    />,
-  );
+  const view = render({ ...open, ownPremium: true });
   assert({
     given: 'an invitee with their own Premium subscription',
     should: 'say it stays until they cancel it and link to manage it',
     actual: [
-      words(html).includes(
-        'You already pay for Premium. Your own subscription stays until you cancel it.',
-      ),
-      html.includes('href="/settings/billing"'),
+      view
+        .textContent()
+        .includes(
+          'You already pay for Premium. Your own subscription stays until you cancel it.',
+        ),
+      view.attribute('link', 'Manage your subscription', 'href'),
     ],
-    expected: [true, true],
+    expected: [true, '/settings/billing'],
   });
 });
 
@@ -82,9 +73,11 @@ test('expired, already-seated and seated-elsewhere invitations offer no answer',
   assert({
     given: 'each closed invitation state',
     should: 'say why in plain words and offer no Accept',
-    actual: states.map((text) => [
-      text.includes('Accept the seat'),
-      /expired|already hold a seat in Lakeside Debate|another club/.test(text),
+    actual: states.map((view) => [
+      view.has('button', 'Accept the seat'),
+      /expired|already hold a seat in Lakeside Debate|another club/.test(
+        view.text('status'),
+      ),
     ]),
     expected: [
       [false, true],

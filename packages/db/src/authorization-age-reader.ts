@@ -1,4 +1,4 @@
-import { authorizationAccountFact } from './authorization-account';
+import { authorizationAccountFact } from './authorization';
 import { loadAuthorizationAgeFact } from './authorization-age';
 import type { Tx } from './tx';
 

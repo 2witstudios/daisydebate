@@ -1,8 +1,23 @@
+import { createBillingStore } from '../src/stores/billing';
+import { openDatabaseResources } from '../src/resources';
+import { hostWaits } from '@daisy/worker/host';
 import { createId } from '@paralleldrive/cuid2';
 import type { CleanupWork } from '@daisy/protocol/billing';
-import { createDatabase } from '../src/index';
 import { requireTestServices } from '@daisy/config';
 import { withClosedPurchase } from './billing-cleanup-purchases.test-support';
+/** This file's database: the area stores it reads, over one set of resources. */
+const openStores = (
+  options: Parameters<typeof openDatabaseResources>[0] & {
+    readonly nextActorId: () => string;
+  },
+) => {
+  const resources = openDatabaseResources(options);
+  return {
+    ...createBillingStore(resources, { nextId: options.nextActorId }),
+    close: resources.close,
+  };
+};
+
 const { databaseUrl } = requireTestServices(process.env);
 type Fixture = Parameters<Parameters<typeof withClosedPurchase>[1]>[0];
 
@@ -28,7 +43,8 @@ async function prepareCompletion(input: Fixture) {
       endsAt: '2026-12-01T00:00:00.000Z',
     },
   };
-  const database = createDatabase({
+  const database = openStores({
+      waits: hostWaits,
       url: databaseUrl,
       client: pool,
       nextActorId: createId,

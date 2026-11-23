@@ -1,7 +1,7 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { judgeSeat, sideSeat, type SeatRef } from '@daisy/protocol/seats';
 import { type RoomParticipant } from '@daisy/protocol/room-contract';
-import { castSeatsBotDebater } from './ai-round-cast';
+import { castSeatsBotDebater, isBotDebater } from './ai-round-cast';
 import { executeRoomCommand } from './room-assembly';
 import { consent, edges, state } from './room-assembly.test-support';
 
@@ -102,5 +102,18 @@ test('a real Launch carries the cast consequence in its freeze', () => {
       ['an AI judge alone', true, false],
       ['humans only', true, false],
     ],
+  });
+});
+
+test('one seat holds a bot debater only when a bot sits in a debating seat', () => {
+  assert({
+    given: 'a bot at negative, a bot judge and a person at negative',
+    should: 'name only the bot at negative a bot debater',
+    actual: [
+      isBotDebater(bot('negative')),
+      isBotDebater(bot('judge')),
+      isBotDebater(human('negative')),
+    ],
+    expected: [true, false, false],
   });
 });

@@ -1,3 +1,5 @@
+import { necessaryEvidenceStates } from '@daisy/protocol/necessary-evidence';
+import { listedWord } from '../lifecycle-sql';
 import { sql } from 'drizzle-orm';
 import { eligible } from './eligible';
 import type { Tx } from '../tx';
@@ -6,7 +8,7 @@ import { z } from 'zod';
 /** Round dedupe precedes LIMIT; actual all-member history survives finished siblings. Lock skips happen before the bound. */
 export async function select(tx: Tx, lane: 'attached' | 'detached') {
   const live = sql`not exists(select 1 from necessary_evidence live
-    where live.original_round_id=e.original_round_id and live.state='retiring' and live.lease_expires_at>clock_timestamp())`;
+    where live.original_round_id=e.original_round_id and live.state=${listedWord(necessaryEvidenceStates, 'retiring')} and live.lease_expires_at>clock_timestamp())`;
   const turn = sql`(select coalesce(max(history.last_claimed_at),min(history.created_at))
     from necessary_evidence history where history.original_round_id=e.original_round_id)`;
   const query =

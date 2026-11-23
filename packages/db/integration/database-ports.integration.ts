@@ -1,9 +1,22 @@
+import { createHealthStore } from '../src/stores/health';
+import { createListenStore } from '../src/stores/listen';
+import { createOutboxStore } from '../src/stores/outbox';
+import { openDatabaseResources } from '../src/resources';
+import { hostWaits } from '@daisy/worker/host';
 import { SQL } from 'bun';
 import { expect } from 'bun:test';
 import { requireTestServices } from '@daisy/config';
-import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { createDatabase } from '../src';
+/** This file's database: the area stores it reads, over one set of resources. */
+const openStores = (options: Parameters<typeof openDatabaseResources>[0]) => {
+  const resources = openDatabaseResources(options);
+  return {
+    ...createHealthStore(resources),
+    ...createListenStore(resources),
+    ...createOutboxStore(resources),
+    close: resources.close,
+  };
+};
 
 setupRitewayBun();
 const { databaseUrl: url } = requireTestServices(process.env);
@@ -11,10 +24,10 @@ const { databaseUrl: url } = requireTestServices(process.env);
 test('database health and outbox ports use the native pool', async () => {
   const client = new SQL(url, { max: 1 });
   const events: unknown[] = [];
-  const database = createDatabase({
+  const database = openStores({
+    waits: hostWaits,
     url,
     client,
-    nextActorId: createId,
     eventSink: (event, fields) =>
       events.push({ event, operation: fields.operation }),
   });

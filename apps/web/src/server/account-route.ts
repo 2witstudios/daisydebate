@@ -2,7 +2,7 @@ import { claimedUsername, type Identity } from '@daisy/auth';
 import { createRefusal } from '@daisy/errors';
 import type { Logger } from '@daisy/logger';
 import type { ErrorReporter } from '@daisy/observability';
-import type { OperationName } from '../features/ops/operation-names';
+import type { OperationName } from './operation-names';
 import {
   handleOperation,
   readJson,
@@ -126,7 +126,3 @@ export const audienceRoute = (
       return work(input);
     },
   );
-
-/** The Round id a `/api/rounds/<id>/...` route was called with. */
-export const roundIdOf = (request: Request) =>
-  new URL(request.url).pathname.split('/')[3] ?? '';

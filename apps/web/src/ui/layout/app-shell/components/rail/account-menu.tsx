@@ -120,7 +120,8 @@ export function AccountMenu({
         </Link>
         <SignOutForm
           next="/"
-          className={cn(navFlyoutLinkClass, 'w-full text-left')}
+          look={{ variant: 'flyout-item' }}
+          className="w-full"
         />
       </div>
     </DismissibleDetails>

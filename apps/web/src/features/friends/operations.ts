@@ -1,7 +1,8 @@
+import type { PublicProfileCard } from '@daisy/db/stores/profiles';
+import type { SocialRequestLimits } from '@daisy/db/stores/contacts';
 import type { AuthorizationPrincipal } from '@daisy/auth/authorization';
 import type { DiscoverActor } from '../account/username-discovery';
 import type { Clock, IdGenerator } from '@daisy/clock';
-import type { PublicProfileCard, SocialRequestLimits } from '@daisy/db';
 import type { FriendshipRow, FriendStore } from '@daisy/db/friends';
 import { createAppError, isAppError } from '@daisy/errors';
 import type { FriendCommandResult, FriendList } from '@daisy/protocol/friends';

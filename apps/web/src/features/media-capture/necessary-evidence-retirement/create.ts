@@ -1,8 +1,8 @@
-import type { Database } from '@daisy/db';
+import type { MediaCaptureStore } from '@daisy/db/stores/media-capture';
 import { createAppError } from '@daisy/errors';
 import { idSchema } from '@daisy/protocol/primitives';
 import { type NecessaryEvidenceCustody } from '@daisy/protocol/necessary-evidence';
-type Store = ReturnType<Database['createNecessaryEvidenceRetirement']>;
+type Store = ReturnType<MediaCaptureStore['createNecessaryEvidenceRetirement']>;
 type Lane = 'attached' | 'detached';
 type Outcome = 'idle' | 'retired' | 'pending' | 'blocked';
 /** LOCAL injected composition only; no production startup/configuration is installed here. */

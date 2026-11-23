@@ -7,11 +7,19 @@ type Handoff = {
   readonly order: number;
   readonly receipt: 'handed' | 'reported';
 };
+/** A line's end as the store takes it: whole, or cut to the words that played. */
+export type LineEnd =
+  | { readonly kind: 'whole' }
+  | {
+      readonly kind: 'cut';
+      readonly spoken: string;
+      readonly playedMs: number;
+    };
 type Ending =
   | { readonly status: 'open' }
   | {
       readonly status: 'ending' | 'retry' | 'closed';
-      readonly fraction: number;
+      readonly end: LineEnd;
     };
 type Line = {
   readonly phraseId: string;
@@ -27,11 +35,7 @@ export type LineEvent =
       'cutAtMs' | 'order' | 'receipt'
     >)
   | { readonly type: 'clear'; readonly atMs: number }
-  | {
-      readonly type: 'end';
-      readonly phraseId: string;
-      readonly fraction: number;
-    }
+  | { readonly type: 'end'; readonly phraseId: string; readonly end: LineEnd }
   | {
       readonly type: 'end-result';
       readonly phraseId: string;
@@ -41,7 +45,7 @@ export type LineEvent =
 export type LineEffect = {
   readonly type: 'end';
   readonly phraseId: string;
-  readonly fraction: number;
+  readonly end: LineEnd;
 };
 export const emptyLineLedger = (): LineLedger => ({ lines: [] });
 const lineAt = (state: LineLedger, phraseId: string) =>
@@ -104,7 +108,8 @@ export function nextLineLedger(
       .map((line) => ({
         type: 'end',
         phraseId: line.phraseId,
-        fraction: line.ending.status === 'open' ? 0 : line.ending.fraction,
+        end:
+          line.ending.status === 'open' ? { kind: 'whole' } : line.ending.end,
       }));
     return {
       state: {
@@ -153,15 +158,8 @@ export function nextLineLedger(
       break;
     case 'end':
       if (line.ending.status !== 'open') break;
-      next = {
-        ...line,
-        ending: { status: 'ending', fraction: event.fraction },
-      };
-      effects.push({
-        type: 'end',
-        phraseId: event.phraseId,
-        fraction: event.fraction,
-      });
+      next = { ...line, ending: { status: 'ending', end: event.end } };
+      effects.push({ type: 'end', phraseId: event.phraseId, end: event.end });
       break;
     case 'end-result':
       if (line.ending.status === 'ending')

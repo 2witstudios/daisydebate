@@ -1,8 +1,9 @@
+import { openWebDatabase } from '../src/server/database';
+import { hostWaits } from '@daisy/worker/host';
 import { requireTestServices } from '@daisy/config';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { SQL } from 'bun';
 import { createId } from '@paralleldrive/cuid2';
-import { createDatabase } from '@daisy/db';
 import { finishedOrBlockedBehind } from '@daisy/db/testing';
 import { operatorLimits } from '@daisy/protocol/operator';
 import {
@@ -19,7 +20,8 @@ requireTestServices(process.env);
 setupRitewayBun();
 test('signed Flags operations resolve real targeting without granting paid access; failed database reads close display', async () => {
   const client = new SQL(testDatabaseUrl, { connectionTimeout: 2 });
-  const database = createDatabase({
+  const database = openWebDatabase({
+    waits: hostWaits,
     url: testDatabaseUrl,
     nextActorId: createId,
   });
@@ -136,7 +138,8 @@ test('signed Flags operations resolve real targeting without granting paid acces
 
 test('signed operator deadline expires during a real Flags lock wait and leaves no durable effects', async () => {
   const client = new SQL(testDatabaseUrl, { connectionTimeout: 2 });
-  const database = createDatabase({
+  const database = openWebDatabase({
+    waits: hostWaits,
     url: testDatabaseUrl,
     nextActorId: createId,
   });
@@ -166,7 +169,7 @@ test('signed operator deadline expires during a real Flags lock wait and leaves 
       let waited: 'finished' | 'blocked';
       try {
         waited = await finishedOrBlockedBehind(request, client, pid, {
-          now: Date.now,
+          waits: hostWaits,
           deadlineMs: 1500,
         });
         // The actual signedAtMs + operatorLimits.skewMs closure crosses its cutoff.
@@ -204,7 +207,8 @@ test('signed operator deadline expires during a real Flags lock wait and leaves 
 test('failed or timed-out lock acquisition rejects readiness and closes both fixture pools', async () => {
   for (const mode of ['error', 'timeout'] as const) {
     const client = new SQL(testDatabaseUrl, { connectionTimeout: 2 });
-    const database = createDatabase({
+    const database = openWebDatabase({
+      waits: hostWaits,
       url: testDatabaseUrl,
       nextActorId: createId,
     });

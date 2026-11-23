@@ -7,7 +7,10 @@ import {
 } from '../src/round-bot-admission';
 import { requireTestServices } from '@daisy/config';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { withTwoRoundAdmission } from './bot-admission.test-support';
+import {
+  botDebatesReleased,
+  withTwoRoundAdmission,
+} from './bot-admission.test-support';
 setupRitewayBun();
 requireTestServices(process.env);
 
@@ -25,11 +28,17 @@ test('a practice that never reached a model call stops spending the allowance wh
           );
           await refundUnservedPracticeLocked(tx, roundId);
         });
-      await admission.reserve({ actorId, roundId: firstRound });
+      await admission.reserve(
+        { actorId, roundId: firstRound },
+        botDebatesReleased,
+      );
       const live = await status();
       await end(firstRound);
       const ended = await status();
-      await admission.reserve({ actorId, roundId: secondRound });
+      await admission.reserve(
+        { actorId, roundId: secondRound },
+        botDebatesReleased,
+      );
       await run(async (tx) => {
         await lockBotAdmission(tx);
         await markLockedRoundBotModelCall(tx, {

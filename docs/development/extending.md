@@ -57,6 +57,53 @@ Direct single-agent work may proceed without `pu`.
 4. Route handlers must not contain domain rules; the engine owns invariants.
 5. Extend `apps/web/e2e` if the route adds user-visible contracts.
 
+## Wiring a feature into the web process
+
+A feature binds its own routes, page reads and background work
+([ADR 0917](../decisions/0917-web-feature-composition.md)); no shared table
+changes.
+
+1. **Routes.** Export a composition from the feature
+   (`export const fooComposition = defineComposition('foo', (app) => …)`,
+   `server/composition.ts`) with a name no other composition uses, and bind
+   it in the route file:
+   `export const POST = processRoute(fooComposition, (routes) => routes.create);`
+   (`processRoute.withParams` for a dynamic segment). A test reaches it with
+   `composer(app)(fooComposition)` on its own app.
+2. **Page reads.** A server component reads through the feature's
+   `page-reads.ts` (or `page-reads/`), built on `lib/page-reads.ts`
+   (`requestApp`, `requestIdentity`, `requestNow`). Only page-read modules
+   may read the process app.
+3. **Background work and retention.** Export one
+   `<feature>InProcess: ProcessFeature` from the feature's `work.ts`:
+   `work` starts its loops (`featureWork({ loopName: … })`, null loops when
+   unconfigured, built on `@daisy/worker`) and `retention` returns its
+   retention targets. A new feature adds one line to the feature list in
+   `server/process-work.ts`; shutdown stops its work and the one sweep
+   prunes its stores.
+4. **Placement.** Feature code lives in its feature. `server/` and `lib/`
+   hold the process edge, HTTP plumbing and what two or more features share,
+   and import no feature (lint).
+
+## Writing a guide
+
+Public reading lives in `apps/web/src/features/guides`: Guides (using Daisy),
+Learn (debating and judging craft) and Stories (what is new). Content is typed
+TypeScript, like Help's topics, never a markdown or MDX pipeline.
+
+1. Add the article to its collection's module in `content/`, or add a
+   collection module and list it in `library.ts`.
+2. Write links as `[label](/path)`; the article graph test fails on a link
+   that reaches no page or article.
+3. List in `sources` every repository file a Guide's product claims were
+   checked against, and set `updated` to the day you checked. Learn articles
+   cite sources only when they state product behaviour.
+4. Link a Learn article and the Guide where its skill shows up, both ways, in
+   `related` or in the copy.
+5. A guide for a feature behind a release flag takes that flag as its
+   `release` (or its collection's), so it is found exactly where the feature
+   is and is not found elsewhere.
+
 ## Organizing feature internals
 
 Keep top-level feature names flat. Within a growing feature, group modules by

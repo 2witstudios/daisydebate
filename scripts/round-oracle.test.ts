@@ -32,10 +32,7 @@ import {
   type Persisted,
   type Refusal,
 } from './round-oracle.test-support';
-import {
-  oracleProperties,
-  ratingVolatilityUnderflow,
-} from './round-oracle-properties.test-support';
+import { oracleProperties } from './round-oracle-properties.test-support';
 
 setupRitewayBun();
 
@@ -104,8 +101,6 @@ type World = {
   readonly nowMs: number;
   /** Ids minted so far, so every hydration mints fresh ones. */
   readonly minted: number;
-  /** The known engine defect this walk ran into; the walk ends there. */
-  readonly halted?: string;
 };
 
 const T0 = instantMs('2026-11-19T09:00:00.000Z');
@@ -554,97 +549,50 @@ const step = (
   return { state: { ...world, rows, nowMs: now, minted }, problems };
 };
 
-/**
- * Engine defects the oracle found, reported on Delivery and left to the
- * engine rewrite (R4.1), since this slice changes no engine behaviour. A
- * walk that reaches one ends there, so it hides nothing else, and
- * `the known engine defects still reproduce` fails once one is fixed, so
- * its entry is deleted with the fix.
- */
-const knownDefects: readonly {
-  readonly name: string;
-  readonly matches: (
-    before: World,
-    after: World,
-    move: Move,
-    problem: string,
-  ) => boolean;
-}[] = [
-  {
-    name: 'ISSUE-1497: an ended Round’s start gate still takes capture readiness',
-    matches: (before, after, move, problem) => {
-      const { start_gate: gate } = before.rows.checkpoint;
-      const { start_gate: nextGate } = after.rows.checkpoint;
-      return (
-        isTerminal(before.rows) &&
-        move.kind === 'gate-heard' &&
-        gate?.phase === 'awaiting' &&
-        nextGate !== null &&
-        nextGate.sequence === gate.sequence &&
-        (nextGate.phase === 'ready'
-          ? gate.seats.length === 1
-          : nextGate.until === gate.until &&
-            nextGate.seats.length === gate.seats.length - 1 &&
-            nextGate.seats.every((seat) => gate.seats.includes(seat))) &&
-        problem ===
-          `${ids.terminal}: gate-heard moved a ${statusOf(before.rows)} Round` &&
-        Bun.deepEquals(after.rows, {
-          ...before.rows,
-          checkpoint: { ...before.rows.checkpoint, start_gate: nextGate },
-        })
-      );
-    },
-  },
+const movesOf = (world: World): readonly Move[] => [
+  ...commands.flatMap((command) =>
+    [
+      ...world.cast.map((seat) => seat.actorId),
+      null,
+      'outsider00000000000000',
+    ].map((actor): Move => ({ kind: 'command', command, actor })),
+  ),
+  // Time and the Round's own decisions come up as often as all commands.
+  ...Array.from({ length: 8 }, (): Move => ({ kind: 'tick' })),
+  ...Array.from({ length: 3 }, (): Move => ({ kind: 'activate' })),
+  { kind: 'stop' },
+  { kind: 'pause' },
+  { kind: 'resume' },
+  { kind: 'end-incident' },
+  { kind: 'gate-await' },
+  { kind: 'gate-heard' },
+  { kind: 'panel' },
+  { kind: 'panel' },
+  { kind: 'cutoff' },
+  { kind: 'settled-forfeit' },
+  { kind: 'settled-abandon' },
 ];
-
-const checkedStep = (
-  world: World,
-  move: Move,
-  draw: Draw,
-  reached: Reached,
-): { readonly state: World; readonly problems: readonly string[] } => {
-  const next = step(world, move, draw, reached);
-  const defect = knownDefects.find(
-    (known) =>
-      next.problems.length > 0 &&
-      next.problems.every((problem) =>
-        known.matches(world, next.state, move, problem),
-      ),
-  );
-  if (defect === undefined) return next;
-  reached[`known ${defect.name}`] = (reached[`known ${defect.name}`] ?? 0) + 1;
-  return { state: { ...next.state, halted: defect.name }, problems: [] };
-};
-
-const movesOf = (world: World): readonly Move[] =>
-  world.halted !== undefined
-    ? []
-    : [
-        ...commands.flatMap((command) =>
-          [
-            ...world.cast.map((seat) => seat.actorId),
-            null,
-            'outsider00000000000000',
-          ].map((actor): Move => ({ kind: 'command', command, actor })),
-        ),
-        // Time and the Round's own decisions come up as often as all commands.
-        ...Array.from({ length: 8 }, (): Move => ({ kind: 'tick' })),
-        ...Array.from({ length: 3 }, (): Move => ({ kind: 'activate' })),
-        { kind: 'stop' },
-        { kind: 'pause' },
-        { kind: 'resume' },
-        { kind: 'end-incident' },
-        { kind: 'gate-await' },
-        { kind: 'gate-heard' },
-        { kind: 'panel' },
-        { kind: 'panel' },
-        { kind: 'cutoff' },
-        { kind: 'settled-forfeit' },
-        { kind: 'settled-abandon' },
-      ];
 
 const formats = oracleFormats();
 const RUNS_PER_FORMAT = 40;
+const ROTATING_RUNS_PER_FORMAT = 10;
+
+/**
+ * The rotating seed: fresh on every run unless `ROUND_ORACLE_SEED` replays
+ * one, so the walks cover new ground each time while the fixed seeds keep a
+ * stable baseline. Each assertion names it, so a failure says how to replay.
+ */
+const rotatingSeed = (() => {
+  const replay = process.env.ROUND_ORACLE_SEED;
+  if (replay !== undefined && replay !== '') {
+    const seed = Number(replay);
+    if (!Number.isSafeInteger(seed))
+      throw new Error('ROUND_ORACLE_SEED must be an integer');
+    return seed;
+  }
+  // Below 2^31 - 2^16, so every per-format seed stays a 32-bit integer.
+  return crypto.getRandomValues(new Uint32Array(1))[0]! % 0x7fff_0000;
+})();
 
 describe('round engine oracle (ADR 0164)', () => {
   test('the oracle checks every registered invariant', () => {
@@ -670,30 +618,38 @@ describe('round engine oracle (ADR 0164)', () => {
   });
 
   const reached: Reached = {};
+  const walk = (format: (typeof formats)[number], seed: number, runs: number) =>
+    seededWalk({
+      seed,
+      runs,
+      steps: 80,
+      start: (): World => ({
+        rules: format.rules,
+        cast: castOf(format.rules),
+        rows: openingRound(format.rules),
+        nowMs: T0,
+        minted: 0,
+      }),
+      moves: movesOf,
+      label: labelOf,
+      step: (world, move, draw) => step(world, move, draw, reached),
+    });
   for (const [index, format] of formats.entries())
     test(
       `generated walks hold every invariant: ${format.name}`,
       () => {
-        const cast = castOf(format.rules);
-        const report = seededWalk({
-          seed: 1_000 + index,
-          runs: RUNS_PER_FORMAT,
-          steps: 80,
-          start: (): World => ({
-            rules: format.rules,
-            cast,
-            rows: openingRound(format.rules),
-            nowMs: T0,
-            minted: 0,
-          }),
-          moves: movesOf,
-          label: labelOf,
-          step: (world, move, draw) => checkedStep(world, move, draw, reached),
-        });
         assert({
           given: `${RUNS_PER_FORMAT} seeded walks of up to 80 steps in ${format.name}`,
           should: 'hold every invariant and engine property at every step',
-          actual: report.failure,
+          actual: walk(format, 1_000 + index, RUNS_PER_FORMAT).failure,
+          expected: null,
+        });
+        // Replay a failure with ROUND_ORACLE_SEED=<rotating seed>.
+        const seed = rotatingSeed + index;
+        assert({
+          given: `${ROTATING_RUNS_PER_FORMAT} walks on rotating seed ${seed} (ROUND_ORACLE_SEED=${rotatingSeed}) in ${format.name}`,
+          should: 'hold every invariant and engine property at every step',
+          actual: walk(format, seed, ROTATING_RUNS_PER_FORMAT).failure,
           expected: null,
         });
       },
@@ -904,48 +860,6 @@ describe('hydration rejects inconsistent Round rows', () => {
   });
 });
 
-describe('known engine defects (reported on Delivery, fixed in R4.1)', () => {
-  const format = formats[0]!;
-  const cast = castOf(format.rules);
-  const stoppedThenHeard = () => {
-    const at = iso(T0);
-    const runtime = hydrate(format.rules, cast, openingRound(format.rules));
-    const seat = cast.find(({ seat }) => !isJudgeSeat(seat))!;
-    runtime.activate({ at, now: at });
-    runtime.applyStartGate({
-      kind: 'await',
-      atMs: T0,
-      seats: [seat.id],
-      boundMs: 5_000,
-    });
-    runtime.stop(iso(T0 + 1));
-    const before = runtime.checkpoint().start_gate;
-    runtime.applyStartGate({ kind: 'heard', atMs: T0 + 2, seat: seat.id });
-    return {
-      status: runtime.position(iso(T0 + 2)).status,
-      before: before?.phase,
-      after: runtime.checkpoint().start_gate?.phase,
-    };
-  };
-  test('the known engine defects still reproduce', () => {
-    assert({
-      given: knownDefects.map(({ name }) => name).join('; '),
-      should:
-        'still reproduce; once one is fixed, delete its entry from knownDefects and this case',
-      actual: {
-        [knownDefects[0]!.name]: stoppedThenHeard(),
-      },
-      expected: {
-        [knownDefects[0]!.name]: {
-          status: 'abandoned',
-          before: 'awaiting',
-          after: 'ready',
-        },
-      },
-    });
-  });
-});
-
 describe('a cast that is not the declared seats never starts (round.seats.complete)', () => {
   test('dropping any seat, or doubling one, is refused with its invariant and changes nothing', () => {
     const problems: string[] = [];
@@ -991,16 +905,6 @@ describe('a cast that is not the declared seats never starts (round.seats.comple
 });
 
 describe('generated inputs to the engine’s rules, rating and attendance', () => {
-  test('ISSUE-1498: the smallest positive volatility rounds down to zero', () => {
-    assert({
-      given: 'a ledger rating with the smallest positive volatility',
-      should:
-        'reproduce the underflow until the ledger and rating agree on the bound',
-      actual: ratingVolatilityUnderflow(),
-      expected: 0,
-    });
-  });
-
   for (const property of oracleProperties)
     test(`${property.id}: ${property.claim}`, () => {
       assert({

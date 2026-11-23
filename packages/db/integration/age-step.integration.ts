@@ -1,3 +1,6 @@
+import { createAgeStepStore } from '../src/stores/age-step';
+import { openDatabaseResources } from '../src/resources';
+import { hostWaits } from '@daisy/worker/host';
 import { createId } from '@paralleldrive/cuid2';
 import { requireTestServices } from '@daisy/config';
 import { drizzle } from 'drizzle-orm/bun-sql';
@@ -7,17 +10,27 @@ import {
 } from '@daisy/protocol/email-delivery';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { withFixture } from './constraint-helpers';
-import { createDatabase } from '../src';
 import { accountTermsPrivacyAdopter } from '../src/age-step';
+/** This file's database: the area stores it reads, over one set of resources. */
+const openStores = (options: Parameters<typeof openDatabaseResources>[0]) => {
+  const resources = openDatabaseResources(options);
+  return {
+    ...createAgeStepStore(resources),
+    close: resources.close,
+  };
+};
 
 const { databaseUrl: url } = requireTestServices(process.env);
 setupRitewayBun();
 
 const now = '2026-10-26T12:00:00.000Z';
 const withDatabase = async <T>(
-  run: (database: ReturnType<typeof createDatabase>) => Promise<T>,
+  run: (database: ReturnType<typeof openStores>) => Promise<T>,
 ) => {
-  const database = createDatabase({ url, nextActorId: createId });
+  const database = openStores({
+    waits: hostWaits,
+    url,
+  });
   try {
     return await run(database);
   } finally {

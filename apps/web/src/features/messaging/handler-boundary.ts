@@ -1,4 +1,4 @@
-import type { OperationName } from '../ops/operation-names';
+import type { OperationName } from '../../server/operation-names';
 import type { App } from '../../server/app';
 import type { AuthorizationPrincipal } from '@daisy/auth/authorization';
 import { createAppError } from '@daisy/errors';
@@ -7,7 +7,7 @@ import { handleOperation, readJson } from '../../server/http';
 import {
   memberHttpBoundary,
   type MemberBoundary,
-} from '../../server/member-boundary';
+} from '../auth/member-boundary';
 export type MessagingHandlerPort<T> = {
   readonly boundary: MemberBoundary;
   readonly maxBodyBytes: number;

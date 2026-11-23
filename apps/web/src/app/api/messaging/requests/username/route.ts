@@ -1,5 +1,7 @@
 import { processRoute } from '../../../../../server/process-app';
+import { messagingComposition } from '../../../../../features/messaging/composition';
 export const runtime = 'nodejs';
 export const POST = processRoute(
-  (routes) => routes.messaging.requestByUsername,
+  messagingComposition,
+  (routes) => routes.requestByUsername,
 );

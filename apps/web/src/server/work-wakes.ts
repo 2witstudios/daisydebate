@@ -1,7 +1,6 @@
-import type { WorkKind } from '@daisy/db';
-import { nextWaitMs, type IdleBackoff } from '../lib/idle-backoff';
-import type { WorkWake } from '../lib/worker-loop';
-import type { OneShotTimer } from '../lib/worker-timers';
+import type { WorkKind } from '@daisy/db/stores/listen';
+import { afterMs, type Waits } from '@daisy/clock';
+import { nextWaitMs, type IdleBackoff, type WorkWake } from '@daisy/worker';
 
 /**
  * The process's worker wakes (ADR 0154): each worker loop subscribes to the
@@ -54,10 +53,10 @@ const causeOf = (error: unknown) =>
 export function keepWorkWakesListening(input: {
   readonly subscribe: () => Promise<{ readonly unlisten: () => Promise<void> }>;
   readonly unavailable: (cause: string) => void;
-  readonly timers: OneShotTimer;
+  readonly waits: Waits;
 }) {
   let stopped = false;
-  let handle: unknown = null;
+  let cancelRetry: (() => void) | null = null;
   let subscription: { readonly unlisten: () => Promise<void> } | null = null;
   let attempt: Promise<void> = Promise.resolve();
   const tryListen = (previousMs: number | null): Promise<void> =>
@@ -70,17 +69,17 @@ export function keepWorkWakesListening(input: {
         if (stopped) return;
         input.unavailable(causeOf(error));
         const waitMs = nextWaitMs(LISTEN_RETRY, previousMs, 'failed');
-        handle = input.timers.setTimeout(() => {
-          handle = null;
+        cancelRetry = afterMs(input.waits, waitMs, () => {
+          cancelRetry = null;
           attempt = tryListen(waitMs);
-        }, waitMs);
+        });
       },
     );
   attempt = tryListen(null);
   return {
     async stop() {
       stopped = true;
-      if (handle !== null) input.timers.clearTimeout(handle);
+      cancelRetry?.();
       await attempt;
       await subscription?.unlisten();
     },

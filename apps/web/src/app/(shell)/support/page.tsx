@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import { systemId } from '@daisy/clock';
-import { requestSupportReplyAddress } from '../../../lib/request-session';
+import { requestSupportReplyAddress } from '../../../features/support/page-reads';
 import { SupportPage } from '../../../ui/support/support-page';
 import { sendSupportMessageAction } from './actions';
 

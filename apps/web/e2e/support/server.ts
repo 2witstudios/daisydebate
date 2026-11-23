@@ -1,3 +1,4 @@
+import { hostWaits } from '@daisy/worker/host';
 import { withAnalysisFixture } from './analysis-fixture-fetch';
 import { withAnalyticsFixture } from './analytics-fixture-fetch';
 import { messagingBrowserFiles } from './messaging-files-runtime';
@@ -6,11 +7,7 @@ import { launchProofPolicy } from './room-launch-policy';
 import { nowMs, systemClock, systemId } from '@daisy/clock';
 import { createApp } from '../../src/server/app';
 import { nextWorkerToken } from '../../src/server/worker-token';
-import { loadBillingRoutes } from '../../src/server/billing-route-loader';
-import {
-  adoptProcessApp,
-  initializeProcessBilling,
-} from '../../src/server/process-app';
+import { adoptProcessApp } from '../../src/server/process-app';
 import { createMailCapture } from './mail-capture';
 import { withOpenRouterStub } from '@daisy/ai-voice/testing';
 import { startAudienceStateStandIn } from './audience-state-standin';
@@ -54,6 +51,7 @@ const mailCapture = createMailCapture({
 // only its mail transport captured. Nothing process-wide is replaced.
 const files = await messagingBrowserFiles(process.env);
 const app = createApp({
+  waits: hostWaits,
   env: process.env,
   ...(process.env.E2E_STAGING_GROUPS === '1'
     ? {}
@@ -77,7 +75,6 @@ const app = createApp({
   nextWorkerToken,
 });
 adoptProcessApp(app);
-initializeProcessBilling(loadBillingRoutes);
 if (process.env.E2E_MESSAGING_RECOVERY === '1')
   await createMessagingRecoveryControl(app, appPort);
 

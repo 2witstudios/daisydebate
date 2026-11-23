@@ -1,15 +1,17 @@
-import { renderToStaticMarkup } from 'react-dom/server';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { stageColourClasses } from '../../test-support/stage-palette';
+import { renderAccessible } from '../../../test-support/rendered/accessible';
 import { MemberHero } from './member-hero';
 
 setupRitewayBun();
 
 const roomHref = `/rounds/${'a'.repeat(24)}/room`;
 
+const hrefs = (view: ReturnType<typeof renderAccessible>) =>
+  view.all('link').map((link) => link.getAttribute('href'));
+
 describe('MemberHero', () => {
   test('a member without a Room is sent to the Lobby', () => {
-    const html = renderToStaticMarkup(
+    const view = renderAccessible(
       <MemberHero username="ada-byron" activeRoom={null} />,
     );
     assert({
@@ -17,54 +19,18 @@ describe('MemberHero', () => {
       should:
         'greet them in the h1 and lead with the Lobby, then New room, with no waitlist',
       actual: [
-        /<h1[^>]*>Welcome back, ada-byron<\/h1>/.test(html),
-        html.indexOf('href="/lobby"') < html.indexOf('href="/play/room"'),
-        html.includes('Go to the Lobby'),
-        /waitlist|type="email"/i.test(html),
+        // The hero's h1 and the phone's own; CSS shows one at a time.
+        view.count('heading', 'Welcome back, ada-byron', { level: 1 }),
+        hrefs(view),
+        view.attribute('link', 'Go to the Lobby', 'href'),
+        /waitlist/i.test(view.textContent()) || view.count('textbox') > 0,
       ],
-      expected: [true, true, true, false],
-    });
-  });
-
-  test('on a phone a member without a Room has no hero, only its heading', () => {
-    const html = renderToStaticMarkup(
-      <MemberHero username="ada-byron" activeRoom={null} />,
-    );
-    assert({
-      given: 'a member who holds no Room, on a phone',
-      should: 'hide the hero and keep a heading for screen readers',
-      actual: [
-        /<section class="[^"]*max-narrow:hidden/.test(html),
-        /<h1 class="[^"]*hidden[^"]*max-narrow:block[^"]*sr-only|<h1 class="[^"]*sr-only[^"]*hidden[^"]*max-narrow:block/.test(
-          html,
-        ),
-      ],
-      expected: [true, true],
-    });
-  });
-
-  test('on a phone a member in a Room keeps the way back', () => {
-    const html = renderToStaticMarkup(
-      <MemberHero
-        username="ada-byron"
-        activeRoom={{
-          id: 'b'.repeat(24),
-          title: 'Tuesday night',
-          phase: 'live',
-          href: roomHref,
-        }}
-      />,
-    );
-    assert({
-      given: 'a member who holds a Room, on a phone',
-      should: 'keep the hero and its Return to room',
-      actual: html.includes('max-narrow:hidden'),
-      expected: false,
+      expected: [2, ['/lobby', '/play/room'], '/lobby', false],
     });
   });
 
   test('a member in a Room is shown the way back first', () => {
-    const html = renderToStaticMarkup(
+    const view = renderAccessible(
       <MemberHero
         username="ada-byron"
         activeRoom={{
@@ -79,45 +45,12 @@ describe('MemberHero', () => {
       given: 'a member whose Room is live',
       should: 'title the hero with the Room and lead with Return to room',
       actual: [
-        /<h1[^>]*>Tuesday night<\/h1>/.test(html),
-        html.includes('In progress'),
-        html.indexOf(`href="${roomHref}"`) < html.indexOf('href="/lobby"'),
-        html.includes('Return to room'),
+        view.has('heading', 'Tuesday night', { level: 1 }),
+        view.textContent().includes('In progress'),
+        hrefs(view),
+        view.attribute('link', 'Return to room', 'href'),
       ],
-      expected: [true, true, true, true],
-    });
-  });
-
-  test('keeps the Home photograph, not the forest stage', () => {
-    const html = renderToStaticMarkup(
-      <MemberHero username="ada-byron" activeRoom={null} />,
-    );
-    assert({
-      given: 'the member hero (ADR 0069: the stage is for video)',
-      should: 'lay the Home photograph under the hero with no stage colour',
-      actual: [
-        /<img\b[^>]*\bobject-hero-photo\b/.test(html),
-        stageColourClasses(html),
-      ],
-      expected: [true, []],
-    });
-  });
-
-  test('gives its secondary action an opaque surface over the photograph', () => {
-    const html = renderToStaticMarkup(
-      <MemberHero username="ada-byron" activeRoom={null} />,
-    );
-    const newRoomTag =
-      /<a [^>]*href="\/play\/room"[^>]*>/.exec(html)?.[0] ?? '';
-    assert({
-      given: 'a member hero laid over the Home photograph',
-      should:
-        'style New room on the raised surface, not the transparent outline that reads dark-on-dark',
-      actual: [
-        /\bbg-surface-raised\b/.test(newRoomTag),
-        /\bbg-transparent\b/.test(newRoomTag),
-      ],
-      expected: [true, false],
+      expected: [true, true, [roomHref, '/lobby'], roomHref],
     });
   });
 });

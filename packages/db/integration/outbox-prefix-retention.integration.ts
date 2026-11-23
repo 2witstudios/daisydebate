@@ -1,3 +1,6 @@
+import { createOutboxStore } from '../src/stores/outbox';
+import { openDatabaseResources } from '../src/resources';
+import { hostWaits } from '@daisy/worker/host';
 import { SQL } from 'bun';
 import { drizzle } from 'drizzle-orm/bun-sql';
 import { deleteExpiredOutboxPrefix } from '../src/outbox-retention';
@@ -7,18 +10,22 @@ import { createId } from '@paralleldrive/cuid2';
 import { requireTestServices } from '@daisy/config';
 import { buildRoomTopic, buildUserInboxTopic } from '@daisy/protocol/topics';
 import { expect } from 'bun:test';
-import { createDatabase } from '../src';
 import { encodeOutboxCursor, type OutboxPosition } from '@daisy/db/outbox';
 import { waitForOutboxFinality } from '../src/testing';
 import { sqlStateOf } from './constraint-helpers';
+/** This file's database: the area stores it reads, over one set of resources. */
+const openStores = (options: Parameters<typeof openDatabaseResources>[0]) => {
+  const resources = openDatabaseResources(options);
+  return {
+    ...createOutboxStore(resources),
+    close: resources.close,
+  };
+};
 
 setupRitewayBun();
 const { databaseUrl: url } = requireTestServices(process.env);
 const cutoff = '2001-01-01T00:00:00.000Z';
-async function closePools(
-  database: ReturnType<typeof createDatabase>,
-  sql: SQL,
-) {
+async function closePools(database: ReturnType<typeof openStores>, sql: SQL) {
   const closed = await Promise.allSettled([database.close(), sql.close()]);
   if (closed.some((result) => result.status === 'rejected'))
     throw new Error('Prefix proof resource cleanup failed');
@@ -26,13 +33,16 @@ async function closePools(
 async function fixture(
   run: (f: {
     sql: SQL;
-    database: ReturnType<typeof createDatabase>;
+    database: ReturnType<typeof openStores>;
     topic: string;
     insert: (expired: boolean) => Promise<OutboxPosition>;
   }) => Promise<void>,
 ) {
   const sql = new SQL(url, { max: 3 });
-  const database = createDatabase({ url, nextActorId: createId });
+  const database = openStores({
+    waits: hostWaits,
+    url,
+  });
   const roomId = createId(),
     topic = buildRoomTopic(roomId);
   const original = await database.readOutboxRetentionBoundary();
@@ -52,7 +62,7 @@ async function fixture(
         const [row] =
           await sql`insert into outbox(topic,kind,version,payload,created_at) values(${topic},'room.changed',1,${{ kind: 'room.changed', ids: [roomId], entityVersion: 1 }},${expired ? '2000-01-01T00:00:00.000Z' : '2002-01-01T00:00:00.000Z'}::timestamptz) returning txid::text,seq::text`;
         const position = { txid: String(row!.txid), seq: BigInt(row!.seq) };
-        await waitForOutboxFinality(sql, position.txid, { now: Date.now });
+        await waitForOutboxFinality(sql, position.txid, { waits: hostWaits });
         return position;
       },
     });
@@ -177,7 +187,7 @@ test('web maintenance advances past expired private delivery but keeps a recent 
           ids: [id],
           occurredAt: createdAt,
         }},${createdAt}::timestamptz) returning txid::text,seq::text`;
-      await waitForOutboxFinality(f.sql, row!.txid, { now: Date.now });
+      await waitForOutboxFinality(f.sql, row!.txid, { waits: hostWaits });
       return { txid: row!.txid, seq: BigInt(row!.seq) };
     };
     try {

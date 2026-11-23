@@ -16,11 +16,10 @@ const harness = (respond: () => Response) => {
       events.push(`beacon ${endpoint}`);
       return () => events.push('beacon stopped');
     },
-    setInterval: () => {
+    every: () => {
       events.push('poll armed');
-      return 1;
+      return () => events.push('poll cleared');
     },
-    clearInterval: () => events.push('poll cleared'),
   });
   return { retain, events };
 };

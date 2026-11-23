@@ -1,7 +1,10 @@
 import { instantMs } from '@daisy/clock';
-import { renderToStaticMarkup } from 'react-dom/server';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { pageColourClasses } from '../test-support/stage-palette';
+import {
+  accessibleWithin,
+  renderAccessible,
+  type AccessibleView,
+} from '../../test-support/rendered/accessible';
 import type { SeatMedia } from './stage-subscriptions';
 import type { StageSnapshot } from '../../features/stage-capture/stage-access';
 import { StageView, type StageLink } from './stage-view';
@@ -41,7 +44,7 @@ const render = (
   media: Readonly<Record<string, SeatMedia>> = {},
   link: StageLink = 'connected',
 ) =>
-  renderToStaticMarkup(
+  renderAccessible(
     <StageView
       snapshot={snapshot}
       nowMs={instantMs('2026-11-02T00:00:00.000Z')}
@@ -52,61 +55,83 @@ const render = (
     />,
   );
 
+/** The text of every element with this role, in order. */
+const texts = (view: AccessibleView, role: string) =>
+  view.all(role).map((element) => element.textContent);
+
+/** Each seat: the tile it holds (by the test's own tile prop), its name, and where they sit. */
+const seatsOf = (view: AccessibleView) =>
+  view.all('listitem').map((seat) => {
+    const name = accessibleWithin(seat).all('paragraph')[0] ?? null;
+    const tile = seat.querySelector('video');
+    return {
+      tile: tile?.getAttribute('data-tile') ?? null,
+      name: name?.textContent ?? null,
+      tileBeforeName:
+        tile !== null &&
+        name !== null &&
+        (tile.compareDocumentPosition(name) & 4) === 4,
+      text: seat.textContent ?? '',
+    };
+  });
+
+/** The first countdown on the frame: the speech clock or the slate's. */
+const clockOf = (view: AccessibleView) =>
+  view.all('strong')[0]?.textContent ?? null;
+
 test('a speech burns in clock, phase, names, floor, branding and link', () => {
-  const html = render(speech);
+  const view = render(speech);
   assert({
     given: 'an open speech',
     should: 'show each burned-in fact',
-    actual: [
-      'Constructive',
-      '1:05',
-      'Ann',
-      'Speaking',
-      'Ned',
-      'Daisy Debate',
-      'daisydebate.com',
-    ].filter((fact) => !html.includes(fact)),
-    expected: [],
+    actual: {
+      clock: view.within('banner').textContent(),
+      countdown: clockOf(view),
+      names: texts(view, 'paragraph'),
+      floor: texts(view, 'emphasis'),
+      brand: view.within('contentinfo').textContent(),
+    },
+    expected: {
+      clock: 'Constructive1:05',
+      countdown: '1:05',
+      names: ['Ann', 'Ned'],
+      floor: ['Speaking'],
+      brand: 'Daisy Debatedaisydebate.com',
+    },
   });
 });
 
 test('each tile sits with its own name, and no name sits on a tile', () => {
-  const html = render(speech);
-  const seatsHtml = html.split('<li').slice(1);
   assert({
     given: 'two debaters',
     should: 'put each tile and its name in one seat, the name after the tile',
-    actual: seatsHtml.map(
-      (seat) =>
-        seat.indexOf('data-tile="') < seat.indexOf('<p>') &&
-        seat.includes(`data-tile="${/<p>(\w+)/.exec(seat)?.[1]}"`),
+    actual: seatsOf(render(speech)).map(
+      (seat) => seat.tileBeforeName && seat.tile === seat.name,
     ),
     expected: [true, true],
   });
 });
 
 test('one camera off leaves the other debater over their own name', () => {
-  const html = render(speech, { Ann: 'camera-off' });
+  const [ann, ned] = seatsOf(render(speech, { Ann: 'camera-off' }));
   assert({
     given: 'the first debater’s camera off',
     should: 'say so in their seat and keep the second tile in the second seat',
-    actual: [
-      html.split('<li')[1]?.includes('Camera off'),
-      html.split('<li')[1]?.includes('data-tile'),
-      html.split('<li')[2]?.includes('data-tile="Ned"'),
-    ],
-    expected: [true, false, true],
+    actual: [ann?.text.includes('Camera off'), ann?.tile, ned?.tile],
+    expected: [true, null, 'Ned'],
   });
 });
 
 test('a bot and an absent debater are named as what they are', () => {
-  const html = render(speech, { Ann: 'voice-only', Ned: 'away' });
+  const [ann, ned] = seatsOf(
+    render(speech, { Ann: 'voice-only', Ned: 'away' }),
+  );
   assert({
     given: 'an AI debater, and a debater not connected',
     should: 'state each',
     actual: [
-      html.includes('AI debater, voice only'),
-      html.includes('Not connected'),
+      ann?.text.includes('AI debater, voice only'),
+      ned?.text.includes('Not connected'),
     ],
     expected: [true, true],
   });
@@ -115,24 +140,24 @@ test('a bot and an absent debater are named as what they are', () => {
 test('a dropped room during a speech says so', () => {
   assert({
     given: 'a speech with the room held, then lost',
-    should: 'state the gap only when it is one, and hide the tiles',
+    should: 'state the gap only when it is one',
     actual: [
-      render(speech).includes('Reconnecting'),
-      render(speech, {}, 'reconnecting').includes('Reconnecting'),
-      render(speech, {}, 'reconnecting').includes('invisible'),
-      render(prep, {}, 'reconnecting').includes('Reconnecting'),
+      render(speech).textContent().includes('Reconnecting'),
+      render(speech, {}, 'reconnecting')
+        .textContent()
+        .includes('Reconnecting to the debate'),
+      render(prep, {}, 'reconnecting').textContent().includes('Reconnecting'),
     ],
-    expected: [false, true, true, false],
+    expected: [false, true, false],
   });
 });
 
-test('a slate hides the tiles', () => {
-  const html = render(prep);
+test('a slate names the phase', () => {
   assert({
     given: 'prep',
-    should: 'name the phase and hide the tiles, as appearance only',
-    actual: [html.includes('Preparation'), html.includes('invisible')],
-    expected: [true, true],
+    should: 'name the phase',
+    actual: render(prep).has('heading', 'Preparation', { level: 1 }),
+    expected: true,
   });
 });
 
@@ -143,7 +168,8 @@ test('a slate counts down only to a deadline it has', () => {
     next: { label: 'Rebuttal' },
     seats,
   } as const;
-  const clockOf = (html: string) => /<strong>([^<]*)</.exec(html)?.[1] ?? null;
+  const slate = render({ phase: 'slate', seats });
+  const ended = render({ phase: 'ended', seats });
   assert({
     given: 'prep, a countdown, a held start, judging and no round yet',
     should:
@@ -151,17 +177,19 @@ test('a slate counts down only to a deadline it has', () => {
     actual: [
       clockOf(render(prep)),
       clockOf(render(between)),
-      render(between).includes('Next: Rebuttal'),
+      texts(render(between), 'paragraph').includes('Next: Rebuttal'),
       clockOf(render({ ...between, remainingMs: null })),
       clockOf(render({ phase: 'judging', seats })),
-      render({ phase: 'judging', seats }).includes('Judges are deciding'),
-      clockOf(render({ phase: 'slate', seats })),
-      render({ phase: 'slate', seats }).includes('Starting soon'),
-      render({ phase: 'ended', seats }).includes('This debate has ended'),
-      render({ phase: 'ended', seats }).includes('Starting soon'),
-      ['Affirmative', 'Ann', 'Negative', 'Ned'].every((fact) =>
-        render({ phase: 'slate', seats }).includes(fact),
+      render({ phase: 'judging', seats }).has(
+        'heading',
+        'Judges are deciding',
+        { level: 1 },
       ),
+      clockOf(slate),
+      slate.has('heading', 'Starting soon', { level: 1 }),
+      ended.has('heading', 'This debate has ended', { level: 1 }),
+      ended.textContent().includes('Starting soon'),
+      [texts(slate, 'term'), texts(slate, 'definition')],
     ],
     expected: [
       '1:30',
@@ -174,19 +202,10 @@ test('a slate counts down only to a deadline it has', () => {
       true,
       true,
       false,
-      true,
+      [
+        ['Affirmative', 'Negative'],
+        ['Ann', 'Ned'],
+      ],
     ],
-  });
-});
-
-test('the frame draws in the stage’s own colours', () => {
-  assert({
-    given: 'a speech and a slate',
-    should: 'use no page colour, which would vanish on the frame',
-    actual: [
-      ...pageColourClasses(render(speech)),
-      ...pageColourClasses(render(prep)),
-    ],
-    expected: [],
   });
 });

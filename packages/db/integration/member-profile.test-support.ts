@@ -1,14 +1,24 @@
+import { createProfileStore } from '../src/stores/profiles';
+import { openDatabaseResources } from '../src/resources';
+import { hostWaits } from '@daisy/worker/host';
 import { resolveRoomConfiguration } from '@daisy/debate-engine';
 import { oneOnOneDefinition, oneOnOneSettings } from '../src/reference-formats';
 import { createId } from '@paralleldrive/cuid2';
 import { sideOfSeat, type SeatRef } from '@daisy/protocol/seats';
 import { type RoundOutcome } from '@daisy/protocol/round-outcome';
 import { requireTestServices } from '@daisy/config';
-import { createDatabase, type Database } from '../src';
 import { createAuthorizationSubject } from './authorization.test-support';
 import { withFixture, type Fixture } from './constraint-helpers';
 import { validConfig, validRules } from './round-fixtures';
 import { at } from './standings-fixtures';
+/** This file's database: the area stores it reads, over one set of resources. */
+const openStores = (options: Parameters<typeof openDatabaseResources>[0]) => {
+  const resources = openDatabaseResources(options);
+  return {
+    ...createProfileStore(resources),
+    close: resources.close,
+  };
+};
 
 /** Fixtures for the member profile reads suite (ISSUE-600). */
 
@@ -147,7 +157,7 @@ const ownerOnly = (
     : ('public' as const);
 
 export const profileOf = (
-  database: Database,
+  database: ReturnType<typeof openStores>,
   input: {
     readonly username: string;
     readonly caller: {
@@ -195,12 +205,15 @@ export const tally = (
 export const withProfileFixture = (
   run: (context: {
     readonly fixture: Fixture;
-    readonly database: Database;
+    readonly database: ReturnType<typeof openStores>;
     readonly subject: { readonly userId: string; readonly actorId: string };
   }) => Promise<void>,
 ) =>
   withFixture(url, async (fixture) => {
-    const database = createDatabase({ url, nextActorId: createId });
+    const database = openStores({
+      waits: hostWaits,
+      url,
+    });
     try {
       await run({
         fixture,

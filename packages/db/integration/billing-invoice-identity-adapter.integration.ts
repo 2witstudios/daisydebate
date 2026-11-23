@@ -1,23 +1,35 @@
-import { repairInvoicePassAuthority } from './billing-invoice-pass-current.test-support';
+import { createAvailabilityStore } from '../src/stores/availability';
+import { createBillingStore } from '../src/stores/billing';
+import { openDatabaseResources } from '../src/resources';
+import { hostWaits } from '@daisy/worker/host';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { requireTestServices } from '@daisy/config';
 import { assertRejects } from '@daisy/errors/testing';
 import { createId } from '@paralleldrive/cuid2';
 import { drizzle } from 'drizzle-orm/bun-sql';
-import { createDatabase } from '../src/index';
 import { exportPrivacySubject } from '../src/privacy';
 import {
   withBillingRefunds,
   refundRooms,
 } from './billing-refunds.test-support';
-import { seedInvoicePassPredecessor } from './billing-invoice-pass-predecessor.test-support';
+import { cleanupWork } from '@daisy/protocol/billing';
+import { cleanupCandidate } from './billing-cleanup-candidate.test-support';
+/** This file's database: the area stores it reads, over one set of resources. */
+const openStores = (
+  options: Parameters<typeof openDatabaseResources>[0] & {
+    readonly nextActorId: () => string;
+  },
+) => {
+  const resources = openDatabaseResources(options);
+  return {
+    ...createAvailabilityStore(resources),
+    ...createBillingStore(resources, { nextId: options.nextActorId }),
+    close: resources.close,
+  };
+};
 
 const { databaseUrl } = requireTestServices(process.env);
 setupRitewayBun();
-const migration = new URL(
-  './fixtures/billing-private-113/20261106110238_stripe_invoice_pass_authority.sql',
-  import.meta.url,
-);
 
 test('public current-service identity materialization validates exact producer binding, retains before retirement and survives late-fact rotation', async () => {
   await withBillingRefunds(async (input) => {
@@ -31,28 +43,40 @@ test('public current-service identity materialization validates exact producer b
       inbox,
     } = input;
     const ids = await fixture.sql.begin(async (tx) => {
-      await tx.unsafe(
-        await Bun.file(
-          new URL(
-            './fixtures/billing-private-113/20261106023226_stripe_cleanup_failure_classification.sql',
-            import.meta.url,
-          ),
-        ).text(),
-      );
       await tx`set local role daisy_web`;
       await tx`select * from public.daisy_authorization_accounts_v2(array[${actorId}]::text[],null::text,true)`;
       const [job] =
         await tx`select id from privacy_jobs where subject_ref=${userId} and vendor='stripe'`;
-      const old = await seedInvoicePassPredecessor(
-        tx,
-        job!.id,
-        'unrouted-invoices',
-      );
-      const frame = old.billing_cleanup.scans.invoices;
+      const matrix = cleanupCandidate(tx, job!.id);
+      for (let step = 0; step < 2; step++) {
+        const state = await matrix.claim();
+        await matrix.apply({
+          kind: 'page',
+          claimId: matrix.token(state),
+          work: cleanupWork(state)!,
+          ids: [],
+          more: false,
+        });
+      }
+      const selected = [`in_${createId()}`, `in_${createId()}`];
+      const state = await matrix.claim();
+      for (const id of selected) await matrix.retainInvoice(id);
+      await matrix.apply({
+        kind: 'page',
+        claimId: matrix.token(state),
+        work: cleanupWork(state)!,
+        ids: selected,
+        more: false,
+      });
+      // Rotation while the route is absent leaves both identities as owed debt; the
+      // witnesses are then removed and the route restored, so the adapter alone retains them.
       await tx`reset role`;
-      await tx.unsafe(await Bun.file(migration).text());
-      await repairInvoicePassAuthority(tx);
-      return [frame.id, ...frame.rest] as string[];
+      await tx`create temporary table saved_route on commit drop as select * from billing_customers where user_id=${userId}`;
+      await tx`delete from billing_customers where user_id=${userId}`;
+      await matrix.rotate();
+      await tx`delete from billing_payment_observations where user_id=${userId}`;
+      await tx`insert into billing_customers select * from saved_route`;
+      return selected;
     });
     const reserve = pool.reserve.bind(pool);
     pool.reserve = async (options) => {
@@ -60,7 +84,8 @@ test('public current-service identity materialization validates exact producer b
       await connection`set role daisy_web`;
       return connection;
     };
-    const database = createDatabase({
+    const database = openStores({
+      waits: hostWaits,
       url: databaseUrl,
       client: pool,
       nextActorId: createId,

@@ -6,6 +6,7 @@ import {
 import { elapse, recipientBucket } from './auth-rate-limit-helpers';
 import { createTestApp } from './fixtures';
 import { requireTestServices } from '@daisy/config';
+import { authComposition } from '../src/features/auth/composition';
 
 /**
  * ISSUE-185: with the global sign-up ceiling saturated, how long the answer
@@ -186,9 +187,9 @@ describe('ISSUE-185 a saturated sign-up ceiling answers in the same time for any
     // Redis namespace and mailbox.
     const closing = createTestApp();
     const request = (email: string) =>
-      closing.routes.auth.POST(
-        closing.jsonPost('/api/auth/sign-in/magic-link', { email }),
-      );
+      closing
+        .routes(authComposition)
+        .POST(closing.jsonPost('/api/auth/sign-in/magic-link', { email }));
     await saturateGlobalMinute({
       testApp: closing,
       magicLink: request,

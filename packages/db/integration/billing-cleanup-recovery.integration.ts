@@ -1,3 +1,4 @@
+import { hostWaits } from '@daisy/worker/host';
 import { addMs } from '@daisy/clock';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { requireTestServices } from '@daisy/config';
@@ -57,7 +58,7 @@ test('cleanup samples current claim time after a real canonical account lock wai
         result,
         fixture.sql,
         Number(backend!.pid),
-        { now: performance.now, deadlineMs: 300 },
+        { waits: hostWaits, deadlineMs: 300 },
       );
       const [edge] =
         await holder`select clock_timestamp()<(billing_cleanup->'claim'->>'expiresAt')::timestamptz as before from privacy_jobs where id=${jobId}`;

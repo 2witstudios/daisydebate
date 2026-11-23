@@ -2,14 +2,14 @@ import { currentRoundParticipant } from './round-current-participant';
 import { and, eq } from 'drizzle-orm';
 import { agentRuns } from './schema/agent-runs';
 import { roundJudgingJobs } from './schema/round-judging-jobs';
-import { requireAgentLeaseToken } from './round-agent-lease';
+import { requireLeaseToken } from './lease';
 import { readDatabaseTime } from './database-clock';
 import {
   requireCurrentJob,
   requireCurrentRun,
   requireJudgingService,
   requireLiveJudgingLease,
-} from './round-judging-decisions';
+} from './round-judging-jobs';
 import type { Tx } from './tx';
 
 export type JudgingScope = {
@@ -56,7 +56,7 @@ export async function assertLockedJudgingLease(
     )
     .for('update');
   requireCurrentJob(job, scope);
-  requireAgentLeaseToken(token, job.leaseTokenDigest ?? '');
+  requireLeaseToken(token, job.leaseTokenDigest ?? '');
   // Sample AFTER the job lock wait; the D1 context clock is insufficient here.
   const now = await readDatabaseTime(tx);
   requireLiveJudgingLease(job, now);

@@ -1,3 +1,5 @@
+import { messagingFileLifecycles } from '@daisy/protocol/messaging/files';
+import { listedWord } from '../lifecycle-sql';
 import { tryInstantMs } from '@daisy/clock';
 import { sql } from 'drizzle-orm';
 import { createAppError, isAppError } from '@daisy/errors';
@@ -32,7 +34,7 @@ async function dueOwners(
     where f.channel_id=${channelId} and f.id in (${sql.join(
       fileIds.map((id) => sql`${id}`),
       sql`, `,
-    )}) and f.lifecycle in ('reserved','quarantined')
+    )}) and f.lifecycle in (${listedWord(messagingFileLifecycles, 'reserved')},${listedWord(messagingFileLifecycles, 'quarantined')})
       and f.expires_at <= ${new Date(now)} order by f.owner_actor_id
   `,
   );
@@ -158,7 +160,7 @@ export function createMessagingFileMaintenance(database: TxSource) {
         z.object({ fileId: z.string(), channelId: z.string() }),
         sql`
         select id as "fileId", channel_id as "channelId" from messaging_files
-        where lifecycle in ('reserved','quarantined') and expires_at <= ${new Date(input.now)}
+        where lifecycle in (${listedWord(messagingFileLifecycles, 'reserved')},${listedWord(messagingFileLifecycles, 'quarantined')}) and expires_at <= ${new Date(input.now)}
         order by expires_at, id limit ${input.maxItems}
       `,
       );

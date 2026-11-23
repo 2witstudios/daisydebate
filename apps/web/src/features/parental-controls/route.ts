@@ -2,10 +2,7 @@ import { guardianCommandSchema } from '@daisy/protocol/guardians';
 import { createAppError } from '@daisy/errors';
 import type { App } from '../../server/app';
 import { parseValidated, readJson } from '../../server/http';
-import {
-  memberHttpBoundary,
-  runMemberRoute,
-} from '../../server/member-boundary';
+import { memberHttpBoundary, runMemberRoute } from '../auth/member-boundary';
 import { submitGuardianCommand } from './commands';
 
 type Handler = (request: Request) => Promise<Response>;

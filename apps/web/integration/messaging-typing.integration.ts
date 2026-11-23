@@ -8,6 +8,7 @@ import { type ServerMessage } from '@daisy/protocol/realtime-server';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { origin } from './fixtures';
 import * as mountedMessaging from './messaging-route.test-support';
+import { messagingComposition } from '../src/features/messaging/composition';
 
 setupRitewayBun();
 const { databaseUrl } = requireTestServices(process.env);
@@ -43,7 +44,7 @@ test('mounted typing qualifies actual leases and publishes only changed aggregat
     barriers.delete(topic);
   };
   const update = (typing: boolean) =>
-    routes.messaging.typing(
+    routes(messagingComposition).typing(
       app.jsonPost(
         '/api/messaging/typing',
         { version: 1, channelId, typing },
@@ -52,7 +53,7 @@ test('mounted typing qualifies actual leases and publishes only changed aggregat
       true,
     );
   const read = (cookie: string, id = channelId) =>
-    routes.messaging.typing(
+    routes(messagingComposition).typing(
       new Request(`${origin}/api/messaging/channels/${id}/typing`, {
         headers: { cookie },
       }),

@@ -34,7 +34,7 @@ export const supportMessages = pgTable(
     formId: text('form_id').notNull(),
     /** SHA3-256 of the message's fields: one row per version of a form. */
     fieldsDigest: text('fields_digest').notNull(),
-    topic: text('topic').notNull(),
+    topic: text('topic').$type<(typeof supportTopics)[number]>().notNull(),
     message: text('message').notNull(),
     /** What page or round it is about, in the sender's words; null when not given. */
     about: text('about'),
@@ -43,7 +43,7 @@ export const supportMessages = pgTable(
     memberUserId: text('member_user_id').references(() => users.id, {
       onDelete: 'set null',
     }),
-    ...mailJobColumns(),
+    ...mailJobColumns<typeof supportMessageNoticeErrorCodes>(),
   },
   (table) => [
     check('support_messages_topic_check', oneOf(table.topic, supportTopics)),

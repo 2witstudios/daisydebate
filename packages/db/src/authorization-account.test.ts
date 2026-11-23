@@ -2,7 +2,7 @@ import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {
   authorizationAccountFact,
   type AuthorizationAccountRow,
-} from './authorization-account';
+} from './authorization';
 setupRitewayBun();
 const row: AuthorizationAccountRow = {
   userId: 'a'.repeat(24),

@@ -1,11 +1,9 @@
 'use client';
 
-import { useBrowserEffect } from '../edge/browser-sync';
-import { useFocusWhen } from '../edge/use-focus';
 import { Button } from '../components/button/button';
 import { Dialog } from '../components/dialog/dialog';
-import { StatusRegion } from '../components/status-region/status-region';
-import { useRef, useState, type KeyboardEvent } from 'react';
+import { Announcement } from '../components/announcement/announcement';
+import { useRef, useState } from 'react';
 import { Icon } from '../components/icon/icon';
 import { FormError } from '../components/form-field/form-field';
 import {
@@ -80,23 +78,23 @@ function ForfeitLeave({
   readonly forfeit: NonNullable<LeaveLinks['forfeit']>;
   readonly left?: LeaveLinks['left'];
 }) {
-  const [answer, post, pending] = useFormAction(
-    forfeit.action,
-    unanswered,
-    roundCommandUnavailable,
-  );
   /**
    * Suppression records only an acknowledged forfeit (ISSUE-879), which
    * is the one answer that moves on: a refused, conflicted or unknown
    * outcome leaves the participant's recovery exactly as live as their
    * membership still is.
    */
-  useBrowserEffect(() => {
-    if (!pending && answer.kind === 'moved' && left) {
-      leaveRound(left.actorId, left.roundId);
-      clearRoundMediaPreferences(left.actorId, left.roomId, left.roundId);
-    }
-  }, [pending, answer, left]);
+  const [answer, post, pending] = useFormAction(
+    forfeit.action,
+    unanswered,
+    roundCommandUnavailable,
+    (answered) => {
+      if (answered.kind === 'moved' && left) {
+        leaveRound(left.actorId, left.roundId);
+        clearRoundMediaPreferences(left.actorId, left.roomId, left.roundId);
+      }
+    },
+  );
   useMovedOn(destinationOf(answer));
   return (
     <form action={post} aria-busy={pending} className="flex flex-col gap-1">
@@ -111,12 +109,7 @@ function ForfeitLeave({
       <input type="hidden" name="participantId" value={forfeit.participantId} />
       <input type="hidden" name="confirmed" value="true" />
       <FormError error={roundFormFields(answer).error} />
-      <Button
-        variant="unstyled"
-        type="submit"
-        disabled={pending}
-        className={`${action} bg-live text-background`}
-      >
+      <Button variant="danger" size="room" type="submit" disabled={pending}>
         {forfeit.type === 'leave' ? 'Leave round' : 'Leave and forfeit'}
       </Button>
     </form>
@@ -179,16 +172,7 @@ export function LeaveRoom({ links }: { readonly links: LeaveLinks }) {
   const leaveLabel = links.call ? 'Leave call' : 'Leave round';
   const stay = useRef<HTMLAnchorElement>(null);
   const trigger = useRef<HTMLAnchorElement>(null);
-  useFocusWhen(stay, open);
-  const close = () => {
-    setOpen(false);
-    trigger.current?.focus();
-  };
-  const key = (event: KeyboardEvent<HTMLDialogElement>) => {
-    if (event.key !== 'Escape') return;
-    event.preventDefault();
-    close();
-  };
+  const close = () => setOpen(false);
   return (
     <>
       <a
@@ -206,8 +190,11 @@ export function LeaveRoom({ links }: { readonly links: LeaveLinks }) {
       </a>
       <Dialog
         open={open}
+        modal={false}
+        onClose={close}
+        initialFocus={stay}
+        returnFocus={trigger}
         aria-labelledby="leave-room-title"
-        onKeyDown={key}
         className="fixed inset-0 z-50 m-auto flex w-room-dialog max-w-full flex-col gap-4 rounded-lg border border-border-strong bg-surface p-6 text-ink shadow-3 not-open:hidden"
       >
         <h2 id="leave-room-title" className="font-display text-lg">
@@ -229,11 +216,15 @@ export function LeaveRoom({ links }: { readonly links: LeaveLinks }) {
               : 'The debate is over, so leaving forfeits nothing.'}
           </p>
         ) : links.held ? (
-          <StatusRegion as="p" role="status" className="text-sm text-ink-muted">
+          <Announcement
+            as="p"
+            kind="progress"
+            className="text-sm text-ink-muted"
+          >
             Leaving is unavailable for a moment while this round catches up. You
             can step away, but this is not leaving: the round continues, your
             seat stays, and the normal attendance rules apply if you are absent.
-          </StatusRegion>
+          </Announcement>
         ) : null}
         <div className="flex flex-wrap justify-end gap-2">
           <a

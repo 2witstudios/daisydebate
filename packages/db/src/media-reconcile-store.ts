@@ -1,3 +1,4 @@
+import { addMs } from '@daisy/clock';
 import type { DecisionReleasePolicy } from '@daisy/protocol/round-decision-release';
 import {
   readBroadcastObserverHeld,
@@ -34,24 +35,14 @@ import {
   withdrawnSeats,
   type ParticipantAdmission,
 } from './participant-admission';
-import { mediaParticipants } from './schema/media-sessions';
+import {
+  mediaParticipants,
+  mediaSessions,
+  mediaRoomRotations,
+} from './schema/media-sessions';
 import { sampleRoundExecutionTime } from './round-execution-time';
-import { mediaSessions, mediaRoomRotations } from './schema/media-sessions';
 import { mediaVendorMutations } from './schema/media-vendor-mutations';
-
-import {
-  proofMatches,
-  type MediaVendorIntent,
-  type MediaReconcileFence,
-  type MediaAbsenceProof,
-} from './media-reconcile-contracts';
 import { createMediaReconcileClaims } from './media-reconcile-claims';
-import {
-  MEDIA_RECONCILE_LEASE_MS as LEASE_MS,
-  reconcileCompletion,
-  requireMutationAdmissible,
-  requireReconcileLease,
-} from './media-reconcile-rules';
 import type { TxSource, Tx } from './tx';
 
 /** Durable serialization only; every provider call happens after these bounded transactions commit. */
@@ -210,7 +201,8 @@ export function createMediaReconcileStore(input: {
           finalSegmentEndedAt: tick.finalSegmentEndedAt,
           participantId,
         });
-        const dispatchedAt = new Date(await sampleRoundExecutionTime(tx));
+        const dispatchedAtIso = await sampleRoundExecutionTime(tx);
+        const dispatchedAt = new Date(dispatchedAtIso);
         requireReconcileLease(session, request, dispatchedAt);
         const id = mediaId(input.nextId());
         await tx.insert(mediaVendorMutations).values({
@@ -223,7 +215,9 @@ export function createMediaReconcileStore(input: {
         await tx
           .update(mediaSessions)
           .set({
-            reconcileLeaseUntil: new Date(dispatchedAt.getTime() + LEASE_MS),
+            reconcileLeaseUntil: new Date(
+              addMs(dispatchedAtIso, MEDIA_RECONCILE_LEASE_MS),
+            ),
           })
           .where(eq(mediaSessions.id, session.id));
         return id;
@@ -397,3 +391,178 @@ export function createMediaReconcileStore(input: {
     },
   };
 }
+
+export const MEDIA_RECONCILE_LEASE_MS = 15_000;
+const MIN_RECONCILE_MS = 500;
+// The ISO database clock rounds down to milliseconds; preserve the full minimum interval.
+const CLOCK_PRECISION_MS = 1;
+
+/**
+ * A reconcile holds the session only while its owner's lease is unexpired at
+ * `now`, the database clock; an aborted run's owner blocks nothing.
+ */
+export const reconcileLive = <
+  S extends {
+    readonly reconcileOwner: string | null;
+    readonly reconcileLeaseUntil: Date | null;
+  },
+>(
+  session: S,
+  now: Date,
+): session is S & { readonly reconcileLeaseUntil: Date } =>
+  session.reconcileOwner !== null &&
+  session.reconcileLeaseUntil !== null &&
+  session.reconcileLeaseUntil > now;
+
+/**
+ * Wait for a live owner and the minimum interval since the last run, else
+ * claim the next epoch; outstanding vendor work makes the session unsafe.
+ */
+export function reconcileClaim(
+  session: {
+    readonly reconcileOwner: string | null;
+    readonly reconcileLeaseUntil: Date | null;
+    readonly reconcileStartedAt: Date | null;
+    readonly reconcileEpoch: number;
+    readonly reconcileRequestVersion: number;
+    readonly unsafeAt: Date | null;
+  },
+  now: Date,
+  outstanding: boolean,
+) {
+  if (reconcileLive(session, now))
+    return {
+      kind: 'wait' as const,
+      reason: 'lease' as const,
+      retryAt: session.reconcileLeaseUntil.toISOString(),
+    };
+  const earliest =
+    (session.reconcileStartedAt?.getTime() ?? -Infinity) +
+    MIN_RECONCILE_MS +
+    CLOCK_PRECISION_MS;
+  if (now.getTime() < earliest)
+    return {
+      kind: 'wait' as const,
+      reason: 'interval' as const,
+      retryAt: new Date(earliest).toISOString(),
+    };
+  return {
+    kind: 'claim' as const,
+    epoch: session.reconcileEpoch + 1,
+    leaseUntil: new Date(now.getTime() + MEDIA_RECONCILE_LEASE_MS),
+    runningVersion: session.reconcileRequestVersion,
+    unsafeAt: session.unsafeAt ?? (outstanding ? now : null),
+  };
+}
+
+/** Only the current owner and epoch act, and only inside a live lease. */
+export function requireReconcileLease(
+  session: {
+    readonly reconcileOwner: string | null;
+    readonly reconcileEpoch: number;
+    readonly reconcileLeaseUntil: Date | null;
+  },
+  claim: MediaReconcileFence,
+  now: Date,
+) {
+  if (
+    session.reconcileOwner !== claim.owner ||
+    session.reconcileEpoch !== claim.epoch ||
+    !session.reconcileLeaseUntil ||
+    session.reconcileLeaseUntil <= now
+  )
+    throw createAppError('CONFLICT', 'Media reconciliation lease changed');
+}
+
+/** Unresolved vendor state admits only teardown, never wider access. */
+export function requireMutationAdmissible(
+  session: { readonly unsafeAt: Date | null },
+  outstanding: number,
+  kind: MediaVendorIntent['kind'],
+) {
+  if ((session.unsafeAt || outstanding) && kind !== 'delete')
+    throw createAppError('CONFLICT', 'Media recovery is unresolved');
+}
+
+/**
+ * Release the lease and serve the running version, applying the pass's room fate. A
+ * terminal session requests deletion. Any fate but `keep` ends the unsafe episode, and
+ * on an open Round clears the deletion request so capture discovery resumes (ISSUE-465).
+ */
+export function reconcileCompletion(
+  session: {
+    readonly reconcileRunningVersion: number;
+    readonly endedAt: Date | null;
+    readonly deletionRequestedAt: Date | null;
+    readonly unsafeAt: Date | null;
+  },
+  now: Date,
+  outcome: {
+    readonly terminal: boolean;
+    /** Vendor work still pending after this pass's decision. */
+    readonly unresolved: boolean;
+    readonly fate: MediaRoomFate;
+    /** The pass finished its work; a failed one leaves the Round due to the tick. */
+    readonly clean: boolean;
+  },
+) {
+  const { terminal, unresolved, fate, clean } = outcome;
+  const settled = fate.kind !== 'keep';
+  return {
+    fields: {
+      reconcileOwner: null,
+      reconcileLeaseUntil: null,
+      reconcileCompletedAt: now,
+      reconcileLastPassClean: clean,
+      reconcileServedVersion: session.reconcileRunningVersion,
+      ...(settled ? { unsafeAt: null } : {}),
+      ...(fate.kind === 'end' ? { endedAt: session.endedAt ?? now } : {}),
+      ...(fate.kind === 'rotate' ||
+      fate.kind === 'clear' ||
+      fate.kind === 'open-post-round-call'
+        ? { deletionRequestedAt: null }
+        : {}),
+      ...(terminal
+        ? { deletionRequestedAt: session.deletionRequestedAt ?? now }
+        : {}),
+    },
+    result: {
+      safe: !unresolved && (session.unsafeAt === null || settled),
+      ended: fate.kind === 'end',
+    },
+  };
+}
+export type MediaVendorIntent =
+  | {
+      readonly kind: 'create' | 'delete';
+      readonly identity: null;
+      readonly payload: Record<string, never>;
+    }
+  | {
+      readonly kind: 'permissions';
+      readonly identity: string;
+      readonly payload: {
+        readonly publish: ('camera' | 'microphone')[];
+        readonly subscribe: boolean;
+        readonly hidden: boolean;
+        readonly capture: false;
+      };
+    };
+export type MediaReconcileFence = {
+  readonly sessionId: string;
+  readonly owner: string;
+  readonly epoch: number;
+};
+export type MediaAbsenceProof = MediaReconcileFence & {
+  readonly mutationHorizon: number;
+};
+export const proofMatches = (
+  proof: MediaAbsenceProof | null,
+  fence: MediaReconcileFence,
+  mutations: number,
+) =>
+  proof !== null &&
+  proof.sessionId === fence.sessionId &&
+  proof.owner === fence.owner &&
+  proof.epoch === fence.epoch &&
+  proof.mutationHorizon === mutations;

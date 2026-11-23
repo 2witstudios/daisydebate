@@ -1,10 +1,11 @@
 'use client';
 
-import { useFormAnswer } from '../edge/use-form-answer';
-import { useBrowserEffect } from '../edge/browser-sync';
+import { useAnswer, useDeliver } from '../edge/use-answer';
+import { useDocumentEvent } from '../edge/use-dom-events';
 import { Button } from '../components/button/button';
-import { StatusRegion } from '../components/status-region/status-region';
-import { Dialog } from '../components/dialog/dialog';
+import { buttonClass } from '../components/button/button-class';
+import { Announcement } from '../components/announcement/announcement';
+import { DialogRegion } from '../components/dialog/dialog-region';
 import { competitionTypes, type CompetitionType } from '@daisy/protocol/round';
 import {
   reportReasonLabels,
@@ -14,7 +15,14 @@ import {
 import { type ChallengeList } from '@daisy/protocol/challenges';
 import { type Person } from '@daisy/protocol/people-list';
 import { ShellLink as Link } from '../layout/app-shell/shell-link';
-import { useId, useRef, useState } from 'react';
+import { useId, useRef } from 'react';
+import { useDriver } from '../edge/use-driver';
+import {
+  createPersonMenuDriver,
+  personMenuStart,
+  type PersonMenuEvent,
+  type PersonMenuView,
+} from './person-menu-driver';
 import {
   challengeFields,
   challengeFormUnavailable,
@@ -41,8 +49,6 @@ import {
   reportFields,
   reportFormUnavailable,
 } from '../../features/reports/form';
-import { cn } from '../cn';
-import { buttonClass } from '../components/button/button-class';
 import { useFormAction } from '../form-action/form-action';
 import { announceShellNavigation } from '../layout/app-shell/shell-link';
 import { useMovedOn } from '../form-action/use-moved-on';
@@ -53,10 +59,7 @@ import { usePeople } from './people-provider';
 import type { PersonActions } from './person-actions';
 import { publicNameLabel } from '../profile/public-name';
 
-const item =
-  'flex min-h-nav-target w-full items-center rounded-sm px-2 text-left text-sm text-ink no-underline hover:bg-surface-overlay hover:no-underline disabled:cursor-default disabled:text-ink-muted';
-const chip =
-  'min-h-nav-target flex-1 rounded-sm border border-border-strong px-1 text-sm font-semibold text-ink aria-pressed:border-accent aria-pressed:bg-accent aria-pressed:text-accent-ink disabled:cursor-not-allowed disabled:opacity-50';
+/** A menu entry; as a button the `row` variant lays it out. */
 
 const modeLabels: Readonly<Record<CompetitionType, string>> = {
   ranked: 'Ranked',
@@ -94,12 +97,7 @@ function FriendItem({
     <form action={post}>
       <input type="hidden" name="intent" value={intent} />
       <input type="hidden" name="username" value={username} />
-      <Button
-        variant="unstyled"
-        type="submit"
-        disabled={pending}
-        className={item}
-      >
+      <Button variant="row" type="submit" disabled={pending} className="w-full">
         {label}
       </Button>
     </form>
@@ -121,7 +119,7 @@ function CancelChallengeItem({
     challengeFormUnavailable,
   );
   const { noteCancelled, forgetCancelled } = useChallenges();
-  useFormAnswer(answer, () => {
+  useAnswer(answer, () => {
     if (challengeFields(answer).refusal) forgetCancelled(challengeId);
     onDone();
   });
@@ -129,12 +127,7 @@ function CancelChallengeItem({
     <form action={post} onSubmit={() => noteCancelled(challengeId)}>
       <input type="hidden" name="command" value="cancel" />
       <input type="hidden" name="challengeId" value={challengeId} />
-      <Button
-        variant="unstyled"
-        type="submit"
-        disabled={pending}
-        className={item}
-      >
+      <Button variant="row" type="submit" disabled={pending} className="w-full">
         Cancel challenge
       </Button>
     </form>
@@ -160,22 +153,22 @@ function MessageItem({
       <input type="hidden" name="recipients" value={username} />
       <input type="hidden" name="introduction" value="" />
       <Button
-        variant="unstyled"
+        variant="row"
         type="submit"
 
         disabled={pending || next !== undefined}
-        className={item}
+        className="w-full"
       >
         Message
       </Button>
       {creationFields(answer).notice ? (
-        <StatusRegion
+        <Announcement
           as="p"
-          role="status"
+          kind="progress"
           className="px-2 text-xs text-ink-muted"
         >
           {`Could not open a conversation with @${username}. Try again.`}
-        </StatusRegion>
+        </Announcement>
       ) : null}
     </form>
   );
@@ -195,7 +188,7 @@ function BlockItem({
     initialPersonBlock,
     personBlockUnavailable,
   );
-  useFormAnswer(answer, () => {
+  useAnswer(answer, () => {
     if (answer.kind === 'blocked') onDone();
   });
   const notice =
@@ -203,22 +196,17 @@ function BlockItem({
   return (
     <form action={post}>
       <input type="hidden" name="username" value={username} />
-      <Button
-        variant="unstyled"
-        type="submit"
-        disabled={pending}
-        className={item}
-      >
+      <Button variant="row" type="submit" disabled={pending} className="w-full">
         Block
       </Button>
       {notice ? (
-        <StatusRegion
+        <Announcement
           as="p"
-          role="status"
+          kind="progress"
           className="px-2 text-xs text-ink-muted"
         >
           {notice}
-        </StatusRegion>
+        </Announcement>
       ) : null}
     </form>
   );
@@ -240,11 +228,15 @@ function wasSent(answer: ChallengeFormState): boolean {
 function ChallengeView({
   action,
   member,
+  mode,
+  onMode,
   onBack,
   onDone,
 }: {
   readonly action: PersonActions['sendChallenge'];
   readonly member: Pick<Person, 'username' | 'challengeModes'>;
+  readonly mode: CompetitionType;
+  readonly onMode: (mode: CompetitionType) => void;
   readonly onBack: () => void;
   readonly onDone: () => void;
 }) {
@@ -252,15 +244,12 @@ function ChallengeView({
   const { memberDivision } = useChallenges();
   const ranked = member.challengeModes.includes('ranked');
   const line = ranked ? null : challengeModeLine(memberDivision);
-  const [mode, setMode] = useState<CompetitionType>(
-    ranked ? 'ranked' : 'casual',
-  );
   const [answer, post, pending] = useFormAction(
     action,
     initialChallengeForm,
     challengeFormUnavailable,
   );
-  useFormAnswer(answer, () => {
+  useAnswer(answer, () => {
     if (wasSent(answer)) onDone();
   });
   const { refusal } = challengeFields(answer);
@@ -273,7 +262,7 @@ function ChallengeView({
       <div role="group" aria-label="Mode" className="flex gap-1">
         {competitionTypes.map((value) => (
           <Button
-            variant="unstyled"
+            variant="chip"
             key={value}
             type="button"
             aria-pressed={mode === value}
@@ -281,8 +270,8 @@ function ChallengeView({
             aria-describedby={
               value === 'ranked' && line !== null ? ladderLineId : undefined
             }
-            onClick={() => setMode(value)}
-            className={chip}
+            onClick={() => onMode(value)}
+            className="flex-1"
           >
             {modeLabels[value]}
           </Button>
@@ -294,23 +283,23 @@ function ChallengeView({
         </p>
       )}
       {refusal ? (
-        <StatusRegion as="p" role="status" className="text-sm text-ink-muted">
+        <Announcement as="p" kind="progress" className="text-sm text-ink-muted">
           {refusal}
-        </StatusRegion>
+        </Announcement>
       ) : null}
       <Button
-        variant="unstyled"
+        variant="primary"
         type="submit"
         disabled={pending}
-        className={cn(buttonClass('primary'), 'w-full')}
+        className="w-full"
       >
         Send challenge
       </Button>
       <Button
-        variant="unstyled"
+        variant="row-quiet"
         type="button"
         onClick={onBack}
-        className={cn(item, 'w-auto self-start text-ink-muted')}
+        className="self-start"
       >
         Back
       </Button>
@@ -321,22 +310,25 @@ function ChallengeView({
 function ReportView({
   action,
   username,
+  reason,
+  onReason,
   onBack,
   onDone,
 }: {
   readonly action: PersonActions['report'];
   readonly username: string;
+  readonly reason: ReportReason | null;
+  readonly onReason: (reason: ReportReason) => void;
   readonly onBack: () => void;
   readonly onDone: () => void;
 }) {
-  const [reason, setReason] = useState<ReportReason | null>(null);
   const [answer, post, pending] = useFormAction(
     action,
     initialReportForm,
     reportFormUnavailable,
   );
   const { filed, refusal } = reportFields(answer);
-  useFormAnswer(answer, () => {
+  useAnswer(answer, () => {
     if (filed) onDone();
   });
   return (
@@ -347,35 +339,35 @@ function ReportView({
       <div role="group" aria-label="Reason" className="flex flex-col gap-1">
         {reportReasons.map((value) => (
           <Button
-            variant="unstyled"
+            variant="chip"
             key={value}
             type="button"
             aria-pressed={reason === value}
-            onClick={() => setReason(value)}
-            className={cn(chip, 'text-left')}
+            onClick={() => onReason(value)}
+            className="flex-1 text-left"
           >
             {reportReasonLabels[value]}
           </Button>
         ))}
       </div>
       {refusal ? (
-        <StatusRegion as="p" role="status" className="text-sm text-ink-muted">
+        <Announcement as="p" kind="progress" className="text-sm text-ink-muted">
           {refusal}
-        </StatusRegion>
+        </Announcement>
       ) : null}
       <Button
-        variant="unstyled"
+        variant="primary"
         type="submit"
         disabled={pending || reason === null}
-        className={cn(buttonClass('primary'), 'w-full')}
+        className="w-full"
       >
         Send report
       </Button>
       <Button
-        variant="unstyled"
+        variant="row-quiet"
         type="button"
         onClick={onBack}
-        className={cn(item, 'w-auto self-start text-ink-muted')}
+        className="self-start"
       >
         Back
       </Button>
@@ -387,6 +379,13 @@ function ReportView({
  * The one menu a person opens by right-click, three dots, long press or click
  * (ADR 0103): their card, then what the viewer can do. A sheet on a phone.
  */
+
+/** Focus enters the view the card now shows, on its first control. */
+const focusViewStart = (card: HTMLElement | null, view: PersonMenuView) => {
+  if (card?.dataset.personView !== view) return;
+  card.querySelector<HTMLElement>('button, a, select')?.focus();
+};
+
 export function PersonMenu({
   member,
   actions,
@@ -413,7 +412,12 @@ export function PersonMenu({
     refreshPeople();
     refreshChallenges();
   };
-  const [view, setView] = useState<'menu' | 'challenge' | 'report'>('menu');
+  const [shown, menu] = useDriver(
+    () => personMenuStart,
+    createPersonMenuDriver,
+  );
+  const { view } = shown;
+  const send = (event: PersonMenuEvent) => menu?.send(event);
   const finish = () => {
     refresh();
     onClose();
@@ -424,16 +428,10 @@ export function PersonMenu({
   // it hands focus back to the row.
   const dialog = useRef<HTMLElement | null>(null);
   // Each view replaces the focused control, so focus moves in with every view.
-  useBrowserEffect(() => {
-    dialog.current?.querySelector<HTMLElement>('button, a, select')?.focus();
-  }, [view]);
-  useBrowserEffect(() => {
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onClose();
-    };
-    document.addEventListener('keydown', onKey);
-    return () => document.removeEventListener('keydown', onKey);
-  }, [onClose]);
+  useDeliver(view, (shown) => focusViewStart(dialog.current, shown));
+  useDocumentEvent('keydown', (event) => {
+    if (event.key === 'Escape') onClose();
+  });
   return (
     <>
       <div
@@ -445,10 +443,11 @@ export function PersonMenu({
           onClose();
         }}
       />
-      <Dialog
+      <DialogRegion
         as="section"
 
         aria-label={publicNameLabel(member)}
+        data-person-view={view}
         ref={(element) => {
           dialog.current = element;
           anchorAt(top)(element);
@@ -467,11 +466,16 @@ export function PersonMenu({
               />
             ) : canBeChallenged(member) && member.challengeModes.length > 0 ? (
               <Button
-                variant="unstyled"
+                variant="row"
                 type="button"
 
-                onClick={() => setView('challenge')}
-                className={cn(item, 'font-bold')}
+                onClick={() =>
+                  send({
+                    type: 'challenge',
+                    ranked: member.challengeModes.includes('ranked'),
+                  })
+                }
+                className="w-full font-bold"
               >
                 Challenge
               </Button>
@@ -504,17 +508,20 @@ export function PersonMenu({
               />
             ) : null}
             <MessageItem action={actions.message} username={username} />
-            <Link href={`/profile/${username}`} className={item}>
+            <Link
+              href={`/profile/${username}`}
+              className={`${buttonClass('row')} w-full`}
+            >
               Profile
             </Link>
             <hr className="my-1 border-border" />
             <Button
-              variant="unstyled"
+              variant="row"
               type="button"
 
               disabled={reported}
-              onClick={() => setView('report')}
-              className={item}
+              onClick={() => send({ type: 'report' })}
+              className="w-full"
             >
               {reported ? 'Reported' : 'Report'}
             </Button>
@@ -528,26 +535,30 @@ export function PersonMenu({
             />
           </div>
         ) : null}
-        {view === 'challenge' ? (
+        {shown.view === 'challenge' ? (
           <ChallengeView
             action={actions.sendChallenge}
             member={member}
-            onBack={() => setView('menu')}
+            mode={shown.mode}
+            onMode={(mode) => send({ type: 'mode', mode })}
+            onBack={() => send({ type: 'menu' })}
             onDone={finish}
           />
         ) : null}
-        {view === 'report' ? (
+        {shown.view === 'report' ? (
           <ReportView
             action={actions.report}
             username={username}
-            onBack={() => setView('menu')}
+            reason={shown.reason}
+            onReason={(reason) => send({ type: 'reason', reason })}
+            onBack={() => send({ type: 'menu' })}
             onDone={() => {
               onReported();
-              setView('menu');
+              send({ type: 'menu' });
             }}
           />
         ) : null}
-      </Dialog>
+      </DialogRegion>
     </>
   );
 }

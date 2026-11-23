@@ -1,4 +1,4 @@
-import { StatusRegion } from '../components/status-region/status-region';
+import { Announcement } from '../components/announcement/announcement';
 import { Button } from '../components/button/button';
 import { UpgradePanel } from '../components/upgrade-panel/upgrade-panel';
 import type { RoundAnalysisView } from '@daisy/protocol/round-analysis';
@@ -139,10 +139,10 @@ export function RoundAnalysis({
         </p>
       </div>
       {notice ? (
-        <StatusRegion as="p" role="status" className="text-ink-muted">
+        <Announcement as="p" kind="progress" className="text-ink-muted">
           Your analysis request could not be accepted. Check its status and try
           again.
-        </StatusRegion>
+        </Announcement>
       ) : null}
       {panel.kind === 'report' ? (
         <Report panel={panel} />

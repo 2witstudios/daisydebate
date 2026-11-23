@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import {
   beginBroadcastEgressAttempt,
   settleBroadcastEgressAttempt,
@@ -40,8 +41,10 @@ import { rejectedBy, withFixture } from './constraint-helpers';
 setupRitewayBun();
 const { databaseUrl } = requireTestServices(process.env);
 const policy = { kind: 'delay', seconds: 60 } as const;
-const now = new Date('2026-11-02T00:00:00.000Z');
-const later = new Date('2026-11-02T00:01:00.000Z');
+const nowMs = instantMs('2026-11-02T00:00:00.000Z');
+const now = new Date(nowMs);
+const laterMs = instantMs('2026-11-02T00:01:00.000Z');
+const later = new Date(laterMs);
 const past = new Date('2026-11-01T00:00:00.000Z');
 
 /** The public manifests said the stream ended: only then may it complete. */
@@ -167,7 +170,7 @@ test('workers cannot both hold a Broadcast, and an expired lease fences the last
       expected: 1,
     });
     const first = ours[0]!;
-    const next = await claim('next', later, new Date(later.getTime() + 60_000));
+    const next = await claim('next', later, new Date(laterMs + 60_000));
     assert({
       given: 'the lease expired and a new worker claiming',
       should: 'take it with a higher epoch',
@@ -287,7 +290,7 @@ test('a held lease renews with fresh facts, and refuses a fenced owner', async (
       }),
     ))!;
     await recordFinalMediaEnd(db, { id: open.id, at: now });
-    const much = new Date(later.getTime() + 60_000);
+    const much = new Date(laterMs + 60_000);
     const renewed = await renewBroadcastLease(db, {
       id: open.id,
       owner: 'w',
@@ -329,7 +332,7 @@ test('one web instance reconciles a Broadcast at a time', async () => {
         until: new Date(at.getTime() + 5000),
       });
     const racing = await Promise.all([claim(now), claim(now), claim(now)]);
-    const expired = await claim(new Date(now.getTime() + 5000));
+    const expired = await claim(new Date(nowMs + 5000));
     assert({
       given: 'three instances racing, then one after the lease ends',
       should: 'let exactly one through, and then the later one',
@@ -494,7 +497,7 @@ test('a completed Broadcast is claimed to withdraw its feed once its grace passe
       );
     await endStream(db, open.id);
     await completeBroadcast(db, { id: open.id, at: now });
-    const inGrace = await claim(new Date(now.getTime() - 1));
+    const inGrace = await claim(new Date(nowMs - 1));
     const past = await claim(now);
     await recordFeedWithdrawn(db, { id: open.id, at: later });
     const after = await claim(later);
@@ -748,13 +751,13 @@ test('the worker reads committed times through the view, and no Round', async ()
         {
           segments: [
             {
-              startedAtMs: now.getTime(),
-              endedAtMs: later.getTime(),
+              startedAtMs: nowMs,
+              endedAtMs: laterMs,
               durationMs: 60_000,
             },
           ],
           privateSpans: [
-            { kind: 'prep', startedAtMs: later.getTime(), endedAtMs: null },
+            { kind: 'prep', startedAtMs: laterMs, endedAtMs: null },
           ],
         },
         true,
@@ -871,7 +874,7 @@ test('the worker role reads no stage credential, writes only its own columns, an
       const claimed = await claimBroadcast(db as never, {
         owner: 'w',
         now: later,
-        leaseUntil: new Date(later.getTime() + 1000),
+        leaseUntil: new Date(laterMs + 1000),
       });
       const held = {
         id,
@@ -880,7 +883,7 @@ test('the worker role reads no stage credential, writes only its own columns, an
       };
       const renewed = await renewBroadcastLease(db as never, {
         ...held,
-        leaseUntil: new Date(later.getTime() + 2000),
+        leaseUntil: new Date(laterMs + 2000),
       });
       await recordClipSkipped(db as never, { ...held, capturedAtMs: 5 });
       await recordNotPublicPassed(db as never, { ...held, through: now });
@@ -975,7 +978,7 @@ test('a parked Broadcast is not claimed until it is due', async () => {
       epoch: first!.leaseEpoch,
       until: later,
     });
-    const tooSoon = await claim(new Date(later.getTime() - 1));
+    const tooSoon = await claim(new Date(laterMs - 1));
     const due = await claim(later);
     assert({
       given: 'a Broadcast parked until a time, claimed before and at it',

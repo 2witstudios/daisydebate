@@ -2,11 +2,14 @@
   "version": 1,
   "baselines": [
     {
-      "baseMigrationsHash": "sha256:87edd01120330487df69322984407a552ac48fe3006e0f71236d7dd16e851a14",
-      "adr": "docs/decisions/0058-one-round-model.md",
+      "tag": "20261121235720_baseline",
+      "cutoff": "20261121235720_guardian_pending_friend_holds",
+      "commit": "334bbc8acefef3acde066e3de4328ef91fb04b48",
+      "supersededHash": "sha256:0722a3058343ccd449ed453121ada1439eb120ebf0acb0a37c9377036664b35e",
+      "adr": "docs/decisions/0913-one-baseline-adopted-in-place.md",
       "owner": "platform",
-      "reason": "One-time squash of the eight migrations carrying the two-stack schema (debates, ai_debates, debate_documents and friends) into one baseline carrying the one-Round model of ADR 0058: formats with immutable revisions and presets, durable rooms, rounds with segments, utterances, ballots on the shared contract, agent runs and usage reservations, and documents owned by actors. Daisy is pre-ship with no deployed consumers (ADR 0023); no data is migrated, so every local and test database resets once. Inert once the baseline lands on the default branch.",
-      "reviewBy": "2026-11-30"
+      "reason": "One baseline read from the catalog of a database migrated through the cut-off replaces the 153 folders up to it (RECON-5.1); folders after the cut-off apply on top. A database already at the cut-off adopts it by a catalog-proved journal swap (RECON-5.2), so staging keeps its data; every local and test database resets once.",
+      "reviewBy": "2026-12-31"
     }
   ]
 }

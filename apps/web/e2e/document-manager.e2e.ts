@@ -50,7 +50,10 @@ const journey = async (
   viewport: { readonly width: number; readonly height: number },
   testInfo: import('@playwright/test').TestInfo,
 ) => {
-  const accounts = await createRoomLaunchAccounts(browser, 2);
+  // The room fills every other seat with bots: the host needs bot debates (ADR 0921).
+  const accounts = await createRoomLaunchAccounts(browser, 2, {
+    botDebates: true,
+  });
   let roundId: string | undefined;
   const word = `evidence${createId().slice(0, 10)}`;
   const context = accounts.members[0]!.context;

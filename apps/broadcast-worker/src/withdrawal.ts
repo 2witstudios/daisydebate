@@ -1,4 +1,6 @@
+import type { Waits } from '@daisy/clock';
 import type { createBroadcastWorkerStore } from '@daisy/db/broadcast-worker';
+import { pollWork } from '@daisy/worker';
 import { broadcastHoldPrefix } from '@daisy/protocol/broadcast-hold';
 import {
   broadcastLivePrefix,
@@ -21,6 +23,8 @@ export const FEED_END_GRACE_MS = 60_000;
 const DELETE_BATCH = 32;
 const WITHDRAWAL_LEASE_MS = 30_000;
 const IDLE_MS = 500;
+/** With nothing to take down, the loop polls at most this rarely. */
+const IDLE_MAX_MS = 5_000;
 /** Egress finishes writing its last segments this long after a stop (measured: 2 s). */
 const HOLD_SETTLE_MS = 10_000;
 
@@ -117,27 +121,26 @@ export const feedWithdrawalPorts = (id: string, deps: WithdrawalDeps) => ({
  * held for a whole Round, and a takedown must not wait for one. It never encodes,
  * so it is free unless it is already deleting another feed.
  */
-export const runFeedWithdrawals = async (
+export const startFeedWithdrawals = (
   deps: WithdrawalDeps & {
     readonly owner: string;
-    readonly sleep: (ms: number) => Promise<void>;
-    readonly stopped: () => boolean;
+    readonly waits: Waits;
     readonly report: (event: 'broadcast.withdrawal_failed') => void;
   },
-) => {
-  while (!deps.stopped()) {
-    try {
+) =>
+  pollWork({
+    waits: deps.waits,
+    backoff: { busyMs: IDLE_MS, idleMaxMs: IDLE_MAX_MS },
+    pass: async () => {
       const job = await deps.store.claimWithdrawal({
         owner: deps.owner,
         now: new Date(deps.now()),
         leaseUntil: new Date(deps.now() + WITHDRAWAL_LEASE_MS),
         withdrawFinishedBefore: new Date(deps.now() - FEED_END_GRACE_MS),
       });
-      if (job) await withdrawFeed(job, feedWithdrawalPorts(job.id, deps));
-      else await deps.sleep(IDLE_MS);
-    } catch {
-      deps.report('broadcast.withdrawal_failed');
-      await deps.sleep(IDLE_MS);
-    }
-  }
-};
+      if (!job) return 'idle';
+      await withdrawFeed(job, feedWithdrawalPorts(job.id, deps));
+      return 'worked';
+    },
+    failed: () => deps.report('broadcast.withdrawal_failed'),
+  });

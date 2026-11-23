@@ -1,14 +1,15 @@
+import { actorKinds } from './schema/actors';
+import { listedWord } from './lifecycle-sql';
 import { sql } from 'drizzle-orm';
-import { run, query } from './raw-rows';
+import { run, query, exportRows } from './raw-rows';
 import { instrumented, type DatabaseEventSink } from './instrumented';
 import type { PrivacyAdopter } from './privacy/contracts';
-import { exportRows } from './privacy/export-rows';
 import { inTransaction, type TxSource } from './tx';
 import { z } from 'zod';
 
 const debaterNamed = (username: string) =>
   sql`select a.id,u.id as user_id from users u join actors a on a.user_id=u.id
-    where lower(u.username)=lower(${username}) and u.deleted_at is null and a.kind='human'`;
+    where lower(u.username)=lower(${username}) and u.deleted_at is null and a.kind=${listedWord(actorKinds, 'human')}`;
 
 /** Either side's block between this account and that actor. */
 export const blockedBetween = (

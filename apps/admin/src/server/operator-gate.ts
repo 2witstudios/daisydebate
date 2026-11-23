@@ -1,3 +1,4 @@
+import { inTransaction } from '../db/tx';
 import { cookies, headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { appendAudit } from '../audit/store';
@@ -53,7 +54,7 @@ export async function requireOperator(
   });
   if (decision.allowed) return { operator, allowed: true };
   const { auth } = adminRuntime();
-  await auth.db.transaction((tx) =>
+  await inTransaction(auth.db, (tx) =>
     appendAudit(tx, {
       id: auth.ids.next(),
       kind: 'access.denied',

@@ -1,5 +1,4 @@
 import { createElement as h } from 'react';
-import { renderToString } from 'react-dom/server';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { buildDetail } from '../../../features/leaderboard/detail';
 import { NOW } from '../../../features/leaderboard/ladder.test-support';
@@ -7,6 +6,7 @@ import {
   readDebater,
   readLadder,
 } from '../../../features/leaderboard/read-leaderboard.test-support';
+import { renderAccessible } from '../../../test-support/rendered/accessible';
 import { RatingSummary } from './detail-parts';
 
 setupRitewayBun();
@@ -22,20 +22,21 @@ describe('RatingSummary', () => {
       null,
     );
     if (detail.kind !== 'player') throw new Error('expected a player detail');
-    const html = renderToString(
+    const view = renderAccessible(
       h(RatingSummary, { detail, gridClass: 'grid-cols-4' }),
     );
-    const notes = [
-      ...html.matchAll(
-        /<span class="text-xs text-ink-muted tabular-nums">([^<]*)<\/span>/g,
-      ),
-    ].map((match) => match[1]);
     assert({
       given: 'an established debater’s rating summary',
       should:
         'note only the rating range, the W–L record and the peak, with no note under the rank',
-      actual: notes,
-      expected: [detail.range, 'W–L', 'this season'],
+      actual: view.textContent(),
+      expected: [
+        `Rating${detail.rating}${detail.range}`,
+        `Rank${detail.rank}`,
+        `Record${detail.record}W–L`,
+        `Peak${detail.peak}this season`,
+        `Established${detail.statusNote}`,
+      ].join(''),
     });
   });
 });

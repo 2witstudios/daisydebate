@@ -1,10 +1,10 @@
-import type { Database } from '@daisy/db';
+import type { SupportStore } from '@daisy/db/stores/support';
 import type { EmailMessage } from '../mail/types';
 import { createOwnerNotices } from '../mail/owner-notices';
 import { renderSupportMessageEmail } from './owner-email';
 
 type Store = Pick<
-  Database,
+  SupportStore,
   | 'claimSupportMessageNotices'
   | 'readSupportMessageNotice'
   | 'settleSupportMessageNotice'

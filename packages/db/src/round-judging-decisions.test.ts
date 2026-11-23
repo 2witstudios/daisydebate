@@ -8,7 +8,7 @@ import {
   requireJudgingService,
   requireLiveJudgingLease,
   requireUndispatched,
-} from './round-judging-decisions';
+} from './round-judging-jobs';
 
 setupRitewayBun();
 

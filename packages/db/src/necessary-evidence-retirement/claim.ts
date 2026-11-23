@@ -1,8 +1,11 @@
+import { necessaryEvidenceStates } from '@daisy/protocol/necessary-evidence';
+import { listedWord } from '../lifecycle-sql';
+import { addMs } from '@daisy/clock';
 import { eq, sql } from 'drizzle-orm';
 import { necessaryEvidence } from '../schema/necessary-evidence';
 import { sampleRoundExecutionTime } from '../round-execution-time';
-import { evidenceLeaseDigest } from '../necessary-evidence-policy';
-import { nextEpoch } from '../lease-policy';
+import { leaseTokenDigest } from '../lease';
+import { nextEpoch } from '../lease';
 import { select } from './select';
 import { lock } from './lock';
 import { eligible } from './eligible';
@@ -26,7 +29,7 @@ export async function claim(
       reason: z.enum(['settled', 'erased', 'expired', 'unreceived']),
     }),
     sql`select
-    case when e.state='retiring' then e.retirement_reason
+    case when e.state=${listedWord(necessaryEvidenceStates, 'retiring')} then e.retirement_reason
       when exists(select 1 from necessary_evidence_round_fences f where f.round_id=e.original_round_id and f.withdrawn_at is not null)
         or exists(select 1 from necessary_evidence_erasure_requests p where p.actor_id=any(e.original_subject_actor_ids))
       then 'erased' else 'expired' end as reason
@@ -38,8 +41,9 @@ export async function claim(
     'Evidence retirement epoch exhausted',
   );
   const token = options.nextToken(),
-    leaseDigest = evidenceLeaseDigest(token);
-  const now = new Date(await sampleRoundExecutionTime(tx));
+    leaseDigest = leaseTokenDigest(token);
+  const nowIso = await sampleRoundExecutionTime(tx);
+  const now = new Date(nowIso);
   await tx
     .update(necessaryEvidence)
     .set({
@@ -52,7 +56,7 @@ export async function claim(
       executionWorkerId: input.workerId,
       executionEpoch,
       leaseDigest,
-      leaseExpiresAt: new Date(now.getTime() + options.leaseMs),
+      leaseExpiresAt: new Date(addMs(nowIso, options.leaseMs)),
       lastClaimedAt: now,
     })
     .where(eq(necessaryEvidence.id, id));

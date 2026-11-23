@@ -1,7 +1,7 @@
 import { capacityRefusalFields } from '@daisy/db/capacity';
 import { databaseFailure } from '@daisy/db/database-failure';
 import { createAppError } from '@daisy/errors';
-import type { IntervalTimers } from './outbox-drain';
+import type { Waits } from '@daisy/clock';
 
 const BUDGET_SPENT = Symbol('authority check budget spent');
 /**
@@ -25,18 +25,20 @@ const isBudgetSpent = (error: unknown) =>
  */
 export async function boundedAuthorityCheck<T>({
   check,
-  timers,
+  waits,
   budgetMs,
 }: {
   readonly check: (signal: AbortSignal) => Promise<T>;
-  readonly timers: IntervalTimers;
+  readonly waits: Waits;
   readonly budgetMs: number;
 }): Promise<T> {
-  let handle: ReturnType<typeof setInterval> | undefined;
   const budget = new AbortController();
+  /** Aborted once the check settles, so no budget wait outlives it. */
+  const settled = new AbortController();
   try {
     return await new Promise<T>((resolve, reject) => {
-      handle = timers.setInterval(() => {
+      void waits.sleep(budgetMs, settled.signal).then(() => {
+        if (settled.signal.aborted) return;
         const spent = createAppError(
           'INFRASTRUCTURE',
           'Authority check budget spent',
@@ -44,12 +46,12 @@ export async function boundedAuthorityCheck<T>({
         );
         budget.abort(spent);
         reject(spent);
-      }, budgetMs);
+      });
       Promise.resolve()
         .then(() => check(budget.signal))
         .then(resolve, reject);
     });
   } finally {
-    if (handle !== undefined) timers.clearInterval(handle);
+    settled.abort();
   }
 }

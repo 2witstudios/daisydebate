@@ -1,4 +1,4 @@
-import { instantMs } from '@daisy/clock';
+import { instantMs, tryAddMs } from '@daisy/clock/instant';
 import { z } from 'zod';
 import { idSchema } from './primitives';
 
@@ -66,10 +66,8 @@ const changed = (state: BillingSyncState): BillingSyncTransition => {
   const parsed = billingSyncStateSchema.safeParse(state);
   return parsed.success ? { kind: 'changed', state: parsed.data } : refuse;
 };
-const after = (now: string, duration: number) => {
-  const value = new Date(at(now) + duration);
-  return Number.isFinite(value.getTime()) ? value.toISOString() : null;
-};
+const after = (now: string, duration: number) =>
+  tryAddMs(now, duration) ?? null;
 function due(state: BillingSyncState | null, now: string) {
   return (
     state === null || (state.kind === 'settled' && at(now) >= at(state.nextAt))

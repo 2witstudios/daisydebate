@@ -8,7 +8,7 @@ import { eq } from 'drizzle-orm';
 import { rooms } from './schema/rooms';
 import { roomFacts } from './room-command-facts';
 import { readAuthorizationActors } from './authorization';
-import { requireFencedParticipants } from './round-command-replay';
+import { requireFencedParticipants } from './round-command-record';
 import { readDatabaseTime } from './database-clock';
 import {
   requireAdmittedPrincipal,

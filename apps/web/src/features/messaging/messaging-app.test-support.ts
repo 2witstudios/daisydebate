@@ -1,3 +1,4 @@
+import { virtualClock } from '@daisy/clock/testing';
 import { createApp } from '../../server/app';
 import { authTestEnv } from '../auth/auth-server.test-support';
 /** Two app-bound suites exercise anonymous policy/vendor refusal without service calls. */
@@ -8,6 +9,7 @@ export function createMessagingUnitApp(
   >,
 ) {
   return createApp({
+    waits: virtualClock(),
     ...input,
     env: {
       ...authTestEnv,

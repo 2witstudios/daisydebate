@@ -8,7 +8,7 @@ import {
 } from './handler-boundary';
 
 import { composeMessagingPreferences } from './preference-composition';
-import { runEvaluatedRoute } from '../../server/member-boundary';
+import { runEvaluatedRoute } from '../auth/member-boundary';
 import { requireMemberActor } from '../access/actor';
 export function composeMessagingPreferenceRoutes(app: App) {
   return (

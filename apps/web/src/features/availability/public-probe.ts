@@ -1,6 +1,7 @@
+import { deadlineSignal, type Waits } from '@daisy/clock';
+import { nextWaitMs, type IdleBackoff } from '@daisy/worker';
 import { attendanceReceiptSchema } from '@daisy/protocol/attendance';
 import { idSchema } from '@daisy/protocol/primitives';
-import { nextWaitMs, type IdleBackoff } from '../../lib/idle-backoff';
 export type PublicCheckInProbeConfiguration = {
   readonly origin: string;
   readonly roundId: string;
@@ -21,12 +22,14 @@ const PROBE_REJECTED_RETRY: IdleBackoff = {
   busyMs: 60_000,
   idleMaxMs: 60 * 60_000,
 };
+/** Each request's bound: inside the one-second sample. */
+const PROBE_REQUEST_DEADLINE_MS = 900;
 /** Credentials enter only from the process edge; missing configuration remains unhealthy. */
 export function createPublicCheckInProbe(input: {
   readonly configuration: PublicCheckInProbeConfiguration | null;
   readonly nextId: () => string;
-  /** Monotonic milliseconds, for the session refresh cadence. */
-  readonly nowMs: () => number;
+  /** Time for the session refresh cadence and each request's deadline (R4.7). */
+  readonly waits: Waits;
   readonly fetch: (url: string, init: RequestInit) => Promise<Response>;
   /**
    * Check-in answered 401: the probe's session is gone. Called once per
@@ -58,20 +61,21 @@ export function createPublicCheckInProbe(input: {
     null;
   // Its outcome never decides health: only the check-in receipt does.
   const slideSession = async () => {
-    const now = input.nowMs();
+    const now = input.waits.nowMs();
     if (
       refreshedAtMs !== null &&
       now - refreshedAtMs < PROBE_SESSION_REFRESH_MS
     )
       return;
     refreshedAtMs = now;
+    const deadline = deadlineSignal(input.waits, PROBE_REQUEST_DEADLINE_MS);
     try {
       const response = await input.fetch(
         `${origin.origin}/api/auth/get-session`,
         {
           method: 'GET',
           redirect: 'error',
-          signal: AbortSignal.timeout(900),
+          signal: deadline.signal,
           headers: { cookie: config.cookie },
         },
       );
@@ -79,20 +83,23 @@ export function createPublicCheckInProbe(input: {
       await response.body?.cancel();
     } catch {
       // The next interval reads it again.
+    } finally {
+      deadline.clear();
     }
   };
   return async () => {
-    if (rejection && input.nowMs() < rejection.askAtMs) return false;
+    if (rejection && input.waits.nowMs() < rejection.askAtMs) return false;
     // Not awaited: the session read never delays this second's sample.
     void slideSession();
     const commandId = input.nextId();
+    const deadline = deadlineSignal(input.waits, PROBE_REQUEST_DEADLINE_MS);
     try {
       const response = await input.fetch(
         `${origin.origin}/api/rounds/${config.roundId}/check-in`,
         {
           method: 'POST',
           redirect: 'error',
-          signal: AbortSignal.timeout(900),
+          signal: deadline.signal,
           headers: {
             'content-type': 'application/json',
             origin: origin.origin,
@@ -113,7 +120,7 @@ export function createPublicCheckInProbe(input: {
           rejection?.waitMs ?? null,
           'failed',
         );
-        rejection = { askAtMs: input.nowMs() + waitMs, waitMs };
+        rejection = { askAtMs: input.waits.nowMs() + waitMs, waitMs };
         return false;
       }
       // Anything but a 401 ends the streak: the session was accepted.
@@ -129,6 +136,8 @@ export function createPublicCheckInProbe(input: {
       );
     } catch {
       return false;
+    } finally {
+      deadline.clear();
     }
   };
 }

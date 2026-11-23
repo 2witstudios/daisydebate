@@ -1,3 +1,4 @@
+import { hostWaits } from '@daisy/worker/host';
 import { requireTestServices } from '@daisy/config';
 import { withWebFinalizer } from './round-maintenance.test-support';
 import { finishedOrBlockedBehind } from '@daisy/db/testing';
@@ -62,7 +63,7 @@ async function capturedRound(f: Fixture) {
         roundParticipantId: grant.round_participant_id as string,
       },
       trackId = createId();
-    const start = new Date(grant.started_at).getTime();
+    const start = grant.started_at.getTime();
     await capture.appendCapturedTranscript({
       ...stream,
       trackId,
@@ -133,7 +134,7 @@ async function raceBehindRoundLock(
       finalize,
       f.sql,
       backend.pid,
-      { now: performance.now, deadlineMs: 700 },
+      { waits: hostWaits, deadlineMs: 700 },
     );
     await holder`commit`;
     const [appended, sealed, finalized] = await settled;

@@ -12,7 +12,10 @@ import {
 import { readHostRoster } from '../src/features/tab/reads/host-roster';
 import { hostEntriesOf, hostJudgesOf } from '../src/features/tab/entries';
 import { organizationCommand } from '../src/features/tab/operations/organization';
-import { member, origin } from '../src/server/member-boundary.test-support';
+import {
+  member,
+  origin,
+} from '../src/features/auth/member-boundary.test-support';
 import { silentLogger } from '../src/server/test-loggers.test-support';
 import { createBots, type World } from './tab-tournament.test-support';
 import { as } from './tab-tournament-organization-wiring.test-support';

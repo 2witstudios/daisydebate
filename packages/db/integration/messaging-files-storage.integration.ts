@@ -10,7 +10,7 @@ import { createAppError } from '@daisy/errors';
 import { assertRejects } from '@daisy/errors/testing';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createMessagingTestFixture } from '../src/testing';
-import { socialPrivacyAdoption } from '../src/social-privacy-composition';
+import { socialPrivacyAdoption } from '../src/privacy/subject-rights';
 import { runPrivacyExport } from '../src/privacy/operations';
 import {
   acknowledgeFileDeletion,

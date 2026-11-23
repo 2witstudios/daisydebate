@@ -40,3 +40,13 @@ export function aiCast(catalog: { readonly bots: readonly unknown[] }) {
   expect([Boolean(debater), Boolean(aiJudge)]).toEqual([true, true]);
   return { debater: debater!, aiJudge: aiJudge! };
 }
+
+/**
+ * The eligible AI judge alone. The AI judge is not behind the bot-debates
+ * release (ADR 0921), so a member without it is still offered one.
+ */
+export function aiJudgeIn(bots: readonly RoomCastChoice[]) {
+  const aiJudge = bots.find((bot) => bot.eligible && bot.aiRole === 'judge');
+  expect(aiJudge).toBeDefined();
+  return aiJudge!;
+}

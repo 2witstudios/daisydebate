@@ -1,6 +1,6 @@
-import { renderToStaticMarkup } from 'react-dom/server';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { isJudgeSeat, twoSides } from '@daisy/protocol/seats';
+import { renderAccessible } from '../../../test-support/rendered/accessible';
 import { RoundReceipt, type RoundReceiptView } from './round-receipt';
 
 setupRitewayBun();
@@ -64,25 +64,34 @@ const scheduled: RoundReceiptView = {
 };
 
 test('persisted new Round renders the frozen asymmetric schedule and cast', () => {
-  const html = renderToStaticMarkup(<RoundReceipt round={scheduled} />);
+  const view = renderAccessible(<RoundReceipt round={scheduled} />);
+  const text = view.textContent();
+  const speeches = view
+    .within('region', 'Frozen speech schedule')
+    .all('listitem')
+    .map((item) => item.textContent ?? '');
   assert({
     given: 'a new Round with unequal frozen speech lengths and an AI judge',
     should:
       'show its real receipt, ordered slots and exact durations without implying media or a ballot exists',
     actual: [
-      html.includes('&lt;Frozen topic&gt;'),
-      html.includes('Starting'),
-      html.includes('0:45'),
-      !html.includes('Open floor'),
-      html.includes('Affirmative 2'),
-      html.includes('2:05'),
-      html.includes('1:30'),
-      html.indexOf('Aff reply (A2)') < html.indexOf('Neg closing (N1)'),
-      html.includes('Judge Sage'),
-      html.includes('AI'),
-      html.includes('/rooms/room-owned'),
-      html.includes('Media is not available yet.'),
-      html.includes('Result'),
+      view
+        .within('region', 'Resolution')
+        .textContent()
+        .includes('<Frozen topic>'),
+      text.includes('Starting'),
+      text.includes('0:45'),
+      !text.includes('Open floor'),
+      text.includes('Affirmative 2'),
+      text.includes('2:05'),
+      text.includes('1:30'),
+      speeches.findIndex((speech) => speech.includes('Aff reply (A2)')) === 0 &&
+        speeches[1]?.includes('Neg closing (N1)'),
+      text.includes('Judge Sage'),
+      text.includes('AI'),
+      view.attribute('link', 'Return to room', 'href') === '/rooms/room-owned',
+      text.includes('Media is not available yet.'),
+      text.includes('Result'),
     ],
     expected: [
       true,
@@ -119,7 +128,7 @@ const judged: RoundReceiptView = {
 };
 
 test('a completed zero-judge Round presents an unjudged result without inventing a winner', () => {
-  const html = renderToStaticMarkup(
+  const text = renderAccessible(
     <RoundReceipt
       round={{
         ...scheduled,
@@ -130,55 +139,55 @@ test('a completed zero-judge Round presents an unjudged result without inventing
         ),
       }}
     />,
-  );
+  ).textContent();
   assert({
     given: 'the shared completed Round with null outcome',
     should: 'label its unjudged result truthfully in native HTML',
     actual: [
-      html.includes('Result · Unjudged'),
-      html.includes('Draw'),
-      html.includes('won'),
-      html.includes('Closed'),
+      text.includes('Result · Unjudged'),
+      text.includes('Draw'),
+      text.includes('won'),
+      text.includes('Closed'),
     ],
     expected: [true, false, false, false],
   });
 });
 
 test('a judged Round hands its result to the receipt', () => {
-  const html = renderToStaticMarkup(<RoundReceipt round={judged} />);
+  const text = renderAccessible(<RoundReceipt round={judged} />).textContent();
   assert({
     given: 'a Round the human judge’s ballot completed for the negative',
     should:
       'show it completed with the result, and the judge seat without the judge’s name',
     actual: [
-      html.includes('Round · Finished'),
-      html.includes('Negative won'),
-      html.includes('Judge 1'),
-      html.includes('Riley'),
+      text.includes('Round · Finished'),
+      text.includes('Negative won'),
+      text.includes('Judge 1'),
+      text.includes('Riley'),
     ],
     expected: [true, true, true, false],
   });
 });
 
 test('a judged Round whose judges did not rule by the deadline says so (DEC-201)', () => {
-  const html = renderToStaticMarkup(
+  const text = renderAccessible(
     <RoundReceipt round={{ ...judged, outcome: null }} />,
-  );
+  ).textContent();
   assert({
     given: 'a completed Round with judge seats and no outcome',
     should: 'say the judges did not rule, never Unjudged, a draw or a winner',
     actual: [
-      html.includes('Result · Judges did not rule'),
-      html.includes('Unjudged'),
-      html.includes('Draw'),
-      html.includes('won'),
+      text.includes('Result · Judges did not rule'),
+      text.includes('Unjudged'),
+      text.includes('Draw'),
+      text.includes('won'),
     ],
     expected: [true, false, false, false],
   });
 });
 
 test('a Round closed on an incomplete transcript says so instead of blaming the judges (DEC-208)', () => {
-  const html = renderToStaticMarkup(
+  const text = renderAccessible(
     <RoundReceipt
       round={{
         ...judged,
@@ -187,32 +196,38 @@ test('a Round closed on an incomplete transcript says so instead of blaming the 
         platformEnding: null,
       }}
     />,
-  );
+  ).textContent();
   assert({
     given:
       'a completed AI-judged Round whose finalizer ruled the transcript incomplete',
     should:
       'say the transcript was incomplete, never that judges did not rule, a draw or a winner',
     actual: [
-      html.includes('Result · Transcript incomplete'),
-      html.includes('Judges did not rule'),
-      html.includes('Draw'),
-      html.includes('won'),
+      text.includes('Result · Transcript incomplete'),
+      text.includes('Judges did not rule'),
+      text.includes('Draw'),
+      text.includes('won'),
     ],
     expected: [true, false, false, false],
   });
 });
 
 test('the receipt labels the resolution and never shows a raw setting value', () => {
-  const html = renderToStaticMarkup(<RoundReceipt round={scheduled} />);
+  const view = renderAccessible(<RoundReceipt round={scheduled} />);
+  const values = view
+    .within('region', 'Frozen settings')
+    .all('definition')
+    .map((value) => value.textContent);
   assert({
     given: 'a frozen round with prep, countdown and interaction rules',
     should: 'label the resolution and read every setting in words',
     actual: [
-      html.includes('>Resolution</h2>'),
-      html.includes('Settings when the round started'),
-      /Disabled|>free<|>disabled<|\dm \d+s|Launch/.test(html),
-      html.includes('>Off<'),
+      view.has('heading', 'Resolution', { level: 2 }),
+      view.has('heading', 'Settings when the round started', { level: 2 }),
+      /Disabled|\dm \d+s|Launch/.test(view.textContent()) ||
+        values.includes('free') ||
+        values.includes('disabled'),
+      values.includes('Off'),
     ],
     expected: [true, true, false, true],
   });
@@ -268,18 +283,20 @@ const endedDrawRound = (): RoundReceiptView & {
 });
 
 test('an ended draw Round shows how its resolution was chosen, with erased lines as removed', () => {
-  const html = renderToStaticMarkup(<RoundReceipt round={endedDrawRound()} />);
+  const text = renderAccessible(
+    <RoundReceipt round={endedDrawRound()} />,
+  ).textContent();
   assert({
     given: 'a finished Round whose first struck line was erased',
     should:
       'list both strikes in order, the erased one as removed, and keep the commitment id out of the UI',
     actual: [
-      html.includes('How the resolution was chosen'),
-      html.includes(
+      text.includes('How the resolution was chosen'),
+      text.includes(
         'Negative ran out of time; Daisy struck “A removed resolution”',
       ),
-      html.includes('Affirmative struck “Kept line”'),
-      html.includes('e'.repeat(64)),
+      text.includes('Affirmative struck “Kept line”'),
+      text.includes('e'.repeat(64)),
     ],
     expected: [true, true, true, false],
   });
@@ -287,7 +304,7 @@ test('an ended draw Round shows how its resolution was chosen, with erased lines
 
 test('a spectator of a host-list draw reads struck lines as the host’s, not as removed (PR #472 review)', () => {
   const ended = endedDrawRound();
-  const html = renderToStaticMarkup(
+  const text = renderAccessible(
     <RoundReceipt
       round={{
         ...ended,
@@ -300,36 +317,36 @@ test('a spectator of a host-list draw reads struck lines as the host’s, not as
         },
       }}
     />,
-  );
+  ).textContent();
   assert({
     given: 'an ended host-list draw read outside the Round',
     should: 'say the struck lines came from the host’s list',
     actual: [
-      html.includes('Affirmative struck “A line from the host’s list”'),
-      html.includes('A removed resolution'),
+      text.includes('Affirmative struck “A line from the host’s list”'),
+      text.includes('A removed resolution'),
     ],
     expected: [true, false],
   });
 });
 
 test('a Round abandoned at the attendance cutoff blames nobody', () => {
-  const html = renderToStaticMarkup(
+  const text = renderAccessible(
     <RoundReceipt round={{ ...judged, status: 'abandoned', outcome: null }} />,
-  );
+  ).textContent();
   assert({
     given: 'an abandoned judged Round, whose judge may well have ruled',
     should: 'say it closed, with no result line blaming the judges',
     actual: [
-      html.includes('Round · Closed'),
-      html.includes('Result ·'),
-      html.includes('Judges did not rule'),
+      text.includes('Round · Closed'),
+      text.includes('Result ·'),
+      text.includes('Judges did not rule'),
     ],
     expected: [true, false, false],
   });
 });
 
 test('a Round the platform ended states the cause', () => {
-  const html = renderToStaticMarkup(
+  const text = renderAccessible(
     <RoundReceipt
       round={{
         ...judged,
@@ -339,14 +356,14 @@ test('a Round the platform ended states the cause', () => {
         platformEnding: 'recovery_bound',
       }}
     />,
-  );
+  ).textContent();
   assert({
     given: 'a Round ended by a platform incident',
     should: 'say the server failed, and that nothing counts or is charged',
     actual: [
-      html.includes('Daisy server failure'),
-      html.includes('No result, no rating and no charge'),
-      html.includes('Judges did not rule'),
+      text.includes('Daisy server failure'),
+      text.includes('No result, no rating and no charge'),
+      text.includes('Judges did not rule'),
     ],
     expected: [true, true, false],
   });

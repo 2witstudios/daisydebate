@@ -3,8 +3,8 @@ import { appendTranscriptChanged } from './transcript-signal';
 import { updateCaptureStream } from './capture-stream-update';
 import { createAppError } from '@daisy/errors';
 import { and, eq, isNotNull, sql } from 'drizzle-orm';
-import type { z } from 'zod';
-import { captureObservationSchema, captureSealSchema } from './capture-input';
+import { z } from 'zod';
+import { captureObservationSchema, captureSealSchema } from './media-capture';
 import {
   captureHistory,
   advanceTranscriptRevision,
@@ -15,10 +15,11 @@ import {
   freshCaptureMutation,
   validCaptureIds,
   type CaptureDependencies,
+  sealIntegrity,
 } from './media-capture-context';
 import { transcriptObservations } from './schema/transcript-segments';
 import { utterances } from './schema/utterances';
-import { sealIntegrity } from './capture-rules';
+import { parsedColumn } from './raw-rows';
 import type { Tx } from './tx';
 
 export async function observeCapturedStream(
@@ -98,8 +99,11 @@ export async function sealCapturedStream(
   const required = await captureHistory(tx, input, segment);
   const [chunks] = await tx
     .select({
-      count: sql<number>`count(*)::integer`,
-      otherEpochChunks: sql<number>`count(*) filter (where ${utterances.captureWorkerEpoch} is distinct from ${input.epoch}::integer)::integer`,
+      count: parsedColumn(z.number().int(), sql`count(*)::integer`),
+      otherEpochChunks: parsedColumn(
+        z.number().int(),
+        sql`count(*) filter (where ${utterances.captureWorkerEpoch} is distinct from ${input.epoch}::integer)::integer`,
+      ),
     })
     .from(utterances)
     .where(

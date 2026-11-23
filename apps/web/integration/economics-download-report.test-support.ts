@@ -1,9 +1,10 @@
+import { sha256Hex } from '@daisy/digest';
 import { writeFile, readdir, readFile, stat } from 'node:fs/promises';
 import { join } from 'node:path';
 import { createId } from '@paralleldrive/cuid2';
 import { assert } from 'riteway/bun';
 import type { App } from '../src/server/app';
-import { composeBillingEconomics } from '../src/server/billing-economics';
+import { composeBillingEconomics } from '../src/features/billing/economics-worker';
 import type { withRoomRuntime } from './room-runtime.test-support';
 import type { withDownloadTransport } from './economics-download-transport.test-support';
 
@@ -95,9 +96,7 @@ export async function collectDownloadObservation(input: {
         endsAt: await f.store.databaseNow(),
       },
       volume,
-      privateReportSha256: new Bun.CryptoHasher('sha256')
-        .update(bytes)
-        .digest('hex'),
+      privateReportSha256: sha256Hex(bytes),
     };
   } finally {
     await f.sql`delete from service_instances where instance_id=${instanceId}`;

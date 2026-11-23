@@ -73,5 +73,5 @@ export async function claimAtFloorStart({
   const claim = await operations.claimWorker(target);
   const [interval] =
     await fixture.sql`select started_at from round_speaking_intervals where round_id=${target.roundId}`;
-  return { claim, start: new Date(interval!.started_at).getTime() };
+  return { claim, start: interval!.started_at.getTime() };
 }

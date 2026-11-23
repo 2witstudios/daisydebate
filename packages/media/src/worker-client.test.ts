@@ -151,7 +151,7 @@ test('retries share one overall deadline per call', async () => {
       call < 3 ? new Response(null, { status: 503 }) : Response.json(lease),
     () => {
       deadlines++;
-      return AbortSignal.timeout(2000);
+      return new AbortController().signal;
     },
   );
   try {

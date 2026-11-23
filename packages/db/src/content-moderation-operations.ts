@@ -1,3 +1,4 @@
+import { listedWord } from './lifecycle-sql';
 import { insertContentReport } from './content-report-write';
 import { publicProfileModeration } from './public-profile-moderation';
 import { createAppError } from '@daisy/errors';
@@ -12,17 +13,18 @@ import {
   PROFILE_PHOTO_REVIEWS_MAX,
   contentModerationCommandResultSchema,
   contentReportSchema,
+  contentReportStatuses,
+  type ContentModerationAction,
+  type ContentModerationQueue,
   type broadcastStopReasons,
   type recordingLegalRemovalReasons,
   type recordingTakedownReasons,
-  type ContentModerationAction,
-  type ContentModerationQueue,
+  type ContentReportCreate,
 } from '@daisy/protocol/content-moderation';
 import { operatorCommandReceiptSchema } from '@daisy/protocol/operator';
 import { feedbackSubjectOf } from '@daisy/protocol/ballot-schema';
 import { roundJudgingSchema } from '@daisy/protocol/ballot-definition';
 import { type BroadcastFeedEndReason } from '@daisy/protocol/broadcast';
-import { type ContentReportCreate } from '@daisy/protocol/content-moderation';
 import { seatOfColumns } from './seat-columns';
 import { sql } from 'drizzle-orm';
 import { z } from 'zod';
@@ -30,8 +32,6 @@ import { endBroadcastFeed, stopBroadcast } from './broadcast-operations';
 import { instrumented, type DatabaseEventSink } from './instrumented';
 import { inLiveRoomSql, liveRoomOfR } from './live-room-sql';
 import {
-  noRecordings,
-  noSpectatorChat,
   type ContentModerationOutcome,
   type RecordingModeration,
   type SpectatorChatModeration,
@@ -132,7 +132,7 @@ const reportRow = z.object({
   target_kind: z.string(),
   target_id: z.string(),
   reason: z.string(),
-  status: z.string(),
+  status: z.enum(contentReportStatuses),
   // The keyset position, kept to the microsecond as stored.
   created_at: z.iso.datetime({ precision: 6 }),
   resolved_at: instant.nullable(),
@@ -249,7 +249,7 @@ const resolveReport = async (
     z.object({ id: z.string() }),
     sql`update content_reports set status = ${change.outcome},
         resolved_at = ${now.toISOString()}::timestamptz, resolved_by_ref = ${operatorRef}
-      where id = ${change.reportId} and status = 'open' returning id`,
+      where id = ${change.reportId} and status = ${listedWord(contentReportStatuses, 'open')} returning id`,
   );
   const found = await queryRows(
     tx,
@@ -533,6 +533,26 @@ type ChatRemovalPorts = {
   readonly room: () => Promise<ContentModerationOutcome>;
 };
 type ChatRemovalPhase = 'ready' | 'removing' | 'found' | 'closed';
+
+/** A composition with no Recording port: no Recording to report or take down. */
+const noRecordings: RecordingModeration = {
+  readReportFacts: async () => null,
+  readSubject: async () => null,
+  takeDown: async () => null,
+  restore: async () => null,
+  remove: async () => null,
+  legallyRemove: async () => null,
+  rebuild: async () => null,
+  listRebuildable: async () => [],
+  readBroadcastId: async () => null,
+};
+
+/** A composition with no chat port: no message to report or remove. */
+const noSpectatorChat: SpectatorChatModeration = {
+  readReportFacts: async () => null,
+  readSubject: async () => null,
+  remove: async () => null,
+};
 
 export function contentModerationOperations({
   database,

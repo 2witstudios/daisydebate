@@ -1,14 +1,24 @@
+import { createAvailabilityStore } from '../src/stores/availability';
+import { openDatabaseResources } from '../src/resources';
+import { hostWaits } from '@daisy/worker/host';
 import { SQL } from 'bun';
 import { sql } from 'drizzle-orm';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { requireTestServices } from '@daisy/config';
 import { assertRejects } from '@daisy/errors/testing';
 import { createId } from '@paralleldrive/cuid2';
-import { createDatabase } from '../src/index';
 import { createBoundedTransaction } from '../src/bounded-transaction';
 import { createLane } from '../src/workload';
 import { createBillingEconomicsReader } from '../src/billing-economics';
 import { withFixture } from './constraint-helpers';
+/** This file's database: the area stores it reads, over one set of resources. */
+const openStores = (options: Parameters<typeof openDatabaseResources>[0]) => {
+  const resources = openDatabaseResources(options);
+  return {
+    ...createAvailabilityStore(resources),
+    close: resources.close,
+  };
+};
 
 const { databaseUrl } = requireTestServices(process.env);
 setupRitewayBun();
@@ -17,18 +27,23 @@ test('real bounded current-service aggregate preserves original source/period an
   withFixture(databaseUrl, async (fixture) => {
     const pool = new SQL(databaseUrl, { max: 6 });
     const instanceId = createId();
-    const db = createDatabase({
+    const db = openStores({
+      waits: hostWaits,
       url: databaseUrl,
       client: pool,
-      nextActorId: createId,
     });
     const run = createBoundedTransaction({
-      lane: createLane('control', pool, {
-        connections: 6,
-        queue: 16,
-        maxWaitMs: 1000,
-      }),
-      now: performance.now,
+      lane: createLane(
+        'control',
+        pool,
+        {
+          connections: 6,
+          queue: 16,
+          maxWaitMs: 1000,
+        },
+        { waits: hostWaits },
+      ),
+      waits: hostWaits,
     });
     const reader = createBillingEconomicsReader({ run, instanceId });
     try {

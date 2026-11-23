@@ -1,3 +1,4 @@
+import type { Waits } from '@daisy/clock';
 import type { OutboxPosition } from '@daisy/db/outbox';
 import { withTimeout } from '@daisy/observability';
 import type { DeliveryBacklog } from './delivery-scheduler';
@@ -53,10 +54,15 @@ const settledOk = (result: PromiseSettledResult<boolean>): boolean =>
 
 async function readDeliverySeqLagEstimate(
   outbox: NonNullable<ReadinessResources['outbox']>,
+  waits: Waits,
   timeoutMs: number,
 ): Promise<number | undefined> {
   try {
-    const highWaterMark = await withTimeout(outbox.highWaterMark(), timeoutMs);
+    const highWaterMark = await withTimeout(
+      waits,
+      outbox.highWaterMark(),
+      timeoutMs,
+    );
     const lag = Number(highWaterMark.seq - outbox.cursor().seq);
     return lag > 0 ? lag : 0;
   } catch {
@@ -67,15 +73,17 @@ async function readDeliverySeqLagEstimate(
 /** ADR 0031: readiness checks Postgres, LISTEN and Redis, each bounded. */
 export async function checkReadiness(
   resources: ReadinessResources,
+  /** The time each check's bound waits on. */
+  waits: Waits,
   timeoutMs = 2000,
 ): Promise<ReadinessReport> {
   const [database, listen, redis, deliverySeqLagEstimate] =
     await Promise.allSettled([
-      withTimeout(resources.database.health(), timeoutMs),
-      withTimeout(resources.database.checkListen(), timeoutMs),
-      withTimeout(resources.redis.health(), timeoutMs),
+      withTimeout(waits, resources.database.health(), timeoutMs),
+      withTimeout(waits, resources.database.checkListen(), timeoutMs),
+      withTimeout(waits, resources.redis.health(), timeoutMs),
       resources.outbox
-        ? readDeliverySeqLagEstimate(resources.outbox, timeoutMs)
+        ? readDeliverySeqLagEstimate(resources.outbox, waits, timeoutMs)
         : Promise.resolve(undefined),
     ]);
   const checks = {

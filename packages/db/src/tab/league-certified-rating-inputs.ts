@@ -1,4 +1,7 @@
+import { releaseThings, audiences } from '@daisy/protocol/lobby';
+import { listedWord, listedWords } from '../lifecycle-sql';
 import { and, asc, eq, lte, sql } from 'drizzle-orm';
+import { parsedColumn, postgresInstantMs } from '../raw-rows';
 import { sanctions } from '../schema/sanctions';
 import { results } from '../schema/results';
 import { certificationResults, certifications } from '../schema/certifications';
@@ -69,10 +72,10 @@ export async function loadLeagueCertifiedRatingInputs(
         supersedesResultId: results.supersedesResultId,
         competitionRecord: results.competitionRecord,
         recordedAt: results.recordedAt,
-        playedAt:
-          sql`(select min(original_result.recorded_at) from results original_result where original_result.fixture_id = ${results.fixtureId})`.mapWith(
-            results.recordedAt,
-          ),
+        playedAt: parsedColumn(
+          postgresInstantMs.transform((ms) => new Date(ms)),
+          sql`(select min(original_result.recorded_at) from results original_result where original_result.fixture_id = ${results.fixtureId})`,
+        ),
       })
       .from(results)
       .innerJoin(
@@ -91,8 +94,8 @@ export async function loadLeagueCertifiedRatingInputs(
             : and(
                 lte(certifications.certifiedAt, new Date(input.publicAt)),
                 sql`(select count(*) from ${releases} rel
-            where rel.tab_round_id=${results.tabRoundId} and rel.audience='public'
-              and rel.thing in ('posting', 'decision') and rel.opened_at<=${input.publicAt}::timestamptz)=2`,
+            where rel.tab_round_id=${results.tabRoundId} and rel.audience=${listedWord(audiences, 'public')}
+              and rel.thing in ${listedWords(releaseThings, ['posting', 'decision'])} and rel.opened_at<=${input.publicAt}::timestamptz)=2`,
               ),
         ),
       )

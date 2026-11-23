@@ -14,11 +14,13 @@
     "test:integration": "bun ../../scripts/test-integration.ts"
   },
   "dependencies": {
+    "@daisy/clock": "workspace:*",
     "@daisy/protocol": "workspace:*"
   },
   "devDependencies": {
-    "@daisy/digest": "workspace:*",
     "@daisy/config": "workspace:*",
+    "@daisy/digest": "workspace:*",
+    "@daisy/worker": "workspace:*",
     "@paralleldrive/cuid2": "3.3.0",
     "riteway": "9.3.0"
   }

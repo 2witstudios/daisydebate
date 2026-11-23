@@ -1,4 +1,5 @@
 import { createId } from '@paralleldrive/cuid2';
+import { botDebatesReleased } from './bot-admission.test-support';
 import { requireTestServices } from '@daisy/config';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { withBotPublication } from './bot-publication.test-support';
@@ -26,10 +27,14 @@ for (const writer of ['agent', 'admission'] as const) {
           );
         else {
           await admission.lock(tx);
-          await admission.reserveLocked(tx, {
-            roundId: target.roundId,
-            actorId,
-          });
+          await admission.reserveLocked(
+            tx,
+            {
+              roundId: target.roundId,
+              actorId,
+            },
+            botDebatesReleased,
+          );
         }
         held.resolve();
         await release.promise;

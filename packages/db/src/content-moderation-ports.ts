@@ -123,23 +123,3 @@ export type SpectatorChatModeration = ChatMessageModeration & {
     readonly audience: ReportAudience;
   } | null>;
 };
-
-/** Until its owner lands, there is no Recording to report or take down. */
-export const noRecordings: RecordingModeration = {
-  readReportFacts: async () => null,
-  readSubject: async () => null,
-  takeDown: async () => null,
-  restore: async () => null,
-  remove: async () => null,
-  legallyRemove: async () => null,
-  rebuild: async () => null,
-  listRebuildable: async () => [],
-  readBroadcastId: async () => null,
-};
-
-/** Until its owner lands, there is no spectator message to report or remove. */
-export const noSpectatorChat: SpectatorChatModeration = {
-  readReportFacts: async () => null,
-  readSubject: async () => null,
-  remove: async () => null,
-};

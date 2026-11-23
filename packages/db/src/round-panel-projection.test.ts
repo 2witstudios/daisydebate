@@ -4,7 +4,7 @@ import {
   type RoundOutcome,
 } from '@daisy/protocol/round-outcome';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { requireCompletionProjection } from './round-panel-decisions';
+import { requireCompletionProjection } from './round-panel-completion';
 
 setupRitewayBun();
 

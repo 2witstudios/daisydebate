@@ -1,8 +1,8 @@
-import type { Database } from '@daisy/db';
+import type { RoomStore } from '@daisy/db/stores/rooms';
+import type { Waits } from '@daisy/clock';
+import { pollWork, type LoopPass } from '@daisy/worker';
+import { LIVE_IDLE_MAX_MS } from '../../lib/worker-idle';
 import { maintainRoom } from '@daisy/debate-engine';
-import type { WorkerTimers } from '../../lib/worker-timers';
-import type { LoopPass } from '../../lib/idle-backoff';
-import { LIVE_IDLE_MAX_MS, startWorkerLoop } from '../../lib/worker-loop';
 
 /** How often Room maintenance runs: due draw strikes settle within a pulse. */
 const ROOM_MAINTENANCE_PULSE_MS = 500;
@@ -23,7 +23,7 @@ type RoomMaintenanceFailed = (
 export const createRoomMaintenance =
   (input: {
     readonly store: Pick<
-      Database,
+      RoomStore,
       'readMaintenanceCandidates' | 'maintainRoom'
     >;
     /** Injected Room policy, or null to leave idle Room expiry inert (ADR 0070). */
@@ -61,15 +61,15 @@ export const createRoomMaintenance =
 /** Runs Room maintenance on its own worker loop, apart from Round maintenance. */
 export function startRoomMaintenance(input: {
   readonly maintainRooms: (failed: RoomMaintenanceFailed) => Promise<LoopPass>;
-  readonly timers: WorkerTimers;
+  readonly waits: Waits;
   readonly failed: RoomMaintenanceFailed;
 }) {
-  return startWorkerLoop({
-    run: () => input.maintainRooms(input.failed),
+  return pollWork({
+    pass: () => input.maintainRooms(input.failed),
     // A Room idle past the timeout is found within the cap; one being
     // maintained keeps the pulse (ADR 0154).
     backoff: { busyMs: ROOM_MAINTENANCE_PULSE_MS, idleMaxMs: LIVE_IDLE_MAX_MS },
-    timers: input.timers,
+    waits: input.waits,
     failed: (error) => input.failed(error, 'discover'),
   });
 }

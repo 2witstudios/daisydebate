@@ -1,5 +1,5 @@
-import { renderToString } from 'react-dom/server';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
+import { renderAccessible } from '../../test-support/rendered/accessible';
 import { BillingSettingsPage } from './settings-page';
 import type { BillingSettings } from '../../features/billing/settings-view';
 setupRitewayBun();
@@ -18,8 +18,12 @@ const premium: BillingSettings = {
   accessEndsAt: endsAt,
   priceMinor: 2000,
 };
-const words = (html: string) =>
-  html.replace(/<[^>]*>/g, '').replace(/&#x27;/g, "'");
+const render = renderAccessible;
+const words = (node: Parameters<typeof renderAccessible>[0]) =>
+  render(node).textContent();
+/** The native form a submit button posts. */
+const formOf = (view: ReturnType<typeof render>, button: string) =>
+  view.get('button', button).closest('form');
 
 test('billing never shows a usage counter or the old Explore Premium link', () => {
   const pages = [
@@ -27,9 +31,7 @@ test('billing never shows a usage counter or the old Explore Premium link', () =
     premium,
     { ...premium, plan: 'cancelled' as const },
     { ...settings, checkoutAvailable: true },
-  ].map((value) =>
-    words(renderToString(<BillingSettingsPage settings={value} />)),
-  );
+  ].map((value) => words(<BillingSettingsPage settings={value} />));
   assert({
     given: 'free, paying, cancelled and purchasable accounts',
     should:
@@ -42,19 +44,19 @@ test('billing never shows a usage counter or the old Explore Premium link', () =
 });
 
 test('paying yourself shows the price, the renewal date and management', () => {
-  const html = renderToString(<BillingSettingsPage settings={premium} />);
+  const view = render(<BillingSettingsPage settings={premium} />);
+  const portal = formOf(view, 'Manage billing or cancel');
   assert({
     given: 'a $20 subscriber renewing on 17 Dec 2026',
     should: 'show the price, the date and a native portal post with terms',
     actual: [
-      html.includes('Daisy Premium'),
-      words(html).includes('$20/month'),
-      words(html).includes('Renews 17 Dec 2026.'),
-      html.includes('action="/api/billing/portal" method="post"'),
-      words(html).includes('Manage billing or cancel'),
-      html.includes('href="/premium"'),
+      view.has('heading', 'Daisy Premium'),
+      view.textContent().includes('$20/month'),
+      view.textContent().includes('Renews 17 Dec 2026.'),
+      [portal?.getAttribute('action'), portal?.getAttribute('method')],
+      view.attribute('link', 'Premium features and terms', 'href'),
     ],
-    expected: [true, true, true, true, true, true],
+    expected: [true, true, true, ['/api/billing/portal', 'post'], '/premium'],
   });
 });
 
@@ -63,48 +65,44 @@ test('a grandfathered subscriber sees their own price', () => {
     given: 'a subscriber who kept the $10 price',
     should: 'show $10/month, not the new price',
     actual: words(
-      renderToString(
-        <BillingSettingsPage settings={{ ...premium, priceMinor: 1000 }} />,
-      ),
+      <BillingSettingsPage settings={{ ...premium, priceMinor: 1000 }} />,
     ).includes('$10/month'),
     expected: true,
   });
 });
 
 test('cancelled shows when Premium ends and offers to keep it', () => {
-  const text = words(
-    renderToString(
-      <BillingSettingsPage settings={{ ...premium, plan: 'cancelled' }} />,
-    ),
+  const view = render(
+    <BillingSettingsPage settings={{ ...premium, plan: 'cancelled' }} />,
   );
+  const text = view.textContent();
   assert({
     given: 'renewal turned off with paid access through 17 Dec 2026',
     should:
       'say so, keep the work theirs, and offer Keep Premium and Manage billing',
     actual: [
-      text.includes('Daisy Premium · cancelled'),
+      view.has('heading', 'Daisy Premium · cancelled'),
       text.includes('Renewal is off. Premium stays on until 17 Dec 2026'),
       text.includes('Your analysis and Recordings stay yours after that.'),
-      text.includes('Keep Premium'),
-      text.includes('Manage billing'),
+      view.has('button', 'Keep Premium'),
+      view.has('button', 'Manage billing'),
     ],
     expected: [true, true, true, true, true],
   });
 });
 
 test('a club seat has nothing to manage', () => {
-  const text = words(
-    renderToString(
-      <BillingSettingsPage
-        settings={{
-          ...premium,
-          plan: 'club-seat',
-          priceMinor: null,
-          club: { name: 'Northside Debate Club', manager: 'Ms. R. Okafor' },
-        }}
-      />,
-    ),
+  const view = render(
+    <BillingSettingsPage
+      settings={{
+        ...premium,
+        plan: 'club-seat',
+        priceMinor: null,
+        club: { name: 'Northside Debate Club', manager: 'Ms. R. Okafor' },
+      }}
+    />,
   );
+  const text = view.textContent();
   assert({
     given: 'Premium paid by a club',
     should: 'name the club and coach and offer no billing management',
@@ -113,73 +111,85 @@ test('a club seat has nothing to manage', () => {
       text.includes('Coach: Ms. R. Okafor'),
       text.includes('nothing to manage here'),
       text.includes('Manage billing'),
+      view.count('button'),
     ],
-    expected: [true, true, true, false],
+    expected: [true, true, true, false, 0],
   });
 });
 
 test('the checkout return confirms only from current Premium evidence', () => {
-  const confirmed = words(
-    renderToString(<BillingSettingsPage settings={premium} returned />),
+  const confirmedView = render(
+    <BillingSettingsPage settings={premium} returned />,
   );
-  const pending = words(
-    renderToString(<BillingSettingsPage settings={settings} returned />),
+  const confirmed = confirmedView.textContent();
+  const confirmation = [
+    confirmedView.within('status').has('heading', 'You have Premium'),
+    confirmedView.attribute('link', 'Play a debate', 'href'),
+    /\bbots?\b/i.test(confirmed),
+  ];
+  const pendingView = render(
+    <BillingSettingsPage settings={settings} returned />,
   );
+  const pending = pendingView.textContent();
+  const pendingStatus = pendingView.text('status');
   assert({
     given: 'a return with Premium evidence, and a return still unpaid',
     should:
-      'show You have Premium with the price and date, or the pending notice',
+      'show You have Premium with the price and date and no bot debates, or the pending notice',
     actual: [
-      confirmed.includes('You have Premium'),
+      confirmation,
       confirmed.includes('Payment confirmed. $20/month, renewing 17 Dec 2026.'),
-      confirmed.includes('Debate a bot'),
       pending.includes('You have Premium'),
-      pending.includes('Your purchase is being checked.'),
+      pendingStatus.includes('Your purchase is being checked.'),
     ],
-    expected: [true, true, true, false, true],
+    expected: [[true, '/play', false], true, false, true],
   });
 });
 
 test('purchase return claims cannot render confirmed Premium or leak into page copy', () => {
-  const html = renderToString(
+  const view = render(
     <BillingSettingsPage settings={settings} notice="cs_test_claimed_paid" />,
   );
   assert({
     given: 'an unrecognized notice and unpaid current server evidence',
     should: 'retain Free account and ignore the supplied claim',
     actual: [
-      html.includes('Free account'),
-      html.includes('cs_test_claimed_paid'),
-      html.includes('Daisy Premium'),
+      view.has('heading', 'Free account'),
+      view.textContent().includes('cs_test_claimed_paid'),
+      view.textContent().includes('Daisy Premium'),
     ],
     expected: [true, false, false],
   });
 });
 
 test('released purchases are plain POST forms at the new price', () => {
-  const checkout = renderToString(
+  const checkout = render(
     <BillingSettingsPage settings={{ ...settings, checkoutAvailable: true }} />,
   );
-  const failed = renderToString(<BillingSettingsPage settings={null} />);
+  const purchase = formOf(checkout, 'Get Premium · $20/month');
+  const checkoutFields = [
+    purchase?.getAttribute('action'),
+    purchase?.getAttribute('method'),
+    // Every field the page posts: no input carries payment authority.
+    checkout
+      .all('button')
+      .flatMap((button) => [
+        ...(button.closest('form')?.querySelectorAll('input') ?? []),
+      ]).length,
+  ];
+  const failed = render(<BillingSettingsPage settings={null} />);
   assert({
     given: 'an available purchase or a failed billing read',
     should:
       'use a native post at $20/month without hidden payment authority and show the failed read honestly',
-    actual: [
-      checkout.includes('action="/api/billing/checkout" method="post"'),
-      words(checkout).includes('Get Premium · $20/month'),
-      checkout.includes('<input'),
-      failed.includes('Billing unavailable'),
-    ],
-    expected: [true, true, false, true],
+    actual: [checkoutFields, failed.has('heading', 'Billing unavailable')],
+    expected: [['/api/billing/checkout', 'post', 0], true],
   });
 });
 
 test('beta-granted Premium has nothing to pay and no checkout', () => {
   const text = words(
-    renderToString(
-      <BillingSettingsPage settings={{ ...settings, plan: 'granted' }} />,
-    ),
+    <BillingSettingsPage settings={{ ...settings, plan: 'granted' }} />,
   );
   assert({
     given: 'Premium from beta access',
@@ -196,11 +206,7 @@ test('beta-granted Premium has nothing to pay and no checkout', () => {
 
 test('the confirmation reads as one sentence whichever terms are known yet', () => {
   const confirm = (over: Partial<BillingSettings>) =>
-    words(
-      renderToString(
-        <BillingSettingsPage settings={{ ...premium, ...over }} returned />,
-      ),
-    );
+    words(<BillingSettingsPage settings={{ ...premium, ...over }} returned />);
   assert({
     given:
       'a confirmed return with no price yet, and with neither price nor date',

@@ -1,4 +1,4 @@
-import type { Database } from '@daisy/db';
+import type { MediaCaptureStore } from '@daisy/db/stores/media-capture';
 import { prepareEvidenceBody } from './necessary-evidence-authentication';
 import type { Logger } from '@daisy/logger';
 import type { ErrorReporter } from '@daisy/observability';
@@ -25,7 +25,7 @@ import type { createMediaWorkerTokenBroker } from '../round-media/worker-token';
 
 type Authentication = ReturnType<typeof createMediaWorkerAuthentication>;
 type Broker = ReturnType<typeof createMediaWorkerTokenBroker>;
-type Capture = ReturnType<Database['createMediaCaptureOperations']>;
+type Capture = ReturnType<MediaCaptureStore['createMediaCaptureOperations']>;
 const captureScope = z.strictObject({
   roundId: idSchema,
   sessionId: idSchema,
@@ -53,7 +53,7 @@ export function createMediaCaptureHandlers(input: {
 }) {
   const relays = new Map([['heard', input.heard]]);
   return {
-    handle: (request: Request) =>
+    handle: (request: Request, operation: string) =>
       handleOperation(
         input.logger,
         request,
@@ -76,7 +76,6 @@ export function createMediaCaptureHandlers(input: {
           });
           // Authentication parsed the exact signed JSON object and refused conflicting scope.
           const payload = { ...JSON.parse(body), roundId: principal.roundId };
-          const operation = url.pathname.split('/').at(-1);
           try {
             if (operation === 'evidence') {
               // Original authority/provenance is never rewritten to a successor request scope.

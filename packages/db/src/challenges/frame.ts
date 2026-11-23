@@ -1,7 +1,8 @@
 import { rankedProtectionAllows } from '../guardians/ranked-protection';
 import { and, eq, or, sql } from 'drizzle-orm';
 import { createAppError, createRefusal } from '@daisy/errors';
-import { readChallengeDebaters, sharedChallengeLobby } from './lobby';
+import { sharedChallengeLobby } from '@daisy/protocol/lobby/eligibility';
+import { readChallengeDebaters } from './lobby';
 import { readOfficialStandingLobbies } from '../official-standing-lobbies';
 import { buildUserInboxTopic } from '@daisy/protocol/topics';
 import { idSchema, type RatingStyle } from '@daisy/protocol/primitives';

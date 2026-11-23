@@ -2,7 +2,7 @@ import { and, eq } from 'drizzle-orm';
 import { createAppError } from '@daisy/errors';
 import { idSchema } from '@daisy/protocol/primitives';
 import { lockAuthorizationActors } from '../authorization';
-import type { authorizationAccountFact } from '../authorization-account';
+import type { authorizationAccountFact } from '../authorization';
 import { contactPairs } from '../schema/contacts';
 import { inTransaction, type Tx, type TxSource } from '../tx';
 

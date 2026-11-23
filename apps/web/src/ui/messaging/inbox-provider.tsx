@@ -1,36 +1,29 @@
 'use client';
-import { useBrowserEffect } from '../edge/browser-sync';
-import { browserFetch } from '../edge/browser-request';
-import { scheduleDelay } from '../edge/browser-time';
+import { useAnswer, useDeliver } from '../edge/use-answer';
+import { useDriver } from '../edge/use-driver';
+import {
+  browserTransport,
+  type BrowserTransport,
+} from '../edge/browser-request';
+import { browserScheduler } from '../edge/browser-time';
+import { tabConnection } from '../edge/realtime-browser';
 import {
   createContext,
   useCallback,
   useContext,
   useMemo,
-  useRef,
-  useState,
   type ReactNode,
 } from 'react';
 import { systemClock } from '@daisy/clock';
 import { readMessagingInboxResponse } from '../../features/messaging/inbox-response';
+import type { MessagingInboxPageAnswer } from '../../features/messaging/inbox-view';
 import {
-  appendPage,
-  type MessagingInboxPageAnswer,
-} from '../../features/messaging/inbox-view';
-import { createInboxReads } from '../../features/messaging/inbox-reads';
-import { attachMessagingInboxDoorbells } from '../../features/messaging/doorbells';
-import { tabConnection } from '../edge/realtime-browser';
-import { terminalReason } from '../../features/realtime/connection-status';
+  createInboxDriver,
+  seedInbox,
+  type InboxSnapshot,
+} from '../../features/messaging/inbox-driver';
 
-type InboxState = MessagingInboxPageAnswer & {
-  /** When these rows' ages were last measured. */
-  readonly now: string;
-};
-type Inbox = InboxState & {
-  /** False while the member's own inbox could not be read at all. */
-  readonly available: boolean;
-  readonly search: string;
-  readonly appliedSearch: string | null;
+type Inbox = InboxSnapshot & {
   readonly searching: boolean;
   readonly setSearch: (value: string) => void;
   /** Whether the next page was read; a refused read leaves the native link. */
@@ -44,32 +37,38 @@ export const useInbox = () => {
   return inbox;
 };
 
-const readPage = async ({
-  q,
-  after,
-}: {
-  readonly q: string | null;
-  readonly after: string | null;
-}) => {
-  const params = new URLSearchParams();
-  if (q !== null) params.set('q', q);
-  if (after !== null) params.set('after', after);
-  const query = params.size > 0 ? `?${params}` : '';
-  return readMessagingInboxResponse(
-    await browserFetch(`/api/messaging/inbox${query}`, {
-      credentials: 'same-origin',
-      cache: 'no-store',
-    }),
-  );
-};
+const readPageThrough =
+  (transport: BrowserTransport) =>
+  async ({
+    q,
+    after,
+  }: {
+    readonly q: string | null;
+    readonly after: string | null;
+  }) => {
+    const params = new URLSearchParams();
+    if (q !== null) params.set('q', q);
+    if (after !== null) params.set('after', after);
+    const query = params.size > 0 ? `?${params}` : '';
+    return readMessagingInboxResponse(
+      await transport(`/api/messaging/inbox${query}`, {
+        credentials: 'same-origin',
+        cache: 'no-store',
+      }),
+    );
+  };
+const readPage = readPageThrough(browserTransport);
+/** The inbox on the browser's transport, timers, clock and tab socket. */
+const startInbox = (seed: InboxSnapshot) =>
+  createInboxDriver({
+    seed,
+    readPage,
+    scheduler: browserScheduler,
+    now: () => systemClock.now(),
+    connect: tabConnection,
+  });
 
-/**
- * The tab's one view of the conversation list. The layout seeds it, and a ring
- * re-reads what is loaded through the inbox API, never the router, so the open
- * conversation, its draft and this list's scroll stay put, and a conversation
- * that left is gone whichever page it was on.
- * Rings say only that something changed: what shows is always an authorized read.
- */
+/** The tab's one view of the conversation list (`createInboxDriver`). */
 export function InboxProvider({
   seed,
   actorId,
@@ -81,93 +80,31 @@ export function InboxProvider({
   readonly socketUrl: string | null;
   readonly children: ReactNode;
 }) {
-  const empty = { entries: [], nextAfter: null };
-  const [view, setView] = useState<InboxState>({
-    ...(seed ?? empty),
-    now: seed?.now ?? '',
-  });
-  const [available, setAvailable] = useState(seed !== null);
-  const [search, setSearchValue] = useState('');
-  const [searchedFor, setSearchedFor] = useState<string | null>(null);
-  const reader = useRef<ReturnType<typeof createInboxReads> | null>(null);
-  const doorbell = useRef<ReturnType<
-    typeof attachMessagingInboxDoorbells
-  > | null>(null);
-  useBrowserEffect(() => {
-    const reads = createInboxReads({
-      readPage,
-      scheduler: {
-        after: (work, ms) => {
-          return scheduleDelay(work, ms);
-        },
-      },
-      onRefreshed: (page, { q }) => {
-        setAvailable(true);
-        setSearchedFor(q);
-        setView({ ...page, now: systemClock.now() });
-        doorbell.current?.authorizedSnapshot();
-      },
-      onNextPage: (page) =>
-        setView((current) => ({
-          ...appendPage(current, page),
-          now: current.now,
-        })),
-    });
-    reader.current = reads;
-    return () => {
-      reads.close();
-      reader.current = null;
-    };
-  }, []);
+  const [shown, driver] = useDriver(() => seedInbox(seed), startInbox);
   // A server render elsewhere (a native answer, a refresh) says something changed.
-  const seen = useRef(seed);
-  useBrowserEffect(() => {
-    if (seed === seen.current) return;
-    seen.current = seed;
-    reader.current?.ring();
-  }, [seed]);
-  useBrowserEffect(() => {
-    if (socketUrl === null) return;
-    const connection = tabConnection(socketUrl);
-    const attached = attachMessagingInboxDoorbells({
-      connection,
-      actorId,
-      catchUpOnSubscribe: true,
-      invalidate: () => undefined,
-      refetch: () => reader.current?.ring(),
-    });
-    doorbell.current = attached;
-    const unsubscribe = connection.subscribe((state) => {
-      if (terminalReason(state) !== null) reader.current?.ring();
-    });
-    connection.connect();
-    return () => {
-      attached.close();
-      unsubscribe();
-      connection.dispose();
-      doorbell.current = null;
-    };
-  }, [actorId, socketUrl]);
-  const setSearch = useCallback((value: string) => {
-    setSearchValue(value);
-    const line = value.trim();
-    reader.current?.search(line === '' ? null : line);
-  }, []);
+  useAnswer(seed, () => driver?.ring());
+  const doorbells = useMemo(
+    () => (socketUrl === null ? null : { actorId, socketUrl }),
+    [actorId, socketUrl],
+  );
+  const following = useMemo(() => ({ driver, doorbells }), [driver, doorbells]);
+  useDeliver(following, (next) => next.driver?.follow(next.doorbells));
+  const setSearch = useCallback(
+    (value: string) => driver?.setSearch(value),
+    [driver],
+  );
   const more = useCallback(
-    (after: string) => reader.current?.more(after) ?? Promise.resolve(false),
-    [],
+    (after: string) => driver?.more(after) ?? Promise.resolve(false),
+    [driver],
   );
   const inbox = useMemo(
     () => ({
-      ...view,
-      available,
-      search,
-      appliedSearch: searchedFor,
-      searching: searchedFor !== null,
+      ...shown,
+      searching: shown.appliedSearch !== null,
       setSearch,
       more,
     }),
-    [view, available, search, searchedFor, setSearch, more],
+    [shown, setSearch, more],
   );
   return (
     <InboxContext.Provider value={inbox}>{children}</InboxContext.Provider>

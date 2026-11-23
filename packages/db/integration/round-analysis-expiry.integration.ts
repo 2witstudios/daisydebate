@@ -1,3 +1,4 @@
+import { hostWaits } from '@daisy/worker/host';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { requireTestServices } from '@daisy/config';
 import { advanceAnalysisWork } from '@daisy/protocol/round-analysis-lifecycle';
@@ -28,7 +29,7 @@ test('analysis dispatch samples time after a real Round lock wait crossing its l
           pending,
           fixture.sql,
           Number(backend.pid),
-          { now: performance.now, deadlineMs: 300 },
+          { waits: hostWaits, deadlineMs: 300 },
         );
         const [edge] =
           await holder`select clock_timestamp()<(work->'lease'->>'expiresAt')::timestamptz as before from round_analyses where round_participant_id=${seats.aff.roundParticipantId}`;

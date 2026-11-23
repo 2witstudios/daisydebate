@@ -1,4 +1,4 @@
-import type { GuardianSession } from '@daisy/db';
+import type { GuardianSession } from '@daisy/db/stores/guardians';
 import type { ProtectionLevel } from '@daisy/protocol/protection-level';
 import type { GuardianRequestRef } from '@daisy/protocol/guardians';
 

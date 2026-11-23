@@ -1,3 +1,9 @@
+import type { BetaAccessStore } from '@daisy/db/stores/beta-access';
+import type { OperatorAccountsStore } from '@daisy/db/stores/operator-accounts';
+import type { FlagsStore } from '@daisy/db/stores/flags';
+import type { ReportsStore } from '@daisy/db/stores/reports';
+import type { ModerationStore } from '@daisy/db/stores/moderation';
+import { sha3Hex } from '@daisy/digest';
 import { runBetaAccessCommand } from './beta-access-command';
 import { runPreapprovalCommand } from './preapproval-command';
 import { mayReadOperatorCommand } from './command-access';
@@ -11,11 +17,7 @@ import {
   preapprovalPageSchema,
   preapprovalQuerySchema,
 } from '@daisy/protocol/beta-preapproval';
-import {
-  verifyOperatorRequest,
-  type OperatorCrypto,
-} from '@daisy/auth/operator-signature';
-import type { Database } from '@daisy/db';
+import { verifyOperatorRequest } from '@daisy/auth/operator-signature';
 import { createAppError, isAppError, type ErrorCode } from '@daisy/errors';
 import type { Logger } from '@daisy/logger';
 import type { ErrorReporter } from '@daisy/observability';
@@ -86,23 +88,20 @@ const operatorService = {
 };
 
 type Store = Pick<
-  Database,
-  | 'listBetaPreapprovals'
-  | 'preapprovalCommand'
-  | 'listOperatorAccounts'
-  | 'flagCommand'
-  | 'betaAccessCommand'
-  | 'readOperatorCommand'
-  | 'listOperatorReports'
-  | 'listOperatorRestrictions'
-  | 'resolveReport'
-  | 'liftModeration'
->;
+  BetaAccessStore,
+  'listBetaPreapprovals' | 'preapprovalCommand'
+> &
+  Pick<
+    OperatorAccountsStore,
+    'listOperatorAccounts' | 'betaAccessCommand' | 'readOperatorCommand'
+  > &
+  Pick<FlagsStore, 'flagCommand'> &
+  Pick<ReportsStore, 'listOperatorReports' | 'resolveReport'> &
+  Pick<ModerationStore, 'listOperatorRestrictions' | 'liftModeration'>;
 
 export type OperatorApiDependencies = {
   readonly audience: string;
   readonly keys: ReadonlyMap<string, Uint8Array>;
-  readonly crypto: OperatorCrypto;
   readonly nowMs: () => number;
   /** True once per service, key and nonce; throws when Redis is down. */
   readonly admitNonce: (input: {
@@ -174,7 +173,6 @@ export function createOperatorApi(deps: OperatorApiDependencies) {
       body,
       keys: deps.keys,
       nowMs: deps.nowMs(),
-      crypto: deps.crypto,
     });
     if (!verified.ok) return refuse(verified.reason, 'AUTHENTICATION');
     const replay = await nonceRefusal(deps, verified);
@@ -237,7 +235,6 @@ function dispatch(
       {
         store: deps.contentModeration,
         profilePhotos: deps.profilePhotos,
-        crypto: deps.crypto,
         nowMs: deps.nowMs,
         logger: deps.logger,
       },
@@ -336,7 +333,7 @@ const commandDigest = (
   targetUserId: string,
   command: { state: string; expectedRevision: number },
 ) =>
-  deps.crypto.sha3Hex(
+  sha3Hex(
     JSON.stringify([
       principal.serviceId,
       principal.operatorRef,
@@ -441,7 +438,8 @@ async function resolveReport(
     throw createAppError('AUTHORIZATION');
   const command = reportResolveCommandSchema.safeParse(parseBody(body));
   if (!command.success) throw createAppError('VALIDATION');
-  const now = new Date(deps.nowMs());
+  const nowMs = deps.nowMs();
+  const now = new Date(nowMs);
   const result = await deps.store.resolveReport({
     commandId: command.data.commandId,
     reportId,
@@ -452,11 +450,11 @@ async function resolveReport(
         ? {
             outcome: 'suspended',
             suspendUntil: new Date(
-              now.getTime() + command.data.suspendDays * 86_400_000,
+              nowMs + command.data.suspendDays * 86_400_000,
             ).toISOString(),
           }
         : { outcome: command.data.outcome },
-    requestDigest: deps.crypto.sha3Hex(
+    requestDigest: sha3Hex(
       JSON.stringify([
         principal.serviceId,
         principal.operatorRef,
@@ -468,9 +466,7 @@ async function resolveReport(
     ),
     adminAuditHead: command.data.adminAuditHead,
     now: now.toISOString(),
-    purgeAfter: new Date(
-      now.getTime() + REPORT_EVIDENCE_RETENTION_MS,
-    ).toISOString(),
+    purgeAfter: new Date(nowMs + REPORT_EVIDENCE_RETENTION_MS).toISOString(),
     nextId: deps.nextId,
     restrictionRules,
     live: () => deps.nowMs() <= signedAtMs + operatorLimits.skewMs,
@@ -550,7 +546,7 @@ async function liftModeration(
     actionId,
     serviceId: principal.serviceId,
     operatorRef: principal.operatorRef,
-    requestDigest: deps.crypto.sha3Hex(
+    requestDigest: sha3Hex(
       JSON.stringify([
         principal.serviceId,
         principal.operatorRef,
@@ -639,7 +635,7 @@ async function updatePreapproval(
     command: parsed.data,
     serviceId: principal.serviceId,
     operatorRef: principal.operatorRef,
-    requestDigest: deps.crypto.sha3Hex(
+    requestDigest: sha3Hex(
       JSON.stringify([
         principal.serviceId,
         principal.operatorRef,

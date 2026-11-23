@@ -1,7 +1,7 @@
 import { createAppError } from '@daisy/errors';
 import { readAuthorizationActors } from './authorization';
 import { actorFact } from './room-command-facts';
-import { seatEligibility } from './seat-eligibility';
+import { seatEligibility } from '@daisy/protocol/seat-eligibility';
 import {
   requireAdmittedPrincipal,
   type ParticipantAdmission,

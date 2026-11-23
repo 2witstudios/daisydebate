@@ -1,11 +1,11 @@
+import type { ContentModerationStore as ContentModerationAreaStore } from '@daisy/db/stores/content-moderation';
+import { sha3Hex } from '@daisy/digest';
 import { runChatRemovalCommand } from './chat-removal-command';
-import type { Database } from '@daisy/db';
 import { runRecordingWithdrawalCommand } from './recording-withdrawal-command';
 import {
   authorize,
   type AuthorizationPrincipal,
 } from '@daisy/auth/authorization';
-import type { OperatorCrypto } from '@daisy/auth/operator-signature';
 import { createAppError } from '@daisy/errors';
 import type { Logger } from '@daisy/logger';
 import {
@@ -148,15 +148,14 @@ export type ContentModerationStore = {
       }
     >;
   }) => Promise<ContentModerationCommandResult>;
-  readonly chatRemovalCommand: Database['chatRemovalCommand'];
-  readonly recordingWithdrawalCommand: Database['recordingWithdrawalCommand'];
+  readonly chatRemovalCommand: ContentModerationAreaStore['chatRemovalCommand'];
+  readonly recordingWithdrawalCommand: ContentModerationAreaStore['recordingWithdrawalCommand'];
 };
 
 type Deps = {
   readonly store: ContentModerationStore;
   /** The private photo bucket; null when none is configured (ADR 0143). */
   readonly profilePhotos: ProfilePhotoObjects | null;
-  readonly crypto: OperatorCrypto;
   readonly nowMs: () => number;
   readonly logger: Pick<Logger, 'log'>;
 };
@@ -486,7 +485,7 @@ async function runCommand(
     serviceId: operator.serviceId,
     operatorRef: operator.operatorRef,
     // The change is the semantic identity; transport fields stay out of it.
-    requestDigest: deps.crypto.sha3Hex(
+    requestDigest: sha3Hex(
       JSON.stringify([operator.serviceId, operator.operatorRef, change]),
     ),
     adminAuditHead: envelope.adminAuditHead,

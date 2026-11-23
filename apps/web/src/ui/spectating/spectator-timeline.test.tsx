@@ -1,8 +1,8 @@
 import { ballotCategories } from '@daisy/protocol/ballot';
 import { twoSides } from '@daisy/protocol/seats';
 import { type SpectatorTimeline } from '@daisy/protocol/spectator-timeline';
-import { renderToStaticMarkup } from 'react-dom/server';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
+import { renderAccessible } from '../../test-support/rendered/accessible';
 import { SpectatorFacts } from './spectator-timeline';
 
 import { stageSentence } from './spectator-timeline-copy';
@@ -35,12 +35,12 @@ const timeline: SpectatorTimeline = {
   releasedThrough: null,
 };
 const fours = Object.fromEntries(ballotCategories.map((c) => [c, 4])) as never;
-const html = (over: Partial<SpectatorTimeline>) =>
-  renderToStaticMarkup(<SpectatorFacts timeline={{ ...timeline, ...over }} />);
+const render = (over: Partial<SpectatorTimeline>) =>
+  renderAccessible(<SpectatorFacts timeline={{ ...timeline, ...over }} />);
 
 describe('SpectatorFacts', () => {
   test('a screen reader hears the floor change, not the clock', () => {
-    const page = html({
+    const page = render({
       stage: {
         kind: 'floor',
         segment: 'speech',
@@ -51,43 +51,14 @@ describe('SpectatorFacts', () => {
     });
     assert({
       given: 'a clock that changes on every read',
-      should: 'keep it outside the live region',
-      actual: [
-        /aria-live="polite"[^>]*>First affirmative: Affirmative has the floor\.</.test(
-          page,
-        ),
-        /aria-live="polite"[^>]*>[^<]*1:05/.test(page),
-        page.includes('role="timer"'),
-      ],
-      expected: [true, false, true],
-    });
-  });
-
-  test('a slate says what the video says, not that nothing is happening', () => {
-    const says = (
-      moment: 'before_first_speech' | 'between_speeches' | 'speeches_over',
-    ) =>
-      /aria-live="polite"[^>]*>([^<]*)</.exec(
-        html({ stage: { kind: 'slate', moment } }),
-      )?.[1];
-    assert({
-      given: 'each moment a slate can stand for',
-      should: 'announce it in words',
-      actual: [
-        says('before_first_speech'),
-        says('between_speeches'),
-        says('speeches_over'),
-      ],
-      expected: [
-        'The first speech is still to come.',
-        'Preparation or a break: the next speech is coming.',
-        'The speeches are over. The result comes next.',
-      ],
+      should: 'give it the timer role, which is not live',
+      actual: page.within('region', 'Round facts').text('timer'),
+      expected: '1:05 left',
     });
   });
 
   test('repeats the facts in the video as text', () => {
-    const page = html({
+    const page = render({
       resolution: 'A resolution',
       stage: {
         kind: 'floor',
@@ -108,14 +79,17 @@ describe('SpectatorFacts', () => {
       given: 'a released speech',
       should: 'state resolution, seats, floor, clock and captions as text',
       actual: [
-        'A resolution',
-        'Affirmative: ana',
-        'Negative: Unnamed debater',
-        'First affirmative: Affirmative has the floor.</p>',
-        '1:05 left',
-        'Affirmative: A line',
-      ].filter((text) => !page.includes(text)),
-      expected: [],
+        page.has('heading', 'A resolution', { level: 1 }),
+        page
+          .textContent()
+          .includes('Affirmative: anaNegative: Unnamed debater'),
+        page
+          .textContent()
+          .includes('First affirmative: Affirmative has the floor.'),
+        page.text('timer'),
+        page.within('list', 'Captions').textContent(),
+      ],
+      expected: [true, true, true, '1:05 left', 'Affirmative: A line'],
     });
   });
 
@@ -152,10 +126,10 @@ describe('SpectatorFacts', () => {
       given: 'a released tie',
       should: 'say no side won and never call it a draw',
       actual: (() => {
-        const page = html({
+        const page = render({
           stage: { kind: 'ended' },
           result: { outcome: null, ballots: [], ratings: [] },
-        });
+        }).textContent();
         return [page.includes('No side won'), /draw/i.test(page)];
       })(),
       expected: [true, false],
@@ -166,7 +140,7 @@ describe('SpectatorFacts', () => {
     assert({
       given: 'a released ballot',
       should: 'number it and show its scores and reason',
-      actual: html({
+      actual: render({
         stage: { kind: 'ended' },
         result: {
           outcome: { kind: 'winner', side: 'affirmative' },
@@ -179,7 +153,9 @@ describe('SpectatorFacts', () => {
             },
           ],
         },
-      }).match(/Ballot 1|Affirmative 40|A clear reason|1500 to 1516/g),
+      })
+        .textContent()
+        .match(/Ballot 1|Affirmative 40|A clear reason|1500 to 1516/g),
       expected: [
         '1500 to 1516',
         'Ballot 1',

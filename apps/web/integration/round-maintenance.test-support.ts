@@ -1,7 +1,10 @@
+import type { AvailabilityStore } from '@daisy/db/stores/availability';
+import type { RoundMaintenanceStore } from '@daisy/db/stores/round-maintenance';
+import type { AttendanceStore } from '@daisy/db/stores/attendance';
+import { hostWaits } from '@daisy/worker/host';
 import { botGrantUnused, captureRule } from '@daisy/debate-engine';
 import { judgingPolicy } from '@daisy/protocol/judging-policy';
 import type { SQL } from 'bun';
-import type { Database } from '@daisy/db';
 import { createId } from '@paralleldrive/cuid2';
 import { startAvailabilityService } from '../src/features/availability/service';
 import {
@@ -11,10 +14,8 @@ import {
 import { roundTickProjection } from '../src/features/round-finalization/operations';
 
 type WebFinalizerFixture = {
-  readonly store: Pick<
-    Database,
-    'renewServiceInstance' | 'finalizeDueRoundTranscript'
-  >;
+  readonly store: Pick<AvailabilityStore, 'renewServiceInstance'> &
+    Pick<RoundMaintenanceStore, 'finalizeDueRoundTranscript'>;
   readonly sql: SQL;
 };
 /**
@@ -27,7 +28,7 @@ export async function withWebFinalizer<T>(
   work: (
     finalize: (
       roundId: string,
-    ) => ReturnType<Database['finalizeDueRoundTranscript']>,
+    ) => ReturnType<RoundMaintenanceStore['finalizeDueRoundTranscript']>,
   ) => Promise<T>,
 ) {
   const instanceId = createId();
@@ -97,29 +98,9 @@ export const passBallotDeadline = (sql: SQL, roundId: string) =>
     await tx`update rounds set ballot_deadline_at=clock_timestamp()-interval '1 millisecond' where id=${roundId}`;
   });
 
-export const maintenanceTestTimers = {
-  now: () => performance.now(),
-  setInterval: (pulse: () => void, ms: number) => {
-    const handle = setInterval(pulse, ms);
-    return () => clearInterval(handle);
-  },
-  clearInterval: (stop: unknown) => {
-    if (typeof stop !== 'function') throw new Error('Unknown test timer');
-    stop();
-  },
-  setTimeout: (run: () => unknown, ms: number) => {
-    const handle = setTimeout(() => void run(), ms);
-    return () => clearTimeout(handle);
-  },
-  clearTimeout: (stop: unknown) => {
-    if (typeof stop !== 'function') throw new Error('Unknown test timer');
-    stop();
-  },
-};
-
 /** Observes real elected sampling without replacing its SQL or evidence. */
 export function maintenanceAvailability(input: {
-  readonly store: Database;
+  readonly store: AttendanceStore & AvailabilityStore & RoundMaintenanceStore;
   readonly instanceId: string;
   readonly stamps: string[];
   readonly failed: () => void;
@@ -145,7 +126,7 @@ export function maintenanceAvailability(input: {
       }),
     },
     probe: async () => false,
-    timers: maintenanceTestTimers,
+    waits: hostWaits,
     failed: input.failed,
     lapsing: { log: () => {}, report: () => {} },
     nextId: () => input.instanceId,

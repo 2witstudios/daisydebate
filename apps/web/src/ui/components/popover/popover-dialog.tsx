@@ -1,7 +1,7 @@
 'use client';
 
 import type { ComponentPropsWithoutRef } from 'react';
-import { Dialog } from '../dialog/dialog';
+import { DialogRegion } from '../dialog/dialog-region';
 import {
   popoverClasses,
   type PopoverClassName,
@@ -33,7 +33,7 @@ export function PopoverDialog<C extends string = string>({
   ...props
 }: PopoverDialogProps<C>) {
   return (
-    <Dialog
+    <DialogRegion
       as="div"
       {...props}
       popover="auto"

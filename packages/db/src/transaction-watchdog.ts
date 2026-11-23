@@ -1,18 +1,23 @@
 import type { ReservedSQL } from 'bun';
+import { afterMs, type Waits } from '@daisy/clock';
 import { z } from 'zod';
 import { query } from './raw-rows';
 
 export type OwnedBackend = { readonly pid: number; readonly started: string };
 
-/** A PID alone is reusable. Match its exact server timestamp and owning role/database. */
+/**
+ * A PID alone is reusable. Match its exact server timestamp and owning
+ * role/database. `budgetMs` is measured on `waits`.
+ */
 export async function recoverTransactionBackend(
+  waits: Waits,
   control: ReservedSQL,
   backend: OwnedBackend,
   budgetMs = 1000,
 ): Promise<boolean> {
   const backstop = String(Math.max(1, Math.floor(Math.min(800, budgetMs))));
   const terminateMs = Math.max(1, Math.floor(Math.min(500, budgetMs)));
-  let timer: ReturnType<typeof setTimeout> | undefined;
+  let cancel = () => {};
   const recovery = async () => {
     await control`begin isolation level read committed`;
     await control`select set_config('statement_timeout', ${backstop}, true),
@@ -36,16 +41,16 @@ export async function recoverTransactionBackend(
     return await Promise.race([
       recovery(),
       new Promise<false>((resolve) => {
-        timer = setTimeout(() => {
+        cancel = afterMs(waits, budgetMs, () => {
           void control.close({ timeout: 0 }).catch(() => undefined);
           resolve(false);
-        }, budgetMs);
+        });
       }),
     ]);
   } catch {
     void control.close({ timeout: 0 }).catch(() => undefined);
     return false;
   } finally {
-    if (timer !== undefined) clearTimeout(timer);
+    cancel();
   }
 }

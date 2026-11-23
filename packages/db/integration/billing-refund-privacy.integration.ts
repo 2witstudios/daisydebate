@@ -1,9 +1,12 @@
+import { hostWaits } from '@daisy/worker/host';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { requireTestServices } from '@daisy/config';
 import { createId } from '@paralleldrive/cuid2';
 import { drizzle } from 'drizzle-orm/bun-sql';
 import { exportPrivacySubject } from '../src/privacy';
-import { createDatabase } from '../src/index';
+import { openDatabaseResources } from '../src/resources';
+import { createAvailabilityStore } from '../src/stores/availability';
+import { createBillingStore } from '../src/stores/billing';
 import { completeControlledStripeCleanup } from '../src/testing';
 import {
   withBillingRefunds,
@@ -40,11 +43,15 @@ test(
           status: 'succeeded',
         });
         await fixture.sql`delete from billing_customers where user_id=${userId}`;
-        const database = createDatabase({
+        const resources = openDatabaseResources({
+          waits: hostWaits,
           url: databaseUrl,
           client: pool,
-          nextActorId: createId,
         });
+        const database = {
+          ...createAvailabilityStore(resources),
+          ...createBillingStore(resources, { nextId: createId }),
+        };
         await completeControlledStripeCleanup({
           owner: fixture.sql,
           database,

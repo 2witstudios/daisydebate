@@ -1,4 +1,5 @@
 import { instantMs, fixedClock } from '@daisy/clock';
+import { virtualClock } from '@daisy/clock/testing';
 import {
   signOperatorRequest,
   verifyOperatorRequest,
@@ -6,7 +7,6 @@ import {
 import { matchOperatorRoute } from '@daisy/protocol/operator';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { createOperatorClient, type OperatorFetch } from './client';
-import { bunOperatorCrypto } from './bun-crypto';
 
 setupRitewayBun();
 
@@ -31,6 +31,8 @@ const countingRandom = () => {
 };
 
 type Captured = { readonly url: string; readonly init: RequestInit };
+/** The client's request bound runs on this; a test moves it. */
+const clock = virtualClock();
 
 const clientWith = (
   answer: (captured: Captured) => Promise<Response>,
@@ -43,11 +45,11 @@ const clientWith = (
   };
   const client = createOperatorClient({
     config,
-    crypto: bunOperatorCrypto,
     clock: fixedClock(now),
     random: countingRandom(),
     fetch,
     timeoutMs,
+    waits: clock,
   });
   return { client, sent };
 };
@@ -98,7 +100,6 @@ describe('the signing operator client', () => {
         body,
       },
       key,
-      bunOperatorCrypto,
     );
     const headers = headersOf(request?.init ?? {});
     assert({
@@ -147,7 +148,6 @@ describe('the signing operator client', () => {
         body: new Uint8Array(),
         keys: new Map([[config.keyId, key]]),
         nowMs: instantMs(now),
-        crypto: bunOperatorCrypto,
       }),
       expected: {
         ok: true,
@@ -254,11 +254,8 @@ describe('operator response outcomes', () => {
         }),
       1,
     );
-    const outcome = await client.setBetaAccess(
-      operatorRef,
-      userId,
-      command,
-      signedAt,
+    const outcome = await clock.run(
+      client.setBetaAccess(operatorRef, userId, command, signedAt),
     );
     assert({
       given: 'a participant that never answers, with a 1 ms timeout',

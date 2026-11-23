@@ -1,10 +1,5 @@
-import { createAppError } from '@daisy/errors';
-import { idSchema } from '@daisy/protocol/primitives';
 import {
-  subscriptionEvidenceSchema,
-  type SubscriptionEvidence,
-} from '@daisy/protocol/billing';
-import {
+  removedSeatPremiumEndsAt,
   clubSeatBounds,
   clubInvitationMailRefusal,
   type ClubInvitationMailFacts,
@@ -13,6 +8,20 @@ import {
   type ClubSeatingRefusal,
   type SeatInvitation,
 } from '@daisy/protocol/club-seats';
+import { entitlementSources } from '@daisy/protocol/entitlements';
+import { mailJobStates } from './schema/columns';
+import {
+  mailIntentPurposes,
+  mailIntentErrorCodes,
+} from './schema/mail-intents';
+import { membershipStatuses } from '@daisy/protocol/lobby';
+import { listedWord, listedWords } from './lifecycle-sql';
+import { createAppError } from '@daisy/errors';
+import { idSchema } from '@daisy/protocol/primitives';
+import {
+  subscriptionEvidenceSchema,
+  type SubscriptionEvidence,
+} from '@daisy/protocol/billing';
 import { normalizeEmail } from '@daisy/protocol/email';
 import { sql } from 'drizzle-orm';
 import {
@@ -119,15 +128,6 @@ class Refused extends Error {
   }
 }
 
-/**
- * When a removed seat's Premium ends (point guard, Delivery 5111): the end
- * of that UTC day, never later than the grant already ended.
- */
-export const endOfUtcDay = (now: Date) =>
-  new Date(
-    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1),
-  );
-
 async function readInvitations(
   tx: Tx,
   organizationId: string,
@@ -187,7 +187,7 @@ async function isActiveMember(tx: Tx, organizationId: string, userId: string) {
     tx,
     z.object({ present: z.literal(1) }),
     sql`select 1 as present from memberships where organization_id=${organizationId}
-      and user_id=${userId} and status='active'`,
+      and user_id=${userId} and status=${listedWord(membershipStatuses, 'active')}`,
   );
   return rows.length > 0;
 }
@@ -226,7 +226,7 @@ async function readInvitationMailFacts(
     tx,
     z.object({ n: z.int() }),
     sql`select count(*)::int as n from mail_intents
-    where purpose = 'club-seat-invitation'
+    where purpose = ${listedWord(mailIntentPurposes, 'club-seat-invitation')}
       and created_at > ${input.now}::timestamptz - interval '1 day'
       and dedupe_key like ${club}`,
   );
@@ -241,7 +241,7 @@ async function readInvitationMailFacts(
     tx,
     z.object({ n: z.int(), recent: z.int() }),
     sql`select count(*)::int as n,
-      count(*) filter (where state in ('queued', 'leased')
+      count(*) filter (where state in ${listedWords(mailJobStates, ['queued', 'leased'])}
         or created_at > ${input.now}::timestamptz - ${`${clubSeatBounds.resendAfterMs} milliseconds`}::interval)::int as recent
     from mail_intents where club_seat_invitation_id=${input.invitationId}`,
   );
@@ -285,9 +285,9 @@ async function writeSeating(
     // An answered or cancelled offer is no longer owed: its unsent mail ends first.
     await runStatement(
       tx,
-      sql`update mail_intents set state='cancelled', last_error_code='not-owed',
+      sql`update mail_intents set state=${listedWord(mailJobStates, 'cancelled')}, last_error_code=${listedWord(mailIntentErrorCodes, 'not-owed')},
         completed_at=clock_timestamp(), lease_token_digest=null, lease_expires_at=null
-      where club_seat_invitation_id=${invitation.id} and state in ('queued', 'leased')`,
+      where club_seat_invitation_id=${invitation.id} and state in ${listedWords(mailJobStates, ['queued', 'leased'])}`,
     );
     await runStatement(
       tx,
@@ -302,8 +302,8 @@ async function writeSeating(
     await runStatement(
       tx,
       sql`update account_entitlement_grants
-      set expires_at = greatest(starts_at, least(expires_at, ${endOfUtcDay(input.now)}))
-      where user_id=${seat.userId} and source='organization_seat' and organization_id=${club.id}`,
+      set expires_at = greatest(starts_at, least(expires_at, ${removedSeatPremiumEndsAt(input.now)}))
+      where user_id=${seat.userId} and source=${listedWord(entitlementSources, 'organization_seat')} and organization_id=${club.id}`,
     );
     await runStatement(
       tx,

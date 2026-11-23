@@ -1,5 +1,8 @@
 import { clientEdgeRules } from './eslint.config-client-edge.mjs';
+import { hostTimeRules } from './eslint.config-host-time.mjs';
 import { clockDigestRules } from './eslint.config-clock-digest.mjs';
+import { requestPathRules } from './eslint.config-request-path.mjs';
+import { renderedMarkupRules } from './eslint.config-rendered-markup.mjs';
 import js from '@eslint/js';
 import ts from 'typescript';
 import tseslint from 'typescript-eslint';
@@ -282,11 +285,12 @@ const appImportRestrictions = [{ group: ['@adobe/*', '@daisy/*/src/*'] }];
 /**
  * ISSUE-7: the web process edge (`server/process-app.ts`) holds the
  * process's app, so importing it is reaching a process-wide locator. Route
- * modules and server action modules (`actions.ts`) may bind `processRoute`
- * only; the process entries (proxy,
- * instrumentation, production start, and the server-component session
- * read) may use `processApp`; everything else receives the app, or part of
- * it, as an argument.
+ * bindings (`app/**` route and server action modules) bind `processRoute`
+ * only; the request scope every page read is built on (`lib/page-reads.ts`)
+ * reads `processApp` only, and each feature's page reads reach the app
+ * through it (`requestApp`); the process entries Next and the production
+ * start load (proxy, instrumentation, `server/start.ts`) use the rest.
+ * Everything else receives the app, or part of it, as an argument.
  */
 const processEdgeMessage =
   'Receive the app as an argument; only route bindings and the process entries import the process edge.';
@@ -309,14 +313,42 @@ const processEdgeLoads = [
   },
 ];
 
-const memberNamed = (name) =>
-  `:matches([computed=false][property.name="${name}"], [computed=true][property.value="${name}"], [computed=true][property.type="TemplateLiteral"][property.expressions.length=0][property.quasis.0.value.cooked="${name}"])`;
 const processEntries = [
-  'apps/web/src/proxy.ts',
-  'apps/web/src/instrumentation.ts',
+  'apps/web/src/{proxy,instrumentation}.ts',
   'apps/web/src/server/start.ts',
-  'apps/web/src/lib/request-session.ts',
 ];
+/**
+ * RECON-4.6 (ADR 0917): `server/` and `lib/` are the process edge, HTTP
+ * plumbing and what two or more features share, so they import no feature.
+ * Each spot below composes features by its nature, one sentence each in the
+ * ADR: the one feature list (each feature's work and retention targets), the
+ * app's shared resources, the process edge's outbound transport and the
+ * proxy's per-request gate. Tests compose feature fixtures and are not
+ * covered.
+ */
+const featureMessage =
+  "server/ and lib/ import no feature: move the code into its feature, or start the feature's work from the one feature list (server/process-work.ts) (ADR 0917).";
+const featurePath = '(^|/)features(/|$)';
+const featureImport = { regex: featurePath, message: featureMessage };
+const featureLoads = [
+  {
+    selector: `ImportExpression[source.value=/${featurePath.replaceAll('/', '\\/')}/]`,
+    message: featureMessage,
+  },
+];
+const featureComposers = [
+  'apps/web/src/server/process-work.ts',
+  'apps/web/src/server/app.ts',
+  'apps/web/src/server/process-app.ts',
+  'apps/web/src/server/proxy-handler.ts',
+];
+const sharedSources = ['apps/web/src/{server,lib}/**/*.{ts,tsx}'];
+const sharedSourceTests = [
+  'apps/web/src/{server,lib}/**/*.test.{ts,tsx}',
+  'apps/web/src/{server,lib}/**/*.test-support.{ts,tsx}',
+];
+/** The request scope every feature's page reads are built on. */
+const requestScope = 'apps/web/src/lib/page-reads.ts';
 
 /**
  * ISSUE-9: the domain and contract packages are pure, so they read no host
@@ -604,10 +636,41 @@ const dbAdvisoryLockRestrictions = [
     message: 'Take the named advisory lock from the database lock registry.',
   },
 ];
+// A selected SQL fragment is parsed by `parsedColumn`; a type argument on
+// `sql` or a typed `SQL<T>` asserts a column type nobody read.
+dbRawStatementRestrictions.push(
+  {
+    selector:
+      "TaggedTemplateExpression[typeArguments]:matches([tag.name='sql'], [tag.property.name='sql'])",
+    message:
+      'Parse a selected fragment with parsedColumn(schema, sql`…`); a fragment only embedded in SQL takes no type argument.',
+  },
+  {
+    selector:
+      "TSTypeReference:matches([typeName.name='SQL'], [typeName.right.name='SQL']) > TSTypeParameterInstantiation > :not(TSUnknownKeyword)",
+    message:
+      'An SQL fragment is SQL (unknown) until parsedColumn parses it; do not assert its type.',
+  },
+  {
+    selector:
+      "MemberExpression:matches([property.name='mapWith'], [property.value='mapWith'])",
+    message: 'Parse a selected fragment with parsedColumn.',
+  },
+);
 const dbBoundaryRestrictions = {
   'tx.ts': dbOpeningRestrictions,
   'raw-rows.ts': dbRawStatementRestrictions,
   'locks.ts': dbAdvisoryLockRestrictions,
+};
+/**
+ * Every source tree that opens PostgreSQL: the participant database's
+ * package and the admin app's own database (ADR 0077). Each keeps the same
+ * three homes, and the restrictions hold everywhere else in the tree.
+ */
+const dbBoundaryRoots = ['packages/db/src', 'apps/admin/src/db'];
+const dbBoundaryTrees = {
+  'packages/db/src': 'packages/db/src',
+  'apps/admin/src/db': 'apps/admin/src',
 };
 
 const dbNativeRowsPlugin = {
@@ -1214,7 +1277,10 @@ export default [
     ],
   },
   ...clockDigestRules,
+  requestPathRules,
+  renderedMarkupRules,
   clientEdgeRules,
+  hostTimeRules,
   js.configs.recommended,
   ...tseslint.configs.recommended,
   { plugins: { 'daisy-form': formActionPlugin } },
@@ -1484,7 +1550,11 @@ export default [
   },
   {
     files: ['apps/web/src/**/*.{ts,tsx}'],
-    ignores: ['apps/web/src/server/process-app.ts', ...processEntries],
+    ignores: [
+      'apps/web/src/server/process-app.ts',
+      ...processEntries,
+      requestScope,
+    ],
     rules: {
       'no-restricted-imports': [
         'error',
@@ -1572,31 +1642,35 @@ export default [
       ],
     },
   },
-  {
-    files: ['packages/db/src/**/*.ts'],
-    ignores: Object.keys(dbBoundaryRestrictions).map(
-      (home) => `packages/db/src/${home}`,
-    ),
-    rules: {
-      'no-restricted-syntax': [
-        'error',
-        ...repoSyntaxRestrictions,
-        ...Object.values(dbBoundaryRestrictions).flat(),
-      ],
-    },
-  },
-  ...Object.keys(dbBoundaryRestrictions).map((home) => ({
-    files: [`packages/db/src/${home}`],
-    rules: {
-      'no-restricted-syntax': [
-        'error',
-        ...repoSyntaxRestrictions,
-        ...Object.entries(dbBoundaryRestrictions).flatMap(
-          ([owner, restrictions]) => (owner === home ? [] : restrictions),
-        ),
-      ],
-    },
-  })),
+  ...dbBoundaryRoots.flatMap((root) => {
+    const tree = dbBoundaryTrees[root];
+    const homes = Object.keys(dbBoundaryRestrictions);
+    return [
+      {
+        files: [`${tree}/**/*.{ts,tsx}`],
+        ignores: homes.map((home) => `${root}/${home}`),
+        rules: {
+          'no-restricted-syntax': [
+            'error',
+            ...repoSyntaxRestrictions,
+            ...Object.values(dbBoundaryRestrictions).flat(),
+          ],
+        },
+      },
+      ...homes.map((home) => ({
+        files: [`${root}/${home}`],
+        rules: {
+          'no-restricted-syntax': [
+            'error',
+            ...repoSyntaxRestrictions,
+            ...Object.entries(dbBoundaryRestrictions).flatMap(
+              ([owner, restrictions]) => (owner === home ? [] : restrictions),
+            ),
+          ],
+        },
+      })),
+    ];
+  }),
   {
     files: ['packages/db/src/**/*.ts'],
     ignores: [
@@ -1609,6 +1683,78 @@ export default [
     ],
     plugins: { 'db-native-rows': dbNativeRowsPlugin },
     rules: { 'db-native-rows/require-query': 'error' },
+  },
+  {
+    files: sharedSources,
+    ignores: [
+      ...featureComposers,
+      ...sharedSourceTests,
+      ...processEntries,
+      requestScope,
+    ],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            ...appImportRestrictions,
+            {
+              group: ['@sentry/*'],
+              message:
+                'Import Sentry only inside src/features/telemetry/ or next.config.ts (ADR 0037).',
+            },
+            processEdgeImport,
+            featureImport,
+          ],
+        },
+      ],
+      'no-restricted-syntax': [
+        'error',
+        ...repoSyntaxRestrictions,
+        ...processEdgeLoads,
+        ...featureLoads,
+      ],
+    },
+  },
+  // The production start is a process entry under server/: it reaches the
+  // edge, never a feature.
+  {
+    files: processEntries.filter((path) =>
+      path.startsWith('apps/web/src/server/'),
+    ),
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        { patterns: [...appImportRestrictions, featureImport] },
+      ],
+      'no-restricted-syntax': [
+        'error',
+        ...repoSyntaxRestrictions,
+        ...featureLoads,
+      ],
+    },
+  },
+  // The shared request scope reads the app, and no feature.
+  {
+    files: [requestScope],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            ...appImportRestrictions,
+            { ...processEdgeImport, allowImportNames: ['processApp'] },
+            featureImport,
+          ],
+        },
+      ],
+      'no-restricted-syntax': [
+        'error',
+        ...repoSyntaxRestrictions,
+        ...processEdgeLoads,
+        ...featureLoads,
+      ],
+    },
   },
   {
     files: ['apps/web/src/app/**/route.ts', 'apps/web/src/app/**/actions.ts'],
@@ -1631,11 +1777,6 @@ export default [
         'error',
         ...repoSyntaxRestrictions,
         ...processEdgeLoads,
-        {
-          selector: `CallExpression > MemberExpression.callee${memberNamed('split')} > MemberExpression.object${memberNamed('pathname')}`,
-          message:
-            'Use Next.js route params or pass the bound value to the server action.',
-        },
       ],
     },
   },

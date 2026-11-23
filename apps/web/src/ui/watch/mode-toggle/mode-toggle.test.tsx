@@ -1,6 +1,6 @@
-import { renderToString } from 'react-dom/server';
 import { createElement as h } from 'react';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
+import { renderAccessible } from '../../../test-support/rendered/accessible';
 import { ModeToggle } from './mode-toggle';
 import { modeOptionClass, modeTrackClass } from './mode-toggle-class';
 
@@ -8,21 +8,24 @@ setupRitewayBun();
 
 describe('ModeToggle', () => {
   test('three radios sharing one name, the current one checked', () => {
-    const html = renderToString(h(ModeToggle, { value: 'ranked' }));
+    const view = renderAccessible(h(ModeToggle, { value: 'ranked' }));
+    const group = view.within('group', 'Ranked or casual');
     assert({
       given: 'ranked selected',
       should:
         'render Any, Ranked, Casual radios named mode with only ranked checked',
       actual: [
-        html.match(/<input [^>]*name="mode"/g)?.length,
-        /value="ranked"[^>]*checked=""|checked=""[^>]*value="ranked"/.test(
-          html,
-        ),
-        html.match(/checked=""/g)?.length,
-        ['Any', 'Ranked', 'Casual'].every((label) => html.includes(label)),
-        html.includes('Ranked or casual'),
+        group.all('radio').map((radio) => radio.getAttribute('name')),
+        group.names('radio', { checked: true }),
+        group.attribute('radio', 'Ranked', 'value'),
+        group.names('radio'),
       ],
-      expected: [3, true, 1, true, true],
+      expected: [
+        ['mode', 'mode', 'mode'],
+        ['Ranked'],
+        'ranked',
+        ['Any', 'Ranked', 'Casual'],
+      ],
     });
   });
 

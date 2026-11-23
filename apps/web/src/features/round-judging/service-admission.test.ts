@@ -1,6 +1,6 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { startRoundJudgingService } from './service';
-import { manualTimers } from '../../lib/worker-timers.test-support';
+import { manualWaits } from '../../lib/manual-waits.test-support';
 
 setupRitewayBun();
 test('a held reply beyond a full paid-work page remains discoverable without provider capacity', async () => {
@@ -14,7 +14,7 @@ test('a held reply beyond a full paid-work page remains discoverable without pro
     judgeParticipantId: 'cached',
     holdsBallot: true,
   };
-  const { timers, tasks } = manualTimers();
+  const { waits, tasks } = manualWaits();
   const claims: string[] = [];
   let available = false;
   const service = startRoundJudgingService({
@@ -37,8 +37,14 @@ test('a held reply beyond a full paid-work page remains discoverable without pro
           signal.addEventListener('abort', () => done(), { once: true }),
         );
     },
-    limits: { parallel: 1, scanBatch: 64, scanMs: 500, renewMs: 3000 },
-    timers,
+    limits: {
+      parallel: 1,
+      scanBatch: 64,
+      scanMs: 500,
+      renewMs: 3000,
+      leaseMs: 30_000,
+    },
+    waits,
     failed: () => {},
   });
   try {
@@ -69,7 +75,7 @@ test('a held reply beyond a full paid-work page remains discoverable without pro
 test('provider saturation cannot hide a later validated reply', async () => {
   const claimed: string[] = [],
     submitted: string[] = [];
-  const { timers } = manualTimers();
+  const { waits } = manualWaits();
   const service = startRoundJudgingService({
     reserveCapacity: () => null,
     store: {
@@ -89,8 +95,14 @@ test('provider saturation cannot hide a later validated reply', async () => {
     execute: async (claim) => {
       submitted.push(claim.scope.roundId);
     },
-    limits: { parallel: 1, scanBatch: 8, scanMs: 500, renewMs: 3000 },
-    timers,
+    limits: {
+      parallel: 1,
+      scanBatch: 8,
+      scanMs: 500,
+      renewMs: 3000,
+      leaseMs: 30_000,
+    },
+    waits,
     failed: () => {},
   });
   try {
@@ -109,7 +121,7 @@ test('provider saturation cannot hide a later validated reply', async () => {
 });
 test('a Round with several due judges cannot consume every provider slot', async () => {
   const claimed: string[] = [];
-  const { timers } = manualTimers();
+  const { waits } = manualWaits();
   const service = startRoundJudgingService({
     reserveCapacity: () => () => {},
     store: {
@@ -133,8 +145,14 @@ test('a Round with several due judges cannot consume every provider slot', async
         signal.addEventListener('abort', () => done(), { once: true }),
       );
     },
-    limits: { parallel: 2, scanBatch: 8, scanMs: 500, renewMs: 3000 },
-    timers,
+    limits: {
+      parallel: 2,
+      scanBatch: 8,
+      scanMs: 500,
+      renewMs: 3000,
+      leaseMs: 30_000,
+    },
+    waits,
     failed: () => {},
   });
   try {

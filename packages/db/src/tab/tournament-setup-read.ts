@@ -1,4 +1,6 @@
 import { and, asc, eq, inArray, isNull, or, sql } from 'drizzle-orm';
+import { parsedColumn } from '../raw-rows';
+import { z } from 'zod';
 import { fenceTabAccountRead } from './account-read-fence';
 import { actors } from '../schema/actors';
 import { lobbies, tournaments } from '../schema/lobbies';
@@ -189,7 +191,7 @@ export const loadTournamentSetupFacts = async (tx: Tx, input: Input) => {
       ? await tx
           .select({
             poolId: poolResolutions.poolId,
-            count: sql<number>`count(*)::int`,
+            count: parsedColumn(z.number().int(), sql`count(*)::int`),
           })
           .from(poolResolutions)
           .where(

@@ -1,4 +1,4 @@
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { readdir } from 'node:fs/promises';
 import { resolve, relative, dirname } from 'node:path';
 import ts from 'typescript';
@@ -9,6 +9,15 @@ import {
   protocolRootReferences,
   repositorySources,
 } from './protocol-root';
+import { moduleLoads } from './module-loads';
+import { pureDatabaseModuleIssue } from './database-decisions';
+import {
+  databaseBarrel,
+  databasePackage,
+  databaseRootExportIssue,
+  databaseRootReferences,
+} from './database-root';
+import { trackedFiles } from './tracked-files';
 import { flagBoundaryProblems } from './flag-boundaries';
 import { flagCatalogue } from '../apps/web/src/features/flags/catalogue';
 import {
@@ -18,7 +27,9 @@ import {
 } from './architecture-exceptions';
 import {
   adminSurfaceIssue,
-  adobeIsolationIssue,
+  adobeBanIssue,
+  isAdobePackage,
+  manifestDependencyFields,
   allowedWorkspaceDependencies as allowed,
   conceptCouplingIssue,
   featureUiIssue,
@@ -65,7 +76,45 @@ const rootExport = protocolRootExportIssue(
 if (rootExport) issues.push(rootExport);
 if (existsSync(resolve(root, protocolBarrel)))
   issues.push(`${protocolBarrel}: protocol has no root barrel`);
+const databaseRootExport = databaseRootExportIssue(
+  byName.get(databasePackage)?.manifest.exports,
+);
+if (databaseRootExport) issues.push(databaseRootExport);
+if (existsSync(resolve(root, databaseBarrel)))
+  issues.push(`${databaseBarrel}: the database package has no root barrel`);
+for (const path of trackedFiles(root).filter(
+  (file) => file === 'package.json' || file.endsWith('/package.json'),
+)) {
+  if (!existsSync(resolve(root, path))) continue;
+  const manifest = (await Bun.file(resolve(root, path)).json()) as Record<
+    string,
+    unknown
+  >;
+  for (const field of manifestDependencyFields) {
+    const declared = manifest[field];
+    if (declared === null || typeof declared !== 'object') continue;
+    for (const name of Object.keys(declared)) {
+      const issue = adobeBanIssue(path, name, 'dependency');
+      if (issue) issues.push(issue);
+    }
+  }
+}
 for (const { path, source } of repositorySources(root)) {
+  // Only a source naming the scope, or holding an escape that could spell it, can load it.
+  const mayLoadAdobe = /adobe|\\[ux]/i.test(source);
+  for (const { specifier } of mayLoadAdobe
+    ? moduleLoads(path, source, isAdobePackage)
+    : []) {
+    const { line } = specifier
+      .getSourceFile()
+      .getLineAndCharacterOfPosition(specifier.getStart());
+    const issue = adobeBanIssue(
+      `${path}:${line + 1}`,
+      specifier.text,
+      'import',
+    );
+    if (issue) issues.push(issue);
+  }
   for (const { specifier } of protocolRootReferences(path, source)) {
     const { line } = specifier
       .getSourceFile()
@@ -74,6 +123,20 @@ for (const { path, source } of repositorySources(root)) {
       `${path}:${line + 1}: import a protocol owner subpath instead of ${specifier.text}`,
     );
   }
+  for (const { specifier } of databaseRootReferences(path, source)) {
+    const { line } = specifier
+      .getSourceFile()
+      .getLineAndCharacterOfPosition(specifier.getStart());
+    issues.push(
+      `${path}:${line + 1}: open @daisy/db/resources and compose @daisy/db/stores/* instead of ${specifier.text} (R4.5)`,
+    );
+  }
+  const pureDatabaseModule = pureDatabaseModuleIssue(path, source, (file) =>
+    existsSync(resolve(root, file))
+      ? readFileSync(resolve(root, file), 'utf8')
+      : undefined,
+  );
+  if (pureDatabaseModule) issues.push(pureDatabaseModule);
 }
 const flagSources = new Map<string, string>();
 /** The text of an identifier, string or JSX text node: what the reserved-word check reads. */
@@ -107,12 +170,6 @@ for (const workspace of workspaces) {
       allowed,
     );
     if (forbiddenIssue) issues.push(forbiddenIssue);
-    const dependencyIssue = adobeIsolationIssue(
-      workspace.manifest.name,
-      dependency,
-      'dependency',
-    );
-    if (dependencyIssue) issues.push(dependencyIssue);
   }
   for await (const file of new Bun.Glob('**/*.{ts,tsx}').scan({
     cwd: resolve(root, workspace.path),
@@ -190,12 +247,6 @@ for (const workspace of workspaces) {
           (name) => byName.get(name)?.manifest.exports,
         );
         if (deepImport) issues.push(`${relative(root, file)}: ${deepImport}`);
-        const importIssue = adobeIsolationIssue(
-          workspace.manifest.name,
-          specifier,
-          'import',
-        );
-        if (importIssue) issues.push(importIssue);
       }
     };
     const walk = (node: ts.Node) => {

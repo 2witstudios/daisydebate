@@ -20,7 +20,16 @@ describe('page metadata', () => {
       should:
         'build metadata only where no Round is read, so a title or social card cannot state an outcome before release',
       actual: dynamic.sort(),
-      expected: ['layout.tsx'],
+      // The guide pages read no Round: their metadata is an article's or a
+      // collection's title, or nothing where its release is closed.
+      expected: [
+        '(shell)/guides/[collection]/[slug]/page.tsx',
+        '(shell)/guides/[collection]/page.tsx',
+        '(shell)/learn/[collection]/[slug]/page.tsx',
+        '(shell)/learn/[collection]/page.tsx',
+        '(shell)/stories/[slug]/page.tsx',
+        'layout.tsx',
+      ],
     });
   });
 });

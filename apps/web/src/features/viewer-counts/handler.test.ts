@@ -33,7 +33,7 @@ const setup = (onAir = true, visibility: 'public' | 'unlisted' = 'public') => {
       logged.push(event);
     },
   } as never;
-  const route = createViewerPulseRoute({
+  const pulseRoute = createViewerPulseRoute({
     logger,
     reporter: noopErrorReporter,
     origin: () => origin,
@@ -58,6 +58,7 @@ const setup = (onAir = true, visibility: 'public' | 'unlisted' = 'public') => {
       },
     },
   });
+  const route = (request: Request) => pulseRoute(request, roundId);
   return { route, pulses, logged, keys };
 };
 
@@ -101,7 +102,7 @@ describe('the viewer pulse route', () => {
     const seen = new Set<string>();
     let newTabs = 0;
     const pulses: unknown[] = [];
-    const route = createViewerPulseRoute({
+    const pulseRoute = createViewerPulseRoute({
       logger: { ...silentLogger, child: () => silentLogger } as never,
       reporter: noopErrorReporter,
       origin: () => origin,
@@ -130,6 +131,7 @@ describe('the viewer pulse route', () => {
         },
       },
     });
+    const route = (request: Request) => pulseRoute(request, roundId);
     const tab = (id: string) =>
       route(
         pulseAt(

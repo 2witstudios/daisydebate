@@ -426,6 +426,15 @@ test('actual assigned Round waits for its frozen input and query strings cannot 
     await expect(
       unassigned.getByRole('heading', { name: 'No assigned Rounds' }),
     ).toBeVisible();
+    // Judge's way into the judging guides (GUIDES-2).
+    await unassigned.getByRole('link', { name: 'Judging guides' }).click();
+    await expect(unassigned).toHaveURL(/\/guides\/judging$/);
+    await expect(
+      unassigned.getByRole('heading', {
+        level: 1,
+        name: 'Judging and ballots',
+      }),
+    ).toBeVisible();
     const protectedRead = await debater.context.request.get(
       `/api/rounds/${round.id}/ballots`,
     );

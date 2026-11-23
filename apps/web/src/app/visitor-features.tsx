@@ -2,11 +2,9 @@ import { AnalyticsClient } from '../ui/analytics/analytics-client';
 import { ConsentBanner } from '../ui/analytics/consent-banner';
 import { SessionRefresh } from '../ui/auth/session-refresh/session-refresh';
 import { DocumentDraftPrivacy } from '../ui/documents/document-draft-privacy';
-import {
-  requestAnalytics,
-  requestIdentity,
-  sessionRefreshDueNow,
-} from '../lib/request-session';
+import { requestAnalytics } from '../features/analytics/page-reads';
+import { requestIdentity } from '../lib/page-reads';
+import { sessionRefreshDueNow } from '../features/auth/page-reads';
 
 /**
  * What the app adds around a page because a person is using it (ADR 0123):

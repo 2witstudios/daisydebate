@@ -1,3 +1,4 @@
+import { virtualClock } from '@daisy/clock/testing';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import type { RealtimeApp } from './app';
 import { createRealtimeDelivery } from './delivery';
@@ -34,12 +35,7 @@ test('ticket admission refuses session expiry crossed during the durable await',
   const delivery = createRealtimeDelivery({
     readingPolicy: refuseAllReading,
     resources,
-    timers: {
-      setInterval: () => {
-        throw new Error('Unused authority timer');
-      },
-      clearInterval: () => {},
-    },
+    waits: virtualClock(),
     now: () => 0,
     publish: () => {},
   });
@@ -78,8 +74,7 @@ test('ticket admission refuses session expiry crossed during the durable await',
 });
 
 test('real delivery principal validation refuses a canonical read exceeding its resource budget', async () => {
-  let fire!: () => void;
-  let cleared = false;
+  const clock = virtualClock();
   let finish!: (value: unknown) => void;
   const resources = {
     database: bothLanes({
@@ -96,27 +91,20 @@ test('real delivery principal validation refuses a canonical read exceeding its 
     resources,
     now: () => 0,
     publish: () => {},
-    timers: {
-      setInterval: (callback) => {
-        fire = callback;
-        return {} as ReturnType<typeof setInterval>;
-      },
-      clearInterval: () => {
-        cleared = true;
-      },
-    },
+    waits: clock,
   });
   const checked = delivery.validatePrincipal({
     actorId: 'a'.repeat(24),
     userId: 'b'.repeat(24),
     sessionId: 'c'.repeat(24),
   });
-  await Promise.resolve();
-  fire();
-  const outcome = await checked.then(
+  const answered = checked.then(
     () => 'answered',
     (error: unknown) => (error instanceof Error ? error.message : 'unknown'),
   );
+  await clock.advance(5_000);
+  const outcome = await answered;
+  const cleared = clock.sleepers() === 0;
   finish({ expiresAt: '2026-10-09T00:01:00.000Z' });
   await Promise.resolve();
   assert({

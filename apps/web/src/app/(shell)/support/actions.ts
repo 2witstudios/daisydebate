@@ -12,10 +12,11 @@ import {
   supportMessageOf,
   type MessageFormState,
 } from '../../../features/support/message-form';
+import { supportComposition } from '../../../features/support/composition';
 import { processRoute } from '../../../server/process-app';
 import { post } from '../form-post';
 
-const route = processRoute((routes) => routes.support.POST);
+const route = processRoute(supportComposition, (routes) => routes.POST);
 
 /**
  * The support form's POST, as a server action. The pure rule reads the form

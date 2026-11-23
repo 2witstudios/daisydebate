@@ -1,3 +1,4 @@
+import { membershipStatuses } from '@daisy/protocol/lobby';
 import { sql } from 'drizzle-orm';
 import {
   applyOrganizationWrites,
@@ -30,7 +31,7 @@ export async function activateSeatMembership(
   );
   const [membership] = await query(
     tx,
-    z.object({ status: z.string(), version: z.int() }),
+    z.object({ status: z.enum(membershipStatuses), version: z.int() }),
     sql`select status, version from memberships
       where organization_id=${input.organizationId} and user_id=${input.userId}`,
   );

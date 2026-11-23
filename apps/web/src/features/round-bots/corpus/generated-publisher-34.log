@@ -1,0 +1,21 @@
+0 verify
+0 token
+0 join TR_0
+10 deadline 60000
+10 verify
+10 begin p0 250ms in=0 at=2027-01-15T08:00:00.010Z room
+10 reveal p0 room at=2027-01-15T08:00:00.010Z
+10 begin p2 580ms in=250 at=2027-01-15T08:00:00.260Z room
+10 clear TR_0 queued=250
+10 frames TR_0 x25
+10 published p0 complete=true ended=false
+10 published p1 complete=false ended=true
+10 published p2 complete=false ended=true
+260 end p0 cut 0ms ""
+260 end -> CONFLICT/platform-incident
+284 query audible=false p0:closed/tail-cut p1:open p2:open
+284 close TR_0
+284 closed
+284 published late -> CONFLICT
+417 abort p1
+495 abort p2

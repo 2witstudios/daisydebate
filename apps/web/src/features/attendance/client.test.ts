@@ -272,7 +272,7 @@ test('failing heartbeats back off; a reconnect retries at once', async () => {
 
 test('the retry wait doubles from the heartbeat to a one-minute cap', async () => {
   const { ATTENDANCE_RETRY } = await import('./client');
-  const { nextWaitMs } = await import('../../lib/idle-backoff');
+  const { nextWaitMs } = await import('@daisy/worker');
   const waits: number[] = [];
   let previous: number | null = null;
   for (let failure = 0; failure < 5; failure += 1) {

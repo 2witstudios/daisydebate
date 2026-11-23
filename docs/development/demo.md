@@ -98,6 +98,14 @@ yielding, plus one judge seat.
 
 ## Human against a bot, with the AI judge
 
+Bot debates are a release (`bot-debates`,
+[ADR 0921](../decisions/0921-bot-debates-release.md)): without the account
+override the host reads Coming soon and cannot seat a bot debater. Grant the
+host the override first, the way an operator does, by piping
+`{"emails":["<host email>"]}` into
+`bun apps/web/e2e/support/bot-debates-worker.ts` on this checkout's e2e
+database.
+
 Start the demo with `E2E_OPENROUTER_API_KEY`. The host creates a One-on-one
 Room, opens **Manage seats**, assigns an eligible bot to **Negative 1** and an
 AI judge to **Judge 1** (choose each from **Assign …**, then **Assign**), then

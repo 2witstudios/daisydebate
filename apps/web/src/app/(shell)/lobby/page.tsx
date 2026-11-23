@@ -4,14 +4,16 @@ import { createAppError } from '@daisy/errors';
 import { defaultStandingLobby } from '@daisy/protocol/lobby/eligibility';
 import type { SearchParams } from '../../../features/access/decision';
 import { parseRoomDiscoveryQuery } from '../../../features/lobby/discovery-query';
-import { requireAccess } from '../../../lib/access';
+import { requireAccess } from '../../../features/access/page-access';
 import {
   requestCompetitionAgeBand,
   requestGuardianLobbyIds,
   requestOfficialStandingLobbies,
-  requestStudentRoundIds,
-} from '../../../lib/request-session';
+} from '../../../features/lobby/page-reads';
+import { requestStudentRoundIds } from '../../../features/watch/page-reads';
 import { Lobby } from '../../../ui/lobby/lobby';
+import { playOptionsFor } from '../../../features/play/options';
+import { botDebatesReleasedTo } from '../../../features/bot-debates/release';
 import { hostedRoomsRead, roomListing } from './actions';
 import { requestActiveRoom } from '../active-room';
 import { ResumeRound } from '../../../ui/active-room/resume-round';
@@ -74,6 +76,7 @@ export default async function LobbyPage({
         activeRoom={activeRoom}
         now={now}
         viewer={{ actorId, ageBand, studentRoundIds, guardianLobbyIds }}
+        playOptions={playOptionsFor(await botDebatesReleasedTo(identity))}
       />
     </>
   );

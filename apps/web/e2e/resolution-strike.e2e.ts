@@ -208,7 +208,9 @@ test('a Freestyle bank strike against a bot: automatic strikes, a confirmed stri
   browser,
 }) => {
   test.setTimeout(240_000);
-  const accounts = await createRoomLaunchAccounts(browser, 1);
+  const accounts = await createRoomLaunchAccounts(browser, 1, {
+    botDebates: true,
+  });
   try {
     const host = accounts.members[0]!;
     await host.context.grantPermissions(['camera', 'microphone'], { origin });

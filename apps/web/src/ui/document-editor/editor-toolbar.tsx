@@ -3,7 +3,6 @@
 import { Button } from '../components/button/button';
 import { useEditorState, type Editor } from '@tiptap/react';
 import { useRef, useState, type KeyboardEvent } from 'react';
-import { cn } from '../cn';
 import { Icon, type IconName } from '../components/icon/icon';
 import type { PageTone } from './document-editor';
 import {
@@ -54,12 +53,6 @@ const formats: readonly Format[] = [
 ];
 
 const toneIcon = { dark: 'moon', light: 'sun' } as const;
-
-const tool = (on: boolean) =>
-  cn(
-    'flex size-dense-target shrink-0 cursor-pointer items-center justify-center rounded-sm transition-colors',
-    on ? 'bg-surface-overlay text-ink' : 'text-ink-muted hover:text-ink',
-  );
 
 type Props = {
   readonly editor: Editor;
@@ -120,11 +113,11 @@ export function EditorToolbar({
       >
         {formats.map((f, index) => (
           <Button
-            variant="unstyled"
+            variant="icon"
             key={f.id}
             aria-label={f.label}
             aria-pressed={Boolean(active.formats[f.id])}
-            className={tool(Boolean(active.formats[f.id]))}
+            size="dense"
             onClick={() => f.run(editor)}
             {...roving(index)}
             type="button"
@@ -139,21 +132,23 @@ export function EditorToolbar({
       </span>
       <div role="group" aria-label="Text size" className="flex shrink-0 gap-px">
         <Button
-          variant="unstyled"
+          variant="icon"
           type="button"
           aria-label="Smaller text"
           disabled={textSize === textSizes[0]}
-          className={cn(tool(false), 'text-xs disabled:opacity-50')}
+          size="dense"
+          className="text-xs"
           onClick={() => onTextSize(stepTextSize(textSize, -1))}
         >
           A−
         </Button>
         <Button
-          variant="unstyled"
+          variant="icon"
           type="button"
           aria-label="Larger text"
           disabled={textSize === textSizes.at(-1)}
-          className={cn(tool(false), 'text-md disabled:opacity-50')}
+          size="dense"
+          className="text-md"
           onClick={() => onTextSize(stepTextSize(textSize, 1))}
         >
           A+
@@ -162,12 +157,12 @@ export function EditorToolbar({
       <div role="group" aria-label="Page tone" className="flex shrink-0 gap-px">
         {(['dark', 'light'] as const).map((tone) => (
           <Button
-            variant="unstyled"
+            variant="icon"
             key={tone}
             type="button"
             aria-label={tone === 'dark' ? 'Dark page' : 'Light page'}
             aria-pressed={page === tone}
-            className={tool(page === tone)}
+            size="dense"
             onClick={() => onPage(page === tone ? null : tone)}
           >
             <Icon name={toneIcon[tone]} size={15} />

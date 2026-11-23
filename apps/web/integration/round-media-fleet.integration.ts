@@ -2,9 +2,9 @@ import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { requireTestServices } from '@daisy/config';
 import { createMediaService } from '@daisy/media';
 import { createRoundMediaOperations } from '../src/features/round-media/operations';
-import { startRoundMediaRecovery } from '../src/server/round-media-recovery';
+import { startRoundMediaRecovery } from '../src/features/round-media/recovery-worker';
 import { mediaDependencies, withMediaRound } from './round-media.test-support';
-import { realWorkerTimers } from './worker-timers.test-support';
+import { hostWaits } from '@daisy/worker/host';
 setupRitewayBun();
 requireTestServices(process.env);
 
@@ -160,7 +160,7 @@ test('a Round whose provider call hangs does not hold another Round on the recov
       failed: () => {
         throw Error('unexpected recovery failure');
       },
-      timers: realWorkerTimers,
+      waits: hostWaits,
     });
     try {
       const served = async () =>

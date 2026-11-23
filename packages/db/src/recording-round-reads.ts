@@ -2,6 +2,8 @@ import { currentRoundParticipant } from './round-current-participant';
 import { isDebatingSeat } from '@daisy/protocol/seats';
 import { type CaptureRule } from '@daisy/protocol/capture-verdict';
 import { and, asc, eq, sql, type SQL } from 'drizzle-orm';
+import { parsedColumn } from './raw-rows';
+import { z } from 'zod';
 import { readBroadcastRelease } from './broadcast-operations';
 import type { SpectatorClock } from './spectator-release-sql';
 import { namedSeats, roundLadderOf } from './member-history-rows';
@@ -15,7 +17,7 @@ import { roundParticipants } from './schema/round-participants';
 import { roundSpeakingIntervals } from './schema/round-speaking-intervals';
 import { rooms } from './schema/rooms';
 import { rounds } from './schema/rounds';
-import { outcomeOfColumns } from './round-outcome-columns';
+import { outcomeOfColumns } from './round-hydration';
 import { isDebatingSeatSql, seatOfColumns, seatRowOrder } from './seat-columns';
 import { inTransaction, type TxSource } from './tx';
 
@@ -58,9 +60,10 @@ export const recordingRoundReadOperations = ({
           ladderId: rounds.ladderId,
           ladderAgeRule: rounds.standingAgeRule,
           standingYouthCast: rounds.standingYouthCast,
-          roomYouth: sql<
-            boolean | null
-          >`public.daisy_room_is_youth(${rounds.roomId})`,
+          roomYouth: parsedColumn(
+            z.boolean().nullable(),
+            sql`public.daisy_room_is_youth(${rounds.roomId})`,
+          ),
         })
         .from(rounds)
         .leftJoin(rooms, eq(rooms.id, rounds.roomId))

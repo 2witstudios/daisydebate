@@ -11,6 +11,7 @@ import {
   sql,
   type SQL,
 } from 'drizzle-orm';
+import { parsedColumn, postgresInt8 } from '../raw-rows';
 import { z } from 'zod';
 import { createAppError } from '@daisy/errors';
 import { messagingMessages } from '../schema/messaging-messages';
@@ -18,8 +19,7 @@ import {
   messagingActorStates,
   messagingChannelStreams,
 } from '../schema/messaging-channels';
-import { messageRecord } from './message-record';
-import type { MessagingCounters } from './records';
+import type { MessagingCounters, MessagingMessageRecord } from './records';
 import type { Tx } from '../tx';
 
 const requirePageLimit = (limit: number) => {
@@ -48,9 +48,6 @@ const reactionRowSchema = z.array(
     own: z.boolean(),
   }),
 );
-const parseHistoryReactions = (value: unknown) =>
-  reactionRowSchema.parse(value ?? []);
-
 /**
  * Pure: a history page from one statement's rows (descending sequence).
  * Counts are shared; which reactions are the reader's own stays apart, and a
@@ -151,7 +148,9 @@ export function channelReadFrame(
       .select({
         message: messagingMessages,
         changeVersion: messagingChannelStreams.changeVersion,
-        reactions: sql<unknown>`(select coalesce(jsonb_agg(jsonb_build_object(
+        reactions: parsedColumn(
+          reactionRowSchema.nullable(),
+          sql`(select coalesce(jsonb_agg(jsonb_build_object(
             'reaction', grouped.reaction, 'count', grouped.total, 'own', grouped.own
           ) order by grouped.reaction), '[]'::jsonb) from (
             select r.reaction, count(*)::integer as total, bool_or(r.actor_id = ${input.actorId}) as own
@@ -159,6 +158,7 @@ export function channelReadFrame(
             where r.channel_id = ${messagingMessages.channelId} and r.message_id = ${messagingMessages.id}
             group by r.reaction
           ) grouped)`,
+        ),
       })
       .from(messagingChannelStreams)
       .leftJoin(
@@ -209,22 +209,26 @@ export function channelReadFrame(
       const result = historyPage(
         required(rows).map((row) => ({
           ...row,
-          reactions: parseHistoryReactions(row.reactions),
+          reactions: row.reactions ?? [],
         })),
         limit,
         input.channelId,
       );
       const [position] = await tx
         .select({
-          readSequence: sql<number>`coalesce((select ${messagingActorStates.readSequence} from ${messagingActorStates}
+          readSequence: parsedColumn(
+            postgresInt8,
+            sql`coalesce((select ${messagingActorStates.readSequence} from ${messagingActorStates}
             where ${messagingActorStates.channelId} = ${input.channelId} and ${messagingActorStates.actorId} = ${input.actorId}), 0)`,
-          firstUnreadSequence: sql<
-            number | null
-          >`(select min(unread.sequence) from ${messagingMessages} unread
+          ),
+          firstUnreadSequence: parsedColumn(
+            postgresInt8.nullable(),
+            sql`(select min(unread.sequence) from ${messagingMessages} unread
             where unread.channel_id = ${input.channelId} and unread.author_actor_id <> ${input.actorId}
               and unread.removed_at is null
               and unread.sequence > coalesce((select ${messagingActorStates.readSequence} from ${messagingActorStates}
                 where ${messagingActorStates.channelId} = ${input.channelId} and ${messagingActorStates.actorId} = ${input.actorId}), 0))`,
+          ),
         })
         .from(messagingChannelStreams)
         .where(eq(messagingChannelStreams.channelId, input.channelId));
@@ -311,3 +315,20 @@ export function channelReadFrame(
     },
   };
 }
+
+export const messageRecord = (
+  row: typeof messagingMessages.$inferSelect,
+): MessagingMessageRecord => ({
+  id: row.id,
+  channelId: row.channelId,
+  authorActorId: row.authorActorId,
+  sequence: row.sequence,
+  changeVersion: row.changeVersion,
+  text: row.text,
+  createdAt: row.createdAt.toISOString(),
+  editedAt: row.editedAt?.toISOString() ?? null,
+  removedAt: row.removedAt?.toISOString() ?? null,
+  ...(row.replyToMessageId === null
+    ? {}
+    : { replyToMessageId: row.replyToMessageId }),
+});

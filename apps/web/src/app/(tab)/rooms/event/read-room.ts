@@ -3,7 +3,7 @@ import { createAppError } from '@daisy/errors';
 import { notFound } from 'next/navigation';
 import type { SearchParams } from '../../../../features/access/decision';
 import { requireTabRelease } from '../../../../features/tab/release';
-import { requireAccess } from '../../../../lib/access';
+import { requireAccess } from '../../../../features/access/page-access';
 import { roomAssembly } from '../../../(shell)/rooms/[id]/actions';
 
 export async function storedEventRoom(

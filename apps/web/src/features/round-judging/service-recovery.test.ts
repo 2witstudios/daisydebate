@@ -2,7 +2,7 @@ import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createAppError } from '@daisy/errors';
 import type { JudgingTerminalReason } from '@daisy/protocol/round-judging-attempt';
 import { startRoundJudgingService } from './service';
-import { failureLog, manualTimers } from '../../lib/worker-timers.test-support';
+import { failureLog, manualWaits } from '../../lib/manual-waits.test-support';
 setupRitewayBun();
 
 /** One discoverable judging job with injected renewal, execution and verification. */
@@ -16,7 +16,7 @@ function oneJob(input: {
   readonly jobEnded?: (reason: JudgingTerminalReason) => void;
 }) {
   const { failures, failed } = failureLog();
-  const { tasks, timers, nextPass } = manualTimers();
+  const { tasks, waits, nextPass } = manualWaits();
   let claims = 0;
   const service = startRoundJudgingService({
     reserveCapacity: () => () => {},
@@ -41,8 +41,14 @@ function oneJob(input: {
       }),
     },
     execute: (_claim, signal) => input.execute(signal),
-    limits: { parallel: 1, scanBatch: 4, scanMs: 500, renewMs: 3000 },
-    timers,
+    limits: {
+      parallel: 1,
+      scanBatch: 4,
+      scanMs: 500,
+      renewMs: 3000,
+      leaseMs: 30_000,
+    },
+    waits,
     failed,
     ...(input.jobEnded ? { jobEnded: input.jobEnded } : {}),
   });
@@ -54,7 +60,8 @@ function oneJob(input: {
     failures,
     claims: () => claims,
     scan: async () => {
-      await nextPass();
+      // The scan's wait, not a job lease's renewal (3 s) or its horizon.
+      await nextPass((ms) => ms < 3000);
       await settle();
     },
     renew: async () => {
@@ -153,7 +160,7 @@ test('a saved ballot that keeps failing to submit is reported and its slot relea
 });
 
 test('a delayed old renewal cannot remove a replacement judging claim', async () => {
-  const { tasks, timers, nextPass } = manualTimers();
+  const { tasks, waits, nextPass } = manualWaits();
   const oldRenewal = Promise.withResolvers<void>();
   const firstExecution = Promise.withResolvers<void>();
   const replacementEntered = Promise.withResolvers<void>();
@@ -186,8 +193,14 @@ test('a delayed old renewal cannot remove a replacement judging claim', async ()
         signal.addEventListener('abort', () => resolve(), { once: true }),
       );
     },
-    limits: { parallel: 1, scanBatch: 4, scanMs: 500, renewMs: 3000 },
-    timers,
+    limits: {
+      parallel: 1,
+      scanBatch: 4,
+      scanMs: 500,
+      renewMs: 3000,
+      leaseMs: 30_000,
+    },
+    waits,
     failed: () => firstReported.resolve(),
   });
   await service.started;
@@ -205,5 +218,32 @@ test('a delayed old renewal cannot remove a replacement judging claim', async ()
     should: 'renew and retain shutdown tracking for the replacement claim',
     actual: renewed,
     expected: ['1', '2'],
+  });
+});
+
+test('a renewal refused because another claimant took the token ends the call without a fault', async () => {
+  let aborted = false;
+  const job = oneJob({
+    renew: async () => {
+      throw createAppError('AUTHORIZATION', 'Judging lease token changed');
+    },
+    execute: (signal) =>
+      new Promise((resolve) =>
+        signal.addEventListener('abort', () => {
+          aborted = true;
+          resolve(undefined);
+        }),
+      ),
+    ballotHeld: false,
+  });
+  await job.service.started;
+  await job.renew();
+  const abortedByRenewal = aborted;
+  await job.service.stop();
+  assert({
+    given: 'a judging renewal refused with AUTHORIZATION',
+    should: 'treat the lease as taken: abort the paid call and report nothing',
+    actual: { abortedByRenewal, failures: job.failures },
+    expected: { abortedByRenewal: true, failures: [] },
   });
 });

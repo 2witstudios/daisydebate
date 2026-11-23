@@ -3,7 +3,8 @@
 Status: accepted. Originally filed as a second "ADR 0017", colliding with
 [0017: Better Auth passwordless](0017-better-auth-passwordless.md); renumbered
 to 0024 with no change to the decision. `bun policy` now rejects duplicate ADR
-numbers.
+numbers. Its first consequence (the engine-only Adobe boundary) is superseded by
+[ADR 0911](0911-round-engine-step-function.md): no Adobe package is used anywhere.
 
 The home dashboard shell needs client-side UI state (search, active
 navigation, mock content). The theme was here at first and moved to a

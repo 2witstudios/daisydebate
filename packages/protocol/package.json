@@ -16,6 +16,7 @@
     "./pairing-presets": "./src/settings/pairing-presets.ts",
     "./sanction-check": "./src/settings/sanction-check.ts",
     "./billing": "./src/billing.ts",
+    "./billing-mode": "./src/billing-mode.ts",
     "./club-seats": "./src/club-seats.ts",
     "./media-release": "./src/media-release.ts",
     "./billing-economics": "./src/billing-economics.ts",
@@ -198,7 +199,16 @@
     "./username": "./src/username.ts",
     "./youth-live": "./src/youth-live.ts",
     "./youth-round": "./src/youth-round.ts",
-    "./round-judging-progression": "./src/round-judging-progression.ts"
+    "./round-judging-progression": "./src/round-judging-progression.ts",
+    "./seat-eligibility": "./src/seat-eligibility.ts",
+    "./round-viewer": "./src/round-viewer.ts",
+    "./ballot-audience": "./src/ballot-audience.ts",
+    "./round-outcome-audience": "./src/round-outcome-audience.ts",
+    "./usage-sponsor": "./src/usage-sponsor.ts",
+    "./messaging/group-issuance-plan": "./src/messaging/group-issuance-plan.ts",
+    "./messaging/group-management-plan": "./src/messaging/group-management-plan.ts",
+    "./standings-release": "./src/standings-release.ts",
+    "./transcript-finalization": "./src/transcript-finalization.ts"
   },
   "scripts": {
     "typecheck": "tsgo --noEmit && tsgo --noEmit -p tsconfig.test.json",

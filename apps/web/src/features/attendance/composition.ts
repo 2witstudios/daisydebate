@@ -1,9 +1,10 @@
+import { defineComposition } from '../../server/composition';
 import { composeRoundMemberDependencies } from '../round-runtime/member-composition';
 import type { App } from '../../server/app';
 import { createAttendanceHandler } from './handler';
 import { createAttendanceFeature } from './operations';
 
-export function composeAttendanceRoutes(app: App) {
+function composeAttendanceRoutes(app: App) {
   const operations = createAttendanceFeature({
     checkIns: app.database,
     evaluate: app.database.evaluateRoundAttendance,
@@ -18,3 +19,8 @@ export function composeAttendanceRoutes(app: App) {
     }),
   };
 }
+
+/** attendance: its route files bind here (`processRoute`). */
+export const attendanceComposition = defineComposition('attendance', (app) =>
+  composeAttendanceRoutes(app),
+);

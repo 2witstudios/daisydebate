@@ -1,8 +1,9 @@
 'use client';
-import { useBrowserEffect } from '../edge/browser-sync';
-import { StatusRegion } from '../components/status-region/status-region';
+import { useDeliver } from '../edge/use-answer';
+import { useFocusAfterLeave } from '../edge/use-focus';
+import { Announcement } from '../components/announcement/announcement';
 import { Button } from '../components/button/button';
-import { useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { systemId } from '@daisy/clock';
 import { contextChatFormUnavailable } from '../../features/messaging/context-chat/form';
 import {
@@ -73,37 +74,31 @@ export function ContextChatMessageControls({
     kind === 'report' ? reportAction : mutateAction,
     initial,
     contextChatFormUnavailable,
-  );
-  const seen = useRef(answer);
-  useBrowserEffect(() => {
-    const accepted = contextChatAcceptedMessage(answer);
-    if (accepted !== undefined && answer !== seen.current) {
-      seen.current = answer;
+    (answered) => {
+      const accepted = contextChatAcceptedMessage(answered);
+      if (accepted === undefined) return;
       if (kind === 'remove') releaseDraft?.();
       onSent(accepted);
-    }
-  }, [answer, onSent, kind, releaseDraft]);
+    },
+  );
   const fields = contextChatFields(answer);
   const removing = useRef(false);
   const form = useRef<HTMLFormElement>(null);
   const ownedFocus = useRef(false);
-  useBrowserEffect(() => {
-    if (!locked || !ownedFocus.current) return;
+  const lock = useMemo(
+    () => ({ locked, returnFocusId }),
+    [locked, returnFocusId],
+  );
+  useDeliver(lock, (held) => {
+    if (!held.locked || !ownedFocus.current) return;
     if (
       document.activeElement === document.body ||
       form.current?.contains(document.activeElement)
     )
-      document.getElementById(returnFocusId)?.focus();
+      document.getElementById(held.returnFocusId)?.focus();
     ownedFocus.current = false;
-  }, [locked, returnFocusId]);
-
-  useBrowserEffect(
-    () => () => {
-      if (removing.current && document.activeElement === document.body)
-        document.getElementById(returnFocusId)?.focus();
-    },
-    [returnFocusId],
-  );
+  });
+  useFocusAfterLeave(returnFocusId, removing);
   const noticeId = `${idPrefix}-notice-${messageId}`;
   const fieldId = `${idPrefix}-edit-${messageId}`;
   const submitId = `${idPrefix}-action-${messageId}`;
@@ -225,16 +220,17 @@ export function ContextChatMessageControls({
           <input type="hidden" name="reason" value={reason} />
         ) : null}
         {notice ? (
-          <StatusRegion as="p" id={noticeId} role="status" tabIndex={-1}>
+          <Announcement as="p" id={noticeId} kind="progress" tabIndex={-1}>
             {notice}
-          </StatusRegion>
+          </Announcement>
         ) : null}
         <Button
-          variant="unstyled"
+          variant="text"
           id={submitId}
           type="submit"
           disabled={pending || locked || (kind === 'edit' && editingLocked)}
-          className="min-h-room-target cursor-pointer self-start font-strong"
+          size="room"
+          className="self-start"
         >
           {pending
             ? 'Submitting…'

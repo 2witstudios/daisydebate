@@ -1,5 +1,8 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { renderToStaticMarkup } from 'react-dom/server';
+import {
+  renderAccessible,
+  type AccessibleView,
+} from '../../test-support/rendered/accessible';
 import { planActions } from '../../features/pricing/plan-actions';
 import {
   planPrices,
@@ -22,32 +25,47 @@ const open = planActions({
   leagueRequests: true,
 });
 const render = (actions = closed, prices: PlanPrices = planPrices) =>
-  renderToStaticMarkup(<PricingPage prices={prices} actions={actions} />);
+  renderAccessible(<PricingPage prices={prices} actions={actions} />);
 
-/** The card section headed by `name`, so assertions stay inside one card. */
-const cardOf = (html: string, name: string): string => {
-  const start = html.indexOf(`aria-labelledby="plan-${name.toLowerCase()}"`);
-  return start === -1
-    ? ''
-    : html.slice(start, html.indexOf('</section>', start));
+/** The card region named by `name`, so assertions stay inside one card. */
+const cardOf = (view: AccessibleView, name: string): AccessibleView =>
+  view.within('region', name);
+
+/** Every piece of text inside an element, one cell per text node. */
+const cells = (element: Element): readonly string[] =>
+  [...element.childNodes].flatMap((child) =>
+    child.nodeType === child.TEXT_NODE
+      ? (child.textContent ?? '').trim() === ''
+        ? []
+        : [child.textContent ?? '']
+      : cells(child as Element),
+  );
+
+/** A card's price line under its heading, as [price, period]. */
+const priceOf = (view: AccessibleView, name: string) => {
+  const line = cardOf(view, name).get('heading', name).nextElementSibling;
+  return line === null ? [] : cells(line);
 };
 
-/** Each Host tier row as [name, detail, price], read inside its own <li>. */
-const hostTiers = (html: string) =>
-  [...cardOf(html, 'Host').matchAll(/<li[^>]*>(.*?)<\/li>/g)]
-    .map((row) => [...(row[1] ?? '').matchAll(/>([^<>]+)</g)].map((m) => m[1]))
-    .filter((cells) => cells.length === 3);
+/** Each Host tier row as [name, detail, price], read inside its own row. */
+const hostTiers = (view: AccessibleView) =>
+  cardOf(view, 'Host')
+    .all('listitem')
+    .map(cells)
+    .filter((row) => row.length === 3);
 
-const hrefsIn = (html: string): readonly string[] =>
-  [...html.matchAll(/href="([^"]+)"/g)].map((match) => match[1] ?? '');
+const hrefsIn = (view: AccessibleView): readonly string[] =>
+  view.all('link').map((link) => link.getAttribute('href') ?? '');
+
+const plans = ['Premium', 'Club', 'Host', 'League'];
 
 test('the four plan cards', () => {
-  const html = render();
+  const view = render();
   assert({
     given: 'the pricing page',
     should: 'show Premium, Club, Host and League, each a labelled section',
-    actual: ['Premium', 'Club', 'Host', 'League'].map((name) =>
-      cardOf(html, name).includes(`>${name}</h2>`),
+    actual: plans.map((name) =>
+      cardOf(view, name).has('heading', name, { level: 2 }),
     ),
     expected: [true, true, true, true],
   });
@@ -56,18 +74,14 @@ test('the four plan cards', () => {
     should:
       'show Premium monthly, Club per seat, Host free with its event tiers and League on request',
     actual: [
-      cardOf(html, 'Premium').includes(
-        '$20</span><span class="text-ink-muted">a month',
-      ),
-      cardOf(html, 'Club').includes(
-        '$10</span><span class="text-ink-muted">per seat, a month',
-      ),
-      hostTiers(html),
-      cardOf(html, 'League').includes('>Talk to us</span>'),
+      priceOf(view, 'Premium'),
+      priceOf(view, 'Club'),
+      hostTiers(view),
+      priceOf(view, 'League'),
     ],
     expected: [
-      true,
-      true,
+      ['$20', 'a month'],
+      ['$10', 'per seat, a month'],
       [
         [
           'Free',
@@ -77,7 +91,7 @@ test('the four plan cards', () => {
         ['Up to 64 entries', 'One payment for one event.', '$99'],
         ['Unlimited entries', 'One payment for one event.', '$199'],
       ],
-      true,
+      ['Talk to us'],
     ],
   });
   assert({
@@ -85,12 +99,12 @@ test('the four plan cards', () => {
     should:
       'link Premium to billing checkout and Host to /host, and show Club and League as coming soon with no link',
     actual: [
-      hrefsIn(cardOf(html, 'Premium')),
-      hrefsIn(cardOf(html, 'Host')),
-      hrefsIn(cardOf(html, 'Club')),
-      cardOf(html, 'Club').includes('Coming soon'),
-      hrefsIn(cardOf(html, 'League')),
-      cardOf(html, 'League').includes('Coming soon'),
+      hrefsIn(cardOf(view, 'Premium')),
+      hrefsIn(cardOf(view, 'Host')),
+      hrefsIn(cardOf(view, 'Club')),
+      cardOf(view, 'Club').textContent().includes('Coming soon'),
+      hrefsIn(cardOf(view, 'League')),
+      cardOf(view, 'League').textContent().includes('Coming soon'),
     ],
     expected: [['/settings/billing'], ['/host'], [], true, [], true],
   });
@@ -100,24 +114,16 @@ test('the four plan cards', () => {
     should: 'link Start a Club to /clubs/new and Talk to us to the League form',
     actual: [
       hrefsIn(cardOf(released, 'Club')),
-      cardOf(released, 'Club').includes('>Start a Club</a>'),
+      cardOf(released, 'Club').attribute('link', 'Start a Club', 'href'),
       hrefsIn(cardOf(released, 'League')),
-      released.includes('Coming soon'),
+      released.textContent().includes('Coming soon'),
     ],
-    expected: [['/clubs/new'], true, ['/contact/league'], false],
-  });
-  assert({
-    given: 'the featured plan',
-    should: 'give only Premium the strong outline',
-    actual: ['Premium', 'Club', 'Host', 'League'].map((name) =>
-      cardOf(html, name).includes('border-2 border-accent'),
-    ),
-    expected: [true, false, false, false],
+    expected: [['/clubs/new'], '/clubs/new', ['/contact/league'], false],
   });
 });
 
 test('prices come from the catalogue, never from copy', () => {
-  const html = render(closed, {
+  const view = render(closed, {
     ...planPrices,
     premiumMonthlyCents: 2500,
     clubSeatMonthlyCents: 1250,
@@ -133,16 +139,20 @@ test('prices come from the catalogue, never from copy', () => {
     given: 'different catalogue prices',
     should: 'show those prices in the cards and the Host answer',
     actual: [
-      '$25</span>',
-      '$12.50</span>',
-      'up to 12 entries. Upgrade one event when it needs more entries or video: $89 up to 48 entries, $179 unlimited.',
-    ].filter((text) => !html.includes(text)),
-    expected: [],
+      priceOf(view, 'Premium')[0],
+      priceOf(view, 'Club')[0],
+      view
+        .textContent()
+        .includes(
+          'up to 12 entries. Upgrade one event when it needs more entries or video: $89 up to 48 entries, $179 unlimited.',
+        ),
+    ],
+    expected: ['$25', '$12.50', true],
   });
   assert({
     given: 'different catalogue tiers',
     should: 'pair each Host tier with its own price in its own row',
-    actual: hostTiers(html).map(([name, , price]) => [name, price]),
+    actual: hostTiers(view).map(([name, , price]) => [name, price]),
     expected: [
       ['Free', '$0'],
       ['Up to 48 entries', '$89'],
@@ -152,32 +162,40 @@ test('prices come from the catalogue, never from copy', () => {
   assert({
     given: 'different catalogue prices',
     should: 'leave no default price behind',
-    actual: /\$20|\$10|\$99|\$199|16 entries|64 entries/.test(html),
+    actual: /\$20|\$10|\$99|\$199|16 entries|64 entries/.test(
+      view.textContent(),
+    ),
     expected: false,
   });
 });
 
 test('what free includes and the questions', () => {
-  const html = render();
+  const view = render();
+  const free = cardOf(view, 'Free, always');
   assert({
     given: 'the pricing page',
     should: 'say what every account gets free',
     actual: [
-      'Free, always',
       'Debate other people, casual and ranked',
       'AI judging on every ranked Round',
-      'One bot Round with its AI judge, and one analysis, to try them',
-    ].filter((text) => !html.includes(text)),
+      'One Round analysis, to try it',
+    ].filter((line) => !free.textContent().includes(line)),
     expected: [],
   });
-  const disclosures = (page: string) =>
-    [...page.matchAll(/<details[^>]*>/g)].map((m) => m[0].includes(' open=""'));
+  assert({
+    given: 'the whole pricing page',
+    should: 'promise no bot debates anywhere (BCS-7)',
+    actual: /\bbots?\b/i.test(view.textContent()),
+    expected: false,
+  });
+  const disclosures = (page: AccessibleView) =>
+    page.all('group').map((disclosure) => disclosure.hasAttribute('open'));
   const familyQuestion = 'Can I buy Premium for my children?';
   assert({
     given: 'the questions while Club is not yet released',
     should:
       'be four native disclosures with only the first open, leaving out the family answer that points at Start a Club',
-    actual: [disclosures(html), html.includes(familyQuestion)],
+    actual: [disclosures(view), view.textContent().includes(familyQuestion)],
     expected: [[true, false, false, false], false],
   });
   const released = render(open);
@@ -186,8 +204,8 @@ test('what free includes and the questions', () => {
     should: 'add the family question, still with only the first open',
     actual: [
       disclosures(released),
-      released.includes(familyQuestion),
-      released.includes('Yes. Start a Club for your family'),
+      released.textContent().includes(familyQuestion),
+      released.textContent().includes('Yes. Start a Club for your family'),
     ],
     expected: [[true, false, false, false, false], true, true],
   });
@@ -203,20 +221,20 @@ test('what free includes and the questions', () => {
       'play ranked in the Youth lobby',
       'How does Host pricing work?',
       '$99 up to 64 entries, $199 unlimited. Nothing renews.',
-    ].filter((text) => !html.includes(text)),
+    ].filter((line) => !view.textContent().includes(line)),
     expected: [],
   });
 });
 
 test('page structure', () => {
-  const html = render();
+  const view = render();
   assert({
     given: 'the pricing page',
     should:
       'have one h1, and h2s for each plan, the free band and the questions',
     actual: [
-      (html.match(/<h1/g) ?? []).length,
-      [...html.matchAll(/<h2[^>]*>([^<]+)<\/h2>/g)].map((m) => m[1]),
+      view.count('heading', undefined, { level: 1 }),
+      view.names('heading', { level: 2 }),
     ],
     expected: [
       1,
@@ -225,8 +243,11 @@ test('page structure', () => {
   });
   assert({
     given: 'the page',
-    should: 'state the currency and carry no form',
-    actual: [html.includes('Prices in US dollars.'), html.includes('<form')],
+    should: 'state the currency and carry nothing to post',
+    actual: [
+      view.textContent().includes('Prices in US dollars.'),
+      ['button', 'textbox', 'checkbox'].some((role) => view.count(role) > 0),
+    ],
     expected: [true, false],
   });
 });

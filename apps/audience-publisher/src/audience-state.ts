@@ -1,3 +1,5 @@
+import type { Waits } from '@daisy/clock';
+import { repeatEvery } from '@daisy/worker';
 import {
   projectAudienceSnapshot,
   projectSpectatorTimeline,
@@ -199,21 +201,19 @@ export const createAudienceStatePublisher = (deps: Deps) => {
   };
 };
 
-/** Runs passes on the second until told to stop; a failed pass waits for the next. */
-export const runAudienceStatePublisher = async (input: {
+/**
+ * Passes on the second: one at a time, a pass still running when the next is
+ * due skips it, and a failed pass waits for the next. Stops through the worker.
+ */
+export const startAudienceStatePublisher = (input: {
   readonly publisher: ReturnType<typeof createAudienceStatePublisher>;
-  readonly now: () => number;
-  readonly sleep: (ms: number) => Promise<void>;
-  readonly stopped: () => boolean;
+  readonly waits: Waits;
   readonly report: (failure: AudienceStateFailure) => void;
-}) => {
-  while (!input.stopped()) {
-    const startedAt = input.now();
-    await input.publisher
-      .pass()
-      .catch(() => input.report({ cause: 'read', failed: 1 }));
-    await input.sleep(
-      Math.max(0, STATE_PUBLISH_EVERY_MS - (input.now() - startedAt)),
-    );
-  }
-};
+}) =>
+  repeatEvery({
+    waits: input.waits,
+    everyMs: STATE_PUBLISH_EVERY_MS,
+    runOnStart: true,
+    run: () => input.publisher.pass(),
+    failed: () => input.report({ cause: 'read', failed: 1 }),
+  });

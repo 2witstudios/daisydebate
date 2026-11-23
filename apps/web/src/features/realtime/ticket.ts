@@ -4,7 +4,7 @@ import { ticketSchema } from '@daisy/protocol/realtime';
 import {
   runMemberRoute,
   type BudgetedMemberBoundary,
-} from '../../server/member-boundary';
+} from '../auth/member-boundary';
 
 /** ADR 0031 §11 / plan section D: 60 s, single-use. */
 const TICKET_TTL_SECONDS = 60;

@@ -1,5 +1,7 @@
 import { createAppError } from '@daisy/errors';
 import { and, asc, desc, eq, isNotNull, isNull, or, sql } from 'drizzle-orm';
+import { parsedColumn } from '../raw-rows';
+import { z } from 'zod';
 import { actors } from '../schema/actors';
 import { users } from '../schema/users';
 import { contactPairs } from '../schema/contacts';
@@ -80,7 +82,10 @@ async function readRows(
   tx: Tx,
   actorId: string,
 ): Promise<readonly FriendshipRow[]> {
-  const other = sql<string>`case when ${friendships.lowActorId} = ${actorId} then ${friendships.highActorId} else ${friendships.lowActorId} end`;
+  const other = parsedColumn(
+    z.string(),
+    sql`case when ${friendships.lowActorId} = ${actorId} then ${friendships.highActorId} else ${friendships.lowActorId} end`,
+  );
   const rows = await tx
     .select({
       otherActorId: other,

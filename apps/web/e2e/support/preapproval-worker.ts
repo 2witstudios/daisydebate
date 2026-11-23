@@ -1,7 +1,8 @@
+import { openWebDatabase } from '../../src/server/database';
+import { hostWaits } from '@daisy/worker/host';
 import { runPreapprovalCommand } from '../../src/features/operator-api/preapproval-command';
 import { sha3Hex } from '@daisy/digest';
 import { createId } from '@paralleldrive/cuid2';
-import { createDatabase } from '@daisy/db';
 import { preapprovalEmailSchema } from '@daisy/protocol/beta-preapproval';
 import { betaAccessTarget } from './beta-access-target';
 import { z } from 'zod';
@@ -9,7 +10,8 @@ import { z } from 'zod';
 const input = z
   .strictObject({ email: preapprovalEmailSchema, invite: z.boolean() })
   .parse(JSON.parse(await Bun.stdin.text()));
-const database = createDatabase({
+const database = openWebDatabase({
+  waits: hostWaits,
   url: betaAccessTarget(process.env),
   nextActorId: createId,
 });

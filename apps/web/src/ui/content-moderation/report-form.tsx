@@ -36,7 +36,7 @@ export function ReportForm({
             ))}
           </select>
         </label>
-        <Button variant="unstyled" type="submit" className="font-strong">
+        <Button variant="text" type="submit">
           Send report
         </Button>
       </form>

@@ -1,4 +1,4 @@
-import type { InboxRow } from '@daisy/db';
+import type { InboxRow } from '@daisy/db/stores/notifications';
 import type { CompetitionType } from '@daisy/protocol/round';
 import type { RatingStyle } from '@daisy/protocol/primitives';
 import type { SeatKind } from '@daisy/protocol/seats';

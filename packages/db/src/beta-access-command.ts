@@ -1,3 +1,5 @@
+import { actorKinds } from './schema/actors';
+import { listedWord } from './lifecycle-sql';
 import { normalizedEmailSql } from './email-identity';
 import { createAppError } from '@daisy/errors';
 import {
@@ -9,7 +11,7 @@ import {
 } from '@daisy/protocol/beta-access';
 import { sql } from 'drizzle-orm';
 import { lockAuthorizationActors } from './authorization';
-import type { authorizationAccountFact } from './authorization-account';
+import type { authorizationAccountFact } from './authorization';
 import type { DatabaseEventSink } from './instrumented';
 import { appendSessionRevokedFor } from './session-revoked';
 import { writeBetaAccessChange } from './beta-access-change';
@@ -72,7 +74,7 @@ async function lockTarget(tx: Tx, userId: string) {
   const [actor] = await query(
     tx,
     z.object({ id: z.string() }),
-    sql`select id from actors where user_id = ${userId} and kind = 'human'`,
+    sql`select id from actors where user_id = ${userId} and kind = ${listedWord(actorKinds, 'human')}`,
   );
   if (!actor) return null;
   const [fact] = await lockAuthorizationActors(tx, [actor.id], {

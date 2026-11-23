@@ -1,3 +1,5 @@
+import { listedWord } from '../lifecycle-sql';
+import { messagingFileLifecycles } from '@daisy/protocol/messaging/files';
 import { tryInstantMs } from '@daisy/clock';
 import { and, eq, sql } from 'drizzle-orm';
 import { createAppError } from '@daisy/errors';
@@ -82,7 +84,7 @@ export async function exportSubjectFiles(tx: Tx, actorId: string) {
       stored_bytes: postgresInt8.nullable(),
       generation: postgresInt8,
       authority_revision: postgresInt8,
-      lifecycle: z.string(),
+      lifecycle: z.enum(messagingFileLifecycles),
       created_at: z.date(),
       expires_at: z.date(),
       deleted_at: z.date().nullable(),
@@ -136,9 +138,9 @@ export async function expireChannelFiles(
   await run(
     tx,
     sql`
-    update messaging_files set lifecycle = 'deleting', filename = null, mime = null,
+    update messaging_files set lifecycle = ${listedWord(messagingFileLifecycles, 'deleting')}, filename = null, mime = null,
       request_id = null, message_id = null, generation = generation + 1
-    where channel_id = ${channelId} and lifecycle in ('reserved','quarantined') and expires_at <= ${new Date(now)}
+    where channel_id = ${channelId} and lifecycle in (${listedWord(messagingFileLifecycles, 'reserved')},${listedWord(messagingFileLifecycles, 'quarantined')}) and expires_at <= ${new Date(now)}
     ${selected}
   `,
   );
@@ -177,10 +179,10 @@ export async function failPendingFile(
   await run(
     tx,
     sql`
-    update messaging_files set lifecycle = 'deleting', filename = null, mime = null,
+    update messaging_files set lifecycle = ${listedWord(messagingFileLifecycles, 'deleting')}, filename = null, mime = null,
       request_id = null, message_id = null, generation = generation + 1
     where id = ${token.fileId} and channel_id = ${scope.channelId} and owner_actor_id = ${scope.actorId}
-      and generation = ${token.generation} and lifecycle in ('reserved','quarantined')
+      and generation = ${token.generation} and lifecycle in (${listedWord(messagingFileLifecycles, 'reserved')},${listedWord(messagingFileLifecycles, 'quarantined')})
   `,
   );
 }

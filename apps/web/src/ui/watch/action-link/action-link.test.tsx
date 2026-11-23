@@ -1,13 +1,13 @@
 import { createElement as h } from 'react';
-import { renderToString } from 'react-dom/server';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
+import { renderAccessible } from '../../../test-support/rendered/accessible';
 import { ActionLink } from './action-link';
 
 setupRitewayBun();
 
 describe('ActionLink', () => {
   test('a real link styled as a button', () => {
-    const html = renderToString(
+    const view = renderAccessible(
       h(ActionLink, {
         href: '/lobby',
         variant: 'primary',
@@ -16,13 +16,12 @@ describe('ActionLink', () => {
     );
     assert({
       given: 'a primary action link',
-      should: 'render an anchor with the href and the primary button classes',
+      should: 'render one link named by its children, to the href',
       actual: [
-        /<a [^>]*href="\/lobby"/.test(html),
-        html.includes('bg-accent'),
-        html.includes('Open the lobby'),
+        view.attribute('link', 'Open the lobby', 'href'),
+        view.count('link'),
       ],
-      expected: [true, true, true],
+      expected: ['/lobby', 1],
     });
   });
 });

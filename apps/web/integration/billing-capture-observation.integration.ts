@@ -1,4 +1,4 @@
-import { createHash } from 'node:crypto';
+import { sha256Hex } from '@daisy/digest';
 import { writeFile } from 'node:fs/promises';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { requireTestServices } from '@daisy/config';
@@ -146,10 +146,7 @@ test('actual casual capture volume, verified output and independent transport ov
             intervals: h.intervals,
             sourceBytes: h.sources,
             declaredAdmission: declared,
-            declarationSHA256: createHash('sha256')
-              .update(source)
-              .update(fleetSource)
-              .digest('hex'),
+            declarationSHA256: sha256Hex(source + fleetSource),
             workerRoles: [one.processed.role, two.processed.role],
             builds: [one.processed.output, two.processed.output],
             limitations: [

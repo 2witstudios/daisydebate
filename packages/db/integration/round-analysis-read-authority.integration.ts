@@ -1,4 +1,6 @@
-import { roundDecisionReleasePolicy } from '@daisy/protocol/round-decision-release';
+import { createRoundAnalysisStore } from '../src/stores/round-analysis';
+import { openDatabaseResources } from '../src/resources';
+import { hostWaits } from '@daisy/worker/host';
 import { createId } from '@paralleldrive/cuid2';
 import { authorize } from '@daisy/auth/authorization';
 import { requireTestServices } from '@daisy/config';
@@ -7,7 +9,6 @@ import { sampleRoundAnalysisReport as report } from '@daisy/protocol/round-analy
 import { drizzle } from 'drizzle-orm/bun-sql';
 import { sql } from 'drizzle-orm';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { createDatabase } from '../src/index';
 import { finishedOrBlockedBehind } from '../src/testing';
 import { runPrivacyErasure } from '../src/privacy/operations';
 import { roundAnalysisPrivacyAdopter } from '../src/round-analysis-privacy';
@@ -17,6 +18,28 @@ import {
   withCompletedRound,
 } from './round-analysis.test-support';
 import { bindings } from './privacy.test-support';
+/** This file's database: the area stores it reads, over one set of resources. */
+const openStores = (
+  options: Parameters<typeof openDatabaseResources>[0] & {
+    readonly nextActorId: () => string;
+    readonly roundAnalysis?: NonNullable<
+      Parameters<typeof createRoundAnalysisStore>[1]
+    >['roundAnalysis'];
+    readonly aiAllowance?: NonNullable<
+      Parameters<typeof createRoundAnalysisStore>[1]
+    >['aiAllowance'];
+  },
+) => {
+  const resources = openDatabaseResources(options);
+  return {
+    ...createRoundAnalysisStore(resources, {
+      nextId: options.nextActorId,
+      roundAnalysis: options.roundAnalysis,
+      aiAllowance: options.aiAllowance,
+    }),
+    close: resources.close,
+  };
+};
 
 setupRitewayBun();
 const { databaseUrl } = requireTestServices(process.env);
@@ -26,8 +49,8 @@ test('stored report reads survive lapse and serialize with every frozen particip
     async ({ fixture, client, roundId, aff, neg, seats, jobs, request }) => {
       await request(seats.aff);
       await deliverAnalysis(jobs, seats.aff, report);
-      const store = createDatabase({
-        decisionRelease: roundDecisionReleasePolicy,
+      const store = openStores({
+        waits: hostWaits,
         url: databaseUrl,
         client: fixture.sql,
         nextActorId: createId,
@@ -134,7 +157,7 @@ test('stored report reads survive lapse and serialize with every frozen particip
           should:
             'block the other debater read at that participant account fence',
           actual: await finishedOrBlockedBehind(reading, fixture.sql, pid, {
-            now: performance.now,
+            waits: hostWaits,
             deadlineMs: 1000,
           }),
           expected: 'blocked',

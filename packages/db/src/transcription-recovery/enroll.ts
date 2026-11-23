@@ -1,4 +1,6 @@
 import { eq, sql } from 'drizzle-orm';
+import { parsedColumn } from '../raw-rows';
+import { z } from 'zod';
 import { createAppError } from '@daisy/errors';
 import { lockOriginalEvidenceBody } from '../necessary-evidence-body';
 import { necessaryEvidence } from '../schema/necessary-evidence';
@@ -15,7 +17,10 @@ export async function enroll(tx: Tx, raw: unknown) {
       payloadAcceptedAt: necessaryEvidence.payloadAcceptedAt,
       receivedAt: necessaryEvidence.receivedAt,
       expiresAt: necessaryEvidence.expiresAt,
-      payloadPresent: sql<boolean>`${necessaryEvidence.ciphertext} is not null and ${necessaryEvidence.nonce} is not null and ${necessaryEvidence.tag} is not null`,
+      payloadPresent: parsedColumn(
+        z.boolean(),
+        sql`${necessaryEvidence.ciphertext} is not null and ${necessaryEvidence.nonce} is not null and ${necessaryEvidence.tag} is not null`,
+      ),
     })
     .from(necessaryEvidence)
     .where(eq(necessaryEvidence.id, original.body.evidenceId));

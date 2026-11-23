@@ -1,7 +1,9 @@
 import { assert } from 'riteway/bun';
 import type { withAttendanceRound } from './attendance.test-support';
 import type { PublicCheckInProbeConfiguration } from '../src/features/availability/public-probe';
-import { startRoundAvailability } from '../src/server/round-availability';
+import { startRoundAvailability } from '../src/features/availability/worker';
+import { RENEW_INTERVAL_MS } from '../src/features/availability/lease-health';
+import { manualWaits } from '../src/lib/manual-waits.test-support';
 
 type Fixture = Parameters<Parameters<typeof withAttendanceRound>[0]>[0];
 
@@ -16,7 +18,11 @@ export async function verifyAvailabilityLeaseCadence(input: {
   const held = Promise.withResolvers<void>();
   const release = Promise.withResolvers<void>();
   const renewed = Promise.withResolvers<void>();
-  let tick = () => {};
+  // The heartbeat's cadence is fired by hand; real PG time still passes between ticks.
+  const time = manualWaits();
+  const tick = async () => {
+    await time.tasks.get(RENEW_INTERVAL_MS)?.();
+  };
   let renewals = 0;
   let probes = 0;
   let failures = 0;
@@ -56,16 +62,7 @@ export async function verifyAvailabilityLeaseCadence(input: {
       if (String(url).endsWith('/check-in')) probes += 1;
       return fetch(url, init);
     },
-    timers: {
-      setInterval: (callback) => {
-        tick = callback;
-        return 1;
-      },
-      clearInterval: () => {},
-      setTimeout: () => 1,
-      clearTimeout: () => {},
-      now: () => performance.now(),
-    },
+    waits: time.waits,
   });
   try {
     await held.promise;
@@ -73,7 +70,7 @@ export async function verifyAvailabilityLeaseCadence(input: {
       await sql`select renewed_at::text as at from service_instances where instance_id=${service.instanceId}`;
     // Advance real PG time across the next cadence, rather than inventing lease time.
     await sql`select pg_sleep(1.05)`;
-    tick();
+    await tick();
     await renewed.promise;
     const [after] =
       await sql`select renewed_at>${before.at}::timestamptz as renewed from service_instances where instance_id=${service.instanceId}`;
@@ -88,7 +85,7 @@ export async function verifyAvailabilityLeaseCadence(input: {
   } finally {
     release.resolve();
     await service.stop();
-    tick();
+    await tick();
     await sql`delete from service_instances where instance_id=${service.instanceId}`;
     await sql`delete from availability_samples where at>${prefix.at}::timestamptz`;
   }

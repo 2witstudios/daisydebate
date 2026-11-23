@@ -3,11 +3,12 @@ import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { nowMs as clockNowMs, systemClock } from '@daisy/clock';
 import { requireTestServices } from '@daisy/config';
 import { createRetentionSweep } from '../src/server/retention-sweep';
-import { retentionTargets } from '../src/server/retention-targets';
+import { retentionTargets } from '../src/server/retention-targets.test-support';
 import { createFaultedApp } from './fault-proxy';
 import { cookieHeader, createTestApp, linkFrom, tokenOf } from './fixtures';
-import { provisionalLinkPurposes } from '../src/features/auth/mail/provisional-mail';
 import { sampleOf, serveEdge } from './ops-edge';
+import { authComposition } from '../src/features/auth/composition';
+import { confirmComposition } from '../src/features/auth/composition';
 
 /**
  * ISSUE-190: every AUTH-7.7 signal `withAlertRecording` derives from the
@@ -153,12 +154,12 @@ describe('ISSUE-190 storage unavailable and retention signals', () => {
 
   test('a session read during a database outage marks storage unavailable on /api/ops/alerts', async () => {
     // A real session, signed in while the database is reachable.
-    await routes.auth.POST(
+    await routes(authComposition).POST(
       testApp.jsonPost('/api/auth/sign-in/magic-link', {
         email: testApp.freshEmail(),
       }),
     );
-    const signedIn = await routes.confirm.POST(
+    const signedIn = await routes(confirmComposition).POST(
       testApp.formPost({
         token: tokenOf(linkFrom(testApp.mailbox.mails.at(-1)!)),
         callbackURL: '/lobby',
@@ -202,7 +203,6 @@ describe('ISSUE-190 storage unavailable and retention signals', () => {
       targets: retentionTargets({
         database: app.database,
         redis: app.redis,
-        provisionalLinks: provisionalLinkPurposes,
       }),
       clock: app.clock,
       logger: app.logger,
@@ -243,32 +243,32 @@ describe('ISSUE-190 storage unavailable and retention signals', () => {
             'retention.flag_overrides',
             'retention.flag_evidence',
             'retention.verification',
-            'retention.outbox',
             'retention.session',
             'retention.provisional_user',
+            'retention.outbox',
             'retention.child_account_requests',
             'retention.room_commands',
             'retention.round_commands',
+            'retention.utterances',
             'retention.round_check_in_attempts',
             'retention.service_instances',
             'retention.availability_samples',
             'retention.email_delivery_event',
             'retention.email_delivery',
+            'retention.mail_intents',
             'retention.club_seat_invitations',
             'retention.league_requests',
             'retention.support_messages',
             'retention.media_release_requests',
             'retention.media_releases',
-            'retention.mail_intents',
-            'retention.utterances',
             'retention.pending_ballots',
             'retention.judging_stages',
             'retention.round_analyses',
             'retention.social_declines',
             'retention.social_requests',
             'retention.notifications',
-            'retention.messaging_unread_emails',
             'retention.notification_digests',
+            'retention.messaging_unread_emails',
             'retention.room_invitations',
             'retention.watch_history',
             'retention.spectator_chat',

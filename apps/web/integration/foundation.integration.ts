@@ -2,6 +2,7 @@ import { afterAll } from 'bun:test';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { requireTestServices } from '@daisy/config';
 import { createTestApp, withSql } from './fixtures';
+import { foundationProofComposition } from '../src/features/foundation/composition';
 
 requireTestServices(process.env);
 setupRitewayBun();
@@ -11,7 +12,7 @@ setupRitewayBun();
 // is set, so other suites in this process keep their own configuration
 // (foundation-disabled.integration.ts proves the gate stays shut there).
 const { app, routes } = createTestApp({ FOUNDATION_PROOF_ENABLED: 'true' });
-const { POST, GET } = routes.foundationProof;
+const { POST, GET } = routes(foundationProofComposition);
 
 const origin = app.config.PUBLIC_APP_URL;
 const post = (body: unknown, headers: Record<string, string> = {}) =>

@@ -1,4 +1,4 @@
-import { StatusRegion } from '../components/status-region/status-region';
+import { Announcement } from '../components/announcement/announcement';
 import Link from 'next/link';
 import type { BillingSettings } from '../../features/billing/settings-view';
 import {
@@ -199,10 +199,12 @@ function PlanPanel({ settings }: { readonly settings: BillingSettings }) {
   }
 }
 
+/** What Premium includes; bot debates are no part of it (BCS-7). */
 const included = [
-  ['Debate a bot', 'As many Rounds as you want.'],
   ['Ask for analysis', 'On any Round you debated.'],
+  ['AI judge', 'On the casual Rounds you host.'],
   ['Record and broadcast', 'Turn it on when you host a casual Room.'],
+  ['Download Recordings', 'Any Recording you can watch.'],
 ] as const;
 
 /** The checkout return once current server evidence shows Premium, never the return URL alone. */
@@ -212,9 +214,9 @@ function PremiumConfirmed({
   readonly settings: BillingSettings;
 }) {
   return (
-    <StatusRegion
+    <Announcement
       as="section"
-      role="status"
+      kind="progress"
       className="flex flex-col gap-4 rounded-xl border border-border bg-surface-raised p-6"
     >
       <div className="flex items-center gap-3">
@@ -245,7 +247,7 @@ function PremiumConfirmed({
         ) : null}
         A receipt is on its way to your email.
       </p>
-      <div className="grid gap-3 narrow:grid-cols-3">
+      <div className="grid gap-3 narrow:grid-cols-2">
         {included.map(([title, body]) => (
           <div
             key={title}
@@ -261,13 +263,13 @@ function PremiumConfirmed({
           href="/play"
           className={`${buttonClass('primary')} min-h-nav-target`}
         >
-          Debate a bot
+          Play a debate
         </Link>
         <Link href="/settings/billing" className={secondary}>
           Back to billing
         </Link>
       </div>
-    </StatusRegion>
+    </Announcement>
   );
 }
 
@@ -294,13 +296,13 @@ export function BillingSettingsPage({
     <ReadingPage>
       <PageHeader title="Billing" />
       {message ? (
-        <StatusRegion
+        <Announcement
           as="p"
-          role="status"
+          kind="progress"
           className="rounded-lg bg-surface-sunken px-4 py-3"
         >
           {message}
-        </StatusRegion>
+        </Announcement>
       ) : null}
       {!settings ? (
         <Panel title="Billing unavailable">

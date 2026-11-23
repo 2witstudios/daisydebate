@@ -7,12 +7,14 @@ import { createSupportMessageNotices } from '../src/features/support/owner-notic
 import { nextWorkerToken } from '../src/server/worker-token';
 import { createFlows } from './auth-mounted-flows';
 import { cookieHeader, createTestApp, userIdOf, withSql } from './fixtures';
+import { supportComposition } from '../src/features/support/composition';
 
 setupRitewayBun();
 
 const ownerAddress = 'support-owner@example.test';
 const t = createTestApp({ SUPPORT_NOTIFY_EMAIL: ownerAddress });
 const stored: string[] = [];
+const route = t.routes(supportComposition);
 
 afterAll(() =>
   withSql(
@@ -69,10 +71,10 @@ const mailsFor = (id: string) =>
 
 test('a visitor’s support message is stored once and reaches the owner', async () => {
   const message = messageFor();
-  const first = await t.routes.support.POST(
+  const first = await route.POST(
     t.jsonPost('/api/support', message),
   );
-  const again = await t.routes.support.POST(
+  const again = await route.POST(
     t.jsonPost('/api/support', message),
   );
 
@@ -141,7 +143,7 @@ test('a signed-in account’s message is recorded against it from the session', 
   const signedIn = await flows.redeem(signup.token);
   const userId = await userIdOf(signup.email);
   const message = messageFor({ topic: 'account', about: '' });
-  const answer = await t.routes.support.POST(
+  const answer = await route.POST(
     t.jsonPost('/api/support', message, { cookie: cookieHeader(signedIn) }),
   );
   const [row] = await rowsOf([message.messageId]);
@@ -172,12 +174,12 @@ test('one client is limited, and nothing past the limit is stored', async () => 
   for (const message of sent)
     statuses.push(
       (
-        await t.routes.support.POST(
+        await route.POST(
           t.jsonPost('/api/support', message, { [CLIENT_IP_HEADER]: client }),
         )
       ).status,
     );
-  const fromElsewhere = await t.routes.support.POST(
+  const fromElsewhere = await route.POST(
     t.jsonPost('/api/support', messageFor()),
   );
 
@@ -202,8 +204,8 @@ test('invalid and cross-origin messages store nothing', async () => {
   const invalid = messageFor({ replyEmail: 'not an address' });
   const crossOrigin = messageFor();
   const answers = [
-    await t.routes.support.POST(t.jsonPost('/api/support', invalid)),
-    await t.routes.support.POST(
+    await route.POST(t.jsonPost('/api/support', invalid)),
+    await route.POST(
       t.jsonPost('/api/support', crossOrigin, {
         origin: 'https://elsewhere.example',
       }),

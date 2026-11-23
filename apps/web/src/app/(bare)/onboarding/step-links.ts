@@ -6,7 +6,7 @@ import {
   stepAdmits,
   type OnboardingStep,
 } from '../../../features/onboarding/steps';
-import { requestOptionalAnswersAdmitted } from '../../../lib/request-session';
+import { requestOptionalAnswersAdmitted } from '../../../features/onboarding/page-reads';
 
 /**
  * A step's way forward and back for this render's member, read from the

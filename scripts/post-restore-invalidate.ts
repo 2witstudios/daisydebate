@@ -34,8 +34,10 @@
  * either.
  */
 import { RedisClient } from 'bun';
-import { systemId } from '@daisy/clock';
-import { createDatabase } from '@daisy/db';
+import { hostWaits } from '@daisy/worker/host';
+import { openDatabaseResources } from '@daisy/db/resources';
+import { createAuthStore } from '@daisy/db/stores/auth';
+import { createHealthStore } from '@daisy/db/stores/health';
 import { clearAuthRateLimits } from '@daisy/redis/namespaces';
 import {
   refusalFor,
@@ -71,10 +73,11 @@ const redisRefusal = refusalForRedis(
 );
 if (redisRefusal) throw new Error(redisRefusal);
 
-const database = createDatabase({
-  url: databaseUrl,
-  nextActorId: systemId.next,
-});
+const resources = openDatabaseResources({ url: databaseUrl, waits: hostWaits });
+const database = {
+  ...createHealthStore(resources),
+  ...createAuthStore(resources),
+};
 const redis = new RedisClient(redisUrl);
 
 try {
@@ -98,6 +101,6 @@ try {
     }),
   );
 } finally {
-  await database.close();
+  await resources.close();
   redis.close();
 }

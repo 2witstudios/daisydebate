@@ -1,6 +1,6 @@
 import { sha3Hex } from '@daisy/digest';
 import type { ServerMessage } from '@daisy/protocol/realtime-server';
-import type { RealtimeAuthorityReads } from '@daisy/db';
+import type { RealtimeAuthorityReads } from '@daisy/db/stores/realtime-authority';
 import type { RealtimeApp } from './app';
 import {
   createRealtimeAuthorization,
@@ -16,7 +16,7 @@ import {
   authorityFailureFields,
   boundedAuthorityCheck,
 } from './authority-check';
-import type { IntervalTimers } from './outbox-drain';
+import type { Waits } from '@daisy/clock';
 
 /** The real process composition: Redis atomic ticket consumption, canonical
  * durable session/account and topic authority, retained database catchup.
@@ -26,9 +26,9 @@ export function createRealtimeDelivery({
   now,
   publish,
   readingPolicy,
-  timers,
+  waits,
 }: {
-  readonly timers: IntervalTimers;
+  readonly waits: Waits;
   readonly resources: RealtimeApp;
   readonly now: () => number;
   readonly publish: (topic: string, frame: ServerMessage) => void;
@@ -74,13 +74,13 @@ export function createRealtimeDelivery({
     authorize: (principal, topic) =>
       boundedAuthorityCheck({
         check: (signal) => authority.authorizeTopic(principal, topic, signal),
-        timers,
+        waits,
         budgetMs: 5_000,
       }),
     renew: (principal, topic) =>
       boundedAuthorityCheck({
         check: (signal) => renewal.authorizeTopic(principal, topic, signal),
-        timers,
+        waits,
         budgetMs: 5_000,
       }),
     readCatchup: resources.database.readOutboxCatchup,
@@ -95,7 +95,7 @@ export function createRealtimeDelivery({
     validatePrincipal: (principal: SocketPrincipal) =>
       boundedAuthorityCheck({
         check: () => renewal.validatePrincipal(principal),
-        timers,
+        waits,
         budgetMs: 5_000,
       }),
     async authenticate(

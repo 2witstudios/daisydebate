@@ -17,12 +17,12 @@ import {
   aiAdmissionOptions,
   roundWorkerDatabaseOptions,
   type AiSeatAvailability,
-} from './round-worker-policy';
+} from '../features/round-runtime/worker-policy';
 import type { MessagingFileRuntime } from '../features/messaging/files/runtime';
 import { readRealtimePublicUrl } from '@daisy/config';
 import type { MessagingRuntimePolicy } from '../features/messaging/composition';
-import type { RoomPolicy } from '../features/room-runtime/composition';
-import type { Clock, IdGenerator } from '@daisy/clock';
+import type { RoomPolicy } from '../features/room-runtime/room-policy';
+import type { Clock, IdGenerator, Waits } from '@daisy/clock';
 import {
   readAuthConfig,
   readMailConfig,
@@ -31,7 +31,7 @@ import {
   type MailConfig,
 } from '@daisy/config';
 import { createOpenRouter, type OpenRouter } from '@daisy/ai-voice';
-import { createDatabase } from '@daisy/db';
+import { openWebDatabase } from './database';
 import { broadcastFeedUrls } from '../features/spectating/feed-url';
 import { createWatchRoundSnapshots } from '../features/spectating/read-timeline';
 import { createCachedLiveReads } from '../features/watch/cached-live-reads';
@@ -43,6 +43,7 @@ import { createRedis } from '@daisy/redis';
 import { createResendSender, type Fetch } from '../features/mail/resend-sender';
 import { createRateLimiter } from './rate-limit';
 import { createAuthServer, type AuthServer } from '../features/auth/server';
+import { resolveSession } from '../features/auth/identity';
 import type { AfterResponseLimits } from '../features/auth/after-response';
 import { createResendWebhook } from '../features/mail/webhook';
 import { createSendMail } from '../features/mail/send-mail';
@@ -92,6 +93,8 @@ export type AppDependencies = {
   /** Outbound HTTP (the Resend mail transport). */
   readonly fetch: Fetch;
   readonly clock: Clock;
+  /** Injected time for every wait, deadline and one-shot (ADR 0915). */
+  readonly waits: Waits;
   readonly ids: IdGenerator;
   /** OS-CSPRNG bearer capability, supplied only by the process edge. */
   readonly nextWorkerToken?: () => string;
@@ -128,6 +131,7 @@ export function createApp({
   messagingFiles,
   fetch,
   clock,
+  waits,
   ids,
   nextWorkerToken,
   logDestination,
@@ -157,12 +161,13 @@ export function createApp({
   // counters, once each, with no per-site change.
   const logger = withAlertRecording(baseLogger, alertRecorder, metrics);
   const requestNetwork = createRequestNetwork();
-  const database = createDatabase({
+  const database = openWebDatabase({
     decisionRelease,
     url: config.DATABASE_URL,
     eventSink: logger.log,
     fairnessKey: requestNetwork.current,
     nextActorId: () => ids.next(),
+    waits,
     ...roundWorkerDatabaseOptions(config, nextWorkerToken),
     ...aiAdmissionOptions(config),
   });
@@ -196,6 +201,7 @@ export function createApp({
       nowMs: () => nowMs(clock),
       ids,
       fetch,
+      waits,
     });
   const ledger = {
     isSuppressed: (hash: string) => database.isRecipientSuppressed(hash),
@@ -263,7 +269,20 @@ export function createApp({
     view: roundViewReader(database, liveLinkedAdults({ database })),
     nowMs: () => nowMs(clock),
   });
+  // Per-app state every copy of a module must share: Next bundles route
+  // code beside the process's own, so a module-level map would hold one
+  // runtime per copy and the process's shutdown would stop only its own
+  // (ADR 0917).
+  const shared = new Map<string, unknown>();
   return {
+    /** The value `key` names for this app, created once by its first caller. */
+    held: <Value>(key: HeldKey<Value>, create: () => Value): Value => {
+      if (!shared.has(key)) shared.set(key, create());
+      return shared.get(key) as Value;
+    },
+    /** The value `key` names, if anything created it; never creates. */
+    heldIfAny: <Value>(key: HeldKey<Value>): Value | undefined =>
+      shared.get(key) as Value | undefined,
     billingNative(): NativeBillingRuntime | null {
       return billingNative?.() ?? null;
     },
@@ -288,13 +307,15 @@ export function createApp({
     /** The private profile photo bucket; null refuses every upload (ADR 0143). */
     profilePhotoObjects: profilePhotoObjects(env),
     /** The malware scanner photo intake requires; null refuses every upload. */
-    imageScanner: configuredScanner(env),
+    imageScanner: configuredScanner(env, waits),
     /**
      * The automated photo check. None is approved yet (PROF-12, owner), so
      * every photo waits for an operator: nothing unchecked is ever public.
      */
     profilePhotoClassifier: null as PhotoClassifier | null,
     clock,
+    /** Injected time for every wait, deadline and one-shot (ADR 0915). */
+    waits,
     ids,
     logger,
     /**
@@ -368,6 +389,9 @@ export function createApp({
     limiter,
     /** The composed auth server, validated and built on first use. */
     auth: (): AuthServer => (auth ??= composeAuth()),
+    /** This request's session and identity, resolved through auth (its Cookie only). */
+    resolveSession: (requestHeaders: Headers) =>
+      resolveSession((auth ??= composeAuth()), requestHeaders),
     /** The mail transport's configuration (ISSUE-780), validated on first use. */
     mailConfig: readMail,
     /**
@@ -389,6 +413,7 @@ export function createApp({
       return (aiVoice ??= createOpenRouter({
         apiKey: config.OPENROUTER_API_KEY,
         fetch,
+        waits,
         appUrl: config.PUBLIC_APP_URL,
       }));
     },
@@ -417,6 +442,7 @@ export function createApp({
             key: config.POSTHOG_PERSONAL_API_KEY,
             projectId: config.POSTHOG_PROJECT_ID,
             fetch,
+            waits,
           })
         : null,
     analyticsDelivery,
@@ -447,3 +473,12 @@ export function createApp({
 }
 
 export type App = ReturnType<typeof createApp>;
+
+/**
+ * A key into `App.held`, typed by the value it names. A string, because an
+ * object key would split across module copies too; its feature owns it and
+ * names it `<feature>/<name>`, declared once beside its one user.
+ */
+export type HeldKey<Value> = string & { readonly __held?: Value };
+export const heldKey = <Value>(name: `${string}/${string}`) =>
+  name as HeldKey<Value>;

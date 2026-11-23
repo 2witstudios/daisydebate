@@ -1,6 +1,8 @@
+import { listedWord } from './lifecycle-sql';
 import {
   entitlementGrantSchema,
   type EntitlementGrant,
+  entitlementSources,
 } from '@daisy/protocol/entitlements';
 import { sql } from 'drizzle-orm';
 import type { Tx } from './tx';
@@ -96,6 +98,6 @@ export async function applyBetaEntitlementGrants(
   else
     await run(
       tx,
-      sql`delete from account_entitlement_grants where user_id = ${userId} and source = 'beta'`,
+      sql`delete from account_entitlement_grants where user_id = ${userId} and source = ${listedWord(entitlementSources, 'beta')}`,
     );
 }

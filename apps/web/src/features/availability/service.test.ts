@@ -1,15 +1,35 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { startAvailabilityService } from './service';
 import {
-  inertTimers,
-  withOneShots,
-} from '../../lib/worker-timers.test-support';
+  inertWaits,
+  manualWaits,
+  recordingWaits,
+} from '../../lib/manual-waits.test-support';
+import { RENEW_INTERVAL_MS } from './lease-health';
 setupRitewayBun();
 
+/**
+ * The heartbeat's injected time, fired by hand: `tick` fires the armed
+ * one-second wait, so the next heartbeat runs, and is a no-op once the
+ * service stopped. `events`, when given, records each wait armed
+ * (`wait:<ms>`) and each pending wait a stop aborts (`clear`).
+ */
+function heartbeatWaits(events?: string[]) {
+  const manual = manualWaits();
+  return {
+    waits: recordingWaits(manual.waits, (event, ms) =>
+      events?.push(event === 'armed' ? `wait:${ms}` : 'clear'),
+    ),
+    tick: async () => {
+      await manual.tasks.get(RENEW_INTERVAL_MS)?.();
+    },
+  };
+}
+
 function fixture(elected: boolean, reconcile?: () => Promise<number>) {
-  let tick = () => {};
   const evidence: unknown[] = [];
   const events: string[] = [];
+  const { waits, tick } = heartbeatWaits(events);
   const state = { probeHealthy: false, probes: 0 };
   const service = startAvailabilityService({
     instanceId: 'a'.repeat(24),
@@ -33,23 +53,14 @@ function fixture(elected: boolean, reconcile?: () => Promise<number>) {
       return state.probeHealthy;
     },
     nowMs: () => 0,
-    timers: withOneShots({
-      setInterval: (callback, ms) => {
-        tick = callback;
-        events.push(`interval:${ms}`);
-        return 1;
-      },
-      clearInterval: () => {
-        events.push('clear');
-      },
-    }),
+    waits,
     lapsing: { log: () => {}, report: () => {} },
     nextId: () => 's'.repeat(24),
     failed: () => {
       events.push('failed');
     },
   });
-  return { service, tick: () => tick(), state, evidence, events };
+  return { service, tick, state, evidence, events };
 }
 
 for (const elected of [true, false])
@@ -57,7 +68,7 @@ for (const elected of [true, false])
     const { service, tick, state, evidence, events } = fixture(elected);
     await service.stop();
     state.probeHealthy = true;
-    tick();
+    await tick();
     assert({
       given: 'failed actual probe, then shutdown',
       should:
@@ -68,7 +79,7 @@ for (const elected of [true, false])
           ? [{ publicProbeHealthy: false }, { publicProbeHealthy: false }]
           : [],
         probes: elected ? 2 : 0,
-        events: ['interval:1000', 'renew', 'clear', 'close'],
+        events: ['renew', 'wait:1000', 'clear', 'close'],
       },
     });
   });
@@ -83,7 +94,7 @@ test('pending elected sampling cannot suppress the same peer lease cadence', asy
   });
   try {
     await held.promise;
-    tick();
+    await tick();
     assert({
       given:
         'elected reconciliation work held across the next one-second callback',
@@ -101,7 +112,8 @@ test('pending elected sampling cannot suppress the same peer lease cadence', asy
 });
 
 test('missing probe resources are named at start and hourly, and never decide health', async () => {
-  let tick = async () => {};
+  const beat = heartbeatWaits();
+  const { tick } = beat;
   let clock = 0;
   const invalid: string[] = [];
   const samples: unknown[] = [];
@@ -126,13 +138,7 @@ test('missing probe resources are named at start and hourly, and never decide he
     },
     probeInvalid: (problem) => invalid.push(problem),
     nowMs: () => clock,
-    timers: withOneShots({
-      setInterval: (callback) => {
-        tick = callback;
-        return 1;
-      },
-      clearInterval: () => {},
-    }),
+    waits: beat.waits,
     failed: () => {},
     lapsing: { log: () => {}, report: () => {} },
     nextId: () => 's'.repeat(24),
@@ -187,7 +193,7 @@ test('every process checks the probe resources at start, elected or not', async 
     probeResources: async () => ['segment_missing'],
     probeInvalid: (problem) => invalid.push(problem),
     nowMs: () => 0,
-    timers: inertTimers,
+    waits: inertWaits,
     failed: () => {},
     lapsing: { log: () => {}, report: () => {} },
     nextId: () => 's'.repeat(24),
@@ -203,7 +209,8 @@ test('every process checks the probe resources at start, elected or not', async 
 });
 
 test('a failing probe check waits a minute, not a second', async () => {
-  let tick = async () => {};
+  const beat = heartbeatWaits();
+  const { tick } = beat;
   let clock = 0;
   let reads = 0;
   const invalid: string[] = [];
@@ -225,13 +232,7 @@ test('a failing probe check waits a minute, not a second', async () => {
     },
     probeInvalid: (problem) => invalid.push(problem),
     nowMs: () => clock,
-    timers: withOneShots({
-      setInterval: (callback) => {
-        tick = callback;
-        return 1;
-      },
-      clearInterval: () => {},
-    }),
+    waits: beat.waits,
     failed: () => {},
     lapsing: { log: () => {}, report: () => {} },
     nextId: () => 's'.repeat(24),
@@ -258,7 +259,8 @@ test('a failing probe check waits a minute, not a second', async () => {
 test('a lease left unproven for ten seconds is told once per channel, and a stop never is', async () => {
   const refused = new Error('renewal refused');
   const told: unknown[] = [];
-  let tick = () => {};
+  const beat = heartbeatWaits();
+  const { tick } = beat;
   let nowMs = 0;
   let failing = true;
   let reports = 0;
@@ -277,13 +279,7 @@ test('a lease left unproven for ten seconds is told once per channel, and a stop
     },
     probe: async () => false,
     nowMs: () => nowMs,
-    timers: withOneShots({
-      setInterval: (callback) => {
-        tick = callback;
-        return 1;
-      },
-      clearInterval: () => {},
-    }),
+    waits: beat.waits,
     lapsing: {
       log: (lapse) => void told.push(['log', lapse.lapsedMs]),
       report: (lapse) => {
@@ -298,16 +294,16 @@ test('a lease left unproven for ten seconds is told once per channel, and a stop
   for (let i = 0; i < 12; i++) {
     await settle();
     nowMs += 1000;
-    tick();
+    await tick();
   }
   failing = false;
   await settle();
   nowMs += 1000;
-  tick();
+  await tick();
   await settle();
   await service.stop();
   nowMs += 60_000;
-  tick();
+  await tick();
   const why = { kind: 'renewal_failed', error: refused };
   assert({
     given:
@@ -333,7 +329,8 @@ function ticked(
 ) {
   const logs: unknown[] = [];
   const reports: unknown[] = [];
-  const state = { nowMs: 0, tick: () => {} };
+  const beat = heartbeatWaits();
+  const state = { nowMs: 0, tick: beat.tick };
   const service = startAvailabilityService({
     instanceId: 'a'.repeat(24),
     store: {
@@ -347,13 +344,7 @@ function ticked(
     },
     probe: async () => false,
     nowMs: () => state.nowMs,
-    timers: withOneShots({
-      setInterval: (callback) => {
-        state.tick = callback;
-        return 1;
-      },
-      clearInterval: () => {},
-    }),
+    waits: beat.waits,
     lapsing: {
       log: (lapse) => {
         logs.push(lapse);
@@ -373,7 +364,7 @@ function ticked(
     for (let i = 0; i < seconds; i++) {
       await new Promise((resolve) => setTimeout(resolve, 0));
       state.nowMs += 1000;
-      state.tick();
+      await state.tick();
     }
   };
   return { logs, reports, advance, service };
@@ -467,7 +458,8 @@ test('a streak id that cannot be minted never stops renewals, nor reuses another
   let renewals = 0;
   let failing = true;
   let nowMs = 0;
-  let tick = () => {};
+  const beat = heartbeatWaits();
+  const { tick } = beat;
   const service = startAvailabilityService({
     instanceId: 'a'.repeat(24),
     store: {
@@ -484,13 +476,7 @@ test('a streak id that cannot be minted never stops renewals, nor reuses another
     },
     probe: async () => false,
     nowMs: () => nowMs,
-    timers: withOneShots({
-      setInterval: (callback) => {
-        tick = callback;
-        return 1;
-      },
-      clearInterval: () => {},
-    }),
+    waits: beat.waits,
     lapsing: {
       log: (_lapse, streakId) => void told.push(['log', streakId]),
       report: (_lapse, streakId) => void told.push(['report', streakId]),
@@ -506,7 +492,7 @@ test('a streak id that cannot be minted never stops renewals, nor reuses another
     for (let i = 0; i < seconds; i++) {
       await new Promise((resolve) => setTimeout(resolve, 0));
       nowMs += 1000;
-      tick();
+      await tick();
     }
   };
   await advance(12);

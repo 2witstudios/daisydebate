@@ -1,6 +1,7 @@
+import { openWebDatabase } from '../../src/server/database';
+import { hostWaits } from '@daisy/worker/host';
 import { decisionRelease } from '../../src/features/notifications/decision-release';
 import { resolve } from 'node:path';
-import { createDatabase } from '@daisy/db';
 import { createId } from '@paralleldrive/cuid2';
 import { idSchema } from '@daisy/protocol/primitives';
 import { createRoundMaintenanceOperations } from '../../src/features/round-finalization/maintenance';
@@ -18,7 +19,8 @@ if (import.meta.main) {
   const roundIds = Bun.argv.slice(3).map((id) => idSchema.parse(id));
   if (!roundIds.length || roundIds.length > 8)
     throw new Error('Explicit bounded ballot fixture scope required');
-  const database = createDatabase({
+  const database = openWebDatabase({
+    waits: hostWaits,
     decisionRelease,
     url: process.env.E2E_DATABASE_URL!,
     nextActorId: createId,

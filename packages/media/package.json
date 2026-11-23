@@ -32,6 +32,7 @@
   "devDependencies": {
     "@daisy/config": "workspace:*",
     "@daisy/db": "workspace:*",
+    "@daisy/worker": "workspace:*",
     "riteway": "9.3.0"
   }
 }

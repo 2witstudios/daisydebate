@@ -1,3 +1,4 @@
+import { hostWaits } from '@daisy/worker/host';
 import { resolveRoomConfiguration } from '@daisy/debate-engine';
 import { oneOnOneDefinition, oneOnOneSettings } from '../src/reference-formats';
 import { createId } from '@paralleldrive/cuid2';
@@ -11,7 +12,11 @@ import { createAuthorizationSubject } from './authorization.test-support';
 import { validConfig, validRules } from './round-fixtures';
 import { roomCommandTransaction } from '../src/room-command-transaction';
 import { roomCommandOperations } from '../src/room-command-operations';
-import { betaAllowance, testBotAdmission } from './bot-admission.test-support';
+import {
+  betaAllowance,
+  botDebatesReleased,
+  testBotAdmission,
+} from './bot-admission.test-support';
 import { createCasualJudgeAdmission } from '../src/casual-judge-admission';
 setupRitewayBun();
 requireTestServices(process.env);
@@ -87,7 +92,7 @@ const withBotRoom = (
       });
     const common = {
       database: drizzle({ client: fixture.sql }),
-      commandTransaction: roomCommandTransaction(fixture.sql, 2),
+      commandTransaction: roomCommandTransaction(fixture.sql, 2, hostWaits),
       judgeAdmission: createCasualJudgeAdmission({
         nextId: createId,
         policy: {
@@ -100,6 +105,7 @@ const withBotRoom = (
       ReturnType<typeof roomCommandOperations>['executeRoomCommand']
     >[0] = {
       caller,
+      botRelease: botDebatesReleased,
       actorId: caller.actorId,
       roomId,
       roundId,

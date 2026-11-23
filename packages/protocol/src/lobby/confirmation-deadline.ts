@@ -1,4 +1,4 @@
-import { addMs } from '@daisy/clock';
+import { addMs } from '@daisy/clock/instant';
 import { z } from 'zod';
 
 /** Server-owned operational validity; competition settings and clients cannot extend it. */

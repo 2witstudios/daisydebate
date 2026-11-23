@@ -1,7 +1,7 @@
 import type { Server } from 'node:http';
 import type { AuthConfig } from '@daisy/config';
 import type { Logger } from '@daisy/logger';
-import { deriveClientIdSubkey } from '../features/auth/abuse/client-ip';
+import { deriveClientIdSubkey } from './client-ip';
 import { createHttpServer } from './http-server';
 import type { RequestNetwork } from './request-network';
 import {

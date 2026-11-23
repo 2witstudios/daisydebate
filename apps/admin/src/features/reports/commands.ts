@@ -1,3 +1,4 @@
+import { inTransaction } from '../../db/tx';
 import type { ReportOutcome } from '@daisy/protocol/reports';
 import { appendAudit } from '../../audit/store';
 import {
@@ -31,7 +32,7 @@ async function mayAct(
       })
     : ({ allowed: false, reason: 'disabled' } as const);
   if (decision.allowed) return true;
-  await deps.db.transaction((tx) =>
+  await inTransaction(deps.db, (tx) =>
     appendAudit(tx, {
       id: deps.ids.next(),
       at: deps.clock.now(),
@@ -73,7 +74,7 @@ async function audited<T>(
 ): Promise<ReportNotice> {
   if (!(await mayAct(deps, input.operatorId, input.action))) return 'denied';
   const commandId = deps.ids.next();
-  const { hash: anchor } = await deps.db.transaction((tx) =>
+  const { hash: anchor } = await inTransaction(deps.db, (tx) =>
     appendAudit(tx, {
       id: deps.ids.next(),
       at: deps.clock.now(),
@@ -86,7 +87,7 @@ async function audited<T>(
     }),
   );
   const outcome = await send(commandId, anchor);
-  await deps.db.transaction((tx) =>
+  await inTransaction(deps.db, (tx) =>
     appendAudit(tx, {
       id: deps.ids.next(),
       at: deps.clock.now(),

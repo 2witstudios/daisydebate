@@ -1,9 +1,9 @@
 import { createElement as h } from 'react';
-import { renderToString } from 'react-dom/server';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import type { LiveHubListing } from '../../../features/watch/list-live';
 import { liveCard } from '../../../features/watch/live-card.test-support';
 import { defaultLiveQuery } from '../../../features/watch/live-query';
+import { renderAccessible } from '../../../test-support/rendered/accessible';
 import { LiveTab } from './live-tab';
 
 setupRitewayBun();
@@ -15,42 +15,42 @@ const someLive: LiveHubListing = {
   nextBefore: null,
 };
 const render = (query = defaultLiveQuery, listing = someLive) =>
-  renderToString(h(LiveTab, { query, listing }));
+  renderAccessible(h(LiveTab, { query, listing }));
 
 describe('LiveTab', () => {
   test('the default list', () => {
-    const html = render();
+    const view = render();
     assert({
       given: 'real live Rounds',
       should: 'show the filters, the feature and the cards',
       actual: [
-        html.includes('role="search"'),
-        html.includes('method="get"'),
-
-        html.includes('Featured live debate'),
-        html.split('<article').length - 1,
-        html.includes('No live debates match'),
+        view.has('search', 'Filter live debates'),
+        view.attribute('search', 'Filter live debates', 'method'),
+        view.has('region', 'Featured live debate'),
+        view.count('article'),
+        view.has('heading', 'No live debates match'),
       ],
-      expected: [true, true, true, 2, false],
+      expected: [true, 'get', true, 2, false],
     });
   });
 
   test('the filters are a plain form', () => {
-    const html = render({ ...defaultLiveQuery, mode: 'ranked', q: 'a' });
+    const view = render({ ...defaultLiveQuery, mode: 'ranked', q: 'a' });
+    const form = view.within('search', 'Filter live debates');
     assert({
       given: 'a filtered hub',
       should: 'be a GET form to /watch with a submit button and a Clear link',
       actual: [
-        /<form [^>]*action="\/watch"/.test(html),
-        /<button type="submit"[^>]*>Apply/.test(html),
-        html.includes('>Clear<'),
+        view.attribute('search', 'Filter live debates', 'action'),
+        form.attribute('button', 'Apply', 'type'),
+        form.has('link', 'Clear'),
       ],
-      expected: [true, true, true],
+      expected: ['/watch', 'submit', true],
     });
   });
 
   test('a filter that matches nothing', () => {
-    const html = render(
+    const view = render(
       { ...defaultLiveQuery, q: 'zzz' },
       { featured: null, rows: [], total: 3, nextBefore: null },
     );
@@ -58,11 +58,11 @@ describe('LiveTab', () => {
       given: 'a search with no match',
       should: 'say so and offer Clear filters back to the hub',
       actual: [
-        html.includes('No live debates match'),
-        /<a [^>]*href="\/watch"[^>]*>Clear filters<\/a>/.test(html),
-        html.includes('<article'),
+        view.has('heading', 'No live debates match'),
+        view.attribute('link', 'Clear filters', 'href'),
+        view.count('article'),
       ],
-      expected: [true, true, false],
+      expected: [true, '/watch', 0],
     });
   });
 
@@ -73,28 +73,30 @@ describe('LiveTab', () => {
       total: 0,
       nextBefore: null,
     };
-    const html = render(defaultLiveQuery, empty);
+    const view = render(defaultLiveQuery, empty);
     assert({
       given: 'no live Rounds at all',
       should: 'explain, and offer the archive and the lobby',
       actual: [
-        html.includes('Nothing live right now'),
-        html.includes('?did='),
-        html.includes('href="/recordings"'),
-        html.includes('href="/lobby"'),
-        html.includes('role="search"'),
+        view.has('heading', 'Nothing live right now'),
+        view
+          .all('link')
+          .some((link) => link.getAttribute('href')?.includes('?did=')),
+        view.attribute('link', 'Browse recordings', 'href'),
+        view.attribute('link', 'Open the lobby', 'href'),
+        view.count('search'),
       ],
-      expected: [true, false, true, true, false],
+      expected: [true, false, '/recordings', '/lobby', 0],
     });
   });
 
   test('more than one page', () => {
-    const html = render(defaultLiveQuery, { ...someLive, nextBefore: 'one' });
+    const view = render(defaultLiveQuery, { ...someLive, nextBefore: 'one' });
     assert({
       given: 'a next page',
       should: 'link to it before hydration',
-      actual: html.includes('href="/watch?before=one"'),
-      expected: true,
+      actual: view.attribute('link', 'More live debates', 'href'),
+      expected: '/watch?before=one',
     });
   });
 });

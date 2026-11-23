@@ -1,6 +1,8 @@
 'use client';
-import { useBrowserEffect } from '../../edge/browser-sync';
-import { cancelWindowDelay, windowDelay } from '../../edge/browser-time';
+import { useAnswer, useDeliver } from '../../edge/use-answer';
+import { useDocumentHidden } from '../../edge/use-dom-events';
+import { useResource } from '../../edge/use-driver';
+import { type BrowserScheduler } from '../../edge/browser-time';
 import type { RoundBallotRead } from '@daisy/protocol/round-ballot-read';
 import { useCallback, useMemo, useRef, useSyncExternalStore } from 'react';
 import {
@@ -48,6 +50,7 @@ export function useBallotDraft(
   view: RoundBallotRead,
   display: BallotDisplay,
   posted: Readonly<Record<string, string>>,
+  scheduler: Pick<BrowserScheduler, 'after'>,
 ): {
   readonly values: Readonly<Record<string, string>>;
   readonly restored: boolean;
@@ -65,9 +68,9 @@ export function useBallotDraft(
   // Edits are written at most once per interval, and at once when the page
   // hides or the ballot leaves, so typing never serializes on every key.
   const pending = useRef<HTMLFormElement | null>(null);
-  const timer = useRef<number | null>(null);
+  const timer = useRef<(() => void) | null>(null);
   const cancel = useCallback(() => {
-    if (timer.current !== null) cancelWindowDelay(timer.current);
+    timer.current?.();
     timer.current = null;
     pending.current = null;
   }, []);
@@ -81,31 +84,35 @@ export function useBallotDraft(
   const save = useCallback(
     (form: HTMLFormElement) => {
       pending.current = form;
-      timer.current ??= windowDelay(flush, saveIntervalMs);
+      timer.current ??= scheduler.after(flush, saveIntervalMs);
     },
-    [flush],
+    [flush, scheduler],
   );
-  useBrowserEffect(() => {
-    const hidden = () => {
-      if (document.visibilityState === 'hidden') flush();
-    };
-    window.addEventListener('pagehide', flush);
-    document.addEventListener('visibilitychange', hidden);
-    return () => {
-      window.removeEventListener('pagehide', flush);
-      document.removeEventListener('visibilitychange', hidden);
-      flush();
-    };
-  }, [flush]);
-  useBrowserEffect(() => {
+  useDocumentHidden(flush);
+  // What this draft still holds is written when its key or plan changes, or
+  // the ballot leaves the page.
+  useResource(flush, (pendingWrite) => ({ dispose: pendingWrite }));
+  const settled = useMemo(() => ({ key, display }), [key, display]);
+  // The draft read at mount belongs to its key and display: the key
+  // changing, or the ballot leaving, drops it, and so does each new display,
+  // so a display that comes back reads the edits saved since.
+  useResource(key, (held) =>
+    held === null ? null : { dispose: () => void firstRead.delete(held) },
+  );
+  useAnswer(display, () => {
+    if (key !== null) firstRead.delete(key);
+  });
+  useDeliver(settled, (shown) => {
     const storage = tabStorage();
-    if (!key) return;
-    if (storage && (display === 'recorded' || display === 'decided')) {
+    if (!shown.key) return;
+    if (
+      storage &&
+      (shown.display === 'recorded' || shown.display === 'decided')
+    ) {
       cancel();
-      clearBallotDraft(storage, key);
+      clearBallotDraft(storage, shown.key);
     }
-    return () => void firstRead.delete(key);
-  }, [key, display, cancel]);
+  });
   const restored = Object.keys(posted).length === 0 && draft !== null;
   return { values: restored ? draft : posted, restored, save };
 }

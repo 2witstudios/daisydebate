@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { systemId } from '@daisy/clock';
 import { contactBlockResultSchema } from '@daisy/protocol/contacts';
 import { processRoute } from '../../../../server/process-app';
+import { contactComposition } from '../../../../features/contacts/composition';
 import { inProcessFetch } from '../../../../server/in-process-fetch';
 import {
   parseBlockForm,
@@ -11,7 +12,10 @@ import {
   blockFormUnavailable,
   type BlockFormState,
 } from '../../../../features/contacts/block-form';
-const blockContact = processRoute((routes) => routes.contacts.blockByUsername);
+const blockContact = processRoute(
+  contactComposition,
+  (routes) => routes.blockByUsername,
+);
 export async function blockContactAction(
   _previous: BlockFormState,
   form: FormData,

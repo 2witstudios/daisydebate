@@ -1,4 +1,4 @@
-import { StatusRegion } from '../../components/status-region/status-region';
+import { Announcement } from '../../components/announcement/announcement';
 import { Button } from '../../components/button/button';
 import { Icon } from '../../components/icon/icon';
 import { AuthFrame, AuthHeading, taglinePanel } from '../auth-frame/auth-frame';
@@ -94,7 +94,7 @@ export function UsernameForm({
               }
               className={fieldClass.input}
             />
-            <Button type="submit" disabled={pending} className="h-auth-control">
+            <Button type="submit" disabled={pending} size="auth">
               {pending ? 'Saving…' : 'Continue'}
               <Icon name="arrowRight" size={18} />
             </Button>
@@ -110,9 +110,9 @@ export function UsernameForm({
           </a>
         ) : null}
       </form>
-      <StatusRegion as="p" role="status" className="sr-only">
+      <Announcement as="p" kind="progress" className="sr-only">
         {pending ? 'Saving your username…' : ''}
-      </StatusRegion>
+      </Announcement>
     </AuthFrame>
   );
 }

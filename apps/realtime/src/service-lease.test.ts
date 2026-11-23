@@ -1,9 +1,10 @@
+import { virtualClock } from '@daisy/clock/testing';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { startRealtimeServiceLease } from './service-lease';
 setupRitewayBun();
 
 test('realtime lease samples actual delivery cursor and shutdown waits for its own renewal', async () => {
-  let tick = () => {};
+  const clock = virtualClock();
   let finish!: () => void;
   const inFlight = new Promise<void>((resolve) => {
     finish = resolve;
@@ -20,48 +21,71 @@ test('realtime lease samples actual delivery cursor and shutdown waits for its o
     failed: () => {
       throw new Error('Successful fixture renewal must not report failure');
     },
-    timers: {
-      setInterval: (callback, ms) => {
-        tick = callback;
-        calls.push(ms);
-        return 1;
-      },
-      clearInterval: () => {
-        calls.push('clear');
-      },
-    },
+    waits: clock,
   });
   cursor = { txid: '123', seq: 10n };
+  // The renewal due at 1000 lands while the start-up renewal is pending.
+  await clock.advance(1000);
   finish();
-  await tick();
-  await tick();
+  await clock.advance(1000);
   await lease.stop();
-  tick();
+  await clock.advance(5000);
   assert({
     given:
       'actual drain cursor sampled at lease renewal with another tick while pending',
     should:
       'write one scoped cursor renewal, avoid overlap and stop before pool close',
-    actual: calls,
-    expected: [
-      1000,
-      {
-        instanceId: 'a'.repeat(24),
-        role: 'realtime',
-        deliveredThrough: { txid: '123', seq: 9n },
-      },
-      {
-        instanceId: 'a'.repeat(24),
-        role: 'realtime',
-        deliveredThrough: { txid: '123', seq: 10n },
-      },
-      'clear',
-    ],
+    actual: { calls, sleepers: clock.sleepers() },
+    expected: {
+      calls: [
+        {
+          instanceId: 'a'.repeat(24),
+          role: 'realtime',
+          deliveredThrough: { txid: '123', seq: 9n },
+        },
+        {
+          instanceId: 'a'.repeat(24),
+          role: 'realtime',
+          deliveredThrough: { txid: '123', seq: 10n },
+        },
+      ],
+      sleepers: 0,
+    },
+  });
+});
+
+test('stopping the lease waits for the renewal in flight', async () => {
+  const clock = virtualClock();
+  let finish!: () => void;
+  const inFlight = new Promise<void>((resolve) => {
+    finish = resolve;
+  });
+  const order: string[] = [];
+  const lease = startRealtimeServiceLease({
+    instanceId: 'e'.repeat(24),
+    deliveredThrough: () => ({ txid: '1', seq: 1n }),
+    renew: async () => {
+      await inFlight;
+      order.push('renewed');
+    },
+    failed: () => undefined,
+    waits: clock,
+  });
+  const stopped = lease.stop().then(() => void order.push('stopped'));
+  await clock.settle();
+  order.push('released');
+  finish();
+  await stopped;
+  assert({
+    given: 'a stop while the start-up renewal is pending',
+    should: 'resolve only after that renewal ends',
+    actual: order,
+    expected: ['released', 'renewed', 'stopped'],
   });
 });
 
 test('a failed renewal surfaces its error to the failed sink and the lease keeps renewing', async () => {
-  let tick = () => {};
+  const clock = virtualClock();
   const failures: unknown[] = [];
   let attempt = 0;
   const lease = startRealtimeServiceLease({
@@ -72,16 +96,9 @@ test('a failed renewal surfaces its error to the failed sink and the lease keeps
       throw new Error(`renewal outage ${attempt}`);
     },
     failed: (error) => void failures.push(error),
-    timers: {
-      setInterval: (callback) => {
-        tick = callback;
-        return 1;
-      },
-      clearInterval: () => {},
-    },
+    waits: clock,
   });
-  await tick();
-  await tick();
+  await clock.advance(1000);
   await lease.stop();
   assert({
     given: 'two renewals that both reject',
@@ -92,7 +109,7 @@ test('a failed renewal surfaces its error to the failed sink and the lease keeps
 });
 
 test('a failure sink that throws never rejects the renewal', async () => {
-  let tick: () => unknown = () => {};
+  const clock = virtualClock();
   const lease = startRealtimeServiceLease({
     instanceId: 'c'.repeat(24),
     deliveredThrough: () => ({ txid: '1', seq: 1n }),
@@ -102,18 +119,11 @@ test('a failure sink that throws never rejects the renewal', async () => {
     failed: () => {
       throw new Error('reporter misconfigured');
     },
-    timers: {
-      setInterval: (callback) => {
-        tick = callback;
-        return 1;
-      },
-      clearInterval: () => {},
-    },
+    waits: clock,
   });
   let rejected: unknown = null;
   try {
-    await tick();
-    await tick();
+    await clock.advance(1000);
     await lease.stop();
   } catch (error) {
     rejected = error;
@@ -127,7 +137,7 @@ test('a failure sink that throws never rejects the renewal', async () => {
 });
 
 test('a cursor read that throws synchronously is a failed renewal, not an escaped throw', async () => {
-  let tick: () => unknown = () => {};
+  const clock = virtualClock();
   const failures: unknown[] = [];
   const broken = new Error('cursor unavailable');
   let escaped: unknown = null;
@@ -139,15 +149,9 @@ test('a cursor read that throws synchronously is a failed renewal, not an escape
       },
       renew: async () => {},
       failed: (error) => void failures.push(error),
-      timers: {
-        setInterval: (callback) => {
-          tick = callback;
-          return 1;
-        },
-        clearInterval: () => {},
-      },
+      waits: clock,
     });
-    await tick();
+    await clock.advance(1000);
     await lease.stop();
   } catch (error) {
     escaped = error;

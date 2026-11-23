@@ -2,8 +2,11 @@ import { idle } from '../../features/forms/form-state';
 import { createId } from '@paralleldrive/cuid2';
 import { AppRouterContext } from 'next/dist/shared/lib/app-router-context.shared-runtime';
 import { createElement as h } from 'react';
-import { renderToString } from 'react-dom/server';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
+import {
+  renderAccessible,
+  type AccessibleView,
+} from '../../test-support/rendered/accessible';
 import { AudiencePanel, type AudiencePanelProps } from './audience-panel';
 
 setupRitewayBun();
@@ -47,7 +50,7 @@ const account = {
 };
 const visitor = { kind: 'visitor' as const, signInHref: '/sign-in' };
 const render = (props: Partial<AudiencePanelProps>) =>
-  renderToString(
+  renderAccessible(
     h(
       AppRouterContext,
       { value: {} as never },
@@ -59,21 +62,50 @@ const render = (props: Partial<AudiencePanelProps>) =>
       }),
     ),
   );
+/**
+ * Every way to take part: named forms, and the buttons and fields any form
+ * (an unnamed one has no role) would hold, closed report forms included.
+ */
+const forms = (view: AccessibleView) =>
+  (['form', 'button', 'textbox', 'combobox'] as const)
+    .map((role) => view.count(role, undefined, { hidden: true }))
+    .reduce((sum, count) => sum + count, 0);
+/** The value a form posts under a field name, hidden inputs included. */
+const posted = (control: Element, field: string) => {
+  const form = control.closest('form') as HTMLFormElement | null;
+  const input = form?.elements.namedItem(field) as HTMLInputElement | null;
+  return input?.value ?? null;
+};
+/** The report form under the chat line, closed until its details open. */
+const reportButton = (view: AccessibleView) =>
+  view
+    .within('log', 'Chat messages')
+    .all('button', 'Send report', { hidden: true });
 
 describe('AudiencePanel', () => {
   test('a visitor reads everything and takes part in nothing', () => {
-    const html = render({ viewer: visitor });
+    const view = render({ viewer: visitor });
+    const text = view.textContent();
     assert({
       given: 'no account',
       should:
         'show the line, count and totals, tell them to sign in, and offer no form',
       actual: {
-        line: html.includes('A line'),
-        removed: html.includes('This message was removed.'),
-        count: html.includes('12 people watching'),
-        total: html.includes('Sharp point 3'),
-        signIn: html.includes('to chat and react'),
-        forms: html.includes('<form'),
+        line: view
+          .within('log', 'Chat messages')
+          .textContent()
+          .includes('A line'),
+        removed: view
+          .within('log', 'Chat messages')
+          .textContent()
+          .includes('This message was removed.'),
+        count: text.includes('12 people watching'),
+        total: view
+          .all('listitem')
+          .some((item) => item.textContent === 'Sharp point 3'),
+        signIn: text.includes('Sign in to chat and react'),
+        signInHref: view.attribute('link', 'Sign in', 'href'),
+        forms: forms(view),
       },
       expected: {
         line: true,
@@ -81,73 +113,101 @@ describe('AudiencePanel', () => {
         count: true,
         total: true,
         signIn: true,
-        forms: false,
+        signInHref: '/sign-in',
+        forms: 0,
       },
     });
   });
 
   test('an account posts, reacts and reports with native forms', () => {
-    const html = render({ viewer: account });
+    const view = render({ viewer: account });
+    const message = view
+      .within('form', 'Post to spectator chat')
+      .get('textbox', 'Your message');
+    const [report] = reportButton(view);
     assert({
       given: 'a signed-in account on an open Round',
       should:
         'offer the composer, the reaction buttons and a report for the line',
       actual: {
-        composer: html.includes('name="text"'),
-        request: html.includes(account.requestId),
-        react: html.includes('name="kind"'),
-        report: html.includes('value="chat_message"'),
+        composer: message.getAttribute('name'),
+        request: posted(message, 'requestId'),
+        react: view
+          .within('form', 'React to this Round')
+          .all('button')
+          .map((button) => [
+            button.textContent,
+            button.getAttribute('name'),
+            button.getAttribute('value'),
+          ]),
+        report: report ? posted(report, 'targetKind') : null,
       },
-      expected: { composer: true, request: true, react: true, report: true },
+      expected: {
+        composer: 'text',
+        request: account.requestId,
+        react: [
+          ['Sharp point 3', 'kind', 'sharp_point'],
+          ['Good rebuttal 0', 'kind', 'good_rebuttal'],
+          ['Needs evidence 0', 'kind', 'needs_evidence'],
+          ['Clear structure 0', 'kind', 'clear_structure'],
+        ],
+        report: 'chat_message',
+      },
     });
   });
 
   test('new messages reach a screen reader politely', () => {
-    const html = render({ viewer: account });
+    const view = render({ viewer: account });
     assert({
       given: 'the polled chat list',
       should: 'sit in a polite log region',
       actual: [
-        html.includes('role="log"'),
-        html.includes('aria-live="polite"'),
+        view.has('log', 'Chat messages'),
+        view.attribute('log', 'Chat messages', 'aria-live'),
       ],
-      expected: [true, true],
+      expected: [true, 'polite'],
     });
   });
 
   test('someone in the live room is told why they cannot post', () => {
-    const html = render({
+    const view = render({
       viewer: {
         kind: 'live-room',
         reportMessage: account.reportMessage,
       },
     });
+    const [report] = reportButton(view);
     assert({
       given: 'a debater, judge or seatless host on an open Round',
       should:
         'offer no composer and no reaction, say why plainly, and keep reporting',
       actual: {
-        composer: html.includes('name="text"'),
-        why: html.includes('you cannot post in its chat'),
-        react: html.includes('name="kind"'),
-        report: html.includes('value="chat_message"'),
+        composer: view.has('textbox', 'Your message'),
+        why: view.textContent().includes('you cannot post in its chat'),
+        react: view.all('button', /^Sharp point/, { hidden: true }).length,
+        report: report ? posted(report, 'targetKind') : null,
       },
-      expected: { composer: false, why: true, react: false, report: true },
+      expected: {
+        composer: false,
+        why: true,
+        react: 0,
+        report: 'chat_message',
+      },
     });
   });
 
   test('the composer promises no wait', () => {
-    const html = render({ viewer: account });
+    const view = render({ viewer: account });
     assert({
       given: 'an account about to post',
       should: 'not say a message waits for the broadcast',
-      actual: html.includes('when the broadcast reaches'),
+      actual: view.textContent().includes('when the broadcast reaches'),
       expected: false,
     });
   });
 
   test('a closed Round keeps its history and takes no more', () => {
-    const html = render({
+    const view = render({
       viewer: account,
       initial: { ...snapshot, interaction: 'closed' },
     });
@@ -155,16 +215,16 @@ describe('AudiencePanel', () => {
       given: 'a completed or stopped Broadcast',
       should: 'keep the line and say chat is closed, with no composer',
       actual: [
-        html.includes('A line'),
-        html.includes('Chat is closed.'),
-        html.includes('name="text"'),
+        view.within('log', 'Chat messages').textContent().includes('A line'),
+        view.textContent().includes('Chat is closed.'),
+        view.has('textbox', 'Your message', { hidden: true }),
       ],
       expected: [true, true, false],
     });
   });
 
   test('a seat shown nothing sees no chat, total or count', () => {
-    const html = render({
+    const view = render({
       viewer: account,
       initial: { ...snapshot, messages: [], reactions: [], viewers: null },
       shown: { chat: false, reactions: false, viewers: false },
@@ -173,26 +233,26 @@ describe('AudiencePanel', () => {
       given: 'a ranked debater during the Round',
       should: 'say chat is hidden, with nothing of it or the count',
       actual: [
-        html.includes('hidden from you during this Round'),
-        html.includes('watching'),
-        html.includes('Sharp point'),
-        html.includes('name="text"'),
+        view.textContent().includes('hidden from you during this Round'),
+        view.textContent().includes('watching'),
+        view.textContent().includes('Sharp point'),
+        view.has('textbox', 'Your message', { hidden: true }),
       ],
       expected: [true, false, false, false],
     });
   });
 
   test('a restricted account reads and joins nothing', () => {
-    const html = render({ viewer: { kind: 'restricted' } });
+    const view = render({ viewer: { kind: 'restricted' } });
     assert({
       given: 'an account under a suspension or ban',
       should:
         'show the chat and its reason, with no composer, reaction or report',
       actual: {
-        reason: html.includes('Your account is restricted'),
-        forms: html.includes('<form'),
+        reason: view.textContent().includes('Your account is restricted'),
+        forms: forms(view),
       },
-      expected: { reason: true, forms: false },
+      expected: { reason: true, forms: 0 },
     });
   });
 });

@@ -1,3 +1,4 @@
+import { hostWaits } from '@daisy/worker/host';
 import { roundDecisionReleasePolicy } from '@daisy/protocol/round-decision-release';
 import { requireTestServices } from '@daisy/config';
 import { buildRoomTopic } from '@daisy/protocol/topics';
@@ -19,7 +20,10 @@ import {
 } from '../src/round-projection-writer';
 import { createCasualJudgeAdmission } from '../src/casual-judge-admission';
 import { createAuthorizationSubject } from './authorization.test-support';
-import { betaAllowance } from './bot-admission.test-support';
+import {
+  betaAllowance,
+  botDebatesReleased,
+} from './bot-admission.test-support';
 import { withFixture, type Fixture } from './constraint-helpers';
 import { judgedRound } from './judged-round.test-support';
 import { resolveRoomConfiguration } from '@daisy/debate-engine';
@@ -272,7 +276,7 @@ test('a Round with nothing to run first tells its seated humans at the Start', a
     try {
       await roomCommandOperations({
         database: drizzle({ client: f.sql }),
-        commandTransaction: roomCommandTransaction(f.sql, 2),
+        commandTransaction: roomCommandTransaction(f.sql, 2, hostWaits),
         judgeAdmission: createCasualJudgeAdmission({
           nextId: createId,
           policy: {
@@ -282,6 +286,7 @@ test('a Round with nothing to run first tells its seated humans at the Start', a
         }),
       }).executeRoomCommand({
         caller: host,
+        botRelease: botDebatesReleased,
         actorId: host.actorId,
         roomId,
         roundId,

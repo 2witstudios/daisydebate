@@ -1,10 +1,9 @@
+import type { SpectatorChatStore } from '@daisy/db/stores/spectator-chat';
 import type { Clock, IdGenerator } from '@daisy/clock';
-import type { Database } from '@daisy/db';
 import { createAppError, createRefusal } from '@daisy/errors';
 import { spectatorChatPostSchema } from '@daisy/protocol/audience';
 import {
   audienceRoute,
-  roundIdOf,
   type AccountRouteDeps,
 } from '../../../server/account-route';
 import { parseValidated } from '../../../server/http';
@@ -22,12 +21,12 @@ const CHAT_LIMIT = { max: 20, windowSeconds: 60 };
  */
 export const createSpectatorChatRoute = (
   deps: AccountRouteDeps & {
-    readonly store: Pick<Database, 'postSpectatorChatMessage'>;
+    readonly store: Pick<SpectatorChatStore, 'postSpectatorChatMessage'>;
     readonly clock: Pick<Clock, 'now'>;
     readonly ids: Pick<IdGenerator, 'next'>;
   },
 ) => {
-  return (request: Request) =>
+  return (request: Request, roundId: string) =>
     audienceRoute(
       deps,
       {
@@ -41,7 +40,6 @@ export const createSpectatorChatRoute = (
         if (actorId === null)
           throw createRefusal('CONFLICT', 'audience-needs-username');
         const post = parseValidated(spectatorChatPostSchema, body);
-        const roundId = roundIdOf(request);
         const message = await deps.store.postSpectatorChatMessage(
           {
             roundId,

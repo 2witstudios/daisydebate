@@ -1,15 +1,18 @@
 import { cn } from '../../cn';
 
 const navItemBase =
-  'relative flex items-center rounded-md no-underline transition-colors duration-120 ease-standard hover:no-underline';
+  'relative rounded-md no-underline transition-colors duration-120 ease-standard hover:no-underline';
 
 /* Mini: the 44px square. Extended: a full-width row, icon and words. */
 const miniLayout = 'size-nav-target justify-center';
 const extendedLayout =
   'h-nav-target w-full justify-start gap-3 px-2 icon-rail:w-nav-target icon-rail:justify-center icon-rail:gap-0 icon-rail:px-0';
 
-/** Classes for a rail link; each state owns its colors. */
-export const navItemClass = (active: boolean, extended = false): string =>
+/**
+ * A rail item's shape and colors, without its flex layout: a rail button's
+ * `row` variant lays it out. Each state owns its colors.
+ */
+export const navItemShape = (active: boolean, extended = false): string =>
   cn(
     navItemBase,
     extended ? extendedLayout : miniLayout,
@@ -17,6 +20,9 @@ export const navItemClass = (active: boolean, extended = false): string =>
       ? 'bg-accent text-accent-ink hover:bg-accent-strong hover:text-accent-ink'
       : 'text-ink-muted hover:bg-surface-overlay hover:text-ink',
   );
+/** Classes for a rail link. */
+export const navItemClass = (active: boolean, extended = false): string =>
+  cn('flex items-center', navItemShape(active, extended));
 
 /** Which edge of its rail link a flyout hangs from: a foot item opens upward. */
 export type NavFlyoutAlign = 'top' | 'bottom';
@@ -38,5 +44,6 @@ export const navFlyoutClass = (align: NavFlyoutAlign = 'top'): string =>
   );
 
 /** Classes for a link inside a flyout. */
-export const navFlyoutLinkClass =
-  'block rounded-sm px-3 py-2 text-sm font-semibold whitespace-nowrap text-ink-muted no-underline hover:bg-surface-overlay hover:text-ink hover:no-underline';
+export const navFlyoutItemShape =
+  'rounded-sm px-3 py-2 text-sm font-semibold whitespace-nowrap text-ink-muted no-underline hover:bg-surface-overlay hover:text-ink hover:no-underline';
+export const navFlyoutLinkClass = `block ${navFlyoutItemShape}`;

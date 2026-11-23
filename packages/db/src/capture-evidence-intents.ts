@@ -1,15 +1,19 @@
+import { necessaryEvidenceStates } from '@daisy/protocol/necessary-evidence';
+import { listedWord } from './lifecycle-sql';
 import {
   captureEvidenceSpeakerSchema,
   type CaptureEvidenceSpeaker,
 } from '@daisy/protocol/capture-evidence-speaker';
-import { originalEvidenceBinding } from './necessary-evidence-binding';
 import { requireRoundEvidenceOpen } from './necessary-evidence-rounds';
 import { and, eq, sql } from 'drizzle-orm';
 import { createAppError } from '@daisy/errors';
 import { z } from 'zod';
-import { type captureEvidenceIntentSchema } from './capture-input';
+import {
+  type captureEvidenceIntentSchema,
+  captureDigest,
+} from './media-capture';
 import { captureHistory } from './capture-history';
-import { nextEpoch } from './lease-policy';
+import { nextEpoch, leaseTokenDigest, requireLeaseMs } from './lease';
 import {
   captureWriteContext,
   freshCaptureMutation,
@@ -18,10 +22,6 @@ import {
 } from './media-capture-context';
 import { necessaryEvidence } from './schema/necessary-evidence';
 import { lockNecessaryEvidenceRound } from './necessary-evidence-subjects';
-import {
-  evidenceLeaseDigest,
-  evidencePolicyOf,
-} from './necessary-evidence-policy';
 import type { Tx } from './tx';
 import { takeLock, transactionLocks } from './locks';
 import { query } from './raw-rows';
@@ -126,7 +126,7 @@ export async function reserveCaptureEvidenceIntent(
       sql`select count(*)::integer as count,
       coalesce(sum(reserved_bytes),0)::integer as total,
       coalesce(sum(case when round_id=${input.roundId} then reserved_bytes else 0 end),0)::integer as round
-      from necessary_evidence where state in ('acquiring','retained','retiring')`,
+      from necessary_evidence where state in (${listedWord(necessaryEvidenceStates, 'acquiring')},${listedWord(necessaryEvidenceStates, 'retained')},${listedWord(necessaryEvidenceStates, 'retiring')})`,
     );
     if (
       !capacity ||
@@ -144,7 +144,7 @@ export async function reserveCaptureEvidenceIntent(
     'Evidence execution epoch exhausted',
   );
   const token = policy.nextToken();
-  const digest = evidenceLeaseDigest(token);
+  const digest = leaseTokenDigest(token);
   // Re-sample after admission queries: neither a wait nor token acquisition renews authority.
   const admittedAt = await freshCaptureMutation(
     tx,
@@ -202,3 +202,52 @@ export async function reserveCaptureEvidenceIntent(
     leaseExpiresAt: leaseExpiresAt.toISOString(),
   };
 }
+
+export const evidencePolicyOf = (dependencies: CaptureDependencies) => {
+  const policy = dependencies.evidence;
+  if (!policy)
+    throw createAppError(
+      'INFRASTRUCTURE',
+      'Necessary evidence is not configured',
+    );
+  requireLeaseMs(policy.leaseMs);
+  if (
+    !Number.isSafeInteger(policy.maxRoundBytes) ||
+    policy.maxRoundBytes < 1 ||
+    policy.maxRoundBytes > 32 * 1024 * 1024 ||
+    !Number.isSafeInteger(policy.maxGlobalBytes) ||
+    policy.maxGlobalBytes < policy.maxRoundBytes ||
+    policy.maxGlobalBytes > 512 * 1024 * 1024 ||
+    !Number.isSafeInteger(policy.maxOutstandingIntents) ||
+    policy.maxOutstandingIntents < 1 ||
+    policy.maxOutstandingIntents > 65536
+  )
+    throw createAppError('VALIDATION');
+  return policy;
+};
+
+/** Binds server-validated original scope/window independently of the declared full-body digest. */
+export const originalEvidenceBinding = (
+  input: Intent,
+  subjects: readonly string[],
+  speaker: CaptureEvidenceSpeaker,
+) =>
+  captureDigest([
+    'necessary-evidence@1',
+    input.authorityId,
+    input.roundId,
+    input.sessionId,
+    input.segmentId,
+    input.roundParticipantId,
+    input.workerId,
+    input.epoch,
+    input.trackId,
+    input.startOffsetMs,
+    input.durationMs,
+    input.before,
+    input.after,
+    input.bodyDigest,
+    input.reservedBytes,
+    subjects,
+    speaker,
+  ]);

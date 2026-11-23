@@ -1,11 +1,14 @@
 'use client';
-import { useBrowserEffect } from '../edge/browser-sync';
-import { currentBrowserFetch } from '../edge/browser-request';
-import { scheduleDelay } from '../edge/browser-time';
-import { StatusRegion } from '../components/status-region/status-region';
+import { browserTransport } from '../edge/browser-request';
+import { browserScheduler } from '../edge/browser-time';
+import { useResource } from '../edge/use-driver';
+import { Announcement } from '../components/announcement/announcement';
 import { Button } from '../components/button/button';
 import { useState } from 'react';
-import { readTranscript } from '../../features/round-runtime/read-transcript';
+import {
+  readTranscript,
+  TRANSCRIPT_READ_DEADLINE_MS,
+} from '../../features/round-runtime/read-transcript';
 import {
   askForTranscriptSeed,
   type TranscriptSeed,
@@ -30,17 +33,19 @@ export function TranscriptSeedRecovery({
   readonly placement: TranscriptPlacement;
 }) {
   const [state, setState] = useState<TranscriptSeed>({ kind: 'asking' });
-  useBrowserEffect(
-    () =>
-      askForTranscriptSeed({
-        read: () => readTranscript(currentBrowserFetch(), roundId),
-        schedule: (attempt, asked) => {
-          return scheduleDelay(attempt, nextAskMs(asked));
-        },
-        settled: setState,
-      }),
-    [roundId],
-  );
+  useResource(roundId, (round) => ({
+    dispose: askForTranscriptSeed({
+      read: () =>
+        readTranscript(
+          browserTransport,
+          round,
+          AbortSignal.timeout(TRANSCRIPT_READ_DEADLINE_MS),
+        ),
+      after: browserScheduler.after,
+      waitMs: nextAskMs,
+      settled: setState,
+    }),
+  }));
   return (
     <TranscriptSeedAnswer
       state={state}
@@ -70,26 +75,30 @@ export function TranscriptSeedAnswer({
     );
   if (state.kind === 'denied')
     return placement === 'sidebar' ? (
-      <StatusRegion as="p" role="status" className="p-4 text-sm text-ink-muted">
+      <Announcement
+        as="p"
+        kind="progress"
+        className="p-4 text-sm text-ink-muted"
+      >
         Transcript unavailable.
-      </StatusRegion>
+      </Announcement>
     ) : null;
   return (
-    <StatusRegion as="p" role="status" className="p-4 text-sm">
+    <Announcement as="p" kind="progress" className="p-4 text-sm">
       Transcript unavailable.
       {state.kind === 'outdated' ? (
         <>
           {' '}
           <Button
-            variant="unstyled"
+            variant="text-link"
             type="button"
-            className="cursor-pointer font-strong underline"
+
             onClick={() => window.location.reload()}
           >
             Reload
           </Button>
         </>
       ) : null}
-    </StatusRegion>
+    </Announcement>
   );
 }

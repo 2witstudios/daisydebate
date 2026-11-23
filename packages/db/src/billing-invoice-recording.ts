@@ -12,7 +12,7 @@ import { readDatabaseTime } from './database-clock';
 import { enqueuePrivacyJob } from './privacy/enqueue-job';
 import { privacyJobs } from './schema/privacy-jobs';
 import { billingPaymentObservations } from './schema/billing-payment-observations';
-import { paymentObservationFromRow } from './billing-payment-observation-record';
+import { paymentObservationFromRow } from './billing-payment-observation-write';
 import { retainInvoiceWitness } from './billing-invoice-observation';
 const readsSchema = z
   .array(ownedInvoiceObservationSchema)

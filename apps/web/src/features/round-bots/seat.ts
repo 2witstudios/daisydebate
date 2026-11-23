@@ -1,4 +1,5 @@
-import type { WorkerTimers } from '../../lib/worker-timers';
+import type { Waits } from '@daisy/clock';
+import { repeatEvery, type RepeatWorker } from '@daisy/worker';
 
 /** Joins one owned claim's receipts and speech; receipts never await model, media or relay work. */
 export function createBotSeat(input: {
@@ -26,7 +27,7 @@ export function createBotSeat(input: {
     readonly close: () => Promise<void>;
   } | null;
   readonly pollMs: number;
-  readonly timers: WorkerTimers;
+  readonly waits: Waits;
   /**
    * `stage` is poll when the bot's hearing failed, or close when the seat
    * could not close what it had started, on stop or after a failed start.
@@ -35,19 +36,14 @@ export function createBotSeat(input: {
    */
   readonly failed: (error: unknown, stage: string) => void;
 }) {
-  let polling: Promise<void> | null = null;
-  const poll = (): Promise<void> => {
-    polling ??= (async () => {
-      try {
-        await input.feed?.poll();
-        input.speaker.wake();
-      } catch (error) {
-        input.failed(error, 'poll');
-      } finally {
-        polling = null;
-      }
-    })();
-    return polling;
+  /** One hearing poll; the cadence never overlaps two (skip, not queue). */
+  const poll = async (): Promise<void> => {
+    try {
+      await input.feed?.poll();
+      input.speaker.wake();
+    } catch (error) {
+      input.failed(error, 'poll');
+    }
   };
   /**
    * Closes what the seat started, its publication and then its hearing.
@@ -63,10 +59,16 @@ export function createBotSeat(input: {
         .catch((error: unknown) => input.failed(error, 'close'));
   };
   input.publication.start();
-  let timer: unknown = null;
+  let poller: RepeatWorker | null = null;
   try {
     input.feed?.start();
-    if (input.feed) timer = input.timers.setInterval(poll, input.pollMs);
+    if (input.feed)
+      poller = repeatEvery({
+        waits: input.waits,
+        everyMs: input.pollMs,
+        run: poll,
+        failed: (error) => input.failed(error, 'poll'),
+      });
   } catch (error) {
     // A seat that fails to start owns nothing it started (ISSUE-789).
     void closeStarted();
@@ -78,8 +80,8 @@ export function createBotSeat(input: {
       return input.control.pulse();
     },
     async stop() {
-      if (timer !== null) input.timers.clearInterval(timer);
-      await polling;
+      // Ends the cadence and waits out a poll in flight.
+      await poller?.stop();
       try {
         await input.speaker.stop();
       } finally {

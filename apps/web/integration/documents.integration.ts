@@ -1,7 +1,8 @@
+import { openWebDatabase } from '../src/server/database';
+import { hostWaits } from '@daisy/worker/host';
 import { createId } from '@paralleldrive/cuid2';
 import { instantMs, fixedClock, systemId } from '@daisy/clock';
 import { requireTestServices } from '@daisy/config';
-import { createDatabase } from '@daisy/db';
 import { DRIVE_LIMITS } from '@daisy/db/documents';
 import { assertRejects } from '@daisy/errors/testing';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
@@ -49,7 +50,8 @@ const withDrive = async (
   }) => Promise<void>,
 ) => {
   const [me, stranger] = [await seedPerson(), await seedPerson()];
-  const database = createDatabase({
+  const database = openWebDatabase({
+    waits: hostWaits,
     url: testDatabaseUrl,
     nextActorId: createId,
   });

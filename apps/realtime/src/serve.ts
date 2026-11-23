@@ -1,5 +1,6 @@
-import { nowMs } from '@daisy/clock';
-import { refuseSchemaAlteringRole } from '@daisy/db';
+import { nowMs, type Waits } from '@daisy/clock';
+import { repeatEvery } from '@daisy/worker';
+import { refuseSchemaAlteringRole } from '@daisy/db/startup';
 import type { RealtimeApp } from './app';
 import { createRealtimeServer } from './server';
 import { createRealtimeDelivery } from './delivery';
@@ -10,20 +11,17 @@ import { actorsFencedBy } from './observation/controls';
 import type { RealtimeReadingPolicy } from './authorization';
 import {
   startOutboxDrain,
-  type IntervalTimers,
   type OutboxDrainControl,
   type OutboxRowsSink,
 } from './outbox-drain';
 
 function drainOptions(
   pollIntervalMs: number | undefined,
-  timers: IntervalTimers | undefined,
   onQuery: (() => void) | undefined,
   onListenWake: (() => void) | undefined,
 ) {
   return {
     ...(pollIntervalMs === undefined ? {} : { pollIntervalMs }),
-    ...(timers === undefined ? {} : { timers }),
     ...(onQuery === undefined ? {} : { onQuery }),
     ...(onListenWake === undefined ? {} : { onListenWake }),
   };
@@ -33,7 +31,7 @@ const presenceTracker = (
   resources: RealtimeApp,
   presence:
     { readonly instanceId: string; readonly nextId: () => string } | undefined,
-  timers: IntervalTimers,
+  waits: Waits,
 ) =>
   presence === undefined
     ? {}
@@ -42,9 +40,12 @@ const presenceTracker = (
           leases: resources.redis,
           instanceId: presence.instanceId,
           nextId: presence.nextId,
-          timers,
+          waits,
         }),
       };
+
+/** Principal revalidation's period: transport tuning inside ADR 0031's 60 s bound. */
+const PRINCIPAL_REVALIDATION_MS = 50_000;
 
 const listenerTls = (tls: Bun.TLSOptions | undefined) =>
   tls === undefined ? {} : { tls };
@@ -71,7 +72,7 @@ export async function serveRealtime({
   tls,
   sink,
   pollIntervalMs,
-  timers,
+  waits,
   onQuery,
   onListenWake,
   serve = Bun.serve,
@@ -102,7 +103,8 @@ export async function serveRealtime({
   /** Shared resource observation (ADR 0089): its identity source; absent, the process serves no observe. */
   readonly observation?: { readonly nextId: () => string };
   readonly pollIntervalMs?: number;
-  readonly timers?: IntervalTimers;
+  /** Every cadence and budget here runs on this time; a process entry passes `hostWaits`. */
+  readonly waits: Waits;
   readonly onQuery?: () => void;
   /** Test seam only (RT-2.3b-f1 criterion 2): observes a reconnect independent of database content or other listeners' traffic. */
   readonly onListenWake?: () => void;
@@ -117,16 +119,10 @@ export async function serveRealtime({
   // Production refuses a DATABASE_URL role that could create or alter schema
   // objects before LISTEN or any socket is accepted (ISSUE-101).
   await refuseSchemaAlteringRole(resources, 'daisy_realtime');
-  const scheduler = timers ?? {
-    setInterval: (callback: () => void, ms: number) =>
-      setInterval(callback, ms),
-    clearInterval: (handle: ReturnType<typeof setInterval>) =>
-      clearInterval(handle),
-  };
   let server: ReturnType<typeof Bun.serve> | undefined;
   const delivery = createRealtimeDelivery({
     resources,
-    timers: scheduler,
+    waits,
     now,
     readingPolicy,
     publish: (topic, frame) => {
@@ -137,7 +133,7 @@ export async function serveRealtime({
   const onlineRing = createOnlineRing({
     readRevision: resources.redis.readOnlineRevision,
     ring: delivery.registry.ringOnline,
-    timers: scheduler,
+    waits,
   });
   let observing: ReturnType<typeof startObservationRuntime> | null = null;
   const drain = await startOutboxDrain({
@@ -151,19 +147,21 @@ export async function serveRealtime({
       sink?.(rows);
     },
     logger: resources.logger,
-    ...drainOptions(pollIntervalMs, timers, onQuery, onListenWake),
+    waits,
+    ...drainOptions(pollIntervalMs, onQuery, onListenWake),
   });
   delivery.registry.seed(drain.cursor());
   observing = observation
     ? startObservationRuntime({
         resources,
         readingPolicy,
-        timers: scheduler,
+        waits,
         now,
         nextId: observation.nextId,
       })
     : null;
   const { fetch, websocket } = createRealtimeServer({
+    waits,
     resources: {
       ...resources,
       outbox: {
@@ -181,7 +179,7 @@ export async function serveRealtime({
       validatePrincipal: delivery.validatePrincipal,
       failed: delivery.reportUnavailable,
       now,
-      ...presenceTracker(resources, presence, scheduler),
+      ...presenceTracker(resources, presence, waits),
       ...(observing ? { observation: observing.node } : {}),
     },
   });
@@ -205,26 +203,26 @@ export async function serveRealtime({
       ...listenerTls(tls),
     });
   } catch (error) {
-    onlineRing.stop();
-    observing?.close();
-    await Promise.allSettled([drain.stop(), hintSubscription?.unlisten()]);
+    await Promise.allSettled([
+      onlineRing.stop(),
+      observing?.close(),
+      drain.stop(),
+      hintSubscription?.unlisten(),
+    ]);
     throw error;
   }
   // Scheduling is transport tuning inside ADR0031's accepted60s bound.
   // Every send independently enforces elapsed check-start expiry.
-  let validation: Promise<void> | undefined;
+  // A revalidation still running when the next is due is skipped, never queued.
   let closed = false;
-  const validationTimer = scheduler.setInterval(() => {
-    if (closed || validation) return;
-    validation = delivery.registry
-      .revalidate(delivery.validatePrincipal)
-      .catch(() => {
-        delivery.registry.closeAll();
-      })
-      .finally(() => {
-        validation = undefined;
-      });
-  }, 50_000);
+  const validation = repeatEvery({
+    waits,
+    everyMs: PRINCIPAL_REVALIDATION_MS,
+    run: () => delivery.registry.revalidate(delivery.validatePrincipal),
+    failed: () => {
+      delivery.registry.closeAll();
+    },
+  });
   return {
     server,
     drain,
@@ -232,15 +230,17 @@ export async function serveRealtime({
     async close() {
       if (closed) return;
       closed = true;
-      onlineRing.stop();
-      scheduler.clearInterval(validationTimer);
-      observing?.close();
+      const stopping = [
+        onlineRing.stop(),
+        validation.stop(),
+        Promise.resolve(observing?.close()),
+      ];
       delivery.registry.closeAll();
       await completeShutdown([
+        ...stopping,
         Promise.resolve().then(() => server.stop()),
         drain.stop(),
         Promise.resolve(hintSubscription.unlisten()),
-        Promise.resolve(validation),
         delivery.registry.settled(),
       ]);
     },

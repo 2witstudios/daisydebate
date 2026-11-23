@@ -1,10 +1,10 @@
-import { renderToString } from 'react-dom/server';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { chartGeometry } from '../../../features/leaderboard/history';
 import {
   renderRatingChart,
   type RatingChartRenderProps,
 } from './rating-chart.render';
+import { renderAccessible } from '../../../test-support/rendered/accessible';
 
 setupRitewayBun();
 
@@ -32,51 +32,58 @@ const props = (
   ...overrides,
 });
 
-const html = (p: RatingChartRenderProps) =>
-  renderToString(renderRatingChart(p)).replace(/<!-- -->/g, '');
+const render = (p: RatingChartRenderProps) =>
+  renderAccessible(renderRatingChart(p));
+
+/** The chart key's entries, in order. */
+const key = (view: ReturnType<typeof render>) =>
+  view.all('listitem').map((item) => item.textContent);
 
 describe('renderRatingChart', () => {
   test('static chart', () => {
-    const out = html(props());
+    const view = render(props());
     assert({
       given: 'a chart before hydration',
       should:
-        'draw a labelled SVG, the readout, no slider and no established mark',
+        'draw a labelled SVG, the readout, no slider and no established key',
       actual: [
-        out.includes('role="img"'),
-        out.includes('aria-label="Rating history, Season 4."'),
-        out.includes('1490 ± 200'),
-        out.includes('Debate 2 of 2'),
-        out.includes('type="range"'),
-        out.includes('stroke-dasharray'),
-        out.includes('Established'),
+        view.names('img'),
+        view.textContent().includes('1490 ± 200'),
+        view.textContent().includes('Debate 2 of 2'),
+        view.count('slider'),
+        key(view),
       ],
-      expected: [true, true, true, true, false, false, false],
+      expected: [
+        ['Rating history, Season 4.'],
+        true,
+        true,
+        0,
+        ['Rating', '95% range'],
+      ],
     });
   });
 
   test('interactive', () => {
-    const out = html(props({ interactive: true, step: 1 }));
+    const view = render(props({ interactive: true, step: 1 }));
     assert({
       given: 'a chart once a script runs',
       should: 'add the slider, bounded to the last debate, at the current step',
       actual: [
-        out.includes('type="range"'),
-        out.includes('max="2"'),
-        out.includes('value="1"'),
-        out.includes('Step through debates'),
+        view.has('slider', 'Step through debates'),
+        view.attribute('slider', 'Step through debates', 'max'),
+        view.attribute('slider', 'Step through debates', 'value'),
       ],
-      expected: [true, true, true, true],
+      expected: [true, '2', '1'],
     });
   });
 
   test('established', () => {
-    const out = html(props({ chart: chartGeometry(points, 1) }));
+    const view = render(props({ chart: chartGeometry(points, 1) }));
     assert({
       given: 'a rating established at debate 1',
-      should: 'draw the dashed rule and list it in the key',
-      actual: [out.includes('stroke-dasharray'), out.includes('Established')],
-      expected: [true, true],
+      should: 'list it in the key',
+      actual: key(view).includes('Established'),
+      expected: true,
     });
   });
 });

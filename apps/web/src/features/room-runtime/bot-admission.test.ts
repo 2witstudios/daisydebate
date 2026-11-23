@@ -18,24 +18,37 @@ const withBot = (seat: SeatRef) => ({
 });
 const botRoom = withBot({ kind: 'side', side: 'negative', slot: 0 });
 const status = { refusal: null };
+const released = async () => true;
 test('bot admission metadata is private to the current sponsoring human host', async () => {
   let reads = 0;
   const read = async () => {
     reads++;
     return status;
   };
-  const visible = await roomBotAdmission(botRoom, caller.actorId, read);
-  const hidden = await roomBotAdmission(botRoom, 'other', read);
-  const humanOnly = await roomBotAdmission(state, caller.actorId, read);
+  const visible = await roomBotAdmission(
+    botRoom,
+    caller.actorId,
+    read,
+    released,
+  );
+  const hidden = await roomBotAdmission(botRoom, 'other', read, released);
+  const humanOnly = await roomBotAdmission(
+    state,
+    caller.actorId,
+    read,
+    released,
+  );
   const ranked = await roomBotAdmission(
     { ...botRoom, competitionType: 'ranked' },
     caller.actorId,
     read,
+    released,
   );
   const judgeOnly = await roomBotAdmission(
     withBot({ kind: 'judge', slot: 0 }),
     caller.actorId,
     read,
+    released,
   );
   assert({
     given:
@@ -51,14 +64,48 @@ test('absent configuration and failed fresh reads are unavailable rather than in
     botRoom,
     caller.actorId,
     async () => null,
+    released,
   );
-  const failed = await roomBotAdmission(botRoom, caller.actorId, async () => {
-    throw new Error('Unavailable');
-  });
+  const failed = await roomBotAdmission(
+    botRoom,
+    caller.actorId,
+    async () => {
+      throw new Error('Unavailable');
+    },
+    released,
+  );
   assert({
     given: 'absent config or an unavailable adapter',
     should: 'truthfully refuse availability without inventing quota',
     actual: [absent, failed],
     expected: [{ kind: 'unavailable' }, { kind: 'unavailable' }],
+  });
+});
+test('unreleased bot debates are coming soon before any allowance is read', async () => {
+  let reads = 0;
+  const read = async () => {
+    reads++;
+    return status;
+  };
+  const unreleased = async () => false;
+  const host = await roomBotAdmission(
+    botRoom,
+    caller.actorId,
+    read,
+    unreleased,
+  );
+  const judgeOnly = await roomBotAdmission(
+    withBot({ kind: 'judge', slot: 0 }),
+    caller.actorId,
+    read,
+    unreleased,
+  );
+  assert({
+    given:
+      'a host whose bot-debates flag is off, with a bot debater and with only an AI judge',
+    should:
+      'say coming soon for the bot debate without reading allowance, and leave the AI judge alone',
+    actual: [host, judgeOnly, reads],
+    expected: [{ kind: 'coming-soon' }, null, 0],
   });
 });

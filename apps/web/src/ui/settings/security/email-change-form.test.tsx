@@ -1,26 +1,25 @@
-import { renderToString } from 'react-dom/server';
 import { createElement as h } from 'react';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
+import { renderAccessible } from '../../../test-support/rendered/accessible';
 import { EmailChangeForm } from './email-change-form';
 
 setupRitewayBun();
 
 describe('EmailChangeForm', () => {
   test('renders a form the browser can post before hydration', () => {
-    const page = renderToString(
+    const view = renderAccessible(
       h(EmailChangeForm, { action: async (state) => state }),
     );
-    const tag = (name: string) =>
-      page.match(new RegExp(`<${name}\\b[^>]*>`))?.[0] ?? '';
+    const field = view.get('textbox', 'New email address');
     assert({
       given: 'the server render, before anything is typed',
       should:
         'post the address as a required newEmail field with an enabled submit, never by GET',
       actual: [
-        tag('input').includes('name="newEmail"'),
-        tag('input').includes(' required=""'),
-        tag('button').includes(' disabled=""'),
-        /method="get"/i.test(tag('form')),
+        field.getAttribute('name') === 'newEmail',
+        field.hasAttribute('required'),
+        view.get('button', 'Change email').hasAttribute('disabled'),
+        /get/i.test(field.closest('form')?.getAttribute('method') ?? ''),
       ],
       expected: [true, true, false, false],
     });

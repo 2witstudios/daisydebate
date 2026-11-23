@@ -4,35 +4,10 @@ import {
   parseOperatorKeys,
   signOperatorRequest,
   verifyOperatorRequest,
-  type OperatorCrypto,
   type OperatorRequestParts,
 } from './operator-signature';
 
 setupRitewayBun();
-
-/**
- * A deterministic stand-in for the injected primitives: a keyed FNV-1a
- * mix rendered at the real output widths. It proves the grammar, the
- * field binding and the verification order; the apps' adapter tests prove
- * the real `node:crypto` primitives.
- */
-const fnv = (text: string, width: number, alphabet: string) => {
-  let hash = 2166136261;
-  for (const character of text)
-    hash = Math.imul(hash ^ character.charCodeAt(0), 16777619) >>> 0;
-  let out = '';
-  while (out.length < width) {
-    hash = Math.imul(hash ^ out.length, 16777619) >>> 0;
-    out += alphabet[hash % alphabet.length];
-  }
-  return out;
-};
-const b64 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_';
-const fakeCrypto: OperatorCrypto = {
-  hmacSha256: (key, text) => fnv(`${[...key].join(',')}|${text}`, 43, b64),
-  sha256Hex: (bytes) => fnv([...bytes].join(','), 64, '0123456789abcdef'),
-  sha3Hex: (text) => fnv(`sha3|${text}`, 64, '0123456789abcdef'),
-};
 
 const key = new Uint8Array(32).fill(7);
 const keys = new Map([['k20261026', key]]);
@@ -62,11 +37,10 @@ const verify = (
     method: signed.method,
     path: signed.path,
     query: signed.query,
-    headers: Object.entries(signOperatorRequest(signed, key, fakeCrypto)),
+    headers: Object.entries(signOperatorRequest(signed, key)),
     body: signed.body,
     keys,
     nowMs: now,
-    crypto: fakeCrypto,
     ...overrides,
   });
 
@@ -87,16 +61,13 @@ describe('operator request signature (ADR 0079)', () => {
   });
 
   test('query values are encoded strictly per RFC 3986', () => {
-    const canonical = canonicalOperatorRequest(
-      {
-        ...parts,
-        method: 'GET',
-        path: '/operator/v1/accounts',
-        query: [['cursor', "a!'()*b c"]],
-        body: new Uint8Array(),
-      },
-      fakeCrypto,
-    );
+    const canonical = canonicalOperatorRequest({
+      ...parts,
+      method: 'GET',
+      path: '/operator/v1/accounts',
+      query: [['cursor', "a!'()*b c"]],
+      body: new Uint8Array(),
+    });
     assert({
       given: "a query value holding !'()* and a space",
       should:
@@ -107,19 +78,16 @@ describe('operator request signature (ADR 0079)', () => {
   });
 
   test('the canonical string binds every field in a fixed order', () => {
-    const canonical = canonicalOperatorRequest(
-      {
-        ...parts,
-        method: 'GET',
-        path: '/operator/v1/accounts',
-        query: [
-          ['limit', '20'],
-          ['access', 'pending'],
-        ],
-        body: new Uint8Array(),
-      },
-      fakeCrypto,
-    );
+    const canonical = canonicalOperatorRequest({
+      ...parts,
+      method: 'GET',
+      path: '/operator/v1/accounts',
+      query: [
+        ['limit', '20'],
+        ['access', 'pending'],
+      ],
+      body: new Uint8Array(),
+    });
     assert({
       given: 'a list request with unsorted query keys',
       should: 'sort the query and join every field on its own line',
@@ -139,9 +107,7 @@ describe('operator request signature (ADR 0079)', () => {
   });
 
   test('tampering with any signed field fails the signature', () => {
-    const signedHeaders = Object.entries(
-      signOperatorRequest(parts, key, fakeCrypto),
-    );
+    const signedHeaders = Object.entries(signOperatorRequest(parts, key));
     const swap = (name: string, value: string) =>
       signedHeaders.map(([header, current]): [string, string] => [
         header,
@@ -173,7 +139,7 @@ describe('operator request signature (ADR 0079)', () => {
       query: [['access', 'pending']] as const,
       body: new Uint8Array(),
     };
-    const headers = Object.entries(signOperatorRequest(list, key, fakeCrypto));
+    const headers = Object.entries(signOperatorRequest(list, key));
     const reasons = [
       verify({ method: 'DELETE' }),
       verify({ path: '/operator/v1/admin' }),
@@ -191,13 +157,13 @@ describe('operator request signature (ADR 0079)', () => {
       verify({ query: [['debug', '1']], headers }, list),
       verify({
         headers: [
-          ...Object.entries(signOperatorRequest(parts, key, fakeCrypto)),
+          ...Object.entries(signOperatorRequest(parts, key)),
           ['Daisy-Debug', '1'],
         ],
       }),
       verify({
         headers: [
-          ...Object.entries(signOperatorRequest(parts, key, fakeCrypto)),
+          ...Object.entries(signOperatorRequest(parts, key)),
           ['Daisy-Nonce', 'm'.repeat(22)],
         ],
       }),

@@ -1,3 +1,5 @@
+import { hostWaits } from '@daisy/worker/host';
+import type { Waits } from '@daisy/clock';
 import { createId } from '@paralleldrive/cuid2';
 import { requireTestServices } from '@daisy/config';
 import { createOpenRouter } from '@daisy/ai-voice';
@@ -60,10 +62,37 @@ function loopbackProvider(mode: 'valid' | 'provider-error') {
   });
   const voice = createOpenRouter({
     apiKey: 'noncredential-loopback-fixture',
+    waits: hostWaits,
     fetch: (url, init) =>
       fetch(new URL(new URL(String(url)).pathname, server.url), init),
   });
   return { voice, paths, stop: () => server.stop(true) };
+}
+/**
+ * Host time that counts the waits still pending. Once `hold()` is true a new
+ * wait ends only when its signal aborts: the provider-error case proves one
+ * failure, so the retry pause after it never fires and cannot race the stop.
+ */
+function trackedWaits(hold: () => boolean) {
+  const pending = new Set<Promise<void>>();
+  const waitUntilMs = (dueMs: number, signal?: AbortSignal) => {
+    const wait = hold()
+      ? new Promise<void>((resolve) => {
+          if (signal?.aborted) return resolve();
+          signal?.addEventListener('abort', () => resolve(), { once: true });
+        })
+      : hostWaits.waitUntilMs(dueMs, signal);
+    pending.add(wait);
+    void wait.finally(() => pending.delete(wait));
+    return wait;
+  };
+  const waits: Waits = {
+    nowMs: hostWaits.nowMs,
+    waitUntilMs,
+    sleep: (ms, signal) =>
+      waitUntilMs(hostWaits.nowMs() + Math.max(0, ms), signal),
+  };
+  return { waits, pending };
 }
 for (const mode of ['valid', 'provider-error'] as const)
   test(`actual bot speaking turn over own speech: ${mode}`, async () => {
@@ -73,7 +102,9 @@ for (const mode of ['valid', 'provider-error'] as const)
       const media = createRoundMediaOperations(deps);
       const provider = loopbackProvider(mode);
       let failures = 0;
-      const timers = new Set<unknown>();
+      const time = trackedWaits(
+        () => mode === 'provider-error' && failures > 0,
+      );
       const speaking = createSpeakingBotControl({
         store: f.store,
         voice: () => provider.voice,
@@ -82,27 +113,7 @@ for (const mode of ['valid', 'provider-error'] as const)
         botToken: media.botToken,
         listenToken: media.botListenToken,
         readPeers: media.botPeers,
-        timers: {
-          setInterval: (task, ms) => {
-            const handle = setInterval(() => void task(), ms);
-            timers.add(handle);
-            return handle;
-          },
-          now: () => performance.now(),
-          setTimeout: (run, ms) => {
-            const handle = setTimeout(() => void run(), ms);
-            timers.add(handle);
-            return handle;
-          },
-          clearTimeout: (handle) => {
-            timers.delete(handle);
-            clearTimeout(handle as ReturnType<typeof setTimeout>);
-          },
-          clearInterval: (handle) => {
-            timers.delete(handle);
-            clearInterval(handle as ReturnType<typeof setInterval>);
-          },
-        },
+        waits: time.waits,
         nextId: createId,
         nowMs: () => Date.now(),
         callTimeoutMs: 10000,
@@ -114,21 +125,9 @@ for (const mode of ['valid', 'provider-error'] as const)
           failures++;
         },
         hearingObserved: () => undefined,
-        oneShot: {
-          // A failed turn retries after a short pause. The provider-error
-          // case proves one failure, so no wake fires after it: the retry
-          // cannot race the stop below.
-          setTimeout: (run, ms) =>
-            setTimeout(() => {
-              if (mode === 'valid' || failures === 0) run();
-            }, ms),
-          clearTimeout: (handle) =>
-            clearTimeout(handle as ReturnType<typeof setTimeout>),
-        },
       });
       const receipts = createBotControl({
         claim,
-        store: f.store,
         attendance: createAttendanceFeature({
           checkIns: f.store,
           evaluate: f.store.evaluateRoundAttendance,
@@ -151,6 +150,8 @@ for (const mode of ['valid', 'provider-error'] as const)
           );
         else await waitForMediaFact(async () => failures > 0);
         await seat.stop();
+        // An aborted wait settles on the next turn; then none is left pending.
+        await new Promise((resolve) => setImmediate(resolve));
         const rows = (await runs()).map((row) => ({ ...row }));
         const lines = (
           await f.sql`select text,complete,interrupted from utterances where round_id=${roundId} order by sequence`
@@ -167,7 +168,7 @@ for (const mode of ['valid', 'provider-error'] as const)
             rows,
             lines,
             failures,
-            speechTimer: timers.size,
+            speechTimer: time.pending.size,
           },
           expected:
             mode === 'valid'

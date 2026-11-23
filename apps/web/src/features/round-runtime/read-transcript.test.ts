@@ -1,7 +1,13 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { round } from './round.test-support';
-import { readTranscript } from './read-transcript';
+import { readTranscript as readUnder } from './read-transcript';
 setupRitewayBun();
+/** A read under a deadline that never passes, unless the test gives one. */
+const readTranscript = (
+  fetch: Parameters<typeof readUnder>[0],
+  roundId: string,
+  deadline = new AbortController().signal,
+) => readUnder(fetch, roundId, deadline);
 test('protected transcript reads validate identity and clear denied access', async () => {
   const value = {
     contractVersion: 1,

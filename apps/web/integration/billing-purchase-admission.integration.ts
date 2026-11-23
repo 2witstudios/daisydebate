@@ -1,6 +1,7 @@
+import { openWebDatabase } from '../src/server/database';
+import { hostWaits } from '@daisy/worker/host';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { requireTestServices } from '@daisy/config';
-import { createDatabase } from '@daisy/db';
 import { admitParticipants } from '@daisy/db/testing';
 import { assertRejects } from '@daisy/errors/testing';
 import { createId } from '@paralleldrive/cuid2';
@@ -16,7 +17,8 @@ test('real Billing admission consumes fresh Flags authority while a cached displ
   withSql(async (sql) => {
     const userId = createId(),
       actorId = createId();
-    const database = createDatabase({
+    const database = openWebDatabase({
+      waits: hostWaits,
       url: testDatabaseUrl,
       nextActorId: createId,
     });

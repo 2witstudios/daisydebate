@@ -1,4 +1,4 @@
-import type { SupportMessageNotice } from '@daisy/db';
+import type { SupportMessageNotice } from '@daisy/db/stores/support';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import type { EmailMessage } from '../mail/types';
 import { createSupportMessageNotices } from './owner-notice';

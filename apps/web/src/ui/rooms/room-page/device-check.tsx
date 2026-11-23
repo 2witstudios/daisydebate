@@ -1,7 +1,7 @@
 'use client';
 
-import { useBrowserEffect } from '../../edge/browser-sync';
-import { StatusRegion } from '../../components/status-region/status-region';
+import { useResource } from '../../edge/use-driver';
+import { Announcement } from '../../components/announcement/announcement';
 import { useRef } from 'react';
 import type { createBrowserDeviceChecks } from '../../round-media/browser-device-checks';
 import type { DeviceKind } from '../../../features/video/device-check-controller';
@@ -74,14 +74,20 @@ export function CameraPreview({
   readonly label: string;
 }) {
   const video = useRef<HTMLVideoElement>(null);
-  const { generation, status } = snapshot.camera;
-  useBrowserEffect(() => {
+  const camera = snapshot.camera;
+  const { status } = camera;
+  // Each camera state the check reports is shown on the element: a camera
+  // that passed shows its preview, and the next state takes it down.
+  useResource(camera, (shown) => {
     const element = video.current;
-    if (element) element.srcObject = devices.preview('camera');
-    return () => {
-      if (element) element.srcObject = null;
+    if (!element || shown.status !== 'passed') return null;
+    element.srcObject = devices.preview('camera');
+    return {
+      dispose: () => {
+        element.srcObject = null;
+      },
     };
-  }, [devices, generation, status]);
+  });
   const microphone =
     snapshot.microphone.status === 'passed'
       ? devices.preview('microphone')
@@ -155,10 +161,10 @@ export function DeviceChoice({
         </select>
       </label>
       {failed ? (
-        <StatusRegion as="p" role="alert" className="text-sm text-live">
+        <Announcement as="p" kind="problem" className="text-sm text-live">
           {`${kindLabel[kind]}: ${words}.`}
           {help ? ` ${help}` : null}
-        </StatusRegion>
+        </Announcement>
       ) : null}
     </div>
   );

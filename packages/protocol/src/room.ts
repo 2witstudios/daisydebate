@@ -10,7 +10,7 @@ import {
  * The Room's configuration (ADR 0058): the format settings it runs, extended
  * with what only a Room holds, a host-written resolution list. Broader than
  * what becomes a round rule: `preRoundPrep` is Room-executed and never
- * reaches ECS. A ranked room has no free-form config: its every value comes
+ * reaches the engine. A ranked room has no free-form config: its every value comes
  * from the sanctioned preset's format settings (ISSUE-775).
  */
 export const roomConfigSchema = z.strictObject({

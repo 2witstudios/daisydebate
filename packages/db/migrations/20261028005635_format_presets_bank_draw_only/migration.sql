@@ -1,1 +1,0 @@
-ALTER TABLE "format_presets" ADD CONSTRAINT "format_presets_bank_draw_only" CHECK ("config" #>> '{resolutionDraw,source,kind}' is distinct from 'host');

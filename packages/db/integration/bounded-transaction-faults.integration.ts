@@ -1,3 +1,4 @@
+import { hostWaits } from '@daisy/worker/host';
 import { testLane } from '../src/testing-lane';
 import { requireTestServices } from '@daisy/config';
 import { assertRejects } from '@daisy/errors/testing';
@@ -24,8 +25,8 @@ test('lock contention rolls back within the server backstop and leaves unrelated
       await holder`begin`;
       await holder`select id from rounds where id=${roundId} for update`;
       const run = createBoundedTransaction({
-        lane: testLane(client, 4),
-        now: performance.now,
+        lane: testLane(client, hostWaits, 4),
+        waits: hostWaits,
       });
       try {
         const start = performance.now();
@@ -44,7 +45,7 @@ test('lock contention rolls back within the server backstop and leaves unrelated
           attempt,
           fixture.sql,
           pidRow!.pid,
-          { now: performance.now },
+          { waits: hostWaits },
         );
         await refusal;
         const [alive] = await holder`select pg_backend_pid() as pid`;
@@ -80,8 +81,8 @@ test(
   async () =>
     withPool(async (client) => {
       const run = createBoundedTransaction({
-        lane: testLane(client, 4),
-        now: performance.now,
+        lane: testLane(client, hostWaits, 4),
+        waits: hostWaits,
       });
       const timeouts = await run(
         async (tx) =>
@@ -136,8 +137,8 @@ test(
         return connection;
       };
       const run = createBoundedTransaction({
-        lane: testLane(client, 4),
-        now: performance.now,
+        lane: testLane(client, hostWaits, 4),
+        waits: hostWaits,
       });
       const survivor = await originalReserve();
       const survivorIdentity = await backendOf(survivor);
@@ -186,7 +187,7 @@ test(
       const control = await client.reserve();
       try {
         const identity = await backendOf(victim);
-        const absent = await recoverTransactionBackend(control, {
+        const absent = await recoverTransactionBackend(hostWaits, control, {
           ...identity,
           started: '2000-01-01 00:00:00+00',
         });

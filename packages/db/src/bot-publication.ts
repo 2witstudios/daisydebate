@@ -1,3 +1,4 @@
+import { tryInstantMs } from '@daisy/clock';
 import type { AllowanceAccountPolicy } from './usage-ledger';
 import { and, eq, sql } from 'drizzle-orm';
 import { createAppError } from '@daisy/errors';
@@ -7,11 +8,14 @@ import {
   type BotGenerationSession,
 } from './bot-generation';
 import type { BotClaimActivity } from '@daisy/protocol/bot-admission';
-export {
-  isFinalBotSpeechRefusal,
-  refuseFinalSpeech,
-} from './bot-generation-rules';
-import { agentLeaseDigest, requireAgentLeaseToken } from './round-agent-lease';
+export { isFinalBotSpeechRefusal, refuseFinalSpeech } from './bot-generation';
+import {
+  leaseExpiresIn,
+  leaseTokenDigest,
+  nextEpoch,
+  requireLeaseToken,
+  requireLeaseMs,
+} from './lease';
 import {
   endLockedRoundAgentRun,
   lockRoundAgentContext,
@@ -39,11 +43,6 @@ import { peerLineCovers } from './bot-peer-line';
 import { agentRuns } from './schema/agent-runs';
 import { scanBotWorkers } from './bot-worker-discovery';
 import { roundBotPublications } from './schema/round-bot-publications';
-import { requireLeaseMs } from './lease-policy';
-import {
-  nextPublicationClaim,
-  publicationClaim,
-} from './bot-publication-rules';
 export type { BotPublicationScope } from './bot-publication-context';
 export type { BotPhrase, BotPhraseEnd } from './bot-phrases';
 type Target = Pick<
@@ -177,7 +176,7 @@ export function createBotPublicationOperations(input: {
                 target,
                 agentRunId,
                 epoch,
-                leaseTokenDigest: agentLeaseDigest(token),
+                leaseTokenDigest: leaseTokenDigest(token),
                 now,
                 leaseMs: input.leaseMs,
               });
@@ -262,7 +261,7 @@ export function createBotPublicationOperations(input: {
           .from(roundBotPublications)
           .where(claimWhere(scope));
         requireClaimScope(claim, scope);
-        requireAgentLeaseToken(token, claim.leaseTokenDigest);
+        requireLeaseToken(token, claim.leaseTokenDigest);
         const now = await readDatabaseTime(tx);
         if (claim.leaseExpiresAt.getTime() <= now.getTime())
           throw createAppError('CONFLICT', 'Publication lease expired');
@@ -281,19 +280,19 @@ export function createBotPublicationOperations(input: {
       at: string,
     ) =>
       input.run(async (tx) => {
-        const instant = new Date(at);
-        if (!Number.isFinite(instant.getTime()) || peers.length > 255)
+        const atMs = tryInstantMs(at);
+        if (atMs === undefined || peers.length > 255)
           throw createAppError('VALIDATION');
         const [claim] = await tx
           .select()
           .from(roundBotPublications)
           .where(claimWhere(scope));
         requireClaimScope(claim, scope);
-        requireAgentLeaseToken(token, claim.leaseTokenDigest);
+        requireLeaseToken(token, claim.leaseTokenDigest);
         const now = await readDatabaseTime(tx);
         if (claim.leaseExpiresAt.getTime() <= now.getTime())
           throw createAppError('CONFLICT', 'Publication lease expired');
-        return peerLineCovers(tx, scope, peers, instant);
+        return peerLineCovers(tx, scope, peers, new Date(atMs));
       }),
     /** Writes a phrase's line as its audio starts, and rings the doorbell. */
     revealBotPhrase: (
@@ -343,7 +342,7 @@ export function createBotPublicationOperations(input: {
         const rows = await tx
           .update(roundBotPublications)
           .set({
-            leaseExpiresAt: sql`clock_timestamp()+${input.leaseMs}*interval '1 millisecond'`,
+            leaseExpiresAt: leaseExpiresIn(input.leaseMs),
           })
           .where(
             and(
@@ -372,3 +371,54 @@ export function createBotPublicationOperations(input: {
 }
 
 export { verifyBotWorkerPrincipalLocked } from './bot-worker-authority';
+
+/** A new claim waits for the previous lease to expire, then takes the next epoch. */
+export function nextPublicationClaim(
+  current:
+    | {
+        readonly leaseExpiresAt: Date;
+        readonly publicationEpoch: number;
+      }
+    | undefined,
+  now: Date,
+): number {
+  if (current && current.leaseExpiresAt.getTime() > now.getTime())
+    throw createAppError('CONFLICT', 'Publication already claimed');
+  return nextEpoch(
+    current?.publicationEpoch ?? 0,
+    'Publication epoch exhausted',
+  );
+}
+
+/** One run per claim; its own service identity is the only publisher. */
+export const publicationClaim = (input: {
+  readonly target: Target;
+  readonly agentRunId: string;
+  readonly epoch: number;
+  readonly leaseTokenDigest: string;
+  readonly now: Date;
+  readonly leaseMs: number;
+}) => {
+  const serviceId = `agent-run:${input.agentRunId}`;
+  const scope: BotPublicationScope = {
+    ...input.target,
+    agentRunId: input.agentRunId,
+    serviceId,
+    publicationEpoch: input.epoch,
+  };
+  return {
+    scope,
+    configuration: {
+      roundId: input.target.roundId,
+      roundParticipantId: input.target.roundParticipantId,
+      segmentId: input.target.segmentId,
+      serviceId,
+      publicationEpoch: input.epoch,
+    },
+    row: {
+      ...scope,
+      leaseTokenDigest: input.leaseTokenDigest,
+      leaseExpiresAt: new Date(input.now.getTime() + input.leaseMs),
+    },
+  };
+};

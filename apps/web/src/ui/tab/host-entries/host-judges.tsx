@@ -172,14 +172,13 @@ export function HostJudges({
             >
               {search.choices.map((choice) => (
                 <Button
-                  variant="unstyled"
+                  variant={
+                    filter.status === choice.id ? 'primary' : 'secondary'
+                  }
                   key={choice.id}
                   type="button"
                   aria-pressed={filter.status === choice.id}
                   onClick={() => setFilter({ ...filter, status: choice.id })}
-                  className={buttonClass(
-                    filter.status === choice.id ? 'primary' : 'secondary',
-                  )}
                 >
                   {choice.label} {choice.count}
                 </Button>

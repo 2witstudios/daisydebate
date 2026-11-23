@@ -1,3 +1,4 @@
+import type { DocumentStore as DocumentAreaStore } from '@daisy/db/stores/documents';
 import type {
   DocumentRecord,
   DriveAdmission,
@@ -10,7 +11,6 @@ import {
   DRIVE_PAGE_SIZE,
 } from '@daisy/db/documents';
 import type { Clock, IdGenerator } from '@daisy/clock';
-import type { Database } from '@daisy/db';
 import { participantAccess } from '@daisy/auth/authorization';
 import { createAppError, isAppError, type AppError } from '@daisy/errors';
 import {
@@ -27,7 +27,7 @@ import { documentSearchQuery } from './search-query';
 const RECENT_DOCUMENTS = 3;
 
 export type DocumentStore = Pick<
-  Database,
+  DocumentAreaStore,
   | 'createDocument'
   | 'readDocuments'
   | 'recentDocuments'

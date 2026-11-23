@@ -3,12 +3,11 @@ import { openRoomStatuses } from '@daisy/protocol/room-contract';
 import { lockActiveLobbySeason } from './ladder-season';
 import { instrumented, type DatabaseEventSink } from './instrumented';
 import type { PrivacyAdopter } from './privacy/contracts';
-import { exportRows } from './privacy/export-rows';
+import { exportRows, query } from './raw-rows';
 import { agreementSignatures } from './schema/agreement-signatures';
 import { actors } from './schema/actors';
 import { rooms, roomParticipants } from './schema/rooms';
 import { transactionNow } from './room-command-facts';
-import { query } from './raw-rows';
 import { z } from 'zod';
 import { inTransaction, type Tx, type TxOpener } from './tx';
 

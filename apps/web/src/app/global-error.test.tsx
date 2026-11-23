@@ -1,14 +1,13 @@
-import { renderToString } from 'react-dom/server';
 import { createElement as h } from 'react';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { buttonClass } from '../ui/components/button/button-class';
+import { renderAccessible } from '../test-support/rendered/accessible';
 import GlobalError from './global-error';
 
 setupRitewayBun();
 
-/** The server render of a root-layout failure carrying digest d1. */
+/** The server render of a root-layout failure carrying digest d1, by role. */
 const renderFailure = () =>
-  renderToString(
+  renderAccessible(
     h(GlobalError, {
       error: Object.assign(new Error('boom'), { digest: 'd1' }),
       retry: () => undefined,
@@ -16,29 +15,26 @@ const renderFailure = () =>
   );
 
 describe('GlobalError', () => {
-  test('renders its own document, defaulting to light with no cookie', () => {
-    const html = renderFailure();
+  test('names the failure by its correlation identifier', () => {
+    const view = renderFailure();
     assert({
-      given: 'a root-layout failure with no theme cookie (server render)',
-      should: 'render its own <html data-theme="light"> and <body>, once each',
-      actual: [
-        html.includes('<html lang="en" data-theme="light">'),
-        html.split('<body').length - 1,
-        html.includes('correlation identifier') && html.includes('d1'),
-      ],
-      expected: [true, 1, true],
+      given: 'a root-layout failure carrying digest d1',
+      should: 'say the failure was recorded with that identifier',
+      actual: view
+        .within('main')
+        .textContent()
+        .includes('recorded with correlation identifier d1.'),
+      expected: true,
     });
   });
 
-  test('offers the retry as a styled button', () => {
-    const html = renderFailure();
+  test('offers the retry as a button', () => {
+    const view = renderFailure();
     assert({
       given: 'a root-layout failure',
-      should: 'render "Try again" with the primary button classes',
-      actual: /<button[^>]* class="([^"]*)"[^>]*>Try again<\/button>/.exec(
-        html,
-      )?.[1],
-      expected: buttonClass('primary'),
+      should: 'render "Try again" as a button (its styling: markup-contracts)',
+      actual: view.has('button', 'Try again'),
+      expected: true,
     });
   });
 

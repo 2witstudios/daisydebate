@@ -1,4 +1,5 @@
 import { instantMs } from '@daisy/clock';
+import { inertWaits } from '../../lib/manual-waits.test-support';
 import { createBotListening } from './listening';
 
 const id = (c: string) => c.repeat(24);
@@ -125,7 +126,7 @@ export function session(
       now += options.readMs?.() ?? 0;
       return read;
     },
-    monotonicNowMs: () => now,
+    waits: { ...inertWaits, nowMs: () => now },
     playing: () => false,
     onEvent: ({ kind, roundParticipantId }) =>
       events.push(`${kind}:${roundParticipantId}`),

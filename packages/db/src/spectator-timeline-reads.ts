@@ -5,7 +5,9 @@ import {
 import { isRoundOver } from '@daisy/protocol/round';
 import { recordingHiddenByModeration } from '@daisy/protocol/recording';
 import { SPECTATOR_MARGIN_MS } from '@daisy/protocol/broadcast';
+import { ballotScoresRecordSchema } from '@daisy/protocol/ballot-schema';
 import { and, asc, desc, eq, sql } from 'drizzle-orm';
+import { parsedColumn } from './raw-rows';
 import { instrumented, type DatabaseEventSink } from './instrumented';
 import { actors } from './schema/actors';
 import { ballots } from './schema/ballots';
@@ -20,7 +22,7 @@ import { rooms } from './schema/rooms';
 import { rounds } from './schema/rounds';
 import { users } from './schema/users';
 import { utterances } from './schema/utterances';
-import { outcomeOfColumns } from './round-outcome-columns';
+import { outcomeOfColumns } from './round-hydration';
 import { scopeTransaction } from './tenant-scope';
 import { isDebatingSeatSql, seatOfColumns, seatRowOrder } from './seat-columns';
 import { inTransaction, type TxSource } from './tx';
@@ -210,9 +212,10 @@ export const spectatorTimelineReads = ({
               ? await tx
                   .select({
                     winner: ballots.winner,
-                    scores: sql<
-                      Record<string, number | Record<string, number>>
-                    >`coalesce(${ballots.scores}, '{}'::jsonb)`,
+                    scores: parsedColumn(
+                      ballotScoresRecordSchema,
+                      sql`coalesce(${ballots.scores}, '{}'::jsonb)`,
+                    ),
                     reason: ballots.reason,
                   })
                   .from(ballots)
@@ -303,11 +306,3 @@ export const spectatorTimelineReads = ({
     );
   },
 });
-
-export type SpectatorTimelineRead = NonNullable<
-  Awaited<
-    ReturnType<
-      ReturnType<typeof spectatorTimelineReads>['readSpectatorTimeline']
-    >
-  >
->;

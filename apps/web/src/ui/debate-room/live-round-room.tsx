@@ -1,7 +1,7 @@
 'use client';
 
 import '../../lib/zod-jitless';
-import { StatusRegion } from '../components/status-region/status-region';
+import { Announcement } from '../components/announcement/announcement';
 import type { FloorChatProps } from '../round-floor/floor-chat';
 import type { LocalPublication } from '../../features/round-media/model/media-publication';
 import { roundMediaSlot } from '../round-media/media-session';
@@ -209,9 +209,9 @@ export function LiveRoundRoom({
       ) : null}
       <RoundIncidentBanner checkpoint={view.checkpoint} nowMs={now} />
       {outcome ? (
-        <StatusRegion as="p" role="status" className="sr-only">
+        <Announcement as="p" kind="progress" className="sr-only">
           {outcome}
-        </StatusRegion>
+        </Announcement>
       ) : null}
       {attendanceSlot}
       {view.opening?.draw ? (

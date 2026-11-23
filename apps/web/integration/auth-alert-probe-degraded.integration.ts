@@ -1,16 +1,16 @@
-import { createHmac } from 'node:crypto';
+import { hmacSha256Hex } from '@daisy/digest';
 import { resolve } from 'node:path';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { requireTestServices } from '@daisy/config';
 import nextConfig from '../next.config';
 import { createRetentionSweep } from '../src/server/retention-sweep';
-import { retentionTargets } from '../src/server/retention-targets';
+import { retentionTargets } from '../src/server/retention-targets.test-support';
 import { createSelfSignedTlsEdge } from '../e2e/support/tls-edge';
 import { ALERT_STATE_READ_TIMEOUT_MS } from '../src/features/ops/alert-state';
 import { createFaultedApp } from './fault-proxy';
 import { createTestApp } from './fixtures';
-import { provisionalLinkPurposes } from '../src/features/auth/mail/provisional-mail';
+import { opsComposition } from '../src/features/ops/composition';
 
 requireTestServices(process.env);
 setupRitewayBun();
@@ -73,7 +73,7 @@ const signedWith = (secret: string, post: IncidentsPost) => {
   const timestamp = post.headers.get('x-pagespace-timestamp');
   return (
     post.headers.get('x-pagespace-signature') ===
-    `v0=${createHmac('sha256', secret).update(`v0:${timestamp}:${post.body}`).digest('hex')}`
+    `v0=${hmacSha256Hex(secret, `v0:${timestamp}:${post.body}`)}`
   );
 };
 
@@ -125,7 +125,6 @@ describe('ISSUE-199 the probe over an unreadable alert state', () => {
       targets: retentionTargets({
         database: testApp.app.database,
         redis: testApp.app.redis,
-        provisionalLinks: provisionalLinkPurposes,
       }),
       clock: testApp.app.clock,
       logger: testApp.app.logger,
@@ -151,9 +150,9 @@ describe('ISSUE-199 the probe over an unreadable alert state', () => {
         const path = new URL(request.url).pathname;
         const response =
           path === '/api/health/ready'
-            ? await testApp.routes.ready.GET(request)
+            ? await testApp.routes(opsComposition).ready.GET(request)
             : path === '/api/ops/alerts'
-              ? await faulted.routes.ops.alerts.GET(request)
+              ? await faulted.routes(opsComposition).ops.alerts.GET(request)
               : new Response(null, { status: 404 });
         headers.forEach((value, key) => response.headers.set(key, value));
         return response;
@@ -223,10 +222,14 @@ describe('ISSUE-208 /api/ops/alerts over a stalled Redis', () => {
       new Request(`${testApp.origin}/api/ops/alerts`, {
         headers: { authorization: `Bearer ${opsToken}` },
       });
-    const baseline = await faulted.routes.ops.alerts.GET(alertsRequest());
+    const baseline = await faulted
+      .routes(opsComposition)
+      .ops.alerts.GET(alertsRequest());
     faulted.proxy.stall();
     const started = performance.now();
-    const stalled = await faulted.routes.ops.alerts.GET(alertsRequest());
+    const stalled = await faulted
+      .routes(opsComposition)
+      .ops.alerts.GET(alertsRequest());
     const elapsedMs = performance.now() - started;
     const body = (await stalled.json()) as {
       snapshot: { redisState: string };

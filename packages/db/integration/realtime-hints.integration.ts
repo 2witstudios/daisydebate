@@ -1,10 +1,20 @@
+import { createListenStore } from '../src/stores/listen';
+import { openDatabaseResources } from '../src/resources';
+import { hostWaits } from '@daisy/worker/host';
 import { requireTestServices } from '@daisy/config';
 import { buildChannelTopic } from '@daisy/protocol/topics';
 import { type ServerMessage } from '@daisy/protocol/realtime-server';
 import { SQL } from 'bun';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { createDatabase } from '../src';
+/** This file's database: the area stores it reads, over one set of resources. */
+const openStores = (options: Parameters<typeof openDatabaseResources>[0]) => {
+  const resources = openDatabaseResources(options);
+  return {
+    ...createListenStore(resources),
+    close: resources.close,
+  };
+};
 
 setupRitewayBun();
 const { databaseUrl } = requireTestServices(process.env);
@@ -12,10 +22,10 @@ const { databaseUrl } = requireTestServices(process.env);
 test('the pooled realtime hint listener acknowledges LISTEN and admits only channel frames', async () => {
   const client = new SQL(databaseUrl, { max: 1 });
   const writer = new SQL(databaseUrl, { max: 1 });
-  const database = createDatabase({
+  const database = openStores({
+    waits: hostWaits,
     url: databaseUrl,
     client,
-    nextActorId: createId,
   });
   const frames: ServerMessage[] = [];
   const hint = {

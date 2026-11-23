@@ -3,7 +3,7 @@ import { drizzle } from 'drizzle-orm/bun-sql';
 import { createId } from '@paralleldrive/cuid2';
 import { createMessagingTestFixture } from '../src/testing';
 import { lockAuthorizationActors } from '../src/authorization';
-import { socialPrivacyAdoption } from '../src/social-privacy-composition';
+import { socialPrivacyAdoption } from '../src/privacy/subject-rights';
 import { retainedConversationOperations } from '../src/messaging/retained-store';
 
 const now = '2026-10-27T12:00:00.000Z';

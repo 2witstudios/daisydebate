@@ -40,6 +40,12 @@ export const scratchDatabase = (url: string, prefix: string) => {
         await rm(folder, { recursive: true, force: true });
       }
     },
+    /** Applies every folder under `folder`, such as the superseded history. */
+    migrateFolder: (folder: string) =>
+      runMigrations({
+        databaseUrl: target.toString(),
+        migrationsFolder: folder,
+      }),
     drop: async () => {
       await dropSlotDatabase(admin, name);
       await admin.close();

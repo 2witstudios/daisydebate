@@ -1,4 +1,4 @@
-import { instantMs } from '@daisy/clock';
+import { instantMs } from '@daisy/clock/instant';
 import { judgingPolicy } from '@daisy/protocol/judging-policy';
 import {
   type AiSeatStanding,

@@ -1,9 +1,9 @@
+import { listedWord, listedWords } from '../lifecycle-sql';
 import { sql } from 'drizzle-orm';
 import { check, index, integer, pgTable, text } from 'drizzle-orm/pg-core';
 import {
   recordingJobStateSchema,
   recordingJobStatuses,
-  type RecordingJobState,
 } from '@daisy/protocol/recording-processing';
 import {
   createdAtColumn,
@@ -29,7 +29,9 @@ export const recordingProcessingJobs = pgTable(
       .references(() => recordings.id, { onDelete: 'restrict' }),
     /** Where the sources wait in the hold bucket; fixed when the job is opened. */
     holdPrefix: text('hold_prefix').notNull(),
-    status: text('status').$type<RecordingJobState['status']>().notNull(),
+    status: text('status')
+      .$type<(typeof recordingJobStatuses)[number]>()
+      .notNull(),
     state: jsonbColumn('state', recordingJobStateSchema).notNull(),
     /**
      * Runs claimed since the job was last queued, counted at the claim so one that
@@ -50,10 +52,14 @@ export const recordingProcessingJobs = pgTable(
   (table) => [
     index('recording_jobs_claimable_idx')
       .on(table.dueAt)
-      .where(sql`${table.status} in ('queued', 'discarding', 'stripping')`),
+      .where(
+        sql`${table.status} in ${listedWords(recordingJobStatuses, ['queued', 'discarding', 'stripping'])}`,
+      ),
     index('recording_jobs_answerable_idx')
       .on(table.updatedAt)
-      .where(sql`${table.status} <> 'settled'`),
+      .where(
+        sql`${table.status} <> ${listedWord(recordingJobStatuses, 'settled')}`,
+      ),
     check(
       'recording_jobs_status_check',
       oneOf(table.status, recordingJobStatuses),

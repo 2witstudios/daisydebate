@@ -1,3 +1,5 @@
+import { competitionTypes } from '@daisy/protocol/round';
+import { listedWord } from './lifecycle-sql';
 import { sql } from 'drizzle-orm';
 import { requireRetentionBounds, type RetentionBatch } from './retention';
 import { instrumented, type DatabaseEventSink } from './instrumented';
@@ -44,7 +46,7 @@ export const transcriptRetention = ({
           select u.id from utterances u
           join rounds r on r.id = u.round_id
           where u.created_at < ${before}::timestamptz
-            and r.competition_type <> 'ranked'
+            and r.competition_type <> ${listedWord(competitionTypes, 'ranked')}
           order by u.created_at
           limit ${limit}
         ) returning id`,

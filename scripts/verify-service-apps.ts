@@ -52,7 +52,7 @@ export const SERVICE_APPS: readonly ServiceApp[] = [
     target: 'media-worker',
     stop: {
       source: 'apps/media-worker/src/worker.ts',
-      pattern: /child\.kill\('SIGKILL'\), ([\d_]+)\)/,
+      pattern: /hostWaits\.sleep\(([\d_]+), exited\.signal\)/,
     },
   },
   // ADR 0099, ADR 0107: the Broadcast and Recording pipeline.

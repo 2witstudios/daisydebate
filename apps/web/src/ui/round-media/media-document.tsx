@@ -1,6 +1,6 @@
 'use client';
 
-import { useMount } from '../edge/use-mount';
+import { useNavigation } from '../edge/use-navigation';
 
 import { mediaDocumentStale } from '../../features/round-media/browser-policy';
 import { browserDocument } from './browser-document';
@@ -11,9 +11,11 @@ import { browserDocument } from './browser-document';
  * rather than the camera and microphone deny it inherited (ISSUE-564).
  */
 export function MediaDocument() {
-  useMount(() => {
-    if (mediaDocumentStale(browserDocument().url, window.location.pathname))
-      window.location.reload();
-  });
+  const stale =
+    typeof window !== 'undefined' &&
+    mediaDocumentStale(browserDocument().url, window.location.pathname);
+  useNavigation(null, stale ? window.location.href : undefined, () =>
+    window.location.reload(),
+  );
   return null;
 }

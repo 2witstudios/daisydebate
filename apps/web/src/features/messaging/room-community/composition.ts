@@ -1,3 +1,4 @@
+import { defineComposition } from '../../../server/composition';
 import type { AuthorizationPrincipal } from '@daisy/auth/authorization';
 import { decideRoomCommunity } from '@daisy/auth/room-community';
 import { roomCommunityMetadataOf } from '@daisy/db/messaging';
@@ -7,7 +8,7 @@ import {
   type RoomCommunityFact,
 } from '@daisy/protocol/room-community';
 import type { App } from '../../../server/app';
-import { memberHttpBoundary } from '../../../server/member-boundary';
+import { memberHttpBoundary } from '../../auth/member-boundary';
 import { requireMemberActor } from '../../access/actor';
 import { contextChatFence } from '../context-chat/authority';
 import { createContextChatHandlers } from '../context-chat/handlers';
@@ -22,7 +23,7 @@ import { roomChatContext } from './room-chat-context';
  * authority. A refused read is answered as not found, so a private Room's chat
  * is never confirmed to someone who may not read the Room.
  */
-export function composeRoomCommunityRoutes(app: App) {
+function composeRoomCommunityRoutes(app: App) {
   const policy = app.messagingPolicy;
   const store = (
     principal: AuthorizationPrincipal,
@@ -65,3 +66,9 @@ export function composeRoomCommunityRoutes(app: App) {
     }),
   });
 }
+
+/** room-community: its route files bind here (`processRoute`). */
+export const roomCommunityComposition = defineComposition(
+  'room-community',
+  (app) => composeRoomCommunityRoutes(app),
+);

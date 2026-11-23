@@ -1,3 +1,4 @@
+import { virtualClock } from '@daisy/clock/testing';
 import { instantMs, addMs } from '@daisy/clock';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { createResendSender } from '../../mail/resend-sender';
@@ -80,6 +81,7 @@ const scripted = (input: {
 
 const rejectingSender = (response: 'lost' | 'rejected') =>
   createResendSender({
+    waits: virtualClock(),
     apiKey: 'test-key',
     nowMs: () => instantMs(NOW),
     from: 'test@example.test',

@@ -1,4 +1,5 @@
 import { addMs } from '@daisy/clock';
+import { virtualClock } from '@daisy/clock/testing';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {
   ALERT_THRESHOLDS,
@@ -47,6 +48,7 @@ describe('alert state with the limiter kept in process (ISSUE-191)', () => {
         await readAlertSnapshot({
           redis: redisWith(redisSince),
           clock,
+          waits: virtualClock(),
           workers: [],
           local: localWith(localSince),
         })
@@ -79,6 +81,7 @@ describe('alert state with the limiter kept in process (ISSUE-191)', () => {
       actual: await readAlertSnapshot({
         redis,
         clock,
+        waits: virtualClock(),
         workers: [],
         local: { limiterUnavailableSince: () => since },
       }),
@@ -93,14 +96,18 @@ describe('alert state with the limiter kept in process (ISSUE-191)', () => {
   test('a Redis that stops answering yields an unreachable snapshot within the read budget (ISSUE-208)', async () => {
     const since = '2026-09-25T11:57:00.000Z';
     const stalled = { get: () => new Promise<string | null>(() => {}) };
-    const started = performance.now();
-    const snapshot = await readAlertSnapshot({
-      redis: stalled,
-      clock,
-      workers: [],
-      local: { limiterUnavailableSince: () => since },
-      readTimeoutMs: 50,
-    });
+    const time = virtualClock();
+    const started = time.nowMs();
+    const snapshot = await time.run(
+      readAlertSnapshot({
+        redis: stalled,
+        clock,
+        waits: time,
+        workers: [],
+        local: { limiterUnavailableSince: () => since },
+        readTimeoutMs: 50,
+      }),
+    );
     assert({
       given:
         'every Redis read left pending forever, with a 50 ms per-command budget',
@@ -109,7 +116,7 @@ describe('alert state with the limiter kept in process (ISSUE-191)', () => {
       actual: {
         redisState: snapshot.redisState,
         limiterSince: snapshot.limiterUnavailableSinceIso,
-        withinBudget: performance.now() - started < 1000,
+        withinBudget: time.nowMs() - started < 1000,
       },
       expected: {
         redisState: 'unreachable',

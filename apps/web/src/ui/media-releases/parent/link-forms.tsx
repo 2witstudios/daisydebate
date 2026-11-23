@@ -1,6 +1,6 @@
 'use client';
 
-import { StatusRegion } from '../../components/status-region/status-region';
+import { Announcement } from '../../components/announcement/announcement';
 import {
   initialSentState,
   parentUnacknowledged,
@@ -41,9 +41,9 @@ export function AskForLink({
   return (
     <ReleaseNotice title={title}>
       {state.kind === 'sent' ? (
-        <StatusRegion as="p" role="status">
+        <Announcement as="p" kind="progress">
           If a release is on file for that address, we sent a link to it.
-        </StatusRegion>
+        </Announcement>
       ) : (
         <form action={send} className="flex flex-col gap-4">
           <p>
@@ -104,9 +104,9 @@ export function AlreadySigned({
         change the paid-ads choice, went to the address that signed.
       </p>
       {state.kind === 'sent' ? (
-        <StatusRegion as="p" role="status">
+        <Announcement as="p" kind="progress">
           We emailed a new link to that address.
-        </StatusRegion>
+        </Announcement>
       ) : (
         <form action={send} className="flex flex-col gap-3">
           <Problem state={state} />
@@ -138,9 +138,9 @@ export function StopRequests({
   return (
     <ReleaseNotice title="Stop release requests">
       {state.kind === 'sent' ? (
-        <StatusRegion as="p" role="status">
+        <Announcement as="p" kind="progress">
           Done. Daisy won’t send release requests to this address again.
-        </StatusRegion>
+        </Announcement>
       ) : (
         <form action={send} className="flex flex-col gap-4">
           <p>

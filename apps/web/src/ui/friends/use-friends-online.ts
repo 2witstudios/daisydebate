@@ -2,7 +2,7 @@
 
 // First: protocol schemas built after this load without Zod's eval probe.
 import '../../lib/zod-jitless';
-import { useBrowserEffect } from '../edge/browser-sync';
+import { useResource } from '../edge/use-driver';
 
 import { useUiState, useUiUpdate } from '../store/store';
 import { retainPresenceSession } from './presence-session';
@@ -14,14 +14,17 @@ import { retainPresenceSession } from './presence-session';
  */
 export function useFriendsOnline(member: boolean): number | null {
   const update = useUiUpdate();
-  useBrowserEffect(() => {
-    if (!member) return;
-    return retainPresenceSession((friendsOnline) =>
-      update((state) => ({
-        ...state,
-        resources: { ...state.resources, friendsOnline },
-      })),
-    );
-  }, [member, update]);
+  useResource(member, (joined) =>
+    joined
+      ? {
+          dispose: retainPresenceSession((friendsOnline) =>
+            update((state) => ({
+              ...state,
+              resources: { ...state.resources, friendsOnline },
+            })),
+          ),
+        }
+      : null,
+  );
   return useUiState((state) => state.resources.friendsOnline);
 }

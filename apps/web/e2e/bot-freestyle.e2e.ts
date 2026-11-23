@@ -157,7 +157,9 @@ test('a full Freestyle bot Round speaks every bot turn on the configured model',
   test.setTimeout(PLAY_OUT_LIMIT_MS + 300_000);
   const { segments } = freestyleChoice.definition;
   const wavs = await spokenLines(LINES);
-  const accounts = await createRoomLaunchAccounts(browser, 1);
+  const accounts = await createRoomLaunchAccounts(browser, 1, {
+    botDebates: true,
+  });
   try {
     const host = accounts.members[0]!;
     const catalog = await host.context.request.get('/api/rooms/catalog');

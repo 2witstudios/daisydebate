@@ -32,12 +32,15 @@
         "eslint.config.test.ts",
         "scripts/check-boundaries.ts",
         "scripts/check-styling.ts",
+        "scripts/count-effects.ts",
         "scripts/check-lifecycle-literals.ts",
         "scripts/check-affected.ts",
         "scripts/dev-agent.ts",
         "scripts/verify.ts",
         "scripts/prove-round-judging.ts",
         "scripts/prove-media-worker.ts",
+        "scripts/round-oracle-sabotage.ts",
+        "scripts/bots-sabotage.ts",
         // Bundled by the staging-only manual workflow and piped to Fly stdin.
         "scripts/staging-transcript-proof.ts",
       ],
@@ -54,9 +57,14 @@
         "config": ["playwright.config.ts", "playwright.analytics.config.ts"],
       },
       "entry": [
-        // `test` runs `bun test src scripts` through the heavy queue.
+        // `test` runs `bun test src scripts nets` through the heavy queue.
         "src/**/*.test.{ts,tsx}",
         "scripts/**/*.test.ts",
+        "nets/**/*.test.ts",
+        // The route net's table writer, run by hand (`bun run nets/route-table.ts`).
+        "nets/route-table.ts",
+        // Spawned as a real process by the shutdown net.
+        "src/server/process-shutdown-child.test-support.ts",
         // Manual SDK/repair CLIs; the browser proof module is bundled by Bun.
         "scripts/prove-sentry-browser.ts",
         "scripts/staging-attendance-probe.ts",
@@ -138,16 +146,17 @@
         "scripts/auth-load/instance-process.ts",
       ],
     },
+    "packages/worker": {
+      "entry": ["integration/**/*.integration.ts"],
+    },
     "packages/db": {
       "entry": [
         "integration/**/*.integration.ts",
-        "scripts/rating-preflight.ts",
         "scripts/bench-row-parsing.ts",
-        "scripts/sweeps/tx.ts",
-        "scripts/sweeps/locks.ts",
-        "scripts/sweeps/run.ts",
         // Prints a new tenant table's policies (docs/operations/database.md).
         "scripts/tenant-policies.ts",
+        // Writes the baseline from the old history (ADR 0913).
+        "scripts/generate-baseline.ts",
       ],
     },
     // ADR 0077: the custom server and the two CLIs are process entries
@@ -184,12 +193,12 @@
       "entry": [
         "src/start.ts",
         "integration/**/*.integration.ts",
-        // Executed by the shutdown proof through its replacement ffmpeg script.
+        // Executed by the process suite through its replacement ffmpeg script.
         "integration/stalled-encoder.test-support.ts",
       ],
     },
     "apps/audience-publisher": {
-      "entry": ["src/start.ts"],
+      "entry": ["src/start.ts", "integration/**/*.integration.ts"],
     },
     "apps/media-worker": {
       // Bun.resolveSync selects the isolated native subprocess entries; the

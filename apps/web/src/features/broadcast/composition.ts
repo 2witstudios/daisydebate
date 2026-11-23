@@ -1,11 +1,7 @@
+import type { Waits } from '@daisy/clock';
+import { passOf, pollWork, type WorkWake } from '@daisy/worker';
+import { LIVE_IDLE_MAX_MS } from '../../lib/worker-idle';
 import { nowMs } from '@daisy/clock';
-import type { WorkerTimers } from '../../lib/worker-timers';
-import { passOf } from '../../lib/idle-backoff';
-import {
-  LIVE_IDLE_MAX_MS,
-  startWorkerLoop,
-  type WorkWake,
-} from '../../lib/worker-loop';
 import type { App } from '../../server/app';
 import { newFeedKey } from './official-feed';
 import { stageEgressOf } from '../stage-capture/composition';
@@ -21,11 +17,11 @@ const PASS_BUDGET_MS = 750;
 /** Inert unless BROADCAST_CAPTURE is on, so merging never activates capture. */
 export const startBroadcastSweep = (
   app: App,
-  timers: WorkerTimers,
+  waits: Waits,
   /** A Round changed: one may need a Broadcast now (ADR 0154). */
   wake?: WorkWake,
 ) => {
-  const egress = stageEgressOf(app);
+  const egress = stageEgressOf(app, waits);
   if (app.config.BROADCAST_CAPTURE !== 'on' || !egress) return null;
   const log = (event: Parameters<typeof app.logger.log>[0]) =>
     app.logger.log(event, {}, 'Broadcast control plane');
@@ -39,24 +35,24 @@ export const startBroadcastSweep = (
     stageUrl: (id, credential) =>
       `${app.config.PUBLIC_APP_URL}/stage/${id}?c=${encodeURIComponent(credential)}`,
     report: log,
-    passBudget: () => Bun.sleep(PASS_BUDGET_MS),
+    passBudget: (signal?: AbortSignal) => waits.sleep(PASS_BUDGET_MS, signal),
   });
   const factLogSweep = createFactLogSweep({
     store: app.database,
     now: () => app.clock.now(),
   });
-  const factLog = startWorkerLoop({
-    run: () => factLogSweep().then(passOf),
+  const factLog = pollWork({
+    pass: () => factLogSweep().then(passOf),
     // A fixed cadence: a fact leaves by the spectator clock, not a command,
     // and its release time must be no later than one pass after (BCAST-5).
     backoff: { busyMs: FACT_LOG_EVERY_MS, idleMaxMs: FACT_LOG_EVERY_MS },
-    timers,
+    waits,
     failed: () => log('spectator.fact_log_failed'),
   });
-  const reconcile = startWorkerLoop({
-    run: sweep,
+  const reconcile = pollWork({
+    pass: sweep,
     backoff: { busyMs: SWEEP_EVERY_MS, idleMaxMs: LIVE_IDLE_MAX_MS },
-    timers,
+    waits,
     failed: () => log('broadcast.reconcile_failed'),
     wake,
   });

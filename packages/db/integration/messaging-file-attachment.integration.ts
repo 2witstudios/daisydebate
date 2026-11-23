@@ -8,7 +8,7 @@ import { assertRejects } from '@daisy/errors/testing';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { channelFileFrame } from '../src/messaging-files';
-import { scopeFileFrame } from '../src/messaging/file-capability';
+import { scopeFileFrame } from '../src/messaging/file-store';
 import { createMessagingTestFixture } from '../src/testing';
 import {
   fileDatabaseProofPolicy as policy,

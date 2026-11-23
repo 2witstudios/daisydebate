@@ -1,9 +1,10 @@
+import { hmacSha256Base64 } from '@daisy/digest';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import type { BetterAuthOptions } from 'better-auth';
 import { memoryAdapter } from '@better-auth/memory-adapter';
 import { refuseCapacity } from '@daisy/db/testing';
 import { createAppError } from '@daisy/errors';
-import { resolveSession } from '../../../lib/identity';
+import { resolveSession } from '../identity';
 import { keepingSessionRefusal, noteSessionRefusal } from './session-refusal';
 import {
   authTestEnv,
@@ -15,17 +16,8 @@ setupRitewayBun();
 
 /** better-call's signed cookie, so the read reaches the session store. */
 const signedCookie = async (name: string, value: string) => {
-  const key = await crypto.subtle.importKey(
-    'raw',
-    new TextEncoder().encode(authTestEnv.BETTER_AUTH_SECRET),
-    { name: 'HMAC', hash: 'SHA-256' },
-    false,
-    ['sign'],
-  );
-  const signature = new Uint8Array(
-    await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(value)),
-  );
-  const signed = `${value}.${btoa(String.fromCharCode(...signature))}`;
+  const signature = hmacSha256Base64(authTestEnv.BETTER_AUTH_SECRET, value);
+  const signed = `${value}.${signature}`;
   return `${name}=${encodeURIComponent(signed)}`;
 };
 

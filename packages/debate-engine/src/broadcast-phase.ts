@@ -1,4 +1,4 @@
-import { instantMs } from '@daisy/clock';
+import { instantMs } from '@daisy/clock/instant';
 import type { RoundStage, RoundStatus } from '@daisy/protocol/round';
 import type { SegmentType } from '@daisy/protocol/format';
 import type { BroadcastFacts } from './broadcast-lifecycle';

@@ -1,13 +1,29 @@
+import { createAvailabilityStore } from '../src/stores/availability';
+import { createBillingStore } from '../src/stores/billing';
+import { openDatabaseResources } from '../src/resources';
+import { hostWaits } from '@daisy/worker/host';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { requireTestServices } from '@daisy/config';
 import { assertRejects } from '@daisy/errors/testing';
 import { createId } from '@paralleldrive/cuid2';
-import { createDatabase } from '../src/index';
 import { lockAuthorizationActors } from '../src/authorization';
 import { finishedOrBlockedBehind } from '../src/testing';
 import { withHeldCommit } from './usage-ledger.test-support';
 import { executeFlagCommand, flagCommand } from './flags.test-support';
 import { offer, withBillingPurchases } from './billing-purchases.test-support';
+/** This file's database: the area stores it reads, over one set of resources. */
+const openStores = (
+  options: Parameters<typeof openDatabaseResources>[0] & {
+    readonly nextActorId: () => string;
+  },
+) => {
+  const resources = openDatabaseResources(options);
+  return {
+    ...createAvailabilityStore(resources),
+    ...createBillingStore(resources, { nextId: options.nextActorId }),
+    close: resources.close,
+  };
+};
 
 const { databaseUrl } = requireTestServices(process.env);
 setupRitewayBun();
@@ -18,7 +34,8 @@ test('current service discovery pages durable purchase identities and preserves 
       await executeFlagCommand(store, flagCommand(key, 0));
       const admitted = await purchases.admit(subject, offer);
       const claimed = await purchases.recover(subject, admitted.purchase.id);
-      const database = createDatabase({
+      const database = openStores({
+        waits: hostWaits,
         url: databaseUrl,
         client: pool,
         nextActorId: createId,
@@ -91,7 +108,8 @@ for (const operation of ['inspect', 'record'] as const)
         await executeFlagCommand(store, flagCommand(key, 0));
         const admitted = await purchases.admit(subject, offer);
         await purchases.recover(subject, admitted.purchase.id);
-        const database = createDatabase({
+        const database = openStores({
+          waits: hostWaits,
           url: databaseUrl,
           client: pool,
           nextActorId: createId,
@@ -129,7 +147,7 @@ for (const operation of ['inspect', 'record'] as const)
                   fixture.sql,
                   pid,
                   {
-                    now: performance.now,
+                    waits: hostWaits,
                     deadlineMs: 500,
                   },
                 ),

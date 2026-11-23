@@ -1,3 +1,8 @@
+import { listedWord } from '../lifecycle-sql';
+import {
+  attendanceDecisions,
+  checkInAttemptStates,
+} from '@daisy/protocol/attendance';
 import { sql } from 'drizzle-orm';
 import {
   check,
@@ -70,7 +75,7 @@ export const roundAttendanceAdjudications = pgTable(
       .references(() => rounds.id, { onDelete: 'cascade' }),
     commandId: text('command_id').notNull(),
     decision: text('decision')
-      .$type<'attended' | 'none' | 'forfeit' | 'abandoned'>()
+      .$type<(typeof attendanceDecisions)[number]>()
       .notNull(),
     /** Why this decision holds: settled history, an on-time receipt, or the cutoff. */
     evidence: text('evidence')
@@ -85,8 +90,8 @@ export const roundAttendanceAdjudications = pgTable(
     check(
       'round_attendance_adjudications_evidence_check',
       sql`(${table.evidence} = 'settled_availability' and ${table.effectiveDeadline} is not null and ${table.settledHorizon} is not null and ${table.receiptParticipantId} is null)
-        or (${table.evidence} = 'on_time_receipt' and ${table.decision} = 'attended' and ${table.effectiveDeadline} is null and ${table.settledHorizon} is null and ${table.receiptParticipantId} is not null)
-        or (${table.evidence} = 'resolution_cutoff' and ${table.decision} = 'abandoned' and ${table.effectiveDeadline} is null and ${table.settledHorizon} is null and ${table.receiptParticipantId} is null)`,
+        or (${table.evidence} = 'on_time_receipt' and ${table.decision} = ${listedWord(attendanceDecisions, 'attended')} and ${table.effectiveDeadline} is null and ${table.settledHorizon} is null and ${table.receiptParticipantId} is not null)
+        or (${table.evidence} = 'resolution_cutoff' and ${table.decision} = ${listedWord(attendanceDecisions, 'abandoned')} and ${table.effectiveDeadline} is null and ${table.settledHorizon} is null and ${table.receiptParticipantId} is null)`,
     ),
     foreignKey({
       name: 'round_attendance_adjudications_receipt_fk',
@@ -126,7 +131,7 @@ export const roundAttendanceAdjudications = pgTable(
     index('round_attendance_adjudications_round_idx').on(table.roundId),
     check(
       'round_attendance_adjudications_decision_check',
-      oneOf(table.decision, ['attended', 'none', 'forfeit', 'abandoned']),
+      oneOf(table.decision, attendanceDecisions),
     ),
   ],
 );
@@ -147,7 +152,7 @@ export const roundCheckInAttempts = pgTable(
     actorId: text('actor_id').references(() => actors.id),
     serviceId: text('service_id'),
     state: text('state')
-      .$type<'pending' | 'committed' | 'aborted'>()
+      .$type<(typeof checkInAttemptStates)[number]>()
       .notNull()
       .default('pending'),
     resolvedAt: timestampColumn('resolved_at'),
@@ -159,7 +164,9 @@ export const roundCheckInAttempts = pgTable(
     ),
     index('round_check_in_attempts_pending_idx')
       .on(table.roundId, table.receivedAt)
-      .where(sql`${table.state}='pending'`),
+      .where(
+        sql`${table.state}=${listedWord(checkInAttemptStates, 'pending')}`,
+      ),
     index('round_check_in_attempts_command_round_idx').on(
       table.commandId,
       table.roundId,
@@ -168,11 +175,11 @@ export const roundCheckInAttempts = pgTable(
     index('round_check_in_attempts_resolved_idx').on(table.resolvedAt),
     check(
       'round_check_in_attempts_state_check',
-      oneOf(table.state, ['pending', 'committed', 'aborted']),
+      oneOf(table.state, checkInAttemptStates),
     ),
     check(
       'round_check_in_attempts_resolved_check',
-      sql`(${table.state}='pending' and ${table.resolvedAt} is null) or (${table.state}<>'pending' and ${table.resolvedAt} is not null)`,
+      sql`(${table.state}=${listedWord(checkInAttemptStates, 'pending')} and ${table.resolvedAt} is null) or (${table.state}<>${listedWord(checkInAttemptStates, 'pending')} and ${table.resolvedAt} is not null)`,
     ),
     check(
       'round_check_in_attempts_resolved_after_received',

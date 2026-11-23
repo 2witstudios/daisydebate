@@ -1,4 +1,4 @@
-import { StatusRegion } from '../components/status-region/status-region';
+import { Announcement } from '../components/announcement/announcement';
 import { RefusedPageRetries } from '../debate-room/refused-page-retries-client';
 
 type ReadFailure = 'temporary' | 'lasting';
@@ -56,11 +56,11 @@ export function ResultUnavailable({
       {retrySeconds === null ? null : (
         <RefusedPageRetries firstWaitMs={retrySeconds * 1000} />
       )}
-      <StatusRegion as="p" role="status">
+      <Announcement as="p" kind="progress">
         {retrySeconds === null
           ? 'Part of this result could not load.'
           : 'Part of this result could not load. Trying again.'}
-      </StatusRegion>
+      </Announcement>
       <a className="font-strong underline" href="">
         Try now
       </a>

@@ -1,7 +1,6 @@
 'use client';
 
-import { useBrowserEffect } from '../edge/browser-sync';
-import { StatusRegion } from '../components/status-region/status-region';
+import { Announcement } from '../components/announcement/announcement';
 import { Button } from '../components/button/button';
 import { useRef } from 'react';
 import { contextChatFormUnavailable } from '../../features/messaging/context-chat/form';
@@ -37,19 +36,19 @@ export function ContextChatComposer({
   readonly locked?: boolean;
   readonly onSent: (messageId: string) => void;
 }) {
+  const seen = useRef(contextChatAcceptedMessage(initial));
   const [answer, post, pending] = useFormAction(
     action,
     initial,
     contextChatFormUnavailable,
+    (answered) => {
+      const sent = contextChatAcceptedMessage(answered);
+      if (sent !== undefined && seen.current !== sent) {
+        seen.current = sent;
+        onSent(sent);
+      }
+    },
   );
-  const sent = contextChatAcceptedMessage(answer);
-  const seen = useRef(contextChatAcceptedMessage(initial));
-  useBrowserEffect(() => {
-    if (sent !== undefined && seen.current !== sent) {
-      seen.current = sent;
-      onSent(sent);
-    }
-  }, [sent, onSent]);
   const fields = contextChatFields(answer);
   const noticeId = `${id}-notice`;
   useFocusAfterAnswer(answer, fields.notice ? noticeId : id, !pending);
@@ -87,22 +86,23 @@ export function ContextChatComposer({
         }}
       />
       {fields.notice ? (
-        <StatusRegion
+        <Announcement
           as="p"
           id={noticeId}
-          role="status"
+          kind="progress"
           tabIndex={-1}
           className="text-sm text-ink-muted"
         >
           {fields.notice}
-        </StatusRegion>
+        </Announcement>
       ) : null}
       <Button
-        variant="unstyled"
+        variant="primary"
+        size="room"
         type="submit"
         disabled={pending || locked}
         aria-label={fields.retrying ? 'Retry message' : 'Send message'}
-        className="inline-flex h-room-target cursor-pointer items-center justify-center gap-2 self-end rounded-sm bg-accent px-3 text-sm font-strong text-accent-ink disabled:cursor-not-allowed disabled:opacity-60"
+        className="self-end"
       >
         <Icon name="send" size={16} />
         {pending ? 'Sending…' : fields.retrying ? 'Retry message' : 'Send'}

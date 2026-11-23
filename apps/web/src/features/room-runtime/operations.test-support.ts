@@ -1,5 +1,5 @@
 import { noLinkedAdults } from '../spectating/linked-adults';
-import type { AiSeatAvailability } from '../../server/round-worker-policy';
+import type { AiSeatAvailability } from '../round-runtime/worker-policy';
 import { fixedIds } from '@daisy/clock';
 import type { AccountAuthorizationFact } from '@daisy/auth/authorization';
 import { createAppError } from '@daisy/errors';
@@ -81,6 +81,8 @@ export const state: RoomAssemblyState = {
 export function makeOperations(
   overrides: Partial<Store> = {},
   aiSeats: boolean | AiSeatAvailability = false,
+  /** Whether `bot-debates` is released for the caller's account. */
+  botDebates = true,
 ) {
   let createInput: Parameters<Store['createRoomCommand']>[0] | null = null;
   const base = {
@@ -235,6 +237,8 @@ export function makeOperations(
       typeof aiSeats === 'boolean'
         ? { debater: aiSeats, judge: aiSeats }
         : aiSeats,
+    botDebatesReleased: async () => botDebates,
+    botRelease: { keys: ['bot-debates'], decide: () => botDebates },
     betaGrantsPremium: true,
     entropy: () => '01'.repeat(32),
   });

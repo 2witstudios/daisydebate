@@ -1,6 +1,6 @@
-import { renderToString } from 'react-dom/server';
 import { createElement as h } from 'react';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
+import { renderAccessible } from '../../../test-support/rendered/accessible';
 import { PresenceDot } from './presence-dot';
 import { memberStatuses as statuses } from '@daisy/protocol/presence-setting';
 import { statusLabels } from './status-labels';
@@ -17,12 +17,8 @@ describe('PresenceDot', () => {
       given: 'each Social presence (S8)',
       should: 'render an img role labelled with that presence, not status',
       actual: statuses.map((presence) => {
-        const html = renderToString(h(PresenceDot, { presence }));
-        return (
-          html.includes('role="img"') &&
-          !html.includes('role="status"') &&
-          html.includes(`aria-label="${statusLabels[presence]}"`)
-        );
+        const view = renderAccessible(h(PresenceDot, { presence }));
+        return view.has('img', statusLabels[presence]) && !view.has('status');
       }),
       expected: statuses.map(() => true),
     });

@@ -46,11 +46,20 @@ export type JudgeRuling =
       ranking: readonly (readonly string[])[];
     };
 
+/** A judging job's lifecycle (stored as `round_judging_jobs.status`). */
+export const judgingJobStatuses = [
+  'queued',
+  'leased',
+  'recovering',
+  'blocked',
+  'succeeded',
+  'failed',
+] as const;
+
 /** One judging job as read; the engine decides what it means. */
 export type JudgingJobFacts = {
   readonly judgeParticipantId: string;
-  readonly status:
-    'queued' | 'leased' | 'recovering' | 'blocked' | 'succeeded' | 'failed';
+  readonly status: (typeof judgingJobStatuses)[number];
   readonly generationDeadlineAt: string;
   readonly holdsBallot: boolean;
 };

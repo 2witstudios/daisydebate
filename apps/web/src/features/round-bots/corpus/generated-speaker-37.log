@@ -1,0 +1,23 @@
+0 peer barge-in peer
+0 peer barge-in peer
+0 peer barge-in peer
+1560 peer barge-in peer
+1789 peer barge-in peer
+1789 peer end-of-turn peer
+6789 heard peer@1000
+6789 generate peer-turn peer@1000
+6789 settle answer 1
+6789 tts "One."
+6789 tts "Two."
+6789 tts "Three."
+6789 tts "Three." -> CONFLICT/bot-room-changed
+6789 settle tts "One."
+6789 tts "Three."
+6789 settle tts "Three."
+6789 verify
+6869 tts "Two." -> CONFLICT/bot-room-changed
+6869 abandon answer 1
+6869 verify
+6869 token
+6869 join TR_0
+11789 close TR_0

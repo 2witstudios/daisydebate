@@ -20,10 +20,11 @@ export async function requireFlagAdmission(
   tx: Tx,
   accountId: string,
   policy: ReleaseAdmission,
+  refuse: () => Error = () => createAppError('NOT_FOUND'),
 ): Promise<{ readonly admittedAt: string }> {
   await lockFlags(tx, 'read');
   // A separate statement after lock acquisition sees completed disables and expiry.
   const { snapshot, now } = await readFlagSnapshot(tx, accountId, policy.keys);
-  if (policy.decide(snapshot, now) !== true) throw createAppError('NOT_FOUND');
+  if (policy.decide(snapshot, now) !== true) throw refuse();
   return { admittedAt: new Date(now).toISOString() };
 }

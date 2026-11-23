@@ -1,11 +1,22 @@
-import { readFileSync, readdirSync } from 'node:fs';
-import { join } from 'node:path';
-import { SQL } from 'bun';
+import { createOnboardingStore } from '../src/stores/onboarding';
+import { openDatabaseResources } from '../src/resources';
+import { hostWaits } from '@daisy/worker/host';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { requireTestServices } from '@daisy/config';
-import { createDatabase } from '../src';
 import { sqlStateOf, withFixture, type Fixture } from './constraint-helpers';
+/** This file's database: the area stores it reads, over one set of resources. */
+const openStores = (
+  options: Parameters<typeof openDatabaseResources>[0] & {
+    readonly nextActorId: () => string;
+  },
+) => {
+  const resources = openDatabaseResources(options);
+  return {
+    ...createOnboardingStore(resources, { nextId: options.nextActorId }),
+    close: resources.close,
+  };
+};
 
 setupRitewayBun();
 
@@ -20,7 +31,7 @@ const provisionalUser = async (fixture: Fixture) => {
 /** The claim inserts the human actor; track it so the purge removes it before its user. */
 const claimAs = async (
   fixture: Fixture,
-  database: ReturnType<typeof createDatabase>,
+  database: ReturnType<typeof openStores>,
   userId: string,
   username: string,
 ) => {
@@ -49,7 +60,11 @@ describe('a username claim enrols the account on the beta list (ADR 0075)', () =
   test('the first claim writes a pending row, its event and the window digest', async () => {
     await withFixture(url, async (fixture) => {
       const userId = await provisionalUser(fixture);
-      const database = createDatabase({ url, nextActorId: createId });
+      const database = openStores({
+        waits: hostWaits,
+        url,
+        nextActorId: createId,
+      });
       try {
         const first = await claimAs(fixture, database, userId, `b-${userId}`);
         const retry = await claimAs(fixture, database, userId, `b-${userId}`);
@@ -106,7 +121,11 @@ describe('a username claim enrols the account on the beta list (ADR 0075)', () =
   test('the runtime role cannot rewrite the audit or the receipts', async () => {
     await withFixture(url, async (fixture) => {
       const userId = await provisionalUser(fixture);
-      const database = createDatabase({ url, nextActorId: createId });
+      const database = openStores({
+        waits: hostWaits,
+        url,
+        nextActorId: createId,
+      });
       try {
         await claimAs(fixture, database, userId, `r-${userId}`);
       } finally {
@@ -136,93 +155,3 @@ describe('a username claim enrols the account on the beta list (ADR 0075)', () =
     });
   });
 });
-
-/** The migration's own backfill statements, run against a controlled cohort. */
-const backfillStatements = () => {
-  const root = join(import.meta.dir, '..', 'migrations');
-  const folder = readdirSync(root).find((name) =>
-    name.endsWith('_beta_access_expand'),
-  );
-  const text = readFileSync(join(root, folder!, 'migration.sql'), 'utf8');
-  return text
-    .split('--> statement-breakpoint')
-    .map((statement) => statement.replace(/^-->.*$/gm, '').trim())
-    .filter((statement) => statement.startsWith('INSERT INTO'));
-};
-
-test('the expand migration approves exactly the grandfathered cohort', async () => {
-  const sql = new SQL(url, { max: 1 });
-  const ids = {
-    claimed: createId(),
-    provisional: createId(),
-    erased: createId(),
-  };
-  try {
-    const rows = await sql
-      .begin(async (tx) => {
-        // Isolate the cohort: the backfill reads every user, so start from no beta rows.
-        await tx.unsafe('delete from mail_intents');
-        await tx.unsafe('delete from account_access_events');
-        await tx.unsafe('delete from account_beta_access');
-        await tx.unsafe('insert into users (id, username) values ($1, $2)', [
-          ids.claimed,
-          `g-${ids.claimed}`,
-        ]);
-        await tx.unsafe(
-          "insert into actors (id, kind, user_id) values ($1, 'human', $2)",
-          [createId(), ids.claimed],
-        );
-        await tx.unsafe('insert into users (id, username) values ($1, null)', [
-          ids.provisional,
-        ]);
-        await tx.unsafe(
-          "insert into users (id, username, name, deleted_at) values ($1, null, '', now())",
-          [ids.erased],
-        );
-        await tx.unsafe(
-          "insert into actors (id, kind, user_id) values ($1, 'human', $2)",
-          [createId(), ids.erased],
-        );
-        for (const statement of backfillStatements())
-          await tx.unsafe(statement);
-        const cohort = await tx.unsafe(
-          `select b.user_id, b.state, b.provenance, b.requested_at = u.created_at as requested_at_signup,
-             e.to_state, e.principal, e.id ~ '^[a-z0-9]{24}$' as id_shape
-           from account_beta_access b join users u on u.id = b.user_id
-           join account_access_events e on e.user_id = b.user_id
-           where b.user_id in ($1, $2, $3)`,
-          Object.values(ids),
-        );
-        throw new RollbackWith(cohort);
-      })
-      .catch((error: unknown) => {
-        if (error instanceof RollbackWith) return error.rows;
-        throw error;
-      });
-    assert({
-      given: 'a claimed live account, a provisional one and an erased one',
-      should:
-        'approve only the claimed account, as grandfathered, with a migration event',
-      actual: rows,
-      expected: [
-        {
-          user_id: ids.claimed,
-          state: 'approved',
-          provenance: 'grandfathered',
-          requested_at_signup: true,
-          to_state: 'approved',
-          principal: 'migration:beta_access_expand',
-          id_shape: true,
-        },
-      ],
-    });
-  } finally {
-    await sql.close();
-  }
-});
-
-class RollbackWith extends Error {
-  constructor(readonly rows: unknown) {
-    super('rollback');
-  }
-}

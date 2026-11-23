@@ -161,7 +161,9 @@ test('canonical browser create, settings, cast, refusals and reread preserve dur
 test('judge Ready and eligible stored bot debaters start one frozen Round', async ({
   browser,
 }, info) => {
-  const accounts = await createRoomLaunchAccounts(browser, 1);
+  const accounts = await createRoomLaunchAccounts(browser, 1, {
+    botDebates: true,
+  });
   try {
     const context = accounts.members[0]!.context;
     const page = await openPage(context, 'bot Launch host');
@@ -243,7 +245,9 @@ test('Train carries its chosen bot through the durable Room into one shared Roun
   browser,
 }, info) => {
   test.setTimeout(240_000);
-  const accounts = await createRoomLaunchAccounts(browser, 1);
+  const accounts = await createRoomLaunchAccounts(browser, 1, {
+    botDebates: true,
+  });
   try {
     const member = accounts.members[0]!;
     const context = member.context;
@@ -398,7 +402,9 @@ test('a Ready made in one tab survives a mounted tab and a reload that never che
   browser,
 }) => {
   test.setTimeout(120_000);
-  const accounts = await createRoomLaunchAccounts(browser, 1);
+  const accounts = await createRoomLaunchAccounts(browser, 1, {
+    botDebates: true,
+  });
   try {
     const { context } = accounts.members[0]!;
     await context.grantPermissions(['camera', 'microphone'], { origin });

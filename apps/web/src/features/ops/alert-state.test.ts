@@ -1,4 +1,5 @@
 import { instantMs, addMs } from '@daisy/clock';
+import { virtualClock } from '@daisy/clock/testing';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {
   ALERT_THRESHOLDS,
@@ -10,7 +11,7 @@ import {
 import { emptySnapshot } from './alert-state.test-support';
 
 import { OBSERVATION_PURGE_BACKOFF_CEILING_MS } from '@daisy/db/privacy';
-import { PRIVACY_JOBS_RETRY_MAX_MS } from '../../server/privacy-jobs';
+import { PRIVACY_JOBS_RETRY_MAX_MS } from '../account/data-rights/privacy-jobs';
 
 setupRitewayBun();
 
@@ -409,6 +410,7 @@ describe('readAlertSnapshot (AUTH-7.7)', () => {
         redis,
         clock,
         local: noLocalOutage,
+        waits: virtualClock(),
         workers: [],
       }),
       expected: {
@@ -435,6 +437,7 @@ describe('readAlertSnapshot (AUTH-7.7)', () => {
       redis: { get: async (key) => values.get(key) ?? null },
       clock,
       local: noLocalOutage,
+      waits: virtualClock(),
       workers: [
         { name: 'privacy_jobs', missedAfterMs: 1 },
         { name: 'observation_purges', missedAfterMs: 2 },
@@ -461,6 +464,7 @@ describe('readAlertSnapshot (AUTH-7.7)', () => {
         redis,
         clock,
         local: noLocalOutage,
+        waits: virtualClock(),
         workers: [],
       }),
       expected: baseSnapshot,

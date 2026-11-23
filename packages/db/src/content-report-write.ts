@@ -1,7 +1,9 @@
+import { listedWord } from './lifecycle-sql';
 import {
   contentReportCreateSchema,
   queueOfReason,
   type ContentReportCreate,
+  contentReportStatuses,
 } from '@daisy/protocol/content-moderation';
 import { idSchema } from '@daisy/protocol/primitives';
 import { sql } from 'drizzle-orm';
@@ -21,9 +23,9 @@ const onRepeat = (report: ContentReportCreate) =>
   report.targetKind === 'profile_display_name' ||
   report.targetKind === 'profile_bio'
     ? sql`on conflict (reporter_user_id, target_kind, target_id) do update set
-        reason = excluded.reason, queue = excluded.queue, status = 'open',
+        reason = excluded.reason, queue = excluded.queue, status = ${listedWord(contentReportStatuses, 'open')},
         created_at = now(), resolved_at = null, resolved_by_ref = null
-        where content_reports.status <> 'open'
+        where content_reports.status <> ${listedWord(contentReportStatuses, 'open')}
           and exists (select 1 from member_profiles m
             where m.id = excluded.target_id
               and (case excluded.target_kind

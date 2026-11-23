@@ -1,5 +1,5 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { assertTransactionStatement } from './transaction-statement';
+import { assertTransactionStatement } from './transaction-client';
 import {
   forbiddenConfiguration,
   literalConfiguration,

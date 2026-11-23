@@ -1,3 +1,5 @@
+import { existsSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { ESLint } from 'eslint';
 import { typedRules } from './eslint.config.mjs';
 
@@ -24,10 +26,31 @@ export const repositoryEslint = (): ESLint =>
       },
     ],
   }));
+/**
+ * Typed lint of a path in no TypeScript project reports nothing, so a rule
+ * test whose fixture file was deleted would pass or fail silently on zero
+ * problems. Refuse such a path loudly instead.
+ */
+class ExistingPathEslint extends ESLint {
+  override lintText(
+    code: string,
+    options?: Parameters<ESLint['lintText']>[1],
+  ): ReturnType<ESLint['lintText']> {
+    const filePath = options?.filePath;
+    if (filePath !== undefined && !existsSync(resolve(filePath)))
+      throw new Error(
+        `typed lint fixture ${filePath} does not exist; point the test at a file in the project`,
+      );
+    return super.lintText(code, options);
+  }
+}
 let typed: ESLint | undefined;
-/** The repository's configuration exactly as `eslint .` runs it. */
+/**
+ * The repository's configuration exactly as `eslint .` runs it, on a fixture
+ * path that must exist.
+ */
 export const typedRepositoryEslint = (): ESLint =>
-  (typed ??= new ESLint({
+  (typed ??= new ExistingPathEslint({
     cwd: process.cwd(),
     overrideConfigFile: './eslint.config.mjs',
   }));
@@ -103,7 +126,12 @@ export const escapes: ReadonlyArray<readonly [string, string]> = [
   [edgeImport('../../src/server/'), 'apps/web/e2e/journey.e2e.ts'],
 ];
 export const escapeRule = (code: string) =>
-  code.startsWith('import {') ? imports : ['no-restricted-syntax'];
+  code.startsWith('import {')
+    ? imports
+    : code === computed
+      ? // An import whose module cannot be read may load the timers (ADR 0915).
+        ['daisy-time/host-time', 'no-restricted-syntax']
+      : ['no-restricted-syntax'];
 
 /** Exact Launch entry positives and adjacent import/load refusals share the process-edge table. */
 const launchEntry = 'apps/web/e2e/support/room-launch-app.ts';

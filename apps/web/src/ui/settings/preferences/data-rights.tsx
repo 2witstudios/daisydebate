@@ -1,6 +1,5 @@
 import { Button } from '../../components/button/button';
 import type { DataRightsNotices } from '../../../features/account/data-rights/notices';
-import { buttonClass } from '../../components/button/button-class';
 import { Notice } from '../../components/notice/notice';
 
 const fieldsetLegend = 'text-sm font-strong text-ink';
@@ -41,7 +40,7 @@ export function DataRights({
           tone="gold"
           icon="info"
           title={exportNotice[notices.exportData]}
-          role="status"
+          announced
         />
       ) : null}
       {notices.erase ? (
@@ -49,18 +48,14 @@ export function DataRights({
           tone="gold"
           icon="info"
           title={eraseNotice[notices.erase]}
-          role="status"
+          announced
         />
       ) : null}
       <div className="flex flex-col gap-3">
         <h3 className={fieldsetLegend}>Your data</h3>
         {/* A native post: the download answers the form itself. */}
         <form method="post" action="/api/privacy/export">
-          <Button
-            variant="unstyled"
-            type="submit"
-            className={buttonClass('secondary') + ' w-fit'}
-          >
+          <Button variant="secondary" type="submit" className="w-fit">
             Download your data
           </Button>
         </form>
@@ -85,11 +80,7 @@ export function DataRights({
             <span>I understand this cannot be undone.</span>
           </label>
           <div className="pt-3">
-            <Button
-              variant="unstyled"
-              type="submit"
-              className={buttonClass('primary') + ' w-fit'}
-            >
+            <Button variant="primary" type="submit" className="w-fit">
               Close your account
             </Button>
           </div>

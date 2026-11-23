@@ -1,3 +1,6 @@
+import { moderationKinds } from '@daisy/protocol/moderation';
+import { actorKinds } from '../schema/actors';
+import { listedWord } from '../lifecycle-sql';
 import { and, eq, sql } from 'drizzle-orm';
 import { createAppError } from '@daisy/errors';
 import type { ModerationNotice } from '@daisy/protocol/moderation';
@@ -19,6 +22,16 @@ import { actionInForce } from './in-force';
 import { inTransaction, type Tx, type TxSource } from '../tx';
 import { run, query } from '../raw-rows';
 import { z } from 'zod';
+import type { DecisionReleasePolicy } from '@daisy/protocol/round-decision-release';
+import { endMemberOffers } from '../challenges/frame';
+import {
+  releaseMemberFromRooms,
+  type RoomReleaseRules,
+} from '../room-restriction-release';
+import {
+  forfeitMemberRounds,
+  type RoundForfeitRule,
+} from '../round-restriction-forfeit';
 
 /** What a reviewer does to an account (ADR 0103). */
 export type Sanction =
@@ -130,7 +143,7 @@ async function liftModeration(
     tx,
     z.object({ userId: z.string(), actorId: z.string() }),
     sql`select m.user_id as "userId", a.id as "actorId"
-    from moderation_actions m join actors a on a.user_id = m.user_id and a.kind = 'human'
+    from moderation_actions m join actors a on a.user_id = m.user_id and a.kind = ${listedWord(actorKinds, 'human')}
     where m.id = ${input.actionId}`,
   );
   if (!row) throw createAppError('NOT_FOUND');
@@ -222,7 +235,7 @@ export const moderationOperations = ({
         database,
         z.object({ endsAt: z.union([z.string(), z.date()]).nullable() }),
         sql`
-        select case when bool_or(m.kind = 'ban') then null else max(m.ends_at) end as "endsAt"
+        select case when bool_or(m.kind = ${listedWord(moderationKinds, 'ban')}) then null else max(m.ends_at) end as "endsAt"
         from moderation_actions m
         where m.user_id = ${input.userId} and ${mActionInForce(new Date(input.now))}`,
       );
@@ -245,7 +258,7 @@ export const moderationOperations = ({
           }),
           sql`
           select id, kind, starts_at as "startsAt" from moderation_actions
-          where user_id = ${scope.userId} and kind = 'warning' and acknowledged_at is null
+          where user_id = ${scope.userId} and kind = ${listedWord(moderationKinds, 'warning')} and acknowledged_at is null
           order by starts_at desc limit 5`,
         );
         return rows.map((row) => ({ ...row, startsAt: iso(row.startsAt) }));
@@ -265,7 +278,7 @@ export const moderationOperations = ({
           tx,
           sql`update moderation_actions
           set acknowledged_at = ${new Date(input.now)}
-          where id = ${input.id} and user_id = ${scope.userId} and kind = 'warning' and acknowledged_at is null`,
+          where id = ${input.id} and user_id = ${scope.userId} and kind = ${listedWord(moderationKinds, 'warning')} and acknowledged_at is null`,
         );
       }),
     );
@@ -288,4 +301,31 @@ export const moderationOperations = ({
       );
       return rows.length;
     }),
+});
+
+/** The engine's rules a restriction applies; the db never imports the engine. */
+export type RestrictionRules = RoomReleaseRules & {
+  readonly forfeitRound: RoundForfeitRule;
+};
+
+/**
+ * What each capability registers to react to a restriction (ADR 0103). Rounds
+ * come before Rooms: a Round's writers lock it before they touch its Room.
+ */
+export const moderationReactions = (
+  rules: RestrictionRules,
+  decisionRelease?: DecisionReleasePolicy,
+): ModerationReactions => ({
+  onRestricted: [
+    endMemberOffers,
+    (tx, actorId, { nextId, eventSink }) =>
+      forfeitMemberRounds(tx, actorId, {
+        nextId,
+        eventSink,
+        forfeit: rules.forfeitRound,
+        decisionRelease,
+      }),
+    (tx, actorId, { now }) =>
+      releaseMemberFromRooms(tx, actorId, { now, rules }),
+  ],
 });
