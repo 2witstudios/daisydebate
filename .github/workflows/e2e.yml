@@ -577,11 +577,15 @@ jobs:
           ROOM_LAUNCH_NODE: node
           LAUNCH_COHORT: ${{ matrix.cohort }}
           # Playwright cuts shards by test count, in file order, and never
-          # splits a file. Even shares put round-journeys (5 tests, 14 minutes)
-          # with six other files in one 28-minute job. These shares give it a
-          # shard of its own: measured test minutes 7.7, 9.1, 7.5, 13.8, 9.3
-          # (run 44574038202). Re-measure when a Launch file is added.
-          PWTEST_SHARD_WEIGHTS: '31:66:24:5:29'
+          # splits a file unless it runs in parallel mode, as round-journeys
+          # does (five whole Rounds, about 11 test minutes). These shares are
+          # the test counts of each shard's cut, 149 tests in all: attendance
+          # to debate-room; document-draft-recovery to post-round-call;
+          # resolution-strike to round-journeys' first journey; its other
+          # four; round-media-lifecycle on. Mean test minutes over main runs
+          # 45248111105, 45262325239, 45264455752 and 45277614907: 9.2, 8.2,
+          # 8.0, 9.1, 8.2. Re-measure when a Launch file or test is added.
+          PWTEST_SHARD_WEIGHTS: '40:56:20:4:29'
           # Above a shard's measured run and below the job's own timeout.
           DAISY_HEAVY_TIMEOUT_MINUTES: '35'
       - name: Run authenticated generic realtime browser proof

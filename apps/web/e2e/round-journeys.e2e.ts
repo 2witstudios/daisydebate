@@ -8,7 +8,12 @@ import { proveMvpJourney } from './support/mvp-journey';
 /**
  * Whole Rounds through the production server's autonomous services: no
  * fixture clock, maintenance callback, seeded ledger, transcript or ballot.
+ * Each journey makes its own members and Room, so each is its own shard
+ * group: at about two minutes apiece, one file of five cannot balance the
+ * Launch shards (e2e.yml).
  */
+test.describe.configure({ mode: 'parallel' });
+
 test('actual shared human judging completes through autonomous maintenance and native/enhanced ballots', async ({
   browser,
 }) => {
