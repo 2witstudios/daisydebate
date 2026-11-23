@@ -32,7 +32,7 @@ export const roundCommandTypes = [
  * protocol `commandId` keys the row, the payload digest detects a retry
  * with a different body, and `result` is replayed to the caller. A dedupe
  * record, not event sourcing. Exactly one principal is set: an actor or a
- * service. `interrupt` is present because a rule ECS cannot receive a
+ * service. `interrupt` is present because a rule the engine cannot receive a
  * command for is a rule it can never exercise; the log records the legal
  * action, not the mechanism that triggered it.
  */
