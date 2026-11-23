@@ -1,5 +1,5 @@
 import { useDeliver } from '../edge/use-answer';
-import { StatusRegion } from '../components/status-region/status-region';
+import { Announcement } from '../components/announcement/announcement';
 
 import { MediaPageLink } from '../round-media/media-page-link';
 import {
@@ -35,13 +35,13 @@ export function RoundEndedNotice({
   });
   return (
     <div className="mx-auto flex w-full max-w-dash-column flex-col gap-3 p-6">
-      <StatusRegion
+      <Announcement
         as="p"
-        role="status"
+        kind="progress"
         className="text-lg font-strong text-ink"
       >
         This round is over.
-      </StatusRegion>
+      </Announcement>
       {detail ? <p>{detail}</p> : null}
       <MediaPageLink href={`/rounds/${roundId}`}>See the result</MediaPageLink>
     </div>

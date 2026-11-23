@@ -41,7 +41,7 @@ export function DataRights({
           tone="gold"
           icon="info"
           title={exportNotice[notices.exportData]}
-          role="status"
+          announced
         />
       ) : null}
       {notices.erase ? (
@@ -49,7 +49,7 @@ export function DataRights({
           tone="gold"
           icon="info"
           title={eraseNotice[notices.erase]}
-          role="status"
+          announced
         />
       ) : null}
       <div className="flex flex-col gap-3">

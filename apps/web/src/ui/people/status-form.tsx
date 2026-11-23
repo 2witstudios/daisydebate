@@ -1,7 +1,7 @@
 'use client';
 
 import { Button } from '../components/button/button';
-import { StatusRegion } from '../components/status-region/status-region';
+import { Announcement } from '../components/announcement/announcement';
 import {
   chosenStatuses,
   type ChosenStatus,
@@ -122,13 +122,13 @@ export function StatusForm({
         />
       ))}
       {notice ? (
-        <StatusRegion
+        <Announcement
           as="p"
-          role="status"
+          kind="progress"
           className="px-3 pb-1 text-xs text-ink-muted"
         >
           {notice}
-        </StatusRegion>
+        </Announcement>
       ) : null}
     </form>
   );

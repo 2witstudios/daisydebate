@@ -10,7 +10,7 @@ import {
 import { ProtectionLevelForm } from '../../../../ui/settings/parental-controls/protection-level-form';
 import { protectionLevelLabels } from '../../../../features/parental-controls/protection-level-labels';
 import { GuardianForm } from '../../../../ui/settings/parental-controls/guardian-form';
-import { StatusRegion } from '../../../../ui/components/status-region/status-region';
+import { Announcement } from '../../../../ui/components/announcement/announcement';
 import { PageHeader } from '../../../../ui/components/page-header/page-header';
 import { controlClass } from '../../../../ui/components/form-field/form-field-class';
 import { LobbyPermissionControls } from './lobby-permission-controls';
@@ -81,9 +81,9 @@ export async function FamilySettings({
       </Link>
       <PageHeader title={adult ? 'Parental controls' : 'Your parents'} />
       {childAccountClosed ? (
-        <StatusRegion as="p" role="status">
+        <Announcement as="p" kind="progress">
           Your child’s account was closed.
-        </StatusRegion>
+        </Announcement>
       ) : null}
       {adult ? (
         <section

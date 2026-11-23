@@ -1,7 +1,7 @@
 'use client';
 
 import { useFocusOnChange } from '../edge/use-focus';
-import { StatusRegion } from '../components/status-region/status-region';
+import { Announcement } from '../components/announcement/announcement';
 import type { FloorChatProps } from '../round-floor/floor-chat';
 import type { LocalPublication } from '../../features/round-media/model/media-publication';
 import { useCallback, useReducer, useState, type ReactNode } from 'react';
@@ -178,14 +178,14 @@ export function DebateRoom({ round, sync, ...props }: RoomProps) {
         />
       </section>
       {alerts.map((message) => (
-        <StatusRegion
+        <Announcement
           as="p"
           key={message}
-          role="alert"
+          kind="problem"
           className="shrink-0 px-4 py-1 text-sm text-live"
         >
           {message}
-        </StatusRegion>
+        </Announcement>
       ))}
       <BallotStatus round={round} />
       <div

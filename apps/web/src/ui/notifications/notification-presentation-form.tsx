@@ -1,5 +1,5 @@
 'use client';
-import { StatusRegion } from '../components/status-region/status-region';
+import { Announcement } from '../components/announcement/announcement';
 import type { NotificationPresentation } from '@daisy/protocol/notifications';
 import {
   initialSaveForm,
@@ -83,9 +83,13 @@ export function NotificationPresentationForm({
           Save
         </Button>
         {notice ? (
-          <StatusRegion as="p" role="status" className="text-sm text-ink-muted">
+          <Announcement
+            as="p"
+            kind="progress"
+            className="text-sm text-ink-muted"
+          >
             {notice}
-          </StatusRegion>
+          </Announcement>
         ) : null}
       </div>
     </form>

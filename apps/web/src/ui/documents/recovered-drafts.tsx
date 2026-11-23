@@ -1,7 +1,7 @@
 'use client';
 
 import { Button } from '../components/button/button';
-import { StatusRegion } from '../components/status-region/status-region';
+import { Announcement } from '../components/announcement/announcement';
 import { useState, useSyncExternalStore, type Dispatch } from 'react';
 import { flushSync } from 'react-dom';
 import { generateJSON, generateText } from '@tiptap/core';
@@ -121,9 +121,9 @@ function RecoveredDraft({
         </Button>
       </div>
       {copied ? (
-        <StatusRegion as="p" role="status">
+        <Announcement as="p" kind="progress">
           {copied}
-        </StatusRegion>
+        </Announcement>
       ) : null}
       {manualText !== null ? (
         <label className="flex flex-col gap-1 text-sm">
@@ -156,9 +156,9 @@ function DeletedDocumentNotice({
   readonly problem: string | null;
 }) {
   return (
-    <StatusRegion
+    <Announcement
       as="div"
-      role="alert"
+      kind="problem"
       className="flex items-center gap-3 p-3 text-sm"
     >
       <p className="min-w-0 flex-1">
@@ -186,7 +186,7 @@ function DeletedDocumentNotice({
           Discard
         </Button>
       ) : null}
-    </StatusRegion>
+    </Announcement>
   );
 }
 

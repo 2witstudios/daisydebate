@@ -1,5 +1,5 @@
 import { Button } from '../../components/button/button';
-import { StatusRegion } from '../../components/status-region/status-region';
+import { Announcement } from '../../components/announcement/announcement';
 import { BotAdmissionNotice } from './bot-admission-notice';
 import { AssemblyCommandForm } from './assembly-command-form';
 import { CaptureSummary } from './capture-choice';
@@ -315,9 +315,9 @@ export function ReadyControl({
         readyForm(full('primary'))
       )}
       {ready.reason && !askable ? (
-        <StatusRegion as="p" role="status" className="text-sm text-ink-muted">
+        <Announcement as="p" kind="progress" className="text-sm text-ink-muted">
           {ready.reason}
-        </StatusRegion>
+        </Announcement>
       ) : null}
     </div>
   );
@@ -339,13 +339,13 @@ export function StartControl({ view, actorId, local }: Props) {
       {view.capabilities.host ? (
         <BotAdmissionNotice admission={view.botAdmission} />
       ) : null}
-      <StatusRegion
+      <Announcement
         as="p"
-        role="status"
+        kind="progress"
         className="text-right text-sm text-ink-muted"
       >
         {notice}
-      </StatusRegion>
+      </Announcement>
     </div>
   );
 }

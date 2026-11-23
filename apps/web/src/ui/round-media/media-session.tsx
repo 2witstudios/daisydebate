@@ -6,7 +6,7 @@ import { mediaDeadlineAt } from '../edge/round-media-browser';
 import { useDeliver } from '../edge/use-answer';
 import { useResource } from '../edge/use-driver';
 import { useLeave } from '../edge/use-answer';
-import { StatusRegion } from '../components/status-region/status-region';
+import { Announcement } from '../components/announcement/announcement';
 import { useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { isRoundOver } from '@daisy/protocol/round';
 import { type RoundView } from '@daisy/protocol/round-view';
@@ -220,9 +220,9 @@ function RoundMediaSession({
         {presence === 'elsewhere' ? (
           <TabElsewhere takeOver={tab.takeOver} />
         ) : (
-          <StatusRegion as="p" role="status">
+          <Announcement as="p" kind="progress">
             Checking this Round’s tab…
-          </StatusRegion>
+          </Announcement>
         )}
       </section>
     );

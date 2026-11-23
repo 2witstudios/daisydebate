@@ -3,7 +3,7 @@
 import { useDocumentEvent } from '../edge/use-dom-events';
 import { useResource } from '../edge/use-driver';
 import { readBrowserSession } from '../edge/session-browser';
-import { StatusRegion } from '../components/status-region/status-region';
+import { Announcement } from '../components/announcement/announcement';
 import { useState } from 'react';
 import { nowMs, systemClock } from '@daisy/clock';
 import { pruneExpiredDrafts } from './document-draft-storage';
@@ -122,9 +122,9 @@ export function DocumentDraftPrivacy({
     ),
   );
   return cleanupFailed ? (
-    <StatusRegion as="p" role="alert" className="px-4 py-2 text-sm text-live">
+    <Announcement as="p" kind="problem" className="px-4 py-2 text-sm text-live">
       Private note cleanup could not finish. Clear this site&apos;s storage
       before sharing this browser.
-    </StatusRegion>
+    </Announcement>
   ) : null;
 }

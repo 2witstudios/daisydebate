@@ -1,4 +1,4 @@
-import { StatusRegion } from '../components/status-region/status-region';
+import { Announcement } from '../components/announcement/announcement';
 import { Button } from '../components/button/button';
 import {
   fileFields,
@@ -24,9 +24,9 @@ export function AttachmentForm({
     >
       <input type="hidden" name="requestId" value={requestId} />
       {notice ? (
-        <StatusRegion as="p" role="status">
+        <Announcement as="p" kind="progress">
           {notice}
-        </StatusRegion>
+        </Announcement>
       ) : null}
       {filename ? <p>Selected file: {filename}</p> : null}
       <label>

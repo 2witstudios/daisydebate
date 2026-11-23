@@ -1,4 +1,4 @@
-import { StatusRegion } from '../../../ui/components/status-region/status-region';
+import { Announcement } from '../../../ui/components/announcement/announcement';
 import { systemClock } from '@daisy/clock';
 import { headers } from 'next/headers';
 import Link from 'next/link';
@@ -39,9 +39,9 @@ async function InboxResults({
   return (
     <ConversationPane title={title}>
       {inbox === null ? (
-        <StatusRegion as="p" role="status" className="text-ink-muted">
+        <Announcement as="p" kind="progress" className="text-ink-muted">
           That search could not be read. Try again.
-        </StatusRegion>
+        </Announcement>
       ) : inbox.entries.length === 0 ? (
         <p className="text-ink-muted">
           {q === undefined

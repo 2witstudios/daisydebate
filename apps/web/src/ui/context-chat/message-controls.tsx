@@ -1,7 +1,7 @@
 'use client';
 import { useDeliver } from '../edge/use-answer';
 import { useFocusAfterLeave } from '../edge/use-focus';
-import { StatusRegion } from '../components/status-region/status-region';
+import { Announcement } from '../components/announcement/announcement';
 import { Button } from '../components/button/button';
 import { useRef, useState } from 'react';
 import { systemId } from '@daisy/clock';
@@ -216,9 +216,9 @@ export function ContextChatMessageControls({
           <input type="hidden" name="reason" value={reason} />
         ) : null}
         {notice ? (
-          <StatusRegion as="p" id={noticeId} role="status" tabIndex={-1}>
+          <Announcement as="p" id={noticeId} kind="progress" tabIndex={-1}>
             {notice}
-          </StatusRegion>
+          </Announcement>
         ) : null}
         <Button
           variant="unstyled"

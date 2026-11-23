@@ -3,8 +3,8 @@
 import { useAnswer, useDeliver } from '../edge/use-answer';
 import { useDocumentEvent } from '../edge/use-dom-events';
 import { Button } from '../components/button/button';
-import { StatusRegion } from '../components/status-region/status-region';
-import { Dialog } from '../components/dialog/dialog';
+import { Announcement } from '../components/announcement/announcement';
+import { DialogRegion } from '../components/dialog/dialog-region';
 import { competitionTypes, type CompetitionType } from '@daisy/protocol/round';
 import {
   reportReasonLabels,
@@ -169,13 +169,13 @@ function MessageItem({
         Message
       </Button>
       {creationFields(answer).notice ? (
-        <StatusRegion
+        <Announcement
           as="p"
-          role="status"
+          kind="progress"
           className="px-2 text-xs text-ink-muted"
         >
           {`Could not open a conversation with @${username}. Try again.`}
-        </StatusRegion>
+        </Announcement>
       ) : null}
     </form>
   );
@@ -212,13 +212,13 @@ function BlockItem({
         Block
       </Button>
       {notice ? (
-        <StatusRegion
+        <Announcement
           as="p"
-          role="status"
+          kind="progress"
           className="px-2 text-xs text-ink-muted"
         >
           {notice}
-        </StatusRegion>
+        </Announcement>
       ) : null}
     </form>
   );
@@ -294,9 +294,9 @@ function ChallengeView({
         </p>
       )}
       {refusal ? (
-        <StatusRegion as="p" role="status" className="text-sm text-ink-muted">
+        <Announcement as="p" kind="progress" className="text-sm text-ink-muted">
           {refusal}
-        </StatusRegion>
+        </Announcement>
       ) : null}
       <Button
         variant="unstyled"
@@ -359,9 +359,9 @@ function ReportView({
         ))}
       </div>
       {refusal ? (
-        <StatusRegion as="p" role="status" className="text-sm text-ink-muted">
+        <Announcement as="p" kind="progress" className="text-sm text-ink-muted">
           {refusal}
-        </StatusRegion>
+        </Announcement>
       ) : null}
       <Button
         variant="unstyled"
@@ -441,7 +441,7 @@ export function PersonMenu({
           onClose();
         }}
       />
-      <Dialog
+      <DialogRegion
         as="section"
 
         aria-label={publicNameLabel(member)}
@@ -543,7 +543,7 @@ export function PersonMenu({
             }}
           />
         ) : null}
-      </Dialog>
+      </DialogRegion>
     </>
   );
 }

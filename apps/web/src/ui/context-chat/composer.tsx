@@ -1,6 +1,6 @@
 'use client';
 
-import { StatusRegion } from '../components/status-region/status-region';
+import { Announcement } from '../components/announcement/announcement';
 import { Button } from '../components/button/button';
 import { useRef } from 'react';
 import { contextChatFormUnavailable } from '../../features/messaging/context-chat/form';
@@ -86,15 +86,15 @@ export function ContextChatComposer({
         }}
       />
       {fields.notice ? (
-        <StatusRegion
+        <Announcement
           as="p"
           id={noticeId}
-          role="status"
+          kind="progress"
           tabIndex={-1}
           className="text-sm text-ink-muted"
         >
           {fields.notice}
-        </StatusRegion>
+        </Announcement>
       ) : null}
       <Button
         variant="unstyled"

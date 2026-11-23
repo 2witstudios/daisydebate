@@ -1,6 +1,6 @@
 'use client';
 import { useDeliver } from '../../edge/use-answer';
-import { StatusRegion } from '../../components/status-region/status-region';
+import { Announcement } from '../../components/announcement/announcement';
 import { drawnTopicLabel } from '../../../features/debate-room/vocabulary';
 import Link from 'next/link';
 import { StoredBallotScores } from '../../ballot/stored-ballot-scores';
@@ -127,12 +127,12 @@ export function BallotPage({
         />
       ) : null}
       {display !== 'retry' && view.round.status === 'completed' ? (
-        <StatusRegion as="p" role="status">
+        <Announcement as="p" kind="progress">
           Round outcome:{' '}
           {view.round.outcome
             ? outcomeText(plan, view.round.outcome)
             : 'No competitive outcome'}
-        </StatusRegion>
+        </Announcement>
       ) : null}
       {postRoundCallOffered(view.round, renderedAtMs) ? (
         <MediaPageLink

@@ -1,7 +1,7 @@
 'use client';
 
 import { useDelay } from '../edge/use-tick';
-import { StatusRegion } from '../components/status-region/status-region';
+import { Announcement } from '../components/announcement/announcement';
 import { Button } from '../components/button/button';
 import type { Person } from '@daisy/protocol/people-list';
 import { ShellLink as Link } from '../layout/app-shell/shell-link';
@@ -254,13 +254,13 @@ export function PersonList({
       {filter === 'all' ? section('Offline', offline) : null}
       {list.people.length === 0 ? (
         <li>
-          <StatusRegion
+          <Announcement
             as="p"
-            role="status"
+            kind="progress"
             className="px-3 py-6 text-center font-semibold"
           >
             No one matches
-          </StatusRegion>
+          </Announcement>
         </li>
       ) : null}
       {list.nextCursor ? (

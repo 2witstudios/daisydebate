@@ -1,7 +1,7 @@
 'use client';
 import { browserTransport } from '../edge/browser-request';
 import { useDeliver } from '../edge/use-answer';
-import { StatusRegion } from '../components/status-region/status-region';
+import { Announcement } from '../components/announcement/announcement';
 import { Button } from '../components/button/button';
 import { useCallback, useState, type ReactNode } from 'react';
 import type { LiveTranscriptRead } from '@daisy/protocol/round-transcript';
@@ -53,15 +53,19 @@ export function LiveTranscript({
   useDeliver(driver, (running) => running?.signal());
   if (synced.freshness === 'gone')
     return placement === 'sidebar' ? (
-      <StatusRegion as="p" role="status" className="p-4 text-sm text-ink-muted">
+      <Announcement
+        as="p"
+        kind="progress"
+        className="p-4 text-sm text-ink-muted"
+      >
         Transcript unavailable.
-      </StatusRegion>
+      </Announcement>
     ) : null;
   const sections = liveTranscriptSections(synced.value);
   const status: ReactNode = (
-    <StatusRegion
+    <Announcement
       as="div"
-      role="status"
+      kind="progress"
       className="flex gap-2 text-sm text-ink-muted"
     >
       <p>{labels[transcriptState(synced.value)]}</p>
@@ -77,7 +81,7 @@ export function LiveTranscript({
       ) : (
         <p>Reconnecting</p>
       )}
-    </StatusRegion>
+    </Announcement>
   );
   if (placement === 'sidebar')
     return (

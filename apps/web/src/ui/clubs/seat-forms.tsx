@@ -1,6 +1,6 @@
 'use client';
 
-import { StatusRegion } from '../components/status-region/status-region';
+import { Announcement } from '../components/announcement/announcement';
 import { useState } from 'react';
 import type { FormAction } from '../form-action/form-action';
 import { Button } from '../components/button/button';
@@ -55,13 +55,13 @@ export function InviteForm({
             Send invitation
           </Button>
           {done ? (
-            <StatusRegion
+            <Announcement
               as="p"
-              role="status"
+              kind="progress"
               className="text-sm text-ink-muted"
             >
               Invitation sent.
-            </StatusRegion>
+            </Announcement>
           ) : null}
         </>
       )}

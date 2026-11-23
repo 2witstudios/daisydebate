@@ -1,6 +1,6 @@
 'use client';
 
-import { StatusRegion } from '../../components/status-region/status-region';
+import { Announcement } from '../../components/announcement/announcement';
 import {
   ageFields,
   ageFormUnavailable,
@@ -152,9 +152,9 @@ export function AgeStep({
             .
           </span>
         </label>
-        <StatusRegion
+        <Announcement
           as="div"
-          role="alert"
+          kind="problem"
           className="flex flex-col gap-1 empty:hidden"
         >
           {errors.map((error) => (
@@ -167,7 +167,7 @@ export function AgeStep({
               That didn’t save. Try again.
             </p>
           ) : null}
-        </StatusRegion>
+        </Announcement>
         <Button
           type="submit"
           disabled={pending}

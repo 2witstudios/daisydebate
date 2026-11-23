@@ -60,17 +60,30 @@ ordinary link and verifies the dialog.
 
 ## Browser lifetimes and native controls
 
-Browser effects, timers and requests enter through `apps/web/src/ui/edge/`.
-Give the edge hook the dependencies that own the lifetime. Use the driver,
-answer, focus, event, tick or navigation hook where it owns the whole binding.
-Driver state and feature decisions stay with their feature.
+Browser effects, timers and requests enter through `apps/web/src/ui/edge/`,
+and nowhere else under any name (`daisy-client/browser-edge`; `bun
+scripts/count-effects.ts` resolves every call and must report 0). Each edge
+hook does one named job and takes that job's inputs, never an effect callback
+or a dependency list: `useDriver` and `useResource` hold a subscribed or
+disposable resource, `useAnswer` and `useDeliver` hand a rendered value on,
+the DOM event, media-query and observer hooks own one listener, the focus
+hooks move focus, `useTick`, `useDelay` and `useWait` own waits, and
+`useNavigation` follows a destination. Handlers are read at their latest, so a
+caller keeps no "latest" ref. A driver or HTTP client receives
+`browserTransport` and `browserScheduler` as injected ports; outside the edge a
+port is passed, never called. Driver state and feature decisions stay with
+their feature.
 
-Markup uses `Dialog`, `StatusRegion` and `Button` from `ui/components`.
-Keep the intentional host element and announcement role. Use a native dialog
-when the platform owns its lifecycle, a labelled shell for an existing
-feature-owned overlay, and the popover components for popovers. A submit button
-keeps its form, name and value. Use the styled button variants for standard
-actions and the unstyled variant where the control owns its layout.
+Markup uses `Dialog`, `Announcement` and `Button` from `ui/components`.
+`Dialog` is the native dialog and owns its lifetime: the owner passes `open`
+and `onClose`, the dialog shows and closes itself, reports every close the
+member makes and returns focus to its opener (`modal={false}` shows it in
+place, so a page answered before hydration already shows it;
+`requestDialog(titleId)` opens one another part of the page owns).
+`DialogRegion` is the labelled shell of an overlay a popover or sheet owns.
+`Announcement` takes what it says, `kind="progress"` or `kind="problem"`, and
+decides its own role. A submit button keeps its form, name and value; every
+button uses a named variant.
 
 ## Mutating forms
 

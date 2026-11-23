@@ -4,7 +4,7 @@ import { useDeliver } from '../edge/use-answer';
 import { useDocumentEvent } from '../edge/use-dom-events';
 import { useFocusOnChange } from '../edge/use-focus';
 import { useMediaChange } from '../edge/use-dom-events';
-import { StatusRegion } from '../components/status-region/status-region';
+import { Announcement } from '../components/announcement/announcement';
 import { Button } from '../components/button/button';
 import { useCallback, useReducer, useRef } from 'react';
 import {
@@ -189,14 +189,14 @@ export function ManagerWorkspace({
       {[...new Set([problem ?? notice, drive.problem, pageNotice])]
         .filter(Boolean)
         .map((message) => (
-          <StatusRegion
+          <Announcement
             as="p"
             key={message}
-            role="alert"
+            kind="problem"
             className="border-b border-border px-4 py-2 text-sm"
           >
             {message}
-          </StatusRegion>
+          </Announcement>
         ))}
       <RecoveredDrafts
         documents={loadedDocuments(state.opened)}

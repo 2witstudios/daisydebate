@@ -1,4 +1,4 @@
-import { StatusRegion } from '../../../../ui/components/status-region/status-region';
+import { Announcement } from '../../../../ui/components/announcement/announcement';
 import type { Metadata } from 'next';
 import type { SearchParams } from '../../../../features/access/decision';
 import {
@@ -51,9 +51,9 @@ export default async function WatchRoundPage({
       refreshHref={returnTo}
     >
       {reported ? (
-        <StatusRegion as="p" role="status" className="text-sm text-ink-muted">
+        <Announcement as="p" kind="progress" className="text-sm text-ink-muted">
           {reportAnswerText(reported)}
-        </StatusRegion>
+        </Announcement>
       ) : null}
       <RoundAudience roundId={roundId} returnTo={returnTo} />
       {account ? (

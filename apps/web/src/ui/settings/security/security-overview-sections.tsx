@@ -1,6 +1,6 @@
 'use client';
 
-import { StatusRegion } from '../../components/status-region/status-region';
+import { Announcement } from '../../components/announcement/announcement';
 import { Button } from '../../components/button/button';
 import { buttonClass } from '../../components/button/button-class';
 import { SignOutForm } from '../../components/sign-out-form/sign-out-form';
@@ -40,9 +40,9 @@ function PasskeyList({
 }) {
   if (lists.kind !== 'read')
     return (
-      <StatusRegion as="p" role="status">
+      <Announcement as="p" kind="progress">
         Loading passkeys…
-      </StatusRegion>
+      </Announcement>
     );
   if (lists.passkeys.kind === 'unavailable')
     return <UnreadNotice id="passkeys-load-notice" list={lists.passkeys} />;
@@ -69,9 +69,9 @@ function SessionList({
 }) {
   if (lists.kind !== 'read')
     return (
-      <StatusRegion as="p" role="status">
+      <Announcement as="p" kind="progress">
         Loading sessions…
-      </StatusRegion>
+      </Announcement>
     );
   if (lists.sessions.kind === 'unavailable') return null;
   return (

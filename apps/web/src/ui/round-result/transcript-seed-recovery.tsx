@@ -2,7 +2,7 @@
 import { browserTransport } from '../edge/browser-request';
 import { retryAfter } from '../edge/browser-waits';
 import { useResource } from '../edge/use-driver';
-import { StatusRegion } from '../components/status-region/status-region';
+import { Announcement } from '../components/announcement/announcement';
 import { Button } from '../components/button/button';
 import { useState } from 'react';
 import { readTranscript } from '../../features/round-runtime/read-transcript';
@@ -66,12 +66,16 @@ export function TranscriptSeedAnswer({
     );
   if (state.kind === 'denied')
     return placement === 'sidebar' ? (
-      <StatusRegion as="p" role="status" className="p-4 text-sm text-ink-muted">
+      <Announcement
+        as="p"
+        kind="progress"
+        className="p-4 text-sm text-ink-muted"
+      >
         Transcript unavailable.
-      </StatusRegion>
+      </Announcement>
     ) : null;
   return (
-    <StatusRegion as="p" role="status" className="p-4 text-sm">
+    <Announcement as="p" kind="progress" className="p-4 text-sm">
       Transcript unavailable.
       {state.kind === 'outdated' ? (
         <>
@@ -86,6 +90,6 @@ export function TranscriptSeedAnswer({
           </Button>
         </>
       ) : null}
-    </StatusRegion>
+    </Announcement>
   );
 }

@@ -1,5 +1,5 @@
 'use client';
-import { StatusRegion } from '../components/status-region/status-region';
+import { Announcement } from '../components/announcement/announcement';
 import { useId } from 'react';
 import type { StandingLobbyChoice } from '@daisy/protocol/lobby/eligibility';
 import { hostingOffers } from '@daisy/protocol/lobby/hosting-tier';
@@ -171,15 +171,15 @@ export function CreateTournamentForm({
         </div>
       </fieldset>
       {notice ? (
-        <StatusRegion
+        <Announcement
           as="p"
           id={noticeId}
           tabIndex={-1}
-          role="status"
+          kind="progress"
           className="text-sm"
         >
           {notice}
-        </StatusRegion>
+        </Announcement>
       ) : null}
     </form>
   );

@@ -1,6 +1,6 @@
 'use client';
 import { useAnswer } from '../../edge/use-answer';
-import { StatusRegion } from '../../components/status-region/status-region';
+import { Announcement } from '../../components/announcement/announcement';
 import { authoringControlClass as control } from './ballot-authoring-fields';
 import { BallotDefinitionSummary } from './ballot-definition-summary';
 import { BallotDefinitionFields } from './ballot-definition-fields';
@@ -134,18 +134,18 @@ export function BallotAuthoringEditor({
         </p>
       </header>
       {saved === 'publish' ? (
-        <StatusRegion as="p" role="status">
+        <Announcement as="p" kind="progress">
           Definition published. The event keeps its current ballot until you
           select another version below.
-        </StatusRegion>
+        </Announcement>
       ) : saved === 'pin' ? (
-        <StatusRegion as="p" role="status">
+        <Announcement as="p" kind="progress">
           Event ballot saved.
-        </StatusRegion>
+        </Announcement>
       ) : saved === 'screening' ? (
-        <StatusRegion as="p" role="status">
+        <Announcement as="p" kind="progress">
           Screening saved.
-        </StatusRegion>
+        </Announcement>
       ) : null}
       <BallotPreviewLayout
         preview={

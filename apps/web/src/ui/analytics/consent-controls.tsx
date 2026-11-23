@@ -2,7 +2,7 @@
 
 import { browserTransport } from '../edge/browser-request';
 import { postConsent } from './consent-request';
-import { StatusRegion } from '../components/status-region/status-region';
+import { Announcement } from '../components/announcement/announcement';
 import { Button } from '../components/button/button';
 import { useState, type FormEvent } from 'react';
 import Link from 'next/link';
@@ -26,10 +26,10 @@ export function ConsentControls({
   if (!available.analytics && !available.replay) return null;
   if (choice.kind === 'unreadable')
     return (
-      <StatusRegion as="p" role="status">
+      <Announcement as="p" kind="progress">
         We can&apos;t read your saved privacy choices right now. Reload this
         page to try again.
-      </StatusRegion>
+      </Announcement>
     );
   return <ConsentForm consent={choice.consent} available={available} />;
 }
@@ -145,14 +145,14 @@ export function ConsentForm({
           )}
         </div>
         {state === 'failed' && (
-          <StatusRegion as="p" role="status">
+          <Announcement as="p" kind="progress">
             We couldn&apos;t save your choice. Try again.
-          </StatusRegion>
+          </Announcement>
         )}
         {state === 'saved' && !banner && (
-          <StatusRegion as="p" role="status">
+          <Announcement as="p" kind="progress">
             Choices saved.
-          </StatusRegion>
+          </Announcement>
         )}
       </form>
       <Link href="/privacy" className="text-sm underline">

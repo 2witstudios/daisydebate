@@ -1,4 +1,4 @@
-import { StatusRegion } from '../../components/status-region/status-region';
+import { Announcement } from '../../components/announcement/announcement';
 import Link from 'next/link';
 import { SignOutForm } from '../../components/sign-out-form/sign-out-form';
 import { SIGN_OUT_FAILED_NOTICE } from '../../components/sign-out-form/sign-out-notice';
@@ -23,9 +23,9 @@ export function AccountExit({
   return (
     <div className="flex flex-col gap-3">
       {failed ? (
-        <StatusRegion as="p" role="alert" className="text-md text-ink">
+        <Announcement as="p" kind="problem" className="text-md text-ink">
           {SIGN_OUT_FAILED_NOTICE}
-        </StatusRegion>
+        </Announcement>
       ) : null}
       <div className="flex flex-wrap gap-3">
         {children}

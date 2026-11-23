@@ -2,7 +2,7 @@
 
 import { Button } from '../../components/button/button';
 import { Dialog } from '../../components/dialog/dialog';
-import { useRef, type ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { buttonClass } from '../../components/button/button-class';
 
 /**
@@ -24,22 +24,26 @@ export function RoomDialog({
   readonly onClose?: () => void;
   readonly children: ReactNode;
 }) {
-  const dialog = useRef<HTMLDialogElement>(null);
+  const [open, setOpen] = useState(false);
   return (
     <>
       <Button
         variant="unstyled"
         type="button"
         aria-haspopup="dialog"
-        onClick={() => dialog.current?.showModal()}
+        onClick={() => setOpen(true)}
         className={buttonClass('secondary')}
       >
         {label}
       </Button>
       <Dialog
-        ref={dialog}
+        open={open}
+        onClose={() => {
+          setOpen(false);
+          onClose?.();
+        }}
+        onOpenRequested={() => setOpen(true)}
         aria-labelledby={titleId}
-        onClose={onClose}
         className="m-auto w-room-dialog max-w-full flex-col gap-4 rounded-lg border border-border-strong bg-surface p-6 text-ink shadow-3 backdrop:bg-scrim/50 open:flex"
       >
         <h2 id={titleId} className="font-display text-lg">

@@ -1,7 +1,7 @@
 'use client';
 
 import { useResource } from '../../edge/use-driver';
-import { StatusRegion } from '../../components/status-region/status-region';
+import { Announcement } from '../../components/announcement/announcement';
 import { useMemo, useRef } from 'react';
 import type { createBrowserDeviceChecks } from '../../round-media/browser-device-checks';
 import type { DeviceKind } from '../../../features/video/device-check-controller';
@@ -162,10 +162,10 @@ export function DeviceChoice({
         </select>
       </label>
       {failed ? (
-        <StatusRegion as="p" role="alert" className="text-sm text-live">
+        <Announcement as="p" kind="problem" className="text-sm text-live">
           {`${kindLabel[kind]}: ${words}.`}
           {help ? ` ${help}` : null}
-        </StatusRegion>
+        </Announcement>
       ) : null}
     </div>
   );

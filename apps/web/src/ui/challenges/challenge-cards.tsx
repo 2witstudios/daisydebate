@@ -2,7 +2,7 @@
 
 import { useDeliver } from '../edge/use-answer';
 import { navigateDocument } from '../edge/browser-navigation';
-import { StatusRegion } from '../components/status-region/status-region';
+import { Announcement } from '../components/announcement/announcement';
 import { Button } from '../components/button/button';
 import type { ChallengeList } from '@daisy/protocol/challenges';
 import { useMemo } from 'react';
@@ -67,13 +67,13 @@ function IncomingCard({
       </p>
       <p className="text-sm text-stage-ink-muted">{challengeSummary(offer)}</p>
       {notice ? (
-        <StatusRegion
+        <Announcement
           as="p"
-          role="status"
+          kind="progress"
           className="text-sm text-stage-ink-muted"
         >
           {notice}
-        </StatusRegion>
+        </Announcement>
       ) : null}
       <div className="mt-1 flex gap-1">
         <form action={accept}>
@@ -167,9 +167,9 @@ function EndedCard({
         className,
       )}
     >
-      <StatusRegion as="p" role="status" className="text-sm">
+      <Announcement as="p" kind="progress" className="text-sm">
         Your challenge to @{username} ended.
-      </StatusRegion>
+      </Announcement>
       <Button
         variant="unstyled"
         type="button"

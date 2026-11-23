@@ -1,4 +1,4 @@
-import { StatusRegion } from '../components/status-region/status-region';
+import { Announcement } from '../components/announcement/announcement';
 import Link from 'next/link';
 import type { ClubSeatsView } from '../../features/clubs/views';
 import type { FormAction } from '../form-action/form-action';
@@ -223,16 +223,16 @@ export function ClubSeatsPage({
         }
       />
       {view.plan.state === 'none' ? (
-        <StatusRegion
+        <Announcement
           as="p"
-          role="status"
+          kind="progress"
           className="rounded-xl bg-surface-sunken p-4"
         >
           Seats start once the club plan is paid.{' '}
           <Link href={`${base}/billing`} className="font-strong underline">
             Go to Billing
           </Link>
-        </StatusRegion>
+        </Announcement>
       ) : null}
       <div className="grid grid-cols-club-stats gap-3">
         <Stat

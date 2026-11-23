@@ -1,5 +1,5 @@
 'use client';
-import { StatusRegion } from '../components/status-region/status-region';
+import { Announcement } from '../components/announcement/announcement';
 import { Button } from '../components/button/button';
 import type { MediaRuntime } from '../../features/round-media/media-runtime';
 import type { MediaState } from '../../features/round-media/model/media-state';
@@ -30,9 +30,13 @@ export function MediaBar({
       data-room-media="status"
       className="flex flex-wrap items-center gap-3 bg-surface-sunken px-3 py-2"
     >
-      <StatusRegion as="p" role="status" className="m-0 text-sm text-ink-muted">
+      <Announcement
+        as="p"
+        kind="progress"
+        className="m-0 text-sm text-ink-muted"
+      >
         {status.message}
-      </StatusRegion>
+      </Announcement>
       {controls.enableSound ? (
         <Button
           variant="unstyled"

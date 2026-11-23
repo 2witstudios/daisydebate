@@ -2,7 +2,7 @@
 
 import { Dialog } from '../../components/dialog/dialog';
 import { Button } from '../../components/button/button';
-import { useRef, type ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { buttonClass } from '../../components/button/button-class';
 import { Icon } from '../../components/icon/icon';
 
@@ -34,7 +34,7 @@ const closeClass =
  * browse the Lobby" all close it where it opened.
  */
 export function PlayDialog({ children }: { readonly children: ReactNode }) {
-  const dialog = useRef<HTMLDialogElement>(null);
+  const [open, setOpen] = useState(false);
   return (
     <>
       <a
@@ -43,14 +43,15 @@ export function PlayDialog({ children }: { readonly children: ReactNode }) {
         onClick={(event) => {
           if (!opensInPlace(event)) return;
           event.preventDefault();
-          dialog.current?.showModal();
+          setOpen(true);
         }}
         className={buttonClass('secondary')}
       >
         Play
       </a>
       <Dialog
-        ref={dialog}
+        open={open}
+        onClose={() => setOpen(false)}
         aria-labelledby="play-dialog-title"
         className="m-auto w-play-dialog max-w-full flex-col gap-4 rounded-lg border border-border-strong bg-surface-raised p-6 text-ink shadow-3 backdrop:bg-scrim/50 open:flex max-narrow:p-4"
       >

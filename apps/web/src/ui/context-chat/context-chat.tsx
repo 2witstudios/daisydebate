@@ -1,5 +1,5 @@
 'use client';
-import { StatusRegion } from '../components/status-region/status-region';
+import { Announcement } from '../components/announcement/announcement';
 import { Button } from '../components/button/button';
 import { idSchema } from '@daisy/protocol/primitives';
 import type { ChatContext } from '../../features/messaging/context-chat/chat-context';
@@ -73,26 +73,26 @@ function BoundContextChat({
       </header>
       <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto p-3">
         {pending ? (
-          <StatusRegion
+          <Announcement
             as="p"
-            role="status"
-          >{`Loading ${context.name}…`}</StatusRegion>
+            kind="progress"
+          >{`Loading ${context.name}…`}</Announcement>
         ) : null}
         {state.kind === 'empty' || (history && !history.messages.length) ? (
-          <StatusRegion as="p" role="status">
+          <Announcement as="p" kind="progress">
             No messages.
-          </StatusRegion>
+          </Announcement>
         ) : null}
         {state.kind === 'denied' || live.status === 'hidden' || expired ? (
-          <StatusRegion
+          <Announcement
             as="p"
-            role="status"
-          >{`This ${context.name} is unavailable.`}</StatusRegion>
+            kind="progress"
+          >{`This ${context.name} is unavailable.`}</Announcement>
         ) : null}
         {state.kind === 'unavailable' || notice ? (
-          <StatusRegion as="p" role="status">
+          <Announcement as="p" kind="progress">
             {notice ?? `${context.name} could not be loaded.`}
-          </StatusRegion>
+          </Announcement>
         ) : null}
         {state.kind === 'unavailable' ||
         state.kind === 'denied' ||
@@ -140,15 +140,15 @@ function BoundContextChat({
         ) : null}
       </div>
       {readOnly ? (
-        <StatusRegion
+        <Announcement
           as="p"
-          role="status"
+          kind="progress"
           className="px-3 text-sm text-ink-muted"
           // With no composer, a message control returns focus here instead.
           {...(composed ? {} : { id: composerId, tabIndex: -1 })}
         >
           {labels.readOnly.notice}
-        </StatusRegion>
+        </Announcement>
       ) : null}
       {composed && channelId && idSchema.safeParse(channelId).success ? (
         <ContextChatComposer

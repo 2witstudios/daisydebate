@@ -1,4 +1,4 @@
-import { Dialog } from '../../components/dialog/dialog';
+import { DialogRegion } from '../../components/dialog/dialog-region';
 import { Button } from '../../components/button/button';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
@@ -31,7 +31,7 @@ export function OnboardingFrame({
 }: OnboardingFrameProps) {
   return (
     <div className="flex min-h-dvh items-center justify-center bg-background p-3 text-ink max-narrow:p-0">
-      <Dialog
+      <DialogRegion
         as="section"
 
         aria-labelledby={titleId}
@@ -61,7 +61,7 @@ export function OnboardingFrame({
           {skip}
         </div>
         <div className="flex flex-1 flex-col gap-4">{children}</div>
-      </Dialog>
+      </DialogRegion>
     </div>
   );
 }

@@ -3,7 +3,7 @@
 import { useDeliver } from '../../edge/use-answer';
 import { useResource } from '../../edge/use-driver';
 import { useLatest } from '../../edge/use-latest';
-import { StatusRegion } from '../../components/status-region/status-region';
+import { Announcement } from '../../components/announcement/announcement';
 import { Button } from '../../components/button/button';
 import type { RoomFormState } from '../../../features/rooms/command-answer';
 import type { FormAction } from '../../form-action/form-action';
@@ -196,9 +196,9 @@ function GatheringWithDevices({
             </div>
           ) : null}
           {local.problem ? (
-            <StatusRegion
+            <Announcement
               as="div"
-              role="alert"
+              kind="problem"
               className="flex flex-wrap items-center gap-3"
             >
               <p className="text-sm text-live">Ready didn’t go through.</p>
@@ -210,7 +210,7 @@ function GatheringWithDevices({
               >
                 Try again
               </Button>
-            </StatusRegion>
+            </Announcement>
           ) : null}
         </>
       }

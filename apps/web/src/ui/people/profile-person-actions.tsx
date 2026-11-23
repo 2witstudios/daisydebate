@@ -1,6 +1,6 @@
 'use client';
 
-import { StatusRegion } from '../components/status-region/status-region';
+import { Announcement } from '../components/announcement/announcement';
 import { competitionTypes, type CompetitionType } from '@daisy/protocol/round';
 import { reportReasonLabels, reportReasons } from '@daisy/protocol/reports';
 import {
@@ -122,9 +122,9 @@ export function ProfilePersonActions({
         </form>
       </details>
       {(challengeNotice ?? reportNotice) ? (
-        <StatusRegion as="p" role="status" className="text-sm text-ink-muted">
+        <Announcement as="p" kind="progress" className="text-sm text-ink-muted">
           {challengeNotice ?? reportNotice}
-        </StatusRegion>
+        </Announcement>
       ) : null}
       <form action={block} className="inline-flex items-center gap-2">
         <input type="hidden" name="username" value={username} />
@@ -132,9 +132,13 @@ export function ProfilePersonActions({
           Block
         </Button>
         {blockNotice ? (
-          <StatusRegion as="p" role="status" className="text-sm text-ink-muted">
+          <Announcement
+            as="p"
+            kind="progress"
+            className="text-sm text-ink-muted"
+          >
             {blockNotice}
-          </StatusRegion>
+          </Announcement>
         ) : null}
       </form>
     </>

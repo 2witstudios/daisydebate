@@ -1,7 +1,7 @@
 'use client';
 import { useElementEvent } from '../edge/use-dom-events';
 import { useDelay } from '../edge/use-tick';
-import { StatusRegion } from '../components/status-region/status-region';
+import { Announcement } from '../components/announcement/announcement';
 import { Button } from '../components/button/button';
 import type {
   BroadcastStream,
@@ -58,9 +58,9 @@ const useInterruptionSlate = (video: RefObject<HTMLVideoElement | null>) => {
 /** Hides the last frame, so a viewer never reads it as what is happening now. */
 function InterruptionSlate() {
   return (
-    <StatusRegion
+    <Announcement
       as="div"
-      role="status"
+      kind="progress"
       data-testid="broadcast-interruption-slate"
       className="absolute inset-0 flex flex-col items-center justify-center gap-1 rounded-xl bg-surface-stage text-center text-ink-on-media"
     >
@@ -68,7 +68,7 @@ function InterruptionSlate() {
       <span className="text-sm">
         It picks up here by itself. Part of the debate may not be shown.
       </span>
-    </StatusRegion>
+    </Announcement>
   );
 }
 

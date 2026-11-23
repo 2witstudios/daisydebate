@@ -1,7 +1,7 @@
 'use client';
 
 import { browserTransport } from '../../edge/browser-request';
-import { StatusRegion } from '../../components/status-region/status-region';
+import { Announcement } from '../../components/announcement/announcement';
 import { Button } from '../../components/button/button';
 import type { CreateLobbyChoice } from '../../../features/rooms/create-lobby-choice';
 
@@ -60,9 +60,9 @@ export function CreateAssemblyFields({
           />
         </label>
         <FormError error={state.error} />
-        <StatusRegion as="p" role="status">
+        <Announcement as="p" kind="progress">
           No formats are available yet.
-        </StatusRegion>
+        </Announcement>
         <Button
           variant="unstyled"
           type="submit"

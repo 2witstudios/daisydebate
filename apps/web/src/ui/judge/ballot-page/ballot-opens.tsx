@@ -1,7 +1,7 @@
 'use client';
 import { useDeliver } from '../../edge/use-answer';
 import { useTick } from '../../edge/use-tick';
-import { StatusRegion } from '../../components/status-region/status-region';
+import { Announcement } from '../../components/announcement/announcement';
 import type { RoundView } from '@daisy/protocol/round-view';
 import { nowMs, systemClock } from '@daisy/clock';
 import { useRef, useState } from 'react';
@@ -96,9 +96,9 @@ export function BallotOpensNotice({
   if (opensInMs === null || at === null) return null;
   const seconds = Math.ceil((at - renderedAtMs) / 1000);
   return (
-    <StatusRegion
+    <Announcement
       as="div"
-      role="status"
+      kind="progress"
       className="flex items-center gap-4 rounded-lg border border-border bg-hue-sky-soft px-5 py-4 max-narrow:px-4"
     >
       <span
@@ -111,6 +111,6 @@ export function BallotOpensNotice({
         <span className="font-strong">{`Submitting opens in about ${seconds} seconds.`}</span>{' '}
         {`Attendance for the last speeches is still being confirmed, until ${new Date(at).toISOString().slice(11, 19)} UTC. Fill in your ballot now; nothing you enter is lost.`}
       </p>
-    </StatusRegion>
+    </Announcement>
   );
 }

@@ -1,4 +1,4 @@
-import { StatusRegion } from '../../components/status-region/status-region';
+import { Announcement } from '../../components/announcement/announcement';
 import { Button } from '../../components/button/button';
 import { Icon } from '../../components/icon/icon';
 import { AuthFrame, AuthHeading, taglinePanel } from '../auth-frame/auth-frame';
@@ -104,9 +104,9 @@ export function SignInForm({
           For returning users. New here? Use your email.
         </p>
       </div>
-      <StatusRegion as="p" role="status" className="sr-only">
+      <Announcement as="p" kind="progress" className="sr-only">
         {pendingStatus[pending]}
-      </StatusRegion>
+      </Announcement>
     </AuthFrame>
   );
 }

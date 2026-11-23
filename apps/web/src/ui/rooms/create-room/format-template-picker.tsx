@@ -2,13 +2,7 @@
 
 import { Dialog } from '../../components/dialog/dialog';
 import { Button } from '../../components/button/button';
-import {
-  useId,
-  useRef,
-  useState,
-  useSyncExternalStore,
-  type RefObject,
-} from 'react';
+import { useId, useState, useSyncExternalStore } from 'react';
 import type { RoomTemplate } from '../../../features/rooms/read-catalog';
 import { FormField } from '../../components/form-field/form-field';
 import { controlClass } from '../../components/form-field/form-field-class';
@@ -68,14 +62,16 @@ function TemplateSchedule({ choice }: { readonly choice: RoomTemplate }) {
 function FormatBrowserDialog({
   choices,
   serialize,
-  dialog,
+  open,
+  onClose,
   draft,
   setDraft,
   onUse,
 }: {
   readonly choices: readonly RoomTemplate[];
   readonly serialize: (choice: RoomTemplate) => string;
-  readonly dialog: RefObject<HTMLDialogElement | null>;
+  readonly open: boolean;
+  readonly onClose: () => void;
   readonly draft: string;
   readonly setDraft: (value: string) => void;
   readonly onUse: () => void;
@@ -88,7 +84,8 @@ function FormatBrowserDialog({
   const preview = choices.find((choice) => serialize(choice) === draft);
   return (
     <Dialog
-      ref={dialog}
+      open={open}
+      onClose={onClose}
       aria-labelledby={titleId}
       className="m-auto max-h-full w-full max-w-dash-column overflow-y-auto rounded-xl border border-border bg-surface p-6 text-ink shadow-3 backdrop:bg-scrim max-compact:rounded-none"
     >
@@ -96,11 +93,7 @@ function FormatBrowserDialog({
         <h2 id={titleId} className="font-display text-xl font-bold">
           Choose a format
         </h2>
-        <Button
-          variant="secondary"
-          type="button"
-          onClick={() => dialog.current?.close()}
-        >
+        <Button variant="secondary" type="button" onClick={onClose}>
           Cancel
         </Button>
       </header>
@@ -212,7 +205,7 @@ export function FormatTemplatePicker({
     () => true,
     () => false,
   );
-  const dialog = useRef<HTMLDialogElement>(null);
+  const [browsing, setBrowsing] = useState(false);
   const selected = choices.find((choice) => serialize(choice) === value);
   return (
     <div className="flex flex-col gap-3">
@@ -256,7 +249,7 @@ export function FormatTemplatePicker({
             className={buttonClass('secondary')}
             onClick={() => {
               setDraft(value);
-              dialog.current?.showModal();
+              setBrowsing(true);
             }}
           >
             Browse formats
@@ -264,12 +257,13 @@ export function FormatTemplatePicker({
           <FormatBrowserDialog
             choices={choices}
             serialize={serialize}
-            dialog={dialog}
+            open={browsing}
+            onClose={() => setBrowsing(false)}
             draft={draft}
             setDraft={setDraft}
             onUse={() => {
               setValue(draft);
-              dialog.current?.close();
+              setBrowsing(false);
             }}
           />
         </>

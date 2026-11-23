@@ -1,6 +1,6 @@
 'use client';
 
-import { StatusRegion } from '../../components/status-region/status-region';
+import { Announcement } from '../../components/announcement/announcement';
 import { Button } from '../../components/button/button';
 import type { CreateLobbyChoice } from '../../../features/rooms/create-lobby-choice';
 
@@ -233,13 +233,13 @@ export function CreateRoomEditor({
           {isRanked && values.recording === 'on' ? (
             <input type="hidden" name="recording" value="on" />
           ) : null}
-          <StatusRegion as="p" id="create-recording-notice" role="status">
+          <Announcement as="p" id="create-recording-notice" kind="progress">
             {isRanked
               ? 'Recording is on for ranked matches.'
               : values.recording === 'on'
                 ? 'Recording is subject to available capacity.'
                 : null}
-          </StatusRegion>
+          </Announcement>
           {!isRanked && values.recording === 'on' ? (
             <>
               <p>{casualCaptureNotice.text}</p>

@@ -3,7 +3,7 @@ import '../../lib/zod-jitless';
 import { useDeliver } from '../edge/use-answer';
 import { useNavigation } from '../edge/use-navigation';
 import { Button } from '../components/button/button';
-import { StatusRegion } from '../components/status-region/status-region';
+import { Announcement } from '../components/announcement/announcement';
 import { type SpectatorTimeline } from '@daisy/protocol/spectator-timeline';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -271,13 +271,13 @@ export function BroadcastViewer({
               }
             />
             {screen.notice ? (
-              <StatusRegion
+              <Announcement
                 as="p"
-                role="status"
+                kind="progress"
                 className="text-sm text-ink-muted"
               >
                 {playerNotices[screen.notice]}
-              </StatusRegion>
+              </Announcement>
             ) : null}
           </div>
         ) : (

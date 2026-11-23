@@ -2,7 +2,7 @@
 
 import { useNavigation } from '../edge/use-navigation';
 import { navigateDocument } from '../edge/browser-navigation';
-import { StatusRegion } from '../components/status-region/status-region';
+import { Announcement } from '../components/announcement/announcement';
 import { useId, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import {
@@ -81,10 +81,10 @@ export function ClubForm({
       <div id={errorId}>
         <FormError error={fields.error} />
         {answered.kind === 'unacknowledged' ? (
-          <StatusRegion as="p" role="alert" className="text-sm text-live">
+          <Announcement as="p" kind="problem" className="text-sm text-live">
             We could not tell whether that went through. Check the page, then
             try again.
-          </StatusRegion>
+          </Announcement>
         ) : null}
       </div>
     </form>

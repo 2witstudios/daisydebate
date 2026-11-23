@@ -4,7 +4,7 @@ import { useResizeObserver, useWindowEvent } from '../edge/use-dom-events';
 import { useFocusOnChange } from '../edge/use-focus';
 import { useFrame } from '../edge/use-tick';
 import { Button } from '../components/button/button';
-import { StatusRegion } from '../components/status-region/status-region';
+import { Announcement } from '../components/announcement/announcement';
 import {
   useCallback,
   useId,
@@ -243,13 +243,13 @@ export function FileMenu({
               Move {label} to
             </p>
             {drive.folderProblem ? (
-              <StatusRegion
+              <Announcement
                 as="p"
-                role="alert"
+                kind="problem"
                 className="px-2 py-1 text-xs text-live"
               >
                 {drive.folderProblem}
-              </StatusRegion>
+              </Announcement>
             ) : null}
             <Item icon="folder" onClick={() => moveTo(null)}>
               My drive

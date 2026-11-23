@@ -1,4 +1,4 @@
-import { StatusRegion } from '../../components/status-region/status-region';
+import { Announcement } from '../../components/announcement/announcement';
 import { Button } from '../../components/button/button';
 import { isRoundOver } from '@daisy/protocol/round';
 import { HiddenFields } from '../../form-action/hidden-fields';
@@ -41,26 +41,26 @@ export function BallotEntry(props: EntryProps) {
       );
     case 'recorded':
       return (
-        <StatusRegion as="p" role="status">
+        <Announcement as="p" kind="progress">
           Ballot submitted.{' '}
           {props.view.round.status === 'completed'
             ? 'The round is over and its result is recorded. Both debaters now see your decision and reason, and each sees their own feedback.'
             : 'The result is recorded once any other ballots and attendance for the last speeches settle.'}
-        </StatusRegion>
+        </Announcement>
       );
     case 'open':
       return <OpenBallot {...props} />;
     case 'waiting':
       return (
-        <StatusRegion as="p" role="status">
+        <Announcement as="p" kind="progress">
           Your ballot opens when the recorded transcript is frozen.
-        </StatusRegion>
+        </Announcement>
       );
     case 'decided':
       return (
-        <StatusRegion as="p" role="status">
+        <Announcement as="p" kind="progress">
           This Round is already decided. No ballot is due.
-        </StatusRegion>
+        </Announcement>
       );
   }
 }
@@ -83,9 +83,9 @@ function RetryBallot({
           This Round has ended. Your original submission can still be retried.
         </p>
       ) : null}
-      <StatusRegion as="p" id={roundBallotErrorId} tabIndex={-1} role="alert">
+      <Announcement as="p" id={roundBallotErrorId} tabIndex={-1} kind="problem">
         {answer.error}
-      </StatusRegion>
+      </Announcement>
       <HiddenFields
         entries={Object.entries(answer.values).filter(
           ([name]) => !name.startsWith('$ACTION_'),

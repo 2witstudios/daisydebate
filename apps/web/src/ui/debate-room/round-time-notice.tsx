@@ -1,7 +1,7 @@
 'use client';
 import { useResource } from '../edge/use-driver';
 import { useTick } from '../edge/use-tick';
-import { StatusRegion } from '../components/status-region/status-region';
+import { Announcement } from '../components/announcement/announcement';
 import { useState } from 'react';
 import type {
   RoundTime,
@@ -33,9 +33,9 @@ export function RoundTimeNotice({
       className="px-4 py-1 text-sm text-ink-muted"
       data-round-time={status.kind}
     >
-      <StatusRegion as="span" role="status">
+      <Announcement as="span" kind="progress">
         {announcement}
-      </StatusRegion>
+      </Announcement>
       {detail ? ` · ${detail}` : null}
     </p>
   );

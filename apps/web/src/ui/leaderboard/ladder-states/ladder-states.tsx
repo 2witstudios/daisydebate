@@ -1,4 +1,4 @@
-import { StatusRegion } from '../../components/status-region/status-region';
+import { Announcement } from '../../components/announcement/announcement';
 import { Button } from '../../components/button/button';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
@@ -29,9 +29,9 @@ export function LadderError({
   readonly onRetry?: () => void;
 }) {
   return (
-    <StatusRegion
+    <Announcement
       as="section"
-      role="alert"
+      kind="problem"
       className={cn(card, 'flex flex-col items-center gap-3 py-8 text-center')}
     >
       <Icon name="alert" size={28} className="text-ink-faint" />
@@ -50,7 +50,7 @@ export function LadderError({
           Try again
         </Link>
       )}
-    </StatusRegion>
+    </Announcement>
   );
 }
 
@@ -59,9 +59,9 @@ const skeletonRows = [0, 1, 2, 3, 4, 5, 6] as const;
 /** Placeholder rows while the ladder loads; the region is announced as busy. */
 export function LadderSkeleton() {
   return (
-    <StatusRegion
+    <Announcement
       as="div"
-      role="status"
+      kind="progress"
       aria-busy="true"
       aria-label="Loading the ladder"
       className="overflow-hidden rounded-lg border border-border bg-surface shadow-1"
@@ -76,7 +76,7 @@ export function LadderSkeleton() {
           <span className="h-4 w-12 rounded-sm bg-surface-overlay" />
         </div>
       ))}
-    </StatusRegion>
+    </Announcement>
   );
 }
 
@@ -103,16 +103,16 @@ export function LiveNotice({
 }) {
   if (changes === 0) return null;
   return (
-    <StatusRegion
+    <Announcement
       as="p"
       className="flex items-center gap-3 text-sm"
-      role="status"
+      kind="progress"
     >
       <Badge tone="live">Live</Badge>
       <Link href={refreshHref} className="font-strong">
         {`${changes} ${changes === 1 ? 'rank' : 'ranks'} changed. Refresh`}
       </Link>
-    </StatusRegion>
+    </Announcement>
   );
 }
 

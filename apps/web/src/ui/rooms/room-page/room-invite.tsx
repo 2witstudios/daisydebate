@@ -1,7 +1,7 @@
 'use client';
 
 import { Button } from '../../components/button/button';
-import { StatusRegion } from '../../components/status-region/status-region';
+import { Announcement } from '../../components/announcement/announcement';
 import { useState, useSyncExternalStore } from 'react';
 import { buttonClass } from '../../components/button/button-class';
 const subscribeNever = () => () => undefined;
@@ -55,13 +55,13 @@ export function RoomInvite({
       >
         {label}
       </Button>
-      <StatusRegion
+      <Announcement
         as="span"
-        role="status"
+        kind="progress"
         className="absolute top-full right-0 mt-1 text-sm whitespace-nowrap text-ink-muted"
       >
         {notice}
-      </StatusRegion>
+      </Announcement>
     </span>
   );
 }

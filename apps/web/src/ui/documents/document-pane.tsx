@@ -1,7 +1,7 @@
 'use client';
 
 import { Button } from '../components/button/button';
-import { StatusRegion } from '../components/status-region/status-region';
+import { Announcement } from '../components/announcement/announcement';
 import { useRef, type Dispatch, type ReactNode } from 'react';
 import { flushSync } from 'react-dom';
 import { systemClock } from '@daisy/clock';
@@ -170,17 +170,17 @@ export function DocumentPane({
         onLastTabClosed={onLastTabClosed}
       />
       {active?.kind === 'loading' ? (
-        <StatusRegion
+        <Announcement
           as="p"
-          role="status"
+          kind="progress"
           className="p-4 text-sm text-ink-muted"
         >
           Opening {active.title}
-        </StatusRegion>
+        </Announcement>
       ) : active?.kind === 'failed' ? (
-        <StatusRegion
+        <Announcement
           as="div"
-          role="alert"
+          kind="problem"
           className="flex flex-col items-start gap-2 p-4 text-sm"
         >
           <p>{active.title} did not open.</p>
@@ -192,7 +192,7 @@ export function DocumentPane({
           >
             Try again
           </Button>
-        </StatusRegion>
+        </Announcement>
       ) : active?.kind === 'loaded' ? (
         <DocumentEditor
           key={active.document.id}

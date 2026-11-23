@@ -1,4 +1,4 @@
-import { StatusRegion } from '../components/status-region/status-region';
+import { Announcement } from '../components/announcement/announcement';
 import { roundPositionAt } from '@daisy/debate-engine/position';
 import { conversational } from '@daisy/protocol/runtime';
 import { isRoundRunning } from '@daisy/protocol/round';
@@ -24,9 +24,9 @@ export function ConversationHeldNotice(props: {
   readonly nowMs: number;
 }) {
   return conversationHeldShown(props.view, props.nowMs) ? (
-    <StatusRegion as="p" role="status">
+    <Announcement as="p" kind="progress">
       This conversation opens once the audience stream has switched away, so it
       stays private. Speeches are not affected.
-    </StatusRegion>
+    </Announcement>
   ) : null;
 }

@@ -1,7 +1,7 @@
 'use client';
 
 import { Button } from '../../components/button/button';
-import { StatusRegion } from '../../components/status-region/status-region';
+import { Announcement } from '../../components/announcement/announcement';
 import {
   initialInvitationForm,
   invitationFields,
@@ -61,13 +61,13 @@ export function EndInvitationForm({
         {label}
       </Button>
       {fields.notice ? (
-        <StatusRegion
+        <Announcement
           as="span"
-          role="status"
+          kind="progress"
           className="text-sm text-ink-muted"
         >
           {fields.notice}
-        </StatusRegion>
+        </Announcement>
       ) : null}
     </form>
   );

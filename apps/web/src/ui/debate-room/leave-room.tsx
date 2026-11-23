@@ -1,10 +1,9 @@
 'use client';
 
-import { useFocusWhen } from '../edge/use-focus';
 import { Button } from '../components/button/button';
 import { Dialog } from '../components/dialog/dialog';
-import { StatusRegion } from '../components/status-region/status-region';
-import { useRef, useState, type KeyboardEvent } from 'react';
+import { Announcement } from '../components/announcement/announcement';
+import { useRef, useState } from 'react';
 import { Icon } from '../components/icon/icon';
 import { FormError } from '../components/form-field/form-field';
 import {
@@ -177,21 +176,10 @@ export function LeaveRoom({ links }: { readonly links: LeaveLinks }) {
   const [open, setOpen] = useState(links.confirming);
   const leaveLabel = links.call ? 'Leave call' : 'Leave round';
   const stay = useRef<HTMLAnchorElement>(null);
-  const trigger = useRef<HTMLAnchorElement>(null);
-  useFocusWhen(stay, open);
-  const close = () => {
-    setOpen(false);
-    trigger.current?.focus();
-  };
-  const key = (event: KeyboardEvent<HTMLDialogElement>) => {
-    if (event.key !== 'Escape') return;
-    event.preventDefault();
-    close();
-  };
+  const close = () => setOpen(false);
   return (
     <>
       <a
-        ref={trigger}
         href={links.confirmHref}
         aria-haspopup="dialog"
         onClick={(event) => {
@@ -205,8 +193,10 @@ export function LeaveRoom({ links }: { readonly links: LeaveLinks }) {
       </a>
       <Dialog
         open={open}
+        modal={false}
+        onClose={close}
+        initialFocus={stay}
         aria-labelledby="leave-room-title"
-        onKeyDown={key}
         className="fixed inset-0 z-50 m-auto flex w-room-dialog max-w-full flex-col gap-4 rounded-lg border border-border-strong bg-surface p-6 text-ink shadow-3 not-open:hidden"
       >
         <h2 id="leave-room-title" className="font-display text-lg">
@@ -228,11 +218,15 @@ export function LeaveRoom({ links }: { readonly links: LeaveLinks }) {
               : 'The debate is over, so leaving forfeits nothing.'}
           </p>
         ) : links.held ? (
-          <StatusRegion as="p" role="status" className="text-sm text-ink-muted">
+          <Announcement
+            as="p"
+            kind="progress"
+            className="text-sm text-ink-muted"
+          >
             Leaving is unavailable for a moment while this round catches up. You
             can step away, but this is not leaving: the round continues, your
             seat stays, and the normal attendance rules apply if you are absent.
-          </StatusRegion>
+          </Announcement>
         ) : null}
         <div className="flex flex-wrap justify-end gap-2">
           <a

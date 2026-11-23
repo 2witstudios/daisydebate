@@ -1,5 +1,5 @@
 import { Button } from '../../components/button/button';
-import { StatusRegion } from '../../components/status-region/status-region';
+import { Announcement } from '../../components/announcement/announcement';
 import Link from 'next/link';
 import type { UnsubscribeView } from '../../../features/notifications/email/unsubscribe-view';
 
@@ -31,16 +31,16 @@ export function UnsubscribePage({ view }: { readonly view: UnsubscribeView }) {
           </div>
         </form>
       ) : view.kind === 'done' ? (
-        <StatusRegion as="p" role="status" className="text-base text-ink">
+        <Announcement as="p" kind="progress" className="text-base text-ink">
           Done. Daisy will not email you about notifications. You can turn them
           back on, or choose which kinds, in{' '}
           <Link href="/settings">Settings</Link>.
-        </StatusRegion>
+        </Announcement>
       ) : (
-        <StatusRegion as="p" role="status" className="text-base text-ink">
+        <Announcement as="p" kind="progress" className="text-base text-ink">
           This link is not valid. You can choose which emails you get in{' '}
           <Link href="/settings">Settings</Link>.
-        </StatusRegion>
+        </Announcement>
       )}
     </main>
   );

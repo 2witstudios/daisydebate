@@ -2,7 +2,7 @@
 
 import { useResource } from '../../edge/use-driver';
 import { navigateDocument } from '../../edge/browser-navigation';
-import { Dialog } from '../../components/dialog/dialog';
+import { DialogRegion } from '../../components/dialog/dialog-region';
 import {
   useRef,
   type KeyboardEvent,
@@ -121,7 +121,7 @@ export function RoomSetup({
   const roomHref = `/rooms/${view.id}`;
   const { sheet, heading, key, close, saved } = useSheetFocus(roomHref);
   return (
-    <Dialog
+    <DialogRegion
       as="section"
       ref={sheet}
       id={ROOM_SETUP_ID}
@@ -232,6 +232,6 @@ export function RoomSetup({
           </section>
         </div>
       </div>
-    </Dialog>
+    </DialogRegion>
   );
 }

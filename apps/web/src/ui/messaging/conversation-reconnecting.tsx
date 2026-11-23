@@ -5,7 +5,7 @@ import { useResource } from '../edge/use-driver';
 import { useDocumentEvent, useWindowEvent } from '../edge/use-dom-events';
 import { useRouteReads, type RouteRead } from '../edge/use-route-reads';
 import { browserScheduler } from '../edge/browser-time';
-import { StatusRegion } from '../components/status-region/status-region';
+import { Announcement } from '../components/announcement/announcement';
 import { useMemo, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import type { ConversationRecoveryOrigin } from './conversation-recovery';
@@ -118,11 +118,11 @@ export function ConversationReconnecting({
   );
   return (
     <div className="flex flex-1 flex-col gap-3 p-6 text-ink-muted">
-      <StatusRegion as="p" role="status">
+      <Announcement as="p" kind="progress">
         {exhausted
           ? 'This conversation is still unavailable. Try again.'
           : 'This conversation could not load.'}
-      </StatusRegion>
+      </Announcement>
       <a href="" className="text-accent underline">
         Try again
       </a>

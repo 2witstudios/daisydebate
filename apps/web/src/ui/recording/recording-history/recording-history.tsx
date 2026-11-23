@@ -1,5 +1,5 @@
 import { Button } from '../../components/button/button';
-import { StatusRegion } from '../../components/status-region/status-region';
+import { Announcement } from '../../components/announcement/announcement';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 import type { RecordingHistoryScreen } from '../../../features/recording/history';
@@ -248,9 +248,9 @@ export function RecordingHistory({
         <p className="text-base text-ink-muted">{screen.resolution}</p>
       </header>
       {notice ? (
-        <StatusRegion as="p" role="status" className="text-sm text-ink">
+        <Announcement as="p" kind="progress" className="text-sm text-ink">
           {removalNotices[notice]}
-        </StatusRegion>
+        </Announcement>
       ) : null}
       <div className="flex items-start gap-6 max-compact:flex-col">
         <div className="flex min-w-0 flex-1 flex-col gap-4 max-compact:w-full">
