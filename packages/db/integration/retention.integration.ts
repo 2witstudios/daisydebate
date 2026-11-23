@@ -1,3 +1,4 @@
+import { hostWaits } from '@daisy/worker/host';
 import { instantMs } from '@daisy/clock';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { SQL } from 'bun';
@@ -108,7 +109,11 @@ async function withSql<T>(work: (sql: SQL) => Promise<T>): Promise<T> {
 
 test('each retained table loses only rows older than the cutoff, and a repeat run is a no-op', async () => {
   const tag = `rt-${createId().slice(0, 10)}`;
-  const database = createDatabase({ url, nextActorId: createId });
+  const database = createDatabase({
+    waits: hostWaits,
+    url,
+    nextActorId: createId,
+  });
   try {
     const results = [];
     const batch = { before: cutoff, limit: 100 };
@@ -122,7 +127,7 @@ test('each retained table loses only rows older than the cutoff, and a repeat ru
             select txid::text as txid from outbox where topic = ${tag}
             order by txid desc limit 1`;
           await waitForOutboxFinality(sql, String(row!.txid), {
-            now: Date.now,
+            waits: hostWaits,
           });
         }
       });
@@ -170,7 +175,11 @@ test("a batch deletes exactly its limit of its own rows, never another suite's, 
   const [deliveries] = tables.filter(
     (table) => table.operation === 'purgeExpiredEmailDeliveries',
   );
-  const database = createDatabase({ url, nextActorId: createId });
+  const database = createDatabase({
+    waits: hostWaits,
+    url,
+    nextActorId: createId,
+  });
   try {
     await withSql(async (sql) => {
       for (let index = 0; index < 5; index += 1)
@@ -219,7 +228,7 @@ async function drainConcurrently(
   isolatedBefore: string,
 ) {
   const workers = Array.from({ length: 4 }, () =>
-    createDatabase({ url, nextActorId: createId }),
+    createDatabase({ waits: hostWaits, url, nextActorId: createId }),
   );
   const drain = async (database: Database) => {
     let total = 0;

@@ -1,3 +1,4 @@
+import { hostWaits } from '@daisy/worker/host';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createMediaWorkerAuthentication } from '@daisy/media/internal';
 import { createMediaWorkerClient } from '@daisy/media/worker';
@@ -44,7 +45,7 @@ test('only a definite refusal or a seal finishes a stream', async () => {
         }),
         url: `http://127.0.0.1:${server.port}`,
         fetch,
-        nowMs: performance.now,
+        waits: hostWaits,
         deadlineSignal: () => AbortSignal.timeout(2000),
         unavailableRetryMs: [0, 0],
       }),

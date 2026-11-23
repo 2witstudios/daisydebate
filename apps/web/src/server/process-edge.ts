@@ -1,5 +1,5 @@
 /** Where a process edge keeps its one value: `globalThis` in production. */
-export type ProcessHolder<Value> = { daisyWebApp?: Value };
+export type ProcessHolder<Value> = { daisyWebApp?: Value | undefined };
 
 /**
  * The process edge's caching, free of any global: `get` builds the held

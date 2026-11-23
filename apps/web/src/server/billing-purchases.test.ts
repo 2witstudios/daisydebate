@@ -1,3 +1,4 @@
+import { virtualClock } from '@daisy/clock/testing';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { fixedClock } from '@daisy/clock';
 import { createId } from '@paralleldrive/cuid2';
@@ -10,12 +11,13 @@ import {
   checkoutSession,
 } from '../features/billing/checkout.test-support';
 import type { BillingFetch } from './billing-stripe';
-import { withOneShots } from '../lib/worker-timers.test-support';
+import { manualWaits, recordingWaits } from '../lib/manual-waits.test-support';
 
 setupRitewayBun();
 test('scheduled SDK recovery discovers the original closed attempt without creating or repricing it', async () => {
   const now = '2026-11-06T12:00:00.000Z';
   const app = createApp({
+    waits: virtualClock(),
     env: {
       ...authTestEnv,
       DATABASE_URL: 'postgres://unit:unit@localhost:5432/unit',
@@ -33,7 +35,10 @@ test('scheduled SDK recovery discovers the original closed attempt without creat
   const requests: unknown[] = [],
     records: unknown[] = [],
     calls: unknown[] = [];
-  let tick: () => Promise<void> = async () => undefined;
+  const manual = manualWaits();
+  const tick = async () => {
+    await manual.tasks.get(5000)?.();
+  };
   const session = {
     ...checkoutSession,
     status: 'complete',
@@ -102,16 +107,9 @@ test('scheduled SDK recovery discovers the original closed attempt without creat
     },
     instanceId: 'current-service-fixture',
     fetch,
-    timers: withOneShots({
-      setInterval: (run, ms) => {
-        tick = run;
-        calls.push(ms);
-        return 1;
-      },
-      clearInterval: () => {
-        calls.push('clear');
-      },
-    }),
+    waits: recordingWaits(manual.waits, (event, ms) =>
+      calls.push(event === 'armed' ? ms : 'clear'),
+    ),
   })!;
   await service.started;
   await service.stop();

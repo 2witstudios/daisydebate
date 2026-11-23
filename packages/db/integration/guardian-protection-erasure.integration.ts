@@ -1,3 +1,4 @@
+import { hostWaits } from '@daisy/worker/host';
 import { afterAll, expect, test } from 'bun:test';
 import { SQL } from 'bun';
 import { requireTestServices } from '@daisy/config';
@@ -94,7 +95,9 @@ test(
       try {
         const pid = await erased.promise;
         secondClose = close(second);
-        await finishedOrBlockedBehind(secondClose, sql, pid, { now: Date.now });
+        await finishedOrBlockedBehind(secondClose, sql, pid, {
+          waits: hostWaits,
+        });
       } finally {
         release.resolve();
         await Promise.all([firstClose, secondClose]);

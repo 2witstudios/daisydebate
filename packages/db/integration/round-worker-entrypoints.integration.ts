@@ -1,3 +1,4 @@
+import { hostWaits } from '@daisy/worker/host';
 import { roundDecisionReleasePolicy } from '@daisy/protocol/round-decision-release';
 import { fixtureJudgingProgression } from './judging-progression.test-support';
 import { judgedRound } from './judged-round.test-support';
@@ -29,6 +30,7 @@ test('configured root judging aliases share the owned pool and claim actual froz
     });
     try {
       const inert = createDatabase({
+        waits: hostWaits,
         decisionRelease: roundDecisionReleasePolicy,
         url: services.databaseUrl,
         client,
@@ -100,6 +102,7 @@ test('configured root judging aliases share the owned pool and claim actual froz
           code: 'INFRASTRUCTURE',
         });
       const store = createDatabase({
+        waits: hostWaits,
         decisionRelease: roundDecisionReleasePolicy,
         url: services.databaseUrl,
         client,

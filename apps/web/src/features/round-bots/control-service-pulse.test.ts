@@ -7,7 +7,7 @@ import {
   ownedClaim,
   seat,
 } from './control-service.test-support';
-import { failureLog, manualTimers } from '../../lib/worker-timers.test-support';
+import { failureLog, manualWaits } from '../../lib/manual-waits.test-support';
 import { within } from '../../lib/deadline.test-support';
 setupRitewayBun();
 
@@ -25,12 +25,13 @@ async function rotateDuringFailingPulse(overrun: boolean) {
   let segment = 'first',
     failing = false,
     deadlines = 0;
-  const { tasks, timers } = manualTimers();
+  const { tasks, waits } = manualWaits();
   const service = startBotControlService({
     store: {
       scanRoundBotWorkers: async () => [seat('seat', segment)],
       claimRoundBotWorker: async (target) => ownedClaim(target),
       revokeRoundBotWorker: async () => {},
+      renewRoundBotWorker: async () => {},
       verifyRoundBotWorker: async () => {
         if (failing) checked.resolve();
         throw createAppError('INFRASTRUCTURE', 'pool reset');
@@ -48,8 +49,15 @@ async function rotateDuringFailingPulse(overrun: boolean) {
       },
       stop: async () => {},
     }),
-    limits: { maxControllers: 1, scanBatch: 4, scanMs: 500, renewMs: 3000 },
-    timers,
+    limits: {
+      maxControllers: 1,
+      scanBatch: 4,
+      scanMs: 500,
+      checkInMs: 3000,
+      renewMs: 4000,
+      leaseMs: 15000,
+    },
+    waits,
     overdue: () =>
       overrun && deadlines++ === 0 ? due.promise : neverOverdue(),
     failed,

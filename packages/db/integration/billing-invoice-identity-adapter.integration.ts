@@ -1,3 +1,4 @@
+import { hostWaits } from '@daisy/worker/host';
 import { repairInvoicePassAuthority } from './billing-invoice-pass-current.test-support';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { requireTestServices } from '@daisy/config';
@@ -61,6 +62,7 @@ test('public current-service identity materialization validates exact producer b
       return connection;
     };
     const database = createDatabase({
+      waits: hostWaits,
       url: databaseUrl,
       client: pool,
       nextActorId: createId,

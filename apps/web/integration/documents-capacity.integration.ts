@@ -1,3 +1,4 @@
+import { hostWaits } from '@daisy/worker/host';
 import { createId } from '@paralleldrive/cuid2';
 import { fixedClock, systemId } from '@daisy/clock';
 import { requireTestServices } from '@daisy/config';
@@ -37,6 +38,7 @@ test('a full documents lane takes nothing from the competitive lane', async () =
       from generate_series(1, ${SEATS}) as i`;
   });
   const database = createDatabase({
+    waits: hostWaits,
     url: testDatabaseUrl,
     nextActorId: createId,
   });

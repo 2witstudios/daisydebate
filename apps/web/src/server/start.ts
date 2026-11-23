@@ -1,3 +1,7 @@
+import { repeatEvery } from '@daisy/worker';
+import { hostWaits } from '@daisy/worker/host';
+
+const HOUR_MS = 3_600_000;
 import { loadBillingRoutes } from './billing-route-loader';
 import { recordingPersistence } from '../features/recording/persistence';
 import { startRecordingDeletions } from './recording-deletions';
@@ -7,7 +11,10 @@ import { startBillingSubscriptions } from './billing-subscriptions';
 import { startBillingRefunds } from './billing-refunds';
 import { startBillingPurchases } from './billing-purchases';
 import { startBroadcastSweep } from '../features/broadcast/composition';
-import { startStrayEgressSweep } from '../features/stage-capture/composition';
+import {
+  startStrayEgressSweep,
+  stopStageMedia,
+} from '../features/stage-capture/composition';
 import { startNotificationSweep } from '../features/spectating/audience-composition';
 import { startRecordingCapture } from '../features/recording/composition';
 import { recoveryFailureFields } from '../features/round-media/recovery-failure';
@@ -15,12 +22,14 @@ import { mediaConfigured } from './round-worker-policy';
 import { provisionalLinkPurposes } from '../features/auth/mail/provisional-mail';
 import { startRoundCompetitiveMaintenance } from './round-maintenance';
 import { startRoomLifecycleMaintenance } from './room-maintenance';
-import { createRoundMediaRuntime } from '../features/round-media/composition';
+import {
+  createRoundMediaRuntime,
+  stopRoundMedia,
+} from '../features/round-media/composition';
 import { startLaneGauges } from './lane-gauges';
 import { startRoundMediaRecovery } from './round-media-recovery';
 import { startRoundWorkers } from './round-workers';
 import { startMessagingFileMaintenance } from './file-maintenance';
-import { startRunSchedule } from './run-schedule';
 import { startObservationPurges } from './observation-purges';
 import { privacyJobsQueue, startPrivacyJobs } from './privacy-jobs';
 import { startPhotoDeletions } from '../features/profile/photo/deletion-sweep';
@@ -30,7 +39,6 @@ import { startBetaMail } from './beta-mail';
 import { startMediaReleaseMail } from './media-release-mail';
 import { startLeagueRequestMail } from './league-request-mail';
 import { startNotificationMail } from './notification-mail';
-import type { OneShotTimer, WorkerTimers } from '../lib/worker-timers';
 import { startOperatorApi } from './operator-api';
 import { releaseFlagDefault } from '../features/flags/release-default';
 import { readFileSync } from 'node:fs';
@@ -101,12 +109,6 @@ app.logger.log(
   },
   'Release flag default resolved',
 );
-/** Process one-shot timers: worker loop passes and deadlines; `unref` never holds the process open. */
-const oneShotTimer: OneShotTimer = {
-  setTimeout: (run, ms) => setTimeout(() => void run(), ms).unref(),
-  clearTimeout: (handle) =>
-    clearTimeout(handle as ReturnType<typeof setTimeout>),
-};
 // ADR 0154: each worker loop wakes on the work it looks for. Lossy hints:
 // while the LISTEN cannot start, every loop runs at its idle cap, and it is
 // tried again with back-off.
@@ -123,25 +125,14 @@ const workWakeListen = keepWorkWakesListening({
       { operation: 'worker.wake', cause },
       'Worker wakes unavailable; loops poll at their idle cap',
     ),
-  timers: oneShotTimer,
+  waits: hostWaits,
 });
-/** Process timers for the background workers; `unref` never holds the process open. */
-const workerTimers: WorkerTimers = {
-  ...oneShotTimer,
-  now: () => performance.now(),
-  setInterval: (tick, ms) =>
-    setInterval(() => {
-      void tick();
-    }, ms).unref(),
-  clearInterval: (handle) =>
-    clearInterval(handle as ReturnType<typeof setInterval>),
-};
 // ADR 0079: the private operator listener, only when keys are configured.
 // Its unexpected failures go to the app's scrubbed reporter (ADR 0037):
 // uninitialized without a DSN, so an unconfigured deployment stays inert.
 const operatorApi = await startOperatorApi(app, app.reporter);
 const mediaRuntime = mediaConfigured(app.config)
-  ? createRoundMediaRuntime(app)
+  ? createRoundMediaRuntime(app, hostWaits)
   : null;
 const mediaRecovery = mediaRuntime
   ? startRoundMediaRecovery({
@@ -157,7 +148,7 @@ const mediaRecovery = mediaRuntime
           },
           'Media recovery remains pending',
         ),
-      timers: workerTimers,
+      waits: hostWaits,
       wake: workWakes.of('round'),
       probeRoundId:
         readPublicCheckInProbe(
@@ -178,25 +169,21 @@ const laneGauges = startLaneGauges({
         : 'One operation held a database lane',
     ),
   detail: ['debug', 'trace'].includes(app.config.LOG_LEVEL),
-  every: (ms, run) => {
-    const handle = setInterval(run, ms).unref();
-    return { stop: () => clearInterval(handle) };
-  },
+  waits: hostWaits,
 });
 const availability = startRoundAvailability({
   app,
   fetch: fetchPublicAttendanceProbe,
-  timers: workerTimers,
+  waits: hostWaits,
 });
 // A slow read holds readiness at most 2 s: the check reports, it never refuses.
-void Promise.race([
-  availability.probeChecked,
-  new Promise((settle) => oneShotTimer.setTimeout(() => settle(null), 2000)),
-]).finally(() => probeCheck.resolve());
+void Promise.race([availability.probeChecked, hostWaits.sleep(2000)]).finally(
+  () => probeCheck.resolve(),
+);
 const roundMaintenance = startRoundCompetitiveMaintenance({
   app,
   instanceId: availability.instanceId,
-  timers: workerTimers,
+  waits: hostWaits,
   wake: workWakes.of('round'),
   ratingWake: workWakes.of('rating'),
   reporter: app.reporter,
@@ -204,40 +191,40 @@ const roundMaintenance = startRoundCompetitiveMaintenance({
 const usageRecovery = startUsageRecovery({
   app,
   instanceId: availability.instanceId,
-  timers: workerTimers,
+  waits: hostWaits,
 });
 const billingEconomics = startBillingEconomics({
   app,
   instanceId: availability.instanceId,
-  timers: workerTimers,
+  waits: hostWaits,
 });
 const billingSubscriptions = startBillingSubscriptions({
   app,
   instanceId: availability.instanceId,
-  timers: workerTimers,
+  waits: hostWaits,
   fetch: processVendorFetch(),
 });
 const billingRefunds = startBillingRefunds({
   app,
   instanceId: availability.instanceId,
-  timers: workerTimers,
+  waits: hostWaits,
   fetch: processVendorFetch(),
 });
 const billingPurchases = startBillingPurchases({
   app,
   instanceId: availability.instanceId,
-  timers: workerTimers,
+  waits: hostWaits,
   fetch: processVendorFetch(),
 });
 const billingCleanup = startBillingCleanup({
   app,
   instanceId: availability.instanceId,
-  timers: workerTimers,
+  waits: hostWaits,
   fetch: processVendorFetch(),
 });
 const roomMaintenance = startRoomLifecycleMaintenance({
   app,
-  timers: workerTimers,
+  waits: hostWaits,
   reporter: app.reporter,
 });
 const roundWorkers = startRoundWorkers({
@@ -252,9 +239,9 @@ const roundWorkers = startRoundWorkers({
         readPeers: (scope) => mediaRuntime.operations().botPeers(scope),
       }
     : null,
-  timers: workerTimers,
+  waits: hostWaits,
   wakes: workWakes,
-  deadlineTimer: oneShotTimer,
+
   reporter: app.reporter,
 });
 // The one bounded retention sweep runs at start and then hourly in this
@@ -264,44 +251,47 @@ const roundWorkers = startRoundWorkers({
 // readiness already reports 503 correctly during that window (a live check
 // per request, never a boot flag) — this only stops the sweep from logging
 // a spurious retention.sweep.failed on every cold boot.
-const retention = startRunSchedule({
-  work: createRetentionSweep({
-    targets: retentionTargets({
-      database: app.database,
-      redis: app.redis,
-      provisionalLinks: provisionalLinkPurposes,
-    }),
-    clock: app.clock,
-    logger: app.logger,
+const retentionSweep = createRetentionSweep({
+  targets: retentionTargets({
+    database: app.database,
+    redis: app.redis,
+    provisionalLinks: provisionalLinkPurposes,
   }),
+  clock: app.clock,
+  logger: app.logger,
+});
+const retention = repeatEvery({
+  everyMs: HOUR_MS,
+  run: (signal) => retentionSweep.run(signal),
   runOnStart: true,
-  waitUntilReady: () =>
+  ready: () =>
     waitForHealthy({
       health: () => app.redis.health(),
-      sleep: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
-      timeout: (ms) =>
-        new Promise((resolve) => setTimeout(resolve, ms).unref()),
+      sleep: (ms) => hostWaits.sleep(ms),
+      timeout: (ms) => hostWaits.sleep(ms),
     }),
-  timers: workerTimers,
+  waits: hostWaits,
+  // Each run reports its own failure.
+  failed: () => undefined,
 });
 const betaMail = startBetaMail({
   app,
-  timers: workerTimers,
+  waits: hostWaits,
   reporter: app.reporter,
 });
 const notificationMail = startNotificationMail({
   app,
-  timers: workerTimers,
+  waits: hostWaits,
   reporter: app.reporter,
 });
 const leagueRequestMail = startLeagueRequestMail({
   app,
-  timers: workerTimers,
+  waits: hostWaits,
   reporter: app.reporter,
 });
 const mediaReleaseMail = startMediaReleaseMail({
   app,
-  timers: workerTimers,
+  waits: hostWaits,
   reporter: app.reporter,
 });
 const fileRuntime = app.messagingFiles;
@@ -312,7 +302,7 @@ const fileMaintenance = fileRuntime?.maintenance
       remove: (key) => fileRuntime.objects.remove(key),
       clock: app.clock,
       logger: app.logger,
-      timers: workerTimers,
+      waits: hostWaits,
     })
   : null;
 // ISSUE-852: an erasure's queued observation purge is delivered, retried and
@@ -323,7 +313,7 @@ const observationPurges = startObservationPurges({
   purgeAll: () => app.redis.purgeAllObservations(),
   clock: app.clock,
   logger: app.logger,
-  timers: workerTimers,
+  waits: hostWaits,
 });
 // ISSUE-833: an erasure's queued vendor deletion jobs are delivered here,
 // retried with backoff and recorded, so no processor copy outlives its job.
@@ -331,7 +321,7 @@ const privacyJobs = startPrivacyJobs({
   ...privacyJobsQueue(app),
   clock: app.clock,
   logger: app.logger,
-  timers: workerTimers,
+  waits: hostWaits,
 });
 const recordingDeletions = startRecordingDeletions({
   store: recordingPersistence(app),
@@ -339,7 +329,7 @@ const recordingDeletions = startRecordingDeletions({
   owner: app.ids.next(),
   clock: app.clock,
   logger: app.logger,
-  timers: workerTimers,
+  waits: hostWaits,
 });
 // ADR 0143: a rejected, removed, withdrawn or erased profile photo's image is
 // deleted here, then its row; storage outages leave the obligation owed.
@@ -353,18 +343,18 @@ const photoDeletions = startPhotoDeletions({
   objects: app.profilePhotoObjects,
   clock: app.clock,
   logger: app.logger,
-  timers: workerTimers,
+  waits: hostWaits,
 });
 const broadcastSweep = startBroadcastSweep(
   app,
-  workerTimers,
+  hostWaits,
   workWakes.of('round'),
 );
-const strayEgressSweep = startStrayEgressSweep(app, workerTimers);
-const notificationSweep = startNotificationSweep(app, workerTimers);
+const strayEgressSweep = startStrayEgressSweep(app, hostWaits);
+const notificationSweep = startNotificationSweep(app, hostWaits);
 const recordingCapture = startRecordingCapture(
   app,
-  workerTimers,
+  hostWaits,
   workWakes.of('round'),
 );
 async function shutdown() {
@@ -394,11 +384,15 @@ async function shutdown() {
   const recordingCaptureStopped = recordingCapture?.stop();
   const availabilityStopped = availability.stop();
   const workersStopped = roundWorkers?.stop();
-  laneGauges.stop();
+  const laneGaugesStopped = laneGauges.stop();
   const mediaRecoveryStopped = mediaRecovery?.stop();
   const roundMaintenanceStopped = roundMaintenance.stop();
   const roomMaintenanceStopped = roomMaintenance.stop();
   const workWakesStopped = workWakeListen.stop();
+  // The node probes: this process's media runtime, the routes' and the stage's.
+  const mediaRuntimeStopped = mediaRuntime?.stop();
+  const roundMediaStopped = stopRoundMedia(app);
+  const stageMediaStopped = stopStageMedia(app);
   app.logger.log(
     'server.shutdown',
     { operation: 'server.shutdown' },
@@ -406,6 +400,7 @@ async function shutdown() {
   );
   await drainWithDeadline({
     deadlineMs: SHUTDOWN_DRAIN_DEADLINE_MS,
+    waits: hostWaits,
     onDeadlineExceeded: () => {
       // Announces any handed-off mail work the forced exit cuts off.
       app.reportUnfinishedWork();
@@ -447,6 +442,10 @@ async function shutdown() {
         roundMaintenanceStopped,
         workWakesStopped,
         roomMaintenanceStopped,
+        laneGaugesStopped,
+        mediaRuntimeStopped,
+        roundMediaStopped,
+        stageMediaStopped,
       ]);
       await closeProcessApp();
     },

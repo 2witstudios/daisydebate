@@ -1,9 +1,11 @@
+import { virtualClock } from '@daisy/clock/testing';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createOpenRouter } from './openrouter';
 import { OPENROUTER_E2E_PLACEHOLDER, withOpenRouterStub } from './testing';
 setupRitewayBun();
 
 const stubbed = createOpenRouter({
+  waits: virtualClock(),
   apiKey: OPENROUTER_E2E_PLACEHOLDER,
   fetch: withOpenRouterStub(OPENROUTER_E2E_PLACEHOLDER, () =>
     Promise.reject(new Error('the stub let a call reach the network')),

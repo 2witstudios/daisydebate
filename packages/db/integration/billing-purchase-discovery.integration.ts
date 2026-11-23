@@ -1,3 +1,4 @@
+import { hostWaits } from '@daisy/worker/host';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { requireTestServices } from '@daisy/config';
 import { assertRejects } from '@daisy/errors/testing';
@@ -19,6 +20,7 @@ test('current service discovery pages durable purchase identities and preserves 
       const admitted = await purchases.admit(subject, offer);
       const claimed = await purchases.recover(subject, admitted.purchase.id);
       const database = createDatabase({
+        waits: hostWaits,
         url: databaseUrl,
         client: pool,
         nextActorId: createId,
@@ -92,6 +94,7 @@ for (const operation of ['inspect', 'record'] as const)
         const admitted = await purchases.admit(subject, offer);
         await purchases.recover(subject, admitted.purchase.id);
         const database = createDatabase({
+          waits: hostWaits,
           url: databaseUrl,
           client: pool,
           nextActorId: createId,
@@ -129,7 +132,7 @@ for (const operation of ['inspect', 'record'] as const)
                   fixture.sql,
                   pid,
                   {
-                    now: performance.now,
+                    waits: hostWaits,
                     deadlineMs: 500,
                   },
                 ),

@@ -1,3 +1,4 @@
+import { hostWaits } from '@daisy/worker/host';
 import { createId } from '@paralleldrive/cuid2';
 import { createDatabase } from '@daisy/db';
 import { clubSeatGrants } from '@daisy/auth/authorization';
@@ -32,6 +33,7 @@ export async function withClub(
 ) {
   await withSql(async (sql) => {
     const database = createDatabase({
+      waits: hostWaits,
       url: testDatabaseUrl,
       nextActorId: createId,
     });

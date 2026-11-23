@@ -1,3 +1,4 @@
+import { hostWaits } from '@daisy/worker/host';
 import { grantHostReader } from './tab-host-reader-grant.test-support';
 import { afterAll } from 'bun:test';
 import { SQL } from 'bun';
@@ -133,7 +134,7 @@ test('a people read retains its actual account and organization fences through t
       overlapping,
       observer,
       Number(held?.pid),
-      { now: Date.now },
+      { waits: hostWaits },
     );
     release();
     await Promise.all([reading, overlapping]);
@@ -168,7 +169,7 @@ test('a people read retains its actual account and organization fences through t
       revoking,
       observer,
       Number(held?.pid),
-      { now: Date.now },
+      { waits: hostWaits },
     );
     release();
     const beforeGrant = organizationPeopleViewSchema.parse(await reading);
@@ -215,7 +216,7 @@ test('a people read retains its actual account and organization fences through t
       revoking,
       observer,
       Number(held?.pid),
-      { now: Date.now },
+      { waits: hostWaits },
     );
     release();
     await reading;
@@ -258,7 +259,7 @@ test('a people read retains its actual account and organization fences through t
       revoking,
       observer,
       Number(held?.pid),
-      { now: Date.now },
+      { waits: hostWaits },
     );
     release();
     await reading;
@@ -291,7 +292,7 @@ test('a people read retains its actual account and organization fences through t
       revoking,
       observer,
       Number(held?.pid),
-      { now: Date.now },
+      { waits: hostWaits },
     );
     release();
     const read = await reading;

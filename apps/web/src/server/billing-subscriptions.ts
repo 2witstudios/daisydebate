@@ -1,3 +1,6 @@
+import type { Waits } from '@daisy/clock';
+import { passOf, pollWork } from '@daisy/worker';
+import { HOUSEKEEPING_IDLE_MAX_MS } from '../lib/worker-idle';
 import { clubSeatGrants, subscriptionGrants } from '@daisy/auth/authorization';
 import type { App } from './app';
 import { createBillingStripe, type BillingFetch } from './billing-stripe';
@@ -9,15 +12,12 @@ import {
   subscriptionStalenessObserver,
 } from './billing-subscription-staleness';
 import { workerFailures } from './recoverable-failure';
-import type { WorkerTimers } from '../lib/worker-timers';
-import { passOf } from '../lib/idle-backoff';
-import { HOUSEKEEPING_IDLE_MAX_MS, startWorkerLoop } from '../lib/worker-loop';
 
 /** Scheduled repair uses original claim offers and current service authority, independently of the purchase flag. */
 export function startBillingSubscriptions(input: {
   readonly app: App;
   readonly instanceId: string;
-  readonly timers: WorkerTimers;
+  readonly waits: Waits;
   readonly fetch: BillingFetch;
 }) {
   const { app } = input;
@@ -46,8 +46,8 @@ export function startBillingSubscriptions(input: {
     store: app.database.billingSubscriptionStaleness(input.instanceId),
     ...subscriptionStalenessObserver(app, failed),
   });
-  const schedule = startWorkerLoop({
-    run: async () => {
+  const schedule = pollWork({
+    pass: async () => {
       try {
         return passOf(await reconciliation.run());
       } finally {
@@ -55,7 +55,7 @@ export function startBillingSubscriptions(input: {
       }
     },
     backoff: { busyMs: 5_000, idleMaxMs: HOUSEKEEPING_IDLE_MAX_MS },
-    timers: input.timers,
+    waits: input.waits,
     failed: (error) => failed(error, 'tick'),
   });
   return {

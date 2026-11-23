@@ -1,3 +1,4 @@
+import { hostWaits } from '@daisy/worker/host';
 import { SQL } from 'bun';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
@@ -22,7 +23,7 @@ function remember(
 
 test('sampler crash takeover and delayed actual outbox delivery remain observable', async () => {
   const client = new SQL(databaseUrl, { max: 5 });
-  const ops = availabilityOperations(client, client);
+  const ops = availabilityOperations(client, client, hostWaits);
   const first = ops.availabilitySampler(),
     second = ops.availabilitySampler();
   const web = createId(),
@@ -119,6 +120,7 @@ test('speech evidence retains incoming outage recovery, not just the preceding s
     const samples = await availabilityOperations(
       client,
       client,
+      hostWaits,
     ).readAvailabilitySamples('2100-01-01T00:00:01.500Z');
     assert({
       given: 'outage then only one recovery sample before speech opens',
@@ -144,6 +146,7 @@ test('speech evidence starts at the latest recovery samples before the speech, n
     const samples = await availabilityOperations(
       client,
       client,
+      hostWaits,
     ).readAvailabilitySamples('2100-01-02T23:59:59.500Z');
     assert({
       given:
@@ -165,7 +168,7 @@ test('speech evidence starts at the latest recovery samples before the speech, n
 
 test('PG-time leases and elected same-session sampler preserve real availability evidence', async () => {
   const client = new SQL(databaseUrl, { max: 6 });
-  const ops = availabilityOperations(client, client);
+  const ops = availabilityOperations(client, client, hostWaits);
   const first = ops.availabilitySampler();
   const second = ops.availabilitySampler();
   const sampled: string[] = [];
@@ -293,7 +296,7 @@ const outcomeOf = (work: Promise<boolean>) =>
 test('ISSUE-893: the same sampler recovers election after its exact backend is lost, without manufacturing evidence', async () => {
   const dedicated = new SQL(databaseUrl, { max: 2 });
   const control = new SQL(databaseUrl, { max: 1 });
-  const ops = availabilityOperations(control, dedicated);
+  const ops = availabilityOperations(control, dedicated, hostWaits);
   const sampler = ops.availabilitySampler();
   const rival = ops.availabilitySampler();
   try {
@@ -341,7 +344,7 @@ test('ISSUE-893: the same sampler recovers election after its exact backend is l
 
 test('ISSUE-886: the probe check names each missing synthetic resource, without touching health', async () => {
   await withFixture(databaseUrl, async (f) => {
-    const ops = availabilityOperations(f.sql, f.sql);
+    const ops = availabilityOperations(f.sql, f.sql, hostWaits);
     const absent = createId();
     const ended = await f.round({
       status: 'abandoned',
@@ -388,6 +391,7 @@ test('ISSUE-893: backend loss while sampling also recovers, repeatedly, and clos
   const sampler = availabilityOperations(
     control,
     dedicated,
+    hostWaits,
   ).availabilitySampler();
   const written: string[] = [];
   const sample = () =>
@@ -447,7 +451,7 @@ test('a history past the read cap comes back as its true earliest prefix, not a 
         select ${opening}::timestamptz+n*interval '1 second',true,null from generate_series(1,10805) n`;
     });
     try {
-      const ops = availabilityOperations(f.sql, f.sql);
+      const ops = availabilityOperations(f.sql, f.sql, hostWaits);
       const read = await ops.readAvailabilitySamples(opening);
       const [first] =
         await f.sql`select to_char(min(at) at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') as at from availability_samples where at>${opening}::timestamptz`;

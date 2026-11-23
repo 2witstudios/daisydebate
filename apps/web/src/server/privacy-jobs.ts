@@ -1,3 +1,5 @@
+import { repeatEvery } from '@daisy/worker';
+import type { Waits } from '@daisy/clock';
 import type { Clock } from '@daisy/clock';
 import type { Logger } from '@daisy/logger';
 import { createAppError } from '@daisy/errors';
@@ -7,9 +9,7 @@ import {
   type PrivacyVendor,
 } from '@daisy/db/privacy';
 import { createScheduledWorker } from '../features/ops/scheduled-worker';
-import { startRunSchedule } from './run-schedule';
 import type { App } from './app';
-import type { WorkerTimers } from '../lib/worker-timers';
 
 /** Generic vendor erasure ports retain their existing Promise<void> completion contract. */
 const privacyJobVendors = ['messaging-typing'] as const;
@@ -109,32 +109,35 @@ export function startPrivacyJobs(input: {
   readonly owed: () => Promise<number>;
   readonly clock: Clock;
   readonly logger: Logger;
-  readonly timers: WorkerTimers;
+  readonly waits: Waits;
   readonly intervalMs?: number;
 }) {
-  return startRunSchedule({
-    work: createScheduledWorker({
-      name: 'privacy_jobs',
-      clock: input.clock,
-      logger: input.logger,
-      pass: async (now) => {
-        const jobs = await input.due({ now, limit: PRIVACY_JOBS_BATCH });
-        let deleted = 0;
-        let retried = 0;
-        for (const job of jobs) {
-          const outcome = await input.deliver(
-            job,
-            now,
-            privacyJobRetryAt(now, job.attempts),
-          );
-          if (outcome === 'succeeded') deleted += 1;
-          if (outcome === 'retry') retried += 1;
-        }
-        return { deleted, retried, owed: await input.owed() };
-      },
-    }),
-    timers: input.timers,
-    intervalMs: input.intervalMs ?? PRIVACY_JOBS_INTERVAL_MS,
+  const work = createScheduledWorker({
+    name: 'privacy_jobs',
+    clock: input.clock,
+    logger: input.logger,
+    pass: async (now) => {
+      const jobs = await input.due({ now, limit: PRIVACY_JOBS_BATCH });
+      let deleted = 0;
+      let retried = 0;
+      for (const job of jobs) {
+        const outcome = await input.deliver(
+          job,
+          now,
+          privacyJobRetryAt(now, job.attempts),
+        );
+        if (outcome === 'succeeded') deleted += 1;
+        if (outcome === 'retry') retried += 1;
+      }
+      return { deleted, retried, owed: await input.owed() };
+    },
+  });
+  return repeatEvery({
+    run: () => work.run(),
+    waits: input.waits,
+    everyMs: input.intervalMs ?? PRIVACY_JOBS_INTERVAL_MS,
     runOnStart: true,
+    // Each run reports its own failure.
+    failed: () => undefined,
   });
 }

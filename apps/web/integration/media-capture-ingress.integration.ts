@@ -1,3 +1,4 @@
+import { hostWaits } from '@daisy/worker/host';
 import { instantMs } from '@daisy/clock';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { noopErrorReporter } from '@daisy/observability';
@@ -123,7 +124,7 @@ test('signed native HTTP ingress uses actual lease, snapshot and vendor token pr
         url: `http://127.0.0.1:${server.port}`,
         authentication,
         fetch,
-        nowMs: performance.now,
+        waits: hostWaits,
         deadlineSignal: () => AbortSignal.timeout(5000),
       });
       const renewed = await client.lease(30000);

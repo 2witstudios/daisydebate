@@ -1,3 +1,4 @@
+import { hostWaits } from '@daisy/worker/host';
 import { createId } from '@paralleldrive/cuid2';
 import { createDatabase } from '@daisy/db';
 import { requireTestServices } from '@daisy/config';
@@ -74,6 +75,7 @@ test('actual finalization keeps app selection and notification obligation atomic
         expected: [true, before],
       });
       const unconfigured = createDatabase({
+        waits: hostWaits,
         url: requireTestServices(process.env).databaseUrl,
         nextActorId: createId,
       });

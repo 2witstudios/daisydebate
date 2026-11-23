@@ -1,3 +1,4 @@
+import { hostWaits } from '@daisy/worker/host';
 import { runPreapprovalCommand } from '../../src/features/operator-api/preapproval-command';
 import { sha3Hex } from '@daisy/digest';
 import { createId } from '@paralleldrive/cuid2';
@@ -10,6 +11,7 @@ const input = z
   .strictObject({ email: preapprovalEmailSchema, invite: z.boolean() })
   .parse(JSON.parse(await Bun.stdin.text()));
 const database = createDatabase({
+  waits: hostWaits,
   url: betaAccessTarget(process.env),
   nextActorId: createId,
 });

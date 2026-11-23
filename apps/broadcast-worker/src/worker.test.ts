@@ -1,17 +1,46 @@
+import type { Waits } from '@daisy/clock';
+import { virtualClock } from '@daisy/clock/testing';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { runWorker } from './worker';
+import { startBroadcastSlot } from './worker';
 
 setupRitewayBun();
+
+type SlotDeps = Parameters<typeof startBroadcastSlot>[0];
+/**
+ * Runs a slot on virtual time until `stopped` holds, then stops it. `waited`
+ * sees each wait the slot asks for.
+ */
+const runSlot = async ({
+  stopped,
+  waited,
+  clock = virtualClock(),
+  ...deps
+}: Omit<SlotDeps, 'waits'> & {
+  readonly stopped: () => boolean;
+  readonly waited?: (ms: number) => void;
+  readonly clock?: ReturnType<typeof virtualClock>;
+}) => {
+  const waits: Waits = {
+    ...clock,
+    sleep: (ms, signal) => {
+      waited?.(ms);
+      return clock.sleep(ms, signal);
+    },
+  };
+  const slot = startBroadcastSlot({ ...deps, waits });
+  for (let step = 0; step < 5_000 && !stopped(); step += 1)
+    await clock.advance(100);
+  await clock.run(slot.stop());
+};
 
 const noScratch = { dir: () => '/nowhere', clear: async () => {} };
 
 test('a database failure does not end the slot', async () => {
   let claims = 0;
   const reports: string[] = [];
-  await runWorker({
+  await runSlot({
     owner: 'w',
     now: () => 0,
-    sleep: async () => {},
     stopped: () => claims >= 3,
     report: (event) => reports.push(event),
     scratch: noScratch,
@@ -42,10 +71,9 @@ test('a failed release step keeps the job instead of waiting out its own lease',
   let reads = 0;
   const reports: string[] = [];
   const recorded: number[] = [];
-  await runWorker({
+  await runSlot({
     owner: 'w',
     now: () => 900_000,
-    sleep: async () => {},
     stopped: () => recorded.length >= 1,
     report: (event: string) => {
       reports.push(event);
@@ -105,10 +133,9 @@ test('what a step put on disk goes with the step, whatever became of it', async 
   const cleared: string[] = [];
   const reports: string[] = [];
   let steps = 0;
-  await runWorker({
+  await runSlot({
     owner: 'w',
     now: () => 900_000,
-    sleep: async () => {},
     stopped: () => steps >= 1,
     report: (event: string) => {
       reports.push(event);
@@ -167,10 +194,9 @@ test('what a step put on disk goes with the step, whatever became of it', async 
 test('media past the last heartbeat is said once, and the slot stays with the job', async () => {
   let reads = 0;
   const reports: string[] = [];
-  await runWorker({
+  await runSlot({
     owner: 'w',
     now: () => 900_000,
-    sleep: async () => {},
     stopped: () => reads >= 3,
     report: (event: string) => {
       reports.push(event);
@@ -243,10 +269,10 @@ test('a segment that is missing is given up on after five tries, and said out lo
   const recorded: number[] = [];
   const waits: number[] = [];
   let steps = 0;
-  await runWorker({
+  await runSlot({
     owner: 'w',
     now: () => 900_000,
-    sleep: async (ms: number) => {
+    waited: (ms) => {
       waits.push(ms);
     },
     stopped: () => recorded.length >= 1 || steps > 20,
@@ -294,10 +320,9 @@ test('a segment that is missing is given up on after five tries, and said out lo
 test('a storage outage is retried for as long as it lasts, and nothing is given up', async () => {
   const recorded: number[] = [];
   let steps = 0;
-  await runWorker({
+  await runSlot({
     owner: 'w',
     now: () => 900_000,
-    sleep: async () => {},
     stopped: () => steps >= 8,
     report: () => {},
     scratch: noScratch,
@@ -334,14 +359,10 @@ test('a storage outage is retried for as long as it lasts, and nothing is given 
 
 test('a stop seen mid-step withdraws, and nothing more is published', async () => {
   const published: string[] = [];
-  let now = 900_000;
   let withdrawn = false;
-  await runWorker({
+  await runSlot({
     owner: 'w',
-    now: () => now,
-    sleep: async () => {
-      now += 6000;
-    },
+    now: () => 900_000,
     stopped: () => withdrawn,
     report: () => {},
     scratch: noScratch,
@@ -380,10 +401,9 @@ test('a stop seen mid-step withdraws, and nothing more is published', async () =
 test('a long delay gives the slot back, until something is due', async () => {
   const parked: number[] = [];
   let claims = 0;
-  await runWorker({
+  await runSlot({
     owner: 'w',
     now: () => 900_000,
-    sleep: async () => {},
     stopped: () => claims >= 2,
     report: () => {},
     scratch: noScratch,
@@ -417,17 +437,17 @@ test('a long delay gives the slot back, until something is due', async () => {
   });
 });
 
-test('a failed gap record retires the renewal before the slot stops', async () => {
+test('a failed gap record ends the job and its renewal with it', async () => {
   let stopping = false;
-  let renewals = 0;
-  let now = 900_000;
-  const renewalWait = Promise.withResolvers<void>();
-  const skipAttempt = Promise.withResolvers<void>();
-  const run = runWorker({
+  const renewedAt: number[] = [];
+  let failedAt: number | null = null;
+  const clock = virtualClock();
+  const clockNow = () => clock.nowMs();
+  await runSlot({
+    clock,
     owner: 'w',
-    now: () => now,
-    sleep: (ms) => (ms === 5000 ? renewalWait.promise : Promise.resolve()),
-    stopped: () => stopping,
+    now: () => 900_000,
+    stopped: () => stopping && clockNow() > (failedAt ?? 0) + 60_000,
     report: () => {},
     scratch: noScratch,
     objects: {
@@ -438,39 +458,78 @@ test('a failed gap record retires the renewal before the slot stops', async () =
         '#EXTM3U\n#EXT-X-PROGRAM-DATE-TIME:1970-01-01T00:00:00.000Z\n#EXTINF:4.0,\ns_0.ts\n',
     } as never,
     store: {
-      claim: async () => dueFromWorker([]),
+      claim: async () => (stopping ? null : dueFromWorker([])),
       readStageHistory: async () => ({
         segments: [{ startedAtMs: 0, endedAtMs: 900_000, durationMs: 900_000 }],
         privateSpans: [],
       }),
       recordSkipped: async () => {
         stopping = true;
-        skipAttempt.resolve();
+        failedAt = clockNow();
         throw new Error('gap record unavailable');
       },
       renew: async () => {
-        renewals += 1;
-        // A leaked renewal must not make this negative control spin forever.
-        await new Promise<void>(() => {});
+        renewedAt.push(clockNow());
+        return dueFromWorker([]);
       },
     } as never,
   });
-  let settled = false;
-  void run.then(() => {
-    settled = true;
-  });
-  await skipAttempt.promise;
-  // Let the rejected record unwind before the already-sleeping heartbeat wakes.
-  for (let turn = 0; turn < 20; turn += 1) await Promise.resolve();
-  const settledBeforeRenewal = settled;
-  now += 5000;
-  renewalWait.resolve();
-  await run;
   assert({
-    given:
-      'a gap write rejecting while its renewal sleeps, followed by shutdown',
-    should: 'settle the slot without renewing a job it no longer runs',
-    actual: { renewals, settledBeforeRenewal },
-    expected: { renewals: 0, settledBeforeRenewal: false },
+    given: 'a gap write rejecting while the job holds its lease',
+    should: 'end the job and never renew its lease again',
+    actual: renewedAt.filter((at) => at > (failedAt ?? 0)),
+    expected: [],
+  });
+});
+
+test('a stop seen during a storage outage retries the withdrawal at the idle pace, not in a loop', async () => {
+  const clock = virtualClock();
+  const attemptsAt: number[] = [];
+  let withdrawn = false;
+  await runSlot({
+    clock,
+    owner: 'w',
+    now: () => 900_000,
+    stopped: () => withdrawn,
+    report: () => {},
+    scratch: noScratch,
+    objects: {
+      putManifest: async () => {},
+      ensureDir: async () => {},
+      holdExists: async () => true,
+      readHoldText: async () => '',
+      // One withdrawal deletes several keys at once: an attempt is one instant.
+      deletePublic: async () => {
+        if (attemptsAt.at(-1) !== clock.nowMs()) attemptsAt.push(clock.nowMs());
+        if (attemptsAt.length <= 2) throw new Error('bucket down');
+      },
+      discardHoldPage: async () => 0,
+    } as never,
+    store: {
+      recordPassed: async () => true,
+      readStageHistory: async () => ({ segments: [], privateSpans: [] }),
+      renew: async () => ({
+        ...dueFromWorker([]),
+        stoppedAt: new Date(900_000),
+      }),
+      recordFeedWithdrawn: async () => {
+        withdrawn = true;
+      },
+      recordingKeepsHold: async () => true,
+      claim: async () => dueFromWorker([]),
+    } as never,
+  });
+  const firstAttempt = attemptsAt[0] ?? 0;
+  assert({
+    given: 'a stop seen at renewal while the public bucket refuses two deletes',
+    should: 'retry each failed withdrawal 500 ms later, then withdraw',
+    actual: {
+      gaps: attemptsAt
+        .slice(1)
+        .map((at, index) => at - (attemptsAt[index] ?? 0)),
+      withdrawn,
+      atRenewal: firstAttempt >= 5000,
+    },
+    expected: { gaps: [500, 500], withdrawn: true, atRenewal: true },
   });
 });

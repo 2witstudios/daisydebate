@@ -1,3 +1,4 @@
+import { hostWaits } from '@daisy/worker/host';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { recordingCaptureClient } from './capture-client.test-support';
 import { createOpenRouter } from '@daisy/ai-voice';
@@ -68,6 +69,8 @@ async function consume(
   const stop = new AbortController();
   const client = recordingCaptureClient(state, calls, observed);
   const result = await consumeCaptureClips({
+    // Its pauses are what this asserts; the read deadline is not.
+    historyDeadline: () => new AbortController().signal,
     client,
     epoch: 3,
     voice: {
@@ -113,6 +116,7 @@ const providerFailure = (status: number) =>
   createOpenRouter({
     apiKey: 'key',
     fetch: async () => new Response('refused', { status }),
+    waits: hostWaits,
   })
     .transcribe({ model: 'stt', audioBase64: 'AAAA', format: 'wav' })
     .then(

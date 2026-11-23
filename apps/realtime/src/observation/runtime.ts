@@ -3,10 +3,11 @@ import {
   dialObservationSubscriber,
   type SubscriberTransport,
 } from '@daisy/redis';
+import type { Waits } from '@daisy/clock';
 import { errorCodeOf } from '@daisy/errors';
+import { repeatEvery } from '@daisy/worker';
 import type { RealtimeApp } from '../app';
 import type { RealtimeReadingPolicy } from '../authorization';
-import type { IntervalTimers } from '../outbox-drain';
 import { channelMessagesResource } from './channel-messages';
 import { createFanout } from './fanout';
 import { createObservationNode } from './node';
@@ -24,20 +25,20 @@ const OBSERVATION_CADENCE = {
 /**
  * One realtime process's observation: its node always, its owner only when
  * the process is eligible (it then holds the headers and projection lanes),
- * one managed Pub/Sub subscriber connection, and the timers that drive them.
+ * one managed Pub/Sub subscriber connection, and the cadences that drive them.
  * Every identity (node incarnation, claim token) is a fresh cuid2 per start.
  */
 export function startObservationRuntime({
   resources,
   readingPolicy,
-  timers,
+  waits,
   now,
   nextId,
   openSubscriber = dialObservationSubscriber(resources.config.REDIS_URL),
 }: {
   readonly resources: RealtimeApp;
   readonly readingPolicy: RealtimeReadingPolicy;
-  readonly timers: IntervalTimers;
+  readonly waits: Waits;
   readonly now: () => number;
   readonly nextId: () => string;
   readonly openSubscriber?: () => SubscriberTransport;
@@ -71,6 +72,7 @@ export function startObservationRuntime({
     onSynchronized: () =>
       void node.repair().catch((error) => report('observation.repair', error)),
     onLost: () => report('observation.subscriber'),
+    waits,
   });
   const node = createObservationNode({
     node: nextId(),
@@ -93,48 +95,53 @@ export function startObservationRuntime({
         })
       : null;
   subscriber.start();
-  const guarded = (work: () => Promise<void> | void, operation: string) => {
-    let running = false;
-    return () => {
-      if (running) return;
-      running = true;
-      void Promise.resolve()
-        .then(work)
-        .catch((error) => report(operation, error))
-        .finally(() => {
-          running = false;
-        });
-    };
-  };
-  const handles = [
-    timers.setInterval(
-      guarded(() => node.repair(), 'observation.repair'),
+  // Each cadence runs one pass at a time; a pass due while one runs is skipped.
+  const every = (
+    everyMs: number,
+    work: () => Promise<void> | void,
+    operation: string,
+  ) =>
+    repeatEvery({
+      waits,
+      everyMs,
+      run: async () => work(),
+      failed: (error) => report(operation, error),
+    });
+  const cadences = [
+    every(
       OBSERVATION_CADENCE.repairMs,
+      () => node.repair(),
+      'observation.repair',
     ),
-    timers.setInterval(
-      guarded(() => node.refreshInterest(), 'observation.interest'),
+    every(
       OBSERVATION_CADENCE.interestMs,
+      () => node.refreshInterest(),
+      'observation.interest',
     ),
-    timers.setInterval(
-      guarded(() => node.renew(), 'observation.renew'),
-      OBSERVATION_CADENCE.renewMs,
-    ),
+    every(OBSERVATION_CADENCE.renewMs, () => node.renew(), 'observation.renew'),
     ...(owner
       ? [
-          timers.setInterval(
-            guarded(() => owner.tick(), 'observation.owner'),
+          every(
             OBSERVATION_CADENCE.ownerMs,
+            () => owner.tick(),
+            'observation.owner',
           ),
         ]
       : []),
   ];
   return {
     node,
-    close() {
-      for (const handle of handles) timers.clearInterval(handle);
+    /**
+     * Stops every cadence and closes the owner, node and subscriber at once,
+     * so a pass still in flight finds them closed; resolves once those
+     * passes have ended.
+     */
+    async close() {
+      const stopping = cadences.map((cadence) => cadence.stop());
       owner?.close();
       node.close();
       subscriber.close();
+      await Promise.all(stopping);
     },
   };
 }

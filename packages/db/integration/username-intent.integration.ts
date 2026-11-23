@@ -1,3 +1,4 @@
+import { hostWaits } from '@daisy/worker/host';
 import { createId } from '@paralleldrive/cuid2';
 import { requireTestServices } from '@daisy/config';
 import { assertRejects } from '@daisy/errors/testing';
@@ -15,6 +16,7 @@ test('public username intent follows verified human binding and account erasure'
   await withFixture(databaseUrl, async (fixture) => {
     const { userId, actorId } = await createAuthorizationSubject(fixture);
     const database = createDatabase({
+      waits: hostWaits,
       url: databaseUrl,
       client: fixture.sql,
       nextActorId: createId,

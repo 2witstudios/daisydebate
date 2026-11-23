@@ -1,3 +1,4 @@
+import { hostWaits } from '@daisy/worker/host';
 import { noLinkedAdults } from '../src/features/spectating/linked-adults';
 import type { SQL } from 'bun';
 import { authorize } from '@daisy/auth/authorization';
@@ -159,7 +160,7 @@ export const proveEventRoundRead = async (input: {
       reading,
       f.sql,
       Number(backend!.pid),
-      { now: Date.now },
+      { waits: hostWaits },
     );
     const [valid] =
       await f.sql`select clock_timestamp()<${expiresAt}::timestamptz valid`;

@@ -95,6 +95,11 @@ These rules are blockers in every plan and review (owner, 2026-10-27 and
 - Prefer pure functions. Domain, protocol, and feature logic have no ambient
   clock, environment, randomness, or I/O. Inject time, IDs, and resources at
   the edges; rejected operations leave state unchanged.
+- Background work runs on `@daisy/worker` (`pollWork`, `repeatEvery`,
+  `holdLease`), and every wait, deadline and one-shot takes injected `Waits`
+  from `@daisy/clock`. `@daisy/worker/host` is the only server module that
+  reads host timers; `daisy-time/host-time` refuses every other spelling
+  ([ADR 0915](../decisions/0915-one-worker-primitive.md)).
 - Validate untrusted input, environment, and serialized messages at trust
   boundaries. Pass explicit principals into operations.
 - Greenfield over backward compatibility: Daisy is pre-ship and has no

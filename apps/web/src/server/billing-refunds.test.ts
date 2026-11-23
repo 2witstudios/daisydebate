@@ -1,3 +1,4 @@
+import { virtualClock } from '@daisy/clock/testing';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { fixedClock } from '@daisy/clock';
 import { advanceRefund, type RefundAction } from '@daisy/protocol/billing';
@@ -7,12 +8,13 @@ import { authTestEnv } from '../features/auth/auth-server.test-support';
 import { betaMessagingPolicy } from '../features/messaging/beta-policy';
 import { refundFixture } from '../features/billing/refund.test-support';
 import type { BillingFetch } from './billing-stripe';
-import { withOneShots } from '../lib/worker-timers.test-support';
+import { manualWaits, recordingWaits } from '../lib/manual-waits.test-support';
 
 setupRitewayBun();
 const fixture = refundFixture();
 function harness(mode: 'test' | 'live' = 'test') {
   const app = createApp({
+    waits: virtualClock(),
     env: {
       ...authTestEnv,
       DATABASE_URL: 'postgres://unit:unit@localhost:5432/unit',
@@ -47,7 +49,7 @@ function harness(mode: 'test' | 'live' = 'test') {
     throw Error('Controlled original-action claim refused');
   const calls: unknown[] = [],
     records: unknown[] = [];
-  let tick: () => Promise<void> = async () => undefined;
+  const manual = manualWaits();
   const store: ReturnType<typeof app.database.billingRefunds> = {
     admit: async () => {
       throw Error('Scheduled repair must not admit new refund obligations');
@@ -91,17 +93,13 @@ function harness(mode: 'test' | 'live' = 'test') {
     },
     calls,
     records,
-    timers: withOneShots({
-      setInterval: (run: () => Promise<void>, ms: number) => {
-        tick = run;
-        calls.push(['cadence', ms]);
-        return 1;
-      },
-      clearInterval: () => {
-        calls.push(['clear']);
-      },
-    }),
-    tick: () => tick(),
+    waits: recordingWaits(manual.waits, (event, ms) =>
+      calls.push(event === 'armed' ? ['cadence', ms] : ['clear']),
+    ),
+    /** Fires the next five-second pass, if one is armed. */
+    tick: async () => {
+      await manual.tasks.get(5000)?.();
+    },
   };
 }
 
@@ -121,7 +119,7 @@ test('runtime independently refetches the original refund after success without 
   const service = startBillingRefunds({
     app: h.app,
     instanceId: 'current-service-fixture',
-    timers: h.timers,
+    waits: h.waits,
     fetch,
   })!;
   await service.started;
@@ -175,7 +173,7 @@ test('refund drain preserves the in-flight financial observation but admits no n
   const service = startBillingRefunds({
     app: h.app,
     instanceId: 'current-service-fixture',
-    timers: h.timers,
+    waits: h.waits,
     fetch,
   })!;
   await entered.promise;
@@ -223,7 +221,7 @@ test('independent refund repair refuses a foreign configured mode before transpo
   const service = startBillingRefunds({
     app: h.app,
     instanceId: 'current-service-fixture',
-    timers: h.timers,
+    waits: h.waits,
     fetch,
   })!;
   await service.started;

@@ -1,3 +1,4 @@
+import { hostWaits } from '@daisy/worker/host';
 import { addMs, instantMs } from '@daisy/clock';
 import { SQL } from 'bun';
 import { drizzle } from 'drizzle-orm/bun-sql';
@@ -73,7 +74,7 @@ test('maintenance validates bounds and defers a selected owner changed while the
       await holder`select id from messaging_channels where id=${channelId} for update`;
       const maintenance = worker.run({ now, maxItems: 1, remove });
       const blocked = await finishedOrBlockedBehind(maintenance, client, pid, {
-        now: Date.now,
+        waits: hostWaits,
       });
       await holder`update messaging_files set owner_actor_id=${otherActorId} where id=${file.id}`;
       return { blocked, maintenance };

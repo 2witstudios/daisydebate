@@ -1,3 +1,4 @@
+import { hostWaits } from '@daisy/worker/host';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { requireTestServices } from '@daisy/config';
 import { assertRejects } from '@daisy/errors/testing';
@@ -28,7 +29,7 @@ test('actual attendance operation preserves first receipt before Round contentio
       const receipt = attendance.checkIn(principal, roundId, envelope);
       pending = receipt;
       const state = await finishedOrBlockedBehind(receipt, f.sql, backend.pid, {
-        now: performance.now,
+        waits: hostWaits,
         deadlineMs: 800,
       });
       const [marker] =
@@ -130,7 +131,7 @@ test('canonical Round contention keeps actual check-in admission visible to the 
         pending,
         f.sql,
         backend.pid,
-        { now: performance.now, deadlineMs: 800 },
+        { waits: hostWaits, deadlineMs: 800 },
       );
       const [admitted] =
         await f.sql`select state from round_check_in_attempts where command_id=${commandId}`;

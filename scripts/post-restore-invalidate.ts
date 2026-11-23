@@ -34,6 +34,7 @@
  * either.
  */
 import { RedisClient } from 'bun';
+import { hostWaits } from '@daisy/worker/host';
 import { systemId } from '@daisy/clock';
 import { createDatabase } from '@daisy/db';
 import { clearAuthRateLimits } from '@daisy/redis/namespaces';
@@ -74,6 +75,7 @@ if (redisRefusal) throw new Error(redisRefusal);
 const database = createDatabase({
   url: databaseUrl,
   nextActorId: systemId.next,
+  waits: hostWaits,
 });
 const redis = new RedisClient(redisUrl);
 

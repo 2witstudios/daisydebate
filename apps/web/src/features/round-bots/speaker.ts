@@ -2,7 +2,7 @@ import type { BotPublicationScope } from '@daisy/db/bot-publication';
 import { isCapacityRefusal } from '@daisy/db/capacity';
 import { isFinalBotSpeechRefusal } from '@daisy/db/bot-publication';
 import { createAppError, isAppError } from '@daisy/errors';
-import type { OneShotTimer } from '../../lib/worker-timers';
+import type { Waits } from '@daisy/clock';
 import {
   retryPauseMs,
   type DutyEffect,
@@ -103,7 +103,7 @@ export function createBotSpeaker(input: {
     signal: AbortSignal,
   ) => Promise<void>;
   /** Wakes the speaker again after a refusal, and after an unanswered question. */
-  readonly timer: OneShotTimer;
+  readonly waits: Waits;
   readonly synthesize: (
     scope: BotPublicationScope,
     token: string,
@@ -514,7 +514,7 @@ export function createBotSpeaker(input: {
     apply({ type: 'woke' });
   };
   const selfWake = createSelfWake({
-    timer: input.timer,
+    waits: input.waits,
     resume: () => {
       apply({ type: 'pause-ended' });
       wake();

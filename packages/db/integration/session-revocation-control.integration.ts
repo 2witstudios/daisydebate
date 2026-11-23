@@ -1,3 +1,4 @@
+import { hostWaits } from '@daisy/worker/host';
 import { createId } from '@paralleldrive/cuid2';
 import { SQL } from 'bun';
 import { requireTestServices } from '@daisy/config';
@@ -87,6 +88,7 @@ describe('session revocation control (MSG-2.1-arch1, ADR 0032 §5)', () => {
       const client = new SQL(url, { max: 1 });
       const events: unknown[] = [];
       const database = createDatabase({
+        waits: hostWaits,
         url,
         client,
         nextActorId: createId,

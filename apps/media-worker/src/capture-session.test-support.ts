@@ -1,3 +1,4 @@
+import { hostWaits } from '@daisy/worker/host';
 import { virtualClock } from '@daisy/clock/testing';
 import { createAppError } from '@daisy/errors';
 import { createMediaWorkerClient } from '@daisy/media/worker';
@@ -43,7 +44,7 @@ const closedForGood = createMediaWorkerClient({
     new Response(JSON.stringify({ refusal: 'capture-closed' }), {
       status: 409,
     }),
-  nowMs: performance.now,
+  waits: hostWaits,
   deadlineSignal: () => AbortSignal.timeout(2000),
 });
 

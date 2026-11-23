@@ -1,3 +1,4 @@
+import { hostWaits } from '@daisy/worker/host';
 import { requireTestServices } from '@daisy/config';
 import { buildUserInboxTopic } from '@daisy/protocol/topics';
 import { assertRejects } from '@daisy/errors/testing';
@@ -75,6 +76,7 @@ test('a host invites a judge and a debater; the held judge seat waits for its co
         apiKey: 'test-key',
         from: 'Daisy <play@daisy.example.test>',
         ids: { next: createId },
+        waits: hostWaits,
         nowMs: () => Date.now(),
         fetch: async (input, init) => {
           const request = resendRequest(input, init);

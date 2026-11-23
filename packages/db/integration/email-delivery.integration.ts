@@ -1,3 +1,4 @@
+import { hostWaits } from '@daisy/worker/host';
 import { SQL } from 'bun';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
@@ -30,7 +31,11 @@ const cleanup = async (messageIds: string[], hashes: string[]) => {
 test('delivery events dedupe, never lower status, and suppress only after hard failure', async () => {
   const messageId = `msg-${createId()}`;
   const hash = `hash-${createId()}`;
-  const database = createDatabase({ url, nextActorId: createId });
+  const database = createDatabase({
+    waits: hostWaits,
+    url,
+    nextActorId: createId,
+  });
   try {
     await database.recordEmailDelivery({
       providerMessageId: messageId,
@@ -105,7 +110,11 @@ test('delivery events dedupe, never lower status, and suppress only after hard f
 });
 
 test('an event for an unrecorded message is retryable and leaves no dedupe row', async () => {
-  const database = createDatabase({ url, nextActorId: createId });
+  const database = createDatabase({
+    waits: hostWaits,
+    url,
+    nextActorId: createId,
+  });
   const eventId = `evt-${createId()}`;
   const messageId = `msg-${createId()}`;
   const apply = () =>
@@ -141,6 +150,7 @@ test('permission failures report only the safe delivery operation names', async 
   const client = new SQL(url, { max: 1 });
   const telemetry: unknown[] = [];
   const database = createDatabase({
+    waits: hostWaits,
     url,
     client,
     nextActorId: createId,

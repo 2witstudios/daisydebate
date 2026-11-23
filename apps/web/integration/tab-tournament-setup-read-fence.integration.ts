@@ -1,3 +1,4 @@
+import { hostWaits } from '@daisy/worker/host';
 import { grantHostReader } from './tab-host-reader-grant.test-support';
 import { createOwnedTournament } from './tab-tournament-owned-event.test-support';
 import { afterAll } from 'bun:test';
@@ -76,7 +77,7 @@ test('tournament setup projection retains shared reader, metadata and grant fenc
     const [held] = await reader`select pg_backend_pid() as pid`;
     const observed = (operation: Promise<unknown>) =>
       finishedOrBlockedBehind(operation, observer, Number(held?.pid), {
-        now: Date.now,
+        waits: hostWaits,
       });
     await pause().ready;
     overlapping = read(createTabStore(committingRuntimeTestDatabase(owner)));

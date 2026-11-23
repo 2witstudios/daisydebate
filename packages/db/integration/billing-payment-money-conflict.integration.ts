@@ -1,3 +1,4 @@
+import { hostWaits } from '@daisy/worker/host';
 import { addMs } from '@daisy/clock';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { requireTestServices } from '@daisy/config';
@@ -33,6 +34,7 @@ test('an incompatible original-charge admission retains its positive owned obser
     void priceId;
     void invoicePaymentId;
     const refunds = createDatabase({
+      waits: hostWaits,
       url: process.env.TEST_DATABASE_URL!,
       client: pool,
       nextActorId: createId,
@@ -52,12 +54,17 @@ test('an incompatible original-charge admission retains its positive owned obser
       await fixture.sql`select id from privacy_jobs where subject_ref=${subject.userId} and vendor='stripe'`;
     const run = currentWebTransaction(
       createBoundedTransaction({
-        lane: createLane('control', pool, {
-          connections: 6,
-          queue: 64,
-          maxWaitMs: 1000,
-        }),
-        now: performance.now,
+        lane: createLane(
+          'control',
+          pool,
+          {
+            connections: 6,
+            queue: 64,
+            maxWaitMs: 1000,
+          },
+          { waits: hostWaits },
+        ),
+        waits: hostWaits,
       }),
       instanceId,
     );

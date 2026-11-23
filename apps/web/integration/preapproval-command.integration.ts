@@ -1,3 +1,4 @@
+import { hostWaits } from '@daisy/worker/host';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createId } from '@paralleldrive/cuid2';
 import { finishedOrBlockedBehind } from '@daisy/db/testing';
@@ -137,7 +138,7 @@ test('the actual signed driver restarts after account discovery changes behind t
         const [holder] = await tx`select pg_backend_pid() as pid`;
         response = handle(put(add(email, true)));
         waited = await finishedOrBlockedBehind(response, sql, holder!.pid, {
-          now: Date.now,
+          waits: hostWaits,
           deadlineMs: 1500,
         });
       });
@@ -177,7 +178,7 @@ test('the signed driver rolls back a prepared invitation when its final deadline
         const [holder] = await tx`select pg_backend_pid() as pid`;
         response = handle(put(command));
         waited = await finishedOrBlockedBehind(response, sql, holder!.pid, {
-          now: Date.now,
+          waits: hostWaits,
           deadlineMs: 1500,
         });
         clock = signedNow + operatorLimits.skewMs + 1;

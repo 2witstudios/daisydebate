@@ -1,3 +1,4 @@
+import { hostWaits } from '@daisy/worker/host';
 import { requireTestServices } from '@daisy/config';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { encodeOutboxCursor } from '@daisy/db/outbox';
@@ -77,7 +78,7 @@ test('real SQL catchup wait racing a committed write delivers history and live i
       subscribed,
       fixture.client,
       holderPid,
-      { now: Date.now },
+      { waits: hostWaits },
     );
     const [query] =
       await fixture.client`select count(*)::int as waiting from pg_stat_activity
@@ -104,7 +105,9 @@ test('real SQL catchup wait racing a committed write delivers history and live i
     };
     release();
     await locked;
-    await waitForOutboxFinality(fixture.client, racing.txid, { now: Date.now });
+    await waitForOutboxFinality(fixture.client, racing.txid, {
+      waits: hostWaits,
+    });
     await notifyOutbox(fixture.client, racing);
     const acknowledgement = await subscribed;
     assert({

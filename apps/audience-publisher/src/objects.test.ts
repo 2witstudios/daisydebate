@@ -1,10 +1,13 @@
+import { virtualClock } from '@daisy/clock/testing';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createPublicObjects } from './objects';
 
 setupRitewayBun();
 
+const clock = virtualClock();
 const stalledObjects = (port: number | undefined) =>
   createPublicObjects({
+    waits: clock,
     endpoint: `http://127.0.0.1:${port}`,
     bucket: 'public',
     key: 'key',
@@ -12,11 +15,15 @@ const stalledObjects = (port: number | undefined) =>
     timeoutMs: 50,
   });
 
-const rejection = (run: () => Promise<void>) =>
-  run().then(
+/** Starts `run`, moves virtual time to its timeout, then waits for it to settle. */
+const rejection = async (run: () => Promise<void>) => {
+  const settled = run().then(
     () => 'settled',
     (error: Error) => error.name,
   );
+  await clock.advance(50);
+  return settled;
+};
 
 test('a stalled store releases the publisher', async () => {
   const server = Bun.serve({

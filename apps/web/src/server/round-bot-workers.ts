@@ -1,6 +1,7 @@
-import { nowMs } from '@daisy/clock';
+import { nowMs, type Waits } from '@daisy/clock';
 import type { RoundBotWorkerPolicy } from '@daisy/config';
 import type { ErrorReporter } from '@daisy/observability';
+import type { WorkWake } from '@daisy/worker';
 import { createAttendanceFeature } from '../features/attendance/operations';
 import { createBotControl } from '../features/round-bots/control';
 import { startBotControlService } from '../features/round-bots/control-service';
@@ -13,8 +14,6 @@ import {
   type createProviderBudget,
 } from './provider-budget';
 import { workerFailures } from './recoverable-failure';
-import type { OneShotTimer, WorkerTimers } from '../lib/worker-timers';
-import type { WorkWake } from '../lib/worker-loop';
 
 /** Bot debaters' own workers: seat control and live speech on the competitive provider budget. */
 export function startRoundBotWorkers(input: {
@@ -31,12 +30,12 @@ export function startRoundBotWorkers(input: {
     Parameters<typeof createSpeakingBotControl>[0],
     'botToken' | 'listenToken' | 'readPeers'
   > | null;
-  readonly timers: WorkerTimers;
   /**
-   * One-shot deadlines: bounds each seat's ending below its lease
-   * (ISSUE-789), and wakes a speaker again after a refusal.
+   * Monotonic time for all of it: discovery, check-ins and lease renewals,
+   * each seat's ending deadline below its lease (ISSUE-789), and a speaker's
+   * self-wakes, call bounds and paced publication.
    */
-  readonly deadlineTimer: OneShotTimer;
+  readonly waits: Waits;
   readonly wake?: WorkWake | undefined;
   readonly reporter?: ErrorReporter;
 }) {
@@ -60,8 +59,7 @@ export function startRoundBotWorkers(input: {
         withProvider: input.budget,
         providerBusy: isProviderBudgetRefusal,
         ...input.botMedia,
-        timers: input.timers,
-        oneShot: input.deadlineTimer,
+        waits: input.waits,
         nextId: () => app.ids.next(),
         nowMs: () => nowMs(app.clock),
         callTimeoutMs: policy.callTimeoutMs,
@@ -87,7 +85,6 @@ export function startRoundBotWorkers(input: {
     control: (claim) => {
       const receipts = createBotControl({
         claim,
-        store: app.database,
         attendance,
         nextId: () => app.ids.next(),
       });
@@ -97,11 +94,14 @@ export function startRoundBotWorkers(input: {
       maxControllers: policy.maxControllers,
       scanBatch: policy.scanBatch,
       scanMs: policy.scanMs,
+      // Attendance checks in as often as the lease renews, each on its own.
+      checkInMs: policy.renewMs,
       renewMs: policy.renewMs,
+      leaseMs: policy.leaseMs,
     },
-    timers: input.timers,
+    waits: input.waits,
     wake: input.wake,
-    overdue: endingDeadline(policy, input.deadlineTimer),
+    overdue: endingDeadline(policy, input.waits),
     failed: failure(
       'round.control.failed',
       'round.control',

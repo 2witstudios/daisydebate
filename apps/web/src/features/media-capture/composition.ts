@@ -17,7 +17,7 @@ export function composeMediaCaptureRoutes(app: App) {
   let capture: Capture | undefined;
   let authentication:
     ReturnType<typeof createMediaWorkerAuthentication> | undefined;
-  const media = createRoundMediaRuntime(app);
+  const media = createRoundMediaRuntime(app, app.waits);
   const operations = () =>
     (capture ??= app.database.createMediaCaptureOperations({
       admission: captureAdmissionPolicy,

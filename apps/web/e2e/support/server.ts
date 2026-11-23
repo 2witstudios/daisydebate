@@ -1,3 +1,4 @@
+import { hostWaits } from '@daisy/worker/host';
 import { withAnalysisFixture } from './analysis-fixture-fetch';
 import { withAnalyticsFixture } from './analytics-fixture-fetch';
 import { messagingBrowserFiles } from './messaging-files-runtime';
@@ -54,6 +55,7 @@ const mailCapture = createMailCapture({
 // only its mail transport captured. Nothing process-wide is replaced.
 const files = await messagingBrowserFiles(process.env);
 const app = createApp({
+  waits: hostWaits,
   env: process.env,
   ...(process.env.E2E_STAGING_GROUPS === '1'
     ? {}

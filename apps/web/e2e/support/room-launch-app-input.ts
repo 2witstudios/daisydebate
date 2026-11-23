@@ -1,3 +1,4 @@
+import { hostWaits } from '@daisy/worker/host';
 import { systemClock, systemId } from '@daisy/clock';
 import type { createApp } from '../../src/server/app';
 import { nextWorkerToken } from '../../src/server/worker-token';
@@ -10,6 +11,7 @@ export const launchAppInput = (
   env: AppInput['env'],
   fetch: AppInput['fetch'],
 ): AppInput => ({
+  waits: hostWaits,
   env,
   clock: systemClock,
   ids: systemId,

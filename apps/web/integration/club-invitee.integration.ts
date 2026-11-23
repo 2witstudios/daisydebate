@@ -1,3 +1,4 @@
+import { hostWaits } from '@daisy/worker/host';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createAppError } from '@daisy/errors';
 import { finishedOrBlockedBehind } from '@daisy/db/testing';
@@ -146,7 +147,7 @@ test('an invitee delayed behind the account fence uses the current verified addr
         const [holder] = await tx`select pg_backend_pid() as pid`;
         response = answerPost(invitee, invitation!.id as string, 'accept');
         waited = await finishedOrBlockedBehind(response, sql, holder!.pid, {
-          now: Date.now,
+          waits: hostWaits,
           deadlineMs: 1500,
         });
         await tx`update users set email_verified=false where id=${invitee.userId}`;

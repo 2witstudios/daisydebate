@@ -1,3 +1,4 @@
+import { virtualClock } from '@daisy/clock/testing';
 import { instantMs } from '@daisy/clock';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import type { RealtimeApp } from './app';
@@ -97,10 +98,7 @@ const delivery = (resources: RealtimeApp) =>
     resources,
     now: () => 0,
     publish: () => {},
-    timers: {
-      setInterval: () => ({}) as ReturnType<typeof setInterval>,
-      clearInterval: () => {},
-    },
+    waits: virtualClock(),
   });
 
 test('a connect ticket redeems only for a participant (ADR 0075)', async () => {

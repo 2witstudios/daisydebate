@@ -5,6 +5,9 @@ setupRitewayBun();
 const MODULE_PATH = JSON.stringify(
   new URL('../packages/observability/src/index.ts', import.meta.url).pathname,
 );
+const HOST_PATH = JSON.stringify(
+  new URL('../packages/worker/src/host.ts', import.meta.url).pathname,
+);
 const READY_MARKER = 'process-lifecycle-fixture-ready';
 
 /**
@@ -22,7 +25,8 @@ const spawnHangingInstance = () =>
       'bun',
       '-e',
       `const { installForcedShutdown, watchParentLiveness } = await import(${MODULE_PATH});
-       installForcedShutdown({ drainBudgetMs: 500, exit: (code) => process.exit(code) });
+       const { hostWaits } = await import(${HOST_PATH});
+       installForcedShutdown({ drainBudgetMs: 500, exit: (code) => process.exit(code), waits: hostWaits });
        watchParentLiveness({ stdin: process.stdin, onParentGone: () => process.exit(0) });
        console.log(${JSON.stringify(READY_MARKER)});
        await new Promise(() => {});`,

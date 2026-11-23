@@ -1,4 +1,6 @@
+import type { Waits } from '@daisy/clock';
 import type { PresenceActivity } from '@daisy/protocol/realtime';
+import { repeatEvery } from '@daisy/worker';
 
 /** ADR 0033 §1: a 60 s lease, refreshed every 20 s while the socket lives. */
 export const PRESENCE_TTL_SECONDS = 60;
@@ -19,14 +21,6 @@ export type PresenceLeases = {
   ) => Promise<{ readonly refreshed: boolean }>;
   readonly deletePresenceLease: (lease: LeaseKey) => Promise<void>;
 };
-export type PresenceTimers = {
-  readonly setInterval: (
-    callback: () => void,
-    ms: number,
-  ) => ReturnType<typeof setInterval>;
-  readonly clearInterval: (handle: ReturnType<typeof setInterval>) => void;
-};
-
 /** One authenticated socket's presence: report activity, then stop. */
 export type PresenceSession = {
   readonly activity: (activity: PresenceActivity) => void;
@@ -50,12 +44,12 @@ export function createPresenceTracker({
   leases,
   instanceId,
   nextId,
-  timers,
+  waits,
 }: {
   readonly leases: PresenceLeases;
   readonly instanceId: string;
   readonly nextId: () => string;
-  readonly timers: PresenceTimers;
+  readonly waits: Waits;
 }): PresenceTracker {
   const ignore = () => {};
   return {
@@ -69,14 +63,17 @@ export function createPresenceTracker({
           PRESENCE_TTL_SECONDS,
         );
       void upsert().catch(ignore);
-      const refresh = timers.setInterval(() => {
-        void leases
-          .refreshPresenceLease(key, PRESENCE_TTL_SECONDS)
-          .then(({ refreshed }) => {
-            if (!refreshed && !stopped) return upsert();
-          })
-          .catch(ignore);
-      }, PRESENCE_REFRESH_MS);
+      const refresh = repeatEvery({
+        waits,
+        everyMs: PRESENCE_REFRESH_MS,
+        run: () =>
+          leases
+            .refreshPresenceLease(key, PRESENCE_TTL_SECONDS)
+            .then(({ refreshed }) => {
+              if (!refreshed && !stopped) return upsert();
+            }),
+        failed: ignore,
+      });
       return {
         activity(activity) {
           if (stopped || activity === current) return;
@@ -86,7 +83,8 @@ export function createPresenceTracker({
         stop() {
           if (stopped) return;
           stopped = true;
-          timers.clearInterval(refresh);
+          // A refresh in flight ends on its own; the delete follows at once.
+          void refresh.stop();
           void leases.deletePresenceLease(key).catch(ignore);
         },
       };

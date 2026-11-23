@@ -1,3 +1,4 @@
+import { hostWaits } from '@daisy/worker/host';
 import { authorize } from '@daisy/auth/authorization';
 import { createTabStore } from '@daisy/db/tab';
 import { createDatabase } from '@daisy/db';
@@ -97,6 +98,7 @@ export async function lobbyPeopleFrame(
       }),
     );
   const directory = createDatabase({
+    waits: hostWaits,
     url: databaseUrl,
     client: sql as SQL,
     nextActorId: createId,

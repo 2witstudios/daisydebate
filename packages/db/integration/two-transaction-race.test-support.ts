@@ -1,3 +1,4 @@
+import { hostWaits } from '@daisy/worker/host';
 import { SQL } from 'bun';
 import { drizzle } from 'drizzle-orm/bun-sql';
 import { waitForOutboxFinality } from '../src/testing';
@@ -59,7 +60,7 @@ export async function openOutOfOrderTransactions(
         await connA.unsafe('COMMIT');
         for (const row of [rowA, rowB] as RaceRow[])
           await waitForOutboxFinality(connC, String(row.txid), {
-            now: Date.now,
+            waits: hostWaits,
           });
       },
     };

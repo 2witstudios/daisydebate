@@ -1,3 +1,4 @@
+import { hostWaits } from '@daisy/worker/host';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createId } from '@paralleldrive/cuid2';
 import { finishedOrBlockedBehind } from '@daisy/db/testing';
@@ -134,7 +135,7 @@ test('the signed Beta access decision reads the account after its exclusive fenc
         const [holder] = await tx`select pg_backend_pid() as pid`;
         response = handle(put(person.userId, command('approved', 1)));
         waited = await finishedOrBlockedBehind(response, sql, holder!.pid, {
-          now: Date.now,
+          waits: hostWaits,
           deadlineMs: 1500,
         });
         await tx`update account_beta_access set revision=2 where user_id=${person.userId}`;

@@ -1,3 +1,5 @@
+import type { Waits } from '@daisy/clock';
+import { repeatEvery } from '@daisy/worker';
 import type { Database } from '@daisy/db';
 import {
   laneWindowLines,
@@ -23,10 +25,7 @@ export function startLaneGauges(input: {
   readonly gauges: () => readonly Gauge[];
   readonly drainHolds: Database['drainLaneHolds'];
   readonly log: (line: LaneWindowLine) => void;
-  readonly every: (
-    ms: number,
-    run: () => void,
-  ) => { readonly stop: () => void };
+  readonly waits: Waits;
   /** Every operation's holds each window, not only slow ones (LOG_LEVEL debug). */
   readonly detail: boolean;
   readonly samplesPerWindow?: number;
@@ -46,16 +45,22 @@ export function startLaneGauges(input: {
     occupancy = new Map();
     samples = 0;
   };
-  const timer = input.every(SAMPLE_MS, () => {
-    for (const gauge of input.gauges())
-      occupancy.set(gauge.lane, sampled(occupancy.get(gauge.lane), gauge));
-    samples += 1;
-    if (samples >= size) flush();
+  const sampling = repeatEvery({
+    waits: input.waits,
+    everyMs: SAMPLE_MS,
+    run: async () => {
+      for (const gauge of input.gauges())
+        occupancy.set(gauge.lane, sampled(occupancy.get(gauge.lane), gauge));
+      samples += 1;
+      if (samples >= size) flush();
+    },
+    // A gauge read is two integers in memory; nothing here fails.
+    failed: () => undefined,
   });
   return {
     /** Stops sampling and logs the window in progress: a shutdown keeps its evidence. */
-    stop() {
-      timer.stop();
+    async stop() {
+      await sampling.stop();
       if (samples > 0) flush();
     },
   };

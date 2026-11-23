@@ -1,16 +1,12 @@
+import type { Waits } from './waits';
+
 /**
  * A monotonic clock the test owns (ADR 0164). Time moves only when the test
  * moves it, so a test of timed work runs in no real time and the same way
  * on every machine. Code under test takes `nowMs`, `sleep` and `waitUntilMs`
  * as injected resources; the test advances time or runs work to its end.
  */
-export type VirtualClock = {
-  /** The current virtual instant, in milliseconds. */
-  readonly nowMs: () => number;
-  /** Resolves `ms` from now, or at once when `signal` aborts. */
-  readonly sleep: (ms: number, signal?: AbortSignal) => Promise<void>;
-  /** Resolves at `dueMs`, or at once when `signal` aborts. */
-  readonly waitUntilMs: (dueMs: number, signal?: AbortSignal) => Promise<void>;
+export type VirtualClock = Waits & {
   /**
    * Moves time `ms` forward, waking each sleeper due on the way, soonest
    * first, each once the work it woke can move no further.

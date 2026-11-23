@@ -1,3 +1,4 @@
+import { hostWaits } from '@daisy/worker/host';
 import { SQL } from 'bun';
 import { syntheticCaseMap } from '@daisy/db/testing';
 import { createId } from '@paralleldrive/cuid2';
@@ -15,7 +16,7 @@ import { sampleRoundAnalysisReport } from '@daisy/protocol/round-analysis-testin
 import { withRoomRuntime } from './round-runtime.test-support';
 import { fixtureBallot } from './round-judging.test-support';
 import { observeDispatches } from './economics-ac3-observation.test-support';
-import type { WorkerTimers } from '../src/lib/worker-timers';
+import type { Waits } from '@daisy/clock';
 
 const services = requireTestServices(process.env);
 const nextToken = () => randomBytes(32).toString('base64url');
@@ -42,35 +43,30 @@ const judgingAnswer = (schemaName: string | undefined) =>
     ? syntheticCaseMap
     : fixtureBallot('Controlled TEST economics workload, not vendor quality.');
 
+/** Waits that end only when a test pulses: each pulse wakes every wait pending. */
 export function manualWorkerTimers() {
-  let next = 0;
-  const tasks = new Map<number, () => Promise<void>>();
-  const timers: WorkerTimers = {
-    now: () => 0,
-    setInterval: (task) => {
-      const id = ++next;
-      tasks.set(id, task);
-      return id;
-    },
-    clearInterval: (id) => {
-      if (typeof id === 'number') tasks.delete(id);
-    },
-    setTimeout: (run) => {
-      const id = ++next;
-      tasks.set(id, async () => {
-        tasks.delete(id);
-        await run();
-      });
-      return id;
-    },
-    clearTimeout: (id) => {
-      if (typeof id === 'number') tasks.delete(id);
-    },
+  const pending = new Set<() => void>();
+  const waitUntilMs = (_dueMs: number, signal?: AbortSignal) =>
+    new Promise<void>((resolve) => {
+      if (signal?.aborted) return resolve();
+      const wake = () => {
+        pending.delete(wake);
+        resolve();
+      };
+      signal?.addEventListener('abort', wake, { once: true });
+      pending.add(wake);
+    });
+  const waits: Waits = {
+    nowMs: () => 0,
+    waitUntilMs,
+    sleep: (_ms, signal) => waitUntilMs(0, signal),
   };
   return {
-    timers,
+    waits,
     pulse: async () => {
-      await Promise.all([...tasks.values()].map((run) => run()));
+      for (const wake of [...pending]) wake();
+      for (let turn = 0; turn < 8; turn += 1)
+        await new Promise((resolve) => setImmediate(resolve));
     },
   };
 }
@@ -107,6 +103,7 @@ export async function withAc3Runtime(
   }) => Promise<void>,
 ) {
   const app = createApp({
+    waits: hostWaits,
     env: {
       ...authTestEnv,
       DATABASE_URL: services.databaseUrl,
@@ -213,13 +210,13 @@ export async function withAc3Runtime(
           policy: judgePolicy,
           budget: createProviderBudget(limit),
           parallel: limit,
-          timers: judgeTimers.timers,
+          waits: judgeTimers.waits,
           reporter,
         });
         const analyses = startRoundAnalysisWorkers({
           app: workerApp,
           policy: analysisPolicy,
-          timers: analysisTimers.timers,
+          waits: analysisTimers.waits,
           reporter,
         });
         let failed = false;

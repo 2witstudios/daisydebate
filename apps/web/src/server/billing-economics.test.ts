@@ -1,3 +1,4 @@
+import { virtualClock } from '@daisy/clock/testing';
 import { chmod, mkdtemp, writeFile, readdir, stat, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -20,12 +21,31 @@ import {
   now,
   month,
 } from '../features/billing/economics.test-support';
-import { withOneShots } from '../lib/worker-timers.test-support';
+import { manualWaits } from '../lib/manual-waits.test-support';
+
+/** The worker's hourly cadence, the wait a test fires as the next tick. */
+const HOUR_MS = 3_600_000;
+/**
+ * Resolves once the last pass, which may write files, has ended and armed
+ * the next hourly tick; a worker that armed none within 20,000 turns has none.
+ * A test changes what the next pass sees only after this, as a real hour
+ * would pass only after the last run ended.
+ */
+const tickArmed = async (tasks: ReturnType<typeof manualWaits>['tasks']) => {
+  for (let turn = 0; turn < 20_000 && !tasks.has(HOUR_MS); turn += 1)
+    await new Promise((resolve) => setImmediate(resolve));
+};
+/** Fires the next hourly tick once it is armed. */
+const nextTick = async (tasks: ReturnType<typeof manualWaits>['tasks']) => {
+  await tickArmed(tasks);
+  await tasks.get(HOUR_MS)?.();
+};
 
 setupRitewayBun();
 const window = { startsAt: month, endsAt: '2026-11-01T00:00:00.000Z' };
 const build = (directory?: string) => ({
   ...createApp({
+    waits: virtualClock(),
     env: {
       ...authTestEnv,
       DATABASE_URL: 'postgres://unit:unit@localhost:5432/unit',
@@ -86,8 +106,7 @@ async function runWorker(input: {
       if (input.logThrows?.(line[0])) throw new Error('logger sink');
     },
   };
-  let tick: (() => Promise<void>) | null = null;
-  let cadence = 0;
+  const { waits, armed, tasks } = manualWaits();
   const service = startBillingEconomics({
     app: {
       ...app,
@@ -123,26 +142,26 @@ async function runWorker(input: {
       },
     },
     instanceId: 'service-fixture',
-    timers: withOneShots({
-      setInterval: (run, ms) => {
-        tick = run;
-        cadence = ms;
-        return 1;
-      },
-      clearInterval: () => undefined,
-    }),
+    waits,
   });
   try {
     await service.started;
     for (let n = 1; n <= input.ticks; n++) {
+      await tickArmed(tasks);
       await input.between?.(n);
-      await (tick as (() => Promise<void>) | null)?.();
+      await nextTick(tasks);
     }
   } finally {
     await service.stop();
     await app.close();
   }
-  return { reads, captured, logged, cadence, scheduled: tick !== null };
+  return {
+    reads,
+    captured,
+    logged,
+    cadence: armed[0] ?? 0,
+    scheduled: armed.length > 0,
+  };
 }
 
 /** Fill the sink to exactly its 1000-entry cap, so the sweep passes and the save refuses; drain undoes it. */
@@ -506,7 +525,7 @@ test('a failure outside any collection is reported once, not every hour', async 
   const directory = await mkdtemp(join(tmpdir(), 'billing-economics-worker-'));
   const app = build(directory);
   const { logged, logger } = createEventRecorder();
-  let tick: (() => Promise<void>) | null = null;
+  const { waits, tasks } = manualWaits();
   const service = startBillingEconomics({
     app: {
       ...app,
@@ -515,18 +534,11 @@ test('a failure outside any collection is reported once, not every hour', async 
       database: { ...app.database, billingEconomics: snapshotStore() },
     },
     instanceId: 'service-fixture',
-    timers: withOneShots({
-      setInterval: (run) => {
-        tick = run;
-        return 1;
-      },
-      clearInterval: () => undefined,
-    }),
+    waits,
   });
   try {
     await service.started;
-    for (let n = 0; n < 3; n++)
-      await (tick as (() => Promise<void>) | null)?.();
+    for (let n = 0; n < 3; n++) await nextTick(tasks);
     assert({
       given: 'a clock that never yields an instant, over four ticks',
       should: 'log billing.economics.collect once',
@@ -642,7 +654,7 @@ async function runScripted(
   const app = build(directory);
   const captured: string[] = [];
   let mode = modes[0];
-  let tick: (() => Promise<void>) | null = null;
+  const { waits, tasks } = manualWaits();
   const service = startBillingEconomics({
     app: {
       ...app,
@@ -676,19 +688,14 @@ async function runScripted(
       },
     },
     instanceId: 'service-fixture',
-    timers: withOneShots({
-      setInterval: (run) => {
-        tick = run;
-        return 1;
-      },
-      clearInterval: () => undefined,
-    }),
+    waits,
   });
   try {
     await service.started;
     for (const next of modes.slice(1)) {
+      await tickArmed(tasks);
       mode = next;
-      await (tick as (() => Promise<void>) | null)?.();
+      await nextTick(tasks);
     }
   } finally {
     await service.stop();
@@ -811,7 +818,7 @@ test('a failure outside any collection whose cause chain cannot be read never re
       throw new Error('unreadable cause');
     },
   });
-  let tick: (() => Promise<void>) | null = null;
+  const { waits, tasks } = manualWaits();
   const service = startBillingEconomics({
     app: {
       ...app,
@@ -829,17 +836,11 @@ test('a failure outside any collection whose cause chain cannot be read never re
       },
     },
     instanceId: 'service-fixture',
-    timers: withOneShots({
-      setInterval: (run) => {
-        tick = run;
-        return 1;
-      },
-      clearInterval: () => undefined,
-    }),
+    waits,
   });
   try {
     await service.started;
-    await (tick as (() => Promise<void>) | null)?.();
+    await nextTick(tasks);
     assert({
       given:
         'a clock that throws an error whose cause getter throws, on two ticks',

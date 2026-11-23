@@ -1,9 +1,11 @@
+import { virtualClock } from '@daisy/clock/testing';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';
 import { createOpenRouter } from './openrouter';
 setupRitewayBun();
 const transcribe = (body: unknown, generationId?: string) =>
   createOpenRouter({
+    waits: virtualClock(),
     apiKey: 'unit-only',
     fetch: async () =>
       Response.json(body, {

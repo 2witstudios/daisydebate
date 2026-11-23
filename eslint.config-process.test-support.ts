@@ -19,6 +19,8 @@ import {
   launchEntryCases,
 } from './eslint.config.test-support';
 
+const hostTime = 'daisy-time/host-time';
+
 export function registerProcessEdgeTests() {
   describe('process edge: one module reads process.env and globalThis (ISSUE-7)', () => {
     test('rejects ambient reads and edge imports outside the edge', async () => {
@@ -34,11 +36,16 @@ export function registerProcessEdgeTests() {
           'apps/realtime/src/server.ts',
           props,
         ],
-        ["export const a = Reflect.get(globalThis, 'a');", route, globals],
+        // The host object handed out whole also reaches its timers (ADR 0915).
+        [
+          "export const a = Reflect.get(globalThis, 'a');",
+          route,
+          [...globals, hostTime],
+        ],
         [
           'export const a = globalThis as unknown;',
           web('lib/identity.ts'),
-          globals,
+          [...globals, hostTime],
         ],
         [
           edgeImport('../../server/'),
@@ -61,8 +68,9 @@ export function registerProcessEdgeTests() {
 
     test('admits the edges, route bindings and the documented process entries', async () => {
       const cases: Case[] = [
-        [reads, web('server/process-app.ts'), []],
-        [reads, 'apps/realtime/src/start.ts', []],
+        // A process entry may read the host, but not hand the host object out whole.
+        [reads, web('server/process-app.ts'), [hostTime]],
+        [reads, 'apps/realtime/src/start.ts', [hostTime]],
         [edgeImport('../../../../server/', 'processRoute'), route, []],
         [edgeImport('./server/'), web('proxy.ts'), []],
         [edgeImport('./server/'), web('instrumentation.ts'), []],

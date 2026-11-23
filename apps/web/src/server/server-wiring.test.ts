@@ -1,3 +1,4 @@
+import { virtualClock } from '@daisy/clock/testing';
 import type { AddressInfo } from 'node:net';
 import type { Logger } from '@daisy/logger';
 import { CLIENT_IP_HEADER } from '@daisy/ingress/client-ip';
@@ -189,6 +190,7 @@ describe('createProductionServer (AUTH-3.8 start.ts wiring, ISSUE-158)', () => {
 describe('createProductionServer refuses a start without auth secrets (AUTH-7.0-AC3)', () => {
   test('throws before any server exists, naming the missing fields without values', async () => {
     const app = createApp({
+      waits: virtualClock(),
       messagingPolicy: betaMessagingPolicy,
       env: {
         NODE_ENV: 'test',

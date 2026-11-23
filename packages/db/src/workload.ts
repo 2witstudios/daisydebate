@@ -1,4 +1,5 @@
 import { SQL } from 'bun';
+import type { Waits } from '@daisy/clock';
 import { drizzle } from 'drizzle-orm/bun-sql';
 import { laneClient } from './lane-client';
 import { RUNTIME_SESSION } from './session-bounds';
@@ -7,7 +8,6 @@ import {
   validateWorkloadProfile,
   type LaneBudget,
   type LaneGate,
-  type LaneTimer,
   type WorkloadLane,
   type WorkloadProfile,
 } from './workload-admission';
@@ -64,11 +64,12 @@ export function createLane(
   pool: SQL,
   budget: LaneBudget | undefined,
   options: {
-    readonly timer?: LaneTimer | undefined;
+    /** The time the lane's waiters expire on (R4.7). */
+    readonly waits: Waits;
     readonly fairnessKey?: (() => string | undefined) | undefined;
-  } = {},
+  },
 ): Lane {
-  const gate = createLaneGate(name, budget, options.timer);
+  const gate = createLaneGate(name, budget, options.waits);
   const client = laneClient(pool, gate, options.fairnessKey);
   return {
     name,
@@ -95,12 +96,13 @@ export function createLane(
 export function createWorkload({
   profile,
   connect,
-  timer,
+  waits,
   fairnessKey,
 }: {
   readonly profile: WorkloadProfile;
   readonly connect: LaneConnector;
-  readonly timer?: LaneTimer | undefined;
+  /** The time every lane's waiters expire on (R4.7). */
+  readonly waits: Waits;
   /** The current request's fairness key (client network on web). */
   readonly fairnessKey?: (() => string | undefined) | undefined;
 }) {
@@ -113,7 +115,7 @@ export function createWorkload({
     const budget = profile.lanes[name];
     const pool = budget ? connect(name, budget.connections) : absentPool();
     if (budget) pools.push(pool);
-    const created = createLane(name, pool, budget, { timer, fairnessKey });
+    const created = createLane(name, pool, budget, { waits, fairnessKey });
     lanes.set(name, created);
     return created;
   }

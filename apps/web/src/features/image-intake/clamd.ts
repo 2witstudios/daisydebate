@@ -1,11 +1,18 @@
 import { connect } from 'node:net';
+import { afterMs, type Waits } from '@daisy/clock';
 import { createAppError } from '@daisy/errors';
 import type { FileScanner } from './ports';
-/** ClamAV INSTREAM: bounded chunks, fail closed on every inconclusive reply. */
-export function createClamdScanner(endpoint: {
-  readonly host: string;
-  readonly port: number;
-}): FileScanner {
+/**
+ * ClamAV INSTREAM: bounded chunks, fail closed on every inconclusive reply.
+ * A scan's service bound is measured on `waits` (R4.7).
+ */
+export function createClamdScanner(
+  endpoint: {
+    readonly host: string;
+    readonly port: number;
+  },
+  waits: Waits,
+): FileScanner {
   if (
     !endpoint.host ||
     !Number.isInteger(endpoint.port) ||
@@ -31,12 +38,12 @@ export function createClamdScanner(endpoint: {
         const finish = (result?: 'clean' | 'infected') => {
           if (settled) return;
           settled = true;
-          clearTimeout(timer);
+          cancelBound();
           socket.destroy();
           if (result) resolve(result);
           else reject(createAppError('INFRASTRUCTURE'));
         };
-        const timer = setTimeout(() => finish(), limits.serviceMs);
+        const cancelBound = afterMs(waits, limits.serviceMs, () => finish());
         socket.on('error', () => finish());
         socket.on('end', () => finish());
         socket.on('data', (chunk: Buffer) => {

@@ -1,3 +1,4 @@
+import { hostWaits } from '@daisy/worker/host';
 import { requireTestServices } from '@daisy/config';
 import {
   activeRoomMembers,
@@ -71,7 +72,7 @@ const afterEveryWriter = (
       },
     });
     const database = drizzle({ client: f.sql });
-    const transaction = roomCommandTransaction(f.sql, 2);
+    const transaction = roomCommandTransaction(f.sql, 2, hostWaits);
     const invitations = roomInvitationOperations({ database, transaction });
     const lifecycle = roomLifecycleOperations({
       database,

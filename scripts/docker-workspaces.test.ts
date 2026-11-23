@@ -153,6 +153,7 @@ const imageProblems = (source: string, all = workspaces) => {
     'packages/digest/src',
     'packages/logger/src',
     'packages/protocol/src',
+    'packages/worker/src',
   ]) {
     if (!copies(stageLines(source, 'admin'), path))
       problems.push(`admin: missing ${path}`);

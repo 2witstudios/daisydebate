@@ -72,7 +72,7 @@ test('a deferred turn resumes at its refused step without buying or speaking any
       });
     },
     heard: async () => undefined,
-    timer: timers.timer,
+    waits: timers.waits,
     synthesize: async (_scope, _token, phraseId, text) => {
       calls.speech++;
       return {

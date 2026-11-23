@@ -1,3 +1,4 @@
+import { hostWaits } from '@daisy/worker/host';
 import { SQL } from 'bun';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { requireTestServices, type BillingConfig } from '@daisy/config';
@@ -6,6 +7,7 @@ import { systemClock } from '@daisy/clock';
 import { createId } from '@paralleldrive/cuid2';
 import type { Logger } from '@daisy/logger';
 import { createApp } from '../src/server/app';
+import { manualWaits } from '../src/lib/manual-waits.test-support';
 import { startBillingCleanup } from '../src/server/billing-cleanup';
 import { authTestEnv } from '../src/features/auth/auth-server.test-support';
 import { betaMessagingPolicy } from '../src/features/messaging/beta-policy';
@@ -47,12 +49,29 @@ for (const mapped of [false, true])
       return connection;
     };
     const database = createDatabase({
+      waits: hostWaits,
       url: databaseUrl,
       client: pool,
       nextActorId: createId,
     });
-    const ticks = new Map<number, () => Promise<void>>(),
-      cleared: unknown[] = [];
+    // Both schedules' waits are fired by hand: the due loop's, and the monitor's minute.
+    const time = manualWaits();
+    /** Waits on real time, up to 10 s, until `done` holds, as an awaited pass would. */
+    const until = async (done: () => boolean) => {
+      const giveUpMs = hostWaits.nowMs() + 10_000;
+      while (!done() && hostWaits.nowMs() < giveUpMs) await hostWaits.sleep(2);
+      if (!done()) throw new Error('The worker never armed its next wait');
+    };
+    /**
+     * Runs the due loop's next pass to its end, whatever its back-off below
+     * the monitor's minute: the pass has ended once it arms the next wait,
+     * as the old timer fake's tick awaited it.
+     */
+    const duePass = async () => {
+      await time.nextPass((ms) => ms < 60_000);
+      const armedBefore = time.armed.length;
+      await until(() => time.armed.length > armedBefore);
+    };
     let service: ReturnType<typeof startBillingCleanup> | undefined;
     const transport: BillingFetch = Object.assign(
       async (
@@ -117,6 +136,7 @@ for (const mapped of [false, true])
       await owner`insert into privacy_jobs(id,subject_ref,vendor,created_at,retry_at) values(${jobId},${userId},'stripe',${clock!.at},${clock!.at}),(${otherJob},${userId},'posthog',${clock!.at},${clock!.at})`;
       await database.renewServiceInstance({ instanceId, role: 'web' });
       const app = createApp({
+        waits: hostWaits,
         env: {
           ...authTestEnv,
           DATABASE_URL: databaseUrl,
@@ -145,23 +165,7 @@ for (const mapped of [false, true])
           },
         },
         instanceId,
-        timers: {
-          setInterval: (task, ms) => {
-            ticks.set(ms, task);
-            return ms;
-          },
-          clearInterval: (handle) => {
-            cleared.push(handle);
-          },
-          setTimeout: (run, ms) => {
-            ticks.set(ms, async () => void (await run()));
-            return ms;
-          },
-          clearTimeout: (handle) => {
-            cleared.push(handle);
-          },
-          now: () => 0,
-        },
+        waits: time.waits,
         fetch: transport,
       });
       await service.started;
@@ -174,13 +178,17 @@ for (const mapped of [false, true])
           throw Error('Unexpected failure backoff in positive traversal');
         await owner`select pg_sleep(greatest(0,extract(epoch from retry_at-clock_timestamp()))+.01) from privacy_jobs where id=${jobId}`;
         await database.renewServiceInstance({ instanceId, role: 'web' });
-        await ticks.get(1000)!();
+        // The due loop's next pass: whatever its back-off, below the monitor's minute.
+        await duePass();
       }
-      await ticks.get(60_000)!();
+      await time.tasks.get(60_000)!();
+      // The monitor's pass reads the database: it has ended once it arms its next minute.
+      await until(() => time.tasks.has(60_000));
       await service.stop();
       const before = requests.length;
-      await ticks.get(1000)!();
-      await ticks.get(60_000)!();
+      // Stopped: no wait is left armed, so no pass can follow.
+      const armedAfterStop = time.tasks.size;
+      await time.settle();
       const [stripe] =
         await owner`select status,attempts,billing_cleanup from privacy_jobs where id=${jobId}`;
       const [generic] =
@@ -202,7 +210,7 @@ for (const mapped of [false, true])
           roles: [...roles],
           requests,
           stoppedRequests: requests.length - before,
-          cleared,
+          armedAfterStop,
           failures: failures.length,
           healthy: logs.some(
             (record) =>
@@ -242,7 +250,7 @@ for (const mapped of [false, true])
               ]
             : [],
           stoppedRequests: 0,
-          cleared: [1000, 60000],
+          armedAfterStop: 0,
           failures: 0,
           healthy: true,
         },

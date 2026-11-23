@@ -1,4 +1,5 @@
-import { instantMs } from '@daisy/clock';
+import { instantMs, type Waits } from '@daisy/clock';
+import { virtualClock } from '@daisy/clock/testing';
 import { createMediaWorkerAuthentication } from '@daisy/media/internal';
 import { createMediaWorkerClient } from '@daisy/media/worker';
 import type { CaptureClient } from './capture-history';
@@ -34,7 +35,7 @@ type Fetch = (
 /** The real signed client over a test's network. */
 export const signedCaptureClient = (
   fetch: Fetch,
-  nowMs: () => number = () => 0,
+  waits: Waits = virtualClock(),
   scope = captureScope,
 ) =>
   createMediaWorkerClient({
@@ -45,7 +46,7 @@ export const signedCaptureClient = (
       now: () => 1000,
     }),
     fetch,
-    nowMs,
+    waits,
     deadlineSignal: () => AbortSignal.timeout(3000),
     unavailableRetryMs: [],
   });

@@ -1,4 +1,5 @@
 import { clockEvidenceForFrame } from './capture-frame.test-support';
+import { virtualClock } from '@daisy/clock/testing';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createAppError, createRefusal } from '@daisy/errors';
 import { assertRejects } from '@daisy/errors/testing';
@@ -38,22 +39,29 @@ const instantPace = () => {
     },
   };
 };
+/** These reads fail fast; the read deadline itself is not what they test. */
+const noDeadline = { deadlineSignal: () => new AbortController().signal };
 const leaseOk = () =>
   Response.json({ epoch: 4, expiresAt: new Date(15000).toISOString() });
 
+/** Renewal on virtual time; `pauses` is the time between one renewal and the next. */
 const renewal = (lease: CaptureClient['lease'], stop: AbortController) => {
+  const clock = virtualClock();
   const pauses: number[] = [];
-  let now = 0;
-  const running = maintainCaptureLease({
-    epoch: 4,
-    signal: stop.signal,
-    lease,
-    nowMs: () => now,
-    waitUntilMs: async (due) => {
-      pauses.push(due - now);
-      now = due;
-    },
-  });
+  let last = 0;
+  const running = clock.run(
+    maintainCaptureLease({
+      epoch: 4,
+      signal: stop.signal,
+      lease: (...args) => {
+        pauses.push(clock.nowMs() - last);
+        last = clock.nowMs();
+        return lease(...args);
+      },
+      nowMs: clock.nowMs,
+      waitUntilMs: clock.waitUntilMs,
+    }),
+  );
   return { running, pauses };
 };
 
@@ -117,6 +125,8 @@ test('a history read waits out an unanswering control plane without ending captu
     4,
     new AbortController().signal,
     instantPace(),
+    undefined,
+    noDeadline,
   );
   assert({
     given: 'fast failures that are not this read deadline',
@@ -140,6 +150,8 @@ test('a server failing the same way reaches the logs instead of stalling capture
         4,
         new AbortController().signal,
         instantPace(),
+        undefined,
+        noDeadline,
       ),
   });
   const renewing = signedClient(failing());
@@ -176,6 +188,8 @@ test('a history read still ends on a definite refusal', async () => {
         4,
         new AbortController().signal,
         instantPace(),
+        undefined,
+        noDeadline,
       ),
   });
   assert({
@@ -238,6 +252,8 @@ async function consumeOne(answers: {
       return next ?? {};
     };
   const finished = consumeCaptureClips({
+    // Its pauses are what this asserts; the read deadline is not.
+    historyDeadline: () => new AbortController().signal,
     client: {
       read: async () => ({ state: consumerState, calibration: {} }),
       append: answer(answers.append, 'append'),

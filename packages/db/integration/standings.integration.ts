@@ -1,3 +1,4 @@
+import { hostWaits } from '@daisy/worker/host';
 import { publicLobbyId } from '../src/daisy-reference';
 import { createId } from '@paralleldrive/cuid2';
 import { requireTestServices } from '@daisy/config';
@@ -98,7 +99,11 @@ test('standings refuses a posting with an invalid two-sided outcome', async () =
 describe('standings reads (RATE-1.4.1)', () => {
   test('lists active and closed seasons newest first, and ranked formats by name', async () => {
     await withFixture(url, async (fixture) => {
-      const database = createDatabase({ url, nextActorId: createId });
+      const database = createDatabase({
+        waits: hostWaits,
+        url,
+        nextActorId: createId,
+      });
       try {
         const older = await season(fixture, 'closed', at(1));
         const newer = await season(fixture, 'closed', at(3));
@@ -130,7 +135,11 @@ describe('standings reads (RATE-1.4.1)', () => {
 
   test('reads exactly the asked format, ladder and seasons, with tombstoned names', async () => {
     await withFixture(url, async (fixture) => {
-      const database = createDatabase({ url, nextActorId: createId });
+      const database = createDatabase({
+        waits: hostWaits,
+        url,
+        nextActorId: createId,
+      });
       try {
         const formatId = 'freestyle';
         const first = await season(fixture, 'closed', at(1));

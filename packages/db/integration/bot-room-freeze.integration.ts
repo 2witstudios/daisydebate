@@ -1,3 +1,4 @@
+import { hostWaits } from '@daisy/worker/host';
 import { resolveRoomConfiguration } from '@daisy/debate-engine';
 import { oneOnOneDefinition, oneOnOneSettings } from '../src/reference-formats';
 import { createId } from '@paralleldrive/cuid2';
@@ -87,7 +88,7 @@ const withBotRoom = (
       });
     const common = {
       database: drizzle({ client: fixture.sql }),
-      commandTransaction: roomCommandTransaction(fixture.sql, 2),
+      commandTransaction: roomCommandTransaction(fixture.sql, 2, hostWaits),
       judgeAdmission: createCasualJudgeAdmission({
         nextId: createId,
         policy: {

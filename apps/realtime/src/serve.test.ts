@@ -1,3 +1,4 @@
+import { virtualClock } from '@daisy/clock/testing';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { OUTBOX_ORIGIN, type OutboxPosition } from '@daisy/db/outbox';
 import { serveRealtime } from './serve';
@@ -27,6 +28,7 @@ describe('serveRealtime startup order (RT-2.3b review finding 2)', () => {
       readingPolicy: refuseAllReading,
       resources,
       port: 0,
+      waits: virtualClock(),
       sink: () => {},
       serve: fakeServe,
     });
@@ -90,6 +92,7 @@ describe('serveRealtime runtime role gate (ISSUE-101)', () => {
         readingPolicy: refuseAllReading,
         resources,
         port: 0,
+        waits: virtualClock(),
         sink: () => {},
         serve: fakeServe,
       });
@@ -127,8 +130,9 @@ describe('serveRealtime runtime role gate (ISSUE-101)', () => {
 });
 
 test('runtime shutdown cancels both polling and reauthorization timers exactly once', async () => {
+  const clock = virtualClock();
   const scheduled: number[] = [];
-  const cleared: unknown[] = [];
+  const waitSignals: (AbortSignal | undefined)[] = [];
   let unlistened = 0,
     stopped = 0;
   const resources = fakeApp({
@@ -143,13 +147,13 @@ test('runtime shutdown cancels both polling and reauthorization timers exactly o
     readingPolicy: refuseAllReading,
     resources,
     port: 0,
-    timers: {
-      setInterval: (_callback, ms) => {
-        scheduled.push(ms);
-        return scheduled.length as unknown as ReturnType<typeof setInterval>;
-      },
-      clearInterval: (handle) => {
-        cleared.push(handle);
+    // Records each cadence's first wait; time starts at 0, so its due time is its period.
+    waits: {
+      ...clock,
+      waitUntilMs: (dueMs, signal) => {
+        scheduled.push(dueMs);
+        waitSignals.push(signal);
+        return clock.waitUntilMs(dueMs, signal);
       },
     },
     serve: (() => ({
@@ -160,6 +164,7 @@ test('runtime shutdown cancels both polling and reauthorization timers exactly o
   });
   await running.close();
   await running.close();
+  const cleared = waitSignals.filter((signal) => signal?.aborted);
   assert({
     given: 'an injected poll/authorization scheduler and repeated shutdown',
     should: 'release every runtime resource once',
@@ -184,6 +189,7 @@ for (const tls of [undefined, { key: 'fixture-key', cert: 'fixture-cert' }])
       }),
       port: 0,
       ...(tls ? { tls } : {}),
+      waits: virtualClock(),
       serve: ((input: object) => {
         options = input;
         return { stop: async () => {} };

@@ -1,3 +1,4 @@
+import { hostWaits } from '@daisy/worker/host';
 import { SQL } from 'bun';
 import { expect } from 'bun:test';
 import { requireTestServices } from '@daisy/config';
@@ -12,6 +13,7 @@ test('database health and outbox ports use the native pool', async () => {
   const client = new SQL(url, { max: 1 });
   const events: unknown[] = [];
   const database = createDatabase({
+    waits: hostWaits,
     url,
     client,
     nextActorId: createId,

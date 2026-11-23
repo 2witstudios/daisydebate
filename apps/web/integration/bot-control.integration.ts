@@ -21,7 +21,6 @@ test('idle bot control records actual opponent-speech attendance despite refused
     const control = (current: typeof claim) =>
       createBotControl({
         claim: current,
-        store: f.store,
         attendance,
         nextId: createId,
       });

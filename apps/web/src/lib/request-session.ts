@@ -1,4 +1,4 @@
-import { nowMs, tryInstantMs } from '@daisy/clock';
+import { deadlineSignal, nowMs, tryInstantMs } from '@daisy/clock';
 import { readHostNavigation } from '../features/tab/reads/host-navigation';
 import { readStandingLobbyManagement } from '../features/tab/reads/standing-lobby-management';
 import {
@@ -100,6 +100,13 @@ const requestFlagReader = cache(() => {
     releaseDefault: releaseFlagDefault(app.config),
   });
 });
+
+/**
+ * A bound on one server-render read, on this process's injected time
+ * (R4.7). The caller clears it once the read settles.
+ */
+export const renderReadDeadline = (ms: number) =>
+  deadlineSignal(processApp().waits, ms);
 
 /** One subject snapshot per render request; anonymous resolution has no targeting. */
 export const requestReleaseEnabled = (

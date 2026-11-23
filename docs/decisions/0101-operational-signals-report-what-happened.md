@@ -32,7 +32,7 @@ one failed run should not page.
 
 **Observation purges, privacy jobs and file maintenance are scheduled workers,**
 not retention targets. Each has its own name, marker, alert and failure counter,
-and shares only `startRunSchedule` with the sweep.
+and shares only its cadence (`repeatEvery`, `@daisy/worker`) with the sweep.
 
 **A worker is healthy only when it owes nothing.** A retried job backs off, so
 the next runs find nothing due. If an idle run counted as success it would refresh

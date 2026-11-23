@@ -1,3 +1,4 @@
+import { virtualClock } from '@daisy/clock/testing';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { instantMs, fixedClock, sequentialId } from '@daisy/clock';
 import { authTestEnv } from '../features/auth/auth-server.test-support';
@@ -10,6 +11,7 @@ setupRitewayBun();
 test('the process composition serves native disabled operations without Stripe or database I/O', async () => {
   let transportCalls = 0;
   const app = createApp({
+    waits: virtualClock(),
     env: {
       ...authTestEnv,
       DATABASE_URL: 'postgres://unit:unit@localhost:5432/unit',
@@ -60,6 +62,7 @@ test('the process composition serves native disabled operations without Stripe o
 test('actual native composition uses the injected public display reader afresh while management stays available', async () => {
   const now = '2026-11-06T00:00:00.000Z';
   const app = createApp({
+    waits: virtualClock(),
     env: {
       ...authTestEnv,
       DATABASE_URL: 'postgres://unit:unit@localhost:5432/unit',

@@ -1,10 +1,11 @@
+import { createAppError } from '@daisy/errors';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { startTranscriptionRecoveryService } from './service';
-import { manualTimers, failureLog } from '../../lib/worker-timers.test-support';
+import { manualWaits, failureLog } from '../../lib/manual-waits.test-support';
 import { claim, limits } from './service.test-support';
 setupRitewayBun();
-test('renewal is independent of provider work and uncertainty cancels before releasing capacity', async () => {
-  const { timers, tasks } = manualTimers(),
+test('renewal is independent of provider work; a blip holds the lease and a stale execution cancels before releasing capacity', async () => {
+  const { waits, tasks } = manualWaits(),
     log = failureLog();
   let released = 0,
     calls = 0,
@@ -13,14 +14,15 @@ test('renewal is independent of provider work and uncertainty cancels before rel
   const service = startTranscriptionRecoveryService({
     workerId: 'worker-memory',
     limits,
-    timers,
+    waits,
     failed: log.failed,
     store: {
       missing: async () => [],
       claim: async () => claim(),
       renew: async () => {
         renewals++;
-        throw new Error('Controlled unknown renewal');
+        if (renewals === 1) throw new Error('Controlled unknown renewal');
+        throw createAppError('CONFLICT', 'Recognition execution is stale');
       },
     },
     enroll: async () => {},
@@ -44,34 +46,39 @@ test('renewal is independent of provider work and uncertainty cancels before rel
   await service.started;
   await tasks.get(1000)!();
   await tasks.get(3000)!();
+  const abortedByBlip = aborted;
+  await tasks.get(3000)!();
   const abortedByRenewal = aborted;
   await service.stop();
   assert({
-    given: 'a blocked provider operation and unknown renewal',
+    given:
+      'a blocked provider operation, an unknown renewal failure, then a stale-execution refusal',
     should:
-      'renew without waiting for the provider, cancel, drain and release the one slot once',
+      'renew without waiting for the provider, keep the call through the blip, cancel on the refusal, drain and release the one slot once',
     actual: {
       calls,
       renewals,
       aborted,
+      abortedByBlip,
       abortedByRenewal,
       released,
-      timers: tasks.size,
+      waits: tasks.size,
       failures: log.failures.length,
     },
     expected: {
       calls: 1,
-      renewals: 1,
+      renewals: 2,
       aborted: true,
+      abortedByBlip: false,
       abortedByRenewal: true,
       released: 1,
-      timers: 0,
-      failures: 1,
+      waits: 0,
+      failures: 2,
     },
   });
 });
 test('stop during durable claim waits for its outcome but cannot dispatch the late claim', async () => {
-  const { timers } = manualTimers(),
+  const { waits } = manualWaits(),
     admitted = Promise.withResolvers<ReturnType<typeof claim>>(),
     entered = Promise.withResolvers<void>();
   let calls = 0,
@@ -79,7 +86,7 @@ test('stop during durable claim waits for its outcome but cannot dispatch the la
   const service = startTranscriptionRecoveryService({
     workerId: 'worker-memory',
     limits,
-    timers,
+    waits,
     failed: () => {},
     store: {
       missing: async () => [],
