@@ -8,7 +8,11 @@ function ProseText({ text }: { readonly text: Prose }) {
     <>
       {proseRuns(text).map((run, index) =>
         run.kind === 'link' ? (
-          <Link key={index} href={run.href}>
+          <Link
+            key={index}
+            href={run.href}
+            className="underline underline-offset-2"
+          >
             {run.text}
           </Link>
         ) : (
