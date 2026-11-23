@@ -4,14 +4,16 @@ import {
   captureEvidenceSpeakerSchema,
   type CaptureEvidenceSpeaker,
 } from '@daisy/protocol/capture-evidence-speaker';
-import { originalEvidenceBinding } from './necessary-evidence-binding';
 import { requireRoundEvidenceOpen } from './necessary-evidence-rounds';
 import { and, eq, sql } from 'drizzle-orm';
 import { createAppError } from '@daisy/errors';
 import { z } from 'zod';
-import { type captureEvidenceIntentSchema } from './capture-input';
+import {
+  type captureEvidenceIntentSchema,
+  captureDigest,
+} from './media-capture';
 import { captureHistory } from './capture-history';
-import { nextEpoch } from './lease';
+import { nextEpoch, leaseTokenDigest, requireLeaseMs } from './lease';
 import {
   captureWriteContext,
   freshCaptureMutation,
@@ -20,11 +22,9 @@ import {
 } from './media-capture-context';
 import { necessaryEvidence } from './schema/necessary-evidence';
 import { lockNecessaryEvidenceRound } from './necessary-evidence-subjects';
-import { leaseTokenDigest } from './lease';
 import type { Tx } from './tx';
 import { takeLock, transactionLocks } from './locks';
 import { query } from './raw-rows';
-import { requireLeaseMs } from './lease';
 
 type Intent = z.infer<typeof captureEvidenceIntentSchema>;
 const sameOriginal = (
@@ -225,3 +225,29 @@ export const evidencePolicyOf = (dependencies: CaptureDependencies) => {
     throw createAppError('VALIDATION');
   return policy;
 };
+
+/** Binds server-validated original scope/window independently of the declared full-body digest. */
+export const originalEvidenceBinding = (
+  input: Intent,
+  subjects: readonly string[],
+  speaker: CaptureEvidenceSpeaker,
+) =>
+  captureDigest([
+    'necessary-evidence@1',
+    input.authorityId,
+    input.roundId,
+    input.sessionId,
+    input.segmentId,
+    input.roundParticipantId,
+    input.workerId,
+    input.epoch,
+    input.trackId,
+    input.startOffsetMs,
+    input.durationMs,
+    input.before,
+    input.after,
+    input.bodyDigest,
+    input.reservedBytes,
+    subjects,
+    speaker,
+  ]);

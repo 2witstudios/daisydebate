@@ -3,25 +3,14 @@ import {
   loadCaptureEvidencePayload,
 } from './necessary-evidence-read';
 import { adoptCaptureEvidencePayload } from './necessary-evidence-payload';
-import { reserveCaptureEvidenceIntent } from './capture-evidence-intents';
-import { evidencePolicyOf } from './capture-evidence-intents';
+import {
+  reserveCaptureEvidenceIntent,
+  evidencePolicyOf,
+} from './capture-evidence-intents';
 import { withdrawRoundEvidence } from './necessary-evidence-rounds';
 import { claimEvidenceAcquisition } from './necessary-evidence-reconciliation';
 import { createAppError } from '@daisy/errors';
 import { eq, sql } from 'drizzle-orm';
-import {
-  captureClipSchema,
-  captureRoundEvidenceSchema,
-  captureEvidenceReconciliationSchema,
-  captureEvidenceIntentSchema,
-  captureReadSchema,
-  captureWorkerIdentitySchema,
-  captureLeaseSchema,
-  captureLeaseCheckSchema,
-  captureObservationSchema,
-  captureSealSchema,
-  parseCapture,
-} from './capture-input';
 import {
   captureAdmission,
   lockCaptureRound,
@@ -39,6 +28,8 @@ import { appendCapturedTranscript } from './captured-transcript';
 import { observeCapturedStream, sealCapturedStream } from './capture-stream';
 import { run as runStatement, query } from './raw-rows';
 import { z } from 'zod';
+import { commandDigest } from '@daisy/digest';
+import { idSchema } from '@daisy/protocol/primitives';
 
 /** Internal composition: inject the existing pool's actual bounded transaction. */
 export const mediaCaptureOperations = (dependencies: CaptureDependencies) => ({
@@ -201,3 +192,94 @@ export const mediaCaptureOperations = (dependencies: CaptureDependencies) => ({
     );
   },
 });
+
+const leaseFields = {
+  roundId: idSchema,
+  sessionId: idSchema,
+  workerId: idSchema,
+};
+const streamFields = {
+  ...leaseFields,
+  epoch: z.number().int().positive().max(2147483647),
+  segmentId: idSchema,
+  roundParticipantId: idSchema,
+};
+export const captureWorkerIdentitySchema = z
+  .object({
+    ...leaseFields,
+    epoch: z.number().int().positive().max(2147483647),
+  })
+  .strict();
+export const captureLeaseCheckSchema = captureWorkerIdentitySchema.safeExtend({
+  /** Null during a countdown, when no segment is current to check against. */
+  segmentId: idSchema.nullable(),
+});
+export const captureReadSchema = captureWorkerIdentitySchema
+  .safeExtend({
+    segmentId: idSchema.optional(),
+    expectedVersion: z.number().int().nonnegative().max(2147483647).optional(),
+    afterIntervalId: idSchema.optional(),
+  })
+  .refine(
+    (value) =>
+      !value.afterIntervalId ||
+      (value.expectedVersion !== undefined && value.segmentId !== undefined),
+  );
+export const captureLeaseSchema = z
+  .object({
+    ...leaseFields,
+    leaseMs: z.number().int().min(1000).max(30000),
+    expectedEpoch: z.number().int().positive().max(2147483647).optional(),
+  })
+  .strict();
+const trackId = z.string().min(1).max(128);
+const iso = z.iso.datetime({ precision: 3 });
+export const captureClipSchema = z
+  .object({
+    ...streamFields,
+    trackId,
+    startOffsetMs: z.number().int().nonnegative(),
+    durationMs: z.number().int().min(1).max(60000),
+    text: z
+      .string()
+      .min(1)
+      .max(20000)
+      .refine((value) => value.trim().length > 0),
+    before: iso,
+    after: iso,
+  })
+  .strict();
+export const captureEvidenceReconciliationSchema = z.strictObject({
+  roundId: idSchema,
+  evidenceId: idSchema,
+  workerId: idSchema,
+});
+export const captureRoundEvidenceSchema = z.strictObject({ roundId: idSchema });
+export const captureEvidenceIntentSchema = captureClipSchema
+  .omit({ text: true })
+  .safeExtend({
+    evidenceId: idSchema,
+    authorityId: idSchema,
+    bodyDigest: z.string().regex(/^[a-f0-9]{64}$/),
+    reservedBytes: z.number().int().min(1).max(65536),
+    durationMs: z.number().int().min(1).max(400),
+  });
+export const captureObservationSchema = z
+  .object({ ...streamFields, trackId, observedFrom: iso, observedUntil: iso })
+  .strict();
+export const captureSealSchema = z
+  .object({
+    ...streamFields,
+    expectedChunkCount: z.number().int().nonnegative(),
+    /** The sealing process lost frames or writes it held; never complete. */
+    framesLost: z.boolean(),
+  })
+  .strict();
+export function parseCapture<T>(schema: z.ZodType<T>, raw: unknown): T {
+  const result = schema.safeParse(raw);
+  if (!result.success)
+    throw createAppError('VALIDATION', 'Invalid capture input');
+  return result.data;
+}
+export const captureDigest = (fields: readonly unknown[]) =>
+  commandDigest(fields);
