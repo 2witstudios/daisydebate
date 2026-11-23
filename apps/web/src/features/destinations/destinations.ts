@@ -58,9 +58,9 @@ export const destinations: Readonly<Record<DestinationSlug, Destination>> = {
   train: {
     slug: 'train',
     title: 'Train',
-    // Bot debates are no part of the offer (BCS-7); Train itself answers
-    // per member (`bot-debates`).
-    tagline: 'Coming soon.',
+    // Bot debates are no part of the offer (BCS-7) and Home shows no
+    // Coming soon tag; Train itself answers per member (`bot-debates`).
+    tagline: 'Practice rounds, unranked.',
   },
   prep: {
     slug: 'prep',
