@@ -1,6 +1,6 @@
 import { roundStatus, emptyRuntimeCheckpointFor } from '@daisy/protocol/round';
 import { roundRulesSchema, type RoundRules } from '@daisy/protocol/format';
-import { frozenJudgingFor } from './round-judging-freeze';
+import { frozenJudgingFor } from '@daisy/protocol/ballot-definition';
 import { readDatabaseTime } from './database-clock';
 import { createAppError } from '@daisy/errors';
 import { instrumented, type DatabaseEventSink } from './instrumented';

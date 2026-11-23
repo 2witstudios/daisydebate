@@ -2,6 +2,7 @@ import { createAppError } from '@daisy/errors';
 import type { RoundOutcome } from '@daisy/protocol/round-outcome';
 import type { RoundRules } from '@daisy/protocol/format';
 import type { SideKey } from '@daisy/protocol/seats';
+import type { rounds } from './schema/rounds';
 
 /**
  * A Round's outcome as its row stores it (TAB-6.2): the winning side, or a
@@ -32,10 +33,7 @@ export const outcomeOfColumns = (
 /** The columns an outcome is stored in. */
 export const columnsOfOutcome = (
   outcome: RoundOutcome | null,
-): {
-  winningSide: SideKey | null;
-  ranking: string[][] | null;
-} => ({
+): Required<Pick<typeof rounds.$inferInsert, 'winningSide' | 'ranking'>> => ({
   winningSide: outcome?.kind === 'winner' ? outcome.side : null,
   ranking:
     outcome?.kind === 'ranking'

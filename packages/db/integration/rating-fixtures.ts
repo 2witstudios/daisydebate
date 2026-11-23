@@ -16,7 +16,7 @@ import {
   type RatingPlanFacts,
   type RatingState,
 } from '@daisy/protocol/ratings';
-import { frozenJudgingFor } from '../src/round-judging-freeze';
+import { frozenJudgingFor } from '@daisy/protocol/ballot-definition';
 import { createDatabase, type Database } from '../src';
 import type { RatingDecision } from '../src/rating-facts';
 import { withFixture, type Fixture } from './constraint-helpers';

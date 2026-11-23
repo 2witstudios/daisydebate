@@ -14,7 +14,7 @@ import { users } from './schema/users';
 import { roundStatus, emptyRuntimeCheckpointFor } from '@daisy/protocol/round';
 import { type RoundRules } from '@daisy/protocol/format';
 import { type SideSeat } from '@daisy/protocol/seats';
-import { frozenJudgingFor } from './round-judging-freeze';
+import { frozenJudgingFor } from '@daisy/protocol/ballot-definition';
 import { columnsOfSeat } from './seat-columns';
 import { inTransaction } from './tx';
 

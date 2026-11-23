@@ -202,7 +202,8 @@
     "./seat-eligibility": "./src/seat-eligibility.ts",
     "./round-viewer": "./src/round-viewer.ts",
     "./ballot-audience": "./src/ballot-audience.ts",
-    "./round-outcome-audience": "./src/round-outcome-audience.ts"
+    "./round-outcome-audience": "./src/round-outcome-audience.ts",
+    "./usage-sponsor": "./src/usage-sponsor.ts"
   },
   "scripts": {
     "typecheck": "tsgo --noEmit && tsgo --noEmit -p tsconfig.test.json",

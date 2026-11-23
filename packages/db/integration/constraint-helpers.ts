@@ -18,7 +18,7 @@ import {
 } from '../src/beta-access-testing';
 import { buildRoundTopic, buildUserInboxTopic } from '@daisy/protocol/topics';
 import { emptyRuntimeCheckpointFor } from '@daisy/protocol/round';
-import { frozenJudgingFor } from '../src/round-judging-freeze';
+import { frozenJudgingFor } from '@daisy/protocol/ballot-definition';
 
 type PostgresFailure = { errno?: unknown; constraint?: unknown };
 

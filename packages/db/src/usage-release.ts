@@ -9,7 +9,7 @@ import { rounds } from './schema/rounds';
 import { usageReservations } from './schema/usage-reservations';
 import { advanceUsageLocked } from './usage-ledger';
 import { readDatabaseTime } from './database-clock';
-import { requireAdmissionTarget } from './round-usage-authority';
+import { requireAdmissionTarget } from './usage-sponsor';
 import type { Tx } from './tx';
 
 type ReleasePolicy = (facts: FreeBindingReleaseFacts) => boolean;
