@@ -103,7 +103,12 @@ export const escapes: ReadonlyArray<readonly [string, string]> = [
   [edgeImport('../../src/server/'), 'apps/web/e2e/journey.e2e.ts'],
 ];
 export const escapeRule = (code: string) =>
-  code.startsWith('import {') ? imports : ['no-restricted-syntax'];
+  code.startsWith('import {')
+    ? imports
+    : code === computed
+      ? // An import whose module cannot be read may load the timers (ADR 0915).
+        ['daisy-time/host-time', 'no-restricted-syntax']
+      : ['no-restricted-syntax'];
 
 /** Exact Launch entry positives and adjacent import/load refusals share the process-edge table. */
 const launchEntry = 'apps/web/e2e/support/room-launch-app.ts';

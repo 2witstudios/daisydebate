@@ -1,3 +1,4 @@
+import { hostWaits } from '@daisy/worker/host';
 import { requireTestServices } from '@daisy/config';
 import { withWebFinalizer } from './round-maintenance.test-support';
 import { finishedOrBlockedBehind } from '@daisy/db/testing';
@@ -133,7 +134,7 @@ async function raceBehindRoundLock(
       finalize,
       f.sql,
       backend.pid,
-      { now: performance.now, deadlineMs: 700 },
+      { waits: hostWaits, deadlineMs: 700 },
     );
     await holder`commit`;
     const [appended, sealed, finalized] = await settled;

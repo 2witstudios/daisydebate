@@ -8,7 +8,7 @@ import { openAuthorityPeer } from './authority-peer.test-support';
 import { authorityResources } from './authority-resources.test-support';
 import { serveRealtime } from '../src/serve';
 import type { RealtimeReadingPolicy } from '../src/authorization';
-import { testOrigin } from './support';
+import { heldCadence, testOrigin } from './support';
 import { refuseAllReading } from '../src/authorization.test-support';
 
 /** One admitted participant's durable rows, written and erased by an administrative client. */
@@ -48,7 +48,7 @@ export async function socketAuthorityFixture(
   const { userId, actorId, sessionId } = participant;
   const initial = instantMs('2026-10-09T00:00:00.000Z');
   let elapsed = 0;
-  let revalidate: (() => void) | undefined;
+  const revalidation = heldCadence(50_000);
   const resources = await authorityResources(
     services,
     { now: () => new Date(initial + elapsed).toISOString() },
@@ -65,13 +65,7 @@ export async function socketAuthorityFixture(
       port: 0,
       hostname: '127.0.0.1',
       now: () => elapsed,
-      timers: {
-        setInterval: (callback, ms) => {
-          if (ms === 50_000) revalidate = callback;
-          return setInterval(callback, ms);
-        },
-        clearInterval,
-      },
+      waits: revalidation.waits,
     });
     return {
       resources,
@@ -81,10 +75,9 @@ export async function socketAuthorityFixture(
       userId,
       client,
       advanceToRevalidation() {
-        if (!revalidate)
-          throw new Error('Actual revalidation timer unavailable');
         elapsed = 50_000;
-        revalidate();
+        if (!revalidation.fire())
+          throw new Error('Actual revalidation timer unavailable');
       },
       async close() {
         await runtime?.close();

@@ -1,5 +1,7 @@
+import type { Waits } from '@daisy/clock';
 import type { OutboxPosition, OutboxRow } from '@daisy/db/outbox';
 import type { Logger } from '@daisy/logger';
+import { repeatEvery } from '@daisy/worker';
 
 /**
  * Hands drained rows to whatever consumes them; RT-2.3c wires the real
@@ -137,18 +139,6 @@ export function createOutboxDrainLoop({
   };
 }
 
-export type IntervalTimers = {
-  readonly setInterval: (
-    callback: () => void,
-    ms: number,
-  ) => ReturnType<typeof setInterval>;
-  readonly clearInterval: (handle: ReturnType<typeof setInterval>) => void;
-};
-const systemIntervalTimers: IntervalTimers = {
-  setInterval: (callback, ms) => setInterval(callback, ms),
-  clearInterval: (handle) => clearInterval(handle),
-};
-
 /** The correctness mechanism's period (ADR 0032 §3): never a fallback, never disabled. */
 const DRAIN_POLL_INTERVAL_MS = 1_000;
 
@@ -186,7 +176,7 @@ export async function startOutboxDrain({
   sink,
   logger,
   pollIntervalMs = DRAIN_POLL_INTERVAL_MS,
-  timers = systemIntervalTimers,
+  waits,
   onQuery,
   onListenWake,
 }: {
@@ -195,7 +185,7 @@ export async function startOutboxDrain({
   readonly logger: Logger;
   /** Test seam only; production never overrides the ADR-fixed period. */
   readonly pollIntervalMs?: number;
-  readonly timers?: IntervalTimers;
+  readonly waits: Waits;
   readonly onQuery?: () => void;
   /**
    * Test seam only: fires whenever Bun SQL's `onListen` runs (the initial
@@ -238,12 +228,19 @@ export async function startOutboxDrain({
     state.loop = loop;
     if (state.pendingWake) loop.wake();
 
-    const interval = timers.setInterval(() => loop.poll(), pollIntervalMs);
+    // The poll only marks the loop dirty and never throws; the loop owns its
+    // own single flight and logs its own failures.
+    const interval = repeatEvery({
+      waits,
+      everyMs: pollIntervalMs,
+      run: async () => loop.poll(),
+      failed: () => undefined,
+    });
 
     return {
       cursor: () => loop.cursor(),
       async stop() {
-        timers.clearInterval(interval);
+        await interval.stop();
         await loop.stop();
         await subscription.unlisten();
       },

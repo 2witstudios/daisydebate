@@ -1,3 +1,4 @@
+import { virtualClock } from '@daisy/clock/testing';
 import { createOpenRouter } from '@daisy/ai-voice';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { billingEconomicsReadSchema } from '@daisy/protocol/billing-economics';
@@ -87,6 +88,7 @@ test('actual optional provider usage is indistinguishable from explicit zero aft
   const rows = [];
   for (const usage of [undefined, { prompt_tokens: 0, completion_tokens: 0 }]) {
     const provider = createOpenRouter({
+      waits: virtualClock(),
       apiKey: 'test-placeholder',
       fetch: async () =>
         Response.json({

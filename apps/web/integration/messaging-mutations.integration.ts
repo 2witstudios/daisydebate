@@ -1,3 +1,4 @@
+import { hostWaits } from '@daisy/worker/host';
 import { addMs } from '@daisy/clock';
 import { SQL } from 'bun';
 import { createId } from '@paralleldrive/cuid2';
@@ -24,6 +25,7 @@ test('canonical message mutations serialize retries and scrub removed retry fing
   const connection = new SQL(services.databaseUrl);
   const fixture = await createMessagingTestFixture(connection);
   const db = createDatabase({
+    waits: hostWaits,
     url: services.databaseUrl,
     nextActorId: createId,
   });

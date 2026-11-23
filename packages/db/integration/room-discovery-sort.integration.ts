@@ -1,3 +1,4 @@
+import { hostWaits } from '@daisy/worker/host';
 import { requireTestServices } from '@daisy/config';
 import { assertRejects } from '@daisy/errors/testing';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
@@ -95,7 +96,7 @@ test('discovery never continues from a Room made unlisted during its lock wait',
             given: 'the visibility change is still uncommitted',
             should: 'block the page read behind the Room writer',
             actual: await finishedOrBlockedBehind(pending, f.sql, pid, {
-              now: Date.now,
+              waits: hostWaits,
             }),
             expected: 'blocked',
           });

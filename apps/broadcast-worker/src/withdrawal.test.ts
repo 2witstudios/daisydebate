@@ -1,9 +1,10 @@
 import { instantMs } from '@daisy/clock';
 import { CONTENT_MODERATION_DELIVERY_BOUND_MS } from '@daisy/protocol/content-moderation';
+import { virtualClock } from '@daisy/clock/testing';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {
   FEED_END_GRACE_MS,
-  runFeedWithdrawals,
+  startFeedWithdrawals,
   withdrawalKeys,
   withdrawFeed,
 } from './withdrawal';
@@ -131,25 +132,42 @@ describe('Deleting a long feed', () => {
   });
 });
 
+type LoopDeps = Parameters<typeof startFeedWithdrawals>[0];
+/** Runs the loop on virtual time until `stopped` holds, then stops it. */
+const runFeedWithdrawals = async ({
+  stopped,
+  clock = virtualClock(),
+  ...deps
+}: Omit<LoopDeps, 'waits'> & {
+  readonly stopped: () => boolean;
+  readonly clock?: ReturnType<typeof virtualClock>;
+}) => {
+  const loop = startFeedWithdrawals({ ...deps, waits: clock });
+  for (let step = 0; step < 5_000 && !stopped(); step += 1)
+    await clock.advance(100);
+  await clock.run(loop.stop());
+};
+
 describe('The withdrawal loop', () => {
   test('a stopped feed of a two-hour Round is gone within the delivery bound', async () => {
     const SEGMENTS_IN_TWO_HOURS = 3600;
     const DELETE_LATENCY_MS = 50;
-    let nowMs = 0;
+    const clock = virtualClock();
+    // Deletes take real store time, which virtual time does not see.
+    let deleteLatencyMs = 0;
+    const nowMs = () => clock.nowMs() + deleteLatencyMs;
     let deletedAtMs = -1;
     let polls = 0;
     await runFeedWithdrawals({
+      clock,
       owner: 'w',
-      now: () => nowMs,
-      sleep: async (ms) => {
-        nowMs += ms;
-      },
+      now: nowMs,
       stopped: () => polls >= 3,
       report: () => {},
       objects: {
         deletePublic: async () => {
-          nowMs += DELETE_LATENCY_MS / 32;
-          deletedAtMs = nowMs;
+          deleteLatencyMs += DELETE_LATENCY_MS / 32;
+          deletedAtMs = nowMs();
         },
       } as never,
       store: {
@@ -178,7 +196,7 @@ describe('The withdrawal loop', () => {
     });
   });
 
-  const edges = { now: () => 120_000, sleep: async () => {} };
+  const edges = { now: () => 120_000 };
 
   test('takes down a claimed feed without a release slot', async () => {
     const deleted: string[] = [];

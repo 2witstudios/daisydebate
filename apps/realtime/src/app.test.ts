@@ -1,3 +1,4 @@
+import { virtualClock } from '@daisy/clock/testing';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { fixedClock } from '@daisy/clock';
 import { createRealtimeApp } from './app';
@@ -16,6 +17,7 @@ const build = (overrides: Record<string, string> = {}) =>
   createRealtimeApp({
     env: { ...env, ...overrides },
     clock: fixedClock('2026-09-23T00:00:00.000Z'),
+    waits: virtualClock(),
   });
 
 /** An app whose database and Redis closes are counted, never real. */

@@ -4,5 +4,5 @@ import { composeBillingWebhook } from '../../../../server/billing-webhook';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 export const POST = processRoute((_routes, app, fetch) =>
-  composeBillingWebhook(app, fetch),
+  composeBillingWebhook(app, fetch, app.waits),
 );

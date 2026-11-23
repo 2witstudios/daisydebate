@@ -1,3 +1,4 @@
+import { hostWaits } from '@daisy/worker/host';
 import { roundDecisionReleasePolicy } from '@daisy/protocol/round-decision-release';
 import { createId } from '@paralleldrive/cuid2';
 import { requireTestServices } from '@daisy/config';
@@ -16,6 +17,7 @@ test('production usage recovery rediscovers abandoned bundles with current servi
   await withFreeBundle(
     async ({ f, actorId, roundId, replacement, admission }) => {
       const store = createDatabase({
+        waits: hostWaits,
         decisionRelease: roundDecisionReleasePolicy,
         url: databaseUrl,
         client: f.sql,
@@ -100,6 +102,7 @@ test('production usage recovery rediscovers abandoned bundles with current servi
 test('recovery loses service authority while waiting on the account fence', async () => {
   await withFreeBundle(async ({ f, run, actorId, roundId }) => {
     const store = createDatabase({
+      waits: hostWaits,
       decisionRelease: roundDecisionReleasePolicy,
       url: databaseUrl,
       client: f.sql,
@@ -130,7 +133,7 @@ test('recovery loses service authority while waiting on the account fence', asyn
               'a current recovery service and a held account authority fence',
             should: 'wait behind that real PostgreSQL fence',
             actual: await finishedOrBlockedBehind(release, f.sql, pid, {
-              now: performance.now,
+              waits: hostWaits,
               deadlineMs: 1000,
             }),
             expected: 'blocked',

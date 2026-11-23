@@ -5,12 +5,20 @@ import {
   createEventRecorder,
   createRecordingLogger,
 } from './test-loggers.test-support';
-import { inertTimers, withOneShots } from '../lib/worker-timers.test-support';
+import {
+  inertWaits,
+  manualWaits,
+  recordingWaits,
+} from '../lib/manual-waits.test-support';
 setupRitewayBun();
 test('explicit file cleanup schedule bounds work and drains its current vendor acknowledgement on shutdown', async () => {
   const now = '2026-10-10T00:00:00.000Z';
   const calls: unknown[] = [];
-  let tick = () => {};
+  const manual = manualWaits();
+  /** Fires the next one-second run, if one is armed. */
+  const tick = async () => {
+    await manual.tasks.get(1000)?.();
+  };
   let resolve = () => {};
   const pending = new Promise<void>((done) => {
     resolve = done;
@@ -29,28 +37,22 @@ test('explicit file cleanup schedule bounds work and drains its current vendor a
     remove,
     clock: fixedClock(now),
     logger,
-    timers: withOneShots({
-      setInterval: (callback, ms) => {
-        tick = callback;
-        calls.push(ms);
-        return 1;
-      },
-      clearInterval: (handle) => {
-        calls.push(handle);
-      },
-    }),
+    // Each wait armed is its length; one a stop ends is 1.
+    waits: recordingWaits(manual.waits, (event, ms) =>
+      calls.push(event === 'armed' ? ms : 1),
+    ),
   });
-  tick();
+  await tick();
   let stopped = false;
   const stopping = worker.stop().then(() => {
     stopped = true;
   });
-  tick();
+  await tick();
   assert({
     given: 'one active cleanup and overlapping ticks plus shutdown',
     should: 'run once and wait for the physical ACK',
-    actual: [calls.length, stopped],
-    expected: [3, false],
+    actual: [calls.filter((call) => typeof call === 'object').length, stopped],
+    expected: [1, false],
   });
   resolve();
   await stopping;
@@ -58,7 +60,7 @@ test('explicit file cleanup schedule bounds work and drains its current vendor a
     given: 'acknowledged current batch',
     should: 'allow shutdown after exact trusted bounds and time',
     actual: [stopped, calls],
-    expected: [true, [1000, { now, maxItems: 3, remove }, 1]],
+    expected: [true, [{ now, maxItems: 3, remove }, 1000, 1000, 1]],
   });
 });
 
@@ -73,7 +75,7 @@ test('a refused vendor deletion reports failure and a clean pass completion', as
       remove: async () => {},
       clock: fixedClock('2026-10-10T00:00:00.000Z'),
       logger,
-      timers: inertTimers,
+      waits: inertWaits,
     });
   await start(async () => {
     throw new Error('vendor refused');
@@ -100,7 +102,7 @@ test('a full batch of acknowledged deletions may leave more, so it owes', async 
     remove: async () => {},
     clock: fixedClock('2026-10-10T00:00:00.000Z'),
     logger,
-    timers: inertTimers,
+    waits: inertWaits,
   }).stop();
   assert({
     given: 'a pass that filled its batch',

@@ -1,3 +1,4 @@
+import { hostWaits } from '@daisy/worker/host';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { requireTestServices } from '@daisy/config';
 import { createId } from '@paralleldrive/cuid2';
@@ -42,6 +43,7 @@ test(
         return connection;
       };
       const database = createDatabase({
+        waits: hostWaits,
         url: process.env.TEST_DATABASE_URL!,
         client: pool,
         nextActorId: createId,
@@ -194,7 +196,7 @@ test('service authority lost behind the payment table lock rolls back both recog
           pending,
           fixture.sql,
           Number(pid!.pid),
-          { now: performance.now, deadlineMs: 500 },
+          { waits: hostWaits, deadlineMs: 500 },
         );
         assert({
           given:

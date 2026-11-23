@@ -1,3 +1,4 @@
+import { hostWaits } from '@daisy/worker/host';
 import { grantHostReader } from './tab-host-reader-grant.test-support';
 import { afterAll } from 'bun:test';
 import { SQL } from 'bun';
@@ -79,7 +80,7 @@ test('resolved event readers coexist and retain the actual setting snapshot thro
     const [held] = await reader`select pg_backend_pid() as pid`;
     const observed = (operation: Promise<unknown>) =>
       finishedOrBlockedBehind(operation, observer, Number(held?.pid), {
-        now: Date.now,
+        waits: hostWaits,
       });
     const initial = pause();
     await initial.ready;

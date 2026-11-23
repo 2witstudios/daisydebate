@@ -1,4 +1,4 @@
-import { instantMs } from '@daisy/clock';
+import { instantMs } from '@daisy/clock/instant';
 import { mayDebate } from '@daisy/protocol/lobby/eligibility';
 import type {
   RoomAssemblyState,

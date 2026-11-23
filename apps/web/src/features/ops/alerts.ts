@@ -1,4 +1,4 @@
-import type { Clock } from '@daisy/clock';
+import type { Clock, Waits } from '@daisy/clock';
 import type { Logger } from '@daisy/logger';
 import type { ErrorReporter } from '@daisy/observability';
 import {
@@ -28,6 +28,7 @@ export function createAlertsHandler({
   redis,
   local,
   clock,
+  waits,
   workers,
   token,
 }: {
@@ -38,6 +39,8 @@ export function createAlertsHandler({
   /** What this process saw itself, readable when Redis is not (ISSUE-191). */
   readonly local: LocalAlertState;
   readonly clock: Clock;
+  /** Bounds the Redis read (R4.7). */
+  readonly waits: Waits;
   readonly workers: readonly RunningWorker[];
   /** Read lazily per request: baseline startup never requires auth configuration (ADR 0020). */
   readonly token: () => string;
@@ -53,6 +56,7 @@ export function createAlertsHandler({
           redis,
           local,
           clock,
+          waits,
           workers,
         });
         return Response.json({

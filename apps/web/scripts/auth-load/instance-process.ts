@@ -1,3 +1,4 @@
+import { hostWaits } from '@daisy/worker/host';
 import { systemClock, systemId } from '@daisy/clock';
 import {
   installForcedShutdown,
@@ -43,7 +44,7 @@ export function wireInstanceLifecycle({
   readonly forceShutdown?: typeof installForcedShutdown;
   readonly watchLiveness?: typeof watchParentLiveness;
 } = {}): void {
-  forceShutdown({ drainBudgetMs, exit, target });
+  forceShutdown({ drainBudgetMs, exit, target, waits: hostWaits });
   watchLiveness({ stdin, onParentGone: () => exit(0) });
 }
 
@@ -71,6 +72,7 @@ if (import.meta.main) {
 
   adoptProcessApp(
     createApp({
+      waits: hostWaits,
       messagingPolicy: betaMessagingPolicy,
       env: process.env,
       fetch: mailCapture.captureFetch,

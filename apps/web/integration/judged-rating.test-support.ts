@@ -1,3 +1,4 @@
+import { hostWaits } from '@daisy/worker/host';
 import { decisionRelease as roundDecisionReleasePolicy } from '../src/features/notifications/decision-release';
 import { requireTestServices } from '@daisy/config';
 import { createDatabase, type Database } from '@daisy/db';
@@ -36,6 +37,7 @@ export async function withClients<T>(
 ) {
   const clients = Array.from({ length: count }, () =>
     createDatabase({
+      waits: hostWaits,
       decisionRelease: roundDecisionReleasePolicy,
       url: databaseUrl,
       nextActorId: createId,

@@ -1,3 +1,4 @@
+import { hostWaits } from '@daisy/worker/host';
 import { validRules } from '@daisy/db/testing';
 import { afterAll } from 'bun:test';
 import { createId } from '@paralleldrive/cuid2';
@@ -92,6 +93,7 @@ test('a migration re-application and a resource restart preserve a live session,
   const { testApp } = flows.account.flows;
   await testApp.app.close();
   const restarted = createApp({
+    waits: hostWaits,
     messagingPolicy: betaMessagingPolicy,
     env: testApp.env,
     fetch: testApp.mailbox.fetch,

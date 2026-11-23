@@ -1,4 +1,4 @@
-import { instantMs } from '@daisy/clock';
+import { instantMs } from '@daisy/clock/instant';
 import { z } from 'zod';
 import { idSchema } from './primitives';
 import { roundAnalysisReportSchema } from './round-analysis';

@@ -1,3 +1,4 @@
+import { hostWaits } from '@daisy/worker/host';
 import { testLane } from '../src/testing-lane';
 import { requireTestServices } from '@daisy/config';
 import { assertRejects } from '@daisy/errors/testing';
@@ -15,8 +16,8 @@ test('the whole transcript transaction expires across individually short stateme
     const roundId = await fixture.round();
     const client = new SQL(url, { max: 4 });
     const run = createBoundedTransaction({
-      lane: testLane(client, 4),
-      now: performance.now,
+      lane: testLane(client, hostWaits, 4),
+      waits: hostWaits,
     });
     try {
       const started = performance.now();

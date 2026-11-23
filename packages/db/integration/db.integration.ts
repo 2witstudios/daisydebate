@@ -1,3 +1,4 @@
+import { hostWaits } from '@daisy/worker/host';
 import { tryInstantMs } from '@daisy/clock';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
@@ -28,7 +29,11 @@ test('durable rounds survive reconnect; optimistic executions reject stale write
         rules,
       });
       await database.close();
-      const reopened = createDatabase({ url, nextActorId: createId });
+      const reopened = createDatabase({
+        waits: hostWaits,
+        url,
+        nextActorId: createId,
+      });
       try {
         const stored = await reopened.getRound(roundId);
         const outcomes = await Promise.all(

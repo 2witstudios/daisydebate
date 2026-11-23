@@ -1,4 +1,4 @@
-import { addMs } from '@daisy/clock';
+import { addMs } from '@daisy/clock/instant';
 import { currentPaymentObservation } from './billing-payment-observation';
 import { advanceInvoiceIdentityDebt } from './billing-invoice-identity-debt';
 import { nextTurn } from './billing-cleanup-scans';

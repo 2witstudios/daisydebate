@@ -1,4 +1,4 @@
-import { isInstantAtOrBefore } from '@daisy/clock';
+import { isInstantAtOrBefore } from '@daisy/clock/instant';
 import { z } from 'zod';
 import { idSchema } from './primitives';
 import { ownedInvoiceObservationSchema } from './billing-payment-observation-source';

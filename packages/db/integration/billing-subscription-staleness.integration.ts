@@ -1,3 +1,4 @@
+import { hostWaits } from '@daisy/worker/host';
 import { instantMs } from '@daisy/clock';
 import { SQL } from 'bun';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
@@ -30,6 +31,7 @@ test('actual subscription application, new hints and ambiguous initialization re
         return connection;
       };
       const database = createDatabase({
+        waits: hostWaits,
         url: databaseUrl,
         client: pool,
         nextActorId: createId,
@@ -159,6 +161,7 @@ test('indexed freshness pages retain missing subscriptions, exclude other modes/
       return connection;
     };
     const database = createDatabase({
+      waits: hostWaits,
       url: databaseUrl,
       client: pool,
       nextActorId: createId,

@@ -1,4 +1,5 @@
 import { instantMs, fixedClock } from '@daisy/clock';
+import { virtualClock } from '@daisy/clock/testing';
 import {
   signOperatorRequest,
   verifyOperatorRequest,
@@ -30,6 +31,8 @@ const countingRandom = () => {
 };
 
 type Captured = { readonly url: string; readonly init: RequestInit };
+/** The client's request bound runs on this; a test moves it. */
+const clock = virtualClock();
 
 const clientWith = (
   answer: (captured: Captured) => Promise<Response>,
@@ -46,6 +49,7 @@ const clientWith = (
     random: countingRandom(),
     fetch,
     timeoutMs,
+    waits: clock,
   });
   return { client, sent };
 };
@@ -250,11 +254,8 @@ describe('operator response outcomes', () => {
         }),
       1,
     );
-    const outcome = await client.setBetaAccess(
-      operatorRef,
-      userId,
-      command,
-      signedAt,
+    const outcome = await clock.run(
+      client.setBetaAccess(operatorRef, userId, command, signedAt),
     );
     assert({
       given: 'a participant that never answers, with a 1 ms timeout',

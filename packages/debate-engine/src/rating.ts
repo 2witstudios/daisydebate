@@ -1,4 +1,4 @@
-import { tryInstantMs } from '@daisy/clock';
+import { tryInstantMs } from '@daisy/clock/instant';
 import { createAppError, createInvariantError } from '@daisy/errors';
 import {
   affirmativeSide,

@@ -1,5 +1,5 @@
 import { billingModes } from './billing-mode';
-import { instantMs } from '@daisy/clock';
+import { instantMs } from '@daisy/clock/instant';
 import { z } from 'zod';
 import { idSchema } from './primitives';
 import { billingOwnerSchema, maxPurchaseQuantity } from './billing-owner';

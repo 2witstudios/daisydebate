@@ -1,3 +1,6 @@
+import type { Waits } from '@daisy/clock';
+import { passOf, pollWork, repeatEvery } from '@daisy/worker';
+import { HOUSEKEEPING_IDLE_MAX_MS } from '../../lib/worker-idle';
 import { nowMs as clockNowMs } from '@daisy/clock';
 import { mediaEndpointsOf } from '@daisy/config';
 import {
@@ -5,12 +8,6 @@ import {
   createBroadcastEgress,
 } from '@daisy/media/broadcast';
 import { createMediaNodes } from '@daisy/media';
-import type { WorkerTimers } from '../../lib/worker-timers';
-import { passOf } from '../../lib/idle-backoff';
-import {
-  HOUSEKEEPING_IDLE_MAX_MS,
-  startWorkerLoop,
-} from '../../lib/worker-loop';
 import type { App } from '../../server/app';
 import { createStageRoute } from './stage-route';
 import { createStrayEgressSweep } from './stray-egress-sweep';
@@ -25,9 +22,9 @@ const stageMedia = new WeakMap<App, ReturnType<typeof composeStageMedia>>();
 /**
  * Capture's own view of the media nodes: which are up, and an Egress client for each
  * (ISSUE-1299). Null on a deployment with no LiveKit. One node has nowhere to fail
- * over to, so it pays for no probe. The timer never holds the process open.
+ * over to, so it pays for no probe. The probe runs on `waits` until `stop`.
  */
-const composeStageMedia = (app: App) => {
+const composeStageMedia = (app: App, waits: Waits) => {
   const {
     LIVEKIT_URL: url,
     LIVEKIT_PUBLIC_URL: publicUrl,
@@ -45,6 +42,7 @@ const composeStageMedia = (app: App) => {
     apiKey,
     apiSecret,
     fetch,
+    waits,
     healthChanged: (nodeIndex, healthy) =>
       app.logger.log(
         'stage.media.node_health',
@@ -52,12 +50,23 @@ const composeStageMedia = (app: App) => {
         'A media node changed health',
       ),
   });
-  if (nodes.size > 1) {
-    void nodes.probe();
-    setInterval(() => void nodes.probe(), MEDIA_NODE_PROBE_MS).unref();
-  }
+  const probe =
+    nodes.size > 1
+      ? repeatEvery({
+          waits,
+          everyMs: MEDIA_NODE_PROBE_MS,
+          runOnStart: true,
+          run: () => nodes.probe(),
+          // A probe settles every node's fault as down; only a throwing
+          // health log rejects it, and the next run logs again.
+          failed: () => {},
+        })
+      : null;
   return {
     nodes,
+    stop: async () => {
+      await probe?.stop();
+    },
     egress: broadcastEgressOnNodes({
       egresses: urls.map((entry) =>
         createBroadcastEgress({ config: { url: entry, apiKey, apiSecret } }),
@@ -67,24 +76,34 @@ const composeStageMedia = (app: App) => {
   };
 };
 
-const stageMediaOf = (app: App) => {
+/** One stage media per app, its probe on the first caller's `waits`. */
+const stageMediaOf = (app: App, waits: Waits) => {
   const known = stageMedia.get(app);
   if (known !== undefined) return known;
-  const media = composeStageMedia(app);
+  const media = composeStageMedia(app, waits);
   stageMedia.set(app, media);
   return media;
 };
 
 /** The LiveKit and Egress adapter, or null on a deployment with no LiveKit. */
-export const stageEgressOf = (app: App) => stageMediaOf(app)?.egress ?? null;
+export const stageEgressOf = (app: App, waits: Waits) =>
+  stageMediaOf(app, waits)?.egress ?? null;
+
+/**
+ * Stops the app's stage media node probe, if one runs; the process's
+ * shutdown awaits it. Later reads compose no new probe for this app.
+ */
+export const stopStageMedia = async (app: App): Promise<void> => {
+  await stageMedia.get(app)?.stop();
+};
 
 /**
  * What the stage page reads. A capture id names a Broadcast or a Recording with
  * no Broadcast; each owns its own credential and revocation. Inert unless a
  * capture switch is on, so merging never activates capture.
  */
-export const composeStage = (app: App) => {
-  const media = stageMediaOf(app);
+export const composeStage = (app: App, waits: Waits) => {
+  const media = stageMediaOf(app, waits);
   if (
     (app.config.BROADCAST_CAPTURE !== 'on' &&
       app.config.RECORDING_CAPTURE !== 'on') ||
@@ -105,8 +124,8 @@ export const composeStage = (app: App) => {
 };
 
 /** Inert unless a capture switch is on, so merging never activates capture. */
-export const startStrayEgressSweep = (app: App, timers: WorkerTimers) => {
-  const egress = stageEgressOf(app);
+export const startStrayEgressSweep = (app: App, waits: Waits) => {
+  const egress = stageEgressOf(app, waits);
   if (
     (app.config.BROADCAST_CAPTURE !== 'on' &&
       app.config.RECORDING_CAPTURE !== 'on') ||
@@ -139,13 +158,13 @@ export const startStrayEgressSweep = (app: App, timers: WorkerTimers) => {
     ],
     report,
   });
-  return startWorkerLoop({
-    run: () => sweep().then(passOf),
+  return pollWork({
+    pass: () => sweep().then(passOf),
     backoff: {
       busyMs: STRAY_SWEEP_EVERY_MS,
       idleMaxMs: HOUSEKEEPING_IDLE_MAX_MS,
     },
-    timers,
+    waits,
     failed: () => report('stage.stray_sweep_failed'),
   });
 };

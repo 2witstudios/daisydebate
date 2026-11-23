@@ -1,3 +1,4 @@
+import { hostWaits } from '@daisy/worker/host';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -100,7 +101,7 @@ export async function openComposedFileFixture(
         principal: identity,
       }),
       objects,
-      scanner: createClamdScanner(relay),
+      scanner: createClamdScanner(relay, hostWaits),
       sanitizeImage: sanitizeImage,
       clock,
       ids: { next: createId },

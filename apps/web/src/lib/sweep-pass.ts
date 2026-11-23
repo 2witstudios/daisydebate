@@ -1,10 +1,17 @@
 /**
+ * How long one page of a pass may hold the pass: a wait on injected time,
+ * such as `(signal) => waits.sleep(ms, signal)`. Its signal aborts once the
+ * page's work ends first, so no wait outlives the page.
+ */
+export type PassBudget = (signal: AbortSignal) => Promise<void>;
+
+/**
  * One sweep's walk over rows that each get independent work. Every row in the set
  * is reached, however many there are, and they run side by side, so a slow one
  * delays no other. Past `budget` the pass returns and that work runs on: the next
  * pass skips a row still running, and `settled` waits for all of it at shutdown.
  */
-export const createSweepPass = (budget?: () => Promise<void>) => {
+export const createSweepPass = (budget?: PassBudget) => {
   const running = new Map<string, Promise<void>>();
   const overPage = async <T>(
     page: readonly T[],
@@ -26,7 +33,16 @@ export const createSweepPass = (budget?: () => Promise<void>) => {
       return [run];
     });
     const all = Promise.all(started);
-    await (budget ? Promise.race([all, budget()]) : all);
+    if (!budget) {
+      await all;
+      return;
+    }
+    const ended = new AbortController();
+    try {
+      await Promise.race([all, budget(ended.signal)]);
+    } finally {
+      ended.abort();
+    }
   };
   return {
     overPages: async <T>(

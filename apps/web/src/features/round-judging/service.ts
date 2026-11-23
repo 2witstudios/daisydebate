@@ -1,3 +1,12 @@
+import type { Waits } from '@daisy/clock';
+import {
+  holdLease,
+  pollWork,
+  type Lease,
+  type LoopPass,
+  type WorkWake,
+} from '@daisy/worker';
+import { LIVE_IDLE_MAX_MS } from '../../lib/worker-idle';
 import { isAppError } from '@daisy/errors';
 import {
   judgingPolicy,
@@ -5,13 +14,6 @@ import {
   type JudgingWorkKind,
 } from '@daisy/protocol/judging-policy';
 import { type JudgingTerminalReason } from '@daisy/protocol/round-judging-attempt';
-import type { WorkerTimers } from '../../lib/worker-timers';
-import type { LoopPass } from '../../lib/idle-backoff';
-import {
-  LIVE_IDLE_MAX_MS,
-  startWorkerLoop,
-  type WorkWake,
-} from '../../lib/worker-loop';
 type Target = { readonly roundId: string; readonly judgeParticipantId: string };
 type Found = Target & { readonly holdsBallot?: boolean };
 type Claim = { readonly scope: Target; readonly token: string };
@@ -20,6 +22,8 @@ type Entry<C> = {
   readonly claim: C;
   readonly freeCapacity: () => void;
   readonly abort: AbortController;
+  /** The job's lease, renewed apart from the paid call so it never queues behind it. */
+  readonly lease: Lease<undefined>;
   running: boolean;
   work: Promise<void>;
   /** Consecutive refused submissions of a saved ballot. */
@@ -60,8 +64,10 @@ export function startRoundJudgingService<C extends Claim>(input: {
     readonly scanBatch: number;
     readonly scanMs: number;
     readonly renewMs: number;
+    /** How long a job's lease holds after a renewal that held. */
+    readonly leaseMs: number;
   };
-  readonly timers: WorkerTimers;
+  readonly waits: Waits;
   /** Judging work was created; scan now (ADR 0154). */
   readonly wake?: WorkWake | undefined;
   /** A renewal found the job over and ended it, for this reason. */
@@ -70,8 +76,7 @@ export function startRoundJudgingService<C extends Claim>(input: {
   readonly failed: (error: unknown, stage: string) => void;
 }) {
   const entries = new Map<string, Entry<C>>();
-  let stopped = false,
-    renewing: Promise<void> | null = null;
+  let stopped = false;
   // Read live: stop() can run during any await, which narrowing cannot see.
   const isStopped = () => stopped;
   const key = (target: Target) =>
@@ -84,6 +89,7 @@ export function startRoundJudgingService<C extends Claim>(input: {
   };
   const release = (entry: Entry<C>) => {
     entry.abort.abort();
+    void entry.lease.stop();
     if (!entry.running) remove(entry);
   };
   const execute = (entry: Entry<C>) => {
@@ -180,6 +186,7 @@ export function startRoundJudgingService<C extends Claim>(input: {
       // A later held reply needs no provider slot; still visit it.
       if (!freeCapacity) continue;
       try {
+        const claimedAtMs = input.waits.nowMs();
         const claim = await input.store.claimRoundJudgingJob(target);
         if (isStopped()) {
           // A successful durable claim recovers by lease expiry. This
@@ -187,16 +194,56 @@ export function startRoundJudgingService<C extends Claim>(input: {
           freeCapacity();
           break;
         }
+        const ended = { reason: null as JudgingTerminalReason | null };
+        // Canonical finality or privacy ended the job, or the lease was lost
+        // to completion or another claimant: each is a release, not a fault.
+        // Any other failure leaves the paid call running, retried until the
+        // lease would lapse (ISSUE-462).
+        const lease = holdLease({
+          waits: input.waits,
+          facts: undefined,
+          renewEveryMs: input.limits.renewMs,
+          retryMs: input.limits.renewMs,
+          horizonMs: input.limits.leaseMs,
+          renew: async () => {
+            const renewed = await input.store.renewRoundJudgingJob(
+              claim.scope,
+              claim.token,
+            );
+            if (renewed.kind === 'renewed')
+              return { kind: 'held', facts: undefined };
+            ended.reason = renewed.reason;
+            return { kind: 'lost', reason: 'released' };
+          },
+          claimedAtMs,
+          // Completion or privacy is a release; a token another claimant
+          // rotated (AUTHORIZATION) means the job was taken.
+          lossOf: (error) =>
+            !isAppError(error)
+              ? null
+              : error.code === 'CONFLICT'
+                ? 'released'
+                : error.code === 'AUTHORIZATION'
+                  ? 'taken'
+                  : null,
+          failed: (error) => input.failed(error, 'renew'),
+        });
         const entry: Entry<C> = {
           workKind,
           claim,
           freeCapacity,
           abort: new AbortController(),
+          lease,
           running: false,
           work: Promise.resolve(),
           refusals: 0,
         };
         entries.set(key(target), entry);
+        void lease.ended.then((end) => {
+          if (end === 'stopped') return;
+          release(entry);
+          if (ended.reason !== null) input.jobEnded?.(ended.reason);
+        });
         visited.add(key(target));
         execute(entry);
       } catch {
@@ -208,39 +255,10 @@ export function startRoundJudgingService<C extends Claim>(input: {
     if (refusal) throw refusal.reason;
     return entries.size > 0 || found > 0 ? 'worked' : 'idle';
   };
-  const renew = (): Promise<void> => {
-    if (stopped || renewing) return renewing ?? Promise.resolve();
-    renewing = Promise.all(
-      [...entries.values()].map(async (entry) => {
-        if (entry.abort.signal.aborted) return;
-        try {
-          const renewed = await input.store.renewRoundJudgingJob(
-            entry.claim.scope,
-            entry.claim.token,
-          );
-          // Canonical finality or privacy ended the job. Cancel this operation.
-          if (renewed.kind === 'ended') {
-            release(entry);
-            input.jobEnded?.(renewed.reason);
-          }
-        } catch (error) {
-          // A lease lost to completion or another claimant is a release, not
-          // a fault. Any other failure leaves the paid call running; the next
-          // renewal tries again (ISSUE-462).
-          if (isAppError(error) && error.code === 'CONFLICT') release(entry);
-          else input.failed(error, 'renew');
-        }
-      }),
-    ).then(() => {
-      renewing = null;
-    });
-    return renewing;
-  };
-  const heartbeat = input.timers.setInterval(renew, input.limits.renewMs);
-  const discovery = startWorkerLoop({
-    run: scan,
+  const discovery = pollWork({
+    pass: scan,
     backoff: { busyMs: input.limits.scanMs, idleMaxMs: LIVE_IDLE_MAX_MS },
-    timers: input.timers,
+    waits: input.waits,
     failed: (error) => input.failed(error, 'scan'),
     wake: input.wake,
   });
@@ -248,13 +266,14 @@ export function startRoundJudgingService<C extends Claim>(input: {
     started: discovery.started,
     async stop() {
       stopped = true;
-      input.timers.clearInterval(heartbeat);
       const scanning = discovery.stop();
-      for (const entry of entries.values()) release(entry);
+      const live = [...entries.values()];
+      // Never clear an unfenced lease: each is stopped, not released.
+      for (const entry of live) release(entry);
       await Promise.allSettled([
         scanning,
-        renewing,
-        ...[...entries.values()].map((entry) => entry.work),
+        ...live.map((entry) => entry.lease.stop()),
+        ...live.map((entry) => entry.work),
       ]);
     },
   };

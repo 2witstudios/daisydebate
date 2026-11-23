@@ -1,3 +1,4 @@
+import { hostWaits } from '@daisy/worker/host';
 import { requireTestServices } from '@daisy/config';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createId } from '@paralleldrive/cuid2';
@@ -71,7 +72,7 @@ test('real public ingress probe uses ordinary signed session, scoped seat and du
             cookie: signed.cookie,
           },
           nextId: createId,
-          nowMs: () => performance.now(),
+          waits: hostWaits,
           fetch,
         });
         const healthy = [await probe(), await probe()];
@@ -126,7 +127,7 @@ test('real public ingress probe uses ordinary signed session, scoped seat and du
             cookie: signed.cookie,
           },
           nextId: createId,
-          nowMs: () => performance.now(),
+          waits: hostWaits,
           fetch: (url, init) => {
             const response = fetch(url, init);
             if (url.endsWith('/api/auth/get-session')) sessionRead = response;

@@ -8,9 +8,9 @@ import type {
   BotPublicationScope,
 } from '@daisy/db/bot-publication';
 import type { RoundBotWorkerPolicy } from '@daisy/config';
+import { afterMs, type Waits } from '@daisy/clock';
 import { createAppError } from '@daisy/errors';
 import { idSchema } from '@daisy/protocol/primitives';
-import type { OneShotTimer } from '../../lib/worker-timers';
 import type { ProviderCall } from '../../server/provider-budget';
 import type { Owed } from './duty';
 import { debaterPrompt } from './debater-prompt';
@@ -39,11 +39,13 @@ export function createBotGeneration(input: {
   readonly store: Store;
   readonly voice: () => Pick<OpenRouter, 'completeStreamed' | 'speakPcm'>;
   readonly withProvider: ProviderCall;
+  /** Wall-clock epoch milliseconds, for the prompt's sense of the time. */
   readonly nowMs: () => number;
-  /** Resolves after `ms`: the wait between two tries at recording usage. */
-  readonly pause: (ms: number) => Promise<void>;
-  /** Stops a language stream that has gone quiet. */
-  readonly timer: OneShotTimer;
+  /**
+   * Monotonic time: the wait between two tries at recording usage, and the
+   * watch that stops a language stream that has gone quiet.
+   */
+  readonly waits: Waits;
   /** How long a language stream may go without a word before it is stopped. */
   readonly stallMs: number;
   readonly maxTokens: number;
@@ -178,10 +180,10 @@ export function createBotGeneration(input: {
     // A stream is as long as its answer, so no bound on its whole length is
     // right: it is stopped when nothing has arrived for `stallMs`.
     const stalled = new AbortController();
-    let watch: unknown = null;
+    let stopWatch = () => {};
     const stillWriting = () => {
-      input.timer.clearTimeout(watch);
-      watch = input.timer.setTimeout(() => stalled.abort(), input.stallMs);
+      stopWatch();
+      stopWatch = afterMs(input.waits, input.stallMs, () => stalled.abort());
     };
     const turn = signal;
     signal = AbortSignal.any([turn, abandoned.signal, stalled.signal]);
@@ -243,7 +245,7 @@ export function createBotGeneration(input: {
       // Refused before dispatch (a full budget, a cancelled call): nothing was bought.
       .catch((error: unknown) => producer.cut(error))
       .finally(() => {
-        input.timer.clearTimeout(watch);
+        stopWatch();
         opened.resolve();
       });
     // Recorded as soon as the stream ends, while the speech still plays, and
@@ -258,7 +260,7 @@ export function createBotGeneration(input: {
           )
         )
           return;
-        if (pauseMs !== null) await input.pause(pauseMs);
+        if (pauseMs !== null) await input.waits.sleep(pauseMs);
       }
     });
     void producer.source.at(0).then(() => opened.resolve());

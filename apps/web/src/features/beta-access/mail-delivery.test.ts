@@ -1,3 +1,4 @@
+import { virtualClock } from '@daisy/clock/testing';
 import { instantMs } from '@daisy/clock';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { createResendSender } from '../mail/resend-sender';
@@ -353,6 +354,7 @@ test('invitation exhaustion distinguishes definitive rejection from uncertain pr
   const outcomes = [];
   for (const response of ['lost', 'rejected', 'malformed-success'] as const) {
     const sender = createResendSender({
+      waits: virtualClock(),
       apiKey: 'test-key',
       nowMs: () => instantMs('2026-11-06T00:00:00.000Z'),
       from: 'test@example.test',

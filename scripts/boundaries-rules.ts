@@ -34,21 +34,39 @@ export const allowedWorkspaceDependencies: Record<string, readonly string[]> = {
   // Seeded randomness is topic-agnostic: it knows a seed and nothing else.
   'seeded-random': ['digest'],
   clock: [],
+  // R4.7: background loops, leases and shutdown over the clock's waits;
+  // it knows no app, store or domain.
+  worker: ['clock'],
   digest: [],
   // The tab engine is plain data in and out: no app, database, protocol or
   // Room engine, only seeded randomness and digests.
   'tab-engine': ['digest', 'seeded-random'],
   // AIDB: the OpenRouter voice layer reads the engine's turn table and the
   // protocol's ballot contract only.
-  'ai-voice': ['debate-engine', 'errors', 'protocol'],
+  'ai-voice': ['clock', 'debate-engine', 'errors', 'protocol'],
   // VIDEO-1.4: isolated LiveKit vendor adapter; no competitive authority.
-  media: ['clock', 'digest', 'errors', 'protocol'],
+  media: ['clock', 'digest', 'errors', 'protocol', 'worker'],
   // ADR 0099: the hold worker's only credential is its broadcasts role.
-  'broadcast-worker': ['clock', 'db', 'debate-engine', 'logger', 'protocol'],
+  'broadcast-worker': [
+    'clock',
+    'db',
+    'debate-engine',
+    'logger',
+    'protocol',
+    'worker',
+  ],
   // ADR 0112: publishes released facts; its role reads them and nothing else.
-  'audience-publisher': ['db', 'debate-engine', 'logger', 'protocol', 'redis'],
+  'audience-publisher': [
+    'clock',
+    'db',
+    'debate-engine',
+    'logger',
+    'protocol',
+    'redis',
+    'worker',
+  ],
   // ADR 0107: builds from the hold; its role reaches only its jobs.
-  'recording-worker': ['clock', 'db', 'logger', 'protocol'],
+  'recording-worker': ['clock', 'db', 'logger', 'protocol', 'worker'],
   // ADR 0053: capture deployment discovers sessions read-only under
   // daisy_media_worker and writes only through signed web ingress.
   'media-worker': [
@@ -61,22 +79,23 @@ export const allowedWorkspaceDependencies: Record<string, readonly string[]> = {
     'errors',
     'logger',
     'protocol',
+    'worker',
   ],
   // ADR 0084: the log shipper reads the logger's vocabulary to admit
   // shipped lines; it holds no participant database or Redis credential.
-  'log-shipper': ['clock', 'config', 'logger'],
+  'log-shipper': ['clock', 'config', 'logger', 'worker'],
   protocol: ['clock'],
   // ADR 0048: pure capability evaluation consumes portable vocabulary only.
   auth: ['clock', 'digest', 'errors', 'protocol'],
   errors: ['protocol'],
-  db: ['clock', 'config', 'digest', 'errors', 'protocol'],
-  redis: ['config', 'digest', 'errors', 'protocol'],
+  db: ['clock', 'config', 'digest', 'errors', 'protocol', 'worker'],
+  redis: ['clock', 'config', 'digest', 'errors', 'protocol', 'worker'],
   config: [],
   ingress: ['config'],
   // Test-only: the redaction tests derive their secret keys from config's
   // schema (ADR 0019); the logger itself imports nothing from it.
   logger: ['config'],
-  observability: ['logger'],
+  observability: ['clock', 'logger'],
   // ADR 0031 §12: the realtime deployment's explicit allowed edges. It
   // never depends on `debate-engine`, `apps/web` or a third-party socket
   // library. `@daisy/presence` is not yet a package (owned by a later RT
@@ -84,7 +103,16 @@ export const allowedWorkspaceDependencies: Record<string, readonly string[]> = {
   // ADR 0077: the admin app holds no participant database or Redis
   // credential, so it never depends on @daisy/db or @daisy/redis; it reaches
   // the participant app only through the signed operator API (`auth`).
-  admin: ['auth', 'clock', 'config', 'digest', 'errors', 'logger', 'protocol'],
+  admin: [
+    'auth',
+    'clock',
+    'config',
+    'digest',
+    'errors',
+    'logger',
+    'protocol',
+    'worker',
+  ],
   realtime: [
     'ingress',
     'protocol',
@@ -98,6 +126,7 @@ export const allowedWorkspaceDependencies: Record<string, readonly string[]> = {
     'logger',
     'observability',
     'presence',
+    'worker',
   ],
 };
 

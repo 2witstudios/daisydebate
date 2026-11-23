@@ -1,5 +1,6 @@
 import type { DecisionReleasePolicy } from '@daisy/protocol/round-decision-release';
 import type { RoundTimeSource } from './round-execution-time';
+import type { Waits } from '@daisy/clock';
 export type { RoundTimeSource } from './round-execution-time';
 export type { RoundRoomAuthority } from './round-room-authority';
 import { TranscriptionRecovery } from './transcription-recovery/transcription-recovery';
@@ -247,8 +248,11 @@ export function createDatabase({
   roundAnalysis,
   roundTime,
   decisionRelease,
+  waits,
 }: {
   url: string;
+  /** The process's time: every lane wait, transaction budget and connection bound (R4.7). */
+  waits: Waits;
   /** Required capability for completing a Round; absence refuses atomically, never defaults. */
   decisionRelease?: DecisionReleasePolicy;
   /** Trusted Round persistence time resource; absent in production composition. */
@@ -274,6 +278,7 @@ export function createDatabase({
   const workload = createWorkload({
     profile,
     connect: injectedClient ? () => injectedClient : dialLanes(url),
+    waits,
     fairnessKey,
   });
   const competitive = workload.lane('competitive');
@@ -285,13 +290,13 @@ export function createDatabase({
   const control = controlLane.database;
   const controlTransaction = createBoundedTransaction({
     lane: controlLane,
-    now: performance.now,
+    waits,
   });
   const dedicated =
     injectedClient ?? dialDedicated(url, Math.max(1, profile.dedicated));
   const competitiveTransaction = createBoundedTransaction({
     lane: competitive,
-    now: performance.now,
+    waits,
   });
   const { admission, operations: botAdmissionOperations } =
     roundBotAdmissionEntrypoints({
@@ -365,7 +370,7 @@ export function createDatabase({
       run: competitiveTransaction,
       nextId: nextActorId,
     }),
-    ...availabilityOperations(controlLane.client, dedicated),
+    ...availabilityOperations(controlLane.client, dedicated, waits),
     readRatingCandidates: (input: Parameters<typeof readRatingCandidates>[1]) =>
       readRatingCandidates(database, input),
     readRatingFacts: (roundId: string) => readRatingFacts(database, roundId),
@@ -552,6 +557,7 @@ export function createDatabase({
           1,
           Math.floor((profile.lanes.competitive?.connections ?? 0) / 2),
         ),
+        waits,
       ),
     }),
     ...roundOperations({ database, eventSink }),

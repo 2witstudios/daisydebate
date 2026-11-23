@@ -105,10 +105,11 @@ describe('Adobe ban (ADR 0911)', () => {
 });
 
 describe('realtime workspace edges (ADR 0031 §12)', () => {
-  test('the allowlist names exactly the twelve adopted realtime edges', () => {
+  test('the allowlist names exactly the thirteen adopted realtime edges', () => {
     assert({
       given: 'allowedWorkspaceDependencies.realtime',
-      should: 'list exactly the twelve edges including shared SHA3-256',
+      should:
+        'list exactly the thirteen edges including shared SHA3-256 and the worker primitive (ADR 0915)',
       actual: [...allowedWorkspaceDependencies.realtime!].sort(),
       expected: [
         'auth',
@@ -123,6 +124,7 @@ describe('realtime workspace edges (ADR 0031 §12)', () => {
         'presence',
         'protocol',
         'redis',
+        'worker',
       ].sort(),
     });
   });

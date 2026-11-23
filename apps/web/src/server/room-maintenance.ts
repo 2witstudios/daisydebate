@@ -1,7 +1,7 @@
+import type { Waits } from '@daisy/clock';
 import type { ErrorReporter } from '@daisy/observability';
 import { workerFailures } from './recoverable-failure';
 import type { App } from './app';
-import type { WorkerTimers } from '../lib/worker-timers';
 import {
   createRoomMaintenance,
   startRoomMaintenance,
@@ -10,7 +10,7 @@ import {
 /** Room lifecycle maintenance on its own timer and failure event (ISSUE-771). */
 export function startRoomLifecycleMaintenance(input: {
   readonly app: App;
-  readonly timers: WorkerTimers;
+  readonly waits: Waits;
   /** Scrubbed raw-error destination (ADR 0037); inert until configured. */
   readonly reporter?: ErrorReporter;
 }) {
@@ -25,7 +25,7 @@ export function startRoomLifecycleMaintenance(input: {
       store: app.database,
       idleTimeoutMs: app.roomPolicy?.idleTimeoutMs ?? null,
     }),
-    timers: input.timers,
+    waits: input.waits,
     failed,
   });
 }

@@ -1,3 +1,4 @@
+import { hostWaits } from '@daisy/worker/host';
 import { createId } from '@paralleldrive/cuid2';
 import { buildUserInboxTopic } from '@daisy/protocol/topics';
 import { createDatabase } from '@daisy/db';
@@ -16,6 +17,7 @@ export async function withBeta(
 ) {
   await withSql(async (sql) => {
     const database = createDatabase({
+      waits: hostWaits,
       url: testDatabaseUrl,
       nextActorId: createId,
     });

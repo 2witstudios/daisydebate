@@ -1,3 +1,4 @@
+import { hostWaits } from '@daisy/worker/host';
 import { SQL } from 'bun';
 import { drizzle } from 'drizzle-orm/bun-sql';
 import { deleteExpiredOutboxPrefix } from '../src/outbox-retention';
@@ -32,7 +33,11 @@ async function fixture(
   }) => Promise<void>,
 ) {
   const sql = new SQL(url, { max: 3 });
-  const database = createDatabase({ url, nextActorId: createId });
+  const database = createDatabase({
+    waits: hostWaits,
+    url,
+    nextActorId: createId,
+  });
   const roomId = createId(),
     topic = buildRoomTopic(roomId);
   const original = await database.readOutboxRetentionBoundary();
@@ -52,7 +57,7 @@ async function fixture(
         const [row] =
           await sql`insert into outbox(topic,kind,version,payload,created_at) values(${topic},'room.changed',1,${{ kind: 'room.changed', ids: [roomId], entityVersion: 1 }},${expired ? '2000-01-01T00:00:00.000Z' : '2002-01-01T00:00:00.000Z'}::timestamptz) returning txid::text,seq::text`;
         const position = { txid: String(row!.txid), seq: BigInt(row!.seq) };
-        await waitForOutboxFinality(sql, position.txid, { now: Date.now });
+        await waitForOutboxFinality(sql, position.txid, { waits: hostWaits });
         return position;
       },
     });
@@ -177,7 +182,7 @@ test('web maintenance advances past expired private delivery but keeps a recent 
           ids: [id],
           occurredAt: createdAt,
         }},${createdAt}::timestamptz) returning txid::text,seq::text`;
-      await waitForOutboxFinality(f.sql, row!.txid, { now: Date.now });
+      await waitForOutboxFinality(f.sql, row!.txid, { waits: hostWaits });
       return { txid: row!.txid, seq: BigInt(row!.seq) };
     };
     try {

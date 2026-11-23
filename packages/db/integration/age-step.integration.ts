@@ -1,3 +1,4 @@
+import { hostWaits } from '@daisy/worker/host';
 import { createId } from '@paralleldrive/cuid2';
 import { requireTestServices } from '@daisy/config';
 import { drizzle } from 'drizzle-orm/bun-sql';
@@ -17,7 +18,11 @@ const now = '2026-10-26T12:00:00.000Z';
 const withDatabase = async <T>(
   run: (database: ReturnType<typeof createDatabase>) => Promise<T>,
 ) => {
-  const database = createDatabase({ url, nextActorId: createId });
+  const database = createDatabase({
+    waits: hostWaits,
+    url,
+    nextActorId: createId,
+  });
   try {
     return await run(database);
   } finally {

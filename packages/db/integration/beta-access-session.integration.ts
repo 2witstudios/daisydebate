@@ -1,3 +1,4 @@
+import { hostWaits } from '@daisy/worker/host';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { requireTestServices } from '@daisy/config';
 import { createAppError } from '@daisy/errors';
@@ -12,7 +13,7 @@ const { databaseUrl: url } = requireTestServices(process.env);
 test('Beta access sessions require settlement and bound writers, while replay needs no writer or live check', async () => {
   await withFixture(url, async (f) => {
     const account = await pendingAccount(f);
-    const db = createDatabase({ url, nextActorId: createId });
+    const db = createDatabase({ waits: hostWaits, url, nextActorId: createId });
     const input = command(account.userId, 'approved', 1);
     const decision = {
       kind: 'changed',

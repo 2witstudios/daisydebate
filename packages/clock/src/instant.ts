@@ -1,4 +1,10 @@
-import type { Clock } from './index';
+/**
+ * An ISO wall clock: the time a record carries. Pure code takes one as an
+ * argument; production gets `systemClock` at its edge.
+ */
+export type Clock = {
+  now(): string;
+};
 
 const zonedInstant =
   /^(?<year>\d{4}|[+-]\d{6})-(?<month>0[1-9]|1[0-2])-(?<day>0[1-9]|[12]\d|3[01])T(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z|[+-](?:[01]\d|2[0-3]):[0-5]\d)$/;

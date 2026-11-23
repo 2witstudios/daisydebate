@@ -1,4 +1,5 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
+import { virtualClock } from '@daisy/clock/testing';
 import { createSweepPass } from './sweep-pass';
 
 setupRitewayBun();
@@ -75,6 +76,59 @@ describe('createSweepPass', () => {
       should: 'report it and finish the other',
       actual: [seen, failures],
       expected: [['good'], 1],
+    });
+  });
+});
+
+describe('createSweepPass budget', () => {
+  test('a page done within the budget ends the budget wait', async () => {
+    const clock = virtualClock();
+    const pass = createSweepPass((signal) => clock.sleep(750, signal));
+    await pass.overPages(
+      8,
+      pagesOf(['a'], 8),
+      self,
+      async () => {},
+      () => {},
+    );
+    assert({
+      given: 'a page whose work ends before the 750ms budget',
+      should: 'leave no budget wait armed',
+      actual: clock.sleepers(),
+      expected: 0,
+    });
+  });
+  test('a page past the budget returns while its work runs on', async () => {
+    const clock = virtualClock();
+    let release = () => {};
+    const slow = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const pass = createSweepPass((signal) => clock.sleep(750, signal));
+    let returned = false;
+    const walking = pass
+      .overPages(
+        8,
+        pagesOf(['slow'], 8),
+        self,
+        () => slow,
+        () => {},
+      )
+      .then(() => {
+        returned = true;
+      });
+    await clock.advance(749);
+    const beforeBudget = returned;
+    await clock.advance(1);
+    await walking;
+    const settling = pass.settled();
+    release();
+    await settling;
+    assert({
+      given: 'a row still running when 750ms of pass time have passed',
+      should: 'return the pass at the budget, not before',
+      actual: { beforeBudget, returned },
+      expected: { beforeBudget: false, returned: true },
     });
   });
 });

@@ -1,12 +1,12 @@
 import { createAppError } from '@daisy/errors';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { manualTimers } from '../lib/worker-timers.test-support';
+import { manualWaits } from '../lib/manual-waits.test-support';
 import type { App } from './app';
 import { startRoomLifecycleMaintenance } from './room-maintenance';
 setupRitewayBun();
 
 test('the process starts Room maintenance with the Room policy and reports each Room as room.maintenance.failed (ISSUE-771)', async () => {
-  const { tasks, timers } = manualTimers();
+  const { tasks, waits } = manualWaits();
   const lines: unknown[][] = [];
   const candidateReads: unknown[] = [];
   const app = {
@@ -25,7 +25,7 @@ test('the process starts Room maintenance with the Room policy and reports each 
     logger: { log: (...line: unknown[]) => lines.push(line) },
     ids: { next: () => 'r4n6p8r2t4v6x8z1k3b5c7d9' },
   } as unknown as App;
-  const worker = startRoomLifecycleMaintenance({ app, timers });
+  const worker = startRoomLifecycleMaintenance({ app, waits });
   await worker.started;
   const pulsing = tasks.has(500);
   await worker.stop();

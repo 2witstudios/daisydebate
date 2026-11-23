@@ -6,7 +6,20 @@ import { slotDatabaseOfRun } from '@daisy/db/test-runs';
 import { createRecordingWorkerStore } from '@daisy/db/recording-worker';
 import { buildRecording, type BuildPorts } from '../src/build-recording';
 import { localFiles, runCommand } from '../src/local-ports';
-import { runWorker } from '../src/worker';
+import { hostWaits } from '@daisy/worker/host';
+import { startRecordingSlot } from '../src/worker';
+
+/** The actual slot on host time, stopped once `stopped` holds (checked every 50 ms). */
+const runUntilStopped = async ({
+  stopped,
+  ...deps
+}: Omit<Parameters<typeof startRecordingSlot>[0], 'waits'> & {
+  readonly stopped: () => boolean;
+}) => {
+  const slot = startRecordingSlot({ ...deps, waits: hostWaits });
+  while (!stopped()) await hostWaits.sleep(50);
+  await slot.stop();
+};
 
 const request = z.discriminatedUnion('action', [
   z.object({
@@ -146,7 +159,7 @@ async function processJob(
   const stages: string[] = [];
   let buildError: unknown = null;
   try {
-    await runWorker({
+    await runUntilStopped({
       owner: input.owner,
       store: {
         ...store,
@@ -187,10 +200,6 @@ async function processJob(
       workDirOf: () => join(input.root, 'work', input.recordingId),
       removeWorkDir: async () => {},
       now: Date.now,
-      sleep: (ms) =>
-        new Promise((resolve) => {
-          setTimeout(resolve, ms).unref();
-        }),
       stopped: () => built,
       report: (event) => {
         failures.push(event);

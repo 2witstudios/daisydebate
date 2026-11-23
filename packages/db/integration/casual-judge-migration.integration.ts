@@ -1,4 +1,5 @@
 import { sha256Hex } from '@daisy/digest';
+import { hostWaits } from '@daisy/worker/host';
 import { fixtureJudgingProgression } from './judging-progression.test-support';
 import { instantMs } from '@daisy/clock';
 import { SQL } from 'bun';
@@ -182,8 +183,8 @@ test(
             throw Error('Expected original counted execution');
           const client = new SQL(scratch.url, { max: 4 });
           const run = createBoundedTransaction({
-            lane: testLane(client, 4),
-            now: performance.now,
+            lane: testLane(client, hostWaits, 4),
+            waits: hostWaits,
           });
           try {
             await recordJudgingUsage(
@@ -323,8 +324,8 @@ test(
           await atFinalJudgingStage(f.sql, target);
           const client = new SQL(scratch.url, { max: 4 });
           const run = createBoundedTransaction({
-            lane: testLane(client, 4),
-            now: performance.now,
+            lane: testLane(client, hostWaits, 4),
+            waits: hostWaits,
           });
           const jobs = judgingJobs(run);
           try {
@@ -396,8 +397,8 @@ test(
             await f.sql`select id,actor_id,source,state,reserved_at,binds_free_judge from usage_reservations where round_id=${target.roundId}`;
           const client = new SQL(scratch.url, { max: 4 });
           const run = createBoundedTransaction({
-            lane: testLane(client, 4),
-            now: performance.now,
+            lane: testLane(client, hostWaits, 4),
+            waits: hostWaits,
           });
           try {
             const jobs = judgingJobs(run);

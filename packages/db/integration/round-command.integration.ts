@@ -1,3 +1,4 @@
+import { hostWaits } from '@daisy/worker/host';
 import { roundDecisionReleasePolicy } from '@daisy/protocol/round-decision-release';
 import { createId } from '@paralleldrive/cuid2';
 import { requireTestServices } from '@daisy/config';
@@ -17,6 +18,7 @@ test('concurrent identical commands commit once and replay before stale-version 
     );
     const roundId = await fixture.round({ created_by_actor_id: actorId });
     const db = createDatabase({
+      waits: hostWaits,
       decisionRelease: roundDecisionReleasePolicy,
       url,
       nextActorId: createId,

@@ -1,3 +1,4 @@
+import { hostWaits } from '@daisy/worker/host';
 import { resolveRoomConfiguration } from '@daisy/debate-engine';
 import { oneOnOneDefinition, oneOnOneSettings } from '../src/reference-formats';
 import { createId } from '@paralleldrive/cuid2';
@@ -200,7 +201,11 @@ export const withProfileFixture = (
   }) => Promise<void>,
 ) =>
   withFixture(url, async (fixture) => {
-    const database = createDatabase({ url, nextActorId: createId });
+    const database = createDatabase({
+      waits: hostWaits,
+      url,
+      nextActorId: createId,
+    });
     try {
       await run({
         fixture,

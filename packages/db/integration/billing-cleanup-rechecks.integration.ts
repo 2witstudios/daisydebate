@@ -1,3 +1,4 @@
+import { hostWaits } from '@daisy/worker/host';
 import { SQL } from 'bun';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { requireTestServices } from '@daisy/config';
@@ -24,6 +25,7 @@ test('runtime ACK discovery freezes an indexed upper key and ends a deleted-boun
       return connection;
     };
     const database = createDatabase({
+      waits: hostWaits,
       url: databaseUrl,
       client: pool,
       nextActorId: createId,

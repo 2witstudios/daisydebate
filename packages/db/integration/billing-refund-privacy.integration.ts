@@ -1,3 +1,4 @@
+import { hostWaits } from '@daisy/worker/host';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { requireTestServices } from '@daisy/config';
 import { createId } from '@paralleldrive/cuid2';
@@ -41,6 +42,7 @@ test(
         });
         await fixture.sql`delete from billing_customers where user_id=${userId}`;
         const database = createDatabase({
+          waits: hostWaits,
           url: databaseUrl,
           client: pool,
           nextActorId: createId,

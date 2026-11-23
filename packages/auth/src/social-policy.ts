@@ -1,4 +1,4 @@
-import { instantMs, tryInstantMs } from '@daisy/clock';
+import { instantMs, tryInstantMs } from '@daisy/clock/instant';
 import { currentAgeFact } from './authorization-age';
 import type { AccountAgeFact } from './account-age';
 import {

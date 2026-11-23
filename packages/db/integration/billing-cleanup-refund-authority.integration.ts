@@ -1,3 +1,4 @@
+import { hostWaits } from '@daisy/worker/host';
 import { installInvoicePassGuards } from './billing-invoice-pass-current.test-support';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { requireTestServices } from '@daisy/config';
@@ -35,6 +36,7 @@ test('current unlinked original refund action cannot be skipped by public resolu
         return connection;
       };
       const database = createDatabase({
+          waits: hostWaits,
           url: databaseUrl,
           client: pool,
           nextActorId: createId,

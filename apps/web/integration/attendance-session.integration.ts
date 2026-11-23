@@ -1,3 +1,4 @@
+import { hostWaits } from '@daisy/worker/host';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';
 import { createAppError } from '@daisy/errors';
@@ -151,7 +152,7 @@ test('signed receipt replay waiting on the canonical account fence sees revocati
           request,
           f.sql,
           backend.pid,
-          { now: performance.now, deadlineMs: 500 },
+          { waits: hostWaits, deadlineMs: 500 },
         );
         assert({
           given:

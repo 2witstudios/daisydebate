@@ -1,4 +1,4 @@
-import { instantMs, tryInstantMs } from '@daisy/clock';
+import { instantMs, tryInstantMs } from '@daisy/clock/instant';
 import type { RoundCommandAuthority } from '@daisy/protocol/round-command';
 import type {
   RoundParticipantSeat,

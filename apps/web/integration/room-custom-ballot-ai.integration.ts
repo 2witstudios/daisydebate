@@ -1,3 +1,4 @@
+import { hostWaits } from '@daisy/worker/host';
 import { judgingProgression } from '../src/features/round-judging/progression';
 import { randomBytes } from 'node:crypto';
 import { requireTestServices } from '@daisy/config';
@@ -183,6 +184,7 @@ for (const per of ['side', 'seat', 'speech'] as const)
           }[] = [];
           const voice = createOpenRouter({
             apiKey: 'noncredential-controlled-provider',
+            waits: hostWaits,
             fetch: async (_url, init) => {
               const request = JSON.parse(String(init?.body));
               const format = request.response_format.json_schema;

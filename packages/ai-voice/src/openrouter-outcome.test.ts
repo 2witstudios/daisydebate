@@ -1,3 +1,4 @@
+import { virtualClock } from '@daisy/clock/testing';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import {
   createOpenRouter,
@@ -11,7 +12,7 @@ const outcome = async (
   fetch: Parameters<typeof createOpenRouter>[0]['fetch'],
   signal?: AbortSignal,
 ) =>
-  createOpenRouter({ apiKey: 'key', fetch })
+  createOpenRouter({ apiKey: 'key', fetch, waits: virtualClock() })
     .complete({
       model: 'openai/gpt-6-luna',
       messages: [{ role: 'user', content: 'Hi' }],
@@ -76,7 +77,7 @@ test('a failure worth retrying is every uncertain one and a rate limit, never an
     fetch: Parameters<typeof createOpenRouter>[0]['fetch'],
     signal?: AbortSignal,
   ) =>
-    createOpenRouter({ apiKey: 'key', fetch })
+    createOpenRouter({ apiKey: 'key', fetch, waits: virtualClock() })
       .transcribe({
         model: 'openai/gpt-6-ear',
         audioBase64: 'AAAA',

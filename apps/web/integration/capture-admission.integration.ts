@@ -1,3 +1,4 @@
+import { hostWaits } from '@daisy/worker/host';
 import { instantMs } from '@daisy/clock';
 import { randomBytes } from 'node:crypto';
 import { createId } from '@paralleldrive/cuid2';
@@ -151,7 +152,7 @@ test('actual signed capture callers recheck closure and epoch after waiting on t
             response,
             f.f.sql,
             pid,
-            { now: Date.now, deadlineMs: 1500 },
+            { waits: hostWaits, deadlineMs: 1500 },
           );
           release.resolve();
           await holder;

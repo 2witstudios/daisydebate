@@ -1,3 +1,5 @@
+import type { Waits } from '@daisy/clock';
+import { virtualClock } from '@daisy/clock/testing';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import {
   createSubscriptionRequests,
@@ -6,10 +8,28 @@ import {
 
 setupRitewayBun();
 
-/** One fake publication and a queue of timers the test fires by hand. */
+/**
+ * One fake publication over a virtual clock, recording every wait armed: its
+ * delay, and whether it is still armed (neither woken nor cancelled).
+ */
 const fixture = () => {
   const asks: boolean[] = [];
-  const timers: { run: () => void; ms: number; done: boolean }[] = [];
+  const clock = virtualClock();
+  const timers: { ms: number; done: boolean }[] = [];
+  const waits: Waits = {
+    nowMs: clock.nowMs,
+    sleep: clock.sleep,
+    waitUntilMs: (dueMs, signal) => {
+      const timer = { ms: dueMs - clock.nowMs(), done: false };
+      timers.push(timer);
+      signal?.addEventListener('abort', () => (timer.done = true), {
+        once: true,
+      });
+      return clock.waitUntilMs(dueMs, signal).then(() => {
+        timer.done = true;
+      });
+    },
+  };
   const publication = {
     sid: 'TR_mic',
     subscribed: false,
@@ -17,28 +37,14 @@ const fixture = () => {
       asks.push(subscribed);
     },
   };
-  const requests = createSubscriptionRequests({
-    set: (run, ms) => {
-      const timer = {
-        ms,
-        done: false,
-        run: () => {
-          timer.done = true;
-          run();
-        },
-      };
-      timers.push(timer);
-      return timer;
-    },
-    clear: (handle) => {
-      (handle as (typeof timers)[number]).done = true;
-    },
-  });
+  const requests = createSubscriptionRequests(waits);
   const want = (wanted = true) =>
     requests.reconcile(publication, wanted, () => want());
-  /** Timers still armed (neither fired nor cleared), by delay. */
+  /** Waits still armed, by delay. */
   const live = () =>
     timers.filter((timer) => !timer.done).map((timer) => timer.ms);
+  /** Lets the latest wait come due, and whatever it runs settle. */
+  const elapse = () => clock.advance(timers.at(-1)!.ms);
   /** The track arrives, then (`drop`) the SFU drops it while still published. */
   const arrive = () => {
     publication.subscribed = true;
@@ -49,14 +55,14 @@ const fixture = () => {
     requests.retry('TR_mic', () => want());
   };
   /** Asks, then `times` arrivals each dropped and asked again after its pause; the pauses waited. */
-  const flap = (times: number) => {
+  const flap = async (times: number) => {
     const waited: number[] = [];
     want();
     for (let round = 0; round < times; round++) {
       arrive();
       drop();
       waited.push(timers.at(-1)!.ms);
-      timers.at(-1)!.run();
+      await elapse();
     }
     return waited;
   };
@@ -67,6 +73,7 @@ const fixture = () => {
     requests,
     want,
     live,
+    elapse,
     arrive,
     drop,
     flap,
@@ -88,14 +95,14 @@ test('a pending subscription is asked for once, and withdrawn once', () => {
   });
 });
 
-test('a refused subscription is asked again after a pause doubling to 30 s, until it arrives', () => {
-  const { asks, timers, requests, want, live } = fixture();
+test('a refused subscription is asked again after a pause doubling to 30 s, until it arrives', async () => {
+  const { asks, timers, requests, want, live, elapse } = fixture();
   want();
   const pauses: number[] = [];
   for (let refusal = 0; refusal < 7; refusal++) {
     requests.retry('TR_mic', () => want());
     pauses.push(timers.at(-1)!.ms);
-    timers.at(-1)!.run();
+    await elapse();
   }
   requests.subscribed('TR_mic');
   assert({
@@ -111,11 +118,11 @@ test('a refused subscription is asked again after a pause doubling to 30 s, unti
   });
 });
 
-test('an ask nothing answers times out and is asked again', () => {
-  const { asks, timers, want } = fixture();
+test('an ask nothing answers times out and is asked again', async () => {
+  const { asks, timers, want, elapse } = fixture();
   want();
-  timers[0]!.run();
-  timers[1]!.run();
+  await elapse();
+  await elapse();
   assert({
     given: 'an ask with neither its track nor a refusal within 10 s',
     should: 'count it refused and ask again after the first pause',
@@ -151,10 +158,10 @@ test('a withdrawal, an unpublished track or a close cancels a pending retry', ()
   });
 });
 
-test('a failed SDK re-attempt, with no ask of ours outstanding, is asked again', () => {
-  const { asks, timers, requests, want } = fixture();
+test('a failed SDK re-attempt, with no ask of ours outstanding, is asked again', async () => {
+  const { asks, timers, requests, want, elapse } = fixture();
   requests.retry('TR_mic', () => want());
-  timers[0]!.run();
+  await elapse();
   assert({
     given: 'a subscription failure for a sid with no outstanding ask',
     should: 'ask again after the first pause',
@@ -163,14 +170,14 @@ test('a failed SDK re-attempt, with no ask of ours outstanding, is asked again',
   });
 });
 
-test('a held track the SFU keeps dropping is asked again after a pause that grows across arrivals', () => {
+test('a held track the SFU keeps dropping is asked again after a pause that grows across arrivals', async () => {
   const { flap } = fixture();
   assert({
     given:
       'a microphone that arrives, holds less than 30 s and is dropped, three times',
     should:
       'ask again after 1 s, 2 s, then 4 s, never at once and never reset by a short hold',
-    actual: flap(3),
+    actual: await flap(3),
     expected: [1000, 2000, 4000],
   });
 });
@@ -194,11 +201,11 @@ test('an unsubscription asks again only for a still-wanted track', () => {
   });
 });
 
-test('a track that has held for 30 s starts again from the first pause', () => {
-  const { timers, arrive, drop, flap } = fixture();
-  flap(3);
+test('a track that has held for 30 s starts again from the first pause', async () => {
+  const { timers, arrive, drop, flap, elapse } = fixture();
+  await flap(3);
   arrive();
-  timers.at(-1)!.run();
+  await elapse();
   drop();
   assert({
     given:

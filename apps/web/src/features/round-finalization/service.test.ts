@@ -2,29 +2,25 @@ import type { AttendanceEvaluation } from '@daisy/db/attendance';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { startRoundMaintenance } from './service';
 import { createRefusal } from '@daisy/errors';
-import { inertTimers } from '../../lib/worker-timers.test-support';
+import {
+  inertWaits,
+  manualWaits,
+  recordingWaits,
+} from '../../lib/manual-waits.test-support';
 
+/**
+ * Fires every wait armed now, once each: a wait it wakes arms its successor
+ * behind them, for the next pulse.
+ */
+const pulseAll = async (manual: ReturnType<typeof manualWaits>) => {
+  await manual.settle();
+  for (let left = manual.tasks.size; left > 0 && manual.tasks.size > 0; left--)
+    await manual.nextPass();
+};
 /** Maintenance's two loops (discovery, rating): a pulse fires every armed pass. */
 const pulseTimers = () => {
-  const armed = new Map<object, () => unknown>();
-  return {
-    timers: {
-      ...inertTimers,
-      setTimeout: (run: () => unknown) => {
-        const handle = {};
-        armed.set(handle, run);
-        return handle;
-      },
-      clearTimeout: (handle: unknown) => {
-        armed.delete(handle as object);
-      },
-    },
-    pulse: async () => {
-      const due = [...armed.values()];
-      armed.clear();
-      await Promise.all(due.map((run) => run()));
-    },
-  };
+  const manual = manualWaits();
+  return { waits: manual.waits, pulse: () => pulseAll(manual) };
 };
 setupRitewayBun();
 /** A pass that reached a decision, as the store returns it. */
@@ -52,7 +48,7 @@ const ports = (): Ports => ({
   evaluate: async () => ({ kind: 'undecided' as const }),
   finalize: async () => {},
   rateUnrated: async () => 0,
-  timers: inertTimers,
+  waits: inertWaits,
   now: () => 0,
   failed: (error) => {
     throw error;
@@ -86,13 +82,9 @@ test('maintenance immediately discovers all casts and keeps rating recovery sepa
       return 0;
     },
     now: () => 0,
-    timers: {
-      ...inertTimers,
-      setTimeout: (_pulse: () => unknown, ms: number) => {
-        interval = ms;
-        return 1;
-      },
-    },
+    waits: recordingWaits(inertWaits, (event, ms) => {
+      if (event === 'armed') interval ??= ms;
+    }),
     failed: () => {
       calls.push('failed');
     },
@@ -150,10 +142,10 @@ test('a held Round does not stop discovery or rating recovery and shutdown drain
       ratings += 1;
       return 0;
     },
-    timers: driver.timers,
+    waits: driver.waits,
   });
   await service.ready;
-  pulse();
+  await pulse();
   await rediscovered.promise;
   const closing = service.stop().then(() => {
     order.push('stopped');
@@ -236,7 +228,7 @@ test('a five-Round fleet leaves capacity for public work and advances queued Rou
       await held.promise;
       running -= 1;
     },
-    timers: driver.timers,
+    waits: driver.waits,
   });
   await service.ready;
   assert({
@@ -247,7 +239,7 @@ test('a five-Round fleet leaves capacity for public work and advances queued Rou
     actual: { calls: [...calls], maximum },
     expected: { calls: ['a', 'b'], maximum: 2 },
   });
-  pulse();
+  await pulse();
   await service.ready;
   held.resolve();
   // Drain only admitted work; queued work must never start after shutdown.
@@ -304,7 +296,7 @@ function driven(overrides: Partial<Ports>) {
   let clock = 0;
   const service = startRoundMaintenance({
     ...ports(),
-    timers: driver.timers,
+    waits: driver.waits,
     now: () => clock,
     ...overrides,
   });
@@ -621,34 +613,18 @@ test('a Round that leaves discovery is forgotten: back again, it waits for nothi
 
 test('an opening waiting on the clock keeps discovery at its pace; none lets it back off', async () => {
   const pace = async (openingsWaiting: boolean) => {
-    const armed = new Map<object, { ms: number; run: () => unknown }>();
-    const waits: number[] = [];
+    const manual = manualWaits();
     const service = startRoundMaintenance({
       ...ports(),
       discover: async () => ({ ...page([]), openingsWaiting }),
       // Rating always busy, so only discovery's waits can grow.
       rateUnrated: async () => 1,
-      timers: {
-        ...inertTimers,
-        setTimeout: (run, ms) => {
-          const handle = {};
-          armed.set(handle, { ms, run });
-          waits.push(ms);
-          return handle;
-        },
-        clearTimeout: (handle) => {
-          armed.delete(handle as object);
-        },
-      },
+      waits: manual.waits,
     });
     await service.ready;
-    for (let pulse = 0; pulse < 3; pulse += 1) {
-      const due = [...armed.values()];
-      armed.clear();
-      await Promise.all(due.map(({ run }) => run()));
-    }
+    for (let pulse = 0; pulse < 3; pulse += 1) await pulseAll(manual);
     await service.stop();
-    return waits;
+    return manual.armed;
   };
   const waiting = await pace(true);
   const idle = await pace(false);

@@ -1,4 +1,4 @@
-import { instantMs } from '@daisy/clock';
+import { instantMs } from '@daisy/clock/instant';
 import { isRoundRunning } from '@daisy/protocol/round';
 import { roundMediaPolicy } from '@daisy/protocol/round-media-policy';
 import {

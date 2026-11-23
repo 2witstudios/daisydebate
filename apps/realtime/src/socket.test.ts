@@ -5,8 +5,8 @@ import {
   createWebSocketHandlers,
   HELLO_TIMEOUT_MS,
   type SocketData,
-  type SocketTimers,
 } from './socket';
+import { recordingWaits } from './socket.test-support';
 
 setupRitewayBun();
 
@@ -35,30 +35,9 @@ const fakeSocket = (): {
   return { ws, closes };
 };
 
-const fakeTimers = (): {
-  timers: SocketTimers;
-  scheduled: { callback: () => void; ms: number }[];
-  cleared: unknown[];
-} => {
-  const scheduled: { callback: () => void; ms: number }[] = [];
-  const cleared: unknown[] = [];
-  let nextHandle = 0;
-  const timers: SocketTimers = {
-    setTimeout: (callback, ms) => {
-      scheduled.push({ callback, ms });
-      nextHandle += 1;
-      return nextHandle as unknown as ReturnType<typeof setTimeout>;
-    },
-    clearTimeout: (handle) => {
-      cleared.push(handle);
-    },
-  };
-  return { timers, scheduled, cleared };
-};
-
 describe('createWebSocketHandlers', () => {
   test('valid hello consumes the ticket before ready, and late allow after deadline cannot resurrect', async () => {
-    const { timers, scheduled } = fakeTimers();
+    const { waits, clock } = recordingWaits();
     const { logger } = fakeLogger();
     const { ws, closes } = fakeSocket();
     const sent: string[] = [];
@@ -72,7 +51,7 @@ describe('createWebSocketHandlers', () => {
     ) => void;
     const handlers = createWebSocketHandlers({
       logger,
-      timers,
+      waits,
       authenticate: () =>
         new Promise((resolve) => {
           allow = resolve;
@@ -88,7 +67,7 @@ describe('createWebSocketHandlers', () => {
         ticket: 'a'.repeat(43),
       }),
     );
-    scheduled[0]?.callback();
+    await clock.advance(HELLO_TIMEOUT_MS);
     allow({
       actorId: 'a'.repeat(24),
       userId: 'b'.repeat(24),
@@ -106,39 +85,43 @@ describe('createWebSocketHandlers', () => {
     });
   });
   test('arms a 5s hello deadline on open', () => {
-    const { timers, scheduled } = fakeTimers();
+    const { waits, scheduled } = recordingWaits();
     const { logger } = fakeLogger();
     const { ws } = fakeSocket();
-    const handlers = createWebSocketHandlers({ logger, timers });
+    const handlers = createWebSocketHandlers({ logger, waits });
 
     handlers.open(ws);
 
     assert({
       given: 'a newly opened socket',
       should: 'schedule the hello deadline at HELLO_TIMEOUT_MS',
-      actual: scheduled.map((entry) => entry.ms),
+      actual: scheduled,
       expected: [HELLO_TIMEOUT_MS],
     });
   });
 
-  test('closes 4001 auth_failed and logs the rejection when the hello deadline fires', () => {
-    const { timers, scheduled } = fakeTimers();
+  test('closes 4001 auth_failed and logs the rejection when the hello deadline fires', async () => {
+    const { waits, clock } = recordingWaits();
     const { logger, calls } = fakeLogger();
     const { ws, closes } = fakeSocket();
-    const handlers = createWebSocketHandlers({ logger, timers });
+    const handlers = createWebSocketHandlers({ logger, waits });
 
     handlers.open(ws);
-    scheduled[0]?.callback();
+    await clock.advance(HELLO_TIMEOUT_MS - 1);
+    const closedEarly = closes.length;
+    await clock.advance(1);
 
     assert({
       given: 'no message arriving before the hello deadline',
       should: 'close 4001 auth_failed and log it with cause hello_timeout',
       actual: {
+        closedEarly,
         closes,
         loggedEvent: calls[0]?.[0],
         loggedFields: calls[0]?.[1],
       },
       expected: {
+        closedEarly: 0,
         closes: [{ code: 4001, reason: 'auth_failed' }],
         loggedEvent: 'realtime.connection.rejected',
         loggedFields: {
@@ -151,10 +134,10 @@ describe('createWebSocketHandlers', () => {
   });
 
   test('clears the hello timer and closes per the parsed outcome on message', () => {
-    const { timers, cleared } = fakeTimers();
+    const { waits, cleared } = recordingWaits();
     const { logger, calls } = fakeLogger();
     const { ws, closes } = fakeSocket();
-    const handlers = createWebSocketHandlers({ logger, timers });
+    const handlers = createWebSocketHandlers({ logger, waits });
 
     handlers.open(ws);
     handlers.message(ws, 'not json');
@@ -164,7 +147,7 @@ describe('createWebSocketHandlers', () => {
       should:
         'clear the hello timer, close 4003 and log the rejection with cause message_rejected',
       actual: {
-        timerCleared: cleared.length,
+        timerCleared: cleared(),
         closes,
         loggedEvent: calls[0]?.[0],
         loggedFields: calls[0]?.[1],
@@ -183,17 +166,17 @@ describe('createWebSocketHandlers', () => {
   });
 
   test('clears the hello timer on close without a pending timer', () => {
-    const { timers, cleared } = fakeTimers();
+    const { waits, cleared } = recordingWaits();
     const { logger } = fakeLogger();
     const { ws } = fakeSocket();
-    const handlers = createWebSocketHandlers({ logger, timers });
+    const handlers = createWebSocketHandlers({ logger, waits });
 
     handlers.close(ws);
 
     assert({
       given: 'a socket that closes with no timer ever armed',
-      should: 'never call clearTimeout',
-      actual: cleared.length,
+      should: 'never cancel a deadline',
+      actual: cleared(),
       expected: 0,
     });
   });

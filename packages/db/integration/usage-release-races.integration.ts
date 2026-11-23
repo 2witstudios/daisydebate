@@ -1,3 +1,4 @@
+import { hostWaits } from '@daisy/worker/host';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import {
   canReleaseFreeJudgeBinding,
@@ -46,7 +47,7 @@ test('release commits before a stale dispatcher and preserves terminal old ident
               'an uncommitted whole-bundle release holding the canonical account fence',
             should: 'make a real stale first-model dispatcher wait',
             actual: await finishedOrBlockedBehind(dispatch, f.sql, pid, {
-              now: performance.now,
+              waits: hostWaits,
               deadlineMs: 1000,
             }),
             expected: 'blocked',
@@ -112,7 +113,7 @@ for (const contender of ['replacement', 'judge'] as const) {
               given: `an uncommitted release and a concurrent ${contender} admission`,
               should: 'wait on the canonical account fence',
               actual: await finishedOrBlockedBehind(competing, f.sql, pid, {
-                now: performance.now,
+                waits: hostWaits,
                 deadlineMs: 1000,
               }),
               expected: 'blocked',
@@ -166,7 +167,7 @@ test('a dispatched bot wins the fence and abandonment cannot erase its original 
               'a dispatched bot and abandonment in the writer that holds the account fence',
             should: 'serialize release behind durable dispatch',
             actual: await finishedOrBlockedBehind(releasing, f.sql, pid, {
-              now: performance.now,
+              waits: hostWaits,
               deadlineMs: 1000,
             }),
             expected: 'blocked',

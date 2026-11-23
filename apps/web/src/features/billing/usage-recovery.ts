@@ -11,12 +11,12 @@ export function createUsageRecovery(input: {
   readonly failed: (error: unknown, stage: 'discover' | 'release') => void;
 }) {
   let afterId: string | undefined;
-  let stopped = false;
-  /** Read afresh after every await: stop() lands between them. */
-  const isStopped = () => stopped;
   return {
-    async run() {
-      if (isStopped()) return;
+    /** One page; `signal` refuses new work once the worker stops. */
+    async run(signal: AbortSignal = new AbortController().signal) {
+      // Read afresh after each await: a stop may arrive mid-page.
+      const stopped = () => signal.aborted;
+      if (stopped()) return;
       try {
         const page = await input.store.readAbandonedUsageCandidates({
           instanceId: input.instanceId,
@@ -24,7 +24,7 @@ export function createUsageRecovery(input: {
           limit: 25,
         });
         for (const candidate of page.candidates) {
-          if (isStopped()) return;
+          if (stopped()) return;
           try {
             await input.store.releaseAbandonedUsage(
               { ...candidate, instanceId: input.instanceId },
@@ -38,9 +38,6 @@ export function createUsageRecovery(input: {
       } catch (error) {
         input.failed(error, 'discover');
       }
-    },
-    stop() {
-      stopped = true;
     },
   };
 }

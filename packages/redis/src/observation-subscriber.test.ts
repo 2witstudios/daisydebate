@@ -1,3 +1,4 @@
+import { virtualClock } from '@daisy/clock/testing';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {
   createObservationSubscriber,
@@ -19,7 +20,7 @@ function harness() {
     deliver: (message: string, channel: string) => void;
     fail: () => void;
   })[] = [];
-  const pending: (() => void)[] = [];
+  const clock = virtualClock();
   const events: string[] = [];
   let listener: (message: string, channel: string) => void = () => {};
   const subscriber = createObservationSubscriber({
@@ -46,12 +47,9 @@ function harness() {
     onHint: (r, hint) => events.push(`hint:${r.id === id}:${hint.kind}`),
     onSynchronized: () => events.push('synchronized'),
     onLost: () => events.push('lost'),
-    timers: {
-      setTimeout: (callback) => pending.push(callback),
-      clearTimeout: () => {},
-    },
+    waits: clock,
   });
-  return { subscriber, connections, pending, events };
+  return { subscriber, connections, clock, events };
 }
 const settle = () => new Promise((resolve) => setImmediate(resolve));
 const published = JSON.stringify({
@@ -63,22 +61,24 @@ const published = JSON.stringify({
 
 describe('observation subscriber', () => {
   test('reconnect resubscribes then resynchronizes', async () => {
-    const { subscriber, connections, pending, events } = harness();
+    const { subscriber, connections, clock, events } = harness();
     await subscriber.observe(resource);
     subscriber.start();
     await settle();
     connections[0]!.deliver(published, keys.hint(resource));
     connections[0]!.fail();
     connections[0]!.deliver(published, keys.hint(resource));
-    pending.shift()!();
-    await settle();
+    await clock.advance(249);
+    const beforeBackOff = connections.length;
+    await clock.advance(1);
     connections[1]!.deliver(published, keys.hint(resource));
     assert({
-      given: 'a lost connection and a redial',
+      given: 'a lost connection and a redial after the first 250 ms back-off',
       should:
-        'drop hints while lost, resubscribe every channel on one new connection and report synchronization again',
-      actual: [events, connections[1]!.channels],
+        'not redial before the back-off, drop hints while lost, resubscribe every channel on one new connection and report synchronization again',
+      actual: [beforeBackOff, events, connections[1]!.channels],
       expected: [
+        1,
         [
           'synchronized',
           'hint:true:published',
@@ -109,7 +109,7 @@ describe('observation subscriber', () => {
     });
   });
   test('closed is final', async () => {
-    const { subscriber, connections, pending } = harness();
+    const { subscriber, connections, clock } = harness();
     subscriber.start();
     await settle();
     subscriber.close();
@@ -117,7 +117,7 @@ describe('observation subscriber', () => {
     assert({
       given: 'a closed subscriber whose connection then drops',
       should: 'never redial',
-      actual: [subscriber.state(), pending.length],
+      actual: [subscriber.state(), clock.sleepers()],
       expected: ['closed', 0],
     });
   });

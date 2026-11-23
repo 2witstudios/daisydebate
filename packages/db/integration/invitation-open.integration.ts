@@ -1,3 +1,4 @@
+import { hostWaits } from '@daisy/worker/host';
 import { requireTestServices } from '@daisy/config';
 import { decideRoomInvitation } from '@daisy/debate-engine';
 import { createId } from '@paralleldrive/cuid2';
@@ -45,7 +46,7 @@ const withInvitation = (
     try {
       const { invitationId } = await roomInvitationOperations({
         database,
-        transaction: roomCommandTransaction(f.sql, 2),
+        transaction: roomCommandTransaction(f.sql, 2, hostWaits),
       }).inviteToRoom({
         caller: host,
         roomId,

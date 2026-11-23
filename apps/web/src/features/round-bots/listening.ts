@@ -1,4 +1,4 @@
-import { instantMs } from '@daisy/clock';
+import { instantMs, type Waits } from '@daisy/clock';
 import type { BotPublicationScope } from '@daisy/db/bot-publication';
 import { errorCodeOf, isRefusal } from '@daisy/errors';
 import { createTrackClocks } from '@daisy/media/observation';
@@ -73,7 +73,8 @@ export function createBotListening(
     ) => Promise<ListenGrant['peers']>;
     readonly subscribe: typeof createAudioSubscription;
     readonly databaseNow: () => Promise<string>;
-    readonly monotonicNowMs: () => number;
+    /** Monotonic time: the hearing's own pacing, and what its frames are stamped on. */
+    readonly waits: Waits;
     /** An unexpected join failure; routine admission refusals go unreported. */
     readonly failed: (error: unknown) => void;
     /**
@@ -145,7 +146,7 @@ export function createBotListening(
   };
   /** A peer still unbound is read again, at most once a calibration period. */
   const refreshPeers = async (current: Subscription) => {
-    const now = input.monotonicNowMs();
+    const now = input.waits.nowMs();
     if (seats.size >= peers.size || now - peersReadAt < CALIBRATE_EVERY_MS)
       return;
     peersReadAt = now;
@@ -182,25 +183,25 @@ export function createBotListening(
       receivedAt: new Date(
         Math.max(
           window.afterMs,
-          serverNowUpperMs(input.monotonicNowMs(), calibration),
+          serverNowUpperMs(input.waits.nowMs(), calibration),
         ),
       ).toISOString(),
     });
   };
 
   const scheduleRejoin = () => {
-    rejoinAt = input.monotonicNowMs() + rejoinPauseMs;
+    rejoinAt = input.waits.nowMs() + rejoinPauseMs;
     rejoinPauseMs = Math.min(rejoinPauseMs * 2, REJOIN_MAX_MS);
   };
   const join = async () => {
     const grant = await input.listenToken(scope, input.claim.token);
     bindPeers(grant.peers);
-    peersReadAt = input.monotonicNowMs();
+    peersReadAt = input.waits.nowMs();
     const opened = await input.subscribe({
       url: grant.url,
       token: grant.token,
       identities: [...seats.keys()],
-      nowMs: input.monotonicNowMs,
+      waits: input.waits,
       onFrame: hear,
       onTrackStarted: () => undefined,
       onTrackClosed: (track) => {
@@ -234,7 +235,7 @@ export function createBotListening(
   };
   const ensureJoined = () => {
     if (closed || subscription || joining) return;
-    if (input.monotonicNowMs() < rejoinAt) return;
+    if (input.waits.nowMs() < rejoinAt) return;
     joining = join()
       // Refused (a revocation still settling, a claim taken over) or
       // unreachable: asked again later, never every poll. An unexpected
@@ -261,14 +262,14 @@ export function createBotListening(
       });
   };
   const calibrate = async () => {
-    const sentAtMs = input.monotonicNowMs();
+    const sentAtMs = input.waits.nowMs();
     const periodMs = calibration
       ? CALIBRATE_EVERY_MS
       : CALIBRATE_FIRST_RETRY_MS;
     if (sentAtMs - calibrationReadAt < periodMs) return;
     calibrationReadAt = sentAtMs;
     const server = instantMs(await input.databaseNow());
-    const receivedAtMs = input.monotonicNowMs();
+    const receivedAtMs = input.waits.nowMs();
     // A slow read keeps the previous calibration; the next period retries.
     if (receivedAtMs - sentAtMs > MAX_CALIBRATION_RTT_MS)
       return observed('calibration.discarded', {
@@ -297,7 +298,7 @@ export function createBotListening(
       if (calibration)
         observer.expire(
           new Date(
-            serverNowUpperMs(input.monotonicNowMs(), calibration),
+            serverNowUpperMs(input.waits.nowMs(), calibration),
           ).toISOString(),
         );
     },

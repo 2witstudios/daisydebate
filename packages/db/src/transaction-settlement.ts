@@ -1,4 +1,5 @@
 import type { ReservedSQL, SQL } from 'bun';
+import { deadlineSignal, type Waits } from '@daisy/clock';
 import {
   recoverTransactionBackend,
   type OwnedBackend,
@@ -15,7 +16,8 @@ export function transactionSettlement(input: {
   readonly client: SQL;
   readonly backend: OwnedBackend | undefined;
   readonly absent: boolean;
-  readonly now: () => number;
+  /** The time a confirmation's 1 s budget is measured on (R4.7). */
+  readonly waits: Waits;
 }): TransactionSettlement {
   let absent = input.absent;
   const { promise: settled, resolve } =
@@ -29,16 +31,16 @@ export function transactionSettlement(input: {
   const verify = async () => {
     if (absent) return true;
     if (!input.backend) return false;
-    const controller = new AbortController();
-    const deadline = input.now() + 1000;
-    const timer = setTimeout(() => controller.abort(), 1000);
+    const deadline = input.waits.nowMs() + 1000;
+    const bound = deadlineSignal(input.waits, 1000);
     let control: ReservedSQL | undefined;
     let confirmed = false;
     try {
-      control = await input.client.reserve({ signal: controller.signal });
-      const remaining = deadline - input.now();
+      control = await input.client.reserve({ signal: bound.signal });
+      const remaining = deadline - input.waits.nowMs();
       if (remaining <= 0) return false;
       confirmed = await recoverTransactionBackend(
+        input.waits,
         control,
         input.backend,
         remaining,
@@ -48,7 +50,7 @@ export function transactionSettlement(input: {
     } catch {
       return false;
     } finally {
-      clearTimeout(timer);
+      bound.clear();
       if (confirmed) control?.release();
       else void control?.close({ timeout: 0 }).catch(() => undefined);
     }

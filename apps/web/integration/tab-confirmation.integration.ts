@@ -1,3 +1,4 @@
+import { hostWaits } from '@daisy/worker/host';
 import { instantMs } from '@daisy/clock';
 import { SQL } from 'bun';
 import { authorize } from '@daisy/auth/authorization';
@@ -389,7 +390,7 @@ test('actual pending confirmations preserve five-minute issuance, settle once an
         result,
         observer,
         Number(backend!.pid),
-        { now: Date.now },
+        { waits: hostWaits },
       );
       assert({
         given:

@@ -1,3 +1,4 @@
+import { hostWaits } from '@daisy/worker/host';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, test } from 'riteway/bun';
 import {
@@ -287,6 +288,7 @@ test('observation: one subscriber connection receives published hints for observ
       onHint: (res, hint) => hints.push([res.id, hint]),
       onSynchronized: () => synchronized++,
       onLost: () => {},
+      waits: hostWaits,
     });
     try {
       await subscriber.observe(r);

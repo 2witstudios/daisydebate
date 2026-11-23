@@ -1,4 +1,4 @@
-import { instantMs, tryInstantMs } from '@daisy/clock';
+import { instantMs, tryInstantMs } from '@daisy/clock/instant';
 import { createInvariantError } from '@daisy/errors';
 import {
   runtimeCheckpointSchema,

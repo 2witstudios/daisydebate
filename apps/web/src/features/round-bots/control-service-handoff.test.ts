@@ -2,7 +2,7 @@ import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { startBotControlService } from './control-service';
 import { recoverableFailure } from '../../server/recoverable-failure';
 import { neverOverdue, ownedClaim, seat } from './control-service.test-support';
-import { failureLog, manualTimers } from '../../lib/worker-timers.test-support';
+import { failureLog, manualWaits } from '../../lib/manual-waits.test-support';
 import { within } from '../../lib/deadline.test-support';
 setupRitewayBun();
 
@@ -16,7 +16,7 @@ async function scanDuringHandoff(maxControllers: number) {
   const claiming = Promise.withResolvers<void>();
   const answer = Promise.withResolvers<void>();
   let targets = [seat('rotating', 'first')];
-  const { tasks, timers } = manualTimers();
+  const { tasks, waits } = manualWaits();
   const service = startBotControlService({
     store: {
       scanRoundBotWorkers: async () => targets,
@@ -29,11 +29,19 @@ async function scanDuringHandoff(maxControllers: number) {
         return ownedClaim(target);
       },
       revokeRoundBotWorker: async () => {},
+      renewRoundBotWorker: async () => {},
       verifyRoundBotWorker: async () => {},
     },
     control: () => ({ pulse: async () => [], stop: async () => {} }),
-    limits: { maxControllers, scanBatch: 4, scanMs: 500, renewMs: 3000 },
-    timers,
+    limits: {
+      maxControllers,
+      scanBatch: 4,
+      scanMs: 500,
+      checkInMs: 3000,
+      renewMs: 4000,
+      leaseMs: 15000,
+    },
+    waits,
     overdue: neverOverdue,
     failed,
   });
@@ -72,7 +80,7 @@ test('a worker sink whose log throws never rejects the service’s promises, and
     const incoming = Promise.withResolvers<void>();
     let segment = 'first',
       scans = 0;
-    const { tasks, timers } = manualTimers();
+    const { tasks, waits } = manualWaits();
     const service = startBotControlService({
       store: {
         scanRoundBotWorkers: async () => {
@@ -82,6 +90,7 @@ test('a worker sink whose log throws never rejects the service’s promises, and
         },
         claimRoundBotWorker: async (target) => ownedClaim(target),
         revokeRoundBotWorker: async () => {},
+        renewRoundBotWorker: async () => {},
         verifyRoundBotWorker: async () => {},
       },
       control: (claim) => ({
@@ -97,8 +106,15 @@ test('a worker sink whose log throws never rejects the service’s promises, and
             throw new Error('The operation was aborted.');
         },
       }),
-      limits: { maxControllers: 1, scanBatch: 4, scanMs: 500, renewMs: 3000 },
-      timers,
+      limits: {
+        maxControllers: 1,
+        scanBatch: 4,
+        scanMs: 500,
+        checkInMs: 3000,
+        renewMs: 4000,
+        leaseMs: 15000,
+      },
+      waits,
       overdue: neverOverdue,
       // The production sink, with a log transport that always throws.
       failed: recoverableFailure({

@@ -3,6 +3,7 @@ import { randomBytes } from 'node:crypto';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { requireTestServices } from '@daisy/config';
 import { systemClock, systemId } from '@daisy/clock';
+import { hostWaits } from '@daisy/worker/host';
 import { createRealtimeDatabase, WORKLOAD_PROFILES } from '@daisy/db';
 import { createMessagingTestFixture } from '@daisy/db/testing';
 import { messagingTestReading } from '@daisy/auth/testing';
@@ -59,6 +60,7 @@ test('500 viewers of one channel: every viewer gets each revision, and revocatio
       url: services.databaseUrl,
       client,
       profile: WORKLOAD_PROFILES['realtime-observer'],
+      waits: hostWaits,
     }),
     env: {
       NODE_ENV: 'test',
@@ -69,6 +71,7 @@ test('500 viewers of one channel: every viewer gets each revision, and revocatio
       REALTIME_ALLOWED_ORIGINS: testOrigin,
     },
     clock: systemClock,
+    waits: hostWaits,
   });
   let runtime: ReturnType<typeof startObservationRuntime> | undefined;
   try {
@@ -109,7 +112,7 @@ test('500 viewers of one channel: every viewer gets each revision, and revocatio
     runtime = startObservationRuntime({
       resources,
       readingPolicy: messagingTestReading,
-      timers: { setInterval, clearInterval },
+      waits: hostWaits,
       now: () => performance.now(),
       nextId: () => systemId.next(),
     });
@@ -175,7 +178,7 @@ test('500 viewers of one channel: every viewer gets each revision, and revocatio
       },
     });
   } finally {
-    runtime?.close();
+    await runtime?.close();
     for (const id of sessionIds)
       await admin`delete from session where id=${id}`;
     await admin`delete from outbox where kind='session.revoked' and topic in (${buildUserInboxTopic(fixture.actorId)}, ${buildUserInboxTopic(fixture.otherActorId)})`;

@@ -1,5 +1,5 @@
-import { instantMs } from '@daisy/clock';
-import type { Clock } from '@daisy/clock';
+import { deadlineSignal, instantMs } from '@daisy/clock';
+import type { Clock, Waits } from '@daisy/clock';
 import { signOperatorRequest } from '@daisy/auth/operator-signature';
 import { betaAccessCommandResultSchema } from '@daisy/protocol/beta-access';
 import {
@@ -120,6 +120,8 @@ export function createOperatorClient(deps: {
   readonly random: RandomBytes;
   readonly fetch: OperatorFetch;
   readonly timeoutMs: number;
+  /** The bound on each request runs on these. */
+  readonly waits: Waits;
 }) {
   const { config } = deps;
   async function call<T>(
@@ -144,6 +146,7 @@ export function createOperatorClient(deps: {
     const url = new URL(request.path, config.baseUrl);
     for (const [name, value] of request.query)
       url.searchParams.append(name, value);
+    const deadline = deadlineSignal(deps.waits, deps.timeoutMs);
     try {
       const response = await deps.fetch(url.toString(), {
         method: request.method,
@@ -155,11 +158,13 @@ export function createOperatorClient(deps: {
         },
         ...(request.body === undefined ? {} : { body: request.body }),
         redirect: 'manual',
-        signal: AbortSignal.timeout(deps.timeoutMs),
+        signal: deadline.signal,
       });
       return callOutcome(response.status, await readJson(response), schema);
     } catch {
       return unknown;
+    } finally {
+      deadline.clear();
     }
   }
 

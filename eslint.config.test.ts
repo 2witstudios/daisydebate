@@ -1,4 +1,5 @@
 import { registerClockDigestTests } from './eslint.config-clock-digest.test-support';
+import { registerHostTimeTests } from './eslint.config-host-time.test-support';
 import { registerProcessEdgeTests } from './eslint.config-process.test-support';
 import { registerRequestPathTests } from './eslint.config-request-path.test-support';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
@@ -18,6 +19,7 @@ setupRitewayBun();
 registerProcessEdgeTests();
 registerClockDigestTests();
 registerRequestPathTests();
+registerHostTimeTests();
 
 describe('repository ESLint configuration', () => {
   test('rejects pathname splitting under the App Router', async () => {

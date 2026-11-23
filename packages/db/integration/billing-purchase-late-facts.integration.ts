@@ -1,3 +1,4 @@
+import { hostWaits } from '@daisy/worker/host';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { requireTestServices } from '@daisy/config';
 import { createId } from '@paralleldrive/cuid2';
@@ -43,6 +44,7 @@ test('new late Checkout facts atomically reopen cleanup and fence old completion
         expected: 'daisy_web',
       });
       const database = createDatabase({
+        waits: hostWaits,
         url: databaseUrl,
         client: pool,
         nextActorId: createId,
@@ -161,6 +163,7 @@ test('a killed late-fact transaction rolls back cleanup and identity together; a
       const admitted = await purchases.admit(subject, offer);
       const claimed = await purchases.recover(subject, admitted.purchase.id);
       const database = createDatabase({
+        waits: hostWaits,
         url: databaseUrl,
         client: pool,
         nextActorId: createId,

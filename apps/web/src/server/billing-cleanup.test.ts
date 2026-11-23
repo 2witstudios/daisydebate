@@ -1,3 +1,4 @@
+import { virtualClock } from '@daisy/clock/testing';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { fixedClock } from '@daisy/clock';
 import type { Logger } from '@daisy/logger';
@@ -15,12 +16,13 @@ import {
 } from './privacy-jobs';
 import { authTestEnv } from '../features/auth/auth-server.test-support';
 import { betaMessagingPolicy } from '../features/messaging/beta-policy';
-import { withOneShots } from '../lib/worker-timers.test-support';
+import { inertWaits, manualWaits } from '../lib/manual-waits.test-support';
 setupRitewayBun();
 const now = '2026-11-06T00:00:00.000Z',
   jobId = 'j'.repeat(24);
 function build() {
   const app = createApp({
+    waits: virtualClock(),
     env: {
       ...authTestEnv,
       DATABASE_URL: 'postgres://unit:unit@localhost:5432/unit',
@@ -72,8 +74,7 @@ test('actual keyless scheduler separates Stripe closure from generic erase and d
     due: unknown[] = [],
     owed: unknown[] = [],
     events: unknown[] = [],
-    ticks = new Map<number, () => Promise<void>>(),
-    cleared: number[] = [];
+    { waits, armed, tasks } = manualWaits();
   const store = app.database.billingCleanup('s'.repeat(24));
   let claims = 0,
     rechecks = 0;
@@ -114,22 +115,17 @@ test('actual keyless scheduler separates Stripe closure from generic erase and d
       },
       { preconnect() {} },
     ),
-    timers: withOneShots({
-      setInterval: (run, ms) => {
-        ticks.set(ms, run);
-        return ms;
-      },
-      clearInterval: (handle) => {
-        cleared.push(Number(handle));
-      },
-    }),
+    waits,
   });
   await service.started;
-  await ticks.get(1000)!();
+  await tasks.get(1000)!();
   const before = { claims, rechecks, due: due.length, owed: owed.length };
+  const pending = [1000, 60000].filter((ms) => tasks.has(ms));
   await service.stop();
-  await ticks.get(1000)!();
-  await ticks.get(60000)!();
+  // The waits a stop ended: armed before it, none after.
+  const cleared = pending.filter((ms) => !tasks.has(ms));
+  await tasks.get(1000)?.();
+  await tasks.get(60000)?.();
   let genericRefused = false;
   try {
     privacyJobPort(app, 'stripe');
@@ -147,7 +143,7 @@ test('actual keyless scheduler separates Stripe closure from generic erase and d
       due,
       owed,
       kinds: events.map((event) => (event as { kind: string }).kind),
-      cadences: [...ticks.keys()],
+      cadences: [...new Set(armed)].sort((a, b) => a - b),
       cleared,
       genericIncludes: genericPrivacyJobVendors(app).includes('stripe'),
       configuredIncludes: configuredPrivacyJobVendors(app).includes('stripe'),
@@ -222,10 +218,7 @@ test('actual scheduler reports private delivery failures while keeping subsequen
       },
       { preconnect() {} },
     ),
-    timers: withOneShots({
-      setInterval: () => 1,
-      clearInterval: () => undefined,
-    }),
+    waits: inertWaits,
   });
   await service.started;
   await service.stop();

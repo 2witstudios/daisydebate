@@ -25,21 +25,18 @@ type RefusalRegistry = {
   /** Errors whose capacity refusal the database boundary already logged. */
   readonly reportedRefusals: WeakSet<Error>;
 };
-const REGISTRY = Symbol.for('daisy.db.capacity-refusals');
-const host = globalThis as {
-  [REGISTRY]?: RefusalRegistry;
-};
 /**
  * One registry per process, not per module copy: Next can bundle a page apart
  * from the process app, so the copy that reads a refusal may not be the one
  * that minted it (ISSUE-927). A table keeps each refusal's frozen detail and
  * reported mark off the error, which wrappers and reporters see.
  */
-const registry = host[REGISTRY] ?? {
+const registry = ((
+  globalThis as { 'daisy.db.capacity-refusals'?: RefusalRegistry }
+)['daisy.db.capacity-refusals'] ??= {
   refusals: new WeakMap(),
   reportedRefusals: new WeakSet(),
-};
-host[REGISTRY] = registry;
+});
 const { refusals, reportedRefusals } = registry;
 /**
  * The member of `error`'s chain (itself or one of at most 16 native Error

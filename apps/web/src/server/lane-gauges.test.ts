@@ -1,3 +1,4 @@
+import { virtualClock } from '@daisy/clock/testing';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { startLaneGauges } from './lane-gauges';
 import type { LaneWindowLine } from './lane-window';
@@ -6,7 +7,7 @@ setupRitewayBun();
 
 const harness = () => {
   const lines: LaneWindowLine[] = [];
-  let tick = () => {};
+  const clock = virtualClock();
   const readings = [0, 2, 4];
   const gauges = startLaneGauges({
     gauges: () => [
@@ -36,25 +37,23 @@ const harness = () => {
     log: (line) => lines.push(line),
     detail: false,
     samplesPerWindow: 3,
-    every: (_ms, run) => {
-      tick = run;
-      return { stop: () => undefined };
-    },
+    waits: clock,
   });
-  return { lines, tick: () => tick(), gauges };
+  /** One sample: time moves on by the 250 ms cadence. */
+  return { lines, tick: () => clock.advance(250), gauges };
 };
 
-test('lanes report one time-average window, not refusal-time samples', () => {
+test('lanes report one time-average window, not refusal-time samples', async () => {
   const { lines, tick } = harness();
-  tick();
-  tick();
+  await tick();
+  await tick();
   assert({
     given: 'a window not yet full',
     should: 'log nothing',
     actual: lines,
     expected: [],
   });
-  tick();
+  await tick();
   assert({
     given: 'a full window with only quick holds',
     should: 'log one line for the lane with its occupancy and hold totals',
@@ -79,7 +78,7 @@ test('lanes report one time-average window, not refusal-time samples', () => {
       },
     ],
   });
-  tick();
+  await tick();
   assert({
     given: 'the next window just begun',
     should: 'start its counts again',
@@ -88,11 +87,11 @@ test('lanes report one time-average window, not refusal-time samples', () => {
   });
 });
 
-test('stopping mid-window logs that window once', () => {
+test('stopping mid-window logs that window once', async () => {
   const { lines, tick, gauges } = harness();
-  tick();
-  gauges.stop();
-  gauges.stop();
+  await tick();
+  await gauges.stop();
+  await gauges.stop();
   assert({
     given: 'one sample of a window, then two stops',
     should: 'log the partial window once, with its one sample',

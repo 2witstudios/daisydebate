@@ -1,3 +1,4 @@
+import { virtualClock } from '@daisy/clock/testing';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { rejectionOf } from '@daisy/errors/testing';
 import { fixedClock, sequentialId } from '@daisy/clock';
@@ -100,6 +101,7 @@ test('configured bot worker policy requires an actual injected bearer producer',
         'refuse rather than silently leave configured workers inert or infer a token',
       actual: await rejectionOf(() => {
         app = createApp({
+          waits: virtualClock(),
           messagingPolicy: betaMessagingPolicy,
           env,
           fetch: async () => {

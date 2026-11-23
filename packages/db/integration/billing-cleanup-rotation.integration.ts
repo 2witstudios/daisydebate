@@ -1,3 +1,4 @@
+import { hostWaits } from '@daisy/worker/host';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { requireTestServices } from '@daisy/config';
 import { createId } from '@paralleldrive/cuid2';
@@ -12,6 +13,7 @@ test('new financial facts rotate only Stripe execution and stale progress cannot
       const [old] =
         await fixture.sql`select id from privacy_jobs where subject_ref=${userId} and vendor='stripe'`;
       const cleanup = createDatabase({
+        waits: hostWaits,
         url: databaseUrl,
         client: pool,
         nextActorId: createId,
@@ -95,6 +97,7 @@ test('durable progress preserves failure attempts and uses its fixed due time ra
     const [job] =
       await fixture.sql`select id from privacy_jobs where subject_ref=${userId} and vendor='stripe'`;
     const database = createDatabase({
+      waits: hostWaits,
       url: databaseUrl,
       client: pool,
       nextActorId: createId,

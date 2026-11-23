@@ -1,3 +1,4 @@
+import { hostWaits } from '@daisy/worker/host';
 import { hmacSha256Base64, sha3Hex } from '@daisy/digest';
 import { SQL } from 'bun';
 import { systemId } from '@daisy/clock';
@@ -12,7 +13,11 @@ export async function createStagingAttendanceMember(input: {
 }) {
   const nextId = () => systemId.next();
   const userId = nextId();
-  const database = createDatabase({ url: input.url, nextActorId: nextId });
+  const database = createDatabase({
+    waits: hostWaits,
+    url: input.url,
+    nextActorId: nextId,
+  });
   try {
     await input.sql`insert into users (id,email,email_verified) values (${userId},${`attendance-${userId}@example.test`},true)`;
     await database.recordAgeStep({

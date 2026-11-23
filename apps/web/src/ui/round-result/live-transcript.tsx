@@ -6,7 +6,10 @@ import { Button } from '../components/button/button';
 import { useCallback, useState, type ReactNode } from 'react';
 import type { LiveTranscriptRead } from '@daisy/protocol/round-transcript';
 import { browserSyncEdges } from '../resource-sync/browser';
-import { readTranscript } from '../../features/round-runtime/read-transcript';
+import {
+  readTranscript,
+  TRANSCRIPT_READ_DEADLINE_MS,
+} from '../../features/round-runtime/read-transcript';
 import { createTranscriptHolder } from '../../features/round-runtime/transcript-sync';
 import { useDriver } from '../edge/use-driver';
 import { liveTranscriptSections, transcriptState } from './result-view';
@@ -40,7 +43,11 @@ export function LiveTranscript({
   const roundId = seed.round.id;
   const [holder] = useState(() =>
     createTranscriptHolder(seed, () =>
-      readTranscript(currentBrowserFetch(), roundId),
+      readTranscript(
+        currentBrowserFetch(),
+        roundId,
+        AbortSignal.timeout(TRANSCRIPT_READ_DEADLINE_MS),
+      ),
     ),
   );
   const start = useCallback(

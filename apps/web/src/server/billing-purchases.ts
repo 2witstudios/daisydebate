@@ -1,3 +1,6 @@
+import type { Waits } from '@daisy/clock';
+import { passOf, pollWork } from '@daisy/worker';
+import { HOUSEKEEPING_IDLE_MAX_MS } from '../lib/worker-idle';
 import type { App } from './app';
 import { createBillingStripe, type BillingFetch } from './billing-stripe';
 import { createPurchaseReconciliation } from '../features/billing/purchase-reconciliation';
@@ -7,15 +10,12 @@ import {
 } from '../features/billing/checkout-vendor';
 import { discoverCheckout } from '../features/billing/checkout-discovery';
 import { workerFailures } from './recoverable-failure';
-import type { WorkerTimers } from '../lib/worker-timers';
-import { passOf } from '../lib/idle-backoff';
-import { HOUSEKEEPING_IDLE_MAX_MS, startWorkerLoop } from '../lib/worker-loop';
 
 /** Only existing admitted attempts are inspected; creation stays in the explicit native member operation. */
 export function startBillingPurchases(input: {
   readonly app: App;
   readonly instanceId: string;
-  readonly timers: WorkerTimers;
+  readonly waits: Waits;
   readonly fetch: BillingFetch;
 }) {
   const { app } = input;
@@ -36,10 +36,10 @@ export function startBillingPurchases(input: {
     discover: (purchase) => discoverCheckout({ port, mode }, purchase),
     failed,
   });
-  const schedule = startWorkerLoop({
-    run: () => reconciliation.run().then(passOf),
+  const schedule = pollWork({
+    pass: () => reconciliation.run().then(passOf),
     backoff: { busyMs: 5_000, idleMaxMs: HOUSEKEEPING_IDLE_MAX_MS },
-    timers: input.timers,
+    waits: input.waits,
     failed: (error) => failed(error, 'discover'),
   });
   return {

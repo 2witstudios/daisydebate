@@ -882,15 +882,20 @@ a foreign event and rechecks canonical revocation. The live lists show
 obligations as unconfigured; school affiliation never proves that a school
 furnished a judge. Panel demand and lateness without a producer stay absent.
 
-## Broadcast worker shutdown qualification
+## Worker process suites
 
-`apps/broadcast-worker/integration/shutdown.integration.ts` starts the real
+`apps/broadcast-worker/integration/process.integration.ts` starts the real
 worker entry point with a restricted broadcast-worker login, durable PostgreSQL
 claim/cursor rows and a local S3 HTTP adapter. A replacement encoder executable
-holds an actual child process inside encoding until cancellation. SIGTERM must
-stop and reap it, drain in eight seconds (within Fly's thirty-second grace),
-leave both durable cursors unchanged and publish nothing after shutdown.
-The replacement is a controlled stall, not proof of ffmpeg output quality.
-The unit regression separately proves a rejected gap record drains its sleeping
-renewal before the slot returns. These checks qualify the bounded broadcast
-repair, not the full R4.7 worker lifecycle migration or audience integration net.
+holds an actual child process inside encoding. SIGTERM must stop and reap it,
+drain in eight seconds (within Fly's thirty-second grace), leave both durable
+cursors unchanged and publish nothing after shutdown. A lease moved to another
+owner mid-encode must reap the encoder within a renewal and publish nothing
+further, while the process keeps serving. The replacement is a controlled
+stall, not proof of ffmpeg output quality.
+
+`apps/audience-publisher/integration/publisher.integration.ts` starts the real
+publisher under a restricted audience-publisher login: a Broadcast past its
+window has its public state deleted and its withdrawal recorded, and SIGTERM
+exits cleanly. A store that accepts connections and never answers must not
+hold SIGTERM past the drain bound.

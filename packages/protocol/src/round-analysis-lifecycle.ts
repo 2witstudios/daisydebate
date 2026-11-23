@@ -1,4 +1,4 @@
-import { instantMs, tryAddMs, tryInstantMs } from '@daisy/clock';
+import { instantMs, tryAddMs, tryInstantMs } from '@daisy/clock/instant';
 import type { RoundAnalysisReport } from './round-analysis';
 import {
   analysisRequest,

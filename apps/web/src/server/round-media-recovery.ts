@@ -1,10 +1,6 @@
-import type { LoopPass } from '../lib/idle-backoff';
-import {
-  LIVE_IDLE_MAX_MS,
-  startWorkerLoop,
-  type WorkWake,
-} from '../lib/worker-loop';
-import type { WorkerTimers } from '../lib/worker-timers';
+import type { Waits } from '@daisy/clock';
+import { pollWork, type LoopPass, type WorkWake } from '@daisy/worker';
+import { LIVE_IDLE_MAX_MS } from '../lib/worker-idle';
 
 /** The busy cadence of media recovery while any media session is live. */
 const MEDIA_RECOVERY_MS = 500;
@@ -24,7 +20,7 @@ export function startRoundMediaRecovery(input: {
   /** The availability probe's synthetic Round: live forever, never work. */
   readonly probeRoundId?: string | null;
   readonly failed: (error: unknown) => void;
-  readonly timers: WorkerTimers;
+  readonly waits: Waits;
   readonly wake?: WorkWake | undefined;
 }) {
   const running = new Set<Promise<void>>();
@@ -59,10 +55,10 @@ export function startRoundMediaRecovery(input: {
         });
       running.add(tick);
     });
-  const loop = startWorkerLoop({
-    run: pass,
+  const loop = pollWork({
+    pass: pass,
     backoff: { busyMs: MEDIA_RECOVERY_MS, idleMaxMs: LIVE_IDLE_MAX_MS },
-    timers: input.timers,
+    waits: input.waits,
     failed: input.failed,
     wake: input.wake,
   });

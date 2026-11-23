@@ -17,6 +17,7 @@
         "@daisy/media": "workspace:*",
         "@daisy/protocol": "workspace:*",
         "@daisy/redis": "workspace:*",
+        "@daisy/worker": "workspace:*",
         "@livekit/rtc-node": "1.2.0",
         "zod": "4.6.6",
       },
@@ -51,6 +52,7 @@
         "@daisy/digest": "workspace:*",
         "@daisy/logger": "workspace:*",
         "@daisy/protocol": "workspace:*",
+        "@daisy/worker": "workspace:*",
         "@simplewebauthn/server": "13.3.2",
         "drizzle-orm": "1.0.0-rc.4",
         "next": "16.4.6",
@@ -72,14 +74,18 @@
       "name": "@daisy/audience-publisher",
       "version": "0.0.0",
       "dependencies": {
+        "@daisy/clock": "workspace:*",
         "@daisy/db": "workspace:*",
         "@daisy/debate-engine": "workspace:*",
         "@daisy/logger": "workspace:*",
         "@daisy/protocol": "workspace:*",
         "@daisy/redis": "workspace:*",
+        "@daisy/worker": "workspace:*",
         "zod": "4.6.6",
       },
       "devDependencies": {
+        "@daisy/config": "workspace:*",
+        "@paralleldrive/cuid2": "3.3.0",
         "riteway": "9.3.0",
       },
     },
@@ -92,6 +98,7 @@
         "@daisy/debate-engine": "workspace:*",
         "@daisy/logger": "workspace:*",
         "@daisy/protocol": "workspace:*",
+        "@daisy/worker": "workspace:*",
         "@paralleldrive/cuid2": "3.3.0",
         "zod": "4.6.6",
       },
@@ -107,6 +114,7 @@
         "@clickhouse/client-web": "1.24.0",
         "@daisy/clock": "workspace:*",
         "@daisy/logger": "workspace:*",
+        "@daisy/worker": "workspace:*",
         "@nats-io/transport-node": "3.4.0",
         "zod": "4.6.6",
       },
@@ -128,6 +136,7 @@
         "@daisy/logger": "workspace:*",
         "@daisy/media": "workspace:*",
         "@daisy/protocol": "workspace:*",
+        "@daisy/worker": "workspace:*",
       },
       "devDependencies": {
         "riteway": "9.3.0",
@@ -148,6 +157,7 @@
         "@daisy/observability": "workspace:*",
         "@daisy/protocol": "workspace:*",
         "@daisy/redis": "workspace:*",
+        "@daisy/worker": "workspace:*",
         "@sentry/bun": "11.10.0",
       },
       "devDependencies": {
@@ -162,6 +172,7 @@
         "@daisy/db": "workspace:*",
         "@daisy/logger": "workspace:*",
         "@daisy/protocol": "workspace:*",
+        "@daisy/worker": "workspace:*",
         "@paralleldrive/cuid2": "3.3.0",
         "zod": "4.6.6",
       },
@@ -189,6 +200,7 @@
         "@daisy/protocol": "workspace:*",
         "@daisy/redis": "workspace:*",
         "@daisy/tab-engine": "workspace:*",
+        "@daisy/worker": "workspace:*",
         "@paralleldrive/cuid2": "3.3.0",
         "@sentry/nextjs": "11.10.0",
         "@tiptap/core": "3.31.4",
@@ -232,12 +244,13 @@
       "name": "@daisy/ai-voice",
       "version": "0.0.0",
       "dependencies": {
+        "@daisy/clock": "workspace:*",
         "@daisy/errors": "workspace:*",
         "@daisy/protocol": "workspace:*",
         "zod": "4.6.6",
       },
       "devDependencies": {
-        "@daisy/clock": "workspace:*",
+        "@daisy/worker": "workspace:*",
         "riteway": "9.3.0",
       },
     },
@@ -291,6 +304,7 @@
       "devDependencies": {
         "@daisy/auth": "workspace:*",
         "@daisy/debate-engine": "workspace:*",
+        "@daisy/worker": "workspace:*",
         "drizzle-kit": "1.0.0-rc.4",
         "riteway": "9.3.0",
         "typescript": "6.0.3",
@@ -367,6 +381,7 @@
       "devDependencies": {
         "@daisy/config": "workspace:*",
         "@daisy/db": "workspace:*",
+        "@daisy/worker": "workspace:*",
         "riteway": "9.3.0",
       },
     },
@@ -374,6 +389,7 @@
       "name": "@daisy/observability",
       "version": "0.0.0",
       "dependencies": {
+        "@daisy/clock": "workspace:*",
         "@opentelemetry/api": "1.9.1",
       },
       "devDependencies": {
@@ -395,11 +411,13 @@
       "name": "@daisy/redis",
       "version": "0.0.0",
       "dependencies": {
+        "@daisy/clock": "workspace:*",
         "@daisy/protocol": "workspace:*",
       },
       "devDependencies": {
         "@daisy/config": "workspace:*",
         "@daisy/digest": "workspace:*",
+        "@daisy/worker": "workspace:*",
         "@paralleldrive/cuid2": "3.3.0",
         "riteway": "9.3.0",
       },
@@ -430,6 +448,16 @@
     "packages/typescript-config": {
       "name": "@daisy/typescript-config",
       "version": "0.0.0",
+    },
+    "packages/worker": {
+      "name": "@daisy/worker",
+      "version": "0.0.0",
+      "dependencies": {
+        "@daisy/clock": "workspace:*",
+      },
+      "devDependencies": {
+        "riteway": "9.3.0",
+      },
     },
   },
   "patchedDependencies": {
@@ -558,6 +586,8 @@
     "@daisy/typescript-config": ["@daisy/typescript-config@workspace:packages/typescript-config"],
 
     "@daisy/web": ["@daisy/web@workspace:apps/web"],
+
+    "@daisy/worker": ["@daisy/worker@workspace:packages/worker"],
 
     "@datastructures-js/deque": ["@datastructures-js/deque@1.0.8", "", {}, "sha512-PSBhJ2/SmeRPRHuBv7i/fHWIdSC3JTyq56qb+Rq0wjOagi0/fdV5/B/3Md5zFZus/W6OkSPMaxMKKMNMrSmubg=="],
 

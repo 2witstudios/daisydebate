@@ -1,4 +1,4 @@
-import { instantMs } from '@daisy/clock';
+import { instantMs } from '@daisy/clock/instant';
 import type { RoundStartGate } from '@daisy/protocol/round';
 import { clockStopsOf, isRoundOver } from '@daisy/protocol/round';
 import { dueAfterStops } from '@daisy/protocol/clock-stops';

@@ -1,4 +1,4 @@
-import { instantMs, tryAddMs } from '@daisy/clock';
+import { instantMs, tryAddMs } from '@daisy/clock/instant';
 import { z } from 'zod';
 import { idSchema } from './primitives';
 

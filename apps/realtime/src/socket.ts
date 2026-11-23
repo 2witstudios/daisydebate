@@ -1,4 +1,5 @@
 import type { ServerWebSocket } from 'bun';
+import type { Waits } from '@daisy/clock';
 import type { Logger } from '@daisy/logger';
 import {
   clientMessageSchema,
@@ -32,7 +33,8 @@ export type SocketData = {
   helloDeadline?: number;
   principal?: SocketPrincipal;
   connection?: RegistryConnection;
-  helloTimer?: ReturnType<typeof setTimeout> | undefined;
+  /** Aborts the pending hello deadline. */
+  helloTimer?: AbortController | undefined;
   presence?: PresenceSession | undefined;
   observer?: ObservationConnection | undefined;
   /** Settles when every frame received so far has taken effect. */
@@ -43,24 +45,22 @@ export type SocketData = {
 const MAX_QUEUED_FRAMES = 64;
 /** One frame's check and effect; well inside the 30 s a client calls a socket dead. */
 const FRAME_TURN_BUDGET_MS = 15_000;
-export type SocketTimers = {
-  readonly setTimeout: (
-    callback: () => void,
-    ms: number,
-  ) => ReturnType<typeof setTimeout>;
-  readonly clearTimeout: (handle: ReturnType<typeof setTimeout>) => void;
-};
-const systemTimers: SocketTimers = {
-  setTimeout: (callback, ms) => setTimeout(callback, ms),
-  clearTimeout: (handle) => clearTimeout(handle),
+
+/**
+ * Runs `fire` once `ms` pass, unless the returned controller aborts first:
+ * a one-shot deadline on injected time, cancelled by aborting it.
+ */
+const after = (waits: Waits, ms: number, fire: () => void): AbortController => {
+  const cancel = new AbortController();
+  void waits.sleep(ms, cancel.signal).then(() => {
+    if (!cancel.signal.aborted) fire();
+  });
+  return cancel;
 };
 
-const clearHelloTimer = (
-  ws: ServerWebSocket<SocketData>,
-  timers: SocketTimers,
-) => {
+const clearHelloTimer = (ws: ServerWebSocket<SocketData>) => {
   if (ws.data.helloTimer === undefined) return;
-  timers.clearTimeout(ws.data.helloTimer);
+  ws.data.helloTimer.abort();
   ws.data.helloTimer = undefined;
 };
 
@@ -84,7 +84,7 @@ const logRejection = (
  */
 export function createWebSocketHandlers({
   logger,
-  timers = systemTimers,
+  waits,
   now = () => performance.now(),
   authenticate,
   registry,
@@ -94,7 +94,8 @@ export function createWebSocketHandlers({
   observation,
 }: {
   readonly logger: Logger;
-  readonly timers?: SocketTimers;
+  /** The hello deadline and each frame turn's budget run on this time. */
+  readonly waits: Waits;
   readonly now?: () => number;
   readonly authenticate?: (
     ticket: string,
@@ -110,7 +111,7 @@ export function createWebSocketHandlers({
   /** Closes the socket's phase and frees everything it owns, once or again. */
   function release(ws: ServerWebSocket<SocketData>) {
     ws.data.phase = 'closed';
-    clearHelloTimer(ws, timers);
+    clearHelloTimer(ws);
     if (ws.data.connection) registry?.remove(ws.data.connection);
     if (ws.data.observer) observation?.disconnect(ws.data.observer);
     ws.data.observer = undefined;
@@ -188,7 +189,7 @@ export function createWebSocketHandlers({
       reject(ws, 'rate_limited');
       return;
     }
-    clearHelloTimer(ws, timers);
+    clearHelloTimer(ws);
     ws.data.principal = principal;
     ws.data.phase = 'authenticated';
     if (registry)
@@ -245,16 +246,15 @@ export function createWebSocketHandlers({
     }
     ws.data.queuedFrames = (ws.data.queuedFrames ?? 0) + 1;
     const turn = (ws.data.frameTurn ?? Promise.resolve()).then(async () => {
-      const stalled = timers.setTimeout(
-        () => reject(ws, 'authority_unavailable', 'turn_stalled'),
-        FRAME_TURN_BUDGET_MS,
+      const stalled = after(waits, FRAME_TURN_BUDGET_MS, () =>
+        reject(ws, 'authority_unavailable', 'turn_stalled'),
       );
       try {
         if (ws.data.phase === 'authenticated') await takeEffect(ws, frame);
       } catch (error) {
         reportFrameFailure(error);
       } finally {
-        timers.clearTimeout(stalled);
+        stalled.abort();
         ws.data.queuedFrames = (ws.data.queuedFrames ?? 1) - 1;
       }
     });
@@ -370,7 +370,7 @@ export function createWebSocketHandlers({
     open(ws: ServerWebSocket<SocketData>) {
       ws.data.phase = 'awaiting';
       ws.data.helloDeadline = now() + HELLO_TIMEOUT_MS;
-      ws.data.helloTimer = timers.setTimeout(() => {
+      ws.data.helloTimer = after(waits, HELLO_TIMEOUT_MS, () => {
         ws.data.helloTimer = undefined;
         // A hello already being checked was sent in time: the check is slow.
         reject(
@@ -380,7 +380,7 @@ export function createWebSocketHandlers({
             : 'auth_failed',
           'hello_timeout',
         );
-      }, HELLO_TIMEOUT_MS);
+      });
     },
     async message(ws: ServerWebSocket<SocketData>, message: string | Buffer) {
       if (ws.data.phase === 'closed') return;

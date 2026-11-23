@@ -1,12 +1,10 @@
+import { hostWaits } from '@daisy/worker/host';
 import { instantMs } from '@daisy/clock';
 import { requireTestServices } from '@daisy/config';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createAttendanceFeature } from '../src/features/attendance/operations';
-import {
-  maintenanceAvailability,
-  maintenanceTestTimers as timers,
-} from './round-maintenance.test-support';
+import { maintenanceAvailability } from './round-maintenance.test-support';
 import { createRoundMaintenanceOperations } from '../src/features/round-finalization/maintenance';
 import { startRoundMaintenance } from '../src/features/round-finalization/service';
 import {
@@ -98,7 +96,7 @@ test(
           ids: { next: createId },
           evaluate: attendance.evaluate,
         }),
-        timers,
+        waits: hostWaits,
         failed,
       });
       const deadline = setTimeout(

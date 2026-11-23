@@ -1,3 +1,4 @@
+import type { Waits } from '@daisy/clock';
 import type { ErrorReporter } from '@daisy/observability';
 import { startMailQueueWorker } from '../features/mail/queue-worker';
 import { MAIL_QUEUE_BATCH } from '../features/mail/retry-policy';
@@ -5,7 +6,6 @@ import { createNotificationDigestDelivery } from '../features/notifications/emai
 import { createUnreadMessagesEmailDelivery } from '../features/messaging/unread-email';
 import type { EmailMessage } from '../features/mail/types';
 import { deriveUnsubscribeSubkey } from '../features/notifications/email/unsubscribe-token';
-import type { WorkerTimers } from '../lib/worker-timers';
 import type { App } from './app';
 import { workerFailures } from './recoverable-failure';
 import { nextWorkerToken } from './worker-token';
@@ -17,7 +17,7 @@ import { nextWorkerToken } from './worker-token';
  */
 export function startNotificationMail(input: {
   readonly app: App;
-  readonly timers: WorkerTimers;
+  readonly waits: Waits;
   readonly reporter?: ErrorReporter;
 }) {
   const { app } = input;
@@ -57,7 +57,7 @@ export function startNotificationMail(input: {
       (await createUnreadMessagesEmailDelivery(shared).run(limit)),
     batch: MAIL_QUEUE_BATCH,
     everyMs: 5_000,
-    timers: input.timers,
+    waits: input.waits,
     failed: (error) => failed(error, 'send'),
   });
 }

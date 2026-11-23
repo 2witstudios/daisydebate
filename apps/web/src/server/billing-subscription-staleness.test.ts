@@ -1,3 +1,4 @@
+import { virtualClock } from '@daisy/clock/testing';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createId } from '@paralleldrive/cuid2';
 import { createLogger } from '@daisy/logger';
@@ -11,7 +12,7 @@ import { createApp } from './app';
 import { startBillingSubscriptions } from './billing-subscriptions';
 import { authTestEnv } from '../features/auth/auth-server.test-support';
 import { betaMessagingPolicy } from '../features/messaging/beta-policy';
-import { withOneShots } from '../lib/worker-timers.test-support';
+import { inertWaits } from '../lib/manual-waits.test-support';
 
 setupRitewayBun();
 
@@ -19,6 +20,7 @@ test('subscription freshness observes actual pending age against the explicit ta
   const events: { event: string; fields: Readonly<Record<string, unknown>> }[] =
     [];
   const app = createApp({
+    waits: virtualClock(),
     env: {
       ...authTestEnv,
       DATABASE_URL: 'postgres://unit:unit@localhost:5432/unit',
@@ -85,10 +87,7 @@ test('subscription freshness observes actual pending age against the explicit ta
       },
     },
     instanceId: createId(),
-    timers: withOneShots({
-      setInterval: () => 1,
-      clearInterval: () => undefined,
-    }),
+    waits: inertWaits,
     fetch: Object.assign(
       async () => {
         throw Error('Freshness collection must not call a vendor');

@@ -1,3 +1,6 @@
+import type { Waits } from '@daisy/clock';
+import { passOf, pollWork } from '@daisy/worker';
+import { HOUSEKEEPING_IDLE_MAX_MS } from '../lib/worker-idle';
 import type { App } from './app';
 import { createBillingStripe, type BillingFetch } from './billing-stripe';
 import { createRefundReconciliation } from '../features/billing/refund-reconciliation';
@@ -6,15 +9,12 @@ import {
   stripeRefundPort,
 } from '../features/billing/refund-vendor';
 import { workerFailures } from './recoverable-failure';
-import type { WorkerTimers } from '../lib/worker-timers';
-import { passOf } from '../lib/idle-backoff';
-import { HOUSEKEEPING_IDLE_MAX_MS, startWorkerLoop } from '../lib/worker-loop';
 
 /** Original-action repair runs independently of customer mappings and privacy-job completion. */
 export function startBillingRefunds(input: {
   readonly app: App;
   readonly instanceId: string;
-  readonly timers: WorkerTimers;
+  readonly waits: Waits;
   readonly fetch: BillingFetch;
 }) {
   const { app } = input;
@@ -36,10 +36,10 @@ export function startBillingRefunds(input: {
     }),
     failed,
   });
-  const schedule = startWorkerLoop({
-    run: () => reconciliation.run().then(passOf),
+  const schedule = pollWork({
+    pass: () => reconciliation.run().then(passOf),
     backoff: { busyMs: 5_000, idleMaxMs: HOUSEKEEPING_IDLE_MAX_MS },
-    timers: input.timers,
+    waits: input.waits,
     failed: (error) => failed(error, 'tick'),
   });
   return {

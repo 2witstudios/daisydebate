@@ -5,7 +5,10 @@ import { scheduleDelay } from '../edge/browser-time';
 import { StatusRegion } from '../components/status-region/status-region';
 import { Button } from '../components/button/button';
 import { useState } from 'react';
-import { readTranscript } from '../../features/round-runtime/read-transcript';
+import {
+  readTranscript,
+  TRANSCRIPT_READ_DEADLINE_MS,
+} from '../../features/round-runtime/read-transcript';
 import {
   askForTranscriptSeed,
   type TranscriptSeed,
@@ -33,7 +36,12 @@ export function TranscriptSeedRecovery({
   useBrowserEffect(
     () =>
       askForTranscriptSeed({
-        read: () => readTranscript(currentBrowserFetch(), roundId),
+        read: () =>
+          readTranscript(
+            currentBrowserFetch(),
+            roundId,
+            AbortSignal.timeout(TRANSCRIPT_READ_DEADLINE_MS),
+          ),
         schedule: (attempt, asked) => {
           return scheduleDelay(attempt, nextAskMs(asked));
         },

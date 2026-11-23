@@ -1,4 +1,4 @@
-import { instantMs, tryInstantMs } from '@daisy/clock';
+import { instantMs, tryInstantMs } from '@daisy/clock/instant';
 import type { SocialAccountFact } from './authorization-facts';
 /** Validate the current minimal projection, not merely a previously minted proof. */
 export function currentAgeFact(row: SocialAccountFact, now: string): boolean {

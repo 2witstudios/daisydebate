@@ -4,12 +4,12 @@ import { createProviderBudget } from '../../server/provider-budget';
 import { startRoundJudgingService } from './service';
 import {
   failureLog,
-  inertTimers,
-  manualTimers,
-} from '../../lib/worker-timers.test-support';
+  inertWaits,
+  manualWaits,
+} from '../../lib/manual-waits.test-support';
 setupRitewayBun();
 test('judging renewal and discovery do not wait for a provider operation', async () => {
-  const { tasks, timers } = manualTimers();
+  const { tasks, waits } = manualWaits();
   let renewals = 0,
     scans = 0,
     stopped = false;
@@ -48,8 +48,14 @@ test('judging renewal and discovery do not wait for a provider operation', async
       );
       finished.resolve();
     },
-    limits: { parallel: 1, scanBatch: 4, scanMs: 500, renewMs: 3000 },
-    timers,
+    limits: {
+      parallel: 1,
+      scanBatch: 4,
+      scanMs: 500,
+      renewMs: 3000,
+      leaseMs: 30_000,
+    },
+    waits,
     failed: () => {
       throw Error('unexpected lifecycle failure');
     },
@@ -93,8 +99,14 @@ test('a failed judging scan reports its stage', async () => {
       }),
     },
     execute: async () => {},
-    limits: { parallel: 1, scanBatch: 4, scanMs: 500, renewMs: 3000 },
-    timers: inertTimers,
+    limits: {
+      parallel: 1,
+      scanBatch: 4,
+      scanMs: 500,
+      renewMs: 3000,
+      leaseMs: 30_000,
+    },
+    waits: inertWaits,
     failed,
   });
   await service.started;
@@ -109,7 +121,7 @@ test('a failed judging scan reports its stage', async () => {
 
 test('a judging lease lost at completion releases without a failure', async () => {
   const { failures, failed } = failureLog();
-  const { tasks, timers } = manualTimers();
+  const { tasks, waits } = manualWaits();
   const finished = Promise.withResolvers<void>();
   const service = startRoundJudgingService({
     reserveCapacity: () => () => {},
@@ -135,8 +147,14 @@ test('a judging lease lost at completion releases without a failure', async () =
           finished.resolve();
         }),
       ),
-    limits: { parallel: 1, scanBatch: 4, scanMs: 500, renewMs: 3000 },
-    timers,
+    limits: {
+      parallel: 1,
+      scanBatch: 4,
+      scanMs: 500,
+      renewMs: 3000,
+      leaseMs: 30_000,
+    },
+    waits,
     failed,
   });
   await service.started;
@@ -159,7 +177,7 @@ test('capacity refusal never consumes a judging lease and retry needs no lease e
     () => speechDone.promise,
   );
   const otherJudge = capacity.reserve()!;
-  const { tasks, timers } = manualTimers();
+  const { tasks, waits } = manualWaits();
   let claims = 0;
   const executed = Promise.withResolvers<void>();
   const service = startRoundJudgingService({
@@ -180,8 +198,14 @@ test('capacity refusal never consumes a judging lease and retry needs no lease e
     execute: async () => {
       executed.resolve();
     },
-    limits: { parallel: 2, scanBatch: 4, scanMs: 500, renewMs: 3000 },
-    timers,
+    limits: {
+      parallel: 2,
+      scanBatch: 4,
+      scanMs: 500,
+      renewMs: 3000,
+      leaseMs: 30_000,
+    },
+    waits,
     failed: () => {
       throw Error('unexpected capacity failure');
     },
@@ -238,8 +262,14 @@ test('claim failure and shutdown while claiming return the reserved provider slo
       execute: async () => {
         throw Error('claim must not execute');
       },
-      limits: { parallel: 1, scanBatch: 1, scanMs: 500, renewMs: 3000 },
-      timers: inertTimers,
+      limits: {
+        parallel: 1,
+        scanBatch: 1,
+        scanMs: 500,
+        renewMs: 3000,
+        leaseMs: 30_000,
+      },
+      waits: inertWaits,
       failed: () => {
         throw Error('advisory claim failure should be ignored');
       },
@@ -269,7 +299,7 @@ test('claim failure and shutdown while claiming return the reserved provider slo
 
 test('a ballot waiting on attendance is no failure, whatever its message says (ISSUE-1010)', async () => {
   const { failures, failed } = failureLog();
-  const { timers } = manualTimers();
+  const { waits } = manualWaits();
   const executed = Promise.withResolvers<void>();
   const service = startRoundJudgingService({
     reserveCapacity: () => () => {},
@@ -294,8 +324,14 @@ test('a ballot waiting on attendance is no failure, whatever its message says (I
         'Any reworded sentence',
       );
     },
-    limits: { parallel: 1, scanBatch: 4, scanMs: 500, renewMs: 3000 },
-    timers,
+    limits: {
+      parallel: 1,
+      scanBatch: 4,
+      scanMs: 500,
+      renewMs: 3000,
+      leaseMs: 30_000,
+    },
+    waits,
     failed,
   });
   await service.started;
@@ -312,7 +348,7 @@ test('a ballot waiting on attendance is no failure, whatever its message says (I
 test('one refused judging kind is reported and scanning keeps its pace', async () => {
   const { failures, failed } = failureLog();
   const outage = new Error('submission scan outage');
-  const { timers, waits, nextPass } = manualTimers();
+  const { waits, armed, nextPass } = manualWaits();
   const service = startRoundJudgingService({
     reserveCapacity: () => () => {},
     store: {
@@ -330,20 +366,28 @@ test('one refused judging kind is reported and scanning keeps its pace', async (
       }),
     },
     execute: () => new Promise(() => {}),
-    limits: { parallel: 1, scanBatch: 4, scanMs: 500, renewMs: 3000 },
-    timers,
+    limits: {
+      parallel: 1,
+      scanBatch: 4,
+      scanMs: 500,
+      renewMs: 3000,
+      leaseMs: 30_000,
+    },
+    waits,
     failed,
   });
   await service.started;
-  await nextPass();
+  // The scan's wait, not the held job's lease renewal (3 s) or its horizon.
+  const scanPace = (ms: number) => ms < 3000;
+  await nextPass(scanPace);
   assert({
     given: 'the submission scan refused while generation work is held',
     should: 'report each refusal at the scan stage and keep the busy pace',
     actual: {
       stages: failures.map((entry) => (entry as [unknown, string])[1]),
-      waits,
+      armed: armed.filter(scanPace),
     },
-    expected: { stages: ['scan', 'scan'], waits: [500, 500] },
+    expected: { stages: ['scan', 'scan'], armed: [500, 500] },
   });
   void service.stop();
 });
