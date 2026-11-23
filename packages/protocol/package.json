@@ -206,7 +206,8 @@
     "./usage-sponsor": "./src/usage-sponsor.ts",
     "./messaging/group-issuance-plan": "./src/messaging/group-issuance-plan.ts",
     "./messaging/group-management-plan": "./src/messaging/group-management-plan.ts",
-    "./standings-release": "./src/standings-release.ts"
+    "./standings-release": "./src/standings-release.ts",
+    "./transcript-finalization": "./src/transcript-finalization.ts"
   },
   "scripts": {
     "typecheck": "tsgo --noEmit && tsgo --noEmit -p tsconfig.test.json",

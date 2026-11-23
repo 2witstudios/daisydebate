@@ -10,7 +10,7 @@ import { createBillingInbox } from '../src/billing-inbox';
 import { createClubSeats, endOfUtcDay } from '../src/club-seat-commands';
 import { createClubSeatReads } from '../src/club-seat-reads';
 import { readEntitlementGrants } from '../src/entitlement-grants';
-import { completeControlledBillingPurchase } from '../src/testing-billing-purchase';
+import { completeControlledBillingPurchase } from '../src/testing-billing';
 import { withBillingPurchases, offer } from './billing-purchases.test-support';
 import { executeFlagCommand, flagCommand } from './flags.test-support';
 import { rejectedBy, type Fixture } from './constraint-helpers';

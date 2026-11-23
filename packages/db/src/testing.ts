@@ -14,7 +14,7 @@ export { daisyOrganizationId, publicLobbyId } from './daisy-reference';
 export { validRules } from './testing-rules';
 export { seedRatingSeason } from './testing-rating-season';
 export { completeControlledStripeCleanup } from './testing-billing';
-export { completeControlledBillingPurchase } from './testing-billing-purchase';
+export { completeControlledBillingPurchase } from './testing-billing';
 export { fundTestClub } from './testing-club';
 export { atFinalJudgingStage, syntheticCaseMap } from './testing-judging';
 

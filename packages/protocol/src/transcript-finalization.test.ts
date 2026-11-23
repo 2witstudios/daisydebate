@@ -1,5 +1,5 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { finalizationState } from './transcript-finalization-state';
+import { finalizationState } from './transcript-finalization';
 
 setupRitewayBun();
 
