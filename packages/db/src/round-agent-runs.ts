@@ -1,4 +1,7 @@
-import { requireFencedParticipants } from './round-command-record';
+import {
+  requireFencedParticipants,
+  fencedActorIds,
+} from './round-command-record';
 import { currentRoundParticipant } from './round-current-participant';
 import { and, eq, isNull, sql } from 'drizzle-orm';
 import { createAppError } from '@daisy/errors';
@@ -13,7 +16,6 @@ import { botProfiles } from './schema/bot-profiles';
 import { aiJudgeProfiles } from './schema/ai-judge-profiles';
 import { roundParticipants } from './schema/round-participants';
 import { rounds } from './schema/rounds';
-import { fencedActorIds } from './seat-eligibility';
 import type { Tx } from './tx';
 
 async function lockRoundAgentAccounts(tx: Tx, roundId: string) {

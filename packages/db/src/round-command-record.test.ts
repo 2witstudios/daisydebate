@@ -2,6 +2,7 @@ import { assertRejects } from '@daisy/errors/testing';
 import { z } from 'zod';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import {
+  fencedActorIds,
   requireCommandInput,
   requireFencedParticipants,
   requireSameCommand,
@@ -80,5 +81,22 @@ test('every current seat must have been fenced before the Round lock', async () 
     should: 'refuse the write as a conflict',
     actual: () => requireFencedParticipants(seats, ['a']),
     code: 'CONFLICT',
+  });
+});
+
+test('fenced actors are distinct, seats first, without absent extras', () => {
+  assert({
+    given:
+      'repeated seat actors, a host also seated, and absent optional actors',
+    should: 'list each actor once in first-seen order',
+    actual: fencedActorIds(
+      [{ actorId: 'a' }, { actorId: 'b' }, { actorId: 'a' }],
+      'b',
+      null,
+      undefined,
+      '',
+      'host',
+    ),
+    expected: ['a', 'b', 'host'],
   });
 });

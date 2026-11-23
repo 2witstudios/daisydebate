@@ -1,6 +1,6 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { fencedActorIds, seatEligibility } from './seat-eligibility';
-import { eligibleCompetitorIds } from '@daisy/protocol/seats';
+import { seatEligibility } from './seat-eligibility';
+import { eligibleCompetitorIds } from './seats';
 
 setupRitewayBun();
 
@@ -136,23 +136,6 @@ test('an actor of unknown kind is never eligible, even with a member account', (
       seat: { kind: 'side', side: 'affirmative', slot: 0 },
     }),
     expected: { kind: 'human', eligible: false },
-  });
-});
-
-test('fenced actors are distinct, seats first, without absent extras', () => {
-  assert({
-    given:
-      'repeated seat actors, a host also seated, and absent optional actors',
-    should: 'list each actor once in first-seen order',
-    actual: fencedActorIds(
-      [{ actorId: 'a' }, { actorId: 'b' }, { actorId: 'a' }],
-      'b',
-      null,
-      undefined,
-      '',
-      'host',
-    ),
-    expected: ['a', 'b', 'host'],
   });
 });
 

@@ -1,5 +1,5 @@
-import { aiRoleFits, type AiRole } from '@daisy/protocol/ai-roles';
-import { type SeatRef } from '@daisy/protocol/seats';
+import { aiRoleFits, type AiRole } from './ai-roles';
+import { type SeatRef } from './seats';
 
 type ActorFact = {
   readonly kind: 'human' | 'bot';
@@ -52,17 +52,3 @@ export function seatEligibility(
     eligible: humanSeatEligible(accounts, seat.actorId),
   };
 }
-
-/**
- * The distinct actors a Round write fences, seats first, in a stable order.
- * Absent optional actors are skipped.
- */
-export const fencedActorIds = (
-  seats: readonly { readonly actorId: string }[],
-  ...extra: readonly (string | null | undefined)[]
-): string[] => [
-  ...new Set([
-    ...seats.map((seat) => seat.actorId),
-    ...extra.filter((id): id is string => !!id),
-  ]),
-];

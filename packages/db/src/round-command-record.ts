@@ -72,3 +72,17 @@ export function requireFencedParticipants(
   if (participants.some((seat) => !fencedActorIds.includes(seat.actorId)))
     throw createAppError('CONFLICT');
 }
+
+/**
+ * The distinct actors a Round write fences, seats first, in a stable order.
+ * Absent optional actors are skipped.
+ */
+export const fencedActorIds = (
+  seats: readonly { readonly actorId: string }[],
+  ...extra: readonly (string | null | undefined)[]
+): string[] => [
+  ...new Set([
+    ...seats.map((seat) => seat.actorId),
+    ...extra.filter((id): id is string => !!id),
+  ]),
+];

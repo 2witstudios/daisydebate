@@ -198,7 +198,8 @@
     "./username": "./src/username.ts",
     "./youth-live": "./src/youth-live.ts",
     "./youth-round": "./src/youth-round.ts",
-    "./round-judging-progression": "./src/round-judging-progression.ts"
+    "./round-judging-progression": "./src/round-judging-progression.ts",
+    "./seat-eligibility": "./src/seat-eligibility.ts"
   },
   "scripts": {
     "typecheck": "tsgo --noEmit && tsgo --noEmit -p tsconfig.test.json",

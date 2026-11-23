@@ -35,7 +35,7 @@ import { lobbyAgeRules } from '@daisy/protocol/lobby/eligibility';
 import { divisionAgeBand } from './ladder-division-band';
 import { botProfiles } from './schema/bot-profiles';
 import { aiJudgeProfiles } from './schema/ai-judge-profiles';
-import { aiSeatFits } from './seat-eligibility';
+import { aiSeatFits } from '@daisy/protocol/seat-eligibility';
 import { seatOfColumns, seatRowOrder } from './seat-columns';
 import { roomCommands } from './schema/room-commands';
 import { rooms, roomParticipants, roomSeatHolds } from './schema/rooms';

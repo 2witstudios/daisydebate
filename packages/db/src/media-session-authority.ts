@@ -15,8 +15,11 @@ import { hydrateRoundRows, type RoundHydration } from './round-hydration';
 import { rounds } from './schema/rounds';
 import { mediaSessions } from './schema/media-sessions';
 import { roundParticipants } from './schema/round-participants';
-import { requireFencedParticipants } from './round-command-record';
-import { fencedActorIds, seatEligibility } from './seat-eligibility';
+import {
+  requireFencedParticipants,
+  fencedActorIds,
+} from './round-command-record';
+import { seatEligibility } from '@daisy/protocol/seat-eligibility';
 import {
   requireAdmittedPrincipal,
   type ParticipantAdmission,
