@@ -6,11 +6,13 @@ import { useDocumentEvent, useWindowEvent } from '../edge/use-dom-events';
 import { useRouteReads, type RouteRead } from '../edge/use-route-reads';
 import { browserScheduler } from '../edge/browser-time';
 import { Announcement } from '../components/announcement/announcement';
-import { useMemo, useState, useTransition } from 'react';
+import { useMemo, useRef, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import type { ConversationRecoveryOrigin } from './conversation-recovery';
 import { createConversationRecovery } from './conversation-recovery';
 import { shellNavigationEvent } from '../layout/app-shell/shell-navigation';
+
+type ConversationRecovery = ReturnType<typeof createConversationRecovery>;
 
 /** A same-tab target: the link or form leaves this page in place of a new one. */
 const sameTab = (target: string | null | undefined) =>
@@ -29,6 +31,12 @@ export function ConversationReconnecting({
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
+  /**
+   * The open recovery, for the page's own listeners. The browser proof
+   * (e2e/support/messaging-committed-refusal.ts) finds the owner here, the
+   * hook after the transition.
+   */
+  const active = useRef<ConversationRecovery | null>(null);
   const [exhausted, setExhausted] = useState(false);
   const held = useResource(router, (current) => {
     const address = window.location.href;
@@ -55,8 +63,12 @@ export function ConversationReconnecting({
         owner.refreshedAtMs = null;
         owner.recovery.settled();
       },
-      dispose: () => owner.recovery.stop(),
+      dispose: () => {
+        owner.recovery.stop();
+        if (active.current === owner.recovery) active.current = null;
+      },
     };
+    active.current = owner.recovery;
     return owner;
   });
   const recovery = held?.recovery;
