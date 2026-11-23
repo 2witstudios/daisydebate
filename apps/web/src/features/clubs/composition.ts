@@ -1,3 +1,6 @@
+import { createBillingStripe } from '../../server/billing-stripe';
+import { defineComposition } from '../../server/composition';
+import { memberHttpBoundary } from '../../server/member-boundary';
 import { nowMs } from '@daisy/clock';
 import type Stripe from 'stripe';
 import { createId } from '@paralleldrive/cuid2';
@@ -144,3 +147,14 @@ export function composeClubs(
     },
   });
 }
+
+/** clubs: club creation, seats, billing and invitations bind here (ADR 0148). */
+export const clubComposition = defineComposition(
+  'clubs',
+  (app, { vendorFetch }) =>
+    composeClubs(
+      app,
+      createBillingStripe(app.config.billing, vendorFetch),
+      memberHttpBoundary(app),
+    ),
+);

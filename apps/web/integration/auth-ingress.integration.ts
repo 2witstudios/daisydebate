@@ -6,13 +6,14 @@ import { createTestApp, origin } from './fixtures';
 import { requestFrom } from './socket-request';
 import { stampClientIdentity } from '../src/features/auth/abuse/client-ip';
 import { requireTestServices } from '@daisy/config';
+import { authComposition } from '../src/features/auth/composition';
 
 requireTestServices(process.env);
 setupRitewayBun();
 // The ingress requests reach the production sender: its mail lands on this
 // suite's private mailbox rather than the network.
 const { routes, freshEmail } = createTestApp();
-const authRoute = routes.auth;
+const authRoute = routes(authComposition);
 
 /** Stand-in for the deployment ingress: the same stamping start.ts performs. */
 async function ingress(trustedProxies: string[]) {

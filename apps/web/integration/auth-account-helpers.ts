@@ -6,6 +6,8 @@ import { cookieHeader, withSql, type TestApp } from './fixtures';
 import { CLIENT_IP_HEADER } from '@daisy/ingress/client-ip';
 import { CONFIRM_PATH } from '../src/features/auth/confirmation/confirm-page';
 import { identify, resolveSession } from '../src/lib/identity';
+import { usernameComposition } from '../src/features/account/composition';
+import { ageComposition } from '../src/features/account/composition';
 
 /**
  * A replayed, invalid or otherwise redeemed emailed-link token maps to a
@@ -60,7 +62,8 @@ export function createAccountFlows(testApp?: TestApp) {
   /** A server-side session read as a page render makes it for one client. */
   const identifyAs = (cookie: string, client = newClient()) =>
     identify(app.auth(), new Headers({ cookie, [CLIENT_IP_HEADER]: client }));
-  const { username: usernameRoute, age: ageRoute } = flows.testApp.routes;
+  const usernameRoute = flows.testApp.routes(usernameComposition);
+  const ageRoute = flows.testApp.routes(ageComposition);
 
   /**
    * A brand-new account signed in through the real request → confirm path,

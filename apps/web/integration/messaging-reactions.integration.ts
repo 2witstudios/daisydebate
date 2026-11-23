@@ -4,6 +4,7 @@ import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { origin } from './fixtures';
 import * as mountedMessaging from './messaging-route.test-support';
+import { messagingComposition } from '../src/features/messaging/composition';
 setupRitewayBun();
 const { databaseUrl } = requireTestServices(process.env);
 
@@ -27,7 +28,7 @@ test('mounted reactions retain current aggregates, replay immutability and own c
       channelId,
       app.app.clock.now(),
     );
-    const sent = await routes.messaging.send(
+    const sent = await routes(messagingComposition).send(
       app.jsonPost(
         '/api/messaging/messages',
         {
@@ -51,11 +52,11 @@ test('mounted reactions retain current aggregates, replay immutability and own c
       active: true,
     };
     const change = (cookie: string, body: unknown) =>
-      routes.messaging.reactions(
+      routes(messagingComposition).reactions(
         app.jsonPost('/api/messaging/reactions', body, { cookie }),
       );
     const read = (cookie: string, id = channelId) =>
-      routes.messaging.reactions(
+      routes(messagingComposition).reactions(
         new Request(
           `${origin}/api/messaging/channels/${id}/reactions?messageId=${message.id}`,
           { headers: { cookie } },

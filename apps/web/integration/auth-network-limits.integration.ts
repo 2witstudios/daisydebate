@@ -4,6 +4,7 @@ import { createCeilingFlows, GLOBAL_MINUTE } from './auth-ceiling-helpers';
 import { elapse, statuses } from './auth-rate-limit-helpers';
 import { CLIENT_IP_HEADER } from '@daisy/ingress/client-ip';
 import { MAGIC_LINK_NETWORK_RULES } from '../src/features/auth/abuse/rate-limit';
+import { authComposition } from '../src/features/auth/composition';
 
 /**
  * AUTH-3.10 (DEC-78): Better Auth keys an IPv6 client by its /64, so one
@@ -37,7 +38,7 @@ const FLOOD_SECONDS = 10;
 
 /** One magic-link request from a given client, built directly (no harness client). */
 const fromClient = (email: string, client: string) =>
-  testApp.routes.auth.POST(
+  testApp.routes(authComposition).POST(
     new Request(`${testApp.origin}/api/auth/sign-in/magic-link`, {
       method: 'POST',
       headers: {

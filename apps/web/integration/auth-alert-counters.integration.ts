@@ -7,10 +7,10 @@ import { requireTestServices } from '@daisy/config';
 import type { Fetch } from '../src/features/mail/resend-sender';
 import { createApp } from '../src/server/app';
 import { LATENCY_BUCKETS_MS } from '../src/features/ops/metrics-store';
-import { createRoutes } from '../src/server/routes';
 import { createTestApp } from './fixtures';
 import { latencyHistogramOf, sampleOf, serveEdge } from './ops-edge';
 import { betaMessagingPolicy } from '../src/features/messaging/beta-policy';
+import { composer } from '../src/server/composition.test-support';
 
 requireTestServices(process.env);
 setupRitewayBun();
@@ -114,7 +114,7 @@ describe('ISSUE-190 auth request duration histogram', () => {
   afterAll(() => app.close());
 
   test('each completed auth request is observed once, in the bucket of its own duration', async () => {
-    const edge = await serveEdge({ app, routes: createRoutes(app), opsToken });
+    const edge = await serveEdge({ app, routes: composer(app), opsToken });
     try {
       const statuses: number[] = [];
       for (let index = 0; index < 4; index += 1)

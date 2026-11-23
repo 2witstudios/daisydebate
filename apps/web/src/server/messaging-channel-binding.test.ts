@@ -6,19 +6,17 @@ test('channel metadata routes resolve only trusted async path scope through the 
   const path = 'c'.repeat(24),
     calls: unknown[] = [];
   const binder = createRouteBinder(() => ({
-    messaging: {
-      typing: async (request: Request, write: boolean, channelId?: string) => {
-        calls.push(['typing', request.url, write, channelId]);
-        return Response.json({ typing: false });
-      },
-      preferences: async (
-        request: Request,
-        operation: 'read' | 'update' | 'clear',
-        channelId?: string,
-      ) => {
-        calls.push(['preferences', request.url, operation, channelId]);
-        return Response.json({ state: null });
-      },
+    typing: async (request: Request, write: boolean, channelId?: string) => {
+      calls.push(['typing', request.url, write, channelId]);
+      return Response.json({ typing: false });
+    },
+    preferences: async (
+      request: Request,
+      operation: 'read' | 'update' | 'clear',
+      channelId?: string,
+    ) => {
+      calls.push(['preferences', request.url, operation, channelId]);
+      return Response.json({ state: null });
     },
   }));
   const request = new Request(

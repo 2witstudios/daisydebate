@@ -3,6 +3,7 @@ import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createId } from '@paralleldrive/cuid2';
 import { createAccountFlows, uniqueName } from './auth-account-helpers';
 import { createTestApp } from './fixtures';
+import { roomComposition } from '../src/features/room-runtime/composition';
 requireTestServices(process.env);
 setupRitewayBun();
 const rule = { max: 1, windowSeconds: 47 };
@@ -24,15 +25,18 @@ test('ordinary configured app enforces each canonical per-member rate budget', a
   const roomId = createId();
   const calls = [
     () =>
-      f.routes.rooms.catalog(
-        new Request(`${f.origin}/api/rooms/catalog`, { headers }),
-      ),
-    () => f.routes.rooms.create(f.jsonPost('/api/rooms', {}, headers)),
+      f
+        .routes(roomComposition)
+        .catalog(new Request(`${f.origin}/api/rooms/catalog`, { headers })),
     () =>
-      f.routes.rooms.commands(
-        f.jsonPost(`/api/rooms/${roomId}/commands`, {}, headers),
-        roomId,
-      ),
+      f.routes(roomComposition).create(f.jsonPost('/api/rooms', {}, headers)),
+    () =>
+      f
+        .routes(roomComposition)
+        .commands(
+          f.jsonPost(`/api/rooms/${roomId}/commands`, {}, headers),
+          roomId,
+        ),
   ];
   const statuses: number[][] = [];
   for (const call of calls)

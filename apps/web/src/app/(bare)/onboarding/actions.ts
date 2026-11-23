@@ -9,6 +9,7 @@ import { returnableDestination } from '../../../features/auth/redirect';
 import { moveOn } from '../../../server/form-action';
 import { inProcessFetch } from '../../../server/in-process-fetch';
 import { processRoute } from '../../../server/process-app';
+import { onboardingComposition } from '../../../features/onboarding/composition';
 import {
   createSubmitStep,
   refusedStep,
@@ -19,7 +20,10 @@ import {
   type StepFormState,
 } from '../../../ui/onboarding/questions/step-form-state';
 
-const onboardingRoute = processRoute((routes) => routes.onboarding.POST);
+const onboardingRoute = processRoute(
+  onboardingComposition,
+  (routes) => routes.POST,
+);
 
 /**
  * A questionnaire step's POST, as a server action: it works before

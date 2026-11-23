@@ -1,3 +1,6 @@
+import { defineComposition } from '../../server/composition';
+import { memberHttpBoundary } from '../../server/member-boundary';
+import { createRoundMediaHandlers } from './handlers';
 import { captureAdmissionPolicy } from '../media-capture/capture-policy';
 import { nowMs, type Waits } from '@daisy/clock';
 import { repeatEvery, type RepeatWorker } from '@daisy/worker';
@@ -190,3 +193,11 @@ export function createRoundMediaRuntime(
     stop: stoppable.stop,
   };
 }
+
+/** round-media: its route files bind here (`processRoute`). */
+export const roundMediaComposition = defineComposition('round-media', (app) =>
+  createRoundMediaHandlers({
+    ...memberHttpBoundary(app),
+    operations: createRoundMediaRuntime(app, app.waits).operations,
+  }),
+);

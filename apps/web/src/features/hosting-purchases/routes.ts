@@ -1,3 +1,6 @@
+import { defineComposition } from '../../server/composition';
+import { hostingPurchaseDependencies } from '../../server/hosting-purchases';
+import { memberHttpBoundary } from '../../server/member-boundary';
 import { z } from 'zod';
 import { createAppError } from '@daisy/errors';
 import { idSchema } from '@daisy/protocol/primitives';
@@ -183,3 +186,13 @@ export function composeHostingRoutes(input: {
     }),
   };
 }
+
+/** hosting: the hosting purchase routes bind here (`processRoute`). */
+export const hostingComposition = defineComposition('hosting', (app) =>
+  composeHostingRoutes({
+    boundary: memberHttpBoundary(app),
+    dependencies: (fetch) => hostingPurchaseDependencies(app, fetch),
+    lobbyIdOfHandle: (handle) =>
+      app.database.tabCommands.lobbyIdOfHandle(handle),
+  }),
+);

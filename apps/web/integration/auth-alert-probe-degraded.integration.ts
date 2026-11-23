@@ -11,6 +11,7 @@ import { ALERT_STATE_READ_TIMEOUT_MS } from '../src/features/ops/alert-state';
 import { createFaultedApp } from './fault-proxy';
 import { createTestApp } from './fixtures';
 import { provisionalLinkPurposes } from '../src/features/auth/mail/provisional-mail';
+import { opsComposition } from '../src/features/ops/composition';
 
 requireTestServices(process.env);
 setupRitewayBun();
@@ -151,9 +152,9 @@ describe('ISSUE-199 the probe over an unreadable alert state', () => {
         const path = new URL(request.url).pathname;
         const response =
           path === '/api/health/ready'
-            ? await testApp.routes.ready.GET(request)
+            ? await testApp.routes(opsComposition).ready.GET(request)
             : path === '/api/ops/alerts'
-              ? await faulted.routes.ops.alerts.GET(request)
+              ? await faulted.routes(opsComposition).ops.alerts.GET(request)
               : new Response(null, { status: 404 });
         headers.forEach((value, key) => response.headers.set(key, value));
         return response;
@@ -223,10 +224,14 @@ describe('ISSUE-208 /api/ops/alerts over a stalled Redis', () => {
       new Request(`${testApp.origin}/api/ops/alerts`, {
         headers: { authorization: `Bearer ${opsToken}` },
       });
-    const baseline = await faulted.routes.ops.alerts.GET(alertsRequest());
+    const baseline = await faulted
+      .routes(opsComposition)
+      .ops.alerts.GET(alertsRequest());
     faulted.proxy.stall();
     const started = performance.now();
-    const stalled = await faulted.routes.ops.alerts.GET(alertsRequest());
+    const stalled = await faulted
+      .routes(opsComposition)
+      .ops.alerts.GET(alertsRequest());
     const elapsedMs = performance.now() - started;
     const body = (await stalled.json()) as {
       snapshot: { redisState: string };

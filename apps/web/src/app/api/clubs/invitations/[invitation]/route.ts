@@ -1,9 +1,12 @@
 import { processRoute } from '../../../../../server/process-app';
+import { clubComposition } from '../../../../../features/clubs/composition';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 export const GET = processRoute(
-  (routes) => routes.billing.clubs.invitation.GET,
+  clubComposition,
+  (routes) => routes.invitation.GET,
 );
 export const POST = processRoute(
-  (routes) => routes.billing.clubs.invitation.POST,
+  clubComposition,
+  (routes) => routes.invitation.POST,
 );

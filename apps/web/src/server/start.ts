@@ -1,5 +1,4 @@
 import { hostWaits } from '@daisy/worker/host';
-import { loadBillingRoutes } from './billing-route-loader';
 import { releaseFlagDefault } from '../features/flags/release-default';
 import { readFileSync } from 'node:fs';
 import next from 'next';
@@ -7,7 +6,6 @@ import { refuseSchemaAlteringRole } from '@daisy/db';
 import { installShutdownSignals } from '@daisy/observability';
 import {
   closeProcessApp,
-  initializeProcessBilling,
   processApp,
   processStartOptions,
   fetchPublicAttendanceProbe,
@@ -20,7 +18,6 @@ import { SHUTDOWN_DRAIN_DEADLINE_MS } from './shutdown-budget';
 
 // Refuses anything but NODE_ENV=production before building the app.
 const { port, host } = processStartOptions();
-initializeProcessBilling(loadBillingRoutes);
 const app = processApp();
 const nextApp = next({ dev: false, port });
 // Production must not boot without validated auth configuration (secret,

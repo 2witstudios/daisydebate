@@ -8,6 +8,8 @@ import { createFaultedApp } from './fault-proxy';
 import { cookieHeader, createTestApp, linkFrom, tokenOf } from './fixtures';
 import { provisionalLinkPurposes } from '../src/features/auth/mail/provisional-mail';
 import { sampleOf, serveEdge } from './ops-edge';
+import { authComposition } from '../src/features/auth/composition';
+import { confirmComposition } from '../src/features/auth/composition';
 
 /**
  * ISSUE-190: every AUTH-7.7 signal `withAlertRecording` derives from the
@@ -153,12 +155,12 @@ describe('ISSUE-190 storage unavailable and retention signals', () => {
 
   test('a session read during a database outage marks storage unavailable on /api/ops/alerts', async () => {
     // A real session, signed in while the database is reachable.
-    await routes.auth.POST(
+    await routes(authComposition).POST(
       testApp.jsonPost('/api/auth/sign-in/magic-link', {
         email: testApp.freshEmail(),
       }),
     );
-    const signedIn = await routes.confirm.POST(
+    const signedIn = await routes(confirmComposition).POST(
       testApp.formPost({
         token: tokenOf(linkFrom(testApp.mailbox.mails.at(-1)!)),
         callbackURL: '/lobby',

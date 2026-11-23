@@ -6,11 +6,6 @@ import { captureMail, fileRecorder, readDevMailFile } from './dev-mail';
 import { createProcessEdge, type ProcessHolder } from './process-edge';
 import { createRouteBinder } from './route-binding';
 import { composedOn, type Composed, type Composition } from './composition';
-import { createRoutes, type Routes } from './routes';
-import {
-  createLazyBillingRoutes,
-  type BillingRouteLoader,
-} from './billing-route-table';
 import { readStartOptions } from './start-options';
 import { nextWorkerToken } from './worker-token';
 import { fetchWithoutTracing } from '../features/telemetry/sentry-init';
@@ -28,37 +23,15 @@ import { fetchWithoutTracing } from '../features/telemetry/sentry-init';
  */
 type ProcessState = {
   readonly app: App;
-  readonly routes: Routes & {
-    readonly billing: ReturnType<typeof createLazyBillingRoutes>;
-  };
   readonly vendorFetch: typeof globalThis.fetch;
   /** Each feature composition built on this app, by name. */
   readonly composed: Composed;
-  readonly initializeBilling: (load: BillingRouteLoader) => void;
 };
 
 const stateFor = (
   app: App,
   vendorFetch: typeof globalThis.fetch,
-): ProcessState => {
-  let billingLoader: BillingRouteLoader | undefined;
-  return {
-    app,
-    routes: {
-      ...createRoutes(app),
-      billing: createLazyBillingRoutes(app, vendorFetch, () => {
-        if (!billingLoader)
-          throw new Error('Billing bootstrap is not initialized');
-        return billingLoader();
-      }),
-    },
-    vendorFetch,
-    composed: new Map(),
-    initializeBilling: (load) => {
-      billingLoader ??= load;
-    },
-  };
-};
+): ProcessState => ({ app, vendorFetch, composed: new Map() });
 
 /**
  * Outbound HTTP: the network, except in local development with
@@ -108,10 +81,6 @@ const edge = createProcessEdge(processHolder, () =>
   ),
 );
 
-/** The originating bootstrap installs once; later Next instrumentation cannot replace it. */
-export const initializeProcessBilling = (load: BillingRouteLoader) =>
-  edge.get().initializeBilling(load);
-
 /** This process's app, built on first use. */
 export const processApp = (): App => edge.get().app;
 
@@ -127,37 +96,23 @@ type Pick<Routes, Args extends unknown[]> = (
   fetch: typeof globalThis.fetch,
 ) => Handler<Args>;
 
-/** The legacy table: shrinks to nothing as each feature binds its own composition. */
-type LegacyPick<Args extends unknown[]> = Pick<ProcessState['routes'], Args>;
-
-const isComposition = (value: unknown): value is Composition<unknown> =>
-  typeof value === 'object' && value !== null && 'compose' in value;
-
-/** `composition`'s handlers on the state's app, built once per app. */
-const routesOf = <Routes>(
-  state: ProcessState,
-  composition: Composition<Routes>,
-): Routes =>
-  composedOn(
-    state.composed,
-    state.app,
-    { vendorFetch: state.vendorFetch },
-    composition,
-  );
-
-const selectOn = <Routes, Args extends unknown[]>(
-  composition: Composition<Routes> | null,
-  pick: Pick<Routes, Args> | LegacyPick<Args>,
-) =>
-  composition
-    ? (state: ProcessState) =>
-        (pick as Pick<Routes, Args>)(
-          routesOf(state, composition),
-          state.app,
-          state.vendorFetch,
-        )
-    : (state: ProcessState) =>
-        (pick as LegacyPick<Args>)(state.routes, state.app, state.vendorFetch);
+/** `pick` on `composition`, built once per app, on the state's app. */
+const selectOn =
+  <Routes, Args extends unknown[]>(
+    composition: Composition<Routes>,
+    pick: Pick<Routes, Args>,
+  ) =>
+  (state: ProcessState) =>
+    pick(
+      composedOn(
+        state.composed,
+        state.app,
+        { vendorFetch: state.vendorFetch },
+        composition,
+      ),
+      state.app,
+      state.vendorFetch,
+    );
 
 /**
  * A route module's handler: `pick` selects it from its feature's
@@ -175,52 +130,27 @@ const bind = <Args extends unknown[]>(
     ) => select(stateFor(app, vendorFetch)),
   });
 
-function bindRequestRoute<Routes>(
+const bindRequestRoute = <Routes>(
   composition: Composition<Routes>,
   pick: Pick<Routes, []>,
-): Handler<[]> & { readonly bindTo: (app: App) => Handler<[]> };
-function bindRequestRoute(
-  pick: LegacyPick<[]>,
-): Handler<[]> & { readonly bindTo: (app: App) => Handler<[]> };
-function bindRequestRoute<Routes>(
-  first: Composition<Routes> | LegacyPick<[]>,
-  pick?: Pick<Routes, []>,
-) {
-  const bound = isComposition(first)
-    ? bind(selectOn(first, pick as Pick<Routes, []>))
-    : bind(selectOn<Routes, []>(null, first));
+) => {
+  const bound = bind(selectOn(composition, pick));
   return Object.assign((request: Request) => bound(request), {
     bindTo: bound.bindTo,
   });
-}
+};
 
-const withParams =
-  <Params>(handler: Handler<[Params]>) =>
-  async (request: Request, { params }: { params: Promise<Params> }) =>
-    handler(request, await params);
-
-function bindParameterizedRoute<Routes, Params>(
+const bindParameterizedRoute = <Routes, Params>(
   composition: Composition<Routes>,
   pick: Pick<Routes, [Params]>,
-): ReturnType<typeof bindNextParams<Params>>;
-function bindParameterizedRoute<Params>(
-  pick: LegacyPick<[Params]>,
-): ReturnType<typeof bindNextParams<Params>>;
-function bindParameterizedRoute<Routes, Params>(
-  first: Composition<Routes> | LegacyPick<[Params]>,
-  pick?: Pick<Routes, [Params]>,
-) {
-  const select = isComposition(first)
-    ? selectOn(first, pick as Pick<Routes, [Params]>)
-    : selectOn<Routes, [Params]>(null, first);
-  return bindNextParams<Params>(select);
-}
-
-function bindNextParams<Params>(
-  select: (state: ProcessState) => Handler<[Params]>,
-) {
-  return bind((state) => withParams(select(state)));
-}
+) => {
+  const select = selectOn(composition, pick);
+  return bind((state) => {
+    const handler = select(state);
+    return async (request: Request, { params }: { params: Promise<Params> }) =>
+      handler(request, await params);
+  });
+};
 
 /** Binds request-only handlers or unwraps the directory params supplied by Next. */
 export const processRoute = Object.assign(bindRequestRoute, {

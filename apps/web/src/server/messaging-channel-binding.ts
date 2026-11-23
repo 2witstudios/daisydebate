@@ -1,7 +1,8 @@
-import type { Routes } from './routes';
-type ChannelReads = {
-  readonly messaging: Pick<Routes['messaging'], 'typing' | 'preferences'>;
-};
+import type { composeMessagingRoutes } from '../features/messaging/composition';
+type ChannelReads = Pick<
+  ReturnType<typeof composeMessagingRoutes>,
+  'typing' | 'preferences'
+>;
 type ChannelReadHandler = (request: Request) => Promise<Response>;
 /** Both channel metadata routes receive the approved process binder; this module reaches no process globals. */
 export function messagingChannelRead(
@@ -17,7 +18,7 @@ export function messagingChannelRead(
     bind((routes) => async (incoming) => {
       const { channelId } = await context.params;
       return operation === 'typing'
-        ? routes.messaging.typing(incoming, false, channelId)
-        : routes.messaging.preferences(incoming, 'read', channelId);
+        ? routes.typing(incoming, false, channelId)
+        : routes.preferences(incoming, 'read', channelId);
     })(request);
 }

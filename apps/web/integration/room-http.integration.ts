@@ -9,6 +9,8 @@ import { foundationSelection } from './foundation-selection.test-support';
 import { inProcessFetch } from '../src/server/in-process-fetch';
 import { withSql } from './fixtures';
 import { deleteOrphanNotificationSignals } from './notification-signals.test-support';
+import { roomComposition } from '../src/features/room-runtime/composition';
+import { roundComposition } from '../src/features/round-runtime/composition';
 requireTestServices(process.env);
 setupRitewayBun();
 const { f, routes, headers, member, command } = createRoomHttpFixture();
@@ -25,10 +27,10 @@ test('real authenticated HTTP and native-form transport share principal, origin,
       visibility,
       selection: foundationSelection,
     });
-    const privateRequest = await routes.rooms.create(
+    const privateRequest = await routes(roomComposition).create(
       f.jsonPost('/api/rooms', createBody('private'), { cookie: host }),
     );
-    const created = await routes.rooms.create(
+    const created = await routes(roomComposition).create(
       f.jsonPost('/api/rooms', createBody('unlisted'), { cookie: host }),
     );
     let view = roomViewSchema.parse((await created.json()).view);
@@ -37,18 +39,18 @@ test('real authenticated HTTP and native-form transport share principal, origin,
     await withSql(
       (sql) => sql`update rooms set visibility='private' where id=${roomId}`,
     );
-    const anonymous = await routes.rooms.read(
+    const anonymous = await routes(roomComposition).read(
       new Request(`${f.origin}/api/rooms/${roomId}`),
       roomId,
     );
-    const denied = await routes.rooms.read(
+    const denied = await routes(roomComposition).read(
       new Request(`${f.origin}/api/rooms/${roomId}`, {
         headers: headers(outsider),
       }),
       roomId,
     );
     const badOrigin = await inProcessFetch(
-      (request) => routes.rooms.commands(request, view.id),
+      (request) => routes(roomComposition).commands(request, view.id),
       new Headers({ cookie: host, origin: 'https://foreign.invalid' }),
     )(`/api/rooms/${roomId}/commands`, {
       method: 'POST',
@@ -59,7 +61,7 @@ test('real authenticated HTTP and native-form transport share principal, origin,
         expectedVersion: view.version,
       }),
     });
-    const notHost = await routes.rooms.commands(
+    const notHost = await routes(roomComposition).commands(
       f.jsonPost(
         `/api/rooms/${roomId}/commands`,
         { type: 'close', commandId: createId(), expectedVersion: view.version },
@@ -112,7 +114,7 @@ test('real authenticated HTTP and native-form transport share principal, origin,
         .filter(isNamedSeat)
         .find((p) => p.actorId === guestActor)!.consentVersion,
     });
-    const before = await routes.rooms.read(
+    const before = await routes(roomComposition).read(
       new Request(`${f.origin}/api/rooms/${roomId}`, {
         headers: headers(host),
       }),
@@ -125,7 +127,7 @@ test('real authenticated HTTP and native-form transport share principal, origin,
       type: 'start-round',
     };
     const post = () =>
-      routes.rooms.commands(
+      routes(roomComposition).commands(
         f.jsonPost(`/api/rooms/${roomId}/commands`, launch, { cookie: host }),
         roomId!,
       );
@@ -133,7 +135,7 @@ test('real authenticated HTTP and native-form transport share principal, origin,
     const firstBody = await first.json(),
       retryBody = await retry.json();
     const launched = roomViewSchema.parse(firstBody.view);
-    const roundResponse = await routes.rounds.read(
+    const roundResponse = await routes(roundComposition).read(
       new Request(`${f.origin}/api/rounds/${launched.roundRef!.id}`, {
         headers: headers(guest),
       }),
