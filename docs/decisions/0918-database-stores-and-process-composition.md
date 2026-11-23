@@ -62,8 +62,10 @@ that needed three operations was typed by, and opened lanes for, all 374.
 6. **Command records.** Tab's `action_history` and the operator receipts
    stay the two command-record kinds (Delivery 6643), with the mail queue.
    `round_commands` and `room_commands` are aggregate command logs bound to
-   the Round's or Room's version with no tenant scope (Delivery 6947); each
-   has one read primitive, and they share `acceptedCommandColumns`.
+   the Round's or Room's version with no tenant scope (Delivery 6947). Their
+   replay was one read written twice; both now read through
+   `packages/db/src/command-log.ts` (`storedCommand`), and they share
+   `acceptedCommandColumns`. Neither folds onto Tab's record.
 
 ## Consequences
 
