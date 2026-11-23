@@ -335,6 +335,9 @@
     "packages/redis/integration/presence.integration.ts": 35,
     "packages/redis/integration/redis.integration.ts": 175,
     "packages/redis/integration/test-hygiene.integration.ts": 1795,
-    "packages/redis/integration/ticket.integration.ts": 35
+    "packages/redis/integration/ticket.integration.ts": 35,
+    "packages/db/integration/baseline-adoption.integration.ts": 47600,
+    "packages/db/integration/baseline-catalog.integration.ts": 18000,
+    "packages/db/integration/reference-rows.integration.ts": 7600
   }
 }

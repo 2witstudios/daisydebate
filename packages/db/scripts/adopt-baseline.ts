@@ -23,7 +23,11 @@ if (
 }
 const referenceUrl = new URL(databaseUrl);
 referenceUrl.pathname = `/${reference}`;
+// `--check` proves the adoption and stops before the swap: run it from the
+// PR's image before merging, while the old image can still ship a fix.
+const mode = process.argv.includes('--check') ? 'check' : 'adopt';
 const outcome = await adoptBaseline({
+  mode,
   databaseUrl,
   referenceUrl: referenceUrl.toString(),
   migrationsFolder: fileURLToPath(new URL('../migrations', import.meta.url)),
@@ -35,5 +39,7 @@ if (outcome.kind === 'refused') {
   process.exit(1);
 }
 process.stdout.write(
-  `adopt-baseline: ${outcome.baseline} replaces ${outcome.superseded} journal rows; ${outcome.later.length} later folders kept\n`,
+  outcome.kind === 'adoptable'
+    ? `adopt-baseline --check: adoptable; ${outcome.baseline} would replace ${outcome.superseded} journal rows, ${outcome.later.length} later folders kept; nothing changed\n`
+    : `adopt-baseline: ${outcome.baseline} replaces ${outcome.superseded} journal rows; ${outcome.later.length} later folders kept\n`,
 );

@@ -117,6 +117,16 @@ Staging, from a checkout of the merge commit with `flyctl` logged in as the
 owner (the same operator access as [deploy-staging](deploy-staging.md#database-credentials-issue-39)).
 No agent runs any of it; no builder has run these commands against Fly.
 
+0. **Check before merging**, while the old image can still ship a fix. Run
+   steps 3 and 4 from a checkout of the PR's head instead of the merge
+   commit, with `--check` after the script path:
+   `bun /app/packages/db/scripts/adopt-baseline.ts --check`. It proves
+   everything the adoption proves and stops before the swap, printing
+   `adopt-baseline --check: adoptable; … nothing changed`. If it refuses,
+   fix the cause on main the ordinary way, with a folder after the cut-off
+   that staging applies (a CHECK that staging left `NOT VALID` is one such
+   cause, because the reference validates it), take main into the PR, and
+   check again. Drop and recreate the reference between runs (steps 6 and 3).
 1. **Pause the deploy rail** before merging, so the merge does not release
    on its own: `gh workflow disable deploy-staging.yml`. A disabled
    `workflow_run` workflow drops the CI event, so step 5 dispatches it by
@@ -154,9 +164,12 @@ No agent runs any of it; no builder has run these commands against Fly.
    It runs by absolute path for the same reason as the release command
    (`fly.migrate.toml`): the image's WORKDIR, `apps/web`, has no such script.
    Expect `adopt-baseline: 20261121235720_baseline replaces 153 journal rows;
-N later folders kept`. If it refuses, nothing has changed: read the
-   differences, fix the cause forward, drop and recreate the reference
-   (steps 6 and 3), and run step 4 again.
+N later folders kept`. If it refuses, nothing has changed. A cause that
+   step 0 did not see (staging moved after the check) cannot be fixed
+   forward from here: this image's migrator cannot run against the old
+   journal, and the reference applies only folders the journal records.
+   Revert the merge on main, so main ships the old image again, fix the
+   cause there, and land the baseline again from step 0.
 
 5. **Release the merge commit**: `gh workflow enable deploy-staging.yml`, then
    `gh workflow run deploy-staging.yml --ref main`. Confirm the run's

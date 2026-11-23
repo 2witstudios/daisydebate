@@ -33,7 +33,7 @@ afterAll(async () => {
 });
 
 /** A new, empty reference database on the same cluster, as the runbook asks. */
-const adopt = async () => {
+const adopt = async (mode: 'adopt' | 'check' = 'adopt') => {
   const reference = scratchDatabase(databaseUrl, 'adoptref');
   references.push(reference);
   await reference.create();
@@ -41,6 +41,7 @@ const adopt = async () => {
     databaseUrl: live.url,
     referenceUrl: reference.url,
     migrationsFolder,
+    mode,
   });
 };
 
@@ -179,8 +180,9 @@ test(
     const client = new SQL(live.url, { max: 1 });
     try {
       await client`grant select on public.formats to daisy_realtime`;
-      const outcome = await adopt();
-      await client`revoke select on public.formats from daisy_realtime`;
+      const outcome = await adopt().finally(
+        () => client`revoke select on public.formats from daisy_realtime`,
+      );
       assert({
         given: 'the seeded database with one grant the baseline does not hold',
         should:
@@ -218,8 +220,10 @@ test(
     try {
       await client`insert into drizzle.__drizzle_migrations (hash, created_at, name)
         values (${'f'.repeat(64)}, 4102444800000, '20991231000000_somewhere_else')`;
-      const outcome = await adopt();
-      await client`delete from drizzle.__drizzle_migrations where name = '20991231000000_somewhere_else'`;
+      const outcome = await adopt().finally(
+        () =>
+          client`delete from drizzle.__drizzle_migrations where name = '20991231000000_somewhere_else'`,
+      );
       assert({
         given:
           'the seeded database whose journal records a folder this image does not hold',
@@ -269,6 +273,67 @@ test(
           ],
         },
         journal: names.join(),
+      },
+    });
+  },
+  historyTimeoutMs,
+);
+
+test(
+  'adoption refuses, naming the cause, when the reference cannot be built',
+  async () => {
+    await seeded;
+    const names = await journal();
+    const missing = new URL(live.url);
+    missing.pathname = '/adoptref_never_created';
+    const outcome = await adoptBaseline({
+      databaseUrl: live.url,
+      referenceUrl: missing.toString(),
+      migrationsFolder,
+    });
+    assert({
+      given: 'a reference database that does not exist',
+      should:
+        'refuse with the cause the database gave, and leave the journal unchanged',
+      actual: {
+        kind: outcome.kind,
+        cause:
+          outcome.kind === 'refused' &&
+          /^The reference database could not be built \(.+\); the live database is unchanged/.test(
+            outcome.reasons[0] ?? '',
+          ),
+        journal: (await journal()).join(),
+      },
+      expected: { kind: 'refused', cause: true, journal: names.join() },
+    });
+  },
+  historyTimeoutMs,
+);
+
+test(
+  'a check proves the adoption and changes nothing',
+  async () => {
+    await seeded;
+    const [rows, names] = [await tableRows(), await journal()];
+    const later = names.filter((name) => name > record.cutoff);
+    assert({
+      given: 'the seeded database checked with an empty reference',
+      should:
+        'report it adoptable and leave the journal and every row unchanged',
+      actual: {
+        outcome: await adopt('check'),
+        journal: (await journal()).join(),
+        rows: (await tableRows()).join(),
+      },
+      expected: {
+        outcome: {
+          kind: 'adoptable',
+          baseline: record.tag,
+          superseded: names.length - later.length,
+          later,
+        },
+        journal: names.join(),
+        rows: rows.join(),
       },
     });
   },

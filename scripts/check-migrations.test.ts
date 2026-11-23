@@ -380,6 +380,26 @@ describe('evaluateMigrations', () => {
     });
   });
 
+  test('leaves a shared folder its generated name, which only a rewrite could change', () => {
+    const tag = '20260101000000_dark_silver_centurion';
+    const tree = folder(tag);
+    assert({
+      given: 'a drizzle-kit name already on the base branch',
+      should: 'pass, since renaming it would rewrite shared history',
+      actual: codes(
+        evaluateMigrations({
+          baseFiles: tree,
+          headFiles: tree,
+          headLinks: [{ tag, id: 'a', prevIds: [origin] }],
+          baselines: [],
+          words,
+          today,
+        }).problems,
+      ),
+      expected: [],
+    });
+  });
+
   test('compares an ordinary branch against its base', () => {
     const result = evaluateMigrations({
       baseFiles: folder(first),

@@ -67,11 +67,13 @@ const sourceFacts = async (url: string) => {
         and r.rolinherit and r.rolconnlimit = -1 and r.rolconfig is null
         and not exists (select 1 from pg_auth_members m where m.member = r.oid) as plain
       from pg_roles r
-      where r.rolname <> current_user and r.rolname !~ '^pg_' and r.rolname in (
+      where r.rolname <> current_user and r.rolname !~ '^pg_' and (r.rolname in (
         select (aclexplode(a)).grantee::regrole::text from (
           select nspacl a from pg_namespace union all select relacl from pg_class
           union all select attacl from pg_attribute union all select proacl from pg_proc
           union all select defaclacl from pg_default_acl) acls where a is not null)
+        or r.oid in (select unnest(polroles) from pg_policy)
+        or r.oid in (select defaclrole from pg_default_acl))
       order by 1`) as { name: string; plain: boolean }[];
     const odd = named.filter(({ plain }) => !plain).map(({ name }) => name);
     if (odd.length > 0)

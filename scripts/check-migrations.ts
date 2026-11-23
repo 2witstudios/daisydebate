@@ -310,11 +310,16 @@ export function evaluateMigrations(options: {
 } {
   const base = readMigrations(options.baseFiles, options.dir);
   const head = readMigrations(options.headFiles, options.dir);
+  const baseTags = new Set(base.migrations.map(({ tag }) => tag));
   const own = [
     ...head.problems,
     ...findChainProblems(options.headLinks),
+    // Only a folder new on this branch can still take a name; a shared one
+    // is history, and renaming it would rewrite that history.
     ...head.migrations
-      .filter(({ tag }) => isGeneratedName(tag, options.words))
+      .filter(
+        ({ tag }) => !baseTags.has(tag) && isGeneratedName(tag, options.words),
+      )
       .map(({ tag }) => ({
         code: 'GENERATED_NAME' as const,
         detail: `${tag} carries a name drizzle-kit drew; name the change with bun db:generate --name <what it does>`,

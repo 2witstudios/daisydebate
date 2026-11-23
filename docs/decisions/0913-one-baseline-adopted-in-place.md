@@ -66,6 +66,11 @@ db:adopt-baseline` (owner only) builds a reference database from the image:
    images from that commit. Machines already running keep serving, because
    the check runs only at start. None may restart between the swap and the
    new image's start, and rolling back past the swap is a forward fix.
+   Before the merge, the owner runs the same command with `--check`
+   from the PR's image. It proves everything and stops before the swap, so
+   a refusal is fixed forward on main while the old image still ships. A
+   refusal after the merge is recovered by reverting the merge.
+
 6. **Temporary by design.** The generator, the old-way builder, the
    superseded journal list, the catalog-comparison suite and the adoption
    command exist only until staging and production have adopted. Their

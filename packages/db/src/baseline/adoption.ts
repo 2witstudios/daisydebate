@@ -24,9 +24,17 @@ import {
   type JournalStamp,
 } from './adoption-plan';
 
+/**
+ * `adopt` swaps the journal; `check` proves the same and stops before the
+ * swap, so the owner can run it against staging from a PR's image while
+ * the old image can still ship a forward fix.
+ */
+export type AdoptionMode = 'adopt' | 'check';
+
 export type AdoptionOutcome =
   | {
-      readonly kind: 'adopted';
+      /** `adoptable`: a check that would have adopted. */
+      readonly kind: 'adopted' | 'adoptable';
       readonly baseline: string;
       readonly superseded: number;
       readonly later: readonly string[];
@@ -57,6 +65,18 @@ const imageStamps = (migrationsFolder: string): readonly JournalStamp[] =>
       createdAt: folderMillis,
     }),
   );
+
+/**
+ * The innermost error's message: PostgreSQL's own reason under the
+ * driver's wrapper. It names objects (a database, a statement), never row
+ * data.
+ */
+const rootCause = (error: unknown): string => {
+  let current = error;
+  while (current instanceof Error && current.cause instanceof Error)
+    current = current.cause;
+  return current instanceof Error ? current.message : String(current);
+};
 
 const emptyDatabase = z.object({ objects: postgresInt8.transform(Number) });
 
@@ -116,10 +136,12 @@ export async function adoptBaseline({
   databaseUrl,
   referenceUrl,
   migrationsFolder,
+  mode = 'adopt',
 }: {
   readonly databaseUrl: string;
   readonly referenceUrl: string;
   readonly migrationsFolder: string;
+  readonly mode?: AdoptionMode;
 }): Promise<AdoptionOutcome> {
   const [baseline, ...imageLater] = imageStamps(migrationsFolder);
   if (baseline === undefined || !baseline.name.endsWith('_baseline'))
@@ -144,12 +166,12 @@ export async function adoptBaseline({
       referenceUrl,
       migrationsFolder,
       folders: [baseline.name, ...first.plan.later.map(({ name }) => name)],
-    }).catch(() => undefined);
-    if (expected === undefined)
+    }).catch((error: unknown) => ({ failed: rootCause(error) }));
+    if (expected !== null && 'failed' in expected)
       return {
         kind: 'refused',
         reasons: [
-          'The reference database could not be built; the live database is unchanged. Drop the reference and run again with a new, empty one',
+          `The reference database could not be built (${expected.failed}); the live database is unchanged. Drop the reference and run again with a new, empty one`,
         ],
       };
     if (expected === null)
@@ -184,6 +206,12 @@ export async function adoptBaseline({
           kind: 'refused',
           reasons: differences.map(describeCatalogDifference),
         };
+      const result = {
+        baseline: baseline.name,
+        superseded: locked.plan.deleteIds.length,
+        later: locked.plan.later.map(({ name }) => name),
+      };
+      if (mode === 'check') return { kind: 'adoptable', ...result };
       await run(
         tx,
         // The superseded rows are exactly the journal's first ids.
@@ -195,12 +223,7 @@ export async function adoptBaseline({
         sql`insert into drizzle.__drizzle_migrations (id, hash, created_at, name)
             values (${locked.plan.baselineId}, ${baseline.hash}, ${baseline.createdAt}, ${baseline.name})`,
       );
-      return {
-        kind: 'adopted',
-        baseline: baseline.name,
-        superseded: locked.plan.deleteIds.length,
-        later: locked.plan.later.map(({ name }) => name),
-      };
+      return { kind: 'adopted', ...result };
     });
   } finally {
     await client.close();
