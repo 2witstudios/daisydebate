@@ -1,3 +1,4 @@
+import { listedWord } from '../lifecycle-sql';
 import { sql } from 'drizzle-orm';
 import { check, pgTable, text, uniqueIndex } from 'drizzle-orm/pg-core';
 import {
@@ -36,7 +37,7 @@ export const actors = pgTable(
     check('actors_kind_check', oneOf(table.kind, actorKinds)),
     check(
       'actors_human_has_user',
-      sql`${table.kind} <> 'human' or ${table.userId} is not null`,
+      sql`${table.kind} <> ${listedWord(actorKinds, 'human')} or ${table.userId} is not null`,
     ),
     versionPositive('actors', table.version),
   ],

@@ -1,3 +1,5 @@
+import { retriedJobStatuses } from '../schema/columns';
+import { listedWord } from '../lifecycle-sql';
 import { tryCanonicalInstantMs } from '@daisy/clock';
 import { sql } from 'drizzle-orm';
 import { createAppError } from '@daisy/errors';
@@ -57,7 +59,7 @@ export async function duePrivacyJobs(
       attempts: z.number(),
     }),
     sql`select id, vendor, attempts from privacy_jobs
-    where status = 'pending' and retry_at <= ${input.now}::timestamptz ${scope}
+    where status = ${listedWord(retriedJobStatuses, 'pending')} and retry_at <= ${input.now}::timestamptz ${scope}
     order by retry_at, id limit ${input.limit}`,
   );
   // A row the database checks admit is malformed: refuse before delivery.
@@ -86,7 +88,7 @@ export async function owedPrivacyJobs(
     z.object({ owed: z.number() }),
     sql`select count(*)::int as owed
     from privacy_jobs
-    where status = 'pending' ${scope}`,
+    where status = ${listedWord(retriedJobStatuses, 'pending')} ${scope}`,
   );
   return rows[0]?.owed ?? 0;
 }
@@ -109,7 +111,7 @@ export async function deliverPrivacyJob(
     database,
     z.object({ subjectRef: z.string(), attempts: z.number() }),
     sql`select subject_ref as "subjectRef", attempts from privacy_jobs
-    where id = ${input.jobId} and vendor = ${input.vendor} and status = 'pending'
+    where id = ${input.jobId} and vendor = ${input.vendor} and status = ${listedWord(retriedJobStatuses, 'pending')}
     and retry_at <= ${input.now}::timestamptz`,
   );
   const [row] = rows;

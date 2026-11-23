@@ -1,3 +1,4 @@
+import { listedWords } from './lifecycle-sql';
 import { instantMs } from '@daisy/clock';
 import { youthRoundSql } from './youth-round-sql';
 import {
@@ -25,7 +26,10 @@ import {
   sql,
 } from 'drizzle-orm';
 import { runningRoundStatuses } from '@daisy/protocol/round';
-import { recordingHoldPrefix } from '@daisy/protocol/recording';
+import {
+  recordingHoldPrefix,
+  recordingStatuses,
+} from '@daisy/protocol/recording';
 import { readBroadcastRoom } from './broadcast-operations';
 import { controlHeartbeat, heartbeatStale } from './control-heartbeat';
 import { readEntitlementGrants } from './entitlement-grants';
@@ -145,7 +149,7 @@ export const createRecordingCaptureStore = (database: TxSource) => ({
           // Each side by its own index: this runs every second over tables that never
           // shrink, and an OR across the join would scan both.
           sql`${recordings.id} in (
-            select r.id from ${recordings} r where r.status in ('requested', 'capturing')
+            select r.id from ${recordings} r where r.status in ${listedWords(recordingStatuses, ['requested', 'capturing'])}
             union all
             select c.recording_id from ${captures} c where c.ended_at is null or ((c.egress_settled_at is null or c.observer_revoked_at is null) and (c.egress_id is not null or c.egress_dispatched_at is not null)))`,
           after === null ? undefined : gt(recordings.id, after),

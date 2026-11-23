@@ -1,3 +1,4 @@
+import { listedWord } from '../lifecycle-sql';
 import { sql } from 'drizzle-orm';
 import { check, index, pgTable, text, unique } from 'drizzle-orm/pg-core';
 import { oneOf, timestampColumn } from './columns';
@@ -64,9 +65,9 @@ export const agreementSignatures = pgTable(
     ),
     check(
       'agreement_signatures_scope_check',
-      sql`(${table.agreement} = 'ranked-content-waiver' and ${table.seasonId} is not null and ${table.roomId} is null and ${table.lobbyId} is null)
-        or (${table.agreement} = 'round-capture-notice' and ${table.roomId} is not null and ${table.seasonId} is null and ${table.lobbyId} is null)
-        or (${table.agreement} = 'tournament-recording-consent' and ${table.lobbyId} is not null and ${table.seasonId} is null and ${table.roomId} is null)`,
+      sql`(${table.agreement} = ${listedWord(agreementKinds, 'ranked-content-waiver')} and ${table.seasonId} is not null and ${table.roomId} is null and ${table.lobbyId} is null)
+        or (${table.agreement} = ${listedWord(agreementKinds, 'round-capture-notice')} and ${table.roomId} is not null and ${table.seasonId} is null and ${table.lobbyId} is null)
+        or (${table.agreement} = ${listedWord(agreementKinds, 'tournament-recording-consent')} and ${table.lobbyId} is not null and ${table.seasonId} is null and ${table.roomId} is null)`,
     ),
   ],
 );

@@ -1,3 +1,4 @@
+import { listedWord } from '../lifecycle-sql';
 import { sql } from 'drizzle-orm';
 import {
   check,
@@ -54,11 +55,11 @@ export const transcriptionRecoveryAttempts = pgTable(
     ),
     check(
       'transcription_recovery_attempt_candidate_check',
-      sql`(${table.candidateDigest} is null and ${table.candidateBytes} is null and ${table.outcome} not in ('candidate','quality_review')) or (${table.candidateDigest} is not null and ${table.candidateDigest} ~ '^[a-f0-9]{64}$' and ${table.candidateBytes} is not null and ${table.candidateBytes} between 0 and 65536 and ${table.outcome} in ('candidate','quality_review','uncertain'))`,
+      sql`(${table.candidateDigest} is null and ${table.candidateBytes} is null and ${table.outcome} not in (${listedWord(transcriptionRecoveryOutcomes, 'candidate')},${listedWord(transcriptionRecoveryOutcomes, 'quality_review')})) or (${table.candidateDigest} is not null and ${table.candidateDigest} ~ '^[a-f0-9]{64}$' and ${table.candidateBytes} is not null and ${table.candidateBytes} between 0 and 65536 and ${table.outcome} in (${listedWord(transcriptionRecoveryOutcomes, 'candidate')},${listedWord(transcriptionRecoveryOutcomes, 'quality_review')},${listedWord(transcriptionRecoveryOutcomes, 'uncertain')}))`,
     ),
     check(
       'transcription_recovery_attempt_time_check',
-      sql`(${table.outcome}='admitted' and ${table.completedAt} is null) or (${table.outcome}<>'admitted' and ${table.completedAt} is not null and ${table.completedAt}>=${table.admittedAt})`,
+      sql`(${table.outcome}=${listedWord(transcriptionRecoveryOutcomes, 'admitted')} and ${table.completedAt} is null) or (${table.outcome}<>${listedWord(transcriptionRecoveryOutcomes, 'admitted')} and ${table.completedAt} is not null and ${table.completedAt}>=${table.admittedAt})`,
     ),
   ],
 );

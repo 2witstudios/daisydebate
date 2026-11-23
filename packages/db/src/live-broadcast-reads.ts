@@ -1,3 +1,7 @@
+import { roomVisibilities } from '@daisy/protocol/room-contract';
+import { lobbyKinds } from '@daisy/protocol/lobby';
+import { seatKinds } from '@daisy/protocol/seats';
+import { listedWord } from './lifecycle-sql';
 import { roundLadderOf } from './member-history-rows';
 import { and, desc, eq, inArray, sql, type SQL } from 'drizzle-orm';
 import { parsedColumn, postgresInstantMs } from './raw-rows';
@@ -55,7 +59,7 @@ const searched = (q: string): SQL | undefined => {
     join actors a on a.id = p.actor_id
     left join users u on u.id = a.user_id
     left join bot_profiles b on b.actor_id = a.id
-    where p.round_id = ${rounds.id} and p.seat_kind <> 'judge'
+    where p.round_id = ${rounds.id} and p.seat_kind <> ${listedWord(seatKinds, 'judge')}
       and (u.username ilike ${like} or b.name ilike ${like})))`;
 };
 
@@ -82,7 +86,7 @@ const moded = (mode: LiveBroadcastFilter['mode']) =>
 const officialLobby = (room: SQL, lobbyId: string | undefined) =>
   sql`exists (
     select 1 from lobbies l join organizations o on o.id=l.owner_organization_id
-    where l.id=${room} and l.kind='standing' and l.closed_at is null
+    where l.id=${room} and l.kind=${listedWord(lobbyKinds, 'standing')} and l.closed_at is null
       and o.official and o.closed_at is null
       and ${lobbyId === undefined ? sql`true` : sql`l.id=${lobbyId}`}
   )`;
@@ -103,7 +107,7 @@ const afterCursor = (
   before === ''
     ? undefined
     : sql`(${rounds.startedAt}, ${rounds.id}) < (select c.started_at, c.id from rounds c join rooms cr on cr.id=c.room_id
-        where c.id = ${before} and c.visibility = 'public'
+        where c.id = ${before} and c.visibility = ${listedWord(roomVisibilities, 'public')}
           and ${lobbyScope(sql`cr.lobby_id`)}
           and ${factReleasedSql(sql`c.started_at`, cursorRound, clock)})`;
 

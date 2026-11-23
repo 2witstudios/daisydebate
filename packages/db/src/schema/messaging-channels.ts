@@ -1,3 +1,4 @@
+import { listedWord, listedWords } from '../lifecycle-sql';
 import { messagingNotificationLevels } from '@daisy/protocol/messaging/preferences';
 import { sql } from 'drizzle-orm';
 import {
@@ -22,7 +23,7 @@ import { rounds } from './rounds';
 import { rooms } from './rooms';
 import { messagingChannelLifecycles } from '@daisy/protocol/messaging/social';
 
-const messagingChannelKinds = [
+export const messagingChannelKinds = [
   'dm',
   'private_group',
   'round_floor',
@@ -79,11 +80,11 @@ export const messagingChannels = pgTable(
     check('messaging_channels_kind', oneOf(table.kind, messagingChannelKinds)),
     check(
       'messaging_channels_round',
-      sql`(${table.kind} in ('round_floor', 'round_spectator')) = (${table.roundId} is not null)`,
+      sql`(${table.kind} in ${listedWords(messagingChannelKinds, ['round_floor', 'round_spectator'])}) = (${table.roundId} is not null)`,
     ),
     check(
       'messaging_channels_room',
-      sql`(${table.kind} = 'room_community') = (${table.roomId} is not null)`,
+      sql`(${table.kind} = ${listedWord(messagingChannelKinds, 'room_community')}) = (${table.roomId} is not null)`,
     ),
     check(
       'messaging_channels_lifecycle',
@@ -91,7 +92,7 @@ export const messagingChannels = pgTable(
     ),
     check(
       'messaging_channels_policy',
-      sql`${table.policyRevision} > 0 and ((${table.kind} = 'dm' and ${table.policyKey} = 'social.dm') or (${table.kind} = 'private_group' and ${table.policyKey} = 'social.private_group') or (${table.kind} = 'round_floor' and ${table.policyKey} = 'round.floor') or (${table.kind} = 'round_spectator' and ${table.policyKey} = 'round.spectator') or (${table.kind} = 'room_community' and ${table.policyKey} = 'room.community'))`,
+      sql`${table.policyRevision} > 0 and ((${table.kind} = ${listedWord(messagingChannelKinds, 'dm')} and ${table.policyKey} = 'social.dm') or (${table.kind} = ${listedWord(messagingChannelKinds, 'private_group')} and ${table.policyKey} = 'social.private_group') or (${table.kind} = ${listedWord(messagingChannelKinds, 'round_floor')} and ${table.policyKey} = 'round.floor') or (${table.kind} = ${listedWord(messagingChannelKinds, 'round_spectator')} and ${table.policyKey} = 'round.spectator') or (${table.kind} = ${listedWord(messagingChannelKinds, 'room_community')} and ${table.policyKey} = 'room.community'))`,
     ),
     check(
       'messaging_channels_authority_revision',
@@ -99,7 +100,7 @@ export const messagingChannels = pgTable(
     ),
     check(
       'messaging_channels_title',
-      sql`(${table.title} is null and ${table.titleAuthorActorId} is null) or (${table.kind} = 'private_group' and ${table.title} is not null and ${table.title} ~ '[^[:space:]]' and ${table.titleAuthorActorId} is not null)`,
+      sql`(${table.title} is null and ${table.titleAuthorActorId} is null) or (${table.kind} = ${listedWord(messagingChannelKinds, 'private_group')} and ${table.title} is not null and ${table.title} ~ '[^[:space:]]' and ${table.titleAuthorActorId} is not null)`,
     ),
   ],
 );

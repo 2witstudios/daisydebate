@@ -1,3 +1,5 @@
+import { seasonStatuses } from '../schema/seasons';
+import { listedWord } from '../lifecycle-sql';
 import { and, asc, eq, isNull, sql } from 'drizzle-orm';
 import { z } from 'zod';
 import { alias } from 'drizzle-orm/pg-core';
@@ -121,12 +123,12 @@ export function createLobbyPermissionStore(database: TxOpener) {
             hasActiveSeason: parsedColumn(
               z.boolean(),
               sql`exists (select 1 from seasons season
-              where season.lobby_id = ${restrictionLobbies.lobbyId} and season.status = 'active')`,
+              where season.lobby_id = ${restrictionLobbies.lobbyId} and season.status = ${listedWord(seasonStatuses, 'active')})`,
             ),
             rankedWaiverSigned: parsedColumn(
               z.boolean(),
               sql`exists (select 1 from restriction_lobby_waivers waiver
-              join seasons season on season.id = waiver.season_id and season.status = 'active'
+              join seasons season on season.id = waiver.season_id and season.status = ${listedWord(seasonStatuses, 'active')}
               where waiver.guardian_link_id = ${restrictionLobbies.guardianLinkId}
                 and waiver.lobby_id = ${restrictionLobbies.lobbyId} and waiver.waiver_version = ${waiverVersion})`,
             ),

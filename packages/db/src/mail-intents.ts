@@ -1,3 +1,5 @@
+import { organizationKinds } from '@daisy/protocol/lobby';
+import { listedWord, listedWords } from './lifecycle-sql';
 import { mailJobStates } from './schema/columns';
 import { betaAccessStates } from '@daisy/protocol/beta-access';
 import type { PreapprovalAccountEligibility } from '@daisy/protocol/beta-preapproval';
@@ -238,7 +240,7 @@ export function mailIntentOperations({
             count(*) filter (where requested_at >= ${intent.window_start}
               and requested_at < ${intent.window_start}::timestamptz + ${DIGEST_WINDOW}) as new_requests,
             count(*) as waiting
-          from account_beta_access where state = 'pending'`,
+          from account_beta_access where state = ${listedWord(betaAccessStates, 'pending')}`,
         );
         if (!row)
           throw createAppError('INVARIANT', 'Digest counts are missing');
@@ -271,7 +273,7 @@ export function mailIntentOperations({
             database,
             z.object({ id: z.string() }),
             sql`select id from organizations
-            where kind in ('school', 'family') and id > ${after}
+            where kind in ${listedWords(organizationKinds, ['school', 'family'])} and id > ${after}
             order by id limit 100`,
           );
           for (const club of clubs) {

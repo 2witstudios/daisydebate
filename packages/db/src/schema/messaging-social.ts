@@ -1,3 +1,4 @@
+import { listedWord } from '../lifecycle-sql';
 import {
   messagingDmRequestStates,
   messagingGroupInvitationStates,
@@ -20,7 +21,7 @@ import { messagingChannels } from './messaging-channels';
 import { contactPairs } from './contacts';
 
 export const messagingGroupRoles = ['manager', 'member'] as const;
-const messagingSocialCommandKinds = [
+export const messagingSocialCommandKinds = [
   'dm.request',
   'dm.decide',
   'group.create',
@@ -71,7 +72,7 @@ export const messagingDmPairs = pgTable(
     ),
     check(
       'messaging_dm_pairs_request_time',
-      sql`(${table.requestState} = 'pending' and ${table.decidedAt} is null) or (${table.requestState} <> 'pending' and ${table.decidedAt} is not null and ${table.decidedAt} >= ${table.requestedAt})`,
+      sql`(${table.requestState} = ${listedWord(messagingDmRequestStates, 'pending')} and ${table.decidedAt} is null) or (${table.requestState} <> ${listedWord(messagingDmRequestStates, 'pending')} and ${table.decidedAt} is not null and ${table.decidedAt} >= ${table.requestedAt})`,
     ),
     foreignKey({
       name: 'messaging_dm_pairs_contact_fk',
@@ -170,7 +171,7 @@ export const messagingGroupInvitations = pgTable(
     ),
     check(
       'messaging_group_invitations_time',
-      sql`(${table.state} = 'pending' and ${table.decidedAt} is null) or (${table.state} <> 'pending' and ${table.decidedAt} >= ${table.invitedAt} and ${table.decidedAt} is not null)`,
+      sql`(${table.state} = ${listedWord(messagingGroupInvitationStates, 'pending')} and ${table.decidedAt} is null) or (${table.state} <> ${listedWord(messagingGroupInvitationStates, 'pending')} and ${table.decidedAt} >= ${table.invitedAt} and ${table.decidedAt} is not null)`,
     ),
     check(
       'messaging_group_invitations_distinct',

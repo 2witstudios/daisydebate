@@ -1,3 +1,5 @@
+import { lobbyKinds } from '@daisy/protocol/lobby';
+import { listedWord } from './lifecycle-sql';
 import { isMinorAgeBand } from './guardians/lobby-permissions';
 import { and, eq, sql } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
@@ -137,7 +139,7 @@ export const actorFact = async (
     .leftJoin(botProfiles, eq(botProfiles.actorId, actors.id))
     .leftJoin(aiJudgeProfiles, eq(aiJudgeProfiles.actorId, actors.id))
     .where(eq(actors.id, actorId));
-  if (!row || (row.kind !== 'human' && row.kind !== 'bot')) return null;
+  if (!row) return null;
   if (row.kind === 'human')
     return {
       actorId: row.actorId,
@@ -241,11 +243,11 @@ const hydrateRoom = async (
         z.enum(lobbyAgeRules),
         sql`case
         when ${row.legacyTournamentYouth === false}::boolean then 'adults'::lobby_age_rule
-        when ${lobbies.kind} = 'tournament' and public.daisy_room_is_youth(${row.id})
+        when ${lobbies.kind} = ${listedWord(lobbyKinds, 'tournament')} and public.daisy_room_is_youth(${row.id})
           then 'under-18'::lobby_age_rule
         else coalesce(
           (select round.standing_age_rule from public.rounds round
-            where round.room_id = ${row.id} and ${lobbies.kind} = 'tournament'),
+            where round.room_id = ${row.id} and ${lobbies.kind} = ${listedWord(lobbyKinds, 'tournament')}),
           ${standingParent.ageRule}, ${lobbies.ageRule}) end`,
       ),
     })

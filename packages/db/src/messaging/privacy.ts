@@ -1,3 +1,6 @@
+import { messagingGroupRoles } from '../schema/messaging-social';
+import { messagingChannelKinds } from '../schema/messaging-channels';
+import { listedWord } from '../lifecycle-sql';
 import { mailJobStates } from '../schema/columns';
 import { appendStream } from './stream';
 import { sql } from 'drizzle-orm';
@@ -43,7 +46,7 @@ async function lockSubjectMessaging(tx: Tx, actorId: string) {
   await run(
     tx,
     sql`select r.id from rounds r where exists (
-    select 1 from messaging_channels c where c.round_id=r.id and c.kind='round_floor' and (
+    select 1 from messaging_channels c where c.round_id=r.id and c.kind=${listedWord(messagingChannelKinds, 'round_floor')} and (
       exists(select 1 from messaging_messages m where m.channel_id=c.id and m.author_actor_id=${actorId})
       or exists(select 1 from messaging_actor_states s where s.channel_id=c.id and s.actor_id=${actorId})
       or exists(select 1 from messaging_receipts x where x.channel_id=c.id and x.actor_id=${actorId})
@@ -54,7 +57,7 @@ async function lockSubjectMessaging(tx: Tx, actorId: string) {
   await run(
     tx,
     sql`select r.id from rooms r where exists (
-    select 1 from messaging_channels c where c.room_id=r.id and c.kind='room_community' and (
+    select 1 from messaging_channels c where c.room_id=r.id and c.kind=${listedWord(messagingChannelKinds, 'room_community')} and (
       exists(select 1 from messaging_messages m where m.channel_id=c.id and m.author_actor_id=${actorId})
       or exists(select 1 from messaging_actor_states s where s.channel_id=c.id and s.actor_id=${actorId})
       or exists(select 1 from messaging_receipts x where x.channel_id=c.id and x.actor_id=${actorId})
@@ -199,7 +202,7 @@ async function eraseAssociations(
   for (const { channelId } of authorityChannels) {
     await run(
       tx,
-      sql`update messaging_channels c set lifecycle='archived' where c.id=${channelId} and c.kind='private_group' and not exists(select 1 from messaging_group_grants g where g.channel_id=c.id and g.role='manager' and g.revoked_at is null)`,
+      sql`update messaging_channels c set lifecycle='archived' where c.id=${channelId} and c.kind=${listedWord(messagingChannelKinds, 'private_group')} and not exists(select 1 from messaging_group_grants g where g.channel_id=c.id and g.role=${listedWord(messagingGroupRoles, 'manager')} and g.revoked_at is null)`,
     );
     versions.set(channelId, await advanceChannel(tx, channelId, true));
   }

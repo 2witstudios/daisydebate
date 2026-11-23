@@ -1,7 +1,12 @@
 import { sql } from 'drizzle-orm';
 import { PgDialect } from 'drizzle-orm/pg-core';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { listedWord, listedWords } from './lifecycle-sql';
+import {
+  listedLiteral,
+  listedValue,
+  listedWord,
+  listedWords,
+} from './lifecycle-sql';
 
 setupRitewayBun();
 
@@ -40,5 +45,17 @@ test('a word outside its list is refused', () => {
     should: 'refuse it at compile time and at run time',
     actual: attempt(),
     expected: 'refused',
+  });
+});
+
+test('a native query binds or quotes a stored word, checked the same way', () => {
+  assert({
+    given: 'a word for a bound parameter and one for DDL text',
+    should: 'give the word itself and its quoted SQL literal',
+    actual: [
+      listedValue(visibilities, 'unlisted'),
+      listedLiteral(visibilities, 'private'),
+    ],
+    expected: ['unlisted', "'private'"],
   });
 });

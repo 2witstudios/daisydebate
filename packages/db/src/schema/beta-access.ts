@@ -1,3 +1,4 @@
+import { listedWord } from '../lifecycle-sql';
 import {
   betaAccessProvenances,
   betaAccessStates,
@@ -39,7 +40,7 @@ export const accountBetaAccess = pgTable(
     check('account_beta_access_revision_positive', sql`${table.revision} > 0`),
     check(
       'account_beta_access_decided_check',
-      sql`(${table.state} = 'pending') = (${table.decidedAt} is null)`,
+      sql`(${table.state} = ${listedWord(betaAccessStates, 'pending')}) = (${table.decidedAt} is null)`,
     ),
     index('account_beta_access_listing_idx').on(
       table.state,

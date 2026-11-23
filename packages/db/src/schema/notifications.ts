@@ -1,3 +1,4 @@
+import { listedWord } from '../lifecycle-sql';
 import {
   kindsAbout,
   notificationChoicePairs,
@@ -23,6 +24,7 @@ import {
   mailJobColumns,
   oneOf,
   timestampColumn,
+  mailJobStates,
 } from './columns';
 import { actors } from './actors';
 import { challenges } from './challenges';
@@ -80,7 +82,11 @@ const mediaReleaseNotificationKinds = [
 ] as const;
 
 /** The kinds Watch's fan-out writes from released Round facts (WATCH-12). */
-const watchFanoutKinds = sql.raw(`'followed_debater_live', 'recording_ready'`);
+/** The Round events a watch fan-out tells everyone about once. */
+export const watchFanoutKinds = [
+  'followed_debater_live',
+  'recording_ready',
+] as const;
 
 /**
  * A stored notification (WATCH-12, ADR 0124). There is no text, result or
@@ -280,7 +286,7 @@ export const notificationPreferences = pgTable(
 export const notificationFanouts = pgTable(
   'notification_fanouts',
   {
-    kind: text('kind').notNull(),
+    kind: text('kind').$type<(typeof watchFanoutKinds)[number]>().notNull(),
     roundId: text('round_id')
       .notNull()
       .references(() => rounds.id, { onDelete: 'cascade' }),
@@ -291,7 +297,7 @@ export const notificationFanouts = pgTable(
     index('notification_fanouts_round_idx').on(table.roundId),
     check(
       'notification_fanouts_kind_check',
-      sql`${table.kind} in (${watchFanoutKinds})`,
+      oneOf(table.kind, watchFanoutKinds),
     ),
   ],
 );
@@ -330,7 +336,7 @@ export const notificationDigests = pgTable(
   (table) => [
     uniqueIndex('notification_digests_one_queued')
       .on(table.userId)
-      .where(sql`${table.state} = 'queued'`),
+      .where(sql`${table.state} = ${listedWord(mailJobStates, 'queued')}`),
     index('notification_digests_due_idx').on(table.state, table.nextAttemptAt),
     index('notification_digests_user_idx').on(table.userId, table.completedAt),
     index('notification_digests_completed_idx').on(table.completedAt),

@@ -1,3 +1,4 @@
+import { listedWord } from '../lifecycle-sql';
 import { sql } from 'drizzle-orm';
 import {
   check,
@@ -172,7 +173,7 @@ export const mediaReleases = pgTable(
     ),
     check(
       'media_releases_parent_check',
-      sql`(${table.source} = 'parent') = (${table.signerName} is not null and ${table.signerRelation} is not null and ${table.signerEmail} is not null)
+      sql`(${table.source} = ${listedWord(mediaReleaseSources, 'parent')}) = (${table.signerName} is not null and ${table.signerRelation} is not null and ${table.signerEmail} is not null)
         and (${table.signerName} is null or char_length(${table.signerName}) between 1 and ${sql.raw(String(mediaReleasePolicy.nameMaxLength))})
         and (${table.signerRelation} is null or ${oneOf(table.signerRelation, guardianRelations)})
         and (${table.signerEmail} is null or ${emailNormalized(table.signerEmail)})`,

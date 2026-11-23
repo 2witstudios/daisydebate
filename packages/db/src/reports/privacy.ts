@@ -1,4 +1,5 @@
-import { reportOutcomes } from '@daisy/protocol/reports';
+import { listedWord } from '../lifecycle-sql';
+import { reportOutcomes, reportSurfaces } from '@daisy/protocol/reports';
 import { sql } from 'drizzle-orm';
 import { idSchema } from '@daisy/protocol/primitives';
 import type { PrivacyAdopter, PrivacyExport } from '../privacy/contracts';
@@ -53,7 +54,7 @@ export const reportsPrivacyAdopter: PrivacyAdopter = {
             closed_at: z.date().nullable(),
             outcome: z.enum(reportOutcomes).nullable(),
           }),
-          sql`select id, reason, surface, created_at, closed_at, outcome from reports where subject_actor_id=${actorId} and surface <> 'guardian-link' order by created_at,id`,
+          sql`select id, reason, surface, created_at, closed_at, outcome from reports where subject_actor_id=${actorId} and surface <> ${listedWord(reportSurfaces, 'guardian-link')} order by created_at,id`,
         ),
       ),
     };

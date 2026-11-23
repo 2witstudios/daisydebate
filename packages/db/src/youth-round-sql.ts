@@ -1,7 +1,11 @@
+import { listedWord } from './lifecycle-sql';
 import { sql, type SQL } from 'drizzle-orm';
 import { parsedColumn } from './raw-rows';
 import { z } from 'zod';
-import { reuseLicensingWordings } from '@daisy/protocol/media-release';
+import {
+  reuseLicensingWordings,
+  mediaReleaseScopes,
+} from '@daisy/protocol/media-release';
 
 /**
  * Whether the Round with this id is a Youth Round (ADR 0157): Youth when
@@ -33,7 +37,7 @@ export const youthReuseFencedSql = (roundId: SQL): SQL =>
     ) select not exists (select 1 from debaters)
       or exists (select 1 from debaters
         where not exists (select 1 from media_releases reuse_m
-          where reuse_m.user_id = debaters.debater_user_id and reuse_m.scope = 'publish'
+          where reuse_m.user_id = debaters.debater_user_id and reuse_m.scope = ${listedWord(mediaReleaseScopes, 'publish')}
             and reuse_m.wording_version in (${sql.join(
               reuseLicensingWordings.map((version) => sql`${version}`),
               sql`, `,

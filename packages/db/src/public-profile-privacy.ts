@@ -1,3 +1,4 @@
+import { listedWord } from './lifecycle-sql';
 import { profilePhotoStatuses } from '@daisy/protocol/public-profile';
 import { sql } from 'drizzle-orm';
 import { idSchema } from '@daisy/protocol/primitives';
@@ -25,14 +26,14 @@ export const publicProfilePrivacyAdopter: PrivacyAdopter = {
     // landing, so the sweep must not delete the prefix before they have.
     await run(
       tx,
-      sql`update profile_photos set status = 'erased',
+      sql`update profile_photos set status = ${listedWord(profilePhotoStatuses, 'erased')},
         ended_at = ${now}::timestamptz,
-        delete_after = case when status = 'uploading'
+        delete_after = case when status = ${listedWord(profilePhotoStatuses, 'uploading')}
           then greatest(delete_after, ${now}::timestamptz)
           else ${now}::timestamptz end,
         version = version + 1
       where actor_id = ${actorId}
-        and (ended_at is null or status = 'uploading')`,
+        and (ended_at is null or status = ${listedWord(profilePhotoStatuses, 'uploading')})`,
     );
   },
   async export(tx, subject): Promise<PrivacyExport> {

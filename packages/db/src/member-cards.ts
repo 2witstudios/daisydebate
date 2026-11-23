@@ -1,3 +1,5 @@
+import { roomVisibilities } from '@daisy/protocol/room-contract';
+import { listedWord } from './lifecycle-sql';
 import { and, eq, sql } from 'drizzle-orm';
 import { inTransaction, type TxSource } from './tx';
 import { parsedColumn, query } from './raw-rows';
@@ -151,7 +153,7 @@ export const memberCardOperations = ({
         select p.actor_id as "actorId", r.status, ${roundOutcomeSql('r')} as outcome,
           p.seat_kind as "seatKind", p.side, p.slot, count(*)::int as rounds
         from round_participants p join rounds r on r.id = p.round_id
-        where p.actor_id = any(${ids}) and r.room_id is not null and r.visibility = 'public'
+        where p.actor_id = any(${ids}) and r.room_id is not null and r.visibility = ${listedWord(roomVisibilities, 'public')}
           and ${outcomeReleasedSql(roundAliasR, clock)}
         group by p.actor_id, r.status, 3, p.seat_kind, p.side, p.slot`,
       );

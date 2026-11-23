@@ -1,3 +1,6 @@
+import { recordingStatuses } from '@daisy/protocol/recording';
+import { watchFanoutKinds } from '../schema/notifications';
+import { listedWord } from '../lifecycle-sql';
 import { roomVisibilities } from '@daisy/protocol/room-contract';
 import { SPECTATOR_MARGIN_MS } from '@daisy/protocol/broadcast';
 import { type NotificationKind } from '@daisy/protocol/notifications';
@@ -129,7 +132,7 @@ export const watchNotificationOperations = ({
               or exists(select 1 from round_segments s where s.round_id=b.round_id
                 and s.started_at+${spectatorMargin}<=b.released_through_at))
             and not exists(select 1 from notification_fanouts f
-              where f.kind='followed_debater_live' and f.round_id=b.round_id)
+              where f.kind=${listedWord(watchFanoutKinds, 'followed_debater_live')} and f.round_id=b.round_id)
           order by b.created_at limit ${input.limit}`,
       );
       const ready = await query(
@@ -141,13 +144,13 @@ export const watchNotificationOperations = ({
         sql`select rc.round_id,r.visibility
           from recordings rc join rounds r on r.id=rc.round_id
           left join broadcasts b on b.round_id=rc.round_id
-          where rc.status='ready'
+          where rc.status=${listedWord(recordingStatuses, 'ready')}
             -- Only an operator's stop holds the notice back (ADR 0150, 0157).
             and (b.id is null or (b.completed_at is not null
               and not ${operatorWithheldSql(sql`b`)}))
             and ${outcomeReleasedSql(roundAliasR, input.clock)}
             and not exists(select 1 from notification_fanouts f
-              where f.kind='recording_ready' and f.round_id=rc.round_id)
+              where f.kind=${listedWord(watchFanoutKinds, 'recording_ready')} and f.round_id=rc.round_id)
           order by rc.created_at limit ${input.limit}`,
       );
       let written = 0;

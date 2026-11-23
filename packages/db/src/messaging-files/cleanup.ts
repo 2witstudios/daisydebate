@@ -1,3 +1,4 @@
+import { listedWord } from '../lifecycle-sql';
 import { messagingFileLifecycles } from '@daisy/protocol/messaging/files';
 import { tryInstantMs } from '@daisy/clock';
 import { and, eq, sql } from 'drizzle-orm';
@@ -137,9 +138,9 @@ export async function expireChannelFiles(
   await run(
     tx,
     sql`
-    update messaging_files set lifecycle = 'deleting', filename = null, mime = null,
+    update messaging_files set lifecycle = ${listedWord(messagingFileLifecycles, 'deleting')}, filename = null, mime = null,
       request_id = null, message_id = null, generation = generation + 1
-    where channel_id = ${channelId} and lifecycle in ('reserved','quarantined') and expires_at <= ${new Date(now)}
+    where channel_id = ${channelId} and lifecycle in (${listedWord(messagingFileLifecycles, 'reserved')},${listedWord(messagingFileLifecycles, 'quarantined')}) and expires_at <= ${new Date(now)}
     ${selected}
   `,
   );
@@ -178,10 +179,10 @@ export async function failPendingFile(
   await run(
     tx,
     sql`
-    update messaging_files set lifecycle = 'deleting', filename = null, mime = null,
+    update messaging_files set lifecycle = ${listedWord(messagingFileLifecycles, 'deleting')}, filename = null, mime = null,
       request_id = null, message_id = null, generation = generation + 1
     where id = ${token.fileId} and channel_id = ${scope.channelId} and owner_actor_id = ${scope.actorId}
-      and generation = ${token.generation} and lifecycle in ('reserved','quarantined')
+      and generation = ${token.generation} and lifecycle in (${listedWord(messagingFileLifecycles, 'reserved')},${listedWord(messagingFileLifecycles, 'quarantined')})
   `,
   );
 }

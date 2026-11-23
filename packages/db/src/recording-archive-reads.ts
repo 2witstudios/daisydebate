@@ -1,6 +1,8 @@
+import { recordingStatuses } from '@daisy/protocol/recording';
+import { listedWord } from './lifecycle-sql';
 import { currentRoundParticipant } from './round-current-participant';
-import { roundStatus } from '@daisy/protocol/round';
-import { isJudgeSeat } from '@daisy/protocol/seats';
+import { roundStatus, competitionTypes } from '@daisy/protocol/round';
+import { isJudgeSeat, seatKinds } from '@daisy/protocol/seats';
 import { and, desc, eq, isNotNull, or, sql, type SQL } from 'drizzle-orm';
 import { parsedColumn, postgresInstantMs } from './raw-rows';
 import { z } from 'zod';
@@ -61,7 +63,7 @@ const finishedWithSomethingToFind = or(
 );
 
 /** Moderation hid the footage: its Round leaves the archive, whatever else remains. */
-const moderationHid = sql`coalesce(${recordings.status} = 'taken_down' or ${recordings.lifecycle}->>'cause' in ('moderation', 'legal_removal'), false)`;
+const moderationHid = sql`coalesce(${recordings.status} = ${listedWord(recordingStatuses, 'taken_down')} or ${recordings.lifecycle}->>'cause' in ('moderation', 'legal_removal'), false)`;
 
 /**
  * A public Round with something the audience may have: ready video or ranked
@@ -73,7 +75,7 @@ const publicScope = (clock: SpectatorClock) =>
     sql`${visibility} = 'public'`,
     factReleasedSql(rounds.completedAt, roundColumns, clock),
     // Only an operator's stop withholds the video (ADR 0157).
-    sql`((${recordings.status} = 'ready' and not ${operatorWithheldSql(sql`${broadcasts}`)}) or (${rounds.competitionType} = 'ranked' and ${hasTranscript} and not ${moderationHid}))`,
+    sql`((${recordings.status} = ${listedWord(recordingStatuses, 'ready')} and not ${operatorWithheldSql(sql`${broadcasts}`)}) or (${rounds.competitionType} = ${listedWord(competitionTypes, 'ranked')} and ${hasTranscript} and not ${moderationHid}))`,
   );
 
 const seatedScope = (actorId: string | null) =>
@@ -91,7 +93,7 @@ const searched = (q: string): SQL | undefined => {
     select 1 from round_participants p
     join actors a on a.id = p.actor_id
     join users u on u.id = a.user_id
-    where p.round_id = ${rounds.id} and p.seat_kind <> 'judge' and u.username ilike ${like}))`;
+    where p.round_id = ${rounds.id} and p.seat_kind <> ${listedWord(seatKinds, 'judge')} and u.username ilike ${like}))`;
 };
 
 const durationMs = parsedColumn(

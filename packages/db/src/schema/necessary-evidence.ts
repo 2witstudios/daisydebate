@@ -1,3 +1,4 @@
+import { listedWord } from '../lifecycle-sql';
 import { necessaryEvidenceStates } from '@daisy/protocol/necessary-evidence';
 import { sql } from 'drizzle-orm';
 import { captureEvidenceSpeakerSchema } from '@daisy/protocol/capture-evidence-speaker';
@@ -100,7 +101,7 @@ export const necessaryEvidence = pgTable(
     ),
     check(
       'necessary_evidence_retirement_check',
-      sql`(${table.state} in ('retiring','retired')) = (${table.retirementReason} is not null)`,
+      sql`(${table.state} in (${listedWord(necessaryEvidenceStates, 'retiring')},${listedWord(necessaryEvidenceStates, 'retired')})) = (${table.retirementReason} is not null)`,
     ),
     check(
       'necessary_evidence_reason_check',
@@ -129,21 +130,21 @@ export const necessaryEvidence = pgTable(
     ),
     check(
       'necessary_evidence_acceptance_check',
-      sql`(${table.state}<>'retained' or ${table.payloadAcceptedAt} is not null)
+      sql`(${table.state}<>${listedWord(necessaryEvidenceStates, 'retained')} or ${table.payloadAcceptedAt} is not null)
       and (${table.payloadAcceptedAt} is null or (${table.receivedAt} is not null
       and ${table.payloadAcceptedAt}>=${table.receivedAt} and ${table.payloadAcceptedAt}<${table.expiresAt}))`,
     ),
     check(
       'necessary_evidence_payload_check',
       sql`(
-    ${table.state}='retained' and ${table.roundId} is not null and ${table.authorityId} is not null
+    ${table.state}=${listedWord(necessaryEvidenceStates, 'retained')} and ${table.roundId} is not null and ${table.authorityId} is not null
     and ${table.ciphertext} is not null and octet_length(${table.ciphertext}) between 1 and 65536
     and ${table.reservedBytes}=octet_length(${table.ciphertext})
     and ${table.nonce} is not null and octet_length(${table.nonce})=12
     and ${table.tag} is not null and octet_length(${table.tag})=16
   ) or (
-    ${table.state}<>'retained' and ${table.ciphertext} is null and ${table.nonce} is null and ${table.tag} is null
-    and ((${table.state}='acquiring' and ${table.reservedBytes}>0) or (${table.state} in ('retiring','retired') and ${table.reservedBytes}=0))
+    ${table.state}<>${listedWord(necessaryEvidenceStates, 'retained')} and ${table.ciphertext} is null and ${table.nonce} is null and ${table.tag} is null
+    and ((${table.state}=${listedWord(necessaryEvidenceStates, 'acquiring')} and ${table.reservedBytes}>0) or (${table.state} in (${listedWord(necessaryEvidenceStates, 'retiring')},${listedWord(necessaryEvidenceStates, 'retired')}) and ${table.reservedBytes}=0))
   )`,
     ),
     check(

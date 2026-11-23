@@ -1,9 +1,10 @@
+import { roomVisibilities } from '@daisy/protocol/room-contract';
 import { createAppError } from '@daisy/errors';
 import { ratingStyles } from '@daisy/protocol/primitives';
-import { twoSideKeys, type TwoSideKey } from '@daisy/protocol/seats';
+import { twoSideKeys, type TwoSideKey, seatKinds } from '@daisy/protocol/seats';
 import { type WinnerOutcome } from '@daisy/protocol/round-outcome';
 import { and, asc, eq, inArray, isNull, sql } from 'drizzle-orm';
-import { lifecycleSqlList } from './lifecycle-sql';
+import { lifecycleSqlList, listedWord } from './lifecycle-sql';
 import { runningRoundStatuses } from '@daisy/protocol/round';
 import { parsedColumn, query } from './raw-rows';
 import { z } from 'zod';
@@ -185,7 +186,7 @@ export const standingsOperations = ({
       sql`select distinct opponent.actor_id from round_participants judge
       join rounds r on r.id=judge.round_id
       join round_participants opponent on opponent.round_id=r.id and ${isDebatingSeatSql(sql`opponent.seat_kind`)}
-      where judge.actor_id=${viewerActorId} and judge.seat_kind='judge' and r.status in ${lifecycleSqlList(runningRoundStatuses)}
+      where judge.actor_id=${viewerActorId} and judge.seat_kind=${listedWord(seatKinds, 'judge')} and r.status in ${lifecycleSqlList(runningRoundStatuses)}
       and not exists(select 1 from ballots b where b.judge_participant_id=judge.id)`,
     );
     return rows.map((row) => row.actor_id);
@@ -344,7 +345,7 @@ async function readStandingsWithin(
       winningSide: rounds.winningSide,
       released: parsedColumn(
         z.boolean(),
-        sql`${rounds.visibility} = 'public' and ${factReleasedSql(
+        sql`${rounds.visibility} = ${listedWord(roomVisibilities, 'public')} and ${factReleasedSql(
           sql`greatest(${ratingChanges.occurredAt}, ${rounds.completedAt})`,
           rounds,
           input.clock,

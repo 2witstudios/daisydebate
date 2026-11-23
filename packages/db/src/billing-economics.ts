@@ -1,3 +1,7 @@
+import { usageKinds } from '@daisy/protocol/billing';
+import { competitionTypes } from '@daisy/protocol/round';
+import { judgingAttemptCategories } from '@daisy/protocol/round-judging-attempt';
+import { listedWord } from './lifecycle-sql';
 import { instantMs } from '@daisy/clock';
 import { z } from 'zod';
 import { sql } from 'drizzle-orm';
@@ -32,9 +36,9 @@ with agent_facts as (
  select case when a.kind='judging' then 'casual_ai_judge' when a.kind in ('tts','stt') then 'speech' else 'ai_round' end as feature,
  a.model,a.provider,a.started_at as at,
  case when a.kind='judging' then j.answered_at is not null else a.configuration_snapshot->>'providerOutcome'='received' end as known,
- case when a.kind='judging' then j.category='provider_refused' else a.configuration_snapshot->>'providerOutcome'='failed' end as definite,
+ case when a.kind='judging' then j.category=${listedWord(judgingAttemptCategories, 'provider_refused')} else a.configuration_snapshot->>'providerOutcome'='failed' end as definite,
  a.input_tokens,a.output_tokens,a.characters,greatest(a.requests,1) as call_count,
- case when a.kind='judging' and r.competition_type='ranked' then 'ranked' when u.n=1 then u.source->>'kind' else 'unattributed' end as source_kind,
+ case when a.kind='judging' and r.competition_type=${listedWord(competitionTypes, 'ranked')} then 'ranked' when u.n=1 then u.source->>'kind' else 'unattributed' end as source_kind,
  case when u.n=1 then u.source->>'startsAt' end as source_starts_at,
  case when u.n=1 then u.source->>'endsAt' end as source_ends_at
  from agent_runs a join round_participants p on p.id=a.round_participant_id join rounds r on r.id=p.round_id
@@ -49,7 +53,7 @@ with agent_facts as (
  coalesce((c.value->'outcome'->>'inputTokens')::bigint,0) as input_tokens,coalesce((c.value->'outcome'->>'outputTokens')::bigint,0) as output_tokens,0::bigint as characters,1::bigint as call_count,
  coalesce(u.source->>'kind','unattributed') as source_kind,u.source->>'startsAt' as source_starts_at,u.source->>'endsAt' as source_ends_at
  from round_analyses a join round_participants p on p.id=a.round_participant_id
- left join usage_reservations u on u.round_id=a.round_id and u.actor_id=p.actor_id and u.kind='round_analysis' and u.reserved_at=(case when a.work->>'kind'='purged' then a.work->'request'->>'requestedAt' else a.work->>'requestedAt' end)::timestamptz
+ left join usage_reservations u on u.round_id=a.round_id and u.actor_id=p.actor_id and u.kind=${listedWord(usageKinds, 'round_analysis')} and u.reserved_at=(case when a.work->>'kind'='purged' then a.work->'request'->>'requestedAt' else a.work->>'requestedAt' end)::timestamptz
  cross join lateral jsonb_array_elements(coalesce(case when a.work->>'kind'='purged' then a.work->'request'->'calls' else a.work->'calls' end,'[]'::jsonb)) c(value)
  where (c.value->>'dispatchedAt')::timestamptz>=${window.startsAt}::timestamptz and (c.value->>'dispatchedAt')::timestamptz<${window.endsAt}::timestamptz
 ), historical_analysis as (
@@ -60,7 +64,7 @@ with agent_facts as (
  0::bigint as characters,greatest((a.work->'historical'->>'claimedAttempts')::bigint,1) as call_count,
  coalesce(u.source->>'kind','unattributed') as source_kind,u.source->>'startsAt' as source_starts_at,u.source->>'endsAt' as source_ends_at
  from round_analyses a join round_participants p on p.id=a.round_participant_id
- left join usage_reservations u on u.round_id=a.round_id and u.actor_id=p.actor_id and u.kind='round_analysis' and u.reserved_at<=(a.work->'historical'->>'createdAt')::timestamptz
+ left join usage_reservations u on u.round_id=a.round_id and u.actor_id=p.actor_id and u.kind=${listedWord(usageKinds, 'round_analysis')} and u.reserved_at<=(a.work->'historical'->>'createdAt')::timestamptz
  where a.work->'historical'<>'null'::jsonb and (a.work->'historical'->>'createdAt')::timestamptz>=${window.startsAt}::timestamptz
  and (a.work->'historical'->>'createdAt')::timestamptz<${window.endsAt}::timestamptz
  and ((a.work->'historical'->>'claimedAttempts')::bigint>0 or (a.work->'historical'->>'inputTokens')::bigint>0 or (a.work->'historical'->>'outputTokens')::bigint>0)

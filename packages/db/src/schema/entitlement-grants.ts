@@ -1,3 +1,4 @@
+import { listedWord, listedWords } from '../lifecycle-sql';
 import { sql } from 'drizzle-orm';
 import {
   accountEntitlementKinds,
@@ -48,9 +49,9 @@ export const accountEntitlementGrants = pgTable(
     check(
       'account_entitlement_grants_validity_check',
       sql`
-      (${table.entitlement} = 'tournament_hosting' and ${table.source} in ('administrative', 'subscription') and ${table.hostingVersionId} is not null and ${table.startsAt} is null and ${table.expiresAt} is null)
-      or (${table.entitlement} <> 'tournament_hosting' and ${table.hostingVersionId} is null and (( ${table.source} = 'beta' and ${table.startsAt} is null and ${table.expiresAt} is null)
-      or (${table.source} in ('subscription', 'organization_seat') and ${table.startsAt} is not null and ${table.expiresAt} is not null
+      (${table.entitlement} = ${listedWord(accountEntitlementKinds, 'tournament_hosting')} and ${table.source} in ${listedWords(entitlementSources, ['administrative', 'subscription'])} and ${table.hostingVersionId} is not null and ${table.startsAt} is null and ${table.expiresAt} is null)
+      or (${table.entitlement} <> ${listedWord(accountEntitlementKinds, 'tournament_hosting')} and ${table.hostingVersionId} is null and (( ${table.source} = ${listedWord(entitlementSources, 'beta')} and ${table.startsAt} is null and ${table.expiresAt} is null)
+      or (${table.source} in ${listedWords(entitlementSources, ['subscription', 'organization_seat'])} and ${table.startsAt} is not null and ${table.expiresAt} is not null
         and isfinite(${table.startsAt}) and isfinite(${table.expiresAt}) and ${table.startsAt} < ${table.expiresAt})))
     `,
     ),
@@ -70,7 +71,7 @@ export const accountEntitlementGrants = pgTable(
     ),
     check(
       'account_entitlement_grants_seat_organization_check',
-      sql`(${table.source} = 'organization_seat') = (${table.organizationId} is not null)`,
+      sql`(${table.source} = ${listedWord(entitlementSources, 'organization_seat')}) = (${table.organizationId} is not null)`,
     ),
     index('account_entitlement_grants_organization_idx').on(
       table.organizationId,

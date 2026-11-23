@@ -1,3 +1,4 @@
+import { listedWord, listedWords } from './lifecycle-sql';
 import { membershipStatuses } from '@daisy/protocol/lobby';
 import { createAppError } from '@daisy/errors';
 import { sql } from 'drizzle-orm';
@@ -38,7 +39,7 @@ export const organizationAuthorityPrivacyAdopter: PrivacyAdopter = {
       tx,
       z.object({ organization_id: z.string() }),
       sql`select organization_id from memberships
-        where user_id = ${subject.userId} and status in ('invited', 'active')`,
+        where user_id = ${subject.userId} and status in ${listedWords(membershipStatuses, ['invited', 'active'])}`,
     );
     const grants = await query(
       tx,
@@ -73,11 +74,11 @@ export const organizationAuthorityPrivacyAdopter: PrivacyAdopter = {
           tx,
           z.object({ user_id: z.string() }),
           sql`update memberships set
-            status = case when status = 'active' then 'ended' else 'declined' end,
-            ended_at = case when status = 'active' then ${now}::timestamptz end,
+            status = case when status = ${listedWord(membershipStatuses, 'active')} then 'ended' else 'declined' end,
+            ended_at = case when status = ${listedWord(membershipStatuses, 'active')} then ${now}::timestamptz end,
             updated_at = ${now}::timestamptz, version = version + 1
           where organization_id = ${organizationId} and user_id = ${subject.userId}
-            and status in ('invited', 'active') returning user_id`,
+            and status in ${listedWords(membershipStatuses, ['invited', 'active'])} returning user_id`,
         ),
         'membership',
       );

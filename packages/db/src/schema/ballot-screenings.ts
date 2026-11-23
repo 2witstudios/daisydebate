@@ -1,3 +1,4 @@
+import { listedWord } from '../lifecycle-sql';
 import { ballotScreeningStatuses } from '@daisy/protocol/lobby';
 import { sql } from 'drizzle-orm';
 import { check, index, pgTable, text } from 'drizzle-orm/pg-core';
@@ -50,7 +51,7 @@ export const ballotScreenings = pgTable(
     ),
     check(
       'ballot_screenings_screened_consistent',
-      sql`(${table.status} <> 'pending') = (${table.screenedAt} is not null)`,
+      sql`(${table.status} <> ${listedWord(ballotScreeningStatuses, 'pending')}) = (${table.screenedAt} is not null)`,
     ),
     jsonbIsObject('ballot_screenings', table.releasedText),
   ],

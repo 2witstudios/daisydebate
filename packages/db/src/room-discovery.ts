@@ -1,4 +1,5 @@
-import { lifecycleSql, lifecycleSqlList } from './lifecycle-sql';
+import { actorKinds } from './schema/actors';
+import { lifecycleSql, lifecycleSqlList, listedWord } from './lifecycle-sql';
 import { sql, type SQL } from 'drizzle-orm';
 import { createAppError } from '@daisy/errors';
 import { defaultStandingLobby } from '@daisy/protocol/lobby/eligibility';
@@ -11,8 +12,9 @@ import {
   type RoomListQuery,
   type RoomListEntry,
   type RoomListPage,
+  roomVisibilities,
 } from '@daisy/protocol/room-contract';
-import { seatKindSchema, type SeatRef } from '@daisy/protocol/seats';
+import { seatKindSchema, type SeatRef, seatKinds } from '@daisy/protocol/seats';
 import { type RoundRatingScope } from '@daisy/protocol/rating-ladder';
 import { seatOfColumns } from './seat-columns';
 import { sharedAccount, type Caller, type Account } from './room-command-facts';
@@ -53,11 +55,11 @@ export type RoomDiscoveryFact = Pick<
     readonly participants: readonly Seat[];
   };
 };
-const hostLabel = sql`case when h.kind = 'bot' then coalesce(b.name,'') when u.deleted_at is null then coalesce(u.username,'') else '' end`;
+const hostLabel = sql`case when h.kind = ${listedWord(actorKinds, 'bot')} then coalesce(b.name,'') when u.deleted_at is null then coalesce(u.username,'') else '' end`;
 const joins = sql`left join actors h on h.id=r.host_actor_id left join users u on u.id=h.user_id left join bot_profiles b on b.actor_id=h.id`;
-const hostIsHumanJudge = sql`(h.kind='human' and exists(select 1 from room_participants j where j.room_id=r.id and j.actor_id=r.host_actor_id and j.seat_kind='judge'))`;
+const hostIsHumanJudge = sql`(h.kind=${listedWord(actorKinds, 'human')} and exists(select 1 from room_participants j where j.room_id=r.id and j.actor_id=r.host_actor_id and j.seat_kind=${listedWord(seatKinds, 'judge')}))`;
 const visible = (caller: Caller) =>
-  sql`(r.visibility='public' or r.host_actor_id=${caller.actorId} or exists(select 1 from room_participants p where p.room_id=r.id and p.actor_id=${caller.actorId} limit 1 offset 0))`;
+  sql`(r.visibility=${listedWord(roomVisibilities, 'public')} or r.host_actor_id=${caller.actorId} or exists(select 1 from room_participants p where p.room_id=r.id and p.actor_id=${caller.actorId} limit 1 offset 0))`;
 /**
  * A live Round is only ever listed to who is in it, and scoped here, before search
  * and paging, so a search for its resolution or host answers an outsider exactly as a
@@ -81,7 +83,7 @@ const modeMatches = (mode: RoomListQuery['mode']) =>
   mode === undefined ? sql`true` : sql`r.competition_type=${mode}`;
 const lobbyMatches = (lobbyId: string) => sql`r.lobby_id=${lobbyId}`;
 /** Free judge seats of the Room's rules, read with the page. */
-const openJudgeSeats = sql`greatest(0, (r.rules_snapshot->'seats'->>'judges')::int - (select count(*)::int from room_participants j where j.room_id=r.id and j.seat_kind='judge'))`;
+const openJudgeSeats = sql`greatest(0, (r.rules_snapshot->'seats'->>'judges')::int - (select count(*)::int from room_participants j where j.room_id=r.id and j.seat_kind=${listedWord(seatKinds, 'judge')}))`;
 /** Seat totals and the format label, read with the page; never a lock target. */
 const seatCount = sql`((select coalesce(sum(n.count::int),0) from jsonb_each_text(r.rules_snapshot->'seats'->'sides') as n(side,count))::int+(r.rules_snapshot->'seats'->>'speakers')::int+(r.rules_snapshot->'seats'->>'judges')::int+(r.rules_snapshot->'seats'->>'moderators')::int)`;
 const seatsTaken = sql`case when r.status=${lifecycleSql(roomStatus.started)} then (select count(*)::int from round_participants s where s.round_id=d.id) else (select count(*)::int from room_participants s where s.room_id=r.id) end`;

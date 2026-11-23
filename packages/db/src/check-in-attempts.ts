@@ -1,3 +1,5 @@
+import { roundCommandTypes } from './schema/round-commands';
+import { listedWord } from './lifecycle-sql';
 import { checkInAttemptStates } from '@daisy/protocol/attendance';
 import {
   sampleRoundExecutionTime,
@@ -93,7 +95,7 @@ export function checkInAttemptLifecycle(
     where a.attempt_id=${attempt.attemptId} and a.state='pending' and a.backend_pid=${metadata.writer.pid}
      and a.backend_started_at=${metadata.writer.backendStart}::timestamptz
      and (${outcome}='aborted' or exists(select 1 from round_commands c where c.command_id=a.command_id and c.round_id=a.round_id
-      and c.type='check_in' and c.payload_digest=a.payload_digest and c.actor_id is not distinct from a.actor_id and c.service_id is not distinct from a.service_id))
+      and c.type=${listedWord(roundCommandTypes, 'check_in')} and c.payload_digest=a.payload_digest and c.actor_id is not distinct from a.actor_id and c.service_id is not distinct from a.service_id))
     returning a.attempt_id`,
       );
       if (rows.length !== 1)
@@ -114,7 +116,7 @@ export async function reconcileCheckInAttempts(
   const absent = await query(
     control,
     z.object({ attempt_id: z.string() }),
-    sql`select a.attempt_id from round_check_in_attempts a where a.state='pending'
+    sql`select a.attempt_id from round_check_in_attempts a where a.state=${listedWord(checkInAttemptStates, 'pending')}
     and not exists(select 1 from pg_stat_activity p where p.pid=a.backend_pid and p.backend_start=a.backend_started_at)
     order by a.received_at limit ${limit} for update skip locked`,
   );
@@ -126,7 +128,7 @@ export async function reconcileCheckInAttempts(
     control,
     z.object({ attempt_id: z.string() }),
     sql`update round_check_in_attempts a set
-    state=case when exists(select 1 from round_commands c where c.command_id=a.command_id and c.round_id=a.round_id and c.type='check_in'
+    state=case when exists(select 1 from round_commands c where c.command_id=a.command_id and c.round_id=a.round_id and c.type=${listedWord(roundCommandTypes, 'check_in')}
       and c.payload_digest=a.payload_digest and c.actor_id is not distinct from a.actor_id and c.service_id is not distinct from a.service_id)
       then 'committed' else 'aborted' end,resolved_at=statement_timestamp()
     where a.state='pending' and a.attempt_id in (${sql.join(

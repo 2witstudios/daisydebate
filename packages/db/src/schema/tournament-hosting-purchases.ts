@@ -1,3 +1,4 @@
+import { listedWord } from '../lifecycle-sql';
 import { billingModes } from '@daisy/protocol/billing-mode';
 import { sql } from 'drizzle-orm';
 import {
@@ -62,7 +63,9 @@ export const tournamentHostingPurchases = pgTable(
     index('tournament_hosting_purchases_payer_idx').on(table.payerUserId),
     uniqueIndex('tournament_hosting_purchases_open_unique')
       .on(table.lobbyId)
-      .where(sql`${table.state} = 'open'`),
+      .where(
+        sql`${table.state} = ${listedWord(tournamentHostingPurchaseStates, 'open')}`,
+      ),
     uniqueIndex('tournament_hosting_purchases_session_unique').on(
       table.mode,
       table.vendorSessionId,

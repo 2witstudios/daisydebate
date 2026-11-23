@@ -1,3 +1,4 @@
+import { listedWord } from '../lifecycle-sql';
 import {
   reportOutcomes,
   reportSurfaces,
@@ -43,12 +44,12 @@ export const reports = pgTable(
     uniqueIndex('reports_one_open_per_pair')
       .on(table.reporterActorId, table.subjectActorId)
       .where(
-        sql`${table.closedAt} is null and ${table.surface} <> 'guardian-link'`,
+        sql`${table.closedAt} is null and ${table.surface} <> ${listedWord(reportSurfaces, 'guardian-link')}`,
       ),
     uniqueIndex('reports_one_open_guardian_link_per_pair')
       .on(table.reporterActorId, table.subjectActorId)
       .where(
-        sql`${table.closedAt} is null and ${table.surface} = 'guardian-link'`,
+        sql`${table.closedAt} is null and ${table.surface} = ${listedWord(reportSurfaces, 'guardian-link')}`,
       ),
     check(
       'reports_distinct',
@@ -58,7 +59,7 @@ export const reports = pgTable(
     check('reports_surface_check', oneOf(table.surface, reportSurfaces)),
     check(
       'reports_guardian_link_check',
-      sql`(${table.surface} = 'guardian-link') = (${table.reason} = 'not-my-parent')`,
+      sql`(${table.surface} = ${listedWord(reportSurfaces, 'guardian-link')}) = (${table.reason} = ${listedWord(storedReportReasons, 'not-my-parent')})`,
     ),
     check(
       'reports_outcome_check',

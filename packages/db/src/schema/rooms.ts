@@ -1,10 +1,9 @@
-import { lifecycleSqlList } from '../lifecycle-sql';
+import { lifecycleSqlList, listedWord } from '../lifecycle-sql';
 import { ladders } from './ladders';
 import {
   openRoomStatuses,
   roomStatuses,
   roomVisibilities,
-  type RoomView,
 } from '@daisy/protocol/room-contract';
 import { competitionTypes, type CompetitionType } from '@daisy/protocol/round';
 import {
@@ -177,7 +176,7 @@ export const rooms = pgTable(
     }).onDelete('restrict'),
     check(
       'rooms_league_ladder_is_casual_standing',
-      sql`${table.leagueLadderId} is null or (${table.lobbyKind} = 'standing' and ${table.competitionType} = 'casual')`,
+      sql`${table.leagueLadderId} is null or (${table.lobbyKind} = 'standing' and ${table.competitionType} = ${listedWord(competitionTypes, 'casual')})`,
     ),
     index('rooms_discovery_assembly_idx')
       .on(table.lobbyId, table.createdAt, sql`${table.id} collate "C"`)
@@ -234,7 +233,7 @@ export const rooms = pgTable(
     ),
     check(
       'rooms_event_is_casual',
-      sql`${table.lobbyKind} <> 'tournament' or ${table.competitionType} = 'casual'`,
+      sql`${table.lobbyKind} <> 'tournament' or ${table.competitionType} = ${listedWord(competitionTypes, 'casual')}`,
     ),
     bothOrNeither(
       'rooms_ballot_definition_complete',
@@ -254,12 +253,12 @@ export const rooms = pgTable(
     // its seats take the drawn sides and team 1's side reads Affirmative.
     check(
       'rooms_ranked_sides_open_check',
-      sql`${table.competitionType} <> 'ranked' or ${table.status} not in ${lifecycleSqlList(openRoomStatuses)} or ${table.teamOneSide} is null`,
+      sql`${table.competitionType} <> ${listedWord(competitionTypes, 'ranked')} or ${table.status} not in ${lifecycleSqlList(openRoomStatuses)} or ${table.teamOneSide} is null`,
     ),
     check('rooms_visibility_check', oneOf(table.visibility, roomVisibilities)),
     check(
       'rooms_ranked_public_check',
-      sql`${table.competitionType} <> 'ranked' or ${table.visibility} = 'public'`,
+      sql`${table.competitionType} <> ${listedWord(competitionTypes, 'ranked')} or ${table.visibility} = ${listedWord(roomVisibilities, 'public')}`,
     ),
     check('rooms_title_nonempty', sql`length(trim(${table.title})) > 0`),
     check(
@@ -323,7 +322,7 @@ export const rooms = pgTable(
     }),
     check(
       'rooms_ranked_has_preset_check',
-      sql`(${table.competitionType} = 'ranked') = (${table.presetVersion} is not null)`,
+      sql`(${table.competitionType} = ${listedWord(competitionTypes, 'ranked')}) = (${table.presetVersion} is not null)`,
     ),
     jsonbIsObject('rooms', table.config),
     jsonbIsObject('rooms', table.executionPlan),
@@ -369,7 +368,7 @@ export const roomParticipants = pgTable(
     ...seatChecks('room_participants', table),
     check(
       'room_participants_open_seat_check',
-      sql`(${table.seatKind} = 'side' or not (${table.teamOpen} or ${table.positionOpen})) and (not ${table.teamOpen} or ${table.positionOpen})`,
+      sql`(${table.seatKind} = ${listedWord(seatKinds, 'side')} or not (${table.teamOpen} or ${table.positionOpen})) and (not ${table.teamOpen} or ${table.positionOpen})`,
     ),
     check(
       'room_participants_readiness_version_nonnegative',

@@ -1,3 +1,4 @@
+import { listedWord } from './lifecycle-sql';
 import { insertContentReport } from './content-report-write';
 import { publicProfileModeration } from './public-profile-moderation';
 import { createAppError } from '@daisy/errors';
@@ -250,7 +251,7 @@ const resolveReport = async (
     z.object({ id: z.string() }),
     sql`update content_reports set status = ${change.outcome},
         resolved_at = ${now.toISOString()}::timestamptz, resolved_by_ref = ${operatorRef}
-      where id = ${change.reportId} and status = 'open' returning id`,
+      where id = ${change.reportId} and status = ${listedWord(contentReportStatuses, 'open')} returning id`,
   );
   const found = await queryRows(
     tx,

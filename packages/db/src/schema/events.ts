@@ -1,3 +1,4 @@
+import { listedWord } from '../lifecycle-sql';
 import {
   entryKinds,
   stageKinds,
@@ -109,7 +110,7 @@ export const events = pgTable(
     check('events_entry_kind_check', oneOf(table.entryKind, entryKinds)),
     check(
       'events_team_size_check',
-      sql`${table.teamSize} >= 1 and (${table.entryKind} = 'person') = (${table.teamSize} = 1)`,
+      sql`${table.teamSize} >= 1 and (${table.entryKind} = ${listedWord(entryKinds, 'person')}) = (${table.teamSize} = 1)`,
     ),
     nonEmpty('events_name_nonempty', table.name),
     versionPositive('events', table.version),
@@ -155,11 +156,11 @@ export const stages = pgTable(
     check('stages_sequence_positive', sql`${table.sequence} > 0`),
     check(
       'stages_division_is_elimination',
-      sql`${table.division} is null or (${table.kind} = 'elimination' and length(trim(${table.division})) > 0)`,
+      sql`${table.division} is null or (${table.kind} = ${listedWord(stageKinds, 'elimination')} and length(trim(${table.division})) > 0)`,
     ),
     check(
       'stages_window_check',
-      sql`case when ${table.timing} = 'windowed'
+      sql`case when ${table.timing} = ${listedWord(stageTimings, 'windowed')}
         then ${table.windowOpensAt} is not null and ${table.windowClosesAt} is not null and ${table.windowClosesAt} > ${table.windowOpensAt}
         else ${table.windowOpensAt} is null and ${table.windowClosesAt} is null end`,
     ),

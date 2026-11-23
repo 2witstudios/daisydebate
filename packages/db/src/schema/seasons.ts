@@ -1,3 +1,4 @@
+import { listedWord } from '../lifecycle-sql';
 import { sql } from 'drizzle-orm';
 import {
   check,
@@ -40,7 +41,7 @@ export const seasons = pgTable(
   (table) => [
     uniqueIndex('seasons_single_active')
       .on(table.lobbyId)
-      .where(sql`${table.status} = 'active'`),
+      .where(sql`${table.status} = ${listedWord(seasonStatuses, 'active')}`),
     unique('seasons_id_lobby_unique').on(table.id, table.lobbyId),
     foreignKey({
       name: 'seasons_lobby_owner_fk',

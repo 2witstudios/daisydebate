@@ -1,3 +1,4 @@
+import { listedWord } from '../lifecycle-sql';
 import {
   attendanceDecisions,
   checkInAttemptStates,
@@ -89,8 +90,8 @@ export const roundAttendanceAdjudications = pgTable(
     check(
       'round_attendance_adjudications_evidence_check',
       sql`(${table.evidence} = 'settled_availability' and ${table.effectiveDeadline} is not null and ${table.settledHorizon} is not null and ${table.receiptParticipantId} is null)
-        or (${table.evidence} = 'on_time_receipt' and ${table.decision} = 'attended' and ${table.effectiveDeadline} is null and ${table.settledHorizon} is null and ${table.receiptParticipantId} is not null)
-        or (${table.evidence} = 'resolution_cutoff' and ${table.decision} = 'abandoned' and ${table.effectiveDeadline} is null and ${table.settledHorizon} is null and ${table.receiptParticipantId} is null)`,
+        or (${table.evidence} = 'on_time_receipt' and ${table.decision} = ${listedWord(attendanceDecisions, 'attended')} and ${table.effectiveDeadline} is null and ${table.settledHorizon} is null and ${table.receiptParticipantId} is not null)
+        or (${table.evidence} = 'resolution_cutoff' and ${table.decision} = ${listedWord(attendanceDecisions, 'abandoned')} and ${table.effectiveDeadline} is null and ${table.settledHorizon} is null and ${table.receiptParticipantId} is null)`,
     ),
     foreignKey({
       name: 'round_attendance_adjudications_receipt_fk',
@@ -163,7 +164,9 @@ export const roundCheckInAttempts = pgTable(
     ),
     index('round_check_in_attempts_pending_idx')
       .on(table.roundId, table.receivedAt)
-      .where(sql`${table.state}='pending'`),
+      .where(
+        sql`${table.state}=${listedWord(checkInAttemptStates, 'pending')}`,
+      ),
     index('round_check_in_attempts_command_round_idx').on(
       table.commandId,
       table.roundId,
@@ -176,7 +179,7 @@ export const roundCheckInAttempts = pgTable(
     ),
     check(
       'round_check_in_attempts_resolved_check',
-      sql`(${table.state}='pending' and ${table.resolvedAt} is null) or (${table.state}<>'pending' and ${table.resolvedAt} is not null)`,
+      sql`(${table.state}=${listedWord(checkInAttemptStates, 'pending')} and ${table.resolvedAt} is null) or (${table.state}<>${listedWord(checkInAttemptStates, 'pending')} and ${table.resolvedAt} is not null)`,
     ),
     check(
       'round_check_in_attempts_resolved_after_received',

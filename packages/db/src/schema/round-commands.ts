@@ -1,3 +1,4 @@
+import { listedWord } from '../lifecycle-sql';
 import { acceptedCommandColumns } from './command-columns';
 import { sql } from 'drizzle-orm';
 import { check, index, pgTable, text, uniqueIndex } from 'drizzle-orm/pg-core';
@@ -78,7 +79,7 @@ export const roundCommands = pgTable(
     check('round_commands_type_check', oneOf(table.type, roundCommandTypes)),
     check(
       'round_commands_attendance_principal_check',
-      sql`${table.type} <> 'adjudicate' or (${table.actorId} is null and ${table.serviceId} ~ '^round-attendance:[a-z0-9]{24}$')`,
+      sql`${table.type} <> ${listedWord(roundCommandTypes, 'adjudicate')} or (${table.actorId} is null and ${table.serviceId} ~ '^round-attendance:[a-z0-9]{24}$')`,
     ),
   ],
 );

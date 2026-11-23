@@ -1,3 +1,4 @@
+import { listedWord } from '../lifecycle-sql';
 import { sql } from 'drizzle-orm';
 import { pgTable, text, integer, check, index } from 'drizzle-orm/pg-core';
 import { timestampColumn, oneOf } from './columns';
@@ -42,7 +43,7 @@ export const necessaryEvidenceErasureRequests = pgTable(
     ),
     check(
       'necessary_evidence_erasure_propagation_check',
-      sql`(${table.phase}='propagated')=(${table.propagatedAt} is not null)`,
+      sql`(${table.phase}=${listedWord(evidenceErasurePhases, 'propagated')})=(${table.propagatedAt} is not null)`,
     ),
     check(
       'necessary_evidence_erasure_execution_check',

@@ -1,3 +1,5 @@
+import { privacyVendors } from './privacy/planner';
+import { listedWord } from './lifecycle-sql';
 import { billingModes } from '@daisy/protocol/billing-mode';
 import { sql } from 'drizzle-orm';
 import { readDatabaseTime } from './database-clock';
@@ -144,7 +146,7 @@ export const billingPrivacyAdopter: PrivacyAdopter = {
       sql`select identity as vendor_invoice_id
       from privacy_jobs job cross join lateral
         jsonb_array_elements_text(job.billing_cleanup->'invoiceDebt'->'ids') identity
-      where job.subject_ref=${subject.userId} and job.vendor='stripe'
+      where job.subject_ref=${subject.userId} and job.vendor=${listedWord(privacyVendors, 'stripe')}
         and job.billing_cleanup->'invoiceDebt'->>'kind'='owed' order by identity`,
     );
     return {

@@ -1,3 +1,4 @@
+import { listedWord } from '../lifecycle-sql';
 import { sql } from 'drizzle-orm';
 import {
   bigint,
@@ -11,7 +12,7 @@ import { createdAtColumn, oneOf, timestampColumn } from './columns';
 import { rounds } from './rounds';
 import { necessaryEvidence } from './necessary-evidence';
 
-const transcriptionRecoveryStatuses = [
+export const transcriptionRecoveryStatuses = [
   'collecting',
   'queued',
   'leased',
@@ -86,8 +87,8 @@ export const transcriptionRecoveryContexts = pgTable(
     check(
       'transcription_recovery_claim_check',
       sql`${table.claimEpoch}>=0 and ${table.attempts}>=0 and (
-    (${table.status}='leased' and ${table.workerId} is not null and ${table.leaseDigest} is not null and ${table.leaseDigest} ~ '^[a-f0-9]{64}$' and ${table.leaseExpiresAt} is not null and ${table.claimEpoch}>0)
-    or (${table.status}<>'leased' and ${table.leaseDigest} is null and ${table.leaseExpiresAt} is null))`,
+    (${table.status}=${listedWord(transcriptionRecoveryStatuses, 'leased')} and ${table.workerId} is not null and ${table.leaseDigest} is not null and ${table.leaseDigest} ~ '^[a-f0-9]{64}$' and ${table.leaseExpiresAt} is not null and ${table.claimEpoch}>0)
+    or (${table.status}<>${listedWord(transcriptionRecoveryStatuses, 'leased')} and ${table.leaseDigest} is null and ${table.leaseExpiresAt} is null))`,
     ),
     check(
       'transcription_recovery_model_check',
@@ -95,11 +96,11 @@ export const transcriptionRecoveryContexts = pgTable(
     ),
     check(
       'transcription_recovery_blocked_check',
-      sql`(${table.status}='blocked')=(${table.blockedReason} is not null) and (${table.blockedReason} is null or ${oneOf(table.blockedReason, transcriptionRecoveryBlockedReasons)})`,
+      sql`(${table.status}=${listedWord(transcriptionRecoveryStatuses, 'blocked')})=(${table.blockedReason} is not null) and (${table.blockedReason} is null or ${oneOf(table.blockedReason, transcriptionRecoveryBlockedReasons)})`,
     ),
     check(
       'transcription_recovery_selection_check',
-      sql`(${table.status}='selected' and ${table.selectedRevision} is not null and ${table.selectedRevision}>=0 and ${table.selectedDigest} is not null and ${table.selectedDigest} ~ '^[a-f0-9]{64}$' and ${table.selectedAt} is not null) or (${table.status}<>'selected' and ${table.selectedRevision} is null and ${table.selectedDigest} is null and ${table.selectedAt} is null)`,
+      sql`(${table.status}=${listedWord(transcriptionRecoveryStatuses, 'selected')} and ${table.selectedRevision} is not null and ${table.selectedRevision}>=0 and ${table.selectedDigest} is not null and ${table.selectedDigest} ~ '^[a-f0-9]{64}$' and ${table.selectedAt} is not null) or (${table.status}<>${listedWord(transcriptionRecoveryStatuses, 'selected')} and ${table.selectedRevision} is null and ${table.selectedDigest} is null and ${table.selectedAt} is null)`,
     ),
   ],
 );

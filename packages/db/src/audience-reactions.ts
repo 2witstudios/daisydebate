@@ -1,3 +1,5 @@
+import { roomVisibilities } from '@daisy/protocol/room-contract';
+import { listedWord } from './lifecycle-sql';
 import { audienceReactionKinds } from '@daisy/protocol/audience';
 import { sql } from 'drizzle-orm';
 import { inLiveRoomSql, liveRoomOfR } from './live-room-sql';
@@ -75,7 +77,7 @@ export const audienceReactionOperations = ({
               (b.completed_at is null and b.stopped_at is null) as open,
               exists(select 1 from audience_bans x where x.user_id=${input.userId}) as banned
             from rounds r left join broadcasts b on b.round_id=r.id
-            where r.id=${input.roundId} and r.visibility in ('public','unlisted') and r.room_id is not null`,
+            where r.id=${input.roundId} and r.visibility in (${listedWord(roomVisibilities, 'public')},${listedWord(roomVisibilities, 'unlisted')}) and r.room_id is not null`,
         );
         if (
           !round ||

@@ -1,5 +1,5 @@
 import { roomVisibilities } from '@daisy/protocol/room-contract';
-import { lifecycleSql, lifecycleSqlList } from '../lifecycle-sql';
+import { lifecycleSql, lifecycleSqlList, listedWord } from '../lifecycle-sql';
 import {
   competitionTypes,
   type CompetitionType,
@@ -355,11 +355,11 @@ export const rounds = pgTable(
       ),
       check(
         'rounds_ranked_ladder_check',
-        sql`${table.competitionType} <> 'ranked' or ${table.ladderId} is not null or ${table.status} in ${lifecycleSqlList([roundStatus.completed, roundStatus.abandoned])}`,
+        sql`${table.competitionType} <> ${listedWord(competitionTypes, 'ranked')} or ${table.ladderId} is not null or ${table.status} in ${lifecycleSqlList([roundStatus.completed, roundStatus.abandoned])}`,
       ),
       check(
         'rounds_ranked_has_preset_check',
-        sql`(${table.competitionType} = 'ranked') = (${table.presetVersion} is not null)`,
+        sql`(${table.competitionType} = ${listedWord(competitionTypes, 'ranked')}) = (${table.presetVersion} is not null)`,
       ),
       foreignKey({
         name: 'rounds_definition_revision_fk',

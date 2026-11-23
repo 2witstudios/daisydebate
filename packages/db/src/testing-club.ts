@@ -1,3 +1,5 @@
+import { organizationKinds } from '@daisy/protocol/lobby';
+import { listedWord } from './lifecycle-sql';
 import type { SQL } from 'bun';
 import { createId } from '@paralleldrive/cuid2';
 import { sql } from 'drizzle-orm';
@@ -49,7 +51,7 @@ export async function fundTestClub(
     await runStatement(
       tx,
       sql`insert into organizations (id, kind, name, handle, owner_user_id)
-      values (${organizationId}, 'school', ${input.name}, ${`club-${organizationId}`}, ${input.owner.userId})`,
+      values (${organizationId}, ${listedWord(organizationKinds, 'school')}, ${input.name}, ${`club-${organizationId}`}, ${input.owner.userId})`,
     );
     await runStatement(
       tx,

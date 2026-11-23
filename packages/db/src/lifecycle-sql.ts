@@ -34,3 +34,25 @@ export const listedWords = <const List extends readonly string[]>(
     words.map((word) => listedWord(list, word)),
     sql`, `,
   )})`;
+
+/**
+ * A stored word as a bound value, for a native Bun query, where a Drizzle
+ * fragment cannot go. The compiler checks `word` against `list`.
+ */
+export function listedValue<const List extends readonly string[]>(
+  list: List,
+  word: List[number],
+): List[number] {
+  if (!list.includes(word))
+    throw new RangeError('A stored word outside its vocabulary list');
+  return word;
+}
+
+/**
+ * A stored word as quoted SQL text, for a native statement that cannot bind
+ * it: DDL, or the predicate an `on conflict … where` must match literally.
+ */
+export const listedLiteral = <const List extends readonly string[]>(
+  list: List,
+  word: List[number],
+): string => `'${listedValue(list, word).replaceAll("'", "''")}'`;

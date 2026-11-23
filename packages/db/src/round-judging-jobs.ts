@@ -1,3 +1,4 @@
+import { listedWord } from './lifecycle-sql';
 import type { DecisionReleasePolicy } from '@daisy/protocol/round-decision-release';
 import { eq, sql } from 'drizzle-orm';
 import { createAppError } from '@daisy/errors';
@@ -10,10 +11,11 @@ import {
   type JudgingAttemptDiagnostic,
   type JudgingTerminalReason,
   type JudgingRecoveryReason,
+  judgingAttemptCategories,
 } from '@daisy/protocol/round-judging-attempt';
 import { type JudgingWorkKind } from '@daisy/protocol/judging-policy';
 import type { BoundedTransaction } from './bounded-transaction';
-import { agentRuns } from './schema/agent-runs';
+import { agentRuns, agentRunKinds } from './schema/agent-runs';
 import {
   roundJudgingAttempts,
   roundJudgingJobs,
@@ -125,10 +127,10 @@ async function paidCalls(tx: Tx, scope: JudgingScope, firstEpoch?: number) {
     tx,
     z.object({ paid: z.int() }),
     sql`select (
-    coalesce(sum(a.requests),0) - count(*) filter(where t.answered_at is null and t.category='provider_refused')
+    coalesce(sum(a.requests),0) - count(*) filter(where t.answered_at is null and t.category=${listedWord(judgingAttemptCategories, 'provider_refused')})
     )::int as paid
     from agent_runs a left join round_judging_attempts t on t.agent_run_id=a.id
-    where a.round_participant_id=${scope.judgeParticipantId} and a.kind='judging' and a.requests>0
+    where a.round_participant_id=${scope.judgeParticipantId} and a.kind=${listedWord(agentRunKinds, 'judging')} and a.requests>0
       and (${firstEpoch ?? null}::integer is null or t.job_epoch is null or t.job_epoch>=${firstEpoch ?? null}::integer)`,
   );
   if (!row) throw createAppError('INVARIANT');

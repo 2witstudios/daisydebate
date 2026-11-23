@@ -1,3 +1,4 @@
+import { listedWord } from '../lifecycle-sql';
 import { twoSideKeys, type TwoSideKey } from '@daisy/protocol/seats';
 import { sql } from 'drizzle-orm';
 import {
@@ -241,7 +242,7 @@ export const roundResolutionStrikes = pgTable(
     ),
     check(
       'round_resolution_strikes_debater_check',
-      sql`(${table.kind} = 'debater') = (${table.actorId} is not null and ${table.commandId} is not null)`,
+      sql`(${table.kind} = ${listedWord(resolutionStrikeKinds, 'debater')}) = (${table.actorId} is not null and ${table.commandId} is not null)`,
     ),
   ],
 );

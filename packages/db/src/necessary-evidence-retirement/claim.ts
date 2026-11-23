@@ -1,3 +1,5 @@
+import { necessaryEvidenceStates } from '@daisy/protocol/necessary-evidence';
+import { listedWord } from '../lifecycle-sql';
 import { addMs } from '@daisy/clock';
 import { eq, sql } from 'drizzle-orm';
 import { necessaryEvidence } from '../schema/necessary-evidence';
@@ -27,7 +29,7 @@ export async function claim(
       reason: z.enum(['settled', 'erased', 'expired', 'unreceived']),
     }),
     sql`select
-    case when e.state='retiring' then e.retirement_reason
+    case when e.state=${listedWord(necessaryEvidenceStates, 'retiring')} then e.retirement_reason
       when exists(select 1 from necessary_evidence_round_fences f where f.round_id=e.original_round_id and f.withdrawn_at is not null)
         or exists(select 1 from necessary_evidence_erasure_requests p where p.actor_id=any(e.original_subject_actor_ids))
       then 'erased' else 'expired' end as reason

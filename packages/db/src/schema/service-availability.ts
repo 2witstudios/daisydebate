@@ -1,3 +1,4 @@
+import { listedWord } from '../lifecycle-sql';
 import { sql } from 'drizzle-orm';
 import {
   bigint,
@@ -8,7 +9,7 @@ import {
   text,
 } from 'drizzle-orm/pg-core';
 import { oneOf, timestampColumn, xid8Column } from './columns';
-const serviceRoles = ['web', 'realtime'] as const;
+export const serviceRoles = ['web', 'realtime'] as const;
 
 export const serviceInstances = pgTable(
   'service_instances',
@@ -26,7 +27,7 @@ export const serviceInstances = pgTable(
     check('service_instances_role_check', oneOf(table.role, serviceRoles)),
     check(
       'service_instances_cursor_check',
-      sql`(${table.role}='web' and ${table.deliveredThrough} is null and ${table.deliveredThroughTxid} is null) or (${table.role}='realtime' and ${table.deliveredThrough} is not null and ${table.deliveredThrough} >= 0 and ${table.deliveredThroughTxid} is not null and ${table.deliveredThroughTxid}::text ~ '^[0-9]+$')`,
+      sql`(${table.role}=${listedWord(serviceRoles, 'web')} and ${table.deliveredThrough} is null and ${table.deliveredThroughTxid} is null) or (${table.role}=${listedWord(serviceRoles, 'realtime')} and ${table.deliveredThrough} is not null and ${table.deliveredThrough} >= 0 and ${table.deliveredThroughTxid} is not null and ${table.deliveredThroughTxid}::text ~ '^[0-9]+$')`,
     ),
   ],
 );

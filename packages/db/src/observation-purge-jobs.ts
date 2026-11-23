@@ -1,3 +1,5 @@
+import { retriedJobStatuses } from './schema/columns';
+import { listedWord } from './lifecycle-sql';
 import { tryCanonicalInstantMs } from '@daisy/clock';
 import { sql } from 'drizzle-orm';
 import { createAppError } from '@daisy/errors';
@@ -43,8 +45,8 @@ export async function queueObservationPurge(
   await run(
     tx,
     sql`insert into observation_purge_jobs(user_id, status, attempts, created_at, retry_at)
-    values(${userId}, 'pending', 0, ${now}::timestamptz, ${now}::timestamptz)
-    on conflict (user_id) do update set status = 'pending', retry_at = excluded.retry_at,
+    values(${userId}, ${listedWord(retriedJobStatuses, 'pending')}, 0, ${now}::timestamptz, ${now}::timestamptz)
+    on conflict (user_id) do update set status = ${listedWord(retriedJobStatuses, 'pending')}, retry_at = excluded.retry_at,
       created_at = excluded.created_at, succeeded_at = null`,
   );
 }
@@ -74,7 +76,7 @@ export async function deliverObservationPurges(
     sql`select user_id as "userId", attempts,
       created_at as "createdAt"
     from observation_purge_jobs
-    where status = 'pending' and retry_at <= ${input.now}::timestamptz
+    where status = ${listedWord(retriedJobStatuses, 'pending')} and retry_at <= ${input.now}::timestamptz
     order by retry_at, user_id limit ${input.limit}`,
   );
   if (rows.length === 0) return { succeeded: 0, retried: 0 };
@@ -122,7 +124,7 @@ export async function owedObservationPurges(database: Tx): Promise<number> {
     z.object({ owed: z.number() }),
     sql`select count(*)::int as owed
     from observation_purge_jobs
-    where status = 'pending'`,
+    where status = ${listedWord(retriedJobStatuses, 'pending')}`,
   );
   return rows[0]?.owed ?? 0;
 }

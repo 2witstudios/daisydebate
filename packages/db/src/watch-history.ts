@@ -1,3 +1,5 @@
+import { roomVisibilities } from '@daisy/protocol/room-contract';
+import { listedWord } from './lifecycle-sql';
 import { sql } from 'drizzle-orm';
 import { run, query } from './raw-rows';
 import { instrumented, type DatabaseEventSink } from './instrumented';
@@ -34,7 +36,7 @@ export const watchHistoryOperations = ({
         sql`insert into watch_history(user_id,round_id,watched_at)
         select u.id,r.id,${input.at}::timestamptz
         from users u join rounds r on r.id=${input.roundId}
-          and r.visibility in ('public','unlisted') and r.room_id is not null
+          and r.visibility in (${listedWord(roomVisibilities, 'public')},${listedWord(roomVisibilities, 'unlisted')}) and r.room_id is not null
         where u.id=${input.userId} and u.deleted_at is null
         on conflict (user_id,round_id) do update
           set watched_at=greatest(watch_history.watched_at,excluded.watched_at)`,
@@ -75,7 +77,7 @@ export const watchHistoryOperations = ({
             case when ${factReleasedSql(sql`r.started_at`, roundAliasR, input.clock)} then r.resolution end as resolution,
             to_char(h.watched_at at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as "watchedAt"
           from watch_history h join rounds r on r.id=h.round_id
-          where h.user_id=${input.userId} and r.visibility in ('public','unlisted')
+          where h.user_id=${input.userId} and r.visibility in (${listedWord(roomVisibilities, 'public')},${listedWord(roomVisibilities, 'unlisted')})
           order by h.watched_at desc,r.id limit ${input.limit}`,
       ),
     );

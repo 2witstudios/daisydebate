@@ -1,3 +1,4 @@
+import { listedWord } from '../lifecycle-sql';
 import {
   settingHolds,
   settingKeys,
@@ -57,16 +58,24 @@ export const settings = pgTable(
   (table) => [
     uniqueIndex('settings_organization_key_unique')
       .on(table.organizationId, table.key)
-      .where(sql`${table.scopeKind} = 'organization'`),
+      .where(
+        sql`${table.scopeKind} = ${listedWord(settingScopeKinds, 'organization')}`,
+      ),
     uniqueIndex('settings_template_key_unique')
       .on(table.templateId, table.key)
-      .where(sql`${table.scopeKind} = 'template'`),
+      .where(
+        sql`${table.scopeKind} = ${listedWord(settingScopeKinds, 'template')}`,
+      ),
     uniqueIndex('settings_lobby_key_unique')
       .on(table.lobbyId, table.key)
-      .where(sql`${table.scopeKind} = 'lobby'`),
+      .where(
+        sql`${table.scopeKind} = ${listedWord(settingScopeKinds, 'lobby')}`,
+      ),
     uniqueIndex('settings_event_key_unique')
       .on(table.eventId, table.key)
-      .where(sql`${table.scopeKind} = 'event'`),
+      .where(
+        sql`${table.scopeKind} = ${listedWord(settingScopeKinds, 'event')}`,
+      ),
     index('settings_organization_idx').on(table.organizationId),
     index('settings_lobby_idx').on(table.lobbyId),
     index('settings_template_idx').on(table.templateId, table.organizationId),
@@ -88,17 +97,17 @@ export const settings = pgTable(
     // One scope, carrying that scope's own isolation key.
     check(
       'settings_scope_check',
-      sql`(${table.scopeKind} = 'organization' and ${table.organizationId} is not null and ${table.templateId} is null and ${table.lobbyId} is null and ${table.eventId} is null)
-        or (${table.scopeKind} = 'template' and ${table.templateId} is not null and ${table.organizationId} is not null and ${table.lobbyId} is null and ${table.eventId} is null)
-        or (${table.scopeKind} = 'lobby' and ${table.lobbyId} is not null and ${table.organizationId} is null and ${table.templateId} is null and ${table.eventId} is null)
-        or (${table.scopeKind} = 'event' and ${table.eventId} is not null and ${table.lobbyId} is not null and ${table.organizationId} is null and ${table.templateId} is null)`,
+      sql`(${table.scopeKind} = ${listedWord(settingScopeKinds, 'organization')} and ${table.organizationId} is not null and ${table.templateId} is null and ${table.lobbyId} is null and ${table.eventId} is null)
+        or (${table.scopeKind} = ${listedWord(settingScopeKinds, 'template')} and ${table.templateId} is not null and ${table.organizationId} is not null and ${table.lobbyId} is null and ${table.eventId} is null)
+        or (${table.scopeKind} = ${listedWord(settingScopeKinds, 'lobby')} and ${table.lobbyId} is not null and ${table.organizationId} is null and ${table.templateId} is null and ${table.eventId} is null)
+        or (${table.scopeKind} = ${listedWord(settingScopeKinds, 'event')} and ${table.eventId} is not null and ${table.lobbyId} is not null and ${table.organizationId} is null and ${table.templateId} is null)`,
     ),
     oneTenantKey('settings', table.organizationId, table.lobbyId),
     check('settings_key_check', oneOf(table.key, settingKeys)),
     check('settings_hold_check', oneOf(table.hold, settingHolds)),
     check(
       'settings_event_hold_is_default',
-      sql`${table.scopeKind} <> 'event' or ${table.hold} = 'default'`,
+      sql`${table.scopeKind} <> ${listedWord(settingScopeKinds, 'event')} or ${table.hold} = ${listedWord(settingHolds, 'default')}`,
     ),
     jsonbIsObject('settings', table.value),
   ],

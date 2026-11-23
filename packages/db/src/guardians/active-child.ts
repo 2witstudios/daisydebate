@@ -1,3 +1,5 @@
+import { guardianLinkStatuses } from '@daisy/protocol/guardians';
+import { listedWord } from '../lifecycle-sql';
 import { sql } from 'drizzle-orm';
 import {
   lockAuthorizationActors,
@@ -34,7 +36,7 @@ export async function findActiveGuardianChild(
       join actors a on a.user_id = l.minor_user_id
       join users u on u.id = l.minor_user_id
       where l.id = ${linkId} and l.guardian_user_id = ${guardian.userId}
-        and l.status = 'active'
+        and l.status = ${listedWord(guardianLinkStatuses, 'active')}
     `,
     );
     return link;

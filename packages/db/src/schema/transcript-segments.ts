@@ -1,3 +1,4 @@
+import { listedWord } from '../lifecycle-sql';
 import { transcriptStreamStates } from '@daisy/protocol/round-transcript';
 import {
   capturePartialReasons,
@@ -87,7 +88,7 @@ export const transcriptSegments = pgTable(
     ),
     check(
       'transcript_segments_partial_reasons_check',
-      sql`(${table.state} = 'partial') = (cardinality(${table.partialReasons}) > 0)`,
+      sql`(${table.state} = ${listedWord(transcriptStreamStates, 'partial')}) = (cardinality(${table.partialReasons}) > 0)`,
     ),
     check(
       'transcript_segments_partial_reasons_known_check',
@@ -99,11 +100,11 @@ export const transcriptSegments = pgTable(
     ),
     check(
       'transcript_segments_seal_check',
-      sql`(${table.state} = 'open' and ${table.sealedAt} is null and ${table.sealedChunkCount} is null) or (${table.state} <> 'open' and ${table.sealedAt} is not null and ${table.sealedChunkCount} is not null)`,
+      sql`(${table.state} = ${listedWord(transcriptStreamStates, 'open')} and ${table.sealedAt} is null and ${table.sealedChunkCount} is null) or (${table.state} <> ${listedWord(transcriptStreamStates, 'open')} and ${table.sealedAt} is not null and ${table.sealedChunkCount} is not null)`,
     ),
     check(
       'transcript_segments_complete_count_check',
-      sql`${table.state} <> 'complete' or ${table.chunkCount} = ${table.sealedChunkCount}`,
+      sql`${table.state} <> ${listedWord(transcriptStreamStates, 'complete')} or ${table.chunkCount} = ${table.sealedChunkCount}`,
     ),
   ],
 );

@@ -1,3 +1,5 @@
+import { serviceRoles } from './schema/service-availability';
+import { listedWord } from './lifecycle-sql';
 import { createAppError, createRefusal } from '@daisy/errors';
 import { idSchema } from '@daisy/protocol/primitives';
 import { sql } from 'drizzle-orm';
@@ -21,7 +23,7 @@ export async function requireCurrentWeb(
   const rows = await query(
     tx,
     z.object({ instance_id: z.string() }),
-    sql`select instance_id from service_instances where instance_id=${instanceId} and role='web'
+    sql`select instance_id from service_instances where instance_id=${instanceId} and role=${listedWord(serviceRoles, 'web')}
     and renewed_at>clock_timestamp()-${SERVICE_LEASE_WINDOW_MS}*interval '1 millisecond' ${lock ? sql`for key share` : sql``}`,
   );
   if (rows.length !== 1)

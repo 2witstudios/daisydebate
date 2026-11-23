@@ -1,3 +1,5 @@
+import { releaseThings, audiences } from '@daisy/protocol/lobby';
+import { listedWord, listedWords } from '../lifecycle-sql';
 import { and, asc, eq, lte, sql } from 'drizzle-orm';
 import { parsedColumn, postgresInstantMs } from '../raw-rows';
 import { sanctions } from '../schema/sanctions';
@@ -92,8 +94,8 @@ export async function loadLeagueCertifiedRatingInputs(
             : and(
                 lte(certifications.certifiedAt, new Date(input.publicAt)),
                 sql`(select count(*) from ${releases} rel
-            where rel.tab_round_id=${results.tabRoundId} and rel.audience='public'
-              and rel.thing in ('posting', 'decision') and rel.opened_at<=${input.publicAt}::timestamptz)=2`,
+            where rel.tab_round_id=${results.tabRoundId} and rel.audience=${listedWord(audiences, 'public')}
+              and rel.thing in ${listedWords(releaseThings, ['posting', 'decision'])} and rel.opened_at<=${input.publicAt}::timestamptz)=2`,
               ),
         ),
       )

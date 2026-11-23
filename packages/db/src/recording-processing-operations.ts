@@ -1,3 +1,4 @@
+import { listedWord } from './lifecycle-sql';
 import { instantMs } from '@daisy/clock';
 import { createAppError } from '@daisy/errors';
 import { broadcastHoldPrefix } from '@daisy/protocol/broadcast-hold';
@@ -10,6 +11,7 @@ import {
   recordingJobStateSchema,
   type RecordingBuildProgress,
   type RecordingJobState,
+  recordingJobStatuses,
 } from '@daisy/protocol/recording-processing';
 import {
   and,
@@ -76,7 +78,7 @@ export const openRecordingJobIfEgressRecorded = async (
       tx,
       sql`insert into recording_processing_jobs
         (recording_id, hold_prefix, status, state)
-      values (${recordingId}, ${broadcastHoldPrefix(broadcastId)}, 'waiting', ${JSON.stringify(recordingJobStateSchema.parse({ status: 'waiting' }))}::text::jsonb)
+      values (${recordingId}, ${broadcastHoldPrefix(broadcastId)}, ${listedWord(recordingJobStatuses, 'waiting')}, ${JSON.stringify(recordingJobStateSchema.parse({ status: 'waiting' }))}::text::jsonb)
       on conflict (recording_id) do nothing`,
     );
 };

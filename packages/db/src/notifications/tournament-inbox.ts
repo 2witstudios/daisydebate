@@ -1,5 +1,12 @@
+import { notificationKinds } from '@daisy/protocol/notifications';
+import {
+  tournamentJudgeStatuses,
+  entryStatuses,
+  audiences,
+  fixtureStatuses,
+} from '@daisy/protocol/lobby';
 import { roomStatus } from '@daisy/protocol/room-contract';
-import { lifecycleSql } from '../lifecycle-sql';
+import { lifecycleSql, listedWord } from '../lifecycle-sql';
 import type { TournamentNotificationKind } from '@daisy/protocol/notifications';
 import { sql } from 'drizzle-orm';
 import { loadLobbyAuthority } from '../tab/lobby-authority';
@@ -61,16 +68,16 @@ export async function standingTournamentNotifications(
       const competitor = sql`exists(select 1 from fixture_entries fe join entry_members em on em.entry_id=fe.entry_id
         join actors a on a.id=em.actor_id where fe.fixture_id=f.id and em.entry_status='accepted' and a.user_id=n.user_id)`;
       const judge = sql`exists(select 1 from fixture_judges fj join tournament_judges j on j.id=fj.tournament_judge_id
-        join actors a on a.id=j.actor_id where fj.fixture_id=f.id and j.status='accepted' and a.user_id=n.user_id)`;
+        join actors a on a.id=j.actor_id where fj.fixture_id=f.id and j.status=${listedWord(tournamentJudgeStatuses, 'accepted')} and a.user_id=n.user_id)`;
       const removedJudge = sql`exists(select 1 from tournament_judges j join actors a on a.id=j.actor_id
-        where j.lobby_id=f.lobby_id and j.status='accepted' and a.user_id=n.user_id) and not ${judge}`;
+        where j.lobby_id=f.lobby_id and j.status=${listedWord(tournamentJudgeStatuses, 'accepted')} and a.user_id=n.user_id) and not ${judge}`;
       const adult = sql`exists(select 1 from fixture_entries fe join entries e on e.id=fe.entry_id
-        join entry_members em on em.entry_id=e.id and em.entry_status='accepted' join actors a on a.id=em.actor_id
-        where fe.fixture_id=f.id and e.status='accepted' and e.responsible_kind='self' and a.user_id=n.user_id)`;
+        join entry_members em on em.entry_id=e.id and em.entry_status=${listedWord(entryStatuses, 'accepted')} join actors a on a.id=em.actor_id
+        where fe.fixture_id=f.id and e.status=${listedWord(entryStatuses, 'accepted')} and e.responsible_kind='self' and a.user_id=n.user_id)`;
       const released = (
         thing: string,
       ) => sql`exists(select 1 from releases rel where rel.tab_round_id=f.tab_round_id and rel.thing=${thing}
-        and (rel.audience in ('participants','link','public') or (rel.audience='competitors' and ${competitor}) or (rel.audience='responsible_adults' and ${adult})))`;
+        and (rel.audience in (${listedWord(audiences, 'participants')},${listedWord(audiences, 'link')},${listedWord(audiences, 'public')}) or (rel.audience=${listedWord(audiences, 'competitors')} and ${competitor}) or (rel.audience=${listedWord(audiences, 'responsible_adults')} and ${adult})))`;
       const rows = await query(
         tx,
         z.object({
@@ -93,11 +100,11 @@ export async function standingTournamentNotifications(
         left join rooms ro on ro.id=f.room_id
         where n.user_id=${input.userId} and n.notification_lobby_id=${lobby.id} ${unread}
         and (
-          (n.kind='judge_assigned' and f.status='published' and ${judge})
-          or (n.kind in ('judge_replaced','judge_unassigned') and f.status='published' and ${removedJudge})
-          or (n.kind='tournament_draw_changed' and (${competitor} or ${judge}) and ${released('posting')})
-          or (n.kind='tournament_room_ready' and f.status='published' and ro.status=${lifecycleSql(roomStatus.ready)} and (${competitor} or ${judge}))
-          or (n.kind='tournament_results_released' and f.status='published' and (${competitor} or ${judge}) and ${released('decision')})
+          (n.kind=${listedWord(notificationKinds, 'judge_assigned')} and f.status=${listedWord(fixtureStatuses, 'published')} and ${judge})
+          or (n.kind in (${listedWord(notificationKinds, 'judge_replaced')},${listedWord(notificationKinds, 'judge_unassigned')}) and f.status=${listedWord(fixtureStatuses, 'published')} and ${removedJudge})
+          or (n.kind=${listedWord(notificationKinds, 'tournament_draw_changed')} and (${competitor} or ${judge}) and ${released('posting')})
+          or (n.kind=${listedWord(notificationKinds, 'tournament_room_ready')} and f.status=${listedWord(fixtureStatuses, 'published')} and ro.status=${lifecycleSql(roomStatus.ready)} and (${competitor} or ${judge}))
+          or (n.kind=${listedWord(notificationKinds, 'tournament_results_released')} and f.status=${listedWord(fixtureStatuses, 'published')} and (${competitor} or ${judge}) and ${released('decision')})
         )`,
       );
       for (const { id, ...row } of rows) standing.set(id, row);

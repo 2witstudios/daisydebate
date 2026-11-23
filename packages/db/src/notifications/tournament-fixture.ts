@@ -1,3 +1,5 @@
+import { tournamentJudgeStatuses } from '@daisy/protocol/lobby';
+import { listedWord } from '../lifecycle-sql';
 import { roomStatuses } from '@daisy/protocol/room-contract';
 import { sql } from 'drizzle-orm';
 import { query } from '../raw-rows';
@@ -42,7 +44,7 @@ export async function notifyFixtureChanges(
       z.object({ userId: z.string(), actorId: z.string() }),
       sql`select a.user_id as "userId",a.id as "actorId"
       from tournament_judges j join actors a on a.id=j.actor_id join users u on u.id=a.user_id and u.deleted_at is null
-      where j.id=${judgeId} and j.lobby_id=${input.lobbyId} and j.status='accepted'`,
+      where j.id=${judgeId} and j.lobby_id=${input.lobbyId} and j.status=${listedWord(tournamentJudgeStatuses, 'accepted')}`,
     );
     await oweTournamentNotification(tx, {
       ...common,

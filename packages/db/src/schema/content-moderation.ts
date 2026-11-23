@@ -1,3 +1,4 @@
+import { listedWord } from '../lifecycle-sql';
 import {
   contentModerationQueues,
   contentReportReasons,
@@ -78,11 +79,11 @@ export const contentReports = pgTable(
     ),
     check(
       'content_reports_feedback_subject_check',
-      sql`(${table.targetKind} = 'ballot_feedback') = (${table.feedbackSubject} is not null) and (${isFeedbackSubjectOrNull(table.feedbackSubject)})`,
+      sql`(${table.targetKind} = ${listedWord(contentReportTargetKinds, 'ballot_feedback')}) = (${table.feedbackSubject} is not null) and (${isFeedbackSubjectOrNull(table.feedbackSubject)})`,
     ),
     check(
       'content_reports_resolution_check',
-      sql`(${table.status} = 'open') = (${table.resolvedAt} is null) and (${table.resolvedAt} is null) = (${table.resolvedByRef} is null)`,
+      sql`(${table.status} = ${listedWord(contentReportStatuses, 'open')}) = (${table.resolvedAt} is null) and (${table.resolvedAt} is null) = (${table.resolvedByRef} is null)`,
     ),
   ],
 );

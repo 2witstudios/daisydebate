@@ -1,7 +1,13 @@
+import {
+  contentReportStatuses,
+  contentReportTargetKinds,
+} from '@daisy/protocol/content-moderation';
+import { listedWord } from './lifecycle-sql';
 import { addMs } from '@daisy/clock';
 import {
   RECORDING_EVIDENCE_HOLD_MS,
   recordingStatuses,
+  recordingClasses,
 } from '@daisy/protocol/recording';
 import { transitionRecording } from '@daisy/protocol/recording-lifecycle';
 import { sql } from 'drizzle-orm';
@@ -32,12 +38,12 @@ export const recordingPrivacyAdopter: PrivacyAdopter = {
       tx,
       z.object({ id: z.string(), reported: z.boolean() }),
       sql`select rec.id,
-        exists(select 1 from content_reports c where c.status='open' and (
-          (c.target_kind='recording' and c.target_id=rec.id)
-          or (c.target_kind='round' and c.target_id=rec.round_id))) as reported
+        exists(select 1 from content_reports c where c.status=${listedWord(contentReportStatuses, 'open')} and (
+          (c.target_kind=${listedWord(contentReportTargetKinds, 'recording')} and c.target_id=rec.id)
+          or (c.target_kind=${listedWord(contentReportTargetKinds, 'round')} and c.target_id=rec.round_id))) as reported
       from recordings rec
-      where rec.recording_class='casual'
-        and rec.status not in ('removing','removed')
+      where rec.recording_class=${listedWord(recordingClasses, 'casual')}
+        and rec.status not in (${listedWord(recordingStatuses, 'removing')},${listedWord(recordingStatuses, 'removed')})
         and rec.round_id in (${seatedRounds(subject.actorId)})
       order by rec.id`,
     );
