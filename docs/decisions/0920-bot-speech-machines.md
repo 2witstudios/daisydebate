@@ -30,22 +30,29 @@ Measured at `bfb17fa8d`, 23 November 2026:
 ## Decision
 
 1. **`stepPublisher(state, event)` is the publisher**
-   (`round-bots/model/publisher.ts`). State is one value: the claim and its
-   drain, the track, the room, the database clock offset, the line ledger
-   and the authorization schedule (both kept, the ledger now holding each
-   line's end as asked), the authorizations, the store calls in flight with
-   their attempts, the phrase in play and its stage (joining, authorizing,
-   writing, revealing, ending), and the closing chain. An event is anything
+   (`round-bots/model/publisher.ts`). State is one value in which no
+   impossible combination can be written: the claim (open, closing with its
+   drain, leaving the one join it waits on, closed); the track (none,
+   joining, joined with its room and whether that room was retired, or a
+   broken one being left before a fresh one is joined); the database clock
+   offset; the line ledger and the authorization schedule (both kept, the
+   ledger now holding each line's end as asked); the authorizations; the
+   store calls in flight with their attempts; the phrase in play and its
+   stage (joining, authorizing, writing with its floor watch, revealing,
+   ending), the reveal and any refusal living only in the stages that write
+   audio; and the closing chain. An event is anything
    that happened (publish, stop, write ahead, silence, discard, close, a
-   join landing or failing, a call answered or refused, a wait elapsing, the
-   writer ending), read beside the track's time, queue and health. Effects
+   join landing or failing, a track closing or failing to, a call answered
+   or refused, a wait elapsing, the writer ending), read beside the track's time, queue and health. Effects
    are data: join, leave, call (begin, reveal, end, floor read), write frames
    up to a stop, stop writing, clear the queue, wait until, cancel a wait,
-   resume, answer the publish, closed. Every decision `play` made is in the
+   resume, answer the publish, closed (rejecting when the track the claim
+   left failed to close). Every decision `play` made is in the
    step: what starts, what is cut and where, the end fraction (AMEND-1), the
    hard stop, which calls are asked again, their limit and their pause, and
-   how the claim drains before it leaves.
-2. **`publication.ts` is the interpreter** (227 lines, no function over 60).
+   how the claim drains before it leaves, and that it leaves only once the
+   track it is leaving has closed.
+2. **`publication.ts` is the interpreter** (242 lines, no function over 60).
    It holds the step's state, the native tracks, the audio of the phrase in
    play, the pending waits and the answer of the publish in flight: no
    decision reads them. `publication-io.ts` performs effects and decides
@@ -54,14 +61,25 @@ Measured at `bfb17fa8d`, 23 November 2026:
    writer stays a mechanism (cadence, lead, underrun, and its own guard that
    no frame plays past the stop it is given); the step decides that stop.
    It runs on injected time, so a virtual clock drives it in tests.
-3. **The speech state is the speaker's only record.** `speaker.ts` keeps its
-   async loop as the interpreter of `nextSpeechWork`, but every branch it
-   takes reads the state: `hasVoice`, `needsLine`, `tailWasCut`, `stopAt`
-   (the hard stop, read once per turn into the run), the generation instead
-   of object identity, the voicing status instead of an abort signal, and
-   `setbackOf` for what a failed turn means for the duty. What it holds are
-   resources only: the paid answers, the calls in flight, the turn's abort,
-   the floor waiters and the self-wake timers.
+3. **The speech state is the speaker's only record and makes its
+   decisions.** `speaker.ts` keeps its async loop as the interpreter of
+   `nextSpeechWork`, and every branch it takes is a directive or a query of
+   the state: `hasVoice`, `needsLine`, `tailWasCut`, `stopAt` (the hard
+   stop, read once per turn into the run), `openingToHold` (which voice a
+   short opening waits for, the run recording how far the hold got),
+   `awaitsFloor`, `phraseVerdict` (what a publish's outcome means),
+   `reportsCut`, `setbackOf`, the generation instead of object identity and
+   the voicing status instead of an abort signal. The duty's effects come
+   back resolved (`SpeechEffect`): a cut silences queued audio only when
+   nothing is being published, a drop applies only between runs, a pause is
+   armed only while the duty is not over, and stopping timers and releasing
+   floor waiters are effects of a duty change. Paid voices are released when
+   the state stops keeping them. What the speaker holds are resources only:
+   the paid answers, the calls in flight, the turn's abort, the floor
+   waiters and the self-wake timers. Its effects are calls, not data: the
+   brief asked for the publisher as a step function and for the speaker to
+   keep no record of its own, and the speaker's I/O (answers, voices,
+   settlements) is already one call per directive.
 4. **Two machines, not one** (the audit's open question, line 111). The
    publisher is per claim and per audio track: lines, room, retries and the
    drain at the claim's end. The speaker is per duty: turns, peers and
@@ -73,7 +91,7 @@ Measured at `bfb17fa8d`, 23 November 2026:
    make either machine's walks drive the other's I/O. The seam is now one
    typed input (`publication`) instead of eight wired functions.
 5. **The bot has a net at its edge.** The bot corpus
-   (`round-bots/bot-corpus*.ts`, 166 logs under `round-bots/corpus/`) drives
+   (`round-bots/bot-corpus*.ts`, 169 logs under `round-bots/corpus/`) drives
    the real speaker wired to the real publisher on a virtual clock over stubs
    for the store, the native track, the language answer and the voice, and
    logs every call across that edge with its virtual instant. Its named
@@ -108,8 +126,12 @@ Measured at `bfb17fa8d`, 23 November 2026:
   deleted (the publisher's suite, nine speaker suites and their harness, the
   ledger's and schedule's suites); the corpus and the walks cover them.
 - The explicit machine is longer than the closure it replaces: state the
-  closure kept in its awaits is now named. round-bots non-test code went
-  from 4,396 to 4,970 lines; its tests from 8,088 to 6,012.
+  closure kept in its awaits is now named, and states the closure could
+  reach only by accident are now unrepresentable. round-bots non-test code
+  went from 4,396 to 5,201 lines (not counting `workers.ts`, which main
+  added during the slice); its tests from 8,088 to 6,122. The point guard
+  accepted the brief's "smaller bot code" criterion as not met, for the
+  owner, on 2026-11-23.
 - A change to what the bot sends across its edge shows as a corpus diff;
   `GOLDEN_UPDATE=1` rewrites the logs, and a PR that does so lists each
   changed log and why.
