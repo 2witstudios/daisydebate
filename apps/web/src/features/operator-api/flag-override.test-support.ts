@@ -1,7 +1,8 @@
 import type { FlagsStore } from '@daisy/db/stores/flags';
 import { isAppError } from '@daisy/errors';
 import type { AuthorizationPrincipal } from '@daisy/auth/authorization';
-import type { ReleaseFlagKey } from '../flags/catalogue';
+import { instantMs } from '@daisy/clock';
+import { flagCatalogue, type ReleaseFlagKey } from '../flags/catalogue';
 import { changeFlag } from './flags';
 
 const operator: AuthorizationPrincipal = {
@@ -29,6 +30,10 @@ export async function grantReleaseOverride(input: {
   /** False turns the flag off for this account, as an operator can. */
   readonly enabled?: boolean;
 }): Promise<string> {
+  const entry = flagCatalogue.find((flag) => flag.key === input.key);
+  if (!entry) throw new Error(`No catalogue entry for ${input.key}`);
+  // The flag's effective expiry, as decideFlagChange bounds an override.
+  const expiry = instantMs(`${entry.expiresOn}T00:00:00Z`) + 86_400_000;
   for (let attempt = 0; attempt < 20; attempt++) {
     const { snapshot, now } = await input.store.readFlagSnapshot(null, [
       input.key,
@@ -44,7 +49,9 @@ export async function grantReleaseOverride(input: {
         accountId: input.userId,
         override: {
           enabled: input.enabled ?? true,
-          expiresAt: new Date(now + (input.forMs ?? 86_400_000)).toISOString(),
+          expiresAt: new Date(
+            Math.min(now + (input.forMs ?? 86_400_000), expiry),
+          ).toISOString(),
         },
       }),
     );
