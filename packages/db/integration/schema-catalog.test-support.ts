@@ -35,7 +35,9 @@ export async function rowsAt(
       column: string;
       stamped: boolean;
     }[];
-    const tables = Map.groupBy(columns, ({ table }) => table);
+    const tables = new Map<string, typeof columns>();
+    for (const column of columns)
+      tables.set(column.table, [...(tables.get(column.table) ?? []), column]);
     const rows = new Map<string, string>();
     for (const [table, list] of tables) {
       const select = list

@@ -14,7 +14,7 @@ import {
   readSchemaCatalog,
 } from '../schema-catalog';
 import { MIGRATOR_SESSION } from '../session-bounds';
-import type { Tx } from '../tx';
+import { inTransaction, type Tx } from '../tx';
 import {
   describeRefusal,
   planAdoption,
@@ -151,7 +151,7 @@ export async function adoptBaseline({
           'The reference database is not empty; give the command a new, empty one',
         ],
       };
-    return await live.transaction(async (tx): Promise<AdoptionOutcome> => {
+    return await inTransaction(live, async (tx): Promise<AdoptionOutcome> => {
       // Holds off a concurrent release run until the swap commits.
       await run(
         tx,

@@ -26,7 +26,11 @@ describe('planAdoption', () => {
       actual: plan(rows(...superseded, imageLater[0]!)),
       expected: {
         ok: true,
-        plan: { deleteIds: [7, 8], baselineId: 7, later: [imageLater[0]] },
+        plan: {
+          deleteIds: [7, 8],
+          baselineId: 7,
+          later: imageLater.slice(0, 1),
+        },
       },
     });
   });
