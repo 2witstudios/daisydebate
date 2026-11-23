@@ -664,7 +664,7 @@ const FAULTS: readonly Fault[] = [
   'room-changed',
   'incident',
 ];
-const repliesOf = (draw: (limit: number) => number, length: number) =>
+const repliesOf = (draw: Draw, length: number) =>
   Array.from({ length }, (): Reply => {
     const kind = draw(6);
     if (kind === 0) return fail(FAULTS[draw(FAULTS.length)]!, draw(3) * 40);
@@ -672,8 +672,11 @@ const repliesOf = (draw: (limit: number) => number, length: number) =>
     return ok;
   });
 
-function generatedPublisher(seed: number): CorpusScript {
-  const draw = drawsFrom(seed);
+/** A draw below `limit`, as `@daisy/seeded-random/testing` gives a walk. */
+type Draw = (limit: number) => number;
+
+/** A publisher round built from draws: phrases, stops, clears and stub answers. */
+export function generatedPublisher(name: string, draw: Draw): CorpusScript {
   const steps: PublisherStep[] = [...opened];
   const count = 2 + draw(5);
   const stop = draw(3) === 0 ? 300 + draw(2000) : undefined;
@@ -693,7 +696,7 @@ function generatedPublisher(seed: number): CorpusScript {
   }
   steps.push({ query: true });
   if (draw(2) === 0) steps.push({ close: true }, p('late', 100));
-  return publisher(`generated publisher ${seed}`, steps, {
+  return publisher(name, steps, {
     begin: repliesOf(draw, 6),
     reveal: repliesOf(draw, 6),
     end: repliesOf(draw, 6),
@@ -702,8 +705,8 @@ function generatedPublisher(seed: number): CorpusScript {
   });
 }
 
-function generatedSpeaker(seed: number): CorpusScript {
-  const draw = drawsFrom(seed * 7919);
+/** A speaker round built from draws: answers, peers, wakes and stub answers. */
+export function generatedSpeaker(name: string, draw: Draw): CorpusScript {
   const segment = draw(2) === 0 ? 'speech' : 'cross_ex';
   const texts = ['One.', 'Two.', 'Three.', 'Four.', 'Five.'].slice(
     0,
@@ -731,7 +734,7 @@ function generatedSpeaker(seed: number): CorpusScript {
     if ('peer' in move && draw(3) > 0) steps.push(wake);
   }
   steps.push(advance(5000), wake, advance(5000));
-  return speaker(`generated speaker ${seed}`, segment, steps, {
+  return speaker(name, segment, steps, {
     opensExchange: draw(2) === 0,
     answers,
     voices: Object.fromEntries(texts.map((text) => [text, repliesOf(draw, 2)])),
@@ -754,6 +757,10 @@ const SEEDS = Array.from({ length: 40 }, (_, index) => index + 1);
 export const corpusScripts = (): readonly CorpusScript[] => [
   ...publisherCases,
   ...speakerCases,
-  ...SEEDS.map(generatedPublisher),
-  ...SEEDS.map(generatedSpeaker),
+  ...SEEDS.map((seed) =>
+    generatedPublisher(`generated publisher ${seed}`, drawsFrom(seed)),
+  ),
+  ...SEEDS.map((seed) =>
+    generatedSpeaker(`generated speaker ${seed}`, drawsFrom(seed * 7919)),
+  ),
 ];

@@ -127,10 +127,58 @@ const describeError = (error: unknown) =>
     : 'Error';
 const pcmOf = (ms: number) => new Int16Array(24 * ms).fill(1);
 
+/** What a walk's properties read: the edge's calls as data. */
+export type Fact = { readonly at: number } & FactBody;
+type FactBody =
+  | {
+      readonly kind: 'publish';
+      readonly phraseId: string;
+      readonly text: string;
+      readonly stopAtMs: number;
+      /** Its audio in whole 10 ms frames. */
+      readonly durationMs: number;
+    }
+  | {
+      readonly kind: 'frame';
+      readonly phraseId: string | null;
+      readonly playsUntilMs: number;
+    }
+  | { readonly kind: 'begin' | 'reveal'; readonly phraseId: string }
+  | {
+      readonly kind: 'end';
+      readonly phraseId: string;
+      readonly whole: boolean;
+      readonly playedMs: number;
+    }
+  | { readonly kind: 'tts'; readonly text: string; readonly ok: boolean }
+  | { readonly kind: 'generate'; readonly to: string; readonly ok: boolean }
+  /** An answer said to its end: its usage is recorded. */
+  | { readonly kind: 'delivered'; readonly to: string }
+  | {
+      readonly kind: 'peer';
+      readonly peer: string;
+      readonly event: 'speech-start' | 'barge-in' | 'end-of-turn';
+    }
+  | { readonly kind: 'close' | 'stop' | 'final' };
+type Note = (body: FactBody) => void;
+
 /** Runs one script and returns its log, one line per call across the edge. */
 export async function recordCorpus(script: CorpusScript): Promise<string> {
+  return (await traceCorpus(script)).log;
+}
+
+/** Runs one script: its log, and the same calls as facts. */
+export async function traceCorpus(script: CorpusScript): Promise<{
+  readonly log: string;
+  readonly facts: readonly Fact[];
+  /** Waits still armed once the claim ended and every timer ran out. */
+  readonly sleepers: number;
+}> {
   const clock = virtualClock();
   const lines: string[] = [];
+  const facts: Fact[] = [];
+  const note: Note = (body) => facts.push({ ...body, at: clock.nowMs() });
+  let playing: string | null = null;
   let frames: {
     track: string;
     count: number;
@@ -157,6 +205,7 @@ export async function recordCorpus(script: CorpusScript): Promise<string> {
     calls.set(key, call + 1);
     const answer = queues.get(key)?.[call] ?? {};
     if (answer.delayMs) await clock.sleep(answer.delayMs);
+    if (answer.fail === 'final') note({ kind: 'final' });
     if (answer.fail) throw faultOf(answer.fail);
   };
   const store = script.store ?? {};
@@ -204,6 +253,7 @@ export async function recordCorpus(script: CorpusScript): Promise<string> {
         room: string,
       ) =>
         answered('begin', async () => {
+          note({ kind: 'begin', phraseId: phrase.phraseId });
           log(
             `begin ${phrase.phraseId} ${phrase.durationMs}ms in=${phrase.startsInMs} at=${phrase.startsAt ?? '-'} ${room}`,
           );
@@ -218,6 +268,7 @@ export async function recordCorpus(script: CorpusScript): Promise<string> {
         startedAt: string | undefined,
       ) =>
         answered('reveal', async () => {
+          note({ kind: 'reveal', phraseId: phrase.phraseId });
           log(`reveal ${phrase.phraseId} ${room} at=${startedAt ?? '-'}`);
           await reply('reveal', store.reveal);
           return { revealed: true };
@@ -232,6 +283,12 @@ export async function recordCorpus(script: CorpusScript): Promise<string> {
           log(
             `end ${phraseId} ${end.kind}${end.kind === 'cut' ? ` ${end.playedMs}ms "${end.spoken}"` : ''}`,
           );
+          note({
+            kind: 'end',
+            phraseId,
+            whole: end.kind === 'whole',
+            playedMs: end.playedMs ?? 0,
+          });
           await reply('end', store.end);
           return { changed: true };
         }),
@@ -265,6 +322,7 @@ export async function recordCorpus(script: CorpusScript): Promise<string> {
             frames = { track, count: 1, from: now, to: now };
           }
           playedUntil = Math.max(playedUntil, now) + 10;
+          note({ kind: 'frame', phraseId: playing, playsUntilMs: playedUntil });
         },
         queuedMs: () => Math.max(0, playedUntil - clock.nowMs()),
         clearQueue: () => {
@@ -284,12 +342,43 @@ export async function recordCorpus(script: CorpusScript): Promise<string> {
     monotonicNowMs: clock.nowMs,
     waitUntilMs: clock.waitUntilMs,
   });
-  const claim = publisher({ scope: scopeOf(), token: 't' });
+  const opened = publisher({ scope: scopeOf(), token: 't' });
+  const claim: Claim = {
+    ...opened,
+    publish: (job, signal, stopAtMs) => {
+      note({
+        kind: 'publish',
+        phraseId: job.phraseId,
+        text: job.text,
+        stopAtMs,
+        durationMs: Math.ceil(job.pcm.length / 240) * 10,
+      });
+      playing = job.phraseId;
+      return opened.publish(job, signal, stopAtMs);
+    },
+    close: () => {
+      note({ kind: 'close' });
+      return opened.close();
+    },
+  };
   if (script.kind === 'publisher')
     await runPublisher(script, claim, clock, log);
-  else await runSpeaker(script, claim, clock, log, reply, () => `id${++ids}`);
+  else
+    await runSpeaker(
+      script,
+      claim,
+      clock,
+      log,
+      note,
+      reply,
+      () => `id${++ids}`,
+    );
   flush();
-  return `${lines.join('\n')}\n`;
+  return {
+    log: `${lines.join('\n')}\n`,
+    facts,
+    sleepers: clock.sleepers(),
+  };
 }
 
 type Claim = ReturnType<ReturnType<typeof createBotPublisher>>;
@@ -385,6 +474,7 @@ async function runSpeaker(
   claim: Claim,
   clock: Clock,
   log: Log,
+  note: Note,
   reply: (key: string, replies: readonly Reply[] | undefined) => Promise<void>,
   nextId: () => string,
 ) {
@@ -400,10 +490,13 @@ async function runSpeaker(
     generate: async (_scope, _token, signal, to) => {
       const answer = script.answers?.[bought] ?? script.answers?.at(-1);
       bought += 1;
+      const turn =
+        to.kind === 'peer-turn' ? `${to.peer}@${to.spokeUntilMs}` : to.kind;
       log(
         `generate ${to.kind}${to.kind === 'peer-turn' ? ` ${to.peer}@${to.spokeUntilMs}` : ''}`,
       );
       if (answer?.delayMs) await clock.sleep(answer.delayMs, signal);
+      note({ kind: 'generate', to: turn, ok: !answer?.fail });
       if (answer?.fail) {
         log(`generate -> ${answer.fail}`);
         throw faultOf(answer.fail);
@@ -431,6 +524,7 @@ async function runSpeaker(
         },
         close: async () => {
           log(`close answer ${call}`);
+          note({ kind: 'delivered', to: turn });
         },
         abandon: () => {
           log(`abandon answer ${call}`);
@@ -449,8 +543,10 @@ async function runSpeaker(
           .find((phrase) => phrase.text === text)?.ms ?? 200;
       await reply(`tts:${text}`, script.voices?.[text]).catch((error) => {
         log(`tts "${text}" -> ${describeError(error)}`);
+        note({ kind: 'tts', text, ok: false });
         throw error;
       });
+      note({ kind: 'tts', text, ok: !signal.aborted });
       if (signal.aborted) throw createAppError('CONFLICT', 'aborted');
       return {
         value: jobOf(phraseId, text, ms),
@@ -484,11 +580,13 @@ async function runSpeaker(
     if ('wake' in step) speaker.wake();
     else if ('advance' in step) await clock.advance(step.advance);
     else if ('stop' in step) {
+      note({ kind: 'stop' });
       await clock.run(speaker.stop());
       log('stopped');
     } else {
       const peer = step.who ?? 'peer';
       log(`peer ${step.peer} ${peer}`);
+      note({ kind: 'peer', peer, event: step.peer });
       speaker.peer(
         step.peer === 'end-of-turn'
           ? {
@@ -502,6 +600,7 @@ async function runSpeaker(
     }
     await clock.settle();
   }
+  note({ kind: 'stop' });
   await clock.run(speaker.stop());
   await clock.run(claim.close());
   await clock.advance(DRAIN_MS);
