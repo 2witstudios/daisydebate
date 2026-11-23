@@ -1,13 +1,12 @@
 import type { Waits } from '@daisy/clock';
 import { drainWithDeadline } from '@daisy/observability';
+import { stopAll } from '@daisy/worker';
 import type { App } from './app';
-
-/** What shutdown needs of each piece of background work. */
-export type Stoppable = { readonly stop: () => Promise<unknown> };
+import type { Stoppable } from './feature-work';
 
 /**
  * The production server's shutdown, in its contract's order: drain begins,
- * every background stop is called before the listener is told to close, the
+ * every background stop is called (`stopAll`) before the listener is told to close, the
  * listener and Next close, every stop is awaited, and only then do the
  * app's pools close. A close that outlasts `deadlineMs` reports any
  * handed-off work it cuts off and exits 1.
@@ -17,7 +16,7 @@ export function createProcessShutdown(input: {
     App,
     'isDraining' | 'drain' | 'logger' | 'reportUnfinishedWork'
   >;
-  readonly work: () => readonly (Stoppable | null | undefined)[];
+  readonly work: () => readonly Stoppable[];
   readonly server: {
     readonly close: (done: (error?: Error) => void) => unknown;
     readonly closeIdleConnections: () => void;
@@ -33,10 +32,18 @@ export function createProcessShutdown(input: {
   return async function shutdown() {
     if (app.isDraining()) return;
     app.drain();
-    // Ends any sweep between batches; awaited before the pools close below.
-    const stopped = input
-      .work()
-      .flatMap((worker) => (worker ? [worker.stop()] : []));
+    // Every stop is called now, before the drain: each sweep ends between
+    // batches. They are awaited below, after the listener closes and before
+    // the pools do, within the same deadline as the drain.
+    const stopped = stopAll({
+      waits: input.waits,
+      deadlineMs: input.deadlineMs,
+      workers: input.work().map((worker) => ({
+        stop: async () => {
+          await worker.stop();
+        },
+      })),
+    });
     app.logger.log(
       'server.shutdown',
       { operation: 'server.shutdown' },
@@ -58,7 +65,7 @@ export function createProcessShutdown(input: {
           server.close((error) => (error ? reject(error) : resolve())),
         );
         await input.nextApp.close();
-        await Promise.all(stopped);
+        await stopped;
         await input.closeApp();
       },
     });

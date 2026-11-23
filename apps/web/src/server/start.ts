@@ -72,7 +72,7 @@ void Promise.race([probeChecked, hostWaits.sleep(2000)]).finally(() =>
 );
 const shutdown = createProcessShutdown({
   app,
-  work: () => Object.values(workers),
+  work: () => workers,
   server,
   nextApp,
   closeApp: closeProcessApp,

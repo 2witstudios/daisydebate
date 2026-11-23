@@ -20,7 +20,7 @@ const worker = (name: string, settleMs: number) => ({
     say(`stop settled ${name}`);
   },
 });
-const work = [worker('quick', 0), null, worker('slow', 150), worker('mid', 50)];
+const work = [worker('quick', 0), worker('slow', 150), worker('mid', 50)];
 installShutdownSignals(
   createProcessShutdown({
     app: {

@@ -1,3 +1,5 @@
+import { processRoundMedia } from '../features/round-media/work';
+import { featureWork, type ProcessWork } from './feature-work';
 import type { Waits } from '@daisy/clock';
 import type { ErrorReporter } from '@daisy/observability';
 import type { App } from './app';
@@ -18,7 +20,7 @@ type Started = {
  * await them. AI judging and bot speech share the competitive provider
  * budget; round analysis has its own.
  */
-export function startRoundWorkers(input: {
+function startRoundWorkers(input: {
   readonly app: App;
   readonly instanceId: string;
   readonly waits: Waits;
@@ -75,3 +77,35 @@ export function startRoundWorkers(input: {
     },
   };
 }
+
+/**
+ * The provider-bound Round work (judging, bot seats, analysis): one start,
+ * because the three share one competitive provider budget. The bot seats
+ * end their media through this process's one round media runtime.
+ */
+export const startCompetitiveRoundWork = ({
+  app,
+  instanceId,
+  waits,
+  wakes,
+}: ProcessWork) => {
+  const media = processRoundMedia(app, waits);
+  return featureWork({
+    roundWorkers: startRoundWorkers({
+      app,
+      instanceId,
+      botMedia: media
+        ? {
+            botToken: (scope, token) =>
+              media.operations().botToken(scope, token),
+            listenToken: (scope, token) =>
+              media.operations().botListenToken(scope, token),
+            readPeers: (scope) => media.operations().botPeers(scope),
+          }
+        : null,
+      waits,
+      wakes,
+      reporter: app.reporter,
+    }),
+  });
+};

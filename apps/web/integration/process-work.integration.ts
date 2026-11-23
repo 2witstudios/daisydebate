@@ -69,7 +69,7 @@ const startedWork = async ({ env = {}, files = false }: Variant) => {
         }
       : {}),
   });
-  const { workers } = await startProcessWork({
+  const { workers, running, instanceId } = await startProcessWork({
     app,
     waits: hostWaits,
     vendorFetch: Object.assign(
@@ -78,20 +78,14 @@ const startedWork = async ({ env = {}, files = false }: Variant) => {
     ),
     probeFetch: async () => new Response(null, { status: 503 }),
   });
-  const instanceId = (workers.availability as { instanceId?: string })
-    .instanceId;
-  const running = Object.entries(workers)
-    .filter(([, worker]) => worker)
-    .map(([name]) => name)
-    .sort();
-  await Promise.all(Object.values(workers).map((worker) => worker?.stop()));
+  await Promise.all(workers.map((worker) => worker.stop()));
   await app.close();
   // The availability worker registers its instance and samples health.
   const sql = new SQL(databaseUrl);
-  await sql`delete from service_instances where instance_id=${instanceId ?? ''}`;
+  await sql`delete from service_instances where instance_id=${instanceId}`;
   await sql`delete from availability_samples where at>=${startedAt}::timestamptz`;
   await sql.close();
-  return running;
+  return [...running].sort();
 };
 
 const always = [
