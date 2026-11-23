@@ -5,7 +5,7 @@ import { type LaunchedRound } from './round-view';
 import {
   fixtureRules,
   oneOnOneFormatFixture,
-  plainRoomConfig,
+  plainFormatSettings,
 } from './format-fixtures.test-support';
 import { roundViewFor } from './round-viewer';
 
@@ -48,7 +48,7 @@ const round: LaunchedRound = {
   hostInherited: false,
   participants: [aff, neg, judge],
   ladder: null,
-  config: plainRoomConfig,
+  config: plainFormatSettings,
   rules: fixtureRules(oneOnOneFormatFixture),
   postRoundCall: false,
   panelRuling: null,
