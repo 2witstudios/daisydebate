@@ -1,4 +1,4 @@
-import { browserScheduler, type BrowserScheduler } from '../edge/browser-time';
+import type { BrowserScheduler } from '../edge/browser-time';
 import {
   createDeviceCheckController,
   type DeviceCapture,
@@ -237,16 +237,19 @@ async function openDevice(
   };
 }
 
+/** The page's own devices, on the timers it is handed. */
+export const browserDeviceEdge = (
+  scheduler: BrowserEdge['scheduler'],
+): BrowserEdge => ({
+  mediaDevices: navigator.mediaDevices,
+  document,
+  permissions: navigator.permissions,
+  createAudioContext: () => new AudioContext(),
+  scheduler,
+});
+
 /** Construct in a client; call check from a user gesture. Local preview only. */
-export function createBrowserDeviceChecks(
-  edge: BrowserEdge = {
-    mediaDevices: navigator.mediaDevices,
-    document,
-    permissions: navigator.permissions,
-    createAudioContext: () => new AudioContext(),
-    scheduler: browserScheduler,
-  },
-) {
+export function createBrowserDeviceChecks(edge: BrowserEdge) {
   return createDeviceCheckController({
     open: (kind, deviceId) => openDevice(edge, kind, deviceId),
   });

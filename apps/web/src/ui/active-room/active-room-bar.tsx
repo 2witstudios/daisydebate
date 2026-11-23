@@ -1,9 +1,9 @@
 'use client';
 
 import { browserTransport } from '../edge/browser-request';
-import { useDeliver } from '../edge/use-answer';
+import { useAnswer } from '../edge/use-answer';
 import { useResource } from '../edge/use-driver';
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { refreshActiveRoom } from './refresh-membership';
 import { usePathname } from 'next/navigation';
 import { matchesRoute } from '../components/nav-item/nav-item';
@@ -32,20 +32,19 @@ export const showsActiveRoomBar = (
  * wherever they wander there is one way back.
  */
 /**
- * The bar's reader: each read replaces the one before it, and leaving
- * aborts the last.
+ * The bar's reader: it reads once on opening, each read replaces the one
+ * before it, and leaving aborts the last.
  */
 function openActiveRoomReader(adopt: (room: ActiveRoomSummary | null) => void) {
   let current: AbortController | null = null;
-  return {
-    read() {
-      current?.abort();
-      const controller = new AbortController();
-      current = controller;
-      void refreshActiveRoom(browserTransport, controller.signal, adopt);
-    },
-    dispose: () => current?.abort(),
+  const read = () => {
+    current?.abort();
+    const controller = new AbortController();
+    current = controller;
+    void refreshActiveRoom(browserTransport, controller.signal, adopt);
   };
+  read();
+  return { read, dispose: () => current?.abort() };
 }
 
 export function ActiveRoomBar({
@@ -55,13 +54,11 @@ export function ActiveRoomBar({
 }) {
   const pathname = usePathname();
   const [room, setRoom] = useState(seed);
-  // Each page the viewer reaches, and each new seed, reads the Room again.
+  // The reader reads as it opens; each page the viewer reaches, and each
+  // new seed, reads the Room again.
   const reader = useResource(setRoom, openActiveRoomReader);
-  const view = useMemo(
-    () => ({ reader, pathname, seed }),
-    [reader, pathname, seed],
-  );
-  useDeliver(view, (shown) => shown.reader?.read());
+  useAnswer(pathname, () => reader?.read());
+  useAnswer(seed, () => reader?.read());
   if (!room || !showsActiveRoomBar(pathname, room)) return null;
   return (
     <MediaPageLink

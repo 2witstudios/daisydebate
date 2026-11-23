@@ -2,7 +2,7 @@
 
 import { useResource } from '../../edge/use-driver';
 import { Announcement } from '../../components/announcement/announcement';
-import { useMemo, useRef } from 'react';
+import { useRef } from 'react';
 import type { createBrowserDeviceChecks } from '../../round-media/browser-device-checks';
 import type { DeviceKind } from '../../../features/video/device-check-controller';
 import { Icon } from '../../components/icon/icon';
@@ -74,18 +74,17 @@ export function CameraPreview({
   readonly label: string;
 }) {
   const video = useRef<HTMLVideoElement>(null);
-  const { generation, status } = snapshot.camera;
-  // Each new camera generation or status is a new preview on the element.
-  const preview = useMemo(
-    () => ({ devices, generation, status }),
-    [devices, generation, status],
-  );
-  useResource(preview, (shown) => {
+  const camera = snapshot.camera;
+  const { status } = camera;
+  // Each camera state the check reports is shown on the element: a camera
+  // that passed shows its preview, and the next state takes it down.
+  useResource(camera, (shown) => {
     const element = video.current;
-    if (element) element.srcObject = shown.devices.preview('camera');
+    if (!element || shown.status !== 'passed') return null;
+    element.srcObject = devices.preview('camera');
     return {
       dispose: () => {
-        if (element) element.srcObject = null;
+        element.srcObject = null;
       },
     };
   });

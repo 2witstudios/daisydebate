@@ -65,11 +65,13 @@ export type OpeningCheck = {
   /** Whether the reader can see the page now; a hidden page asks nothing. */
   readonly visible: () => boolean;
 };
-const pageOpeningCheck: OpeningCheck = {
+/** The page's opening check, on the timer it is handed. */
+const pageOpeningCheck = (every: OpeningCheck['every']): OpeningCheck => ({
   everyMs: 15_000,
-  every: browserScheduler.every,
+  every,
   visible: () => document.visibilityState === 'visible',
-};
+});
+const browserOpeningCheck = pageOpeningCheck(browserScheduler.every);
 type ContextChatDriver = ReturnType<typeof createContextChatDriver>;
 /** A driver's lifetime on the page: answers that arrive after it ends change nothing. */
 const runDriver = (driver: ContextChatDriver): Disposable => {
@@ -84,7 +86,7 @@ export function useContextChat({
   context,
   active = true,
   onUnread,
-  openingCheck = pageOpeningCheck,
+  openingCheck = browserOpeningCheck,
   ...props
 }: ContextChatProps & {
   readonly context: ChatContext;
@@ -128,10 +130,14 @@ export function useContextChat({
   const mayOpen = !props.readOnlyHint;
   /** What the reader could do when the thread was last entered. */
   const enteredAs = useRef<boolean | null>(null);
-  const enter = useCallback(() => {
-    enteredAs.current = mayOpen;
-    send({ type: 'enter-requested', mayOpen });
-  }, [send, mayOpen]);
+  const enterAs = useCallback(
+    (may: boolean) => {
+      enteredAs.current = may;
+      send({ type: 'enter-requested', mayOpen: may });
+    },
+    [send],
+  );
+  const enter = useCallback(() => enterAs(mayOpen), [enterAs, mayOpen]);
   const refresh = useCallback(
     () => send({ type: 'refresh-requested' }),
     [send],
@@ -145,8 +151,8 @@ export function useContextChat({
     () => ({ active, standing: state.kind, mayOpen }),
     [active, state.kind, mayOpen],
   );
-  useDeliver(entry, ({ active: inUse, standing }) => {
-    if (inUse && standing === 'idle') enter();
+  useDeliver(entry, ({ active: inUse, standing, mayOpen: may }) => {
+    if (inUse && standing === 'idle') enterAs(may);
   });
   // The hint is not latched: when the page learns the reader may now post, or
   // may no longer, the thread enters again under it (finding or opening the
@@ -160,7 +166,7 @@ export function useContextChat({
       enteredAs.current !== null &&
       enteredAs.current !== may
     )
-      enter();
+      enterAs(may);
   });
   useAnswer(props.ownerRevision, () => send({ type: 'refresh-requested' }));
   // A reader who may not open the chat (a judge) still sees it once someone
@@ -193,8 +199,8 @@ export function useContextChat({
   useDeliver(unread, (count) => onUnread?.(count));
   const latestSequence = history?.messages[0]?.sequence ?? 0;
   const shown = useMemo(
-    () => ({ active, hidden, channelId, latestSequence, readSequence }),
-    [active, hidden, channelId, latestSequence, readSequence],
+    () => ({ active, hidden, latestSequence, readSequence }),
+    [active, hidden, latestSequence, readSequence],
   );
   useDeliver(shown, (reading) => {
     if (
@@ -210,13 +216,11 @@ export function useContextChat({
       !('unavailable' in message) &&
       !authors.some((author) => author.actorId === message.authorActorId),
   );
-  const changeVersion = history?.changeVersion;
-  const authorship = useMemo(
-    () => ({ unknownAuthor, channelId, hidden, changeVersion }),
-    [unknownAuthor, channelId, hidden, changeVersion],
-  );
-  useDeliver(authorship, (read) => {
-    if (read.unknownAuthor && !read.hidden) send({ type: 'refresh-requested' });
+  // Each shown history read that names an author the thread does not know
+  // asks for a refresh once (`history` is null while the chat is hidden).
+  const unresolvedRead = unknownAuthor ? history : null;
+  useDeliver(unresolvedRead, (read) => {
+    if (read !== null) send({ type: 'refresh-requested' });
   });
   const expired = chat?.expired ?? false;
   const notice =

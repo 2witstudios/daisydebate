@@ -19,7 +19,11 @@ import { systemId } from '@daisy/clock';
 import { isJudgeSeat } from '@daisy/protocol/seats';
 import { type RoomView } from '@daisy/protocol/room-contract';
 import { createLocalConsent } from '../../../features/rooms/local-consent';
-import { createBrowserDeviceChecks } from '../../round-media/browser-device-checks';
+import {
+  browserDeviceEdge,
+  createBrowserDeviceChecks,
+} from '../../round-media/browser-device-checks';
+import { browserScheduler } from '../../edge/browser-time';
 import { rememberCheckedDevices } from '../../../features/video/device-selection';
 import type { DeviceKind } from '../../../features/video/device-check-controller';
 import type { RoomRead } from '../../../features/rooms/read-assembly';
@@ -234,7 +238,9 @@ export function AssemblyDeviceReadiness(props: Props) {
     (checking): (DeviceResources & { dispose: () => void }) | null => {
       if (checking === null) return null;
       const { actorId: checker, roomId: room } = checking;
-      const devices = createBrowserDeviceChecks();
+      const devices = createBrowserDeviceChecks(
+        browserDeviceEdge(browserScheduler),
+      );
       const consent = createLocalConsent({
         view: latest().props.view,
         actorId: checker,

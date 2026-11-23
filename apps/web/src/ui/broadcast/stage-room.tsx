@@ -3,7 +3,8 @@ import {
   browserTransport,
   type BrowserTransport,
 } from '../edge/browser-request';
-import { pause, repeatEvery } from '../edge/browser-waits';
+import { pause } from '../edge/browser-waits';
+import { browserScheduler } from '../edge/browser-time';
 import { useResource } from '../edge/use-driver';
 import { useMemo, useRef, useState } from 'react';
 import { Room, RoomEvent, Track, type RemoteTrack } from 'livekit-client';
@@ -21,7 +22,6 @@ import { startStagePoll } from './stage-poll';
 import { stageWatchStart, watchedStage } from './stage-watch';
 import { StageView, type StageLink } from './stage-view';
 
-const POLL_MS = 1000;
 const READ_TIMEOUT_MS = 3000;
 const SITE_LINK = 'daisydebate.com';
 /** Long enough for self-hosted faces; short enough that a lost one costs no speech. */
@@ -188,7 +188,7 @@ export function StageRoom(props: {
     const stop = startStagePoll({
       read,
       apply,
-      every: repeatEvery(POLL_MS),
+      every: browserScheduler.every,
     });
     return {
       dispose: () => {

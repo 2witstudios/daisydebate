@@ -196,17 +196,19 @@ export function PeopleProvider({
 
   // A changed filter or search reads at once.
   const [searches, setSearches] = useState(0);
-  const search = useMemo(() => ({ filter, query }), [filter, query]);
-  useAnswer(search, () => {
+  const searchAgain = () => {
     pagesLoaded.current = 1;
     readSeq.current += 1;
     setSearches((count) => count + 1);
-  });
+  };
+  useAnswer(filter, searchAgain);
+  useAnswer(query, searchAgain);
   useDelay(() => void readList(), searches === 0 ? null : 200, searches);
 
   // The fallback when no ring arrives, and the first read that names the socket.
   useDeliver(socketUrl, (url) => {
-    // The server rendered this list a moment ago, so the first ring waits its turn.
+    // The server rendered this list a moment ago, so the first ring waits its
+    // turn. Stamped once per mount, as on main, not on each later server list.
     if (lastRead.current === 0) lastRead.current = systemScheduler.now();
     if (url === null) void readList();
   });

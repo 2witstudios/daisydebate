@@ -1,6 +1,6 @@
 'use client';
 import { browserTransport } from '../edge/browser-request';
-import { retryAfter } from '../edge/browser-waits';
+import { browserScheduler } from '../edge/browser-time';
 import { useResource } from '../edge/use-driver';
 import { Announcement } from '../components/announcement/announcement';
 import { Button } from '../components/button/button';
@@ -33,7 +33,8 @@ export function TranscriptSeedRecovery({
   useResource(roundId, (round) => ({
     dispose: askForTranscriptSeed({
       read: () => readTranscript(browserTransport, round),
-      schedule: retryAfter(nextAskMs),
+      after: browserScheduler.after,
+      waitMs: nextAskMs,
       settled: setState,
     }),
   }));

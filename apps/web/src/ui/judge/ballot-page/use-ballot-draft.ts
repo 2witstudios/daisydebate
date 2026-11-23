@@ -1,5 +1,5 @@
 'use client';
-import { useDeliver } from '../../edge/use-answer';
+import { useAnswer, useDeliver } from '../../edge/use-answer';
 import { useDocumentHidden } from '../../edge/use-dom-events';
 import { useResource } from '../../edge/use-driver';
 import { type BrowserScheduler } from '../../edge/browser-time';
@@ -93,12 +93,15 @@ export function useBallotDraft(
   // the ballot leaves the page.
   useResource(flush, (pendingWrite) => ({ dispose: pendingWrite }));
   const settled = useMemo(() => ({ key, display }), [key, display]);
-  // The draft read at mount belongs to its key and display: either changing,
-  // or the ballot leaving, drops it, so a display that comes back reads the
-  // edits saved since.
-  useResource(settled, ({ key: held }) =>
+  // The draft read at mount belongs to its key and display: the key
+  // changing, or the ballot leaving, drops it, and so does each new display,
+  // so a display that comes back reads the edits saved since.
+  useResource(key, (held) =>
     held === null ? null : { dispose: () => void firstRead.delete(held) },
   );
+  useAnswer(display, () => {
+    if (key !== null) firstRead.delete(key);
+  });
   useDeliver(settled, (shown) => {
     const storage = tabStorage();
     if (!shown.key) return;

@@ -80,14 +80,16 @@ const deviceInstant = () => ({
   monotonicMs: performance.now(),
 });
 
-const browserEdges: RefreshEdges = {
-  after: browserScheduler.after,
+/** The page's own visibility, on the timer it is handed. */
+const pageEdges = (after: RefreshEdges['after']): RefreshEdges => ({
+  after,
   visible: () => document.visibilityState === 'visible',
   onVisibilityChange: (run) => {
     document.addEventListener('visibilitychange', run);
     return () => document.removeEventListener('visibilitychange', run);
   },
-};
+});
+const browserEdges = pageEdges(browserScheduler.after);
 
 /**
  * Keeps the judge's page current without a manual refresh, on the present

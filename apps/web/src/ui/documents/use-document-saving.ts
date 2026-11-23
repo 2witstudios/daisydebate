@@ -93,10 +93,15 @@ const browserStorage = (): DraftStorage | null => {
   }
 };
 
-/** The browser edge supplies every effect; all owners share this page's ledger. */
-export const browserDraftResources = (): DocumentSyncResources => ({
+/**
+ * The browser edge supplies every effect, its timers handed in; all owners
+ * share this page's ledger.
+ */
+export const browserDraftResources = (
+  timers: DocumentSyncResources['timers'],
+): DocumentSyncResources => ({
   nextGeneration: () => systemId.next(),
-  timers: browserHandleTimers,
+  timers,
   storage: browserStorage(),
   budget: browserKeepaliveBudget,
   wallClock: () => nowMs(systemClock),
@@ -363,14 +368,11 @@ export function useDocumentSaving(
           if (event.type === 'refused' && event.status === 401)
             window.dispatchEvent(new Event(DRAFTS_IDENTITY_CHECK_EVENT));
         },
-        browserDraftResources(),
+        browserDraftResources(browserHandleTimers),
       ),
     [principalId],
   );
-  const watched = useMemo(() => ({ sync, socketUrl }), [sync, socketUrl]);
-  useResource(watched, (next) =>
-    next.socketUrl === null ? null : askOnSessionEnd(next.socketUrl),
-  );
+  useResource(socketUrl, (url) => (url === null ? null : askOnSessionEnd(url)));
   const lifetime = useRef({ sync, principalId });
   const owned = useMemo(() => ({ sync, principalId }), [sync, principalId]);
   useResource(owned, (token) => holdDraftOwner(token, lifetime));
