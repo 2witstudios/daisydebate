@@ -1305,6 +1305,72 @@ describe('browser edges', () => {
     });
   });
 
+  test('refuses a memoised value whose fields only re-fire the job', async () => {
+    assert({
+      given:
+        'memoised values with a field the handler never reads, by destructure, by member and with no parameter',
+      should: 'report each, and allow a value whose every field the job reads',
+      actual: await Promise.all([
+        probe(
+          web('ui/room/controls.tsx'),
+          `import { useMemo } from 'react';
+           import { useAnswer, useDeliver } from '../edge/use-answer';
+           export function useBar(reader: Reader, path: string, seed: number) {
+             const view = useMemo(() => ({ reader, path, seed }), [reader, path, seed]);
+             useDeliver(view, ({ reader }) => reader.read());
+             const shown = useMemo(() => ({ reader, path }), [reader, path]);
+             useDeliver(shown, (value) => value.reader.read());
+             const moved = useMemo(() => ({ path }), [path]);
+             useAnswer(moved, () => refresh());
+           }`,
+        ),
+        probe(
+          web('ui/room/controls.tsx'),
+          `import { useMemo } from 'react';
+           import { useDeliver } from '../edge/use-answer';
+           export function useMark(channelId: string, sequence: number) {
+             const mark = useMemo(() => ({ channelId, sequence }), [channelId, sequence]);
+             useDeliver(mark, ({ channelId, sequence }) => send(channelId, sequence));
+           }`,
+        ),
+      ]),
+      expected: [3, 0],
+    });
+  });
+
+  test('a port inside an object or array is handed on only as an argument', async () => {
+    assert({
+      given:
+        'ports bound into a local object and array then used, a browser wait called, and ports in an argument literal',
+      should:
+        'report the bound ports and the wait call, and allow the argument',
+      actual: await Promise.all([
+        probe(
+          web('ui/messaging/mark-read.tsx'),
+          `import { browserScheduler } from '../edge/browser-time';
+           import { browserTransport } from '../edge/browser-request';
+           import { pause } from '../edge/browser-waits';
+           const ports = { s: browserScheduler, t: browserTransport };
+           ports.s.after(run, 10);
+           const [t2] = [browserTransport];
+           void t2('/y');
+           void pause(5);`,
+        ),
+        probe(
+          web('ui/messaging/mark-read.tsx'),
+          `import { browserScheduler } from '../edge/browser-time';
+           import { browserTransport } from '../edge/browser-request';
+           import { pause } from '../edge/browser-waits';
+           export const driver = createDriver({
+             ports: { wait: browserScheduler.after, fetch: browserTransport },
+             waits: [pause],
+           });`,
+        ),
+      ]),
+      expected: [4, 0],
+    });
+  });
+
   test('accepts the owner, injected ports and a server request', async () => {
     assert({
       given: 'edge code, a client’s injected ports and a server’s fetch',

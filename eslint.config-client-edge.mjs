@@ -2,7 +2,8 @@ const effects = new Set(['useEffect', 'useLayoutEffect', 'useInsertionEffect']);
 /** React's types for an arbitrary effect: a hook taking one is the alias again. */
 const effectTypes = new Set(['EffectCallback', 'DependencyList']);
 /** The edge's ports: injected into the code that waits or requests, never called outside it. */
-const portModule = /(?:^|\/)edge\/browser-(?:time|request)(?:\.[cm]?[jt]sx?)?$/;
+const portModule =
+  /(?:^|\/)edge\/browser-(?:time|request|waits)(?:\.[cm]?[jt]sx?)?$/;
 /** Edge hooks that hand a value to a job: the job must act on that value. */
 const valueHooks = new Set([
   'useAnswer',
@@ -44,6 +45,8 @@ const browserEdge = {
       port: 'Inject the ui/edge port into the code that waits or requests; pass it as an argument or property, never call, alias, destructure or default it here.',
       dependencyKey:
         'A key spelled from several values is a dependency list: hand the hook the value its job acts on.',
+      triggerField:
+        'A field the job never reads ({{fields}}) only re-fires it: hand the hook the value its job acts on.',
       ignoredValue:
         'The job must act on the value the hook hands it; a handler that ignores it is an effect with dependencies.',
       operation: 'Use the browser operation in ui/edge.',
@@ -141,15 +144,42 @@ const browserEdge = {
       )
         return true;
       if (
-        parent.type === 'Property' &&
-        parent.value === node &&
-        parent.parent?.type === 'ObjectExpression'
-      )
-        return true;
-      return (
-        parent.type === 'JSXExpressionContainer' ||
+        (parent.type === 'Property' &&
+          parent.value === node &&
+          parent.parent?.type === 'ObjectExpression') ||
         (parent.type === 'ArrayExpression' && parent.elements.includes(node))
-      );
+      )
+        return handedOn(parent.type === 'Property' ? parent.parent : parent);
+      return parent.type === 'JSXExpressionContainer';
+    };
+    /**
+     * An object or array holding a port is handed on only when the literal
+     * itself is an argument or a JSX value: bound to a local, the module
+     * could call the port through it.
+     */
+    const handedOn = (literal) => {
+      let node = literal;
+      for (;;) {
+        const parent = node.parent;
+        if (
+          parent?.type === 'Property' &&
+          parent.value === node &&
+          parent.parent?.type === 'ObjectExpression'
+        ) {
+          node = parent.parent;
+          continue;
+        }
+        if (parent?.type === 'ArrayExpression') {
+          node = parent;
+          continue;
+        }
+        return (
+          ((parent?.type === 'CallExpression' ||
+            parent?.type === 'NewExpression') &&
+            parent.arguments.includes(node)) ||
+          parent?.type === 'JSXExpressionContainer'
+        );
+      }
     };
     /** Local names bound to a value-handing edge hook. */
     const hookLocals = new Map();
@@ -191,6 +221,65 @@ const browserEdge = {
         .find((candidate) => candidate.name === first.name);
       return variable !== undefined && variable.references.length === 0;
     };
+    /** The object literal a same-scope `useMemo(() => ({ … }))` binding holds. */
+    const memoisedObject = (node) => {
+      if (node?.type !== 'Identifier') return null;
+      let scope = sourceCode.getScope(node);
+      let variable = null;
+      while (scope && variable === null) {
+        variable = scope.set.get(node.name) ?? null;
+        scope = scope.upper;
+      }
+      const init = variable?.defs[0]?.node?.init;
+      if (
+        init?.type !== 'CallExpression' ||
+        init.callee.type !== 'Identifier' ||
+        init.callee.name !== 'useMemo'
+      )
+        return null;
+      const factory = init.arguments[0];
+      if (factory?.type !== 'ArrowFunctionExpression') return null;
+      return factory.body.type === 'ObjectExpression' ? factory.body : null;
+    };
+    /** The fields of a memoised value that the handler never reads. */
+    const unreadFields = (object, handler) => {
+      if (
+        handler?.type !== 'ArrowFunctionExpression' &&
+        handler?.type !== 'FunctionExpression'
+      )
+        return [];
+      const fields = [];
+      for (const property of object.properties) {
+        if (property.type !== 'Property') return [];
+        const name = memberName(property.key, property.computed);
+        if (name === undefined) return [];
+        fields.push(name);
+      }
+      const [first] = handler.params;
+      if (first === undefined) return fields;
+      let read;
+      if (first.type === 'ObjectPattern') {
+        if (first.properties.some((p) => p.type === 'RestElement')) return [];
+        read = new Set(
+          first.properties.map((p) => memberName(p.key, p.computed)),
+        );
+      } else if (first.type === 'Identifier') {
+        const variable = sourceCode
+          .getDeclaredVariables(handler)
+          .find((candidate) => candidate.name === first.name);
+        read = new Set();
+        for (const reference of variable?.references ?? []) {
+          const parent = reference.identifier.parent;
+          if (
+            parent?.type === 'MemberExpression' &&
+            parent.object === reference.identifier
+          )
+            read.add(memberName(parent.property, parent.computed));
+          else return [];
+        }
+      } else return [];
+      return fields.filter((field) => !read.has(field));
+    };
     const inspectHookCall = (node) => {
       if (
         node.callee.type !== 'Identifier' ||
@@ -202,7 +291,16 @@ const browserEdge = {
         report(value, 'dependencyKey');
       // An answer's arrival is itself the news; every other hook hands its
       // job the value to act on.
-      if (
+      const object = memoisedObject(value);
+      if (object !== null) {
+        const unread = unreadFields(object, handler);
+        if (unread.length > 0)
+          context.report({
+            node: value,
+            messageId: 'triggerField',
+            data: { fields: unread.join(', ') },
+          });
+      } else if (
         hookLocals.get(node.callee.name) !== 'useAnswer' &&
         ignoresValue(handler)
       )

@@ -10,6 +10,7 @@ import { useMemo, useRef, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import type { ConversationRecoveryOrigin } from './conversation-recovery';
 import { createConversationRecovery } from './conversation-recovery';
+import { createRefreshSettlement } from './refresh-settlement';
 import { shellNavigationEvent } from '../layout/app-shell/shell-navigation';
 
 type ConversationRecovery = ReturnType<typeof createConversationRecovery>;
@@ -47,60 +48,29 @@ export function ConversationReconnecting({
   const held = useResource(router, (current) => {
     const address = window.location.href;
     const owner = {
-      /** The page's timers, injected as the recovery's are. */
-      wait: browserScheduler.after,
-      /**
-       * The refresh in flight. It settles once a route read of this page
-       * has finished arriving after it asked and no refresh transition is
-       * running, or, if no read is ever recorded (a failed or aborted fetch
-       * gets no Resource Timing entry), after the bounded wait.
-       */
-      inFlight: null as {
-        readArrived: boolean;
-        readonly cancelFallback: () => void;
-      } | null,
-      /** Whether the page's refresh transition is running, as last rendered. */
-      transitionRunning: false,
-      settle: () => {
-        owner.inFlight?.cancelFallback();
-        owner.inFlight = null;
-        owner.recovery.settled();
-      },
-      settleWhenDone: () => {
-        if (owner.inFlight?.readArrived && !owner.transitionRunning)
-          owner.settle();
-      },
       recovery: createConversationRecovery({
         refresh: () => {
           if (window.location.href !== address) {
             owner.recovery.stop();
             return;
           }
-          owner.inFlight?.cancelFallback();
-          owner.inFlight = {
-            readArrived: false,
-            cancelFallback: owner.wait(
-              () => owner.settle(),
-              refreshReadLimitMs,
-            ),
-          };
+          owner.refresh.asked();
           startTransition(() => current.refresh());
         },
         schedule: browserScheduler.after,
         exhausted: () => setExhausted(true),
       }),
+      refresh: createRefreshSettlement({
+        wait: browserScheduler.after,
+        limitMs: refreshReadLimitMs,
+        settled: () => owner.recovery.settled(),
+      }),
       readFinished: ({ url }: RouteRead) => {
-        if (owner.inFlight === null) return;
-        if (url.pathname !== new URL(address).pathname) return;
-        owner.inFlight.readArrived = true;
-        owner.settleWhenDone();
-      },
-      transitionRan: (running: boolean) => {
-        owner.transitionRunning = running;
-        owner.settleWhenDone();
+        if (url.pathname === new URL(address).pathname)
+          owner.refresh.readFinished();
       },
       dispose: () => {
-        owner.inFlight?.cancelFallback();
+        owner.refresh.dispose();
         owner.recovery.stop();
         if (active.current === owner.recovery) active.current = null;
       },
@@ -109,15 +79,13 @@ export function ConversationReconnecting({
     return owner;
   });
   const recovery = held?.recovery;
-  // A discarded held refresh ends its transition while its network read is
-  // still in flight, and a prefetch of this page can finish while the
-  // refresh's transition is still running. Neither alone settles: the
-  // buffered newest render is adopted only once both have happened, so a
-  // wait never dispatches while the held refresh is still on the wire.
+  // The buffered newest render is adopted only once the held refresh has
+  // finished (refresh-settlement.ts), so a wait never dispatches while it is
+  // still on the wire.
   useRouteReads((read) => held?.readFinished(read));
   const transition = useMemo(() => ({ owner: held, pending }), [held, pending]);
   useAnswer(transition, ({ owner, pending: running }) =>
-    owner?.transitionRan(running),
+    owner?.refresh.transitionRan(running),
   );
   // Native default actions are separate from Next's accepted-link notice.
   useDocumentEvent('click', (event) => {
