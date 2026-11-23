@@ -341,7 +341,11 @@ export function nextSpeechState(
       effects: [],
     };
   if (event.type === 'opening-begins' || event.type === 'opening-held') {
-    if (state.run.status === 'idle') return { state, effects: [] };
+    // Only the opening phrase is held: a later one never starts a hold.
+    const ignored =
+      state.run.status === 'idle' ||
+      (event.type === 'opening-begins' && state.turn.cursor !== 0);
+    if (ignored) return { state, effects: [] };
     const held =
       event.type === 'opening-begins'
         ? { through: 0 }
