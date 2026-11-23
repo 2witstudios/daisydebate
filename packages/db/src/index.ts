@@ -1,14 +1,76 @@
+import type { SQL } from 'bun';
+import { openDatabaseResources } from './resources';
+import type { BotAdmissionOptions } from './round-bot-admission-entrypoints';
+import type {
+  JudgingOptions,
+  BotPublicationOptions,
+} from './round-worker-entrypoints';
+import type { RoundAnalysisOptions } from './round-analysis-entrypoints';
+import type { AiAllowanceOptions } from './usage-ledger';
+import type { DatabaseEventSink } from './instrumented';
+import type { WorkloadProfile } from './workload';
+import { createAgeStepStore } from './stores/age-step';
+import { createAgreementsStore } from './stores/agreements';
+import { createAnalyticsConsentStore } from './stores/analytics-consent';
+import { createAttendanceStore } from './stores/attendance';
+import { createAudienceReactionsStore } from './stores/audience-reactions';
+import { createAuthStore } from './stores/auth';
+import { createAvailabilityStore } from './stores/availability';
+import { createBetaAccessStore } from './stores/beta-access';
+import { createBillingStore } from './stores/billing';
+import { createBroadcastStore } from './stores/broadcasts';
+import { createChallengesStore } from './stores/challenges';
+import { contactReactions, createContactsStore } from './stores/contacts';
+import {
+  contentModerationPorts,
+  createContentModerationStore,
+} from './stores/content-moderation';
+import { createDebaterFollowsStore } from './stores/debater-follows';
+import { createDocumentStore } from './stores/documents';
+import { createFlagsStore } from './stores/flags';
+import { createFormatsStore } from './stores/formats';
+import { createFriendsStore } from './stores/friends';
+import { createGuardiansStore } from './stores/guardians';
+import { createHealthStore } from './stores/health';
+import { createLeagueRequestsStore } from './stores/league-requests';
+import { createListenStore } from './stores/listen';
+import { createLobbyStore } from './stores/lobbies';
+import { createMailStore } from './stores/mail';
+import { createMediaCaptureStore } from './stores/media-capture';
+import { createMediaReleaseStore } from './stores/media-releases';
+import { createMediaSessionStore } from './stores/media-sessions';
+import { createMemberDivisionStore } from './stores/member-division';
+import { createMessagingStore } from './stores/messaging';
+import { createModerationStore } from './stores/moderation';
+import { createNotificationsStore } from './stores/notifications';
+import { createOnboardingStore } from './stores/onboarding';
+import { createOperatorAccountsStore } from './stores/operator-accounts';
+import { createOutboxStore } from './stores/outbox';
+import { createPresenceStore } from './stores/presence';
+import { createPrivacyStore } from './stores/privacy';
+import { createProfileStore } from './stores/profiles';
+import { createRatingStore } from './stores/ratings';
+import { createRecordingStore } from './stores/recordings';
+import { createReportsStore, moderationReactions } from './stores/reports';
+import { createRoomStore } from './stores/rooms';
+import { createRoundAnalysisStore } from './stores/round-analysis';
+import { createRoundBotAdmissionStore } from './stores/round-bot-admission';
+import { createRoundIncidentStore } from './stores/round-incidents';
+import { createRoundMaintenanceStore } from './stores/round-maintenance';
+import { createRoundStartGateStore } from './stores/round-start-gates';
+import { createRoundWorkerStore } from './stores/round-workers';
+import { createRoundBallotStore, createRoundStore } from './stores/rounds';
+import { createSpectatingStore } from './stores/spectating';
+import { createSpectatorChatStore } from './stores/spectator-chat';
+import { createStandingsStore } from './stores/standings';
+import { createTabCommandStore } from './stores/tab';
+import { createTranscriptStore } from './stores/transcripts';
+import { createWatchHistoryStore } from './stores/watch-history';
 import type { DecisionReleasePolicy } from '@daisy/protocol/round-decision-release';
 import type { RoundTimeSource } from './round-execution-time';
 import type { Waits } from '@daisy/clock';
 export type { RoundTimeSource } from './round-execution-time';
 export type { RoundRoomAuthority } from './round-room-authority';
-import { TranscriptionRecovery } from './transcription-recovery/transcription-recovery';
-import { NecessaryEvidenceRetirement } from './necessary-evidence-retirement/necessary-evidence-retirement';
-import { roundFloorModeration } from './messaging/round-floor-moderation';
-import { roomCommunityModeration } from './messaging/room-community-moderation';
-import { createRoundIncidentStore } from './round-incident-store';
-import { createRoundStartGateStore } from './round-start-gate-store';
 export type { RoundHydration } from './round-hydration';
 export type {
   ClubSeatAnswer,
@@ -32,118 +94,6 @@ export type {
   MediaReleaseMailOutcome,
   PreparedReleaseMail,
 } from './media-release-mail';
-import { createBroadcastStore } from './broadcast-store';
-import {
-  namedLaneOperations,
-  WORKLOAD_PROFILES,
-  type WorkloadProfile,
-  createWorkload,
-  dialDedicated,
-  dialLanes,
-} from './workload';
-import { analyticsConsentOperations } from './analytics-consent';
-import { messagingOperations } from './messaging/operations';
-import { createTabStore } from './tab/store';
-import {
-  challengeReadOperations,
-  createChallengeStore,
-} from './challenges/store';
-import { friendshipReadOperations } from './friends/reads';
-import { createReportStore, reportOperations } from './reports/store';
-import { moderationOperations, moderationReactions } from './moderation/store';
-import { peopleListOperations } from './presence/people-list';
-import { memberCardOperations } from './member-cards';
-import { publicProfileOperations } from './public-profile-operations';
-import { createFriendStore } from './friends/store';
-import { createContactStore } from './contacts/store';
-import { contactReactions } from './contact-composition';
-import { presenceSettingOperations } from './presence/settings';
-import type { ContactAuthorizationFence } from './contacts/fence';
-import { retainedConversationOperations } from './messaging/retained-store';
-import { createMediaSessionStore } from './media-session';
-import { roundPanelCompletionOperations } from './round-panel-completion';
-import { roundMaintenanceOperations } from './round-maintenance';
-import {
-  roundWorkerEntrypoints,
-  type JudgingOptions,
-  type BotPublicationOptions,
-} from './round-worker-entrypoints';
-import {
-  roundAnalysisEntrypoints,
-  type RoundAnalysisOptions,
-} from './round-analysis-entrypoints';
-import { roundAnalysisReads } from './round-analysis-reads';
-import { roundAnalysisRetention } from './round-analysis-retention';
-import type { AiAllowanceOptions } from './usage-ledger';
-import { usageRecoveryOperations } from './usage-recovery';
-import { billingOperations } from './billing-operations';
-import { createCasualJudgeAdmission } from './casual-judge-admission';
-import { attendanceEntrypoints } from './attendance-entrypoints';
-import { availabilityOperations } from './availability-operations';
-import { databaseHealthOperations } from './database-health';
-import { roundBallotOperations } from './round-ballot-operations';
-import {
-  roundBotAdmissionEntrypoints,
-  type BotAdmissionOptions,
-} from './round-bot-admission-entrypoints';
-import { mediaCaptureOperations } from './media-capture';
-import { roundSpeakingRead } from './round-speaking-read';
-import { createBoundedTransaction } from './bounded-transaction';
-import { inTransaction } from './tx';
-import { readRatingCandidates, readRatingFacts } from './rating-discovery';
-import {
-  deliverObservationPurges,
-  owedObservationPurges,
-} from './observation-purge-jobs';
-import {
-  duePrivacyJobs,
-  owedPrivacyJobs,
-  deliverPrivacyJob as deliverPrivacyJobImpl,
-} from './privacy/vendor-jobs';
-import {
-  erasePrivacySubject as runSubjectRightsErasure,
-  exportPrivacySubject as runSubjectRightsExport,
-  eraseGuardianChild,
-} from './privacy/subject-rights';
-import type { PrivacySubject } from './privacy/contracts';
-import type { PrivacyVerificationBinding } from './privacy/operations';
-import type { RoomClosureTransitions } from './room-account-closure';
-import { roundProtectedReads } from './round-protected-reads';
-import type { SQL } from 'bun';
-import { subscribeOutbox, type OutboxListenHandlers } from './listen';
-import { subscribeWorkWakes, type WorkWakeHandlers } from './work-wake';
-import {
-  subscribeRealtimeHints,
-  type RealtimeHintHandlers,
-} from './realtime-hints';
-import { claimUsername } from './username-claim';
-import { mailIntentOperations } from './mail-intents';
-import { leagueRequestOperations } from './league-requests';
-import { createMediaReleases } from './media-releases';
-import { createMediaReleaseClubs } from './media-release-club';
-import { mediaReleaseMailOperations } from './media-release-mail';
-import { betaAccessOperations } from './beta-access';
-import { contentModerationOperations } from './content-moderation-operations';
-import { audienceReactionOperations } from './audience-reactions';
-import { audienceSnapshotReads } from './audience-snapshot-reads';
-import { debaterFollowOperations } from './debater-follows';
-import {
-  spectatorChatModeration,
-  spectatorChatOperations,
-} from './messaging/spectator-chat';
-import { notificationOperations } from './notifications';
-import { messageRequestSettingOperations } from './messaging/request-settings';
-import { messagingUnreadEmailOperations } from './messaging/unread-emails';
-import { watchHistoryOperations } from './watch-history';
-import { preapprovalOperations } from './beta-preapprovals';
-import { operatorAccountOperations } from './operator-accounts';
-import { flagOperations } from './flags-operations';
-import { provisionalRetentionOperations } from './provisional-retention';
-import { authOperations } from './auth-operations';
-import { authorizationSessionOperations } from './authorization-session';
-import { formatOperations } from './format-operations';
-import { agreementSignatureOperations } from './agreement-signatures';
-import { memberDivisionOperations } from './member-division';
 export type { ContentWaiverStanding } from './agreement-signatures';
 export type {
   MessagingUnreadEmailDelivery,
@@ -163,51 +113,7 @@ export type {
 } from './public-profile-operations';
 export type { SpectatorTimelineRead } from './spectator-timeline-reads';
 export type { LiveBroadcastPage } from './live-broadcast-reads';
-import { roomCommandOperations } from './room-command-operations';
-import { roomCommandTransaction } from './room-command-transaction';
-import { roundCommandOperations } from './round-command-operations';
-import { roundOperations } from './round-operations';
-import { transcriptFinalizationOperations } from './transcript-finalization';
-import { utteranceOperations } from './utterance-operations';
-import { documentOperations } from './document-operations';
-import { onboardingOperations } from './onboarding-operations';
-import { ageStepOperations } from './age-step';
-import { expireGuardianRequests } from './guardians/retention';
-import {
-  readGuardianLobbyIds,
-  hasGuardianLobbyWaiver,
-} from './guardians/lobby-permissions';
-import { createLobbyPermissionStore } from './guardians/lobby-requests';
-import { createGuardianStore } from './guardians/store';
 export type { GuardianLinkRow, GuardianSession } from './guardians/store';
-import { actorOperations } from './actor-operations';
-import { rateCompletedRound } from './rating-operations';
-import { standingsOperations } from './standings';
-import { spectatorTimelineReads } from './spectator-timeline-reads';
-import {
-  liveBroadcastReads,
-  watchableRoundOfRoomRead,
-} from './live-broadcast-reads';
-import { readOfficialStandingLobbies } from './official-standing-lobbies';
-import { readCompetitionAgeBand } from './ladder-division-band';
-import { readProfileChallengeModes } from './challenges/lobby';
-import { memberProfileReadOperations } from './member-profile-reads';
-import { recordingArchiveReadOperations } from './recording-archive-reads';
-import { recordingModeration } from './recording-moderation';
-import { spectatorFactLogOperations } from './spectator-fact-log';
-import { createRecordingCaptureStore } from './recording-capture-store';
-import { recordingOperations } from './recording-operations';
-import { recordingRoundReadOperations } from './recording-round-reads';
-import { youthLiveReadOperations } from './youth-live-reads';
-import { roundAudienceLinkOperations } from './round-audience-link';
-import type { RateDebateInput } from './rating-facts';
-import { emailDeliveryOperations } from './email-delivery-operations';
-import { outboxOperations } from './outbox';
-import { transcriptRetention } from './transcript-retention';
-import { socialRequestRetention } from './contacts/request-budget';
-import { readOutboxCatchup } from './outbox-catchup';
-import { readOutboxRetentionBoundary } from './outbox-retention-boundary';
-import { instrumented, type DatabaseEventSink } from './instrumented';
 export {
   WORKLOAD_PROFILES,
   type WorkloadLane,
@@ -231,23 +137,17 @@ export {
 export type { ChannelObservationReads } from './messaging/observation-reads';
 
 /**
- * Composes every area over one admission owner (ADR 0088): each area
- * receives the opaque Drizzle handle of the lane its work belongs to and
- * the event sink, never a raw client, and returns records, not rows.
- * Competitive work (Rounds, Rooms, media, judging, bots) has its own lane;
- * social, audience, browse and control traffic cannot take its connections, and
- * nothing competitive reads on the audience lane, so a full one refuses viewers
- * alone. The
- * competitive kernel persists what the caller's domain decisions resolve —
- * the composition root (the app) injects the engine.
+ * The whole web process's database, composed from every area's store over
+ * one set of opened resources (ADR 0088). It remains only until each process
+ * composes the stores it uses (R4.5); every member is an area store's.
  */
 export function createDatabase({
   url,
-  profile = WORKLOAD_PROFILES.web,
+  profile,
   eventSink,
-  client: injectedClient,
+  client,
   fairnessKey,
-  nextActorId,
+  nextActorId: nextId,
   botAdmission,
   aiAllowance,
   judging,
@@ -282,384 +182,88 @@ export function createDatabase({
   /** Required cuid2 source for onboarding actors and durable Round usage IDs. */
   nextActorId: () => string;
 }) {
-  const workload = createWorkload({
+  const resources = openDatabaseResources({
+    url,
     profile,
-    connect: injectedClient ? () => injectedClient : dialLanes(url),
     waits,
+    eventSink,
+    client,
     fairnessKey,
   });
-  const competitive = workload.lane('competitive');
-  const { database } = competitive;
-  const social = workload.lane('social').database;
-  const audience = workload.lane('audience').database;
-  const browse = workload.lane('browse').database;
-  const controlLane = workload.lane('control');
-  const control = controlLane.database;
-  const controlTransaction = createBoundedTransaction({
-    lane: controlLane,
-    waits,
-  });
-  const dedicated =
-    injectedClient ?? dialDedicated(url, Math.max(1, profile.dedicated));
-  const competitiveTransaction = createBoundedTransaction({
-    lane: competitive,
-    waits,
-  });
-  const { admission, operations: botAdmissionOperations } =
-    roundBotAdmissionEntrypoints({
-      run: competitiveTransaction,
-      nextId: nextActorId,
-      botAdmission,
-      aiAllowance,
-    });
-  return namedLaneOperations({
-    ...usageRecoveryOperations(controlTransaction),
-    ...billingOperations({ run: controlTransaction, nextId: nextActorId }),
-    /** Media releases (ADR 0151): the minor, the parent and the club. */
-    mediaReleases: createMediaReleases({
-      run: controlTransaction,
-      nextId: nextActorId,
-    }),
-    mediaReleaseClubs: createMediaReleaseClubs({
-      run: controlTransaction,
-      nextId: nextActorId,
-    }),
-    ...botAdmissionOperations,
-    ...roundMaintenanceOperations(
-      competitiveTransaction,
-      roundTime,
+  const admission = { nextId, botAdmission, aiAllowance };
+  const round = { roundTime, decisionRelease };
+  return {
+    laneGauges: resources.laneGauges,
+    drainLaneHolds: resources.drainLaneHolds,
+    close: resources.close,
+    ...createBillingStore(resources, { nextId }),
+    ...createMediaReleaseStore(resources, { nextId }),
+    ...createRoundBotAdmissionStore(resources, admission),
+    ...createRoundMaintenanceStore(resources, round),
+    ...createRoundWorkerStore(resources, {
+      nextId,
       decisionRelease,
-    ),
-    ...roundPanelCompletionOperations(
-      competitiveTransaction,
-      roundTime,
-      decisionRelease,
-    ),
-    ...roundWorkerEntrypoints({
-      decisionRelease,
-      run: competitiveTransaction,
-      nextId: nextActorId,
       judging,
       botPublication,
     }),
-    ...roundAnalysisEntrypoints({
-      run: controlTransaction,
-      nextId: nextActorId,
+    ...createRoundAnalysisStore(resources, {
+      nextId,
       roundAnalysis,
-      allowance: aiAllowance,
+      aiAllowance,
     }),
-    ...roundAnalysisReads({ database, allowance: aiAllowance }),
-    roundIncidents: namedLaneOperations(
-      createRoundIncidentStore({
-        run: competitiveTransaction,
-        decisionRelease,
-      }),
-    ),
-    roundStartGates: namedLaneOperations(
-      createRoundStartGateStore({
-        run: competitiveTransaction,
-        decisionRelease,
-      }),
-    ),
-    broadcasts: createBroadcastStore(database),
-    recordingCaptures: createRecordingCaptureStore(database),
-    mediaSessions: namedLaneOperations(
-      createMediaSessionStore({
-        decisionRelease,
-        database,
-        run: competitiveTransaction,
-        nextId: nextActorId,
-      }),
-    ),
-    ...attendanceEntrypoints({
-      decisionRelease,
-      roundTime,
-      run: competitiveTransaction,
-      nextId: nextActorId,
-    }),
-    ...availabilityOperations(controlLane.client, dedicated, waits),
-    readRatingCandidates: (input: Parameters<typeof readRatingCandidates>[1]) =>
-      readRatingCandidates(database, input),
-    readRatingFacts: (roundId: string) => readRatingFacts(database, roundId),
-    ...databaseHealthOperations({
-      database: control,
-      dedicated,
-      eventSink,
-    }),
-    /**
-     * The RT-2.3b drain loop's LISTEN subscription (ADR 0032 §2, §3) on the
-     * owner's dedicated connections, outside every lane and never handed out.
-     */
-    listenOutbox(handlers: OutboxListenHandlers) {
-      return subscribeOutbox(dedicated, handlers);
-    },
-    /** Validated transient hints over a dedicated connection; durable drain is independent. */
-    listenRealtimeHints(handlers: RealtimeHintHandlers) {
-      return subscribeRealtimeHints(dedicated, handlers);
-    },
-    /** Lossy worker wakes (ADR 0154) over a dedicated connection. */
-    listenWorkWakes(handlers: WorkWakeHandlers) {
-      return subscribeWorkWakes(dedicated, handlers);
-    },
-    laneGauges: workload.laneGauges,
-    drainLaneHolds: workload.drainLaneHolds,
-    async close() {
-      await workload.close();
-      if (dedicated !== injectedClient) await dedicated.close({ timeout: 5 });
-    },
-    /** ISSUE-852: due observation purge jobs, delivered with one confirmed cache purge. */
-    deliverObservationPurges: (
-      input: Parameters<typeof deliverObservationPurges>[1],
-      port: Parameters<typeof deliverObservationPurges>[2],
-    ) =>
-      instrumented(eventSink, 'deliverObservationPurges', () =>
-        deliverObservationPurges(control, input, port),
-      ),
-    owedObservationPurges: () =>
-      instrumented(eventSink, 'owedObservationPurges', () =>
-        owedObservationPurges(control),
-      ),
-    owedPrivacyJobs: (input?: Parameters<typeof owedPrivacyJobs>[1]) =>
-      instrumented(eventSink, 'owedPrivacyJobs', () =>
-        owedPrivacyJobs(control, input),
-      ),
-    /** ISSUE-833: due vendor deletion jobs, read for the scheduled worker. */
-    duePrivacyJobs: (input: Parameters<typeof duePrivacyJobs>[1]) =>
-      instrumented(eventSink, 'duePrivacyJobs', () =>
-        duePrivacyJobs(control, input),
-      ),
-    /** ISSUE-833: one job claimed, delivered through its port and recorded. */
-    deliverPrivacyJob: (
-      input: Parameters<typeof deliverPrivacyJobImpl>[1],
-      port: Parameters<typeof deliverPrivacyJobImpl>[2],
-    ) =>
-      instrumented(eventSink, 'deliverPrivacyJob', () =>
-        deliverPrivacyJobImpl(control, input, port),
-      ),
-    /**
-     * ISSUE-833: one member's subject rights (ADR 0087) through every
-     * feature's step composed once — erasure closes the account and keeps
-     * the competitive record; export reads it under one lock. Both run on
-     * this package's own handle; the caller supplies the engine's Room
-     * transitions and, for erasure, the verification bindings.
-     */
-    erasePrivacySubject: (
-      input: Parameters<typeof runSubjectRightsErasure>[1],
-      rooms: RoomClosureTransitions,
-      verificationBindings: readonly PrivacyVerificationBinding[],
-    ) =>
-      instrumented(eventSink, 'erasePrivacySubject', () =>
-        runSubjectRightsErasure(control, input, rooms, verificationBindings),
-      ),
-    eraseGuardianChild: (
-      input: Parameters<typeof eraseGuardianChild>[1],
-      rooms: RoomClosureTransitions,
-      verificationBindings: readonly PrivacyVerificationBinding[],
-    ) =>
-      instrumented(eventSink, 'eraseGuardianChild', () =>
-        eraseGuardianChild(control, input, rooms, verificationBindings),
-      ),
-    exportPrivacySubject: (
-      subject: PrivacySubject,
-      rooms: RoomClosureTransitions,
-    ) =>
-      instrumented(eventSink, 'exportPrivacySubject', () =>
-        runSubjectRightsExport(control, subject, rooms),
-      ),
-    ...authOperations({ database: control, eventSink }),
-    ...provisionalRetentionOperations({ database: control, eventSink }),
-    ...authorizationSessionOperations({ database: control }),
-    ...emailDeliveryOperations({ database: control, eventSink }),
-    ...mailIntentOperations({ database: control, eventSink }),
-    ...leagueRequestOperations({ database: control, eventSink }),
-    ...mediaReleaseMailOperations({ database: control, eventSink }),
-    ...betaAccessOperations({ database: control, eventSink }),
-    ...operatorAccountOperations({ database: control, eventSink }),
-    ...flagOperations({ database: control, eventSink }),
-    ...preapprovalOperations({ database: control }),
-    ...contentModerationOperations({
-      database: control,
-      eventSink,
-      chat: spectatorChatModeration,
-      floor: roundFloorModeration,
-      roomChat: roomCommunityModeration,
-      recordings: recordingModeration,
-    }),
-    ...actorOperations({ database: control, eventSink }),
-    ...messagingOperations(social, contactReactions),
-    /** Daisy Tab's commands and reads, each in one transaction fenced to its tenant. */
-    tabCommands: createTabStore(database),
-    guardians: createGuardianStore(control),
-    lobbyPermissions: createLobbyPermissionStore(control),
-    expireGuardianRequests: (limit: number) =>
-      expireGuardianRequests(control, limit),
-    ...friendshipReadOperations({ database: social, eventSink }),
-    ...presenceSettingOperations({ database: social, eventSink }),
-    ...peopleListOperations({ database: social, eventSink }),
-    ...publicProfileOperations({ database: social, eventSink }),
-    ...memberCardOperations({
-      database: social,
-      ratingDatabase: browse,
-      eventSink,
-    }),
-    ...challengeReadOperations({ database: social, eventSink }),
-    ...reportOperations({
-      database: control,
-      eventSink,
-      moderationReactions: (rules) =>
-        moderationReactions(rules, decisionRelease),
-    }),
-    ...moderationOperations({ database: control, eventSink }),
-    challengeStore: (authorize: ContactAuthorizationFence) =>
-      createChallengeStore({ database: social, authorize }),
-    reportStore: (authorize: ContactAuthorizationFence) =>
-      createReportStore({ database: social, authorize }),
-    friendStore: (authorize: ContactAuthorizationFence) =>
-      createFriendStore({
-        database: social,
-        authorize,
-        reactions: contactReactions,
-      }),
-    /** Contacts' own commands (blocks), with every registered reaction. */
-    contactStore: (authorize: ContactAuthorizationFence) =>
-      createContactStore({
-        database: social,
-        authorize,
-        reactions: contactReactions,
-      }),
-    ...retainedConversationOperations({ database: social, eventSink }),
-    ...outboxOperations({ database: control, eventSink }),
-    ...transcriptRetention({ database: control, eventSink }),
-    ...roundAnalysisRetention({ database: control, eventSink }),
-    ...socialRequestRetention({ database: social, eventSink }),
-    readOutboxRetentionBoundary: () =>
-      instrumented(eventSink, 'readOutboxRetentionBoundary', () =>
-        readOutboxRetentionBoundary(control),
-      ),
-    readOutboxCatchup: (
-      topic: string,
-      since: string,
-      through: import('./outbox').OutboxPosition,
-      limit?: number,
-    ) =>
-      instrumented(eventSink, 'readOutboxCatchup', () =>
-        readOutboxCatchup(control, topic, since, through, limit),
-      ),
-    ...formatOperations({ database, eventSink }),
-    ...agreementSignatureOperations({ database: control, eventSink }),
-    ...memberDivisionOperations({ database: control, eventSink }),
-    ...roomCommandOperations({
-      database,
-      botAdmission: admission,
-      judgeAdmission: aiAllowance
-        ? createCasualJudgeAdmission({
-            policy: aiAllowance,
-            nextId: nextActorId,
-          })
-        : undefined,
-      eventSink,
-      commandTransaction: roomCommandTransaction(
-        competitive.client,
-        Math.max(
-          1,
-          Math.floor((profile.lanes.competitive?.connections ?? 0) / 2),
-        ),
-        waits,
-      ),
-    }),
-    ...roundOperations({ database, eventSink }),
-    ...roundCommandOperations({
-      database,
-      eventSink,
-      roundTime,
+    ...createRoundIncidentStore(resources, { decisionRelease }),
+    ...createRoundStartGateStore(resources, { decisionRelease }),
+    ...createBroadcastStore(resources),
+    ...createMediaSessionStore(resources, { nextId, decisionRelease }),
+    ...createAttendanceStore(resources, { nextId, ...round }),
+    ...createAvailabilityStore(resources),
+    ...createRatingStore(resources),
+    ...createHealthStore(resources),
+    ...createListenStore(resources),
+    ...createPrivacyStore(resources),
+    ...createAuthStore(resources),
+    ...createMailStore(resources),
+    ...createLeagueRequestsStore(resources),
+    ...createBetaAccessStore(resources),
+    ...createOperatorAccountsStore(resources),
+    ...createFlagsStore(resources),
+    ...createContentModerationStore(resources, contentModerationPorts),
+    ...createOnboardingStore(resources, { nextId }),
+    ...createMessagingStore(resources, { reactions: contactReactions }),
+    ...createTabCommandStore(resources),
+    ...createGuardiansStore(resources),
+    ...createFriendsStore(resources, { reactions: contactReactions }),
+    ...createPresenceStore(resources),
+    ...createProfileStore(resources),
+    ...createChallengesStore(resources),
+    ...createReportsStore(resources, {
+      reactions: moderationReactions,
       decisionRelease,
     }),
-    ...roundBallotOperations({
-      database,
-      eventSink,
-      roundTime,
-      decisionRelease,
-    }),
-    ...roundProtectedReads({ database }),
-    ...roundSpeakingRead({ database }),
-    ...utteranceOperations({ database, eventSink }),
-    createTranscriptionRecovery: (
-      options: Omit<Parameters<typeof TranscriptionRecovery.create>[0], 'run'>,
-    ) =>
-      TranscriptionRecovery.create({ ...options, run: competitiveTransaction }),
-    createNecessaryEvidenceRetirement: (
-      options: Omit<
-        Parameters<typeof NecessaryEvidenceRetirement.create>[0],
-        'run'
-      >,
-    ) =>
-      NecessaryEvidenceRetirement.create({
-        ...options,
-        run: competitiveTransaction,
-      }),
-    createMediaCaptureOperations: (
-      input: Omit<Parameters<typeof mediaCaptureOperations>[0], 'run'>,
-    ) =>
-      namedLaneOperations(
-        mediaCaptureOperations({
-          ...input,
-          decisionRelease,
-          run: competitiveTransaction,
-        }),
-      ),
-    ...transcriptFinalizationOperations({ database }),
-    ...documentOperations({
-      database: workload.lane('documents').database,
-      searchDatabase: workload.lane('search').database,
-      eventSink,
-    }),
-    ...analyticsConsentOperations(control),
-    ...onboardingOperations({ database: control, eventSink }),
-    ...ageStepOperations({ database: control, eventSink }),
-    ...standingsOperations({ database: browse, eventSink }),
-    ...memberProfileReadOperations({ database: browse, eventSink }),
-    ...spectatorTimelineReads({ database: audience, eventSink }),
-    ...liveBroadcastReads({ database: audience }),
-    readGuardianLobbyIds: (userId: string) =>
-      inTransaction(browse, (tx) => readGuardianLobbyIds(tx, userId)),
-    hasGuardianLobbyWaiver: (
-      input: Parameters<typeof hasGuardianLobbyWaiver>[1],
-    ) => inTransaction(browse, (tx) => hasGuardianLobbyWaiver(tx, input)),
-    readOfficialStandingLobbies: () => readOfficialStandingLobbies(browse),
-    readProfileChallengeModes: (userId: string, username: string) =>
-      inTransaction(browse, (tx) =>
-        readProfileChallengeModes(tx, userId, username),
-      ),
-    readCompetitionAgeBand: (userId: string, lobbyId?: string) =>
-      readCompetitionAgeBand(browse, userId, lobbyId),
-    ...watchableRoundOfRoomRead({ database }),
-    ...audienceSnapshotReads({ database: audience, eventSink }),
-    ...spectatorChatOperations({ database: social, eventSink }),
-    ...audienceReactionOperations({ database: social, eventSink }),
-    ...debaterFollowOperations({ database: social, eventSink }),
-    ...watchHistoryOperations({ database: social, eventSink }),
-    ...notificationOperations({ database: social, eventSink }),
-    ...messageRequestSettingOperations({ database: social, eventSink }),
-    ...messagingUnreadEmailOperations({ database: social, eventSink }),
-    ...recordingRoundReadOperations({ database: browse }),
-    ...youthLiveReadOperations({ database: browse }),
-    ...roundAudienceLinkOperations({ viewers: audience, host: database }),
-    ...recordingArchiveReadOperations({ database: browse }),
-    ...spectatorFactLogOperations({ database: control }),
-    ...recordingOperations({ database: control }),
-    /**
-     * Rates a completed round with the caller's domain decision (ADR 0055,
-     * ADR 0058); see `rateCompletedRound`. Its consumer is the ratings
-     * feature's maintenance sweep.
-     */
-    rateRound: (input: RateDebateInput) =>
-      instrumented(eventSink, 'rateRound', () =>
-        rateCompletedRound(database, input),
-      ),
-    /** Server-owned onboarding claim; see `claimUsername`. */
-    claimUsername: (input: { userId: string; username: string }) =>
-      claimUsername(control, input, nextActorId, eventSink),
-  });
+    ...createModerationStore(resources),
+    ...createContactsStore(resources, { reactions: contactReactions }),
+    ...createOutboxStore(resources),
+    ...createTranscriptStore(resources),
+    ...createFormatsStore(resources),
+    ...createAgreementsStore(resources),
+    ...createMemberDivisionStore(resources),
+    ...createRoomStore(resources, admission),
+    ...createRoundStore(resources, round),
+    ...createRoundBallotStore(resources, round),
+    ...createMediaCaptureStore(resources, { decisionRelease }),
+    ...createDocumentStore(resources),
+    ...createAnalyticsConsentStore(resources),
+    ...createAgeStepStore(resources),
+    ...createStandingsStore(resources),
+    ...createSpectatingStore(resources),
+    ...createLobbyStore(resources),
+    ...createSpectatorChatStore(resources),
+    ...createAudienceReactionsStore(resources),
+    ...createDebaterFollowsStore(resources),
+    ...createWatchHistoryStore(resources),
+    ...createNotificationsStore(resources),
+    ...createRecordingStore(resources),
+  };
 }
 export type Database = ReturnType<typeof createDatabase>;
 export type { LeagueRequestNotice } from './league-requests';

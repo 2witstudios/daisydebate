@@ -1,5 +1,65 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
+import { virtualClock } from '@daisy/clock/testing';
+import { createId } from '@paralleldrive/cuid2';
 import { unreachableDatabase } from './index.test-support';
+import { openDatabaseResources } from './resources';
+import { createAgeStepStore } from './stores/age-step';
+import { createAgreementsStore } from './stores/agreements';
+import { createAnalyticsConsentStore } from './stores/analytics-consent';
+import { createAttendanceStore } from './stores/attendance';
+import { createAudienceReactionsStore } from './stores/audience-reactions';
+import { createAuthStore } from './stores/auth';
+import { createAvailabilityStore } from './stores/availability';
+import { createBetaAccessStore } from './stores/beta-access';
+import { createBillingStore } from './stores/billing';
+import { createBroadcastStore } from './stores/broadcasts';
+import { createChallengesStore } from './stores/challenges';
+import { contactReactions, createContactsStore } from './stores/contacts';
+import {
+  contentModerationPorts,
+  createContentModerationStore,
+} from './stores/content-moderation';
+import { createDebaterFollowsStore } from './stores/debater-follows';
+import { createDocumentStore } from './stores/documents';
+import { createFlagsStore } from './stores/flags';
+import { createFormatsStore } from './stores/formats';
+import { createFriendsStore } from './stores/friends';
+import { createGuardiansStore } from './stores/guardians';
+import { createHealthStore } from './stores/health';
+import { createLeagueRequestsStore } from './stores/league-requests';
+import { createListenStore } from './stores/listen';
+import { createLobbyStore } from './stores/lobbies';
+import { createMailStore } from './stores/mail';
+import { createMediaCaptureStore } from './stores/media-capture';
+import { createMediaReleaseStore } from './stores/media-releases';
+import { createMediaSessionStore } from './stores/media-sessions';
+import { createMemberDivisionStore } from './stores/member-division';
+import { createMessagingStore } from './stores/messaging';
+import { createModerationStore } from './stores/moderation';
+import { createNotificationsStore } from './stores/notifications';
+import { createOnboardingStore } from './stores/onboarding';
+import { createOperatorAccountsStore } from './stores/operator-accounts';
+import { createOutboxStore } from './stores/outbox';
+import { createPresenceStore } from './stores/presence';
+import { createPrivacyStore } from './stores/privacy';
+import { createProfileStore } from './stores/profiles';
+import { createRatingStore } from './stores/ratings';
+import { createRecordingStore } from './stores/recordings';
+import { createReportsStore, moderationReactions } from './stores/reports';
+import { createRoomStore } from './stores/rooms';
+import { createRoundAnalysisStore } from './stores/round-analysis';
+import { createRoundBotAdmissionStore } from './stores/round-bot-admission';
+import { createRoundIncidentStore } from './stores/round-incidents';
+import { createRoundMaintenanceStore } from './stores/round-maintenance';
+import { createRoundStartGateStore } from './stores/round-start-gates';
+import { createRoundWorkerStore } from './stores/round-workers';
+import { createRoundBallotStore, createRoundStore } from './stores/rounds';
+import { createSpectatingStore } from './stores/spectating';
+import { createSpectatorChatStore } from './stores/spectator-chat';
+import { createStandingsStore } from './stores/standings';
+import { createTabCommandStore } from './stores/tab';
+import { createTranscriptStore } from './stores/transcripts';
+import { createWatchHistoryStore } from './stores/watch-history';
 
 setupRitewayBun();
 
@@ -653,6 +713,109 @@ describe('database operation inventory (R4.5 net)', () => {
       });
     } finally {
       await database.close();
+    }
+  });
+
+  test('every operation comes from exactly one area store', async () => {
+    const resources = openDatabaseResources({
+      url: 'postgresql://user:password@127.0.0.1:1/daisy',
+      waits: virtualClock(),
+    });
+    const nextId = createId;
+    const stores: Record<string, object> = {
+      resources: {
+        laneGauges: resources.laneGauges,
+        drainLaneHolds: resources.drainLaneHolds,
+        close: resources.close,
+      },
+      ageStep: createAgeStepStore(resources),
+      agreements: createAgreementsStore(resources),
+      analyticsConsent: createAnalyticsConsentStore(resources),
+      attendance: createAttendanceStore(resources, { nextId }),
+      audienceReactions: createAudienceReactionsStore(resources),
+      auth: createAuthStore(resources),
+      availability: createAvailabilityStore(resources),
+      betaAccess: createBetaAccessStore(resources),
+      billing: createBillingStore(resources, { nextId }),
+      broadcasts: createBroadcastStore(resources),
+      challenges: createChallengesStore(resources),
+      contacts: createContactsStore(resources, { reactions: contactReactions }),
+      contentModeration: createContentModerationStore(
+        resources,
+        contentModerationPorts,
+      ),
+      debaterFollows: createDebaterFollowsStore(resources),
+      documents: createDocumentStore(resources),
+      flags: createFlagsStore(resources),
+      formats: createFormatsStore(resources),
+      friends: createFriendsStore(resources, { reactions: contactReactions }),
+      guardians: createGuardiansStore(resources),
+      health: createHealthStore(resources),
+      leagueRequests: createLeagueRequestsStore(resources),
+      listen: createListenStore(resources),
+      lobbies: createLobbyStore(resources),
+      mail: createMailStore(resources),
+      mediaCapture: createMediaCaptureStore(resources),
+      mediaReleases: createMediaReleaseStore(resources, { nextId }),
+      mediaSessions: createMediaSessionStore(resources, { nextId }),
+      memberDivision: createMemberDivisionStore(resources),
+      messaging: createMessagingStore(resources, {
+        reactions: contactReactions,
+      }),
+      moderation: createModerationStore(resources),
+      notifications: createNotificationsStore(resources),
+      onboarding: createOnboardingStore(resources, { nextId }),
+      operatorAccounts: createOperatorAccountsStore(resources),
+      outbox: createOutboxStore(resources),
+      presence: createPresenceStore(resources),
+      privacy: createPrivacyStore(resources),
+      profiles: createProfileStore(resources),
+      ratings: createRatingStore(resources),
+      recordings: createRecordingStore(resources),
+      reports: createReportsStore(resources, {
+        reactions: moderationReactions,
+      }),
+      rooms: createRoomStore(resources, { nextId }),
+      roundAnalysis: createRoundAnalysisStore(resources, { nextId }),
+      roundBallots: createRoundBallotStore(resources),
+      roundBotAdmission: createRoundBotAdmissionStore(resources, { nextId }),
+      roundIncidents: createRoundIncidentStore(resources),
+      roundMaintenance: createRoundMaintenanceStore(resources),
+      rounds: createRoundStore(resources),
+      roundStartGates: createRoundStartGateStore(resources),
+      roundWorkers: createRoundWorkerStore(resources, { nextId }),
+      spectating: createSpectatingStore(resources),
+      spectatorChat: createSpectatorChatStore(resources),
+      standings: createStandingsStore(resources),
+      tab: createTabCommandStore(resources),
+      transcripts: createTranscriptStore(resources),
+      watchHistory: createWatchHistoryStore(resources),
+    };
+    try {
+      const provided = Object.entries(stores).flatMap(([store, surface]) =>
+        operationNames(surface as Record<string, unknown>).map((name) => ({
+          store,
+          name,
+        })),
+      );
+      const names = provided.map(({ name }) => name);
+      assert({
+        given: 'every area store composed over one set of resources',
+        should:
+          'provide every inventoried operation, each from one store, and nothing else',
+        actual: {
+          names: [...new Set(names)].sort(),
+          twice: provided.filter(
+            ({ name }, index) => names.indexOf(name) !== index,
+          ),
+        },
+        expected: {
+          names: Object.values(operationsByArea).flat().sort(),
+          twice: [],
+        },
+      });
+    } finally {
+      await resources.close();
     }
   });
 
