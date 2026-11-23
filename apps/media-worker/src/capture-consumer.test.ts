@@ -68,6 +68,8 @@ async function consume(
   const stop = new AbortController();
   const client = recordingCaptureClient(state, calls, observed);
   const result = await consumeCaptureClips({
+    // Its pauses are what this asserts; the read deadline is not.
+    historyDeadline: () => new AbortController().signal,
     client,
     epoch: 3,
     voice: {

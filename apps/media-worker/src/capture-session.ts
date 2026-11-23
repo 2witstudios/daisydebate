@@ -1,3 +1,4 @@
+import { deadlineSignal } from '@daisy/clock';
 import { instantMs } from '@daisy/clock';
 import type { OpenRouter } from '@daisy/ai-voice';
 import type { createAudioSubscription } from '@daisy/media/subscription';
@@ -80,9 +81,11 @@ export async function runCaptureSession(
     renewalStop.abort();
     await renewing;
     // A successor need not wait out the expiry; if this fails, it still can.
+    const releasing = deadlineSignal(input, RELEASE_BUDGET_MS);
     await input.client
-      .release(lease.epoch, AbortSignal.timeout(RELEASE_BUDGET_MS))
-      .catch(() => undefined);
+      .release(lease.epoch, releasing.signal)
+      .catch(() => undefined)
+      .finally(releasing.clear);
   }
 }
 

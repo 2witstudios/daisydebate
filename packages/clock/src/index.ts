@@ -38,7 +38,7 @@ export function fixedIds(values: readonly string[]): IdGenerator {
   };
 }
 
-export type { Waits } from './waits';
+export { waitsOf, type Pace, type Waits } from './waits';
 export {
   deadlineReason,
   deadlineSignal,

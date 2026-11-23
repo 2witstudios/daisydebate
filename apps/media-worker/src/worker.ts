@@ -1,3 +1,5 @@
+import { repeatEvery } from '@daisy/worker';
+import { hostWaits } from '@daisy/worker/host';
 import { readCaptureSummary } from './capture-summary';
 import { systemId } from '@daisy/clock';
 import { readMediaWorkerConfig, type MediaWorkerConfig } from '@daisy/config';
@@ -101,35 +103,32 @@ export async function startMediaWorker(input: {
         exited: child.exited,
         stop: () => {
           child.kill('SIGTERM');
-          const deadline = setTimeout(() => child.kill('SIGKILL'), 20000);
-          void child.exited.finally(() => clearTimeout(deadline));
+          const exited = new AbortController();
+          void child.exited.finally(() => exited.abort());
+          void hostWaits.sleep(20000, exited.signal).then(() => {
+            if (!exited.signal.aborted) child.kill('SIGKILL');
+          });
         },
       };
     },
   });
-  let scanning: Promise<void> | undefined;
-  const scan = () => {
-    scanning ??= supervisor
-      .tick()
-      .catch((error: unknown) =>
-        logger.log(
-          'media.discovery.failed',
-          { errorCode: errorCodeOf(error, 'INFRASTRUCTURE') },
-          'Capture session discovery failed',
-        ),
-      )
-      .finally(() => {
-        scanning = undefined;
-      });
-  };
-  const timer = setInterval(scan, 1000);
-  scan();
+  const scanning = repeatEvery({
+    waits: hostWaits,
+    everyMs: 1000,
+    runOnStart: true,
+    run: () => supervisor.tick(),
+    failed: (error) =>
+      logger.log(
+        'media.discovery.failed',
+        { errorCode: errorCodeOf(error, 'INFRASTRUCTURE') },
+        'Capture session discovery failed',
+      ),
+  });
   logger.log('server.ready', {}, 'Capture worker ready');
   let stopping: Promise<void> | undefined;
   const stop = () => {
     stopping ??= (async () => {
-      clearInterval(timer);
-      await scanning;
+      await scanning.stop();
       await supervisor.stop();
       await database.close();
       logger.log('server.shutdown', {}, 'Capture worker stopped');

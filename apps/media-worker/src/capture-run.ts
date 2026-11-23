@@ -1,3 +1,5 @@
+import { deadlineSignal } from '@daisy/clock';
+import { hostWaits } from '@daisy/worker/host';
 import type { CaptureSummary } from './capture-summary';
 import {
   CAPTURE_CALL_DEADLINE_MS,
@@ -14,7 +16,6 @@ import { createMediaWorkerAuthentication } from '@daisy/media/internal';
 import { idSchema } from '@daisy/protocol/primitives';
 import { createAppError } from '@daisy/errors';
 import { runCaptureSession } from './capture-session';
-import { waitUntilPerformanceMs } from './capture-history';
 import { CAPTURE_FINISHED_EXIT } from './supervisor';
 import {
   CAPTURE_UNCAUGHT_EXIT,
@@ -91,7 +92,8 @@ export async function runCaptureProcess(input: {
     authentication,
     fetch: input.fetch,
     nowMs: performance.now,
-    deadlineSignal: () => AbortSignal.timeout(CAPTURE_CALL_DEADLINE_MS),
+    deadlineSignal: () =>
+      deadlineSignal(hostWaits, CAPTURE_CALL_DEADLINE_MS).signal,
   });
   const stop = new AbortController();
   process.on('SIGTERM', () => stop.abort());
@@ -110,8 +112,8 @@ export async function runCaptureProcess(input: {
         subscribe: input.subscribe ?? createAudioSubscription,
         consume: consumeCaptureClips,
         pendingBytes,
-        nowMs: performance.now,
-        waitUntilMs: waitUntilPerformanceMs,
+        nowMs: hostWaits.nowMs,
+        waitUntilMs: hostWaits.waitUntilMs,
       },
       stop.signal,
     );

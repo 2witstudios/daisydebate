@@ -121,7 +121,12 @@ export function holdLease<Facts>(input: {
       (renewal) => ({ renewal }) as const,
       (error: unknown) => ({ error }) as const,
     );
-    const first = await Promise.race([answer, horizon]);
+    const raced = await Promise.race([answer, horizon]);
+    // A wait that wakes early is no expiry: only the clock says the horizon passed.
+    const first =
+      raced === 'horizon' && end === null && waits.nowMs() < expiresAtMs()
+        ? await answer
+        : raced;
     attempt.abort();
     if (end !== null) return 'ended';
     if (first === 'horizon') {

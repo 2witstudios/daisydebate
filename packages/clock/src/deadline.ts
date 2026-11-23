@@ -1,4 +1,4 @@
-import type { Waits } from './waits';
+import type { Pace } from './waits';
 
 /** The reason a deadline aborts with, as `AbortSignal.timeout` gives it. */
 export const deadlineReason = (): DOMException =>
@@ -18,7 +18,7 @@ export type Deadline = {
  * parent aborts first. `clear` once the operation ends, so no wait is left.
  */
 export function deadlineSignal(
-  waits: Waits,
+  waits: Pace,
   ms: number,
   ...parents: readonly AbortSignal[]
 ): Deadline {
@@ -29,9 +29,15 @@ export function deadlineSignal(
       ? timeout.signal
       : AbortSignal.any([...parents, timeout.signal]);
   const stop = AbortSignal.any([cancel.signal, signal]);
-  void waits.sleep(ms, stop).then(() => {
-    if (!stop.aborted) timeout.abort(deadlineReason());
-  });
+  const dueMs = waits.nowMs() + Math.max(0, ms);
+  void waits
+    .waitUntilMs(dueMs, stop)
+    .catch(() => undefined)
+    .then(() => {
+      // A wait that wakes early is no deadline: only the clock says it passed.
+      if (!stop.aborted && waits.nowMs() >= dueMs)
+        timeout.abort(deadlineReason());
+    });
   return { signal, clear: () => cancel.abort() };
 }
 
@@ -40,7 +46,7 @@ export function deadlineSignal(
  * pass first. `work` receives the deadline's signal so it can stop too.
  */
 export async function withDeadline<T>(
-  waits: Waits,
+  waits: Pace,
   ms: number,
   work: (signal: AbortSignal) => Promise<T>,
   ...parents: readonly AbortSignal[]

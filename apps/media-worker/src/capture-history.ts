@@ -1,4 +1,4 @@
-import { instantMs } from '@daisy/clock';
+import { deadlineSignal, instantMs } from '@daisy/clock';
 import { CAPTURE_HISTORY_READ_MS } from '@daisy/protocol/capture-timing';
 import { speakingEndMs } from '@daisy/protocol/segment-end';
 import { CAPTURE_OUTAGE_BUDGET_MS } from './capture-memory';
@@ -106,11 +106,6 @@ export type CapturePace = {
   readonly nowMs: () => number;
   readonly waitUntilMs: (due: number, signal: AbortSignal) => Promise<void>;
 };
-/** The worker's own pause: until `performance.now()` reaches `due`, or `signal` aborts. */
-export async function waitUntilPerformanceMs(due: number, signal: AbortSignal) {
-  while (performance.now() < due && !signal.aborted)
-    await Bun.sleep(Math.max(1, Math.min(25, due - performance.now())));
-}
 /**
  * A timed-out acquisition or an unanswering control plane is not an authority
  * refusal; restart with no partial pages, while frames wait in staging. Still
@@ -129,7 +124,7 @@ export async function readCaptureHistory(
     signal.throwIfAborted();
     const deadline =
       options.deadlineSignal?.() ??
-      AbortSignal.timeout(CAPTURE_HISTORY_READ_MS);
+      deadlineSignal(pace, CAPTURE_HISTORY_READ_MS).signal;
     try {
       const snapshot = await readSnapshot(
         client,

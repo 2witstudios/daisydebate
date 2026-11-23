@@ -134,6 +134,7 @@
         "@daisy/logger": "workspace:*",
         "@daisy/media": "workspace:*",
         "@daisy/protocol": "workspace:*",
+        "@daisy/worker": "workspace:*",
       },
       "devDependencies": {
         "riteway": "9.3.0",

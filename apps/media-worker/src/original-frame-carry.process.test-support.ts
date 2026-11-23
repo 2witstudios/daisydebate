@@ -3,7 +3,7 @@ import { createMediaWorkerClient } from '@daisy/media/worker';
 import { canonicalCaptureEvidenceBody } from '@daisy/protocol/capture-evidence-body';
 import { captureStateReply } from '@daisy/protocol/capture-worker-replies';
 import { validateCaptureBatch, type ClipCarries } from './capture-batch';
-import { waitUntilPerformanceMs } from './capture-history';
+import { hostWaits } from '@daisy/worker/host';
 import { OriginalFrameBatches } from './original-frame-batches/original-frame-batches';
 
 /**
@@ -102,7 +102,7 @@ async function main() {
     epoch: body.epoch,
     signal: new AbortController().signal,
     nowMs: performance.now,
-    waitUntilMs: waitUntilPerformanceMs,
+    waitUntilMs: hostWaits.waitUntilMs,
     dropped: (count) => {
       if (count) throw new Error('Unexpected sample discard');
     },
@@ -132,7 +132,7 @@ async function main() {
           bodies: prepared.bodies,
           send: client.preserve,
           nowMs: performance.now,
-          waitUntilMs: waitUntilPerformanceMs,
+          waitUntilMs: hostWaits.waitUntilMs,
         },
         signal,
       );

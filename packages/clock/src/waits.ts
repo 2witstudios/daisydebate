@@ -13,3 +13,24 @@ export type Waits = {
   /** Resolves at `dueMs` on the `nowMs` scale, or at once when `signal` aborts. */
   readonly waitUntilMs: (dueMs: number, signal?: AbortSignal) => Promise<void>;
 };
+
+/**
+ * Time as a pace that may reject an aborted wait: the shape some injected
+ * pacing takes. Every `Waits` is one.
+ */
+export type Pace = {
+  readonly nowMs: () => number;
+  readonly waitUntilMs: (dueMs: number, signal: AbortSignal) => Promise<void>;
+};
+
+/** `Waits` over a `Pace`: an aborted wait resolves instead of rejecting. */
+export const waitsOf = (pace: Pace): Waits => {
+  const never = new AbortController().signal;
+  const waitUntilMs = (dueMs: number, signal?: AbortSignal) =>
+    pace.waitUntilMs(dueMs, signal ?? never).catch(() => undefined);
+  return {
+    nowMs: pace.nowMs,
+    waitUntilMs,
+    sleep: (ms, signal) => waitUntilMs(pace.nowMs() + Math.max(0, ms), signal),
+  };
+};
