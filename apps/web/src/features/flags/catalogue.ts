@@ -75,7 +75,7 @@ export const flagCatalogue = [
     // Bot debates: Train, a bot in a debating seat and the Round freeze that
     // reserves the bot allowance. Off, they are Coming soon; an account
     // override opens them for the members finishing them, and the flag wins
-    // over every entitlement (ADR on bot-debates release).
+    // over every entitlement (ADR 0921).
     key: 'bot-debates',
     kind: 'release',
     owner: 'Bot debaters (@2witstudios)',

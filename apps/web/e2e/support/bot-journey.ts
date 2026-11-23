@@ -52,7 +52,9 @@ const HUMAN_SPEECH_MS = 3_000;
  * No fixture clock, maintenance callback, seeded run, transcript or ballot.
  */
 export async function proveHumanBotJourney(browser: Browser) {
-  const accounts = await createRoomLaunchAccounts(browser, 1);
+  const accounts = await createRoomLaunchAccounts(browser, 1, {
+    botDebates: true,
+  });
   try {
     const host = accounts.members[0]!;
     const catalog = await host.context.request.get('/api/rooms/catalog');

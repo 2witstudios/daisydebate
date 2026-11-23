@@ -16,7 +16,12 @@ import type { Response } from '@playwright/test';
 import { expect, test, openPage } from './support/fixtures';
 import { holdScripts } from './support/hydration';
 import { readRoomBotRoster, startTrainPractice } from './support/ai-cast';
-import { resetRateLimits, signUpMember, origin } from './support/accounts';
+import {
+  resetRateLimits,
+  signUpBotDebater,
+  signUpMember,
+  origin,
+} from './support/accounts';
 import {
   claim,
   createFromPlay,
@@ -45,7 +50,7 @@ test('Train seats the chosen bot in a durable, editable Room', async ({
   try {
     await context.grantPermissions(['camera', 'microphone'], { origin });
     await resetRateLimits(context.request);
-    await signUpMember(context.request);
+    await signUpBotDebater(context.request);
     const page = await openPage(context, 'Train host');
     const roster = await readRoomBotRoster(page.request);
     const wren = roster.find(
@@ -103,7 +108,7 @@ test('Train Start practice posted before hydration creates a Room and recovers a
   });
   try {
     await resetRateLimits(context.request);
-    await signUpMember(context.request);
+    await signUpBotDebater(context.request);
     const page = await openPage(context, 'Train host before hydration');
     // The page's scripts never load, so each press is the form's own POST.
     const release = await holdScripts(page);
@@ -165,7 +170,7 @@ test('an ordinary host fills side and judge seats from the roster, and refusals 
   });
   try {
     await resetRateLimits(hostContext.request);
-    const { username: hostName } = await signUpMember(hostContext.request);
+    const { username: hostName } = await signUpBotDebater(hostContext.request);
     await signUpMember(outsiderContext.request);
     const host = await openPage(hostContext, 'Manage host');
     const outsider = await openPage(outsiderContext, 'Manage outsider');

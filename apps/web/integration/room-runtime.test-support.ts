@@ -24,6 +24,8 @@ import { foundationSelection } from './foundation-selection.test-support';
 import { aiAdmissionOptions } from '../src/features/round-runtime/worker-policy';
 
 import { drawEntropy } from '../src/features/room-runtime/entropy';
+import { createRequestFlagReader } from '../src/features/flags/reader';
+import { grantReleaseOverride } from '../src/features/operator-api/flag-override.test-support';
 import { deleteOrphanNotificationSignals } from './notification-signals.test-support';
 const services = requireTestServices(process.env);
 export async function withRoomRuntime(
@@ -100,13 +102,24 @@ async function fixture(
     await sql`insert into ai_judge_profiles(actor_id,name) values (${actorId},'Fixture judge')`;
     return { actorId };
   };
-  const caller = async () => {
+  /**
+   * A Room caller, an admitted participant (ADR 0075); removing the user
+   * cascades. Bot debates are opened for them as an operator opens them for
+   * a real account (ADR 0921) unless the case is about an ordinary member.
+   */
+  const caller = async (options: { readonly botDebates?: boolean } = {}) => {
     const userId = createId(),
       actorId = createId();
     await sql`insert into users (id,username,email_verified) values (${userId},${`u-${userId}`},true)`;
     await sql`insert into actors (id,kind,user_id) values (${actorId},'human',${userId})`;
-    // Room callers are admitted participants (ADR 0075); removing the user cascades.
     await admitParticipants(sql, [userId]);
+    if (options.botDebates !== false)
+      await grantReleaseOverride({
+        store,
+        key: 'bot-debates',
+        userId,
+        nextId: createId,
+      });
     const c = { userId, actorId };
     callers.push(c);
     return c;
@@ -142,6 +155,14 @@ async function fixture(
     readRoundYouth: store.readRoundYouth,
     people: store.readYouthRoundPeople,
   });
+  /** The display reader each request builds, against the real flag rows. */
+  const botDebatesReleased = (userId: string) =>
+    createRequestFlagReader({
+      read: store.readFlagSnapshot,
+      now: Date.now,
+      diagnostic: () => {},
+      releaseDefault: false,
+    })('bot-debates', userId);
   const operations = createRoomRuntimeOperations({
     linkedAdults,
     store,
@@ -150,6 +171,7 @@ async function fixture(
     entropy: drawEntropy,
     consentTtlMs: () => 60_000,
     aiSeats: () => ({ debater: true, judge: true }),
+    botDebatesReleased,
     betaGrantsPremium: true,
   });
   const operationsWithBotAvailability = (available: boolean) =>
@@ -161,6 +183,7 @@ async function fixture(
       entropy: drawEntropy,
       consentTtlMs: () => 60_000,
       aiSeats: () => ({ debater: available, judge: available }),
+      botDebatesReleased,
       betaGrantsPremium: true,
     });
   /** The proof format every Room suite builds on; off the picker (FMT-1), so custom. */

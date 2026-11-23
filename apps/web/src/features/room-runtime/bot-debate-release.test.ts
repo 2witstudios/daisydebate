@@ -55,8 +55,11 @@ test('only a bot in a debating seat is a bot debate', () => {
 });
 
 test('unreleased bot debates refuse a bot debater whatever else holds', () => {
-  const seat = (target: typeof botDebater | null, at: SeatRef, open: boolean) =>
-    reasonOf(() => requireBotDebateReleased(target, at, open));
+  const seat = (
+    target: { readonly kind: 'bot' } | null,
+    at: SeatRef,
+    open: boolean,
+  ) => reasonOf(() => requireBotDebateReleased(target, at, open));
   assert({
     given:
       'bot debates unreleased and released, for a bot debater and an AI judge',

@@ -27,8 +27,10 @@ describe('playOptionsFor', () => {
       actual: [
         playOptions[0]?.id,
         playOptions.find((option) => option.id === 'room')?.href,
-        playOptions.some((option) =>
-          ['/play', destinationHref('lobby')].includes(option.href),
+        playOptions.some(
+          (option) =>
+            option.href !== null &&
+            ['/play', destinationHref('lobby')].includes(option.href),
         ),
       ],
       expected: ['ranked', openRoomHref, false],
