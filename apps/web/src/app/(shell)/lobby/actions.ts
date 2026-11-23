@@ -8,9 +8,10 @@ import {
 } from '../../../features/rooms/read-assembly';
 import { inProcessFetch } from '../../../server/in-process-fetch';
 import { processRoute } from '../../../server/process-app';
+import { roomComposition } from '../../../features/room-runtime/composition';
 
-const list = processRoute((routes) => routes.rooms.list);
-const hosted = processRoute((routes) => routes.rooms.hosted);
+const list = processRoute(roomComposition, (routes) => routes.list);
+const hosted = processRoute(roomComposition, (routes) => routes.hosted);
 export async function roomListing(query: RoomListQuery) {
   return readRoomList(
     inProcessFetch(list, new Headers(await headers())),

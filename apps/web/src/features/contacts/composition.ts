@@ -1,3 +1,4 @@
+import { defineComposition } from '../../server/composition';
 import type { AuthorizationPrincipal } from '@daisy/auth/authorization';
 import type { App } from '../../server/app';
 import { consumeWindowsOrThrow } from '../../server/rate-limit';
@@ -36,3 +37,8 @@ export function composeContactRoutes(app: App) {
       }),
   });
 }
+
+/** contacts: its route files bind here (`processRoute`). */
+export const contactComposition = defineComposition('contacts', (app) =>
+  composeContactRoutes(app),
+);

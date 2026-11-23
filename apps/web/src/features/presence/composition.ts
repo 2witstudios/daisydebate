@@ -1,3 +1,4 @@
+import { defineComposition } from '../../server/composition';
 import { nowMs } from '@daisy/clock';
 import type { AuthorizationPrincipal } from '@daisy/auth/authorization';
 import { requireAuthorization } from '@daisy/auth/request-authorization';
@@ -96,3 +97,8 @@ export function composePresenceRoutes(app: App) {
       }),
   });
 }
+
+/** presence: its route files bind here (`processRoute`). */
+export const presenceComposition = defineComposition('presence', (app) =>
+  composePresenceRoutes(app),
+);

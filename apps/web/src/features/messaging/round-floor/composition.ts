@@ -1,3 +1,4 @@
+import { defineComposition } from '../../../server/composition';
 import type { AuthorizationPrincipal } from '@daisy/auth/authorization';
 import { decideRoundFloor } from '@daisy/auth/round-floor';
 import { roundFloorMetadataOf } from '@daisy/db/messaging';
@@ -78,3 +79,8 @@ export function composeRoundFloorRoutes(app: App) {
     }),
   });
 }
+
+/** round-floor: its route files bind here (`processRoute`). */
+export const roundFloorComposition = defineComposition('round-floor', (app) =>
+  composeRoundFloorRoutes(app),
+);

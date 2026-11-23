@@ -7,9 +7,10 @@ import {
   type ReportFormState,
 } from '../../../features/reports/form';
 import { processRoute } from '../../../server/process-app';
+import { reportComposition } from '../../../features/reports/composition';
 import { post, text } from '../form-post';
 
-const routes = { report: processRoute((all) => all.reports.file) };
+const routes = { report: processRoute(reportComposition, (all) => all.file) };
 
 /** Reports a member, with a reason. */
 export async function reportAction(

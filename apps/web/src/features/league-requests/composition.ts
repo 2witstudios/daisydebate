@@ -1,3 +1,4 @@
+import { defineComposition } from '../../server/composition';
 import type { App } from '../../server/app';
 import { createLeagueRequestHandlers } from './handlers';
 
@@ -11,3 +12,9 @@ export const composeLeagueRequestRoutes = (app: App) =>
     newId: () => app.ids.next(),
     store: app.database,
   });
+
+/** league-requests: its route files bind here (`processRoute`). */
+export const leagueRequestComposition = defineComposition(
+  'league-requests',
+  (app) => composeLeagueRequestRoutes(app),
+);

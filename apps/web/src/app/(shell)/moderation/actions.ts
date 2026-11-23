@@ -2,10 +2,11 @@
 
 import { revalidatePath } from 'next/cache';
 import { processRoute } from '../../../server/process-app';
+import { moderationComposition } from '../../../features/moderation/composition';
 import { post, text } from '../form-post';
 
 const routes = {
-  acknowledge: processRoute((all) => all.moderation.acknowledge),
+  acknowledge: processRoute(moderationComposition, (all) => all.acknowledge),
 };
 
 /** Marks a warning read. A form with no typed input, so a failure stays silent. */

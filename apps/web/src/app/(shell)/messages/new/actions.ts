@@ -8,6 +8,7 @@ import {
   messagingGroupCreationResultSchema,
 } from '@daisy/protocol/messaging/social';
 import { processRoute } from '../../../../server/process-app';
+import { messagingComposition } from '../../../../features/messaging/composition';
 import { inProcessFetch } from '../../../../server/in-process-fetch';
 import { moveOn } from '../../../../server/form-action';
 import {
@@ -15,9 +16,13 @@ import {
   creationFormUnavailable,
   type CreationFormState,
 } from '../../../../features/messaging/forms/create-form';
-const requestDm = processRoute((routes) => routes.messaging.requestByUsername);
+const requestDm = processRoute(
+  messagingComposition,
+  (routes) => routes.requestByUsername,
+);
 const createGroup = processRoute(
-  (routes) => routes.messaging.createGroupByUsername,
+  messagingComposition,
+  (routes) => routes.createGroupByUsername,
 );
 export async function createConversationAction(
   kind: 'dm' | 'private_group',

@@ -1,3 +1,4 @@
+import { defineComposition } from '../../../server/composition';
 import {
   exportRoomDraftAnswer,
   eraseRoomDraftAnswer,
@@ -119,3 +120,8 @@ export function composeDataRightsRoutes(app: App) {
     },
   };
 }
+
+/** data-rights: its route files bind here (`processRoute`). */
+export const dataRightsComposition = defineComposition('data-rights', (app) =>
+  composeDataRightsRoutes(app),
+);

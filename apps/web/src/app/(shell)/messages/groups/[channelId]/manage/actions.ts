@@ -3,6 +3,7 @@ import { headers } from 'next/headers';
 import { revalidatePath } from 'next/cache';
 import { messagingGroupCreationResultSchema } from '@daisy/protocol/messaging/social';
 import { processRoute } from '../../../../../../server/process-app';
+import { messagingComposition } from '../../../../../../features/messaging/composition';
 import { inProcessFetch } from '../../../../../../server/in-process-fetch';
 import { moveOn } from '../../../../../../server/form-action';
 import {
@@ -10,8 +11,14 @@ import {
   groupManagementUnavailable,
   type GroupManagementFormState,
 } from '../../../../../../features/messaging/forms/group-management-form';
-const manage = processRoute((routes) => routes.messaging.manageGroup);
-const invite = processRoute((routes) => routes.messaging.inviteGroup);
+const manage = processRoute(
+  messagingComposition,
+  (routes) => routes.manageGroup,
+);
+const invite = processRoute(
+  messagingComposition,
+  (routes) => routes.inviteGroup,
+);
 export async function manageGroupAction(
   channelId: unknown,
   operation: unknown,

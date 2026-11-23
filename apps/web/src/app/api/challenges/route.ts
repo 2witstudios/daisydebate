@@ -1,5 +1,6 @@
 import { processRoute } from '../../../server/process-app';
+import { challengeComposition } from '../../../features/challenges/composition';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
-export const GET = processRoute((routes) => routes.challenges.list);
-export const POST = processRoute((routes) => routes.challenges.send);
+export const GET = processRoute(challengeComposition, (routes) => routes.list);
+export const POST = processRoute(challengeComposition, (routes) => routes.send);

@@ -1,3 +1,4 @@
+import { defineComposition } from '../../server/composition';
 import { composeRoundMemberDependencies } from '../round-runtime/member-composition';
 import type { App } from '../../server/app';
 import { createAttendanceHandler } from './handler';
@@ -18,3 +19,8 @@ export function composeAttendanceRoutes(app: App) {
     }),
   };
 }
+
+/** attendance: its route files bind here (`processRoute`). */
+export const attendanceComposition = defineComposition('attendance', (app) =>
+  composeAttendanceRoutes(app),
+);

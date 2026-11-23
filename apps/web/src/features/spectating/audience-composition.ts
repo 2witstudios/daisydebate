@@ -1,3 +1,4 @@
+import { defineComposition } from '../../server/composition';
 import type { Waits } from '@daisy/clock';
 import { passOf, pollWork } from '@daisy/worker';
 import { identify } from '../../lib/identity';
@@ -99,3 +100,8 @@ export const startNotificationSweep = (app: App, waits: Waits) => {
       app.logger.log('notifications.sweep_failed', {}, 'Notifications'),
   });
 };
+
+/** audience: its route files bind here (`processRoute`). */
+export const audienceComposition = defineComposition('audience', (app) =>
+  composeAudienceRoutes(app),
+);

@@ -1,3 +1,4 @@
+import { defineComposition } from '../../server/composition';
 import { eventBallotAccess } from './audience';
 import { readRoundOpening } from '@daisy/debate-engine';
 import { composeRoundMemberDependencies } from '../round-runtime/member-composition';
@@ -27,3 +28,9 @@ export function composeRoundBallotRoutes(app: App) {
       }),
   });
 }
+
+/** round-ballots: its route files bind here (`processRoute`). */
+export const roundBallotComposition = defineComposition(
+  'round-ballots',
+  (app) => composeRoundBallotRoutes(app),
+);

@@ -1,3 +1,4 @@
+import { defineComposition } from '../../server/composition';
 import type { App } from '../../server/app';
 import { memberHttpBoundary } from '../../server/member-boundary';
 import { createRoomInvitationHandlers } from './handlers';
@@ -12,3 +13,9 @@ export function composeRoomInvitationRoutes(app: App) {
     end: (caller, input) => endRoomInvitation(deps, caller, input),
   });
 }
+
+/** room-invitations: its route files bind here (`processRoute`). */
+export const roomInvitationComposition = defineComposition(
+  'room-invitations',
+  (app) => composeRoomInvitationRoutes(app),
+);

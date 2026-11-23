@@ -1,3 +1,4 @@
+import { defineComposition } from '../../server/composition';
 import { nowMs } from '@daisy/clock';
 import { requireAuthorization } from '@daisy/auth/request-authorization';
 import type { AuthorizationPrincipal } from '@daisy/auth/authorization';
@@ -362,3 +363,9 @@ export function composePublicProfileRoutes(app: App) {
     },
   };
 }
+
+/** public-profile: its route files bind here (`processRoute`). */
+export const publicProfileComposition = defineComposition(
+  'public-profile',
+  (app) => composePublicProfileRoutes(app),
+);

@@ -1,3 +1,4 @@
+import { defineComposition } from '../../server/composition';
 import { createMessageRequestSettingRoute } from './request-setting-route';
 import { consumeMessagingRead } from './handler-boundary';
 import { composeMessagingReactionRoute } from './reaction-route';
@@ -192,3 +193,8 @@ export function composeMessagingRoutes(app: App) {
     markRead: (request: Request) => handlersForRequest().markRead(request),
   };
 }
+
+/** messaging: its route files bind here (`processRoute`). */
+export const messagingComposition = defineComposition('messaging', (app) =>
+  composeMessagingRoutes(app),
+);

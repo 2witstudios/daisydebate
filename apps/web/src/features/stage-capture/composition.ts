@@ -1,3 +1,4 @@
+import { defineComposition } from '../../server/composition';
 import type { Waits } from '@daisy/clock';
 import { passOf, pollWork, repeatEvery } from '@daisy/worker';
 import { HOUSEKEEPING_IDLE_MAX_MS } from '../../lib/worker-idle';
@@ -168,3 +169,8 @@ export const startStrayEgressSweep = (app: App, waits: Waits) => {
     failed: () => report('stage.stray_sweep_failed'),
   });
 };
+
+/** stage: its route files bind here (`processRoute`). */
+export const stageComposition = defineComposition('stage', (app) =>
+  composeStage(app, app.waits),
+);

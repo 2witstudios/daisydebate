@@ -1,3 +1,4 @@
+import { defineComposition } from '../../server/composition';
 import type { Waits } from '@daisy/clock';
 import { pollWork, type WorkWake } from '@daisy/worker';
 import { LIVE_IDLE_MAX_MS } from '../../lib/worker-idle';
@@ -183,3 +184,8 @@ export const recordingReads = (app: App) => ({
   inputs: recordingInputs(app),
   archive: recordingPersistence(app),
 });
+
+/** recordings: its route files bind here (`processRoute`). */
+export const recordingComposition = defineComposition('recordings', (app) =>
+  composeRecordingRoutes(app),
+);

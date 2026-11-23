@@ -1,3 +1,4 @@
+import { defineComposition } from '../../server/composition';
 import { nowMs } from '@daisy/clock';
 import type { App } from '../../server/app';
 import { memberHttpBoundary } from '../../server/member-boundary';
@@ -16,3 +17,9 @@ export const composeMediaReleaseRoutes = (app: App) =>
       deriveReleaseStopSubkey(app.mailConfig().RECIPIENT_HASH_SECRET),
     store: app.database,
   });
+
+/** media-releases: its route files bind here (`processRoute`). */
+export const mediaReleaseComposition = defineComposition(
+  'media-releases',
+  (app) => composeMediaReleaseRoutes(app),
+);

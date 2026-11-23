@@ -3,6 +3,7 @@ import { headers } from 'next/headers';
 import { revalidatePath } from 'next/cache';
 import { messagingPreferenceSchemas } from '@daisy/protocol/messaging/preferences';
 import { processRoute } from '../../../../../server/process-app';
+import { messagingComposition } from '../../../../../features/messaging/composition';
 import { inProcessFetch } from '../../../../../server/in-process-fetch';
 import { moveOn } from '../../../../../server/form-action';
 import { parsePreferenceForm } from '../../../../../features/messaging/forms/preference-form-parse';
@@ -24,7 +25,8 @@ export async function changePreferenceAction(
   try {
     const { operation, command } = parsePreferenceForm(channelId, form);
     const handle = processRoute(
-      (routes) => (request) => routes.messaging.preferences(request, operation),
+      messagingComposition,
+      (routes) => (request) => routes.preferences(request, operation),
     );
     const response = await inProcessFetch(handle, incoming)(
       operation === 'clear'

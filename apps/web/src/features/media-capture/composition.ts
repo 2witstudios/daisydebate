@@ -1,3 +1,4 @@
+import { defineComposition } from '../../server/composition';
 import { captureAdmissionPolicy } from './capture-policy';
 import { nowMs } from '@daisy/clock';
 import { captureRule } from '@daisy/debate-engine';
@@ -63,3 +64,9 @@ export function composeMediaCaptureRoutes(app: App) {
     }),
   });
 }
+
+/** media-capture: its route files bind here (`processRoute`). */
+export const mediaCaptureComposition = defineComposition(
+  'media-capture',
+  (app) => composeMediaCaptureRoutes(app),
+);

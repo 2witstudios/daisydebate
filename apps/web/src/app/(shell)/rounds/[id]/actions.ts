@@ -7,8 +7,14 @@ import { readRoundReceipt } from '../../../../features/round-runtime/read-round'
 import { readRoundAnalysis } from '../../../../features/round-analysis/reads';
 import { inProcessFetch } from '../../../../server/in-process-fetch';
 import { processRoute } from '../../../../server/process-app';
+import { contentModerationComposition } from '../../../../features/content-moderation/composition';
+import { roundAnalysisComposition } from '../../../../features/round-analysis/composition';
+import { roundComposition } from '../../../../features/round-runtime/composition';
 
-const report = processRoute((routes) => routes.contentModeration.report.POST);
+const report = processRoute(
+  contentModerationComposition,
+  (routes) => routes.report.POST,
+);
 
 /**
  * A native post from this Round's page: the form names its target, and the
@@ -26,7 +32,10 @@ export async function reportRoundAction(
 }
 
 const roundRead = (id: string) =>
-  processRoute((routes) => (request) => routes.rounds.read(request, id));
+  processRoute(
+    roundComposition,
+    (routes) => (request) => routes.read(request, id),
+  );
 
 /** The same canonical Round read, carrying this request's auth and ingress headers. */
 export async function readPersistedRound(id: string) {
@@ -38,7 +47,8 @@ export async function readPersistedRound(id: string) {
 
 const analysisRead = (id: string) =>
   processRoute(
-    (routes) => (request) => routes.rounds.getRoundAnalysis(request, id),
+    roundAnalysisComposition,
+    (routes) => (request) => routes.getRoundAnalysis(request, id),
   );
 /** The caller's own round analysis, a read of its own, never part of the ballot read. */
 export async function readPersistedRoundAnalysis(id: string) {

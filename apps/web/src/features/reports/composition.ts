@@ -1,3 +1,4 @@
+import { defineComposition } from '../../server/composition';
 import {
   reportCommandSchema,
   reportResultSchema,
@@ -58,3 +59,8 @@ export function composeReportRoutes(app: App) {
       }),
   };
 }
+
+/** reports: its route files bind here (`processRoute`). */
+export const reportComposition = defineComposition('reports', (app) =>
+  composeReportRoutes(app),
+);

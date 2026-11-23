@@ -17,6 +17,7 @@ import {
 import { inProcessFetch } from '../../../server/in-process-fetch';
 import { releaseNowMs } from '../../../lib/request-session';
 import { processRoute } from '../../../server/process-app';
+import { mediaReleaseComposition } from '../../../features/media-releases/composition';
 
 /**
  * The parent's link pages post through the media release routes in process,
@@ -26,12 +27,12 @@ import { processRoute } from '../../../server/process-app';
  * the browser altered is only an unknown link.
  */
 const routes = {
-  sign: processRoute((all) => all.mediaReleases.sign),
-  answer: processRoute((all) => all.mediaReleases.answer),
-  withdraw: processRoute((all) => all.mediaReleases.withdraw),
-  paidAds: processRoute((all) => all.mediaReleases.paidAds),
-  manageLink: processRoute((all) => all.mediaReleases.manageLink),
-  stop: processRoute((all) => all.mediaReleases.stop),
+  sign: processRoute(mediaReleaseComposition, (all) => all.sign),
+  answer: processRoute(mediaReleaseComposition, (all) => all.answer),
+  withdraw: processRoute(mediaReleaseComposition, (all) => all.withdraw),
+  paidAds: processRoute(mediaReleaseComposition, (all) => all.paidAds),
+  manageLink: processRoute(mediaReleaseComposition, (all) => all.manageLink),
+  stop: processRoute(mediaReleaseComposition, (all) => all.stop),
 };
 
 const post = async (

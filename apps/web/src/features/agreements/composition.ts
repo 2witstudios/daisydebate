@@ -1,3 +1,4 @@
+import { defineComposition } from '../../server/composition';
 import { createAppError } from '@daisy/errors';
 import { identify } from '../../lib/identity';
 import type { App } from '../../server/app';
@@ -36,3 +37,8 @@ export function composeAgreementRoutes(app: App) {
     },
   };
 }
+
+/** agreements: its route files bind here (`processRoute`). */
+export const agreementComposition = defineComposition('agreements', (app) =>
+  composeAgreementRoutes(app),
+);

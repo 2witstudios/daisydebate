@@ -1,3 +1,4 @@
+import { defineComposition } from '../../../server/composition';
 import type { AuthorizationPrincipal } from '@daisy/auth/authorization';
 import { decideRoomCommunity } from '@daisy/auth/room-community';
 import { roomCommunityMetadataOf } from '@daisy/db/messaging';
@@ -65,3 +66,9 @@ export function composeRoomCommunityRoutes(app: App) {
     }),
   });
 }
+
+/** room-community: its route files bind here (`processRoute`). */
+export const roomCommunityComposition = defineComposition(
+  'room-community',
+  (app) => composeRoomCommunityRoutes(app),
+);

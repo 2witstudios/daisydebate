@@ -1,3 +1,4 @@
+import { defineComposition } from '../../server/composition';
 import { liveLinkedAdults } from '../spectating/linked-adults';
 import { trackRequest } from '../analytics/track-request';
 import { createRoomDraftHandler } from '../rooms/create-room-draft-handler';
@@ -93,3 +94,8 @@ export function composeRoomRoutes(app: App) {
     }),
   };
 }
+
+/** rooms: its route files bind here (`processRoute`). */
+export const roomComposition = defineComposition('rooms', (app) =>
+  composeRoomRoutes(app),
+);

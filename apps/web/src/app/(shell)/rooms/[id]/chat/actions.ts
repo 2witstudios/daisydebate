@@ -2,6 +2,7 @@
 import { headers } from 'next/headers';
 import { systemId } from '@daisy/clock';
 import { processRoute } from '../../../../../server/process-app';
+import { roomCommunityComposition } from '../../../../../features/messaging/room-community/composition';
 import { inProcessFetch } from '../../../../../server/in-process-fetch';
 import { submitContextChatMessage } from '../../../../../features/messaging/context-chat/form';
 import type { ContextChatFormState } from '../../../../../features/messaging/context-chat/form-state';
@@ -10,23 +11,28 @@ import { roomChatContext } from '../../../../../features/messaging/room-communit
 
 const send = (roomId: string) =>
   processRoute(
-    (routes) => (request) => routes.roomCommunity.send(request, roomId),
+    roomCommunityComposition,
+    (routes) => (request) => routes.send(request, roomId),
   );
 const edit = (roomId: string) =>
   processRoute(
-    (routes) => (request) => routes.roomCommunity.edit(request, roomId),
+    roomCommunityComposition,
+    (routes) => (request) => routes.edit(request, roomId),
   );
 const remove = (roomId: string) =>
   processRoute(
-    (routes) => (request) => routes.roomCommunity.remove(request, roomId),
+    roomCommunityComposition,
+    (routes) => (request) => routes.remove(request, roomId),
   );
 const report = (roomId: string) =>
   processRoute(
-    (routes) => (request) => routes.roomCommunity.report(request, roomId),
+    roomCommunityComposition,
+    (routes) => (request) => routes.report(request, roomId),
   );
 const discover = (roomId: string) =>
   processRoute(
-    (routes) => (request) => routes.roomCommunity.discover(request, roomId),
+    roomCommunityComposition,
+    (routes) => (request) => routes.discover(request, roomId),
   );
 
 /** Each Room chat form posts through the canonical route: origin, session, limits and authority. */

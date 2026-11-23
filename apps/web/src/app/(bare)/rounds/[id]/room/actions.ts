@@ -7,9 +7,11 @@ import {
 import { hydratedPost, moveOn } from '../../../../../server/form-action';
 import { inProcessFetch } from '../../../../../server/in-process-fetch';
 import { processRoute } from '../../../../../server/process-app';
+import { roundComposition } from '../../../../../features/round-runtime/composition';
 const commands = (roundId: string) =>
   processRoute(
-    (routes) => (request) => routes.rounds.commands(request, roundId),
+    roundComposition,
+    (routes) => (request) => routes.commands(request, roundId),
   );
 async function submitRound(roundId: string, form: FormData) {
   const incoming = new Headers(await headers());

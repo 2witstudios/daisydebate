@@ -1,3 +1,4 @@
+import { defineComposition } from '../../server/composition';
 import type { AuthorizationPrincipal } from '@daisy/auth/authorization';
 import { requireAuthorization } from '@daisy/auth/request-authorization';
 import type { OwnCollectionFence } from '@daisy/db/authorization';
@@ -83,3 +84,8 @@ export function composeChallengeRoutes(app: App) {
       endChallenge(principal, command, challengeId, ports(app, principal)),
   });
 }
+
+/** challenges: its route files bind here (`processRoute`). */
+export const challengeComposition = defineComposition('challenges', (app) =>
+  composeChallengeRoutes(app),
+);

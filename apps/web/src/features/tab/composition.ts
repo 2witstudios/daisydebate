@@ -1,3 +1,4 @@
+import { defineComposition } from '../../server/composition';
 import { createLeagueSchoolCommandRoute } from './league-school-command-route';
 import {
   createLobbyPeopleRoute,
@@ -261,3 +262,8 @@ export function composeTabRoutes(app: App) {
       }),
   };
 }
+
+/** tab: its route files bind here (`processRoute`). */
+export const tabComposition = defineComposition('tab', (app) =>
+  composeTabRoutes(app),
+);

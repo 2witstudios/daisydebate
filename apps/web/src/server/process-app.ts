@@ -5,6 +5,7 @@ import type { Fetch } from '../features/mail/resend-sender';
 import { captureMail, fileRecorder, readDevMailFile } from './dev-mail';
 import { createProcessEdge, type ProcessHolder } from './process-edge';
 import { createRouteBinder } from './route-binding';
+import { composedOn, type Composed, type Composition } from './composition';
 import { createRoutes, type Routes } from './routes';
 import {
   createLazyBillingRoutes,
@@ -31,6 +32,8 @@ type ProcessState = {
     readonly billing: ReturnType<typeof createLazyBillingRoutes>;
   };
   readonly vendorFetch: typeof globalThis.fetch;
+  /** Each feature composition built on this app, by name. */
+  readonly composed: Composed;
   readonly initializeBilling: (load: BillingRouteLoader) => void;
 };
 
@@ -50,6 +53,7 @@ const stateFor = (
       }),
     },
     vendorFetch,
+    composed: new Map(),
     initializeBilling: (load) => {
       billingLoader ??= load;
     },
@@ -111,44 +115,112 @@ export const initializeProcessBilling = (load: BillingRouteLoader) =>
 /** This process's app, built on first use. */
 export const processApp = (): App => edge.get().app;
 
-type RouteSelector<Args extends unknown[]> = (
-  routes: ProcessState['routes'],
+type Handler<Args extends unknown[]> = (
+  request: Request,
+  ...args: Args
+) => Promise<Response>;
+
+/** Picks one handler of a composition; per request, so it may read the app. */
+type Pick<Routes, Args extends unknown[]> = (
+  routes: Routes,
   app: App,
   fetch: typeof globalThis.fetch,
-) => (request: Request, ...args: Args) => Promise<Response>;
+) => Handler<Args>;
 
-const bindProcessRoute = <Args extends unknown[]>(pick: RouteSelector<Args>) =>
-  createRouteBinder(() => edge.get())((state) =>
-    pick(state.routes, state.app, state.vendorFetch),
+/** The legacy table: shrinks to nothing as each feature binds its own composition. */
+type LegacyPick<Args extends unknown[]> = Pick<ProcessState['routes'], Args>;
+
+const isComposition = (value: unknown): value is Composition<unknown> =>
+  typeof value === 'object' && value !== null && 'compose' in value;
+
+/** `composition`'s handlers on the state's app, built once per app. */
+const routesOf = <Routes>(
+  state: ProcessState,
+  composition: Composition<Routes>,
+): Routes =>
+  composedOn(
+    state.composed,
+    state.app,
+    { vendorFetch: state.vendorFetch },
+    composition,
   );
+
+const selectOn = <Routes, Args extends unknown[]>(
+  composition: Composition<Routes> | null,
+  pick: Pick<Routes, Args> | LegacyPick<Args>,
+) =>
+  composition
+    ? (state: ProcessState) =>
+        (pick as Pick<Routes, Args>)(
+          routesOf(state, composition),
+          state.app,
+          state.vendorFetch,
+        )
+    : (state: ProcessState) =>
+        (pick as LegacyPick<Args>)(state.routes, state.app, state.vendorFetch);
 
 /**
- * The handler a binding selects on an app of the caller's own, never this
- * process's: what a test or the route net calls to reach one route.
+ * A route module's handler: `pick` selects it from its feature's
+ * composition on this process's app, resolved on the first request so
+ * importing the module builds and dials nothing. `bindTo` selects the same
+ * handler on an app of the caller's own (tests, the route net).
  */
-const boundTo =
-  <Args extends unknown[]>(pick: RouteSelector<Args>) =>
-  (app: App, vendorFetch: typeof globalThis.fetch = globalThis.fetch) => {
-    const state = stateFor(app, vendorFetch);
-    return pick(state.routes, state.app, state.vendorFetch);
-  };
-
-const bindRequestRoute = (pick: RouteSelector<[]>) => {
-  const handler = bindProcessRoute(pick);
-  return Object.assign((request: Request) => handler(request), {
-    bindTo: boundTo(pick),
+const bind = <Args extends unknown[]>(
+  select: (state: ProcessState) => Handler<Args>,
+) =>
+  Object.assign(createRouteBinder(() => edge.get())(select), {
+    bindTo: (
+      app: App,
+      vendorFetch: typeof globalThis.fetch = globalThis.fetch,
+    ) => select(stateFor(app, vendorFetch)),
   });
-};
 
-const bindParameterizedRoute = <Params>(pick: RouteSelector<[Params]>) =>
-  Object.assign(
-    bindProcessRoute((routes, app, fetch) => {
-      const handler = pick(routes, app, fetch);
-      return async (request, { params }: { params: Promise<Params> }) =>
-        handler(request, await params);
-    }),
-    { bindTo: boundTo(pick) },
-  );
+function bindRequestRoute<Routes>(
+  composition: Composition<Routes>,
+  pick: Pick<Routes, []>,
+): Handler<[]> & { readonly bindTo: (app: App) => Handler<[]> };
+function bindRequestRoute(
+  pick: LegacyPick<[]>,
+): Handler<[]> & { readonly bindTo: (app: App) => Handler<[]> };
+function bindRequestRoute<Routes>(
+  first: Composition<Routes> | LegacyPick<[]>,
+  pick?: Pick<Routes, []>,
+) {
+  const bound = isComposition(first)
+    ? bind(selectOn(first, pick as Pick<Routes, []>))
+    : bind(selectOn<Routes, []>(null, first));
+  return Object.assign((request: Request) => bound(request), {
+    bindTo: bound.bindTo,
+  });
+}
+
+const withParams =
+  <Params>(handler: Handler<[Params]>) =>
+  async (request: Request, { params }: { params: Promise<Params> }) =>
+    handler(request, await params);
+
+function bindParameterizedRoute<Routes, Params>(
+  composition: Composition<Routes>,
+  pick: Pick<Routes, [Params]>,
+): ReturnType<typeof bindNextParams<Params>>;
+function bindParameterizedRoute<Params>(
+  pick: LegacyPick<[Params]>,
+): ReturnType<typeof bindNextParams<Params>>;
+function bindParameterizedRoute<Routes, Params>(
+  first: Composition<Routes> | LegacyPick<[Params]>,
+  pick?: Pick<Routes, [Params]>,
+) {
+  const select = isComposition(first)
+    ? selectOn(first, pick as Pick<Routes, [Params]>)
+    : selectOn<Routes, [Params]>(null, first);
+  return bindNextParams<Params>(select);
+}
+
+function bindNextParams<Params>(
+  select: (state: ProcessState) => Handler<[Params]>,
+) {
+  return bind((state) => withParams(select(state)));
+}
 
 /** Binds request-only handlers or unwraps the directory params supplied by Next. */
 export const processRoute = Object.assign(bindRequestRoute, {

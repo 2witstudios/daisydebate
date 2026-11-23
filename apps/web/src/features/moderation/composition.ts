@@ -1,3 +1,4 @@
+import { defineComposition } from '../../server/composition';
 import { requireAuthorization } from '@daisy/auth/request-authorization';
 import { moderationAcknowledgeSchema } from '@daisy/protocol/moderation';
 import { requireMemberActor } from '../access/actor';
@@ -63,3 +64,8 @@ export function composeModerationRoutes(app: App) {
       }),
   };
 }
+
+/** moderation: its route files bind here (`processRoute`). */
+export const moderationComposition = defineComposition('moderation', (app) =>
+  composeModerationRoutes(app),
+);

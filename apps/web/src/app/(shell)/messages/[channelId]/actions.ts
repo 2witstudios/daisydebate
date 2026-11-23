@@ -5,6 +5,7 @@ import { z } from 'zod';
 import { systemId } from '@daisy/clock';
 import { idSchema } from '@daisy/protocol/primitives';
 import { processRoute } from '../../../../server/process-app';
+import { messagingComposition } from '../../../../features/messaging/composition';
 import { inProcessFetch } from '../../../../server/in-process-fetch';
 import { submitMessagingForm } from '../../../../server/messaging-form-submit';
 import {
@@ -24,8 +25,11 @@ import {
   type MessageFormState,
 } from '../../../../features/messaging/forms/send-form';
 
-const send = processRoute((routes) => routes.messaging.send);
-const markRead = processRoute((routes) => routes.messaging.markRead);
+const send = processRoute(messagingComposition, (routes) => routes.send);
+const markRead = processRoute(
+  messagingComposition,
+  (routes) => routes.markRead,
+);
 
 /**
  * ISSUE-606: marks a conversation read through `sequence` by POST, never on a
@@ -98,8 +102,8 @@ export async function sendMessageAction(
   return moveOn(incoming, next);
 }
 
-const edit = processRoute((routes) => routes.messaging.edit);
-const remove = processRoute((routes) => routes.messaging.remove);
+const edit = processRoute(messagingComposition, (routes) => routes.edit);
+const remove = processRoute(messagingComposition, (routes) => routes.remove);
 export async function changeMessageAction(
   channelId: string,
   messageId: string,

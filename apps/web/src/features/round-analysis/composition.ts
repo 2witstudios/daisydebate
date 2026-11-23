@@ -1,3 +1,4 @@
+import { defineComposition } from '../../server/composition';
 import { createAppError } from '@daisy/errors';
 import type { App } from '../../server/app';
 import { composeRoundMemberDependencies } from '../round-runtime/member-composition';
@@ -37,3 +38,9 @@ export function composeRoundAnalysisRoutes(app: App) {
     },
   });
 }
+
+/** round-analysis: its route files bind here (`processRoute`). */
+export const roundAnalysisComposition = defineComposition(
+  'round-analysis',
+  (app) => composeRoundAnalysisRoutes(app),
+);
