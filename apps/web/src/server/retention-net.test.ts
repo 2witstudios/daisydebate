@@ -17,7 +17,8 @@ test('the retention sweep prunes the same stores, by name', () => {
   }).map(({ name }) => name);
   assert({
     given: 'the production retention targets',
-    should: 'name each store once, the same set as before RECON-4.6',
+    should:
+      'name each store once, the same set as before RECON-4.6 plus support messages (SUPP-1)',
     actual: { names: [...names].sort(), unique: new Set(names).size },
     expected: { names: EXPECTED, unique: EXPECTED.length },
   });
@@ -63,6 +64,7 @@ const EXPECTED: readonly string[] = [
   'retention.social_declines',
   'retention.social_requests',
   'retention.spectator_chat',
+  'retention.support_messages',
   'retention.utterances',
   'retention.verification',
   'retention.watch_history',

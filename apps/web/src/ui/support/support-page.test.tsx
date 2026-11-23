@@ -1,6 +1,7 @@
 import { createElement as h } from 'react';
-import { renderToString } from 'react-dom/server';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
+import { renderAccessible } from '../../test-support/rendered/accessible';
+import { postedBy } from '../test-support/posted-fields.test-support';
 import { initialMessageForm } from '../../features/support/message-form';
 import { SupportPage } from './support-page';
 import { SupportTopicNoteText } from './support-topic-note';
@@ -9,7 +10,7 @@ setupRitewayBun();
 
 const messageId = 'k3v9q2w8e7r6t5y4u3i2o1pa';
 const page = (replyEmail: string) =>
-  renderToString(
+  renderAccessible(
     h(SupportPage, {
       messageId,
       replyEmail,
@@ -19,21 +20,36 @@ const page = (replyEmail: string) =>
 
 describe('SupportPage', () => {
   test('one form with every field, the reply address prefilled', () => {
-    const html = page('sam@example.test');
+    const view = page('sam@example.test');
+    const form = view.within('form', 'Contact support');
+    const posted = postedBy(view, 'Send message');
     assert({
       given: 'a signed-in member’s reply address',
       should:
         'render the named form with its topics, fields and the address as the reply value',
       actual: [
-        html.includes('<h1'),
-        html.includes('aria-label="Contact support"'),
-        html.includes('Something isn’t working'),
-        html.includes('A safety concern'),
-        html.includes('What page or round is this about? (optional)'),
-        /id="support-replyEmail"[^>]*value="sam@example.test"/.test(html),
-        html.includes(`value="${messageId}"`),
+        view.names('heading', { level: 1 }),
+        form
+          .all('option')
+          .map((option) => option.textContent)
+          .filter(
+            (label) =>
+              label === 'Something isn’t working' ||
+              label === 'A safety concern',
+          ),
+        form.has('textbox', 'Message'),
+        form.has('textbox', 'What page or round is this about? (optional)'),
+        posted.replyEmail,
+        posted.messageId,
       ],
-      expected: [true, true, true, true, true, true, true],
+      expected: [
+        ['Contact support'],
+        ['Something isn’t working', 'A safety concern'],
+        true,
+        true,
+        'sam@example.test',
+        messageId,
+      ],
     });
   });
 
@@ -41,8 +57,8 @@ describe('SupportPage', () => {
     assert({
       given: 'no reply address',
       should: 'leave the email field empty',
-      actual: /id="support-replyEmail"[^>]*value=""/.test(page('')),
-      expected: true,
+      actual: postedBy(page(''), 'Send message').replyEmail,
+      expected: '',
     });
   });
 });
@@ -50,17 +66,17 @@ describe('SupportPage', () => {
 describe('SupportTopicNoteText', () => {
   test('the note follows the topic', () => {
     const note = (topic: Parameters<typeof SupportTopicNoteText>[0]['topic']) =>
-      renderToString(h(SupportTopicNoteText, { topic }));
+      renderAccessible(h(SupportTopicNoteText, { topic }));
     assert({
       given: 'a problem, a safety concern and an account question',
       should:
         'show nothing, then the Report pointer, then a link to Settings privacy',
       actual: [
-        note('problem'),
-        note('safety').includes('use Report on it'),
-        note('account').includes('href="/settings#privacy"'),
+        note('problem').textContent(),
+        note('safety').textContent().includes('use Report on it'),
+        note('account').attribute('link', undefined, 'href'),
       ],
-      expected: ['', true, true],
+      expected: ['', true, '/settings#privacy'],
     });
   });
 });

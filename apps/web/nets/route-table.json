@@ -1070,6 +1070,14 @@
     "config": {}
   },
   {
+    "path": "/api/support",
+    "methods": ["POST"],
+    "runtime": "nodejs",
+    "config": {
+      "dynamic": "force-dynamic"
+    }
+  },
+  {
     "path": "/api/tab/confirmation-command",
     "methods": ["POST"],
     "runtime": "nodejs",

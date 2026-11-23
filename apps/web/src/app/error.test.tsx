@@ -22,7 +22,7 @@ describe('ErrorBoundary', () => {
   });
 
   test('offers a way to contact support', () => {
-    const html = renderToString(
+    const view = renderAccessible(
       h(ErrorBoundary, {
         error: Object.assign(new Error('boom'), { digest: 'd1' }),
         retry: () => undefined,
@@ -31,8 +31,8 @@ describe('ErrorBoundary', () => {
     assert({
       given: 'a route error',
       should: 'link to /support',
-      actual: html.includes('<a href="/support">Contact support</a>'),
-      expected: true,
+      actual: view.attribute('link', 'Contact support', 'href'),
+      expected: '/support',
     });
   });
 });

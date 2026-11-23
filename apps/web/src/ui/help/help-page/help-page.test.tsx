@@ -27,12 +27,14 @@ describe('HelpPage', () => {
   });
 
   test('a question Help does not answer goes to support', () => {
-    const html = renderToString(h(HelpPage, { topics: helpTopics }));
+    const view = renderAccessible(
+      h(HelpPage, { homes: [], topics: helpTopics }),
+    );
     assert({
       given: 'the help topics',
-      should: 'link to /support after them',
-      actual: html.includes('<a href="/support">Contact support</a>'),
-      expected: true,
+      should: 'link to /support',
+      actual: view.attribute('link', 'Contact support', 'href'),
+      expected: '/support',
     });
   });
 

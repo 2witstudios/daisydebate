@@ -71,12 +71,8 @@ const mailsFor = (id: string) =>
 
 test('a visitor’s support message is stored once and reaches the owner', async () => {
   const message = messageFor();
-  const first = await route.POST(
-    t.jsonPost('/api/support', message),
-  );
-  const again = await route.POST(
-    t.jsonPost('/api/support', message),
-  );
+  const first = await route.POST(t.jsonPost('/api/support', message));
+  const again = await route.POST(t.jsonPost('/api/support', message));
 
   assert({
     given: 'a valid message sent twice under one message id',

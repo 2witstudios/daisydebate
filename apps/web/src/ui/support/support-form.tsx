@@ -5,7 +5,7 @@ import {
   supportTopics,
   type SupportTopic,
 } from '@daisy/protocol/support-message';
-import { StatusRegion } from '../components/status-region/status-region';
+import { Announcement } from '../components/announcement/announcement';
 import {
   useFocusAfterAnswer,
   useFormAction,
@@ -121,9 +121,9 @@ function TopicField({
           </option>
         ))}
       </select>
-      <StatusRegion as="div" role="status" className="text-sm text-ink-muted">
+      <Announcement as="div" kind="progress" className="text-sm text-ink-muted">
         <SupportTopicNoteText topic={topic} />
-      </StatusRegion>
+      </Announcement>
     </Field>
   );
 }
@@ -221,15 +221,15 @@ export function SupportForm({
         />
       </Field>
       {(fields.notice ?? fields.errors.messageId) ? (
-        <StatusRegion
+        <Announcement
           as="p"
           id={NOTICE_ID}
-          role="alert"
+          kind="problem"
           tabIndex={-1}
           className="text-sm text-live"
         >
           {fields.notice ?? fields.errors.messageId}
-        </StatusRegion>
+        </Announcement>
       ) : null}
       <div className="flex flex-wrap gap-3">
         <Button type="submit" disabled={pending}>

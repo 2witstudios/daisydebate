@@ -20,6 +20,8 @@ test('social messaging remains outside contextual retention (DEC-126, DEC-251)',
       )
       .map(({ name }) => name),
     expected: [
+      // Support messages to Daisy, not member messaging: 365 days (SUPP-1).
+      'retention.support_messages',
       'retention.social_declines',
       'retention.social_requests',
       // Ended unread-messages email jobs: no message content (ADR 0144).

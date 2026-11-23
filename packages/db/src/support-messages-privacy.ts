@@ -1,8 +1,7 @@
 import { sql } from 'drizzle-orm';
 import { z } from 'zod';
 import type { PrivacyAdopter } from './privacy/contracts';
-import { exportRows } from './privacy/export-rows';
-import { query, run } from './raw-rows';
+import { exportRows, query, run } from './raw-rows';
 
 /**
  * A signed-in sender's support messages are theirs (compliance: support
