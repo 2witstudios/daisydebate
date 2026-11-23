@@ -8,7 +8,7 @@ import {
   roundJudgingJobs,
 } from './schema/round-judging-jobs';
 import { readLockedFrozenRoundTranscript } from './frozen-transcript';
-import { leaseTokenDigest } from './lease';
+import { leaseTokenDigest, nextEpoch } from './lease';
 import {
   endLockedRoundAgentRun,
   lockRoundAgentContext,
@@ -16,13 +16,12 @@ import {
 } from './round-agent-runs';
 import { readDatabaseTime } from './database-clock';
 import { judgingJobWhere, type JudgingScope } from './round-judging-context';
-import { nextEpoch } from './lease';
 import { requireClaimableJob } from './round-judging-decisions';
 import {
   applyJudgingProgression,
   judgingStageFacts,
   type JudgingProgression,
-} from './round-judging-progression';
+} from './round-judging-jobs';
 import type { Tx } from './tx';
 import { takeLock, transactionLocks } from './locks';
 

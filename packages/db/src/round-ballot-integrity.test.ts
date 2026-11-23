@@ -13,7 +13,7 @@ import {
   ballotDecisionColumns,
   requireFrozenRevision,
   requireJudgingRun,
-} from './round-ballot-decisions';
+} from './round-ballot-operations';
 
 setupRitewayBun();
 
