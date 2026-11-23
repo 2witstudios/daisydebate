@@ -26,6 +26,18 @@ describe('HelpPage', () => {
     });
   });
 
+  test('a question Help does not answer goes to support', () => {
+    const view = renderAccessible(
+      h(HelpPage, { homes: [], topics: helpTopics }),
+    );
+    assert({
+      given: 'the help topics',
+      should: 'link to /support',
+      actual: view.attribute('link', 'Contact support', 'href'),
+      expected: '/support',
+    });
+  });
+
   test('each topic is addressable', () => {
     const view = renderAccessible(
       h(HelpPage, { homes: [], topics: helpTopics }),

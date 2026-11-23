@@ -102,6 +102,7 @@
     "./stores/spectating": "./src/stores/spectating.ts",
     "./stores/spectator-chat": "./src/stores/spectator-chat.ts",
     "./stores/standings": "./src/stores/standings.ts",
+    "./stores/support": "./src/stores/support.ts",
     "./stores/tab": "./src/stores/tab.ts",
     "./stores/transcripts": "./src/stores/transcripts.ts",
     "./stores/watch-history": "./src/stores/watch-history.ts",

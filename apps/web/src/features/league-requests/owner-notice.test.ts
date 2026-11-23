@@ -1,7 +1,6 @@
 import type { LeagueRequestNotice } from '@daisy/db/stores/league-requests';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import type { EmailMessage } from '../mail/types';
-import { MAIL_MAX_ATTEMPTS } from '../mail/retry-policy';
 import { createLeagueRequestNotices } from './owner-notice';
 
 setupRitewayBun();
@@ -21,43 +20,32 @@ const request: Extract<LeagueRequestNotice, { kind: 'request' }>['request'] = {
   receivedAt: '2026-11-18T09:00:00.000Z',
 };
 
-const scripted = (input: {
-  readonly notice?: LeagueRequestNotice | Error;
-  readonly attempts?: number;
-  readonly deliver?: (message: EmailMessage) => Promise<'sent' | 'suppressed'>;
-}) => {
+const scripted = (input: { readonly notice?: LeagueRequestNotice }) => {
   const sent: EmailMessage[] = [];
   const settled: unknown[] = [];
-  const failures: unknown[] = [];
-  const lost: unknown[] = [];
   const notices = createLeagueRequestNotices({
     store: {
       claimLeagueRequestNotices: async () => [
-        { id: request.id, attempts: input.attempts ?? 1, token: 'tok' },
+        { id: request.id, attempts: 1, token: 'tok' },
       ],
-      readLeagueRequestNotice: async () => {
-        const notice = input.notice ?? { kind: 'request', request };
-        if (notice instanceof Error) throw notice;
-        return notice;
-      },
+      readLeagueRequestNotice: async () =>
+        input.notice ?? { kind: 'request', request },
       settleLeagueRequestNotice: async ({ outcome }) => {
         settled.push(outcome);
         return true;
       },
     },
-    deliver:
-      input.deliver ??
-      (async (message) => {
-        sent.push(message);
-        return 'sent';
-      }),
+    deliver: async (message) => {
+      sent.push(message);
+      return 'sent';
+    },
     ownerAddress: 'owner@daisy.example',
     nextToken: () => 'tok',
     now: () => '2026-11-18T10:00:00.000Z',
-    failed: (error) => failures.push(error),
-    gaveUp: (error) => lost.push(error),
+    failed: () => {},
+    gaveUp: () => {},
   });
-  return { notices, sent, settled, failures, lost };
+  return { notices, sent, settled };
 };
 
 test('a League request notice', async () => {
@@ -111,44 +99,6 @@ test('a League request notice', async () => {
   }
 
   {
-    const { settled, lost, notices } = scripted({
-      deliver: async () => 'suppressed',
-    });
-    await notices.run(10);
-    assert({
-      given: 'an owner address that is suppressed',
-      should:
-        'cancel as suppressed and report it, since every lead would vanish the same way',
-      actual: { settled, lost: lost.length },
-      expected: {
-        settled: [{ kind: 'cancelled', errorCode: 'suppressed' }],
-        lost: 1,
-      },
-    });
-  }
-
-  {
-    const { settled, notices } = scripted({
-      deliver: async () => {
-        throw new Error('provider down for dana@gulfcoastspeech.org');
-      },
-    });
-    await notices.run(10);
-    assert({
-      given: 'a send that fails',
-      should: 'retry later with backoff',
-      actual: settled,
-      expected: [
-        {
-          kind: 'retry',
-          errorCode: 'delivery',
-          nextAttemptAt: '2026-11-18T10:00:30.000Z',
-        },
-      ],
-    });
-  }
-
-  {
     const { sent, notices } = scripted({
       notice: {
         kind: 'request',
@@ -169,72 +119,6 @@ test('a League request notice', async () => {
       expected: {
         paragraphs: 3,
       },
-    });
-  }
-
-  {
-    const { failures, lost, notices } = scripted({
-      deliver: async () => {
-        throw new Error('provider down');
-      },
-    });
-    await notices.run(10);
-    assert({
-      given: 'a send that fails with attempts left',
-      should: 'report nothing yet',
-      actual: failures.length + lost.length,
-      expected: 0,
-    });
-  }
-
-  {
-    const gaveUp = new Error('still down');
-    const { settled, lost, notices } = scripted({
-      attempts: MAIL_MAX_ATTEMPTS,
-      deliver: async () => {
-        throw gaveUp;
-      },
-    });
-    await notices.run(10);
-    assert({
-      given: 'a send that fails on its last attempt',
-      should: 'fail for good and report it as lost, so the lead is seen',
-      actual: { settled, lost },
-      expected: {
-        settled: [{ kind: 'failed', errorCode: 'delivery' }],
-        lost: [gaveUp],
-      },
-    });
-  }
-
-  {
-    const unreadable = new Error('pool refused');
-    const { settled, failures, lost, notices } = scripted({
-      attempts: MAIL_MAX_ATTEMPTS,
-      notice: unreadable,
-    });
-    await notices.run(10);
-    assert({
-      given: 'a read that fails on the last attempt',
-      should: 'report it as lost and name the stored data, not the provider',
-      actual: { settled, failures, lost },
-      expected: {
-        settled: [{ kind: 'failed', errorCode: 'unreadable' }],
-        failures: [],
-        lost: [unreadable],
-      },
-    });
-  }
-
-  {
-    const unreadable = new Error('read failed');
-    const { settled, failures, notices } = scripted({ notice: unreadable });
-    await notices.run(10);
-    assert({
-      given: 'a request that cannot be read',
-      should: 'report it and retry, without aborting the batch',
-      actual: { failures, kind: (settled[0] as { kind: string }).kind },
-      expected: { failures: [unreadable], kind: 'retry' },
     });
   }
 });

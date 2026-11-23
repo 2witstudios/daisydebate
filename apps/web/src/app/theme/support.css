@@ -1,0 +1,5 @@
+/* Component-owned size tokens for /support (ADR 0028). Theme variables only; classes stay in the markup. */
+@theme {
+  /* The message box opens tall enough for a few lines. */
+  --spacing-support-message: 160px;
+}

@@ -20,4 +20,19 @@ describe('ErrorBoundary', () => {
       expected: true,
     });
   });
+
+  test('offers a way to contact support', () => {
+    const view = renderAccessible(
+      h(ErrorBoundary, {
+        error: Object.assign(new Error('boom'), { digest: 'd1' }),
+        retry: () => undefined,
+      }),
+    );
+    assert({
+      given: 'a route error',
+      should: 'link to /support',
+      actual: view.attribute('link', 'Contact support', 'href'),
+      expected: '/support',
+    });
+  });
 });

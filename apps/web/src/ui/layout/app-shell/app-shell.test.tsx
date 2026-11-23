@@ -117,7 +117,10 @@ describe('AppShell', () => {
       actual: [
         rail.attribute('link', 'Daisy Debate home', 'href'),
         hrefsOf(rail.all('link')).filter(
-          (href) => !['/help', '/about', '/terms', '/privacy'].includes(href),
+          (href) =>
+            !['/help', '/support', '/about', '/terms', '/privacy'].includes(
+              href,
+            ),
         ),
       ],
       expected: [
@@ -191,11 +194,11 @@ describe('AppShell', () => {
     assert({
       given: "a member's extended rail",
       should:
-        'name every link, the full name when the word is shorter, and reach the help and legal pages',
+        'name every link, the full name when the word is shorter, and reach the help, support and legal pages',
       actual: [
         rail.has('link', 'Messages'),
         rail.has('link', /^Friends, \d+ online$/),
-        ['/help', '/about', '/terms', '/privacy'].every((href) =>
+        ['/help', '/support', '/about', '/terms', '/privacy'].every((href) =>
           hrefsOf(rail.all('link')).includes(href),
         ),
       ],
@@ -283,6 +286,7 @@ describe('AppShell', () => {
         '/profile/ada-byron',
         '/settings',
         '/help',
+        '/support',
         '/about',
         '/terms',
         '/privacy',

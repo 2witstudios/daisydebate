@@ -37,4 +37,13 @@ describe('GlobalError', () => {
       expected: true,
     });
   });
+
+  test('offers a way to contact support', () => {
+    assert({
+      given: 'a root-layout failure',
+      should: 'link to /support',
+      actual: renderFailure().attribute('link', 'Contact support', 'href'),
+      expected: '/support',
+    });
+  });
 });

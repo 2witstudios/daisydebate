@@ -20,6 +20,7 @@ import { authFields, signUpFields } from './auth-config';
 import { mailFields } from './mail-config';
 import { migrationFields } from './migration-config';
 import { leagueRequestsFields } from './league-requests-config';
+import { supportFields } from './support-config';
 import { debateBotFields } from './debate-bot-config';
 
 import {
@@ -110,6 +111,7 @@ const serverFields = {
   ...webOriginFields,
   ...betaFields,
   ...leagueRequestsFields,
+  ...supportFields,
   ...operatorFields,
   ...releaseFlagDefaultFields,
   ...realtimeEndpointFields,

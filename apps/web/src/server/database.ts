@@ -33,6 +33,7 @@ import { createFriendsStore } from '@daisy/db/stores/friends';
 import { createGuardiansStore } from '@daisy/db/stores/guardians';
 import { createHealthStore } from '@daisy/db/stores/health';
 import { createLeagueRequestsStore } from '@daisy/db/stores/league-requests';
+import { createSupportStore } from '@daisy/db/stores/support';
 import { createListenStore } from '@daisy/db/stores/listen';
 import { createLobbyStore } from '@daisy/db/stores/lobbies';
 import { createMailStore } from '@daisy/db/stores/mail';
@@ -177,6 +178,7 @@ export function openWebDatabase({
     createAuthStore(resources),
     createMailStore(resources),
     createLeagueRequestsStore(resources),
+    createSupportStore(resources),
     createBetaAccessStore(resources),
     createOperatorAccountsStore(resources),
     createFlagsStore(resources),

@@ -17,6 +17,7 @@
 @import './theme/pricing.css';
 @import './theme/clubs.css';
 @import './theme/league-request.css';
+@import './theme/support.css';
 @import './theme/media-release.css';
 
 /* Tailwind v4 is configured here and nowhere else (ADR 0028): no

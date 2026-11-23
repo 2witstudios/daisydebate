@@ -12,6 +12,7 @@ import { availabilityInProcess } from '../features/availability/work';
 import { mailInProcess } from '../features/mail/work';
 import { clubsInProcess } from '../features/clubs/work';
 import { leagueRequestsInProcess } from '../features/league-requests/work';
+import { supportInProcess } from '../features/support/work';
 import { mediaReleasesInProcess } from '../features/media-releases/work';
 import { roundJudgingInProcess } from '../features/round-judging/work';
 import { roundAnalysisInProcess } from '../features/round-analysis/work';
@@ -103,6 +104,7 @@ const features: readonly ProcessFeature[] = [
   mailInProcess,
   clubsInProcess,
   leagueRequestsInProcess,
+  supportInProcess,
   mediaReleasesInProcess,
   roundJudgingInProcess,
   roundAnalysisInProcess,

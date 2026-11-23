@@ -52,7 +52,7 @@ export const primaryDestinations: readonly Destination[] = [
   { href: '/prep', icon: 'book', label: 'Prep' },
 ];
 
-/** More: settings, help, About Daisy and the legal pages. */
+/** More: settings, help, support, About Daisy and the legal pages. */
 export const moreDestination: Destination = {
   href: '/settings',
   icon: 'dots',
@@ -60,6 +60,7 @@ export const moreDestination: Destination = {
   subItems: [
     { href: '/settings', label: 'Settings' },
     { href: '/help', label: 'Help' },
+    { href: '/support', label: 'Contact support' },
     { href: '/about', label: 'About Daisy' },
     { href: '/terms', label: 'Terms' },
     { href: '/privacy', label: 'Privacy' },

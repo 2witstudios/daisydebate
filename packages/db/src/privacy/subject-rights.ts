@@ -32,6 +32,7 @@ import { usagePrivacyAdopter } from '../usage-privacy';
 import { billingPrivacyAdopter } from '../billing-privacy';
 import { flagsPrivacyAdopter } from '../flags-privacy';
 import { contentModerationPrivacyAdopter } from '../content-moderation-privacy';
+import { supportMessagePrivacyAdopter } from '../support-messages-privacy';
 import { onboardingPrivacyAdopter } from '../onboarding-privacy';
 import { publicProfilePrivacyAdopter } from '../public-profile-privacy';
 import { createRoomAccountClosureAdopter } from '../room-account-closure';
@@ -115,6 +116,7 @@ export const subjectRightsAdoption = (
   billingPrivacyAdopter,
   flagsPrivacyAdopter,
   contentModerationPrivacyAdopter,
+  supportMessagePrivacyAdopter,
   audienceReactionPrivacyAdopter,
   debaterFollowPrivacyAdopter,
   watchHistoryPrivacyAdopter,

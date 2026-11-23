@@ -6,7 +6,10 @@ export default function NotFound() {
     <main>
       <h1 className={prose.h1}>Not found</h1>
       <p className={prose.p}>This page does not exist.</p>
-      <Link href="/">Return home</Link>
+      <p className={prose.p}>
+        <Link href="/">Return home</Link> or{' '}
+        <Link href="/support">contact support</Link>.
+      </p>
     </main>
   );
 }

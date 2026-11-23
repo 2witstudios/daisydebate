@@ -43,6 +43,7 @@ describe('retention targets', () => {
         purgeExpiredEmailDeliveryEvents: record('email_delivery_event'),
         purgeExpiredEmailDeliveries: record('email_delivery'),
         purgeExpiredLeagueRequests: record('league_requests'),
+        purgeExpiredSupportMessages: record('support_messages'),
         purgeEndedMediaReleaseRequests: record('media_release_requests'),
         purgeWithdrawnMediaReleases: record('media_releases'),
         purgeExpiredMailIntents: record('mail_intents'),
@@ -223,6 +224,11 @@ describe('retention targets', () => {
           },
           { name: 'retention.league_requests', batchSize: 500, maxBatches: 20 },
           {
+            name: 'retention.support_messages',
+            batchSize: 500,
+            maxBatches: 20,
+          },
+          {
             name: 'retention.media_release_requests',
             batchSize: 500,
             maxBatches: 4,
@@ -325,6 +331,9 @@ describe('retention targets', () => {
             { before: '2026-08-21T12:00:00.000Z', limit: 500 },
           ],
           league_requests: [{ before: '2025-09-20T12:00:00.000Z', limit: 500 }],
+          support_messages: [
+            { before: '2025-09-20T12:00:00.000Z', limit: 500 },
+          ],
           media_release_requests: [
             { before: '2026-08-21T12:00:00.000Z', limit: 500 },
           ],
@@ -417,6 +426,7 @@ describe('retention targets', () => {
           ['retention.mail_intents', false],
           ['retention.club_seat_invitations', false],
           ['retention.league_requests', false],
+          ['retention.support_messages', false],
           ['retention.media_release_requests', false],
           ['retention.media_releases', false],
           ['retention.pending_ballots', false],
@@ -444,7 +454,7 @@ describe('retention targets', () => {
         ],
         calls: { child_account_requests: [{ before: now, limit: 200 }] },
         sweeps: [1000],
-        failed: 40,
+        failed: 41,
       },
     });
   });
