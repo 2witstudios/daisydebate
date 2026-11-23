@@ -20,17 +20,15 @@ import {
 } from '@daisy/protocol/round-command';
 import { idSchema } from '@daisy/protocol/primitives';
 import { type RoundProjection } from '@daisy/protocol/runtime';
-import { eq } from 'drizzle-orm';
 import type { RoundHydration } from './round-hydration';
 import { commitRoundCommand } from './round-command-commit';
 import { lockedRoundVersion } from './round-projection-writer';
-import { roundCommands } from './schema/round-commands';
 import { instrumented, type DatabaseEventSink } from './instrumented';
 import {
   requireCommandInput,
   requireFencedParticipants,
-  requireSameCommand,
-} from './round-command-replay';
+  storedRoundCommand,
+} from './round-command-record';
 import { inTransaction, type Tx, type TxSource } from './tx';
 
 /** Facts read after authorization and Round fences; callbacks are pure and synchronous. */
@@ -56,18 +54,14 @@ async function replayCommand(
   input: CommandInput,
 ): Promise<RoundCommandReceipt | null> {
   const { actorId, serviceId } = roundPrincipalColumns(input.principal);
-  const [previous] = await tx
-    .select()
-    .from(roundCommands)
-    .where(eq(roundCommands.commandId, input.envelope.commandId));
+  const previous = await storedRoundCommand(tx, input.envelope.commandId, {
+    roundId: input.roundId,
+    actorId,
+    serviceId,
+    payloadDigest: input.payloadDigest,
+    type: input.envelope.command.type,
+  });
   if (previous) {
-    requireSameCommand(previous, {
-      roundId: input.roundId,
-      actorId,
-      serviceId,
-      payloadDigest: input.payloadDigest,
-      type: input.envelope.command.type,
-    });
     return {
       commandId: previous.commandId,
       roundId: previous.roundId,

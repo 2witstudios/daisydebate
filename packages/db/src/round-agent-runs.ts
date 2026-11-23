@@ -1,4 +1,4 @@
-import { requireFencedParticipants } from './round-command-replay';
+import { requireFencedParticipants } from './round-command-record';
 import { currentRoundParticipant } from './round-current-participant';
 import { and, eq, isNull, sql } from 'drizzle-orm';
 import { createAppError } from '@daisy/errors';

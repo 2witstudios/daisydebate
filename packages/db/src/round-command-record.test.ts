@@ -5,7 +5,7 @@ import {
   requireCommandInput,
   requireFencedParticipants,
   requireSameCommand,
-} from './round-command-replay';
+} from './round-command-record';
 
 setupRitewayBun();
 

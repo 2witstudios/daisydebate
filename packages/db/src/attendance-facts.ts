@@ -12,7 +12,7 @@ import {
 } from './availability-operations';
 import type { CheckInAttempt } from './check-in-attempts';
 import { fencedActorIds, seatEligibility } from './seat-eligibility';
-import { requireFencedParticipants } from './round-command-replay';
+import { requireFencedParticipants } from './round-command-record';
 import type { Tx } from './tx';
 import { takeLock, transactionLocks } from './locks';
 import { query } from './raw-rows';

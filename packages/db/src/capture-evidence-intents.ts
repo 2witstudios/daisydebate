@@ -24,7 +24,6 @@ import { leaseTokenDigest } from './lease';
 import type { Tx } from './tx';
 import { takeLock, transactionLocks } from './locks';
 import { query } from './raw-rows';
-import { sha3Hex } from '@daisy/digest';
 import { requireLeaseMs } from './lease';
 
 type Intent = z.infer<typeof captureEvidenceIntentSchema>;

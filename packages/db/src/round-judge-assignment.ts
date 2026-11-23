@@ -19,7 +19,7 @@ import { hydrateRoundRows, type RoundHydration } from './round-hydration';
 import {
   requireFencedParticipants,
   requireSameCommand,
-} from './round-command-replay';
+} from './round-command-record';
 import {
   lockedRoundVersion,
   appendRoundPhaseChanged,

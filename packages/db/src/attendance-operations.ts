@@ -10,9 +10,8 @@ import {
   type AttendanceReceipt,
 } from '@daisy/protocol/attendance';
 import { idSchema } from '@daisy/protocol/primitives';
-import { eq, sql } from 'drizzle-orm';
+import { sql } from 'drizzle-orm';
 import { insertCommandRow } from './round-projection-writer';
-import { roundCommands } from './schema/round-commands';
 import {
   sampleRoundExecutionTime,
   type RoundTimeSource,
@@ -36,8 +35,8 @@ export type {
 } from './attendance-facts';
 import {
   requireCommandInput,
-  requireSameCommand,
-} from './round-command-replay';
+  storedRoundCommand,
+} from './round-command-record';
 import { requireSameCheckIn } from './attendance-decisions';
 import type { Tx } from './tx';
 import { run as runStatement, query } from './raw-rows';
@@ -149,17 +148,13 @@ async function readReplay(
   columns: PrincipalColumns,
   participantId: string,
 ): Promise<AttendanceReceipt | null> {
-  const [previous] = await tx
-    .select()
-    .from(roundCommands)
-    .where(eq(roundCommands.commandId, input.envelope.commandId));
-  if (!previous) return null;
-  requireSameCommand(previous, {
+  const previous = await storedRoundCommand(tx, input.envelope.commandId, {
     ...columns,
     roundId: input.roundId,
     payloadDigest: input.payloadDigest,
     type: 'check_in',
   });
+  if (!previous) return null;
   const receipt = attendanceReceiptSchema.parse(previous.result);
   requireSameCheckIn(receipt, {
     segmentId: input.envelope.segmentId,

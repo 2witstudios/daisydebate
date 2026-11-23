@@ -50,12 +50,11 @@ import type { RoundHydration } from './round-hydration';
 import { ballots } from './schema/ballots';
 import { outcomeJson } from './round-outcome-sql';
 import { rounds } from './schema/rounds';
-import { roundCommands } from './schema/round-commands';
 import {
   requireCommandInput,
   requireFencedParticipants,
-  requireSameCommand,
-} from './round-command-replay';
+  storedRoundCommand,
+} from './round-command-record';
 import {
   ballotReceipt,
   requireBallotVersion,
@@ -124,17 +123,13 @@ export type LockedRoundBallotInput = {
 };
 
 async function replayBallot(tx: Tx, input: LockedRoundBallotInput) {
-  const [previous] = await tx
-    .select()
-    .from(roundCommands)
-    .where(eq(roundCommands.commandId, input.envelope.commandId));
-  if (!previous) return null;
-  requireSameCommand(previous, {
+  const previous = await storedRoundCommand(tx, input.envelope.commandId, {
     ...roundPrincipalColumns(input.principal),
     roundId: input.roundId,
     payloadDigest: input.payloadDigest,
     type: 'submit_ballot',
   });
+  if (!previous) return null;
   return roundBallotReceiptSchema.parse(previous.result);
 }
 async function lockedBallotContext(

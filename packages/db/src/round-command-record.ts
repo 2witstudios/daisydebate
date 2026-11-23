@@ -1,5 +1,8 @@
+import { eq } from 'drizzle-orm';
 import { createAppError, createRefusal } from '@daisy/errors';
 import { idSchema } from '@daisy/protocol/primitives';
+import { roundCommands } from './schema/round-commands';
+import type { Tx } from './tx';
 
 /** The identity a stored Round command row is bound to. */
 export type CommandBinding = {
@@ -9,6 +12,25 @@ export type CommandBinding = {
   readonly payloadDigest: string;
   readonly type: string;
 };
+
+/**
+ * The Round command record (`round_commands`): a Round write's idempotency
+ * and audit row, read under the `roundCommand` advisory lock its writer
+ * already holds. A stored row is returned only when it binds the exact same
+ * Round, principal, type and payload; a reused id with anything else refuses.
+ */
+export async function storedRoundCommand(
+  tx: Tx,
+  commandId: string,
+  expected: CommandBinding,
+) {
+  const [previous] = await tx
+    .select()
+    .from(roundCommands)
+    .where(eq(roundCommands.commandId, commandId));
+  if (previous) requireSameCommand(previous, expected);
+  return previous ?? null;
+}
 
 /** A reused command id replays only for the exact same Round, principal, type and payload. */
 export function requireSameCommand(
