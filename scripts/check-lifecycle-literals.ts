@@ -1,11 +1,6 @@
 import { existsSync, readFileSync } from 'node:fs';
 import ts from 'typescript';
-import {
-  bindingOf,
-  literalValues,
-  writtenValues,
-  type ReadModule,
-} from './lifecycle-write-values';
+import { bindingOf, type ReadModule } from './source-bindings';
 import {
   loadStoredVocabularies,
   type StoredVocabularies,
@@ -16,8 +11,9 @@ import {
  * A stored vocabulary word spelled in SQL text or a Drizzle call, where the
  * compiler cannot check it, is read from its list instead (RECON-3.11).
  * Every column a CHECK constrains with `oneOf` counts, in both databases.
- * TypeScript literals compared with a typed column or field stay legal:
- * the compiler checks those against the union the column carries.
+ * A literal in a Drizzle call (`eq`, `inArray`, `.set`, `.values`) or
+ * compared with a typed field stays legal: every such column carries its
+ * list's union (schema-vocabularies.test.ts), so the compiler checks it.
  */
 type Source = { readonly path: string; readonly text: string };
 type StoredColumn = {
@@ -237,22 +233,6 @@ const sqlTemplate = (
   );
 };
 
-const tableWrite = (callee: ts.Expression, source: ts.SourceFile) => {
-  if (
-    !ts.isPropertyAccessExpression(callee) ||
-    !ts.isCallExpression(callee.expression)
-  )
-    return undefined;
-  const builder = callee.expression;
-  if (!ts.isPropertyAccessExpression(builder.expression)) return undefined;
-  const name = `${builder.expression.name.text}.${callee.name.text}`;
-  return name === 'insert.values' || name === 'update.set'
-    ? builder.arguments[0]?.getText(source)
-    : undefined;
-};
-
-const comparisons = /^(?:eq|ne|inArray|notInArray|lt|lte|gt|gte)$/;
-
 export function lifecycleLiteralIssues(
   { path, text }: Source,
   readSource: (path: string) => string | undefined = () => undefined,
@@ -297,55 +277,14 @@ export function lifecycleLiteralIssues(
       });
     }
     if (ts.isCallExpression(node)) {
-      const [first, second] = node.arguments;
+      const [first] = node.arguments;
       const name = node.expression.getText(source);
-      const destination = tableWrite(node.expression, source);
-      const written = destination
-        ? vocabularies.drizzle.get(destination)
-        : undefined;
-      if (first && written) {
-        const sqlColumns = vocabularies.sql.get(written.table);
-        report(
-          node,
-          writtenValues(
-            first,
-            readModule,
-            new Set(written.columns.keys()),
-          ).flatMap(([key, word]) => {
-            const words = written.columns.get(key);
-            const column = [...(sqlColumns ?? [])].find(
-              ([, set]) => set === words,
-            )?.[0];
-            return words?.has(word) && column
-              ? [{ table: written.table, column, word }]
-              : [];
-          }),
-        );
-      }
       if ((name === 'sql.raw' || name.endsWith('.unsafe')) && first) {
         if (ts.isStringLiteralLike(first) || ts.isTemplateExpression(first))
           templates.push({
             node,
             sql: sqlTemplate(first, source, readModule, vocabularies),
           });
-      } else if (first && second && comparisons.test(name)) {
-        const stored =
-          storedColumn(first, readModule, vocabularies) ??
-          storedColumn(second, readModule, vocabularies);
-        if (stored)
-          report(
-            node,
-            [
-              ...literalValues(first, readModule),
-              ...literalValues(second, readModule),
-            ]
-              .filter((word) => stored.words.has(word))
-              .map((word) => ({
-                table: stored.table,
-                column: stored.column,
-                word,
-              })),
-          );
       }
     }
     ts.forEachChild(node, visit);
@@ -403,7 +342,7 @@ if (import.meta.main) {
   for (const byColumn of storedVocabularies.sql.values())
     columns += byColumn.size;
   console.log(
-    `${count} stored vocabulary word(s) spelled in SQL or Drizzle, over ${columns} CHECK-constrained columns`,
+    `${count} stored vocabulary word(s) spelled in SQL text, over ${columns} CHECK-constrained columns`,
   );
   process.exitCode = count === 0 ? 0 : 1;
 }

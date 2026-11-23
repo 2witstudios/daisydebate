@@ -16,18 +16,9 @@ test('rejects SQL lifecycle literals in predicates and writes', () => {
         "sql.raw(`insert into rooms (id, status) values ('id', 'closed')`);",
         "sql`select * from rooms where status = any(array['assembling'])`;",
         "sql`select * from rounds where ${rounds.status} = ${'abandoned'}`;",
-        "eq(rounds.status, 'active');",
-        "notInArray(rooms['status'], ['assembling', 'ready']);",
-        "db.insert(rooms).values({ status: 'assembling' });",
-        "db.update(rounds).set({ status: 'completed' });",
       ].join('\n'),
     ),
   ).toEqual([
-    word(7, 'active', 'rounds.status'),
-    word(8, 'assembling', 'rooms.status'),
-    word(8, 'ready', 'rooms.status'),
-    word(9, 'assembling', 'rooms.status'),
-    word(10, 'completed', 'rounds.status'),
     word(1, 'opening', 'rounds.status'),
     word(1, 'active', 'rounds.status'),
     word(2, 'ready', 'rooms.status'),
@@ -52,24 +43,20 @@ test('allows status values from protocol and unrelated lifecycle words', () => {
 });
 
 // RECON-3.11: the check covered two vocabularies; every CHECK-constrained
-// column now counts, in SQL text, Drizzle calls and schema extras.
+// column now counts, in SQL text and schema extras.
 test('rejects a word of any stored vocabulary, not only Room and Round status', () => {
   expect(
     problems(
       [
         "sql`select * from rounds d join seasons s on s.id = d.season_id where s.status = 'active'`;",
-        "eq(seasons.status, 'active');",
         "sql`update messaging_files set lifecycle = 'deleting' where id = ${id}`;",
         "sql`select 1 from actors a where a.kind = 'bot'`;",
-        "db.update(friendships).set({ state: 'accepted' });",
       ].join('\n'),
     ),
   ).toEqual([
-    word(2, 'active', 'seasons.status'),
-    word(5, 'accepted', 'friendships.state'),
     word(1, 'active', 'seasons.status'),
-    word(3, 'deleting', 'messaging_files.lifecycle'),
-    word(4, 'bot', 'actors.kind'),
+    word(2, 'deleting', 'messaging_files.lifecycle'),
+    word(3, 'bot', 'actors.kind'),
   ]);
 });
 
@@ -100,27 +87,29 @@ test('rejects a lifecycle literal in a native Bun query', () => {
   ]);
 });
 
-test('rejects aliased comparisons and lifecycle values built before the write', () => {
-  const helper = 'packages/db/src/lifecycle-fixture-values.ts';
-  const text = [
-    "import { roomValues } from './lifecycle-fixture-values';",
-    "const r = alias(rounds, 'r');",
-    "eq(r.status, 'completed');",
-    "db.insert(rounds).values({ status: opens ? 'opening' : 'active' });",
-    'db.insert(rooms).values({ ...roomValues(room) });',
-    "const copied = 'started'; db.update(rooms).set({ status: copied });",
-  ].join('\n');
+test('rejects a word compared with an aliased table column in SQL text', () => {
   expect(
-    lifecycleLiteralIssues({ path, text }, (target) =>
-      target === helper
-        ? "export const roomValues = (room) => ({ id: room.id, status: 'assembling' as const });"
-        : undefined,
+    problems(
+      [
+        "const r = alias(rounds, 'r');",
+        "sql`select 1 from ${r} where ${r.status} = 'completed'`;",
+      ].join('\n'),
     ),
-  ).toEqual([
-    word(3, 'completed', 'rounds.status'),
-    word(4, 'opening', 'rounds.status'),
-    word(4, 'active', 'rounds.status'),
-    word(5, 'assembling', 'rooms.status'),
-    word(6, 'started', 'rooms.status'),
-  ]);
+  ).toEqual([word(2, 'completed', 'rounds.status')]);
+});
+
+// Every CHECK-constrained column carries its list's union
+// (packages/db/src/schema-vocabularies.test.ts), so a Drizzle call's
+// literal is checked by the compiler and stays legal.
+test('leaves typed Drizzle comparisons and writes to the compiler', () => {
+  expect(
+    problems(
+      [
+        "eq(seasons.status, 'active');",
+        "notInArray(rooms.status, ['assembling', 'ready']);",
+        "db.update(friendships).set({ state: 'accepted' });",
+        "db.insert(rooms).values({ status: 'assembling' });",
+      ].join('\n'),
+    ),
+  ).toEqual([]);
 });
