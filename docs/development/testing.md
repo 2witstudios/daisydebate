@@ -307,8 +307,9 @@ report in CI's advisory job) is the live audit:
   keyed by email and user id) and their row counts (`counts`). Every suite
   builds its own app with its `createTestApp`: `createApp` over the test
   services with its own validated environment, Redis namespace, mailbox
-  `fetch`, log output and client addresses, and the route handlers
-  `createRoutes` builds from it. Suites share one `bun test` process, so a
+  `fetch`, log output and client addresses, and `routes(composition)`, which
+  builds one feature's handlers on that app (`composer`,
+  `src/server/composition.test-support.ts`). Suites share one `bun test` process, so a
   test never writes `process.env` or `globalThis` (ESLint refuses it) and
   passes regardless of which suites ran first. Mounted-route auth suites
   (`auth-*.integration.ts`) drive the real `/api/auth/[...all]`,

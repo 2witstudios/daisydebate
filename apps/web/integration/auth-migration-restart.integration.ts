@@ -8,7 +8,7 @@ import { systemClock, systemId } from '@daisy/clock';
 import { createPasskeyFlows } from './auth-passkey-flows';
 import { counts, removeAccount, testDatabaseUrl, withSql } from './fixtures';
 import { CLIENT_IP_HEADER } from '@daisy/ingress/client-ip';
-import { identify } from '../src/lib/identity';
+import { identify } from '../src/features/auth/identity';
 import { createApp } from '../src/server/app';
 import { requireTestServices } from '@daisy/config';
 import { emptyRuntimeCheckpointFor } from '@daisy/protocol/round';

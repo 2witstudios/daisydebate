@@ -6,6 +6,7 @@ import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createLeagueRequestNotices } from '../src/features/league-requests/owner-notice';
 import { nextWorkerToken } from '../src/server/worker-token';
 import { createTestApp, withSql } from './fixtures';
+import { leagueRequestComposition } from '../src/features/league-requests/composition';
 
 setupRitewayBun();
 
@@ -21,7 +22,9 @@ afterAll(() =>
 );
 
 /** The route as the app composes it, with its release open (the catalogue default keeps it closed). */
-const openRoute = { POST: t.routes.leagueRequests.POST(async () => true) };
+const openRoute = {
+  POST: t.routes(leagueRequestComposition).POST(async () => true),
+};
 
 const requestFor = (overrides: Partial<LeagueRequest> = {}): LeagueRequest => {
   const requestId = overrides.requestId ?? createId();
@@ -276,7 +279,7 @@ test('closed, invalid and cross-origin requests store nothing', async () => {
   const invalid = requestFor({ contactEmail: 'not an address' });
   const crossOrigin = requestFor();
   const answers = [
-    await t.routes.leagueRequests.POST(async () => false)(
+    await t.routes(leagueRequestComposition).POST(async () => false)(
       t.jsonPost('/api/league-requests', closed),
     ),
     await openRoute.POST(t.jsonPost('/api/league-requests', invalid)),

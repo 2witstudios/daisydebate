@@ -12,7 +12,7 @@ import { join } from 'node:path';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { requireTestServices } from '@daisy/config';
 import { billingEconomicsReadSchema } from '@daisy/protocol/billing-economics';
-import { composeBillingEconomics } from '../src/server/billing-economics';
+import { composeBillingEconomics } from '../src/features/billing/economics-worker';
 import {
   withAc3Runtime,
   untilCommitted,

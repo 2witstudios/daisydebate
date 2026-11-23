@@ -1,9 +1,11 @@
 import { processRoute } from '../../../../../server/process-app';
+import { attendanceComposition } from '../../../../../features/attendance/composition';
 type Params = Awaited<RouteContext<'/api/rounds/[roundId]/check-in'>['params']>;
 
 export const runtime = 'nodejs';
-export const POST = processRoute.withParams<Params>(
+export const POST = processRoute.withParams(
+  attendanceComposition,
   (routes) =>
-    (request, { roundId }) =>
-      routes.attendance.checkIn(request, roundId),
+    (request, { roundId }: Params) =>
+      routes.checkIn(request, roundId),
 );

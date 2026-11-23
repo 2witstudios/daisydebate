@@ -2,7 +2,7 @@ import { Announcement } from '../../../ui/components/announcement/announcement';
 import { systemClock } from '@daisy/clock';
 import { headers } from 'next/headers';
 import Link from 'next/link';
-import { requireAccess } from '../../../lib/access';
+import { requireAccess } from '../../../features/access/page-access';
 import type { SearchParams } from '../../../features/access/decision';
 import { inboxPageHref } from '../../../features/messaging/inbox-view';
 import { readMessagingInboxResponse } from '../../../features/messaging/inbox-response';

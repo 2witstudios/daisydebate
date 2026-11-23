@@ -7,6 +7,8 @@ import {
   withSql,
 } from './fixtures';
 import { CLIENT_IP_HEADER } from '@daisy/ingress/client-ip';
+import { authComposition } from '../src/features/auth/composition';
+import { confirmComposition } from '../src/features/auth/composition';
 
 /**
  * Mounted-route flow harness: the REAL `/api/auth` and `/auth/confirm` route
@@ -24,8 +26,8 @@ export function createFlows(testApp: TestApp = createTestApp()) {
     freshEmail: fresh,
     recordAccountIds,
   } = testApp;
-  const authRoute = routes.auth;
-  const confirmRoute = routes.confirm;
+  const authRoute = routes(authComposition);
+  const confirmRoute = routes(confirmComposition);
   const requestLink = async (
     email: string,
     body: Record<string, unknown> = {},

@@ -8,10 +8,10 @@ import { createId } from '@paralleldrive/cuid2';
 import type { Logger } from '@daisy/logger';
 import { createApp } from '../src/server/app';
 import { manualWaits } from '../src/lib/manual-waits.test-support';
-import { startBillingCleanup } from '../src/server/billing-cleanup';
+import { startBillingCleanup } from '../src/features/billing/cleanup-worker';
 import { authTestEnv } from '../src/features/auth/auth-server.test-support';
 import { betaMessagingPolicy } from '../src/features/messaging/beta-policy';
-import type { BillingFetch } from '../src/server/billing-stripe';
+import type { BillingFetch } from '../src/features/billing/stripe-client';
 const { databaseUrl } = requireTestServices(process.env);
 setupRitewayBun();
 const configured: BillingConfig = {

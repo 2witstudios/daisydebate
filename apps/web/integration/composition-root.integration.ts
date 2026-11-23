@@ -3,6 +3,8 @@ import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { createTestApp, withSql } from './fixtures';
 import { CLIENT_IP_HEADER } from '@daisy/ingress/client-ip';
 import { requireTestServices } from '@daisy/config';
+import { authComposition } from '../src/features/auth/composition';
+import { foundationProofComposition } from '../src/features/foundation/composition';
 
 setupRitewayBun();
 requireTestServices(process.env);
@@ -27,7 +29,7 @@ afterAll(async () => {
 });
 
 const proofPost = (testApp: typeof open) =>
-  testApp.routes.foundationProof.POST(
+  testApp.routes(foundationProofComposition).POST(
     new Request(`${testApp.origin}/api/foundation/proof`, {
       method: 'POST',
       headers: { 'content-type': 'application/json', origin: testApp.origin },
@@ -36,13 +38,15 @@ const proofPost = (testApp: typeof open) =>
   );
 
 const magicLink = (testApp: typeof open, client: string, email: string) =>
-  testApp.routes.auth.POST(
-    testApp.jsonPost(
-      '/api/auth/sign-in/magic-link',
-      { email },
-      { [CLIENT_IP_HEADER]: client },
-    ),
-  );
+  testApp
+    .routes(authComposition)
+    .POST(
+      testApp.jsonPost(
+        '/api/auth/sign-in/magic-link',
+        { email },
+        { [CLIENT_IP_HEADER]: client },
+      ),
+    );
 
 describe('ISSUE-7 composition root', () => {
   test('two apps with different flags answer concurrent requests from their own config', async () => {

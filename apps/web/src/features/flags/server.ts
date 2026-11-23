@@ -1,4 +1,4 @@
-import { requestReleaseEnabled } from '../../lib/request-session';
+import { requestReleaseEnabled } from './page-reads';
 import type { ReleaseFlagKey, ReleaseFlagReader } from './catalogue';
 export type { ReleaseFlagKey, ReleaseFlagReader } from './catalogue';
 

@@ -4,13 +4,13 @@ import { createAppError } from '@daisy/errors';
 import { defaultStandingLobby } from '@daisy/protocol/lobby/eligibility';
 import type { SearchParams } from '../../../features/access/decision';
 import { parseRoomDiscoveryQuery } from '../../../features/lobby/discovery-query';
-import { requireAccess } from '../../../lib/access';
+import { requireAccess } from '../../../features/access/page-access';
 import {
   requestCompetitionAgeBand,
   requestGuardianLobbyIds,
   requestOfficialStandingLobbies,
-  requestStudentRoundIds,
-} from '../../../lib/request-session';
+} from '../../../features/lobby/page-reads';
+import { requestStudentRoundIds } from '../../../features/watch/page-reads';
 import { Lobby } from '../../../ui/lobby/lobby';
 import { hostedRoomsRead, roomListing } from './actions';
 import { requestActiveRoom } from '../active-room';

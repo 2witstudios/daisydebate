@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { requireTabRelease } from '../../../../../../features/tab/release';
-import { requireAccess } from '../../../../../../lib/access';
+import { requireAccess } from '../../../../../../features/access/page-access';
 import { hostRoutes } from '../../../../../../features/tab/routes';
 import { People } from '../../../../../../ui/tab/people/people';
 import { PeopleCommandForm } from '../../../../../../ui/tab/people/people-command-form';

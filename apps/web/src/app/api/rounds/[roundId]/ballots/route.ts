@@ -1,14 +1,17 @@
 import { processRoute } from '../../../../../server/process-app';
+import { roundBallotComposition } from '../../../../../features/round-ballots/composition';
 type Params = Awaited<RouteContext<'/api/rounds/[roundId]/ballots'>['params']>;
 
 export const runtime = 'nodejs';
-export const GET = processRoute.withParams<Params>(
+export const GET = processRoute.withParams(
+  roundBallotComposition,
   (routes) =>
-    (request, { roundId }) =>
-      routes.rounds.getBallots(request, roundId),
+    (request, { roundId }: Params) =>
+      routes.getBallots(request, roundId),
 );
-export const POST = processRoute.withParams<Params>(
+export const POST = processRoute.withParams(
+  roundBallotComposition,
   (routes) =>
-    (request, { roundId }) =>
-      routes.rounds.submitBallot(request, roundId),
+    (request, { roundId }: Params) =>
+      routes.submitBallot(request, roundId),
 );

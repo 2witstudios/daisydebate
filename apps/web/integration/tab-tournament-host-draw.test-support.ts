@@ -7,7 +7,10 @@ import {
 } from '../src/features/tab/host-draw-route';
 import { readHostRound } from '../src/features/tab/reads/host-round';
 import { readHostDrawOverview } from '../src/features/tab/reads/host-draw-overview';
-import { member, origin } from '../src/server/member-boundary.test-support';
+import {
+  member,
+  origin,
+} from '../src/features/auth/member-boundary.test-support';
 import { silentLogger } from '../src/server/test-loggers.test-support';
 import { as } from './tab-tournament-organization-wiring.test-support';
 import type { Bot, World } from './tab-tournament.test-support';

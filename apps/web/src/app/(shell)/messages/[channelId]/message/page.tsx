@@ -2,7 +2,7 @@ import { ConversationPane } from '../../../../../ui/messaging/conversation-pane'
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { systemId } from '@daisy/clock';
-import { requireAccess } from '../../../../../lib/access';
+import { requireAccess } from '../../../../../features/access/page-access';
 import type { MessagingChannelPageProps } from '../../../../../features/messaging/channel-page';
 import { readConversationResponse } from '../../../../../features/messaging/conversation';
 import { messageIdle } from '../../../../../features/messaging/forms/send-form';

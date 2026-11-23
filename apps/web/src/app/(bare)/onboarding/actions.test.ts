@@ -22,9 +22,12 @@ mock.module(join(import.meta.dir, '../../../server/process-app.ts'), () => ({
     return routeAnswer(body);
   },
 }));
-mock.module(join(import.meta.dir, '../../../server/form-action.ts'), () => ({
-  moveOn: (_incoming: Headers, to: string) => ({ kind: 'moved', next: to }),
-}));
+mock.module(
+  join(import.meta.dir, '../../../features/forms/form-action.ts'),
+  () => ({
+    moveOn: (_incoming: Headers, to: string) => ({ kind: 'moved', next: to }),
+  }),
+);
 
 const { saveStepAction, skipAction } = await import('./actions');
 const { initialStepForm } =

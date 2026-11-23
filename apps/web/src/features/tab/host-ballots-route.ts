@@ -4,7 +4,7 @@ import {
   type HostBallotsView,
 } from '@daisy/protocol/lobby/host-ballots-read';
 import { z } from 'zod';
-import type { MemberBoundary } from '../../server/member-boundary';
+import type { MemberBoundary } from '../auth/member-boundary';
 import { bindTabRead } from './read-route';
 import type { TabPrincipal } from './tab-principal';
 const querySchema = z.strictObject({ lobbyId: idSchema, eventId: idSchema });

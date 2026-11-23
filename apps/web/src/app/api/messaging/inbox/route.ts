@@ -1,2 +1,3 @@
 import { processRoute } from '../../../../server/process-app';
-export const GET = processRoute((routes) => routes.messaging.inbox);
+import { messagingComposition } from '../../../../features/messaging/composition';
+export const GET = processRoute(messagingComposition, (routes) => routes.inbox);

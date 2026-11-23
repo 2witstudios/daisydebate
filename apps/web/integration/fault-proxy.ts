@@ -3,9 +3,9 @@ import { afterAll } from 'bun:test';
 import type { Socket } from 'bun';
 import { systemClock, systemId, type Clock } from '@daisy/clock';
 import { createApp } from '../src/server/app';
-import { createRoutes } from '../src/server/routes';
 import { testDatabaseUrl, testRedisUrl, type TestApp } from './fixtures';
 import { betaMessagingPolicy } from '../src/features/messaging/beta-policy';
+import { composer } from '../src/server/composition.test-support';
 
 /**
  * A pausable TCP relay in front of a real service (PostgreSQL or Redis),
@@ -164,5 +164,5 @@ export function createFaultedApp(
     proxy.close();
     await app.close();
   });
-  return { app, proxy, routes: createRoutes(app) };
+  return { app, proxy, routes: composer(app) };
 }

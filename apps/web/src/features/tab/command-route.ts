@@ -1,12 +1,12 @@
 import { createAppError } from '@daisy/errors';
 import { idSchema } from '@daisy/protocol/primitives';
 import type { LobbyCommandAnswer } from '@daisy/protocol/lobby/command';
-import type { OperationName } from '../ops/operation-names';
+import type { OperationName } from '../../server/operation-names';
 import { readJson } from '../../server/http';
 import {
   runEvaluatedRoute,
   type MemberBoundary,
-} from '../../server/member-boundary';
+} from '../auth/member-boundary';
 import { CommandDenied } from './commands/run-command';
 import type { TabPrincipal } from './tab-principal';
 

@@ -4,12 +4,13 @@ import { headers } from 'next/headers';
 import { requestEmailChange } from '../../../../features/account/request-email-change';
 import { inProcessFetch } from '../../../../server/in-process-fetch';
 import { processRoute } from '../../../../server/process-app';
+import { authComposition } from '../../../../features/auth/composition';
 import {
   submitEmailChange,
   type EmailChangeState,
 } from '../../../../ui/settings/security/email-change-state';
 
-const authRoute = processRoute((routes) => routes.auth.POST);
+const authRoute = processRoute(authComposition, (routes) => routes.POST);
 
 /**
  * The email-change form's POST, as a server action: a change can start

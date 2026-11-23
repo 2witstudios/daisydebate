@@ -2,6 +2,8 @@ import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { createTestApp, linkFrom } from './fixtures';
 import { CLIENT_IP_HEADER } from '@daisy/ingress/client-ip';
 import { requireTestServices } from '@daisy/config';
+import { authComposition } from '../src/features/auth/composition';
+import { confirmComposition } from '../src/features/auth/composition';
 
 requireTestServices(process.env);
 setupRitewayBun();
@@ -16,8 +18,8 @@ const {
 } = createTestApp({
   PUBLIC_APP_URL: httpsOrigin,
 });
-const authRoute = routes.auth;
-const confirmRoute = routes.confirm;
+const authRoute = routes(authComposition);
+const confirmRoute = routes(confirmComposition);
 const requestLink = async (email: string) => {
   const before = mailbox.mails.length;
   const response = await authRoute.POST(

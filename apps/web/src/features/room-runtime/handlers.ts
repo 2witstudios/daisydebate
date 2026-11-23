@@ -12,7 +12,7 @@ import {
   runMemberRoute,
   type BudgetedMemberBoundary,
   type MemberCaller,
-} from '../../server/member-boundary';
+} from '../auth/member-boundary';
 import type { RoomRuntimeOperations } from './operations';
 
 type Dependencies = BudgetedMemberBoundary & {

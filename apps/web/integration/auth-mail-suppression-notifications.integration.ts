@@ -4,6 +4,7 @@ import { createPasskeyFlows } from './auth-passkey-flows';
 import { providerEvent } from './auth-webhook-helpers';
 import { linkFrom, tokenOf } from './fixtures';
 import { requireTestServices } from '@daisy/config';
+import { mailWebhookComposition } from '../src/features/mail/composition';
 
 /**
  * ISSUE-54 AC1: every auth mail goes through the one delivery path, and
@@ -38,7 +39,7 @@ const changeEmailAnswers = async (
 const hardBounce = async (email: string) => {
   const mail = mailbox.mails.filter((sent) => sent.to === email).at(-1);
   if (!mail) throw new Error('no mail was sent to that address');
-  const response = await testApp.routes.mailWebhook.POST(
+  const response = await testApp.routes(mailWebhookComposition).POST(
     providerEvent('email.bounced', mail.messageId, {
       bounceType: 'Permanent',
     }),

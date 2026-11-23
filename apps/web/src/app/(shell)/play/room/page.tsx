@@ -2,14 +2,14 @@ import { systemId } from '@daisy/clock';
 import { createAppError } from '@daisy/errors';
 import type { Metadata } from 'next';
 import type { SearchParams } from '../../../../features/access/decision';
-import { requireAccess } from '../../../../lib/access';
+import { requireAccess } from '../../../../features/access/page-access';
 import { CreateRoomPage } from '../../../../ui/rooms/create-room/create-room-page';
 import { roomTemplates } from '../actions';
+import { requestMemberDivision } from '../../../../features/ratings/page-reads';
 import {
-  requestMemberDivision,
   requestRoomDraftAnswer,
   requestRoomCreateLobbyChoice,
-} from '../../../../lib/request-session';
+} from '../../../../features/rooms/page-reads';
 
 export const metadata: Metadata = { title: 'Create a room' };
 

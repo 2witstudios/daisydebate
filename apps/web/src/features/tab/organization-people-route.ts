@@ -3,7 +3,7 @@ import {
   type OrganizationPeopleView,
 } from '@daisy/protocol/lobby/organization-read';
 import { z } from 'zod';
-import type { MemberBoundary } from '../../server/member-boundary';
+import type { MemberBoundary } from '../auth/member-boundary';
 import { bindTabRead } from './read-route';
 import type { TabPrincipal } from './tab-principal';
 

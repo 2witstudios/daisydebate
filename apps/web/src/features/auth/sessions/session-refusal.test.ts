@@ -4,7 +4,7 @@ import type { BetterAuthOptions } from 'better-auth';
 import { memoryAdapter } from '@better-auth/memory-adapter';
 import { refuseCapacity } from '@daisy/db/testing';
 import { createAppError } from '@daisy/errors';
-import { resolveSession } from '../../../lib/identity';
+import { resolveSession } from '../identity';
 import { keepingSessionRefusal, noteSessionRefusal } from './session-refusal';
 import {
   authTestEnv,

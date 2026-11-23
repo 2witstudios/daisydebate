@@ -4,7 +4,7 @@ import {
   runMemberRoute,
   type BudgetedMemberBoundary,
   type MemberCaller,
-} from '../../server/member-boundary';
+} from '../auth/member-boundary';
 import type { PurchaseDestination } from './purchase-flow';
 
 type Destination = PurchaseDestination | { readonly kind: 'unavailable' };

@@ -109,7 +109,7 @@ sequence, old-token refusal, late results and concurrent erasure.
 call timeout and model. Round analysis runs if and only if it is set; unset,
 there is no worker or new generation; authorized delivered reports remain readable.
 
-`server/round-analysis-workers.ts` starts the worker with its own lifecycle.
+`features/round-analysis/workers.ts` starts the worker with its own lifecycle.
 Its provider budget is its own instance of `server/provider-budget.ts`; AI
 judging and live bot speech share the separate competitive budget
 (`COMPETITIVE_PROVIDER_CONCURRENCY`). The two never share a counter, so a

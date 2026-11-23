@@ -1,5 +1,5 @@
 import { sha3Hex } from '@daisy/digest';
-import { deriveSubkey } from '../../mail/recipient-key';
+import { deriveSubkey } from '../../../server/subkey';
 
 /**
  * The unsubscribe subkey, derived from `RECIPIENT_HASH_SECRET` under its own

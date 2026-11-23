@@ -1,3 +1,6 @@
+import { defineComposition } from '../../server/composition';
+import { hostingPurchaseDependencies } from './dependencies';
+import { memberHttpBoundary } from '../auth/member-boundary';
 import { z } from 'zod';
 import { createAppError } from '@daisy/errors';
 import { idSchema } from '@daisy/protocol/primitives';
@@ -11,7 +14,7 @@ import {
   runEvaluatedRoute,
   runMemberRoute,
   type BudgetedMemberBoundary,
-} from '../../server/member-boundary';
+} from '../auth/member-boundary';
 import { hostRoutes } from '../tab/routes';
 import type { TabPrincipal } from '../tab/tab-principal';
 import {
@@ -36,7 +39,7 @@ const asUser = (principal: { readonly kind: string }): TabPrincipal => {
   return principal as TabPrincipal;
 };
 
-export function composeHostingRoutes(input: {
+function composeHostingRoutes(input: {
   readonly boundary: BudgetedMemberBoundary;
   /** The hosting resources over this process's vendor transport. */
   readonly dependencies: (
@@ -183,3 +186,13 @@ export function composeHostingRoutes(input: {
     }),
   };
 }
+
+/** hosting: the hosting purchase routes bind here (`processRoute`). */
+export const hostingComposition = defineComposition('hosting', (app) =>
+  composeHostingRoutes({
+    boundary: memberHttpBoundary(app),
+    dependencies: (fetch) => hostingPurchaseDependencies(app, fetch),
+    lobbyIdOfHandle: (handle) =>
+      app.database.tabCommands.lobbyIdOfHandle(handle),
+  }),
+);

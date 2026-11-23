@@ -10,10 +10,7 @@ import {
   readMessagingGroupInvitation,
   decideMessagingGroupInvitation,
 } from './group-invitation';
-import {
-  memberHttpBoundary,
-  runEvaluatedRoute,
-} from '../../server/member-boundary';
+import { memberHttpBoundary, runEvaluatedRoute } from '../auth/member-boundary';
 /** Refusal and minimal reads do not depend on group admission approval. */
 export function composeMessagingGroupInvitationRoutes(app: App) {
   const run = (

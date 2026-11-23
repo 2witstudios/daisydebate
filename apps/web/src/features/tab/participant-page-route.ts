@@ -1,6 +1,6 @@
 import { createAppError } from '@daisy/errors';
 import type { TabStore } from '@daisy/db/tab';
-import type { MemberBoundary } from '../../server/member-boundary';
+import type { MemberBoundary } from '../auth/member-boundary';
 import { bindTabRead } from './read-route';
 import {
   directoryPageSchema,

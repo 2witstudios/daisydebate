@@ -14,10 +14,11 @@ import {
 } from '../../../../features/league-requests/request-form';
 import { leagueRequestsReleased } from '../../../../features/league-requests/route-release';
 import { processRoute } from '../../../../server/process-app';
+import { leagueRequestComposition } from '../../../../features/league-requests/composition';
 import { post } from '../../form-post';
 
-const route = processRoute((routes, app) =>
-  routes.leagueRequests.POST(leagueRequestsReleased(app)),
+const route = processRoute(leagueRequestComposition, (routes, app) =>
+  routes.POST(leagueRequestsReleased(app)),
 );
 
 /**

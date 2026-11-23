@@ -4,6 +4,7 @@ import type { AlertSnapshot } from '../src/features/ops/alert-state';
 import { createMetricsHandler } from '../src/features/ops/metrics';
 import { composeOpsRoutes } from '../src/features/ops/composition';
 import { createTestApp } from './fixtures';
+import { opsComposition } from '../src/features/ops/composition';
 
 setupRitewayBun();
 const token = `ops-${createId()}${createId()}`;
@@ -137,22 +138,28 @@ test('Ops binding reads probe authority lazily and retains configured workers an
 
 test('ordinary central route registration reaches the Ops feature with its original process inputs', async () => {
   const f = createTestApp({ OPS_PROBE_TOKEN: token });
-  const ready = await f.routes.ready.GET(request('/api/health/ready'));
-  const denied = await f.routes.ops.metrics.GET(request('/api/ops/metrics'));
-  const metrics = await f.routes.ops.metrics.GET(
-    request('/api/ops/metrics', token),
-  );
-  const alerts = await f.routes.ops.alerts.GET(
-    request('/api/ops/alerts', token),
-  );
+  const ready = await f
+    .routes(opsComposition)
+    .ready.GET(request('/api/health/ready'));
+  const denied = await f
+    .routes(opsComposition)
+    .ops.metrics.GET(request('/api/ops/metrics'));
+  const metrics = await f
+    .routes(opsComposition)
+    .ops.metrics.GET(request('/api/ops/metrics', token));
+  const alerts = await f
+    .routes(opsComposition)
+    .ops.alerts.GET(request('/api/ops/alerts', token));
   const body = (await alerts.json()) as {
     snapshot: Extract<AlertSnapshot, { redisState: 'read' }>;
   };
   f.app.drain();
-  const draining = await f.routes.ready.GET(request('/api/health/ready'));
+  const draining = await f
+    .routes(opsComposition)
+    .ready.GET(request('/api/health/ready'));
   assert({
     given:
-      'the actual createApp/createRoutes registration over real service ports with file maintenance unconfigured',
+      'the actual createApp and ops composition over real service ports with file maintenance unconfigured',
     should:
       'retain readiness, protected metrics and live alert inputs at the existing route keys',
     actual: [

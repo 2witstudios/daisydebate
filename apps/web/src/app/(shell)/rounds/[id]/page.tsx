@@ -3,10 +3,8 @@ import { analysisRequestNotice } from '../../../../features/round-analysis/reque
 import { floorProps } from './floor/floor-props';
 import { BoundedDocuments } from '../../../../ui/documents/bounded-documents';
 import { documentPrincipalOf } from '../../../../features/documents/document-principal';
-import {
-  requestHostedAudienceLink,
-  requestRoundRatings,
-} from '../../../../lib/request-session';
+import { requestHostedAudienceLink } from '../../../../features/audience-link/page-reads';
+import { requestRoundRatings } from '../../../../features/ratings/page-reads';
 import { RoundRatings } from '../../../../ui/ranked/round-ratings';
 import { readPersistedBallot } from '../../judge/ballot/[roundId]/actions';
 import type { Metadata } from 'next';
@@ -20,7 +18,7 @@ import { idSchema } from '@daisy/protocol/primitives';
 import { isDebatingSeat } from '@daisy/protocol/seats';
 import { type RoundView } from '@daisy/protocol/round-view';
 import type { SearchParams } from '../../../../features/access/decision';
-import { accessOrTemporary } from '../../../../lib/access';
+import { accessOrTemporary } from '../../../../features/access/page-access';
 import { isLiveDebater } from '../../../../ui/debate-room/live-round';
 import { spectatorKindOf } from '../../../../features/spectating/spectator-view';
 import { DocumentManager } from '../../../../ui/documents/document-manager';

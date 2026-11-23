@@ -5,7 +5,7 @@ import { parseValidated, readBytes, readJson } from '../../server/http';
 import {
   runMemberRoute,
   type BudgetedMemberBoundary,
-} from '../../server/member-boundary';
+} from '../auth/member-boundary';
 import {
   conflictRevision,
   type DocumentOperations,

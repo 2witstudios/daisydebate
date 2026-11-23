@@ -9,7 +9,7 @@ import {
   runMemberRoute,
   type BudgetedMemberBoundary,
   type MemberCaller,
-} from '../../server/member-boundary';
+} from '../auth/member-boundary';
 import type { PurchaseDestination } from '../billing/purchase-flow';
 import type { ClubInvoiceRow, SeatChangeAnswer } from '../billing/club-billing';
 import {

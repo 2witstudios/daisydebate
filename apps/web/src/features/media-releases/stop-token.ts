@@ -1,5 +1,5 @@
 import { sha3Hex } from '@daisy/digest';
-import { deriveSubkey } from '../mail/recipient-key';
+import { deriveSubkey } from '../../server/subkey';
 
 /**
  * "Don't send me release requests" (ADR 0151): the email's link names the
