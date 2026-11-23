@@ -1,5 +1,5 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { staffMinimumBandOf } from './staff-minimum-band';
+import { staffMinimumBandOf } from './organization-facts';
 
 setupRitewayBun();
 
