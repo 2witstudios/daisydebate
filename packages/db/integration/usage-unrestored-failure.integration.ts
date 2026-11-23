@@ -7,7 +7,7 @@ import { sql } from 'drizzle-orm';
 import { createBoundedTransaction } from '../src/bounded-transaction';
 import { testLane } from '../src/testing-lane';
 import { advanceUsageLocked } from '../src/usage-ledger';
-import { causeChainMember } from '../src/capacity-refusal';
+import { causeChainMember } from '../src/infrastructure-refusal';
 import { withBoundedRound } from './bounded-transaction.test-support';
 import {
   admissionSponsor,

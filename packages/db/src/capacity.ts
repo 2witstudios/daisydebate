@@ -10,4 +10,4 @@ export {
   isReportedCapacityRefusal,
   isCapacityRefusal,
   isTemporaryRefusal,
-} from './capacity-refusal';
+} from './infrastructure-refusal';

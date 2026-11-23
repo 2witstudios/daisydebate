@@ -20,10 +20,15 @@ import {
   subscribeRealtimeHints,
   type RealtimeHintHandlers,
 } from './realtime-hints';
-import { namedLaneOperations } from './lane-operation';
+import {
+  namedLaneOperations,
+  WORKLOAD_PROFILES,
+  type WorkloadProfile,
+  createWorkload,
+  dialDedicated,
+  dialLanes,
+} from './workload';
 import { roomAuthorizationRead } from './room-authorization-read';
-import { createWorkload, dialDedicated, dialLanes } from './workload';
-import { WORKLOAD_PROFILES, type WorkloadProfile } from './workload-admission';
 import type { TxSource } from './tx';
 
 /**

@@ -4,7 +4,7 @@ import { createAppError, createRefusal } from '@daisy/errors';
 import { idSchema } from '@daisy/protocol/primitives';
 import { sql } from 'drizzle-orm';
 import type { BoundedTransaction } from './bounded-transaction';
-import { SERVICE_LEASE_WINDOW_MS } from './service-lease-lapse';
+import { SERVICE_LEASE_WINDOW_MS } from './infrastructure-refusal';
 import type { Tx } from './tx';
 import { query } from './raw-rows';
 import { z } from 'zod';

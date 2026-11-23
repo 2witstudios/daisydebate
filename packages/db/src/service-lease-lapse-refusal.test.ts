@@ -19,13 +19,16 @@ test('the service lease subpath loads nothing but the error identity', async () 
       await specifiers('./service-lease-lapse.ts'),
       await specifiers('./capacity-refusal.ts'),
     ],
-    expected: [['@daisy/errors', './capacity-refusal'], ['@daisy/errors']],
+    expected: [
+      ['@daisy/errors', './infrastructure-refusal'],
+      ['@daisy/errors'],
+    ],
   });
 });
 
 test('a lapse is recognised through native cause wrappers', async () => {
   const { createAppError, createRefusal } = await import('@daisy/errors');
-  const { isServiceLeaseLapse } = await import('./service-lease-lapse');
+  const { isServiceLeaseLapse } = await import('./infrastructure-refusal');
   const lapse = createRefusal('AUTHORIZATION', 'service-lease-lapsed');
   assert({
     given:

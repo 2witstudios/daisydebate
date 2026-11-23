@@ -65,7 +65,7 @@ import {
 } from './authorization';
 
 import { instrumented, type DatabaseEventSink } from './instrumented';
-import { retryStale } from './retry-stale';
+import { retryStale } from './tx';
 import {
   readFormatSelectionFacts,
   type FormatSelectionFactsRecord,

@@ -20,7 +20,7 @@ import {
   ratingChangeRows,
 } from './rating-decisions';
 import { readRatingFacts } from './rating-discovery';
-import { retryStale } from './retry-stale';
+import { retryStale, inTransaction, type Tx, type TxSource } from './tx';
 import { seatOfColumns } from './seat-columns';
 import { roundParticipants } from './schema/round-participants';
 import { rounds } from './schema/rounds';
@@ -29,8 +29,6 @@ import { seasons } from './schema/seasons';
 import { lobbies } from './schema/lobbies';
 import { seasonStandingRules } from './schema/sanctions';
 import { scopeTransaction } from './tenant-scope';
-
-import { inTransaction, type Tx, type TxSource } from './tx';
 import { takeLock, transactionLocks } from './locks';
 import { query } from './raw-rows';
 import { z } from 'zod';

@@ -6,6 +6,8 @@ import {
   isRoundOver,
   isRoundCompleted,
   roundBegan,
+  prepConsumedOf,
+  runtimeCheckpointSchema,
 } from '@daisy/protocol/round';
 import { attendanceTimingPolicy } from '@daisy/protocol/attendance';
 import { TRANSCRIPT_ADMISSION_WINDOW_MS } from '@daisy/protocol/capture-timing';
@@ -14,7 +16,6 @@ import { and, eq, isNull, sql } from 'drizzle-orm';
 import type { RoundOutcome } from '@daisy/protocol/round-outcome';
 import type { RoundProjection } from '@daisy/protocol/runtime';
 import { roundRulesSchema } from '@daisy/protocol/format';
-import { prepConsumedOf, runtimeCheckpointSchema } from '@daisy/protocol/round';
 import { privateSpanChanges } from '@daisy/protocol/public-interval';
 import { buildRoundTopic } from '@daisy/protocol/topics';
 import type { z } from 'zod';
@@ -32,7 +33,7 @@ import { oweRoundStarted } from './round-began';
 import { releaseFinalizedDecision } from './round-decision-release';
 import { jsonObjectSchema } from './schema/columns';
 import { columnsOfOutcome, outcomeOfColumns } from './round-outcome-columns';
-import { isUniqueViolation } from './unique-violation';
+import { isUniqueViolation } from './driver-failure';
 import { roundCommands } from './schema/round-commands';
 import { roundPrivateSpans } from './schema/round-private-spans';
 import { roundSegments } from './schema/round-segments';

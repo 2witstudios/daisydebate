@@ -7,7 +7,7 @@ import {
   isTemporaryRefusal,
   markCapacityRefusalReported,
   refuseCapacity,
-} from './capacity-refusal';
+} from './infrastructure-refusal';
 
 setupRitewayBun();
 
@@ -98,7 +98,7 @@ test('a refusal is recognised by every bundled copy of this module', async () =>
   const secondCopy: string = './capacity-refusal.ts?second-bundle';
   const copy = (await import(
     secondCopy
-  )) as typeof import('./capacity-refusal');
+  )) as typeof import('./infrastructure-refusal');
   const refused = refuseCapacity({ lane: 'control', reason: 'expired' });
   const theirs = copy.refuseCapacity({ lane: 'social', reason: 'saturated' });
   markCapacityRefusalReported(theirs);
@@ -106,7 +106,7 @@ test('a refusal is recognised by every bundled copy of this module', async () =>
     given: 'a refusal minted by one copy and read by the other, both ways',
     should: 'recognise it, its detail and its reported mark',
     actual: [
-      copy !== (await import('./capacity-refusal')),
+      copy !== (await import('./infrastructure-refusal')),
       copy.isCapacityRefusal(new Error('wrapper', { cause: refused })),
       isCapacityRefusal(theirs),
       copy.capacityRefusalDetail(refused)?.lane,

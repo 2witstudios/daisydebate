@@ -2,7 +2,7 @@ import { and, eq, isNull, sql } from 'drizzle-orm';
 import { actors } from './schema/actors';
 import { users } from './schema/users';
 import { instrumented, type DatabaseEventSink } from './instrumented';
-import { isUniqueViolation } from './unique-violation';
+import { isUniqueViolation } from './driver-failure';
 import { enrolPendingBetaAccess } from './beta-access';
 import { inTransaction, type TxOpener } from './tx';
 

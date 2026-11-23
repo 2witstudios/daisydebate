@@ -1,10 +1,9 @@
 import { createAppError } from '@daisy/errors';
 import { sql, type SQL } from 'drizzle-orm';
 import type { PgColumn, PgTable } from 'drizzle-orm/pg-core';
-import { requireLeaseMs } from './lease';
+import { requireLeaseMs, leaseExpiresIn, leaseTokenDigest } from './lease';
 import { run, query } from './raw-rows';
-import { isUniqueViolation } from './unique-violation';
-import { leaseExpiresIn, leaseTokenDigest } from './lease';
+import { isUniqueViolation } from './driver-failure';
 import type { mailJobColumns } from './schema/columns';
 import { inTransaction, type TxOpener, type Tx } from './tx';
 import { z } from 'zod';

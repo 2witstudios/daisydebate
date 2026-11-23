@@ -1,9 +1,11 @@
-import { createAppError } from '@daisy/errors';
+import { createAppError, isAppError } from '@daisy/errors';
+import type { WorkloadLane } from './workload';
 
 /** Why a lane refused work that never ran (ADR 0088). */
 type CapacityRefusalReason = 'unconfigured' | 'saturated' | 'expired';
 export type CapacityRefusalDetail = {
-  readonly lane: string;
+  /** The lane that refused; `unknown` only for a refusal minted without one. */
+  readonly lane: WorkloadLane | 'unknown';
   readonly reason: CapacityRefusalReason;
   /**
    * The lane when it refused: waiters still queued, connections taken, and how
@@ -143,3 +145,28 @@ export function refuseCapacity(
   refusals.set(refusal, Object.freeze({ ...detail }));
   return refusal;
 }
+
+/**
+ * How long any service lease, web or realtime, stays current after its
+ * renewal is stamped (ADR 0033 §7). `requireCurrentWeb` refuses a web
+ * instance past it, and the availability sampler counts a peer of either
+ * role live only within it. A renewal that took longer than this to settle
+ * proves nothing: its stamp may already have lapsed.
+ */
+export const SERVICE_LEASE_WINDOW_MS = 3000;
+
+/**
+ * The refusal `requireCurrentWeb` raises when this web instance's own service
+ * lease is not current (DAISY-WEB-9), recognised by its reason, never its
+ * message, also through bounded native cause wrappers (as `isCapacityRefusal`
+ * is), so a worker that wraps a store error still logs the lapse as a
+ * warning. It imports only `@daisy/errors` and the driver-free
+ * `capacity-refusal` walker, so a caller can classify the refusal without
+ * loading the driver or schema.
+ */
+export const isServiceLeaseLapse = (error: unknown): boolean =>
+  causeChainMember(
+    (candidate) =>
+      isAppError(candidate) && candidate.reason === 'service-lease-lapsed',
+    error,
+  ) !== undefined;

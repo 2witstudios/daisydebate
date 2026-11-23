@@ -3,7 +3,7 @@ import { createAppError } from '@daisy/errors';
 import { readDatabaseTime } from '../database-clock';
 import { jsonObjectSchema } from '../schema/columns';
 import { CommandIdTaken, storedCommand } from './command-record';
-import { isUniqueViolationOf } from '../unique-violation';
+import { isUniqueViolationOf } from '../driver-failure';
 import { and, eq } from 'drizzle-orm';
 import type {
   ConflictConnection,

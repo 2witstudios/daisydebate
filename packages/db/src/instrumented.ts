@@ -2,8 +2,8 @@ import { isAppError, type ErrorCode } from '@daisy/errors';
 import {
   capacityRefusalFields,
   reportCapacityHolders,
-} from './capacity-refusal';
-import { withLaneOperation } from './lane-operation';
+} from './infrastructure-refusal';
+import { withLaneOperation } from './workload';
 
 export type DatabaseEventSink = (
   event:

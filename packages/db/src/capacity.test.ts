@@ -20,7 +20,7 @@ test('the capacity subpath loads nothing but the error identity', async () => {
       admission: await specifiers('./capacity-refusal.ts'),
     },
     expected: {
-      capacity: ['./capacity-refusal'],
+      capacity: ['./infrastructure-refusal'],
       admission: ['@daisy/errors'],
     },
   });

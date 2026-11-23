@@ -33,7 +33,14 @@ export type {
   PreparedReleaseMail,
 } from './media-release-mail';
 import { createBroadcastStore } from './broadcast-store';
-import { namedLaneOperations } from './lane-operation';
+import {
+  namedLaneOperations,
+  WORKLOAD_PROFILES,
+  type WorkloadProfile,
+  createWorkload,
+  dialDedicated,
+  dialLanes,
+} from './workload';
 import { analyticsConsentOperations } from './analytics-consent';
 import { messagingOperations } from './messaging/operations';
 import { createTabStore } from './tab/store';
@@ -202,13 +209,11 @@ import { socialRequestRetention } from './contacts/request-budget';
 import { readOutboxCatchup } from './outbox-catchup';
 import { readOutboxRetentionBoundary } from './outbox-retention-boundary';
 import { instrumented, type DatabaseEventSink } from './instrumented';
-import { createWorkload, dialDedicated, dialLanes } from './workload';
-import { WORKLOAD_PROFILES, type WorkloadProfile } from './workload-admission';
 export {
   WORKLOAD_PROFILES,
   type WorkloadLane,
   type WorkloadProfile,
-} from './workload-admission';
+} from './workload';
 export type { DatabaseEventSink } from './instrumented';
 export type { RestrictionRules } from './moderation-composition';
 export type { SocialRequestLimits } from './contacts/request-budget';

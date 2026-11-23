@@ -3,7 +3,7 @@ import { deadlineSignal, type Waits } from '@daisy/clock';
 import { drizzle } from 'drizzle-orm/bun-sql/postgres';
 import { createAppError, isAppError } from '@daisy/errors';
 import { RUNTIME_SESSION } from './session-bounds';
-import { createLaneGate } from './workload-admission';
+import { createLaneGate } from './workload';
 import { inTransaction, type Tx } from './tx';
 
 /**

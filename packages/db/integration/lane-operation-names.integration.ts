@@ -8,7 +8,7 @@ import {
   createDatabase,
   createRealtimeDatabase,
 } from '../src';
-import { currentLaneOperation } from '../src/lane-operation';
+import { currentLaneOperation } from '../src/workload';
 
 setupRitewayBun();
 const { databaseUrl: url } = requireTestServices(process.env);

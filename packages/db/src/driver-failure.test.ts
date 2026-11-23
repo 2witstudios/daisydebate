@@ -1,5 +1,5 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { databaseFailure } from './database-failure';
+import { databaseFailure } from './driver-failure';
 
 setupRitewayBun();
 
