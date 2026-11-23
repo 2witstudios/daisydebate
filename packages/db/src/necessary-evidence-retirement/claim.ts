@@ -1,3 +1,4 @@
+import { addMs } from '@daisy/clock';
 import { eq, sql } from 'drizzle-orm';
 import { necessaryEvidence } from '../schema/necessary-evidence';
 import { sampleRoundExecutionTime } from '../round-execution-time';
@@ -39,7 +40,8 @@ export async function claim(
   );
   const token = options.nextToken(),
     leaseDigest = evidenceLeaseDigest(token);
-  const now = new Date(await sampleRoundExecutionTime(tx));
+  const nowIso = await sampleRoundExecutionTime(tx);
+  const now = new Date(nowIso);
   await tx
     .update(necessaryEvidence)
     .set({
@@ -52,7 +54,7 @@ export async function claim(
       executionWorkerId: input.workerId,
       executionEpoch,
       leaseDigest,
-      leaseExpiresAt: new Date(now.getTime() + options.leaseMs),
+      leaseExpiresAt: new Date(addMs(nowIso, options.leaseMs)),
       lastClaimedAt: now,
     })
     .where(eq(necessaryEvidence.id, id));

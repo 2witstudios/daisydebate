@@ -1,3 +1,4 @@
+import { tryCanonicalInstantMs } from '@daisy/clock';
 import { sql } from 'drizzle-orm';
 import { createAppError } from '@daisy/errors';
 import { idSchema } from '@daisy/protocol/primitives';
@@ -20,11 +21,11 @@ const observationPurgeBackoffMs = (attempts: number) =>
   );
 const MAX_BATCH = 128;
 
+/** The canonical UTC instant's milliseconds; any other text is refused. */
 const instant = (value: string) => {
-  const date = new Date(value);
-  if (!Number.isFinite(date.getTime()) || date.toISOString() !== value)
-    throw createAppError('VALIDATION');
-  return date;
+  const milliseconds = tryCanonicalInstantMs(value);
+  if (milliseconds === undefined) throw createAppError('VALIDATION');
+  return milliseconds;
 };
 
 /**
@@ -84,7 +85,7 @@ export async function deliverObservationPurges(
     let retried = 0;
     for (const row of rows) {
       const retryAt = new Date(
-        now.getTime() + observationPurgeBackoffMs(row.attempts + 1),
+        now + observationPurgeBackoffMs(row.attempts + 1),
       ).toISOString();
       if (
         await purgeJob.failed(database, jobOf(row), {

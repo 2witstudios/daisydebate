@@ -24,14 +24,16 @@ export async function completedRound(
   completedAgoMs = 60_000,
 ) {
   const [clock] = await fixture.sql`select clock_timestamp() as now`;
-  const end = new Date(clock!.now.getTime() - completedAgoMs);
-  const start = new Date(end.getTime() - 1000);
+  const endMs = clock!.now.getTime() - completedAgoMs;
+  const startMs = endMs - 1000;
+  const end = new Date(endMs);
+  const start = new Date(startMs);
   const winner = await fixture.winningSideColumn();
   const aff = await fixture.seat(roundId, 'affirmative', 0, affActorId);
   const neg = await fixture.seat(roundId, 'negative');
   await fixture.sql.unsafe(
     `update rounds set visibility='public',status='active',current_stage='live',${winner}=null,started_at=$2,completed_at=null,final_segment_ended_at=$3,transcript_admission_cutoff=$4,attendance_resolution_cutoff_at=$3::timestamptz+interval '60 minutes' where id=$1`,
-    [roundId, start, end, new Date(end.getTime() + 120000)],
+    [roundId, start, end, new Date(endMs + 120000)],
   );
   await fixture.sql`update users set email_verified=true where deleted_at is null and id in (select user_id from actors where id in (${aff.actorId},${neg.actorId}))`;
   const segmentId = createId();

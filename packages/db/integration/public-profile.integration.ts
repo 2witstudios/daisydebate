@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import { sha256Hex } from '@daisy/digest';
 import { requireTestServices } from '@daisy/config';
 import { assertRejects } from '@daisy/errors/testing';
@@ -664,7 +665,7 @@ test('a text change waiting on a lock is timed after the lock is released', asyn
       assert({
         given: 'a name change that waited on a row another transaction held',
         should: 'carry a change time after that transaction released the row',
-        actual: new Date(row.at).getTime() >= new Date(releasedAt).getTime(),
+        actual: row.at.getTime() >= instantMs(releasedAt),
         expected: true,
       });
     } finally {

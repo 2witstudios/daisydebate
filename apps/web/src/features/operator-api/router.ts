@@ -436,7 +436,8 @@ async function resolveReport(
     throw createAppError('AUTHORIZATION');
   const command = reportResolveCommandSchema.safeParse(parseBody(body));
   if (!command.success) throw createAppError('VALIDATION');
-  const now = new Date(deps.nowMs());
+  const nowMs = deps.nowMs();
+  const now = new Date(nowMs);
   const result = await deps.store.resolveReport({
     commandId: command.data.commandId,
     reportId,
@@ -447,7 +448,7 @@ async function resolveReport(
         ? {
             outcome: 'suspended',
             suspendUntil: new Date(
-              now.getTime() + command.data.suspendDays * 86_400_000,
+              nowMs + command.data.suspendDays * 86_400_000,
             ).toISOString(),
           }
         : { outcome: command.data.outcome },
@@ -463,9 +464,7 @@ async function resolveReport(
     ),
     adminAuditHead: command.data.adminAuditHead,
     now: now.toISOString(),
-    purgeAfter: new Date(
-      now.getTime() + REPORT_EVIDENCE_RETENTION_MS,
-    ).toISOString(),
+    purgeAfter: new Date(nowMs + REPORT_EVIDENCE_RETENTION_MS).toISOString(),
     nextId: deps.nextId,
     restrictionRules,
     live: () => deps.nowMs() <= signedAtMs + operatorLimits.skewMs,

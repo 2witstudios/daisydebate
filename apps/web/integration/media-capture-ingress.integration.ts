@@ -168,10 +168,12 @@ test('signed native HTTP ingress uses actual lease, snapshot and vendor token pr
       const [seat] =
         await f.sql`select id from round_participants where round_id=${f.roundId} and actor_id=${f.host.actorId}`;
       const [clock] = await f.sql`select clock_timestamp() as now`;
-      const end = new Date(clock.now.getTime() - 1000);
-      const start = new Date(end.getTime() - 1000);
+      const endMs = clock.now.getTime() - 1000;
+      const startMs = endMs - 1000;
+      const end = new Date(endMs);
+      const start = new Date(startMs);
       // The Round starts no later than its backdated segment, however fast this ran.
-      await f.sql`update rounds set status='completed',started_at=least(started_at,${start}),current_stage=null,winning_side='affirmative',completed_at=${end},final_segment_ended_at=${end},transcript_admission_cutoff=${new Date(end.getTime() + 120000)},attendance_resolution_cutoff_at=${new Date(end.getTime() + 3600000)} where id=${f.roundId}`;
+      await f.sql`update rounds set status='completed',started_at=least(started_at,${start}),current_stage=null,winning_side='affirmative',completed_at=${end},final_segment_ended_at=${end},transcript_admission_cutoff=${new Date(endMs + 120000)},attendance_resolution_cutoff_at=${new Date(endMs + 3600000)} where id=${f.roundId}`;
       await f.sql`update round_segments set started_at=${start},ended_at=${end},duration_ms=1000 where id=${segmentId}`;
       await f.sql`update round_speaking_intervals set started_at=${start},ended_at=${end},ended_version=started_version+1 where segment_id=${segmentId}`;
       const stream = {
@@ -187,8 +189,8 @@ test('signed native HTTP ingress uses actual lease, snapshot and vendor token pr
         startOffsetMs: 100,
         durationMs: 100,
         text: 'Synthetic replay proof',
-        before: new Date(start.getTime() + 99).toISOString(),
-        after: new Date(start.getTime() + 201).toISOString(),
+        before: new Date(startMs + 99).toISOString(),
+        after: new Date(startMs + 201).toISOString(),
       });
       const observed = await replay('observe', {
         ...stream,

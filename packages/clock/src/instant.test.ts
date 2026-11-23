@@ -6,6 +6,8 @@ import {
   isInstantAtOrBefore,
   isInstantBefore,
   nowMs,
+  tryAddMs,
+  tryCanonicalInstantMs,
   tryInstantMs,
 } from './index';
 
@@ -23,6 +25,44 @@ describe('ISO instants', () => {
         instantMs('1970-01-01T00:00:00.123456Z'),
       ],
       expected: [0, 0, 123],
+    });
+  });
+
+  test('adds milliseconds only where the sum is a representable instant', () => {
+    assert({
+      given:
+        'a valid sum, the last representable instant, one past it, a fractional duration and a non-instant',
+      should: 'answer the UTC instant or undefined',
+      actual: [
+        tryAddMs('2026-11-22T10:00:00Z', 1500),
+        tryAddMs('+275760-09-13T00:00:00.000Z', 0),
+        tryAddMs('+275760-09-13T00:00:00.000Z', 1),
+        tryAddMs('2026-11-22T10:00:00Z', 0.5),
+        tryAddMs('later', 1),
+      ],
+      expected: [
+        '2026-11-22T10:00:01.500Z',
+        '+275760-09-13T00:00:00.000Z',
+        undefined,
+        undefined,
+        undefined,
+      ],
+    });
+  });
+
+  test('reads the canonical UTC form only, when asked for it', () => {
+    assert({
+      given:
+        'the canonical form, a zone offset, no milliseconds, a missing zone and a non-string',
+      should: 'read only the exact toISOString form',
+      actual: [
+        tryCanonicalInstantMs('2026-11-22T10:00:00.000Z'),
+        tryCanonicalInstantMs('2026-11-22T05:00:00.000-05:00'),
+        tryCanonicalInstantMs('2026-11-22T10:00:00Z'),
+        tryCanonicalInstantMs('2026-11-22T10:00:00.000'),
+        tryCanonicalInstantMs(1_795_000_000_000),
+      ],
+      expected: [1_795_341_600_000, undefined, undefined, undefined, undefined],
     });
   });
 

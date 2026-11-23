@@ -44,5 +44,7 @@ export {
   isInstantAtOrBefore,
   isInstantBefore,
   nowMs,
+  tryAddMs,
+  tryCanonicalInstantMs,
   tryInstantMs,
 } from './instant';

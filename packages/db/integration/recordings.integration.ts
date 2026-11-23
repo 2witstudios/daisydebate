@@ -28,7 +28,8 @@ const clock = {
 const { databaseUrl } = requireTestServices(process.env);
 
 const at = '2026-11-02T10:00:00.000Z';
-const later = new Date('2026-11-02T10:01:00.000Z');
+const laterMs = instantMs('2026-11-02T10:01:00.000Z');
+const later = new Date(laterMs);
 const hostOptIn = { kind: 'host_opt_in', hostActorId: 'a'.repeat(24) } as const;
 const ready = (id: string, durationMs = 60_000): RecordingLifecycle => ({
   status: 'ready',
@@ -238,7 +239,7 @@ test('concurrent deletion claims share nothing; a defer keeps the intent', async
       ops.claimRecordingDeletions({
         owner,
         now: later.toISOString(),
-        leaseUntil: new Date(later.getTime() + 60_000).toISOString(),
+        leaseUntil: new Date(laterMs + 60_000).toISOString(),
         limit: 100,
       });
     const [first, second] = await Promise.all([claim('a'), claim('b')]);
@@ -257,7 +258,7 @@ test('concurrent deletion claims share nothing; a defer keeps the intent', async
     const holder = mine(first).includes(target) ? 'a' : 'b';
     await ops.deferRecordingDeletion(target, {
       owner: holder,
-      retryAt: new Date(later.getTime() + 120_000).toISOString(),
+      retryAt: new Date(laterMs + 120_000).toISOString(),
       failed: true,
     });
     assert({
@@ -268,8 +269,8 @@ test('concurrent deletion claims share nothing; a defer keeps the intent', async
     });
     const retried = await ops.claimRecordingDeletions({
       owner: 'e',
-      now: new Date(later.getTime() + 121_000).toISOString(),
-      leaseUntil: new Date(later.getTime() + 180_000).toISOString(),
+      now: new Date(laterMs + 121_000).toISOString(),
+      leaseUntil: new Date(laterMs + 180_000).toISOString(),
       limit: 100,
     });
     assert({
@@ -300,9 +301,9 @@ test('a former holder cannot release a newer holder\u2019s deletion lease', asyn
       });
     const holds = (claims: Awaited<ReturnType<typeof claim>>) =>
       claims.some((c) => c.record.id === id);
-    const slow = holds(await claim('slow', later.getTime()));
+    const slow = holds(await claim('slow', laterMs));
     // The slow worker's lease runs out mid-attempt and another takes over.
-    const takeover = later.getTime() + 61_000;
+    const takeover = laterMs + 61_000;
     const newer = holds(await claim('newer', takeover));
     await ops.deferRecordingDeletion(id, {
       owner: 'slow',

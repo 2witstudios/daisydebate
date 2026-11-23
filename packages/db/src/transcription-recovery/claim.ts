@@ -1,3 +1,4 @@
+import { addMs } from '@daisy/clock';
 import { eq, sql } from 'drizzle-orm';
 import { createAppError } from '@daisy/errors';
 import { sampleRoundExecutionTime } from '../round-execution-time';
@@ -25,7 +26,8 @@ export async function claim(
    and not exists(select 1 from transcription_recovery_contexts live where live.round_id=c.round_id and live.status='leased' and live.lease_expires_at>clock_timestamp())`,
     );
     if (!eligible) return { kind: 'idle' as const };
-    const now = new Date(await sampleRoundExecutionTime(tx));
+    const nowIso = await sampleRoundExecutionTime(tx);
+    const now = new Date(nowIso);
     if (
       owned.members.some(
         (unit) =>
@@ -54,7 +56,7 @@ export async function claim(
         'Recognition claim epoch exhausted',
       ),
       token = options.nextToken();
-    const expiresAt = new Date(now.getTime() + options.leaseMs);
+    const expiresAt = new Date(addMs(nowIso, options.leaseMs));
     await tx
       .update(contexts)
       .set({

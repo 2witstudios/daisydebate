@@ -243,19 +243,19 @@ export function socialPolicyEvidence(
   now: string,
 ): SocialPolicyEvidence {
   const authority = channel.authority;
-  const instant = new Date(now);
-  if (!Number.isFinite(instant.getTime()))
-    return invalidPolicyEvidence(channel, now);
-  const nextMonth = new Date(instant);
-  nextMonth.setUTCDate(1);
-  nextMonth.setUTCMonth(nextMonth.getUTCMonth() + 1);
-  nextMonth.setUTCHours(0, 0, 0, 0);
+  const nowMs = tryInstantMs(now);
+  if (nowMs === undefined) return invalidPolicyEvidence(channel, now);
+  const instant = new Date(nowMs);
+  // The first instant of the next UTC month.
+  const nextMonthMs = Date.UTC(
+    instant.getUTCFullYear(),
+    instant.getUTCMonth() + 1,
+    1,
+  );
   const expiry = Math.min(
-    nextMonth.getTime(),
+    nextMonthMs,
     ...accounts.map((row) =>
-      row.age.state === 'known'
-        ? instantMs(row.age.validUntil)
-        : nextMonth.getTime(),
+      row.age.state === 'known' ? instantMs(row.age.validUntil) : nextMonthMs,
     ),
   );
   const evidence = accounts.map((row) => ({

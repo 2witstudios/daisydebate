@@ -1,3 +1,4 @@
+import { addMs } from '@daisy/clock';
 import { eq } from 'drizzle-orm';
 import { createAppError } from '@daisy/errors';
 import type { CaptureDependencies } from './media-capture-context';
@@ -41,10 +42,11 @@ export async function claimEvidenceAcquisition(
   );
   const token = policy.nextToken();
   const digest = evidenceLeaseDigest(token);
-  const admittedAt = new Date(await sampleRoundExecutionTime(tx));
+  const admittedAtIso = await sampleRoundExecutionTime(tx);
+  const admittedAt = new Date(admittedAtIso);
   if (current.row.expiresAt && current.row.expiresAt <= admittedAt)
     throw createAppError('CONFLICT', 'Original evidence expired');
-  const leaseExpiresAt = new Date(admittedAt.getTime() + policy.leaseMs);
+  const leaseExpiresAt = new Date(addMs(admittedAtIso, policy.leaseMs));
   await tx
     .update(necessaryEvidence)
     .set({

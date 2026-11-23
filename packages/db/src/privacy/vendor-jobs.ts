@@ -1,3 +1,4 @@
+import { tryCanonicalInstantMs } from '@daisy/clock';
 import { sql } from 'drizzle-orm';
 import { createAppError } from '@daisy/errors';
 import { idSchema } from '@daisy/protocol/primitives';
@@ -32,10 +33,8 @@ export async function duePrivacyJobs(
     readonly vendors?: readonly PrivacyVendor[];
   },
 ): Promise<readonly DuePrivacyJob[]> {
-  const due = new Date(input.now);
   if (
-    !Number.isFinite(due.getTime()) ||
-    due.toISOString() !== input.now ||
+    tryCanonicalInstantMs(input.now) === undefined ||
     !Number.isSafeInteger(input.limit) ||
     input.limit < 1 ||
     input.limit > MAX_DUE_BATCH
@@ -143,15 +142,13 @@ function checkJobInput(input: {
   now: string;
   retryAt: string;
 }) {
-  const now = new Date(input.now);
-  const retryAt = new Date(input.retryAt);
+  const now = tryCanonicalInstantMs(input.now);
+  const retryAt = tryCanonicalInstantMs(input.retryAt);
   if (
     !idSchema.safeParse(input.jobId).success ||
     !privacyVendors.includes(input.vendor) ||
-    !Number.isFinite(now.getTime()) ||
-    now.toISOString() !== input.now ||
-    !Number.isFinite(retryAt.getTime()) ||
-    retryAt.toISOString() !== input.retryAt ||
+    now === undefined ||
+    retryAt === undefined ||
     retryAt <= now
   )
     throw createAppError('VALIDATION');
