@@ -11,12 +11,12 @@ import { join, resolve } from 'node:path';
 import { SQL } from 'bun';
 import { drizzle } from 'drizzle-orm/bun-sql';
 import { readMigrationFiles } from 'drizzle-orm/migrator';
-import { authoredCheck, baselineSql } from '../src/baseline/baseline-sql';
-import { readBaselineRecord } from '../src/baseline/baseline-record';
+import { authoredCheck, baselineSql } from './baseline/baseline-sql';
+import { readBaselineRecord } from './baseline/baseline-record';
 import {
   migrateOldWay,
   supersededFolders,
-} from '../src/baseline/superseded-history';
+} from './baseline/superseded-history';
 import {
   catalogDifferences,
   describeCatalogDifference,
@@ -180,7 +180,7 @@ try {
     `${JSON.stringify({ ...snapshot, prevIds: ['00000000-0000-0000-0000-000000000000'] }, null, 2)}\n`,
   );
   await writeFile(
-    join(repository, 'packages/db/src/baseline/superseded-journal.json'),
+    join(repository, 'packages/db/scripts/baseline/superseded-journal.json'),
     `${JSON.stringify(
       readMigrationFiles({ migrationsFolder: superseded.folder }).map(
         ({ name, hash, folderMillis }) => ({

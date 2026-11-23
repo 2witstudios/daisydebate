@@ -111,7 +111,7 @@ live journal records. Then, in one transaction on the live database, it:
 
 1. locks the journal;
 2. requires the journal to be exactly the superseded history (names, hashes
-   and timestamps, `packages/db/src/baseline/superseded-journal.json`)
+   and timestamps, `packages/db/scripts/baseline/superseded-journal.json`)
    followed by image folders;
 3. requires the live catalog to equal the reference's;
 4. deletes the superseded journal rows and records the baseline in the first

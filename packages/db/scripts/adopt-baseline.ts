@@ -1,6 +1,6 @@
 import { fileURLToPath } from 'node:url';
 import { readMigrationConfig } from '@daisy/config';
-import { adoptBaseline } from '../src/baseline/adoption';
+import { adoptBaseline } from './baseline/adoption';
 
 // `bun db:adopt-baseline` (RECON-5.2, ADR 0913): the owner runs it once per
 // database migrated the old way, as the migration owner, from the image of

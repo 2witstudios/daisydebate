@@ -5,12 +5,12 @@ import { join } from 'node:path';
 import { drizzle } from 'drizzle-orm/bun-sql';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { requireTestServices } from '@daisy/config';
-import { adoptBaseline } from '../src/baseline/adoption';
-import { readBaselineRecord } from '../src/baseline/baseline-record';
+import { adoptBaseline } from '../scripts/baseline/adoption';
+import { readBaselineRecord } from '../scripts/baseline/baseline-record';
 import {
   migrateOldWay,
   supersededFolders,
-} from '../src/baseline/superseded-history';
+} from '../scripts/baseline/superseded-history';
 import { databaseHealthOperations } from '../src/database-health';
 import { applyDevSeed } from '../src/dev-seed';
 import { runMigrations } from '../src/migrator';

@@ -5,8 +5,8 @@ import { SQL } from 'bun';
 import { drizzle } from 'drizzle-orm/bun-sql';
 import { readMigrationFiles } from 'drizzle-orm/migrator';
 import { migrate } from 'drizzle-orm/pg-core';
-import { MIGRATOR_SESSION } from '../session-bounds';
-import { inTransaction } from '../tx';
+import { MIGRATOR_SESSION } from '../../src/session-bounds';
+import { inTransaction } from '../../src/tx';
 import { prepareTournamentLobbyBackfill } from './superseded-tournament-backfill';
 
 const repository = resolve(import.meta.dir, '../../../..');

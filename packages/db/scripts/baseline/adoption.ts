@@ -6,15 +6,15 @@ import { sql } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/bun-sql';
 import { readMigrationFiles } from 'drizzle-orm/migrator';
 import { z } from 'zod';
-import { runMigrations } from '../migrator';
-import { postgresInt8, query, run } from '../raw-rows';
+import { runMigrations } from '../../src/migrator';
+import { postgresInt8, query, run } from '../../src/raw-rows';
 import {
   catalogDifferences,
   describeCatalogDifference,
   readSchemaCatalog,
-} from '../schema-catalog';
-import { MIGRATOR_SESSION } from '../session-bounds';
-import { inTransaction, type Tx } from '../tx';
+} from '../../src/schema-catalog';
+import { MIGRATOR_SESSION } from '../../src/session-bounds';
+import { inTransaction, type Tx } from '../../src/tx';
 import {
   describeRefusal,
   journalMoved,

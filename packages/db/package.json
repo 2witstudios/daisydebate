@@ -111,7 +111,7 @@
   },
   "scripts": {
     "typecheck": "tsgo --noEmit",
-    "test": "bun test src",
+    "test": "bun test src scripts",
     "test:integration": "bun ../../scripts/test-integration.ts",
     "db:generate": "bun --bun x drizzle-kit generate",
     "db:migrate": "bun scripts/migrate.ts",

@@ -3,11 +3,11 @@ import { SQL } from 'bun';
 import { drizzle } from 'drizzle-orm/bun-sql';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { requireTestServices } from '@daisy/config';
-import { readBaselineRecord } from '../src/baseline/baseline-record';
+import { readBaselineRecord } from '../scripts/baseline/baseline-record';
 import {
   migrateOldWay,
   supersededFolders,
-} from '../src/baseline/superseded-history';
+} from '../scripts/baseline/superseded-history';
 import {
   catalogDifferences,
   describeCatalogDifference,

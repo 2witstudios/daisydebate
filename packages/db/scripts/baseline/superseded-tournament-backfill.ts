@@ -1,12 +1,12 @@
 import { lobbyKinds } from '@daisy/protocol/lobby';
 import { settingScopeKinds } from '@daisy/protocol/setting-keys';
-import { listedWord } from '../lifecycle-sql';
+import { listedWord } from '../../src/lifecycle-sql';
 import { createId } from '@paralleldrive/cuid2';
 import { sql } from 'drizzle-orm';
 import { z } from 'zod';
 import { createAppError } from '@daisy/errors';
-import { query, run } from '../raw-rows';
-import type { Tx } from '../tx';
+import { query, run } from '../../src/raw-rows';
+import type { Tx } from '../../src/tx';
 
 const legacyParentGroup = z.object({
   leagueId: z.string(),
