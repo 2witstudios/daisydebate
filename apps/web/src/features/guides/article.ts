@@ -1,7 +1,7 @@
 import type { ReleaseFlagKey } from '../flags/catalogue';
 
 /**
- * The three homes of public reading: Guides help someone use
+ * The three homes of public reading (ADR 0912): Guides help someone use
  * Daisy, Learn helps them get better at debate, and Stories carries what is
  * new. A Guide and a Learn article link each other where a task calls for it.
  */

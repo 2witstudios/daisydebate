@@ -193,7 +193,8 @@ the gaps it cannot.
   product, shown once after sign-up and reopened from Help; every other
   onboarding step follows the rule. `/about` states Daisy's vision and links
   each common question to its Help answer rather than repeating it.
-- Guides own explanation, owner decision 2026-11-23. How Daisy works, task by
+- Guides own explanation, owner decision 2026-11-23
+  ([ADR 0912](../decisions/0912-public-guides-and-learning.md)). How Daisy works, task by
   task, is written once in the public guides (`/guides`, entered from `/help`)
   and its craft in `/learn`. A screen that needs more than its labels links to
   the guide that owns the explanation (Judge links the judging guides, the
