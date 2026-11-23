@@ -2,6 +2,10 @@ import { addMs } from '@daisy/clock';
 import { createAppError, createRefusal } from '@daisy/errors';
 import { canOfferFreshRoom } from './fresh-room';
 import { roomBotAdmission } from './bot-admission';
+import {
+  requireBotDebateReleased,
+  type BotDebatesReleased,
+} from './bot-debate-release';
 import { roomAiJudgeSeating } from './ai-judge-seating';
 import { hostHoldsCasualCapture, roomCaptureOffer } from './capture-offer';
 import { authorize } from '@daisy/auth/authorization';
@@ -96,6 +100,7 @@ export function createRoomRuntimeOperations({
   ids,
   consentTtlMs,
   aiSeats,
+  botDebatesReleased,
   betaGrantsPremium,
   entropy,
   linkedAdults,
@@ -105,6 +110,8 @@ export function createRoomRuntimeOperations({
   readonly ids: IdGenerator;
   readonly consentTtlMs: () => number;
   readonly aiSeats: () => AiSeatAvailability;
+  /** Whether bot debates are released for an account (`bot-debates`). */
+  readonly botDebatesReleased: BotDebatesReleased;
   /** Whether a beta-sourced premium grant counts (`PREMIUM_BETA_GRANT`). */
   readonly betaGrantsPremium: boolean;
   /** 32 CSPRNG bytes as hex, for a draw's seed and salt; fixed in tests. */
@@ -286,8 +293,11 @@ export function createRoomRuntimeOperations({
         ),
       ),
       captureNotice: roomCaptureNotice(state),
-      botAdmission: await roomBotAdmission(state, caller.actorId, (actorId) =>
-        store.readRoundBotAdmissionStatus(actorId),
+      botAdmission: await roomBotAdmission(
+        state,
+        caller.actorId,
+        (actorId) => store.readRoundBotAdmissionStatus(actorId),
+        () => botDebatesReleased(caller.userId),
       ),
       // Only an open Room has invitations to show.
       invitations: isOpenRoomStatus(state.status)
@@ -392,6 +402,11 @@ export function createRoomRuntimeOperations({
     const cast = body.cast ?? [];
     if (new Set(cast.map((seat) => seat.actorId)).size !== cast.length)
       throw createRefusal('CONFLICT', 'illegal-config');
+    // Read once, only when the cast could seat a debater; the seat's own
+    // target decides below whether that debater is a bot.
+    const botDebatesOpen =
+      !cast.some((seat) => isDebatingSeat(seat.seat)) ||
+      (await botDebatesReleased(caller.userId));
     const receipt = await store.createRoomCommand({
       caller,
       // The Room opens in the creator's own lobby unless club staff chose
@@ -440,8 +455,9 @@ export function createRoomRuntimeOperations({
               commandId: ids.next(),
               participantId: ids.next(),
             })),
-            apply: (state, seat, target, now, maySeatCasualAiJudge) =>
-              executeRoomCommand(
+            apply: (state, seat, target, now, maySeatCasualAiJudge) => {
+              requireBotDebateReleased(target, seat.seat, botDebatesOpen);
+              return executeRoomCommand(
                 state,
                 caller.actorId,
                 {
@@ -481,7 +497,8 @@ export function createRoomRuntimeOperations({
                   drawStart: null,
                   seatSeed: null,
                 },
-              ),
+              );
+            },
           }
         : null,
       room: {
@@ -527,12 +544,17 @@ export function createRoomRuntimeOperations({
     },
     catalog,
     async castChoices(caller: Caller): Promise<readonly RoomCastChoice[]> {
-      return (
-        await store.listRoomBots(caller, (account) =>
-          can(caller, 'room.list', account),
-        )
-      ).flatMap((p) =>
-        p.kind === 'bot' && p.aiRole
+      const bots = await store.listRoomBots(caller, (account) =>
+        can(caller, 'room.list', account),
+      );
+      // Unreleased bot debates offer no bot debater; the AI judge stays.
+      const debatersOffered =
+        !bots.some((p) => p.aiRole === 'debater') ||
+        (await botDebatesReleased(caller.userId));
+      return bots.flatMap((p) =>
+        p.kind === 'bot' &&
+        p.aiRole &&
+        (p.aiRole !== 'debater' || debatersOffered)
           ? [
               {
                 actorId: p.actorId,
@@ -635,6 +657,7 @@ export function createRoomRuntimeOperations({
       redis,
       ids,
       aiSeats,
+      botDebatesReleased,
       betaGrantsPremium,
       consentTtlMs,
       eligible,

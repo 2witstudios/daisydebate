@@ -1,10 +1,12 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { destinationHref } from '../destinations/destinations';
-import { openRoomHref, playOptions } from './options';
+import { openRoomHref, playOptionsFor } from './options';
+
+const playOptions = playOptionsFor(true);
 
 setupRitewayBun();
 
-describe('playOptions', () => {
+describe('playOptionsFor', () => {
   test('every way to play leads somewhere of its own', () => {
     assert({
       given: 'the options',
@@ -41,6 +43,23 @@ describe('playOptions', () => {
         playOptions.find((option) => option.id === 'events')!,
       ),
       expected: ['/tournaments', false],
+    });
+  });
+
+  test('bot practice is coming soon, with no link, until bot debates are released', () => {
+    const bot = (released: boolean) =>
+      playOptionsFor(released).find((option) => option.id === 'bot')!;
+    assert({
+      given: 'a viewer without and with the bot-debates release',
+      should: 'say coming soon with no link, or link Train as today',
+      actual: [
+        [bot(false).blurb, bot(false).href],
+        [bot(true).blurb, bot(true).href],
+      ],
+      expected: [
+        ['Coming soon.', null],
+        ['Pick a personality.', '/train'],
+      ],
     });
   });
 });

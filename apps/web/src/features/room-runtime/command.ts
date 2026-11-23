@@ -1,6 +1,10 @@
 import { eventCaptureAdmission } from '../tab/tournament-capture-admission';
 import type { Store, Caller } from './operations';
 import { aiServesSeat } from './ai-seat';
+import {
+  requireBotDebateReleased,
+  type BotDebatesReleased,
+} from './bot-debate-release';
 import type { AiSeatAvailability } from '../round-runtime/worker-policy';
 import { currentRoomConsent, type PreparedRoomConsent } from './consent';
 import { castSeatsBotDebater, executeRoomCommand } from '@daisy/debate-engine';
@@ -27,6 +31,7 @@ export function roomCommandOperation({
   redis,
   ids,
   aiSeats,
+  botDebatesReleased,
   betaGrantsPremium,
   consentTtlMs,
   eligible,
@@ -38,6 +43,7 @@ export function roomCommandOperation({
   redis: Pick<ReturnType<typeof createRedis>, 'setRoomConsent'>;
   ids: IdGenerator;
   aiSeats: () => AiSeatAvailability;
+  botDebatesReleased: BotDebatesReleased;
   betaGrantsPremium: boolean;
   consentTtlMs: () => number;
   eligible: (state: RoomAssemblyState) => RoomAssemblyState;
@@ -58,6 +64,11 @@ export function roomCommandOperation({
   ): Promise<RoomCommandResponse> {
     // One id for the Round a Start round launches: the engine names it and the store inserts it.
     const roundId = ids.next();
+    // Only seating names a target that may be a bot debater; the Round
+    // freeze rechecks release for the charged host atomically.
+    const botDebatesOpen =
+      command.type !== 'assign-seat' ||
+      (await botDebatesReleased(caller.userId));
     const captureAdmissionId =
       command.type === 'start-round' ? ids.next() : null;
     const receipt = await store.executeRoomCommand({
@@ -194,6 +205,7 @@ export function roomCommandOperation({
             command.type === 'claim-seat' || command.type === 'assign-seat'
               ? command.seat
               : judgeSeat();
+          requireBotDebateReleased(target, seat, botDebatesOpen);
           const outcome = executeRoomCommand(
             state,
             caller.actorId,

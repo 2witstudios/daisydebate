@@ -12,6 +12,8 @@ import {
 } from '../../../features/lobby/page-reads';
 import { requestStudentRoundIds } from '../../../features/watch/page-reads';
 import { Lobby } from '../../../ui/lobby/lobby';
+import { playOptionsFor } from '../../../features/play/options';
+import { botDebatesReleasedTo } from '../../../features/train/release';
 import { hostedRoomsRead, roomListing } from './actions';
 import { requestActiveRoom } from '../active-room';
 import { ResumeRound } from '../../../ui/active-room/resume-round';
@@ -74,6 +76,7 @@ export default async function LobbyPage({
         activeRoom={activeRoom}
         now={now}
         viewer={{ actorId, ageBand, studentRoundIds, guardianLobbyIds }}
+        playOptions={playOptionsFor(await botDebatesReleasedTo(identity))}
       />
     </>
   );

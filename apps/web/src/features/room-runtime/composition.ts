@@ -9,6 +9,7 @@ import { memberHttpBoundary } from '../auth/member-boundary';
 import { createRoomHandlers } from './handlers';
 import { createRoomRuntimeOperations } from './operations';
 import { drawEntropy } from './entropy';
+import { routeReleaseFor } from '../flags/route-release';
 /** Explicit policy injection; proof choices do not silently activate production. */
 export type RoomPolicy = {
   readonly consentTtlMs: number;
@@ -48,6 +49,8 @@ function composeRoomRoutes(app: App) {
 
         consentTtlMs: () => policy.consentTtlMs,
         aiSeats: () => app.aiSeats,
+        botDebatesReleased: (userId) =>
+          routeReleaseFor(app)('bot-debates', userId),
         betaGrantsPremium: app.config.PREMIUM_BETA_GRANT,
         entropy: drawEntropy,
         linkedAdults: liveLinkedAdults(app),

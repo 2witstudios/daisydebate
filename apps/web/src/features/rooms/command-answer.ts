@@ -113,6 +113,7 @@ const refusalWords: Partial<Record<RoomRefusal, string>> = {
   'draw-unavailable':
     'There aren’t enough resolutions to draw from. Choose another source or add lines.',
   'bots-busy': 'Bots are busy right now. Try again shortly.',
+  'bot-debates-coming-soon': 'Bot debates are coming soon.',
   'ai-judge-premium': aiJudgePremiumText,
   'capture-premium':
     'Broadcasting and recording a casual round come with a subscription.',
