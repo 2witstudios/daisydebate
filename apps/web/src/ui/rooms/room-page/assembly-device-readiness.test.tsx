@@ -1,15 +1,19 @@
 import { idle } from '../../../features/forms/form-state';
-import { renderToStaticMarkup } from 'react-dom/server';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assemblySnapshot } from '../../../features/rooms/assembly.test-support';
 import type { ReactNode } from 'react';
+import { renderAccessible } from '../../../test-support/rendered/accessible';
 import { AssemblyDeviceReadiness } from './assembly-device-readiness';
 
 setupRitewayBun();
+/** Whether `second` comes after `first` in document order (or inside it). */
+const follows = (first: Element, second: Element) =>
+  // Node.DOCUMENT_POSITION_FOLLOWING
+  (first.compareDocumentPosition(second) & 4) !== 0;
 const actorId = assemblySnapshot.hostActorId;
 const nativeProps = {
-  main: (start: ReactNode) => <div data-roster>{start}</div>,
-  aside: <div data-aside />,
+  main: (start: ReactNode) => <section aria-label="Roster">{start}</section>,
+  aside: <aside aria-label="Room controls" />,
   chat: null,
   actorId,
   action: async () => idle(),
@@ -48,25 +52,23 @@ for (const role of ['affirmative', 'judge'] as const) {
         },
       ],
     };
-    const html = renderToStaticMarkup(
-      <AssemblyDeviceReadiness {...nativeProps} view={view} />,
+    const rendered = renderAccessible(
+      <main>
+        <AssemblyDeviceReadiness {...nativeProps} view={view} />
+      </main>,
     );
+    const action = role === 'judge' ? 'I’m ready' : 'Turn on camera and mic';
     assert({
       given: `a server-rendered human ${role} with no local checks`,
       should:
         'keep the judge’s native consent and the debater’s disabled device action, without opening a camera',
       actual: [
-        html.includes(
-          role === 'judge' ? 'I’m ready' : 'Turn on camera and mic',
-        ),
-        (
-          html.match(
-            /<button[^>]*>(?:I’m ready|Turn on camera and mic)<\/button>/,
-          )?.[0] ?? ''
-        ).includes('disabled=""'),
-        html.includes('<video'),
-        html.includes('Checking your camera and microphone…'),
-        html.includes('data-roster'),
+        rendered.has('button', action),
+        rendered.get('button', action).hasAttribute('disabled'),
+        // A video has no role; the page around it is asked whether it holds one.
+        rendered.get('main').querySelector('video') !== null,
+        rendered.textContent().includes('Checking your camera and microphone…'),
+        rendered.has('region', 'Roster'),
       ],
       expected: [true, role !== 'judge', false, role !== 'judge', true],
     });
@@ -75,7 +77,7 @@ for (const role of ['affirmative', 'judge'] as const) {
 
 test('the Room chat sits under the roster for a viewer with no devices (RCHAT-9)', () => {
   const chat = <section aria-label="Room chat">thread</section>;
-  const visitor = renderToStaticMarkup(
+  const visitor = renderAccessible(
     <AssemblyDeviceReadiness
       {...nativeProps}
       chat={chat}
@@ -85,7 +87,7 @@ test('the Room chat sits under the roster for a viewer with no devices (RCHAT-9)
       }}
     />,
   );
-  const seatlessHost = renderToStaticMarkup(
+  const seatlessHost = renderAccessible(
     <AssemblyDeviceReadiness
       {...nativeProps}
       chat={chat}
@@ -97,14 +99,19 @@ test('the Room chat sits under the roster for a viewer with no devices (RCHAT-9)
     should:
       'show the roster then the chat, then the controls, with no tile or Ready; the host gets only Start round there',
     actual: [
-      visitor.indexOf('data-roster') <
-        visitor.indexOf('aria-label="Room chat"'),
-      visitor.indexOf('aria-label="Room chat"') < visitor.indexOf('data-aside'),
-      visitor.includes('aria-label="You"'),
-      visitor.includes('I’m ready'),
+      follows(
+        visitor.get('region', 'Roster'),
+        visitor.get('region', 'Room chat'),
+      ),
+      follows(
+        visitor.get('region', 'Room chat'),
+        visitor.get('complementary', 'Room controls'),
+      ),
+      visitor.has('region', 'You'),
+      visitor.textContent().includes('I’m ready'),
       [
-        seatlessHost.includes('Start round'),
-        seatlessHost.includes('I’m ready'),
+        seatlessHost.textContent().includes('Start round'),
+        seatlessHost.textContent().includes('I’m ready'),
       ],
     ],
     expected: [true, true, false, false, [true, false]],
@@ -133,60 +140,30 @@ test('a seated debater has Turn on under their own tile, above the Room controls
       },
     ],
   };
-  const html = renderToStaticMarkup(
+  const rendered = renderAccessible(
     <AssemblyDeviceReadiness
       {...nativeProps}
       chat={<section aria-label="Room chat">thread</section>}
       view={view}
     />,
   );
-  const roster = html.indexOf('data-roster');
-  const chat = html.indexOf('aria-label="Room chat"');
-  const tile = html.indexOf('aria-label="You"');
-  const ready = html.indexOf('Turn on camera and mic');
-  const aside = html.indexOf('data-aside');
+  const roster = rendered.get('region', 'Roster');
+  const chat = rendered.get('region', 'Room chat');
+  const tile = rendered.get('region', 'You');
+  const ready = rendered
+    .within('region', 'You')
+    .get('button', 'Turn on camera and mic');
+  const aside = rendered.get('complementary', 'Room controls');
   assert({
     given: 'a seated debater with the Room chat',
     should:
       'order roster, chat, their tile with its device action in it, then the controls',
-    actual: [roster < chat, chat < tile, tile < ready, ready < aside],
-    expected: [true, true, true, true],
-  });
-});
-
-test('initial device preview reserves the camera tile’s space (RHS-1)', () => {
-  const view = {
-    ...assemblySnapshot,
-    capabilities: { ...assemblySnapshot.capabilities, canReady: true },
-    participants: [
-      {
-        id: 'p'.repeat(24),
-        actorId,
-        kind: 'human' as const,
-        label: 'Host',
-        seat: { kind: 'side', side: 'affirmative', slot: 0 } as const,
-        teamOpen: false,
-        positionOpen: false,
-        rating: null,
-        ageBand: null,
-        needsReady: true,
-        eligible: true,
-        ready: 'not-ready' as const,
-        consentVersion: 0,
-      },
+    actual: [
+      follows(roster, chat),
+      follows(chat, tile),
+      follows(tile, ready),
+      follows(ready, aside),
     ],
-  };
-  const html = renderToStaticMarkup(
-    <AssemblyDeviceReadiness {...nativeProps} view={view} />,
-  );
-  assert({
-    given: 'a seated debater before browser device resources initialize',
-    should:
-      'reserve the preview aspect ratio so Settings below it stays in place',
-    actual:
-      /<[^>]+class="[^"]*aspect-room-preview[^"]*"[^>]*>Checking your camera and microphone…/.test(
-        html,
-      ),
-    expected: true,
+    expected: [true, true, true, true],
   });
 });

@@ -1,9 +1,10 @@
 import { instantMs } from '@daisy/clock';
-import { renderToStaticMarkup } from 'react-dom/server';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { twoSides } from '@daisy/protocol/seats';
 import { type RoundView } from '@daisy/protocol/round-view';
+import { renderAccessible } from '../../test-support/rendered/accessible';
 import { OpeningChosen, OpeningStatus, OpeningStrike } from './opening-strike';
+import { postedBy } from './posted-fields.test-support';
 
 setupRitewayBun();
 
@@ -61,7 +62,7 @@ const view = {
   ],
 } as unknown as RoundView;
 const render = (actorId: string, canStrike: boolean) =>
-  renderToStaticMarkup(
+  renderAccessible(
     <OpeningStrike
       view={view}
       opening={opening(canStrike)}
@@ -76,32 +77,39 @@ const render = (actorId: string, canStrike: boolean) =>
 
 describe('OpeningStrike', () => {
   test('the striker gets one native form with the turn it means to take', () => {
-    const html = render('neg', true);
+    const view = render('neg', true);
+    const posted = postedBy(view, 'Strike this resolution');
     assert({
       given: 'the Negative on its turn, as the server renders it',
       should:
         'name its strike, count down from the due instant, and post the ordinal and seat',
       actual: [
-        html.includes('Your strike'),
-        html.includes('1:00'),
-        html.includes('name="ordinal" value="0"'),
-        html.includes(`name="participantId" value="${'n'.repeat(24)}"`),
-        html.includes('name="type" value="strike_resolution"'),
-        html.includes('Strike this resolution'),
+        view.has('heading', 'Your strike', { level: 1 }),
+        view.text('timer', 'Time left for this strike'),
+        posted.ordinal,
+        posted.participantId,
+        posted.type,
       ],
-      expected: [true, true, true, true, true, true],
+      expected: [
+        true,
+        'Your time1:00',
+        '0',
+        'n'.repeat(24),
+        'strike_resolution',
+      ],
     });
   });
 
   test('the other debater reads the same resolutions with nothing to press', () => {
-    const html = render('aff', false);
+    const view = render('aff', false);
     assert({
       given: 'the Affirmative during the Negative turn',
       should: 'name who is striking, show the texts and offer no submit',
       actual: [
-        html.includes('Noor is striking'),
-        html.includes(`${SENTINEL} 0`),
-        html.includes('Strike this resolution'),
+        view.has('heading', 'Noor is striking', { level: 1 }),
+        view.textContent().includes(`${SENTINEL} 0`),
+        view.textContent().includes('Strike this resolution') ||
+          view.has('button', 'Strike this resolution'),
       ],
       expected: [true, true, false],
     });
@@ -118,7 +126,7 @@ describe('OpeningStatus', () => {
   } as const;
 
   test('a judge or spectator reads progress, then the prep clock', () => {
-    const during = renderToStaticMarkup(
+    const during = renderAccessible(
       <OpeningStatus
         view={
           {
@@ -133,8 +141,8 @@ describe('OpeningStatus', () => {
         }
         nowMs={nowMs}
       />,
-    );
-    const prep = renderToStaticMarkup(
+    ).textContent();
+    const prep = renderAccessible(
       <OpeningStatus
         view={
           {
@@ -154,16 +162,12 @@ describe('OpeningStatus', () => {
         }
         nowMs={nowMs}
       />,
-    );
+    ).text('timer', 'Prep before the round');
     assert({
       given: 'the strike, then prep',
       should: 'show progress with no drawn text, then the clock',
-      actual: [
-        during.includes('Strike 1'),
-        during.includes(SENTINEL),
-        prep.includes('1:00'),
-      ],
-      expected: [true, false, true],
+      actual: [during.includes('Strike 1'), during.includes(SENTINEL), prep],
+      expected: [true, false, 'Prep · 1:00'],
     });
   });
 });
@@ -192,19 +196,26 @@ describe('OpeningChosen', () => {
   } as const;
 
   test('debaters read how the resolution was chosen, with each strike in order', () => {
-    const html = renderToStaticMarkup(
+    const chosen = renderAccessible(
       <OpeningChosen view={view} draw={revealed} actorId="aff" />,
     );
+    const lines = chosen
+      .within('group')
+      .all('listitem')
+      .map((line) => line.textContent ?? '');
     assert({
       given: 'a revealed draw read by a debater',
       should: 'list both struck lines, then the one debated',
       actual: [
-        html.includes('How it was chosen'),
-        html.indexOf(`${SENTINEL} 0`) < html.indexOf(`${SENTINEL} 1`),
-        html.indexOf(`${SENTINEL} 1`) < html.indexOf(`${SENTINEL} 2`),
-        html.includes('Debated'),
+        chosen.textContent().startsWith('How it was chosen'),
+        lines.map((line) => line.slice(0, `${SENTINEL} 0`.length)),
+        lines.at(-1)?.endsWith('Debated'),
       ],
-      expected: [true, true, true, true],
+      expected: [
+        true,
+        [`${SENTINEL} 0`, `${SENTINEL} 1`, `${SENTINEL} 2`],
+        true,
+      ],
     });
   });
 
@@ -220,12 +231,12 @@ describe('OpeningChosen', () => {
       given: 'an unrevealed draw, and a revealed one read as progress',
       should: 'render nothing',
       actual: [
-        renderToStaticMarkup(
+        renderAccessible(
           <OpeningChosen view={view} draw={debaterDraw} actorId="aff" />,
-        ),
-        renderToStaticMarkup(
+        ).textContent(),
+        renderAccessible(
           <OpeningChosen view={view} draw={progress} actorId="aff" />,
-        ),
+        ).textContent(),
       ],
       expected: ['', ''],
     });

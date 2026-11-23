@@ -1,6 +1,5 @@
-import { ladderCopyIn } from '../test-support/ladder-copy.test-support';
+import { ladderCopyInView } from '../test-support/ladder-copy.test-support';
 import { createElement as h } from 'react';
-import { renderToString } from 'react-dom/server';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { buildDetail } from '../../features/leaderboard/detail';
 import { buildLadder } from '../../features/leaderboard/ladder';
@@ -15,6 +14,7 @@ import {
   type LadderQuery,
 } from '../../features/leaderboard/query';
 import { entry } from '../../features/ratings/standing.test-support';
+import { renderAccessible } from '../../test-support/rendered/accessible';
 import { Leaderboard } from './leaderboard';
 
 setupRitewayBun();
@@ -46,7 +46,7 @@ const render = (
     pendingChanges: options.pendingChanges ?? 0,
   };
   const view = buildLadder(data, query, viewer);
-  return renderToString(
+  return renderAccessible(
     h(Leaderboard, {
       ladder: options.ladder ?? { style: 'freestyle', division: 'open' },
       view,
@@ -55,72 +55,73 @@ const render = (
       judging: options.judging ?? false,
       detail: null,
     }),
-  ).replace(/<!-- -->/g, '');
+  );
 };
 
 describe('Leaderboard', () => {
   test('a live season', () => {
-    const html = render(field(40));
+    const view = render(field(40));
+    const text = view.textContent();
     assert({
       given: 'a live season for a visitor',
       should: 'have one h1, say the season is live, filter and list',
       actual: [
-        html.match(/<h1/g)?.length,
-        html.includes('Season 5 is live. Ends in 25 days.'),
-        html.includes('role="search"'),
-        html.includes('aria-label="Top three"'),
-        html.includes('aria-label="Ladder"'),
-        html.includes('How ratings work'),
-        html.includes('Final'),
+        view.count('heading', undefined, { level: 1 }),
+        text.includes('Season 5 is live. Ends in 25 days.'),
+        view.has('search', 'Filter the ladder'),
+        view.has('list', 'Top three'),
+        view.has('region', 'Ladder'),
+        view.has('link', 'How ratings work'),
+        text.includes('Final'),
       ],
       expected: [1, true, true, true, true, true, false],
     });
   });
 
   test('a closed season', () => {
-    const html = render(field(40), { season: closedSeason });
+    const text = render(field(40), { season: closedSeason }).textContent();
     assert({
       given: 'a closed season',
       should: 'say final standings and show the Final banner',
       actual: [
-        html.includes('Season 4 final standings'),
-        html.includes('Season 4 is closed'),
-        html.includes('is live'),
+        text.includes('Season 4 final standings'),
+        text.includes('Season 4 is closed'),
+        text.includes('is live'),
       ],
       expected: [true, true, false],
     });
   });
 
   test('a new season', () => {
-    const html = render([entry({ id: 'p', played: 0, deviation: 200 })], {
+    const view = render([entry({ id: 'p', played: 0, deviation: 200 })], {
       username: 'p',
       previousChampion: { season: '4', username: 'ada', rating: 1758 },
     });
+    const text = view.textContent();
     assert({
       given: 'a season with nobody established',
       should:
         'welcome the season, say no one is ranked and name last season’s champion',
       actual: [
-        html.includes('has started'),
-        html.includes('No one is ranked yet'),
-        html.includes('@ada'),
-        html.includes('This season'),
+        text.includes('has started'),
+        view.has('heading', 'No one is ranked yet', { level: 2 }),
+        view.text('region', 'Last season’s champion').includes('@ada'),
+        text.includes('This season'),
       ],
       expected: [true, true, true, false],
     });
   });
 
   test('the filters belong to the list, and no explainer cards lead', () => {
-    const html = render(field(40));
+    const view = render(field(40));
     assert({
       given: 'a live season',
       should:
         'put the filters inside the ladder card, and show no season card or sample badge',
       actual: [
-        html.indexOf('aria-label="Ladder"') <
-          html.indexOf('aria-label="Filter the ladder"'),
-        html.includes('This season'),
-        html.includes('Sample data'),
+        view.within('region', 'Ladder').has('search', 'Filter the ladder'),
+        view.textContent().includes('This season'),
+        view.textContent().includes('Sample data'),
       ],
       expected: [true, false, false],
     });
@@ -136,26 +137,28 @@ describe('Leaderboard', () => {
       should:
         'name no ladder, style or division outside the lobby switch, and keep the Seasons link on the division',
       actual: [
-        ladderCopyIn(youth),
-        youth.includes('Members under 18'),
-        youth.includes('href="/leaderboard/seasons?division=youth&amp;season='),
+        ladderCopyInView(youth),
+        youth.textContent().includes('Members under 18'),
+        youth
+          .attribute('link', 'Seasons', 'href')
+          ?.startsWith('/leaderboard/seasons?division=youth&season='),
       ],
       expected: [null, false, true],
     });
   });
 
   test('an early season', () => {
-    const html = render(field(3));
+    const view = render(field(3));
     assert({
       given: 'three established debaters in a live season',
       should: 'count the established and provisional debaters',
-      actual: html.includes('3 established, '),
+      actual: view.textContent().includes('3 established, '),
       expected: true,
     });
   });
 
   test('a judge and a live update', () => {
-    const html = render(field(40), {
+    const view = render(field(40), {
       username: 'judge',
       judging: true,
       pendingChanges: 3,
@@ -164,11 +167,11 @@ describe('Leaderboard', () => {
       given: 'a judge and three changes waiting',
       should: 'explain the hidden ratings and offer a refresh',
       actual: [
-        html.includes('Ratings are hidden while you judge.'),
-        html.includes('3 ranks changed. Refresh'),
-        html.includes('Hidden'),
+        view.text('note'),
+        view.has('link', '3 ranks changed. Refresh'),
+        view.textContent().includes('Hidden'),
       ],
-      expected: [true, true, true],
+      expected: ['Ratings are hidden while you judge.', true, true],
     });
   });
 
@@ -183,7 +186,7 @@ describe('Leaderboard', () => {
       query,
       null,
     );
-    const html = renderToString(
+    const rendered = renderAccessible(
       h(Leaderboard, {
         ladder: { style: 'freestyle', division: 'open' },
         view,
@@ -196,7 +199,7 @@ describe('Leaderboard', () => {
     assert({
       given: 'an open debater',
       should: 'render the drawer beside the ladder',
-      actual: html.includes('aria-label="Debater detail"'),
+      actual: rendered.has('complementary', 'Debater detail'),
       expected: true,
     });
   });

@@ -1,6 +1,6 @@
-import { renderToString } from 'react-dom/server';
 import { createElement as h } from 'react';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
+import { renderAccessible } from '../../test-support/rendered/accessible';
 import { createInitialState, type UiState } from './state';
 import { createUiStore, useUiState, UiStoreProvider } from './store';
 
@@ -53,7 +53,7 @@ function Probe() {
 
 describe('useUiState SSR snapshot', () => {
   test('renders the full state on the server (no hydration gaps)', () => {
-    const html = renderToString(
+    const view = renderAccessible(
       h(UiStoreProvider, {
         initialState: createInitialState(),
         children: h(Probe),
@@ -62,8 +62,8 @@ describe('useUiState SSR snapshot', () => {
     assert({
       given: 'a component reading the store rendered to string',
       should: 'render the seeded content through the server snapshot',
-      actual: html,
-      expected: '<p>unread</p>',
+      actual: [view.count('paragraph'), view.textContent()],
+      expected: [1, 'unread'],
     });
   });
 });
@@ -128,17 +128,17 @@ describe('UI store request scoping (ADR 0024)', () => {
   test('UiStoreProvider gives each render its own store instance', () => {
     const stateA = { ...createInitialState() };
     const stateB = withOnline(createInitialState(), 7);
-    const htmlA = renderToString(
+    const textA = renderAccessible(
       h(UiStoreProvider, { initialState: stateA, children: h(Probe) }),
-    );
-    const htmlB = renderToString(
+    ).text('paragraph');
+    const textB = renderAccessible(
       h(UiStoreProvider, { initialState: stateB, children: h(Probe) }),
-    );
+    ).text('paragraph');
     assert({
       given: 'two provider trees rendered with different seeded state',
       should: 'render each tree from its own store, not a shared one',
-      actual: [htmlA, htmlB],
-      expected: ['<p>unread</p>', '<p>7</p>'],
+      actual: [textA, textB],
+      expected: ['unread', '7'],
     });
   });
 });

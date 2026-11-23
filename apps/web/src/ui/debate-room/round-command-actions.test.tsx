@@ -1,6 +1,7 @@
-import { renderToStaticMarkup } from 'react-dom/server';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { mockNextRouter } from '../../lib/testing/mock-router';
+import { renderAccessible } from '../../test-support/rendered/accessible';
+import { postedBy } from './posted-fields.test-support';
 setupRitewayBun();
 mockNextRouter();
 const { answerFocusTarget, CommandForm, shownError } =
@@ -16,8 +17,8 @@ const intent = {
   confirm: true,
 };
 const expectedVersion = (answer: Parameters<typeof CommandForm>[0]['answer']) =>
-  /name="expectedVersion" value="(\d+)"/.exec(
-    renderToStaticMarkup(
+  postedBy(
+    renderAccessible(
       <CommandForm
         intent={intent}
         commandId={'c'.repeat(24)}
@@ -29,7 +30,8 @@ const expectedVersion = (answer: Parameters<typeof CommandForm>[0]['answer']) =>
         control="control"
       />,
     ),
-  )?.[1];
+    /end speech/i,
+  ).expectedVersion;
 
 test('a confirmation confirms the round the debater sees now (ISSUE-838)', () => {
   assert({
@@ -131,7 +133,7 @@ test('a refused strike says so only while the strike is open; a lost answer alwa
 });
 
 const confirming = (asked: string) =>
-  renderToStaticMarkup(
+  renderAccessible(
     <CommandForm
       intent={intent}
       commandId={'n'.repeat(24)}
@@ -150,7 +152,7 @@ const confirming = (asked: string) =>
       pending={false}
       control="control"
     />,
-  ).includes('Confirm end speech');
+  ).has('button', 'Confirm end speech');
 
 test('a confirmation asked in one segment never ends the next (ISSUE-838)', () => {
   assert({

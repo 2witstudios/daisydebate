@@ -1,6 +1,6 @@
-import { renderToString } from 'react-dom/server';
 import { createElement as h } from 'react';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
+import { renderAccessible } from '../../../test-support/rendered/accessible';
 import { Notice, noticeIcon } from './notice';
 import { noticeClass, noticeIconClass } from './notice-class';
 import { signInNotices } from '../sign-in-notices';
@@ -9,21 +9,20 @@ setupRitewayBun();
 
 describe('Notice', () => {
   test('errors interrupt, information waits', () => {
-    const error = renderToString(
+    const error = renderAccessible(
       h(Notice, { id: 'n', tone: 'error', title: 'Refused.' }),
     );
-    const info = renderToString(
+    const errorRole = [error.has('alert'), error.text('alert')];
+    // The icon is decorative (aria-hidden), so it is found inside the alert, not by role.
+    const errorIcon = error.get('alert').querySelector('svg') !== null;
+    const info = renderAccessible(
       h(Notice, { id: 'n', tone: 'info', title: 'Cancelled.' }),
     );
     assert({
       given: 'an error and an info notice',
       should: 'use alert and status roles respectively, with an icon',
-      actual: [
-        error.includes('role="alert"'),
-        info.includes('role="status"'),
-        error.includes('<svg'),
-      ],
-      expected: [true, true, true],
+      actual: [errorRole, [info.has('status'), info.has('alert')], errorIcon],
+      expected: [[true, 'Refused.'], [true, false], true],
     });
   });
 });

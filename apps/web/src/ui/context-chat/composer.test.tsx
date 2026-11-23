@@ -1,10 +1,13 @@
 import { createElement as h } from 'react';
-import { renderToString } from 'react-dom/server';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import {
   contextChatIdle,
   contextChatUnacknowledged,
 } from '../../features/messaging/context-chat/form-state';
+import {
+  renderAccessible,
+  type AccessibleView,
+} from '../../test-support/rendered/accessible';
 import { ContextChatComposer } from './composer';
 
 setupRitewayBun();
@@ -18,24 +21,30 @@ const props = {
   action: async () => initial,
   onSent: () => {},
 };
+const field = (view: AccessibleView) =>
+  view.get('textbox', props.label) as HTMLTextAreaElement;
+/** The form the message field posts with: what it sends, by field name. */
+const form = (view: AccessibleView) => field(view).form!;
+const posted = (view: AccessibleView) =>
+  [...form(view).elements].map((element) => element.getAttribute('name'));
 test('a chat composer names its audience and submits safely before hydration', () => {
-  const html = renderToString(h(ContextChatComposer, props));
+  const view = renderAccessible(h(ContextChatComposer, props));
   assert({
     given: 'a loaded writable chat channel',
     should:
       'offer an accessible message field and a real form without a GET submission',
     actual: [
-      html.includes('name="text"'),
-      html.includes('name="requestId"'),
-      html.includes('aria-label="Message debaters and host"'),
-      html.includes('aria-label="Send message"'),
-      /method="get"/i.test(html),
+      field(view).getAttribute('name'),
+      posted(view).includes('requestId'),
+      view.has('textbox', 'Message debaters and host'),
+      view.has('button', 'Send message'),
+      form(view).getAttribute('method'),
     ],
-    expected: [true, true, true, true, false],
+    expected: ['text', true, true, true, null],
   });
 });
 test('an unknown send keeps the exact retry text read-only', () => {
-  const html = renderToString(
+  const view = renderAccessible(
     h(ContextChatComposer, {
       ...props,
       initial: contextChatUnacknowledged(initial.values, 'Not confirmed.'),
@@ -45,26 +54,26 @@ test('an unknown send keeps the exact retry text read-only', () => {
     given: 'a command whose result has not been confirmed',
     should: 'keep the payload present but prevent editing it and offer retry',
     actual: [
-      html.includes('readOnly=""'),
-      html.includes('A kept draft'),
-      html.includes('aria-label="Retry message"'),
-      html.includes(`value="${requestId}"`),
+      field(view).hasAttribute('readonly'),
+      field(view).value,
+      view.has('button', 'Retry message'),
+      (form(view).elements.namedItem('requestId') as HTMLInputElement).value,
     ],
-    expected: [true, true, true, true],
+    expected: [true, 'A kept draft', true, requestId],
   });
 });
 test('a locked chat keeps the draft while preventing new sends', () => {
-  const html = renderToString(
+  const view = renderAccessible(
     h(ContextChatComposer, { ...props, locked: true }),
   );
   assert({
     given: 'a terminal or revoked chat',
     should: 'keep the draft in a read-only field and disable sending',
     actual: [
-      html.includes('A kept draft'),
-      html.includes('readOnly=""'),
-      /<button[^>]*disabled=""/.test(html),
+      field(view).value,
+      field(view).hasAttribute('readonly'),
+      view.get('button', 'Send message').hasAttribute('disabled'),
     ],
-    expected: [true, true, true],
+    expected: ['A kept draft', true, true],
   });
 });

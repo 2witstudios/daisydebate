@@ -1,14 +1,22 @@
-import { renderToString } from 'react-dom/server';
+import { renderMarkup } from '../test-support/rendered/markup';
 import { createElement as h } from 'react';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
+import { markGeometry, petalShape } from '../features/brand/brand-geometry';
+import { petalPath } from '../features/brand/petal';
 import {
-  markGeometry,
-  petalShape,
-} from '../../../features/brand/brand-geometry';
-import { petalPath } from '../../../features/brand/petal';
-import { DaisyLogo, DaisyMark, DaisyTile } from './daisy-mark';
+  DaisyLogo,
+  DaisyMark,
+  DaisyTile,
+} from '../ui/components/daisy-mark/daisy-mark';
 
 setupRitewayBun();
+
+/**
+ * The brand mark's drawing is the subject: petal geometry (path data), the
+ * scheme-following fill classes per variant and the tile's rounded square.
+ * The mark is decorative (aria-hidden, no role), so none of it has a role,
+ * name or state; the design-system contract is the markup itself.
+ */
 
 const petalClasses = (html: string) =>
   [...html.matchAll(/<path d="[^"]+" class="([^"]+)"/g)].map(
@@ -27,7 +35,7 @@ const uprightPetal = petalPath(petalShape, {
 
 describe('DaisyMark', () => {
   test('draws eight teardrop petals from the petal primitive, hidden from assistive tech', () => {
-    const html = renderToString(h(DaisyMark, { size: 24, variant: 'primary' }));
+    const html = renderMarkup(h(DaisyMark, { size: 24, variant: 'primary' }));
     assert({
       given: 'a primary mark',
       should:
@@ -44,7 +52,7 @@ describe('DaisyMark', () => {
   });
 
   test('colours the primary mark from the scheme-following petal tokens and yolk', () => {
-    const html = renderToString(h(DaisyMark, { size: 24, variant: 'primary' }));
+    const html = renderMarkup(h(DaisyMark, { size: 24, variant: 'primary' }));
     assert({
       given: 'the primary variant',
       should:
@@ -67,7 +75,7 @@ describe('DaisyMark', () => {
   });
 
   test('draws the mono mark in currentColor, with no mask', () => {
-    const html = renderToString(h(DaisyMark, { size: 24, variant: 'mono' }));
+    const html = renderMarkup(h(DaisyMark, { size: 24, variant: 'mono' }));
     assert({
       given: 'the mono variant',
       should:
@@ -82,7 +90,7 @@ describe('DaisyMark', () => {
   });
 
   test('draws the reverse mark with cream petals and a yolk disc', () => {
-    const html = renderToString(h(DaisyMark, { size: 24, variant: 'reverse' }));
+    const html = renderMarkup(h(DaisyMark, { size: 24, variant: 'reverse' }));
     assert({
       given: 'the reverse variant',
       should: 'use cream petals and a yolk disc, with no mask',
@@ -97,7 +105,7 @@ describe('DaisyMark', () => {
 
   test('draws a shape it is given instead of the committed one', () => {
     const shape = { ...petalShape, length: 6 };
-    const html = renderToString(
+    const html = renderMarkup(
       h(DaisyMark, { size: 24, variant: 'primary', shape }),
     );
     assert({
@@ -116,7 +124,7 @@ describe('DaisyMark', () => {
 
 describe('DaisyTile', () => {
   test('sits a reverse bloom on a forest rounded square', () => {
-    const html = renderToString(h(DaisyTile, { size: 16 }));
+    const html = renderMarkup(h(DaisyTile, { size: 16 }));
     assert({
       given: 'the favicon tile',
       should:
@@ -136,7 +144,7 @@ describe('DaisyTile', () => {
 
 describe('DaisyLogo', () => {
   test('is the primary mark at logo size, with no tile', () => {
-    const html = renderToString(h(DaisyLogo));
+    const html = renderMarkup(h(DaisyLogo));
     assert({
       given: 'the logo',
       should:

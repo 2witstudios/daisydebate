@@ -1,15 +1,47 @@
-import { renderToStaticMarkup } from 'react-dom/server';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import {
   freestyleChoice,
   unequalTemplate,
 } from '../../../features/rooms/assembly.test-support';
+import {
+  renderAccessible,
+  type AccessibleView,
+} from '../../../test-support/rendered/accessible';
 import { CreateAssemblyFields } from './create-assembly-form';
 
 setupRitewayBun();
 
+/**
+ * The names the fields post under, and the hidden fields' values: the native
+ * form's payload, which no role states. The fields render without their form,
+ * so the payload is read from the rendered fields themselves.
+ */
+const payload = (view: AccessibleView) => {
+  const fields = [
+    ...view
+      .get('button', 'Create room')
+      .ownerDocument.body.querySelectorAll('[name]'),
+  ];
+  return {
+    names: fields.map((field) => field.getAttribute('name')),
+    hidden: Object.fromEntries(
+      fields
+        .filter((field) => field.getAttribute('type') === 'hidden')
+        .map((field) => [
+          field.getAttribute('name'),
+          field.getAttribute('value'),
+        ]),
+    ),
+    values: [
+      ...view
+        .get('button', 'Create room')
+        .ownerDocument.body.querySelectorAll('[value]'),
+    ].map((field) => field.getAttribute('value')),
+  };
+};
+
 test('creation presents format first and a complete progressively enhanced editor', () => {
-  const html = renderToStaticMarkup(
+  const view = renderAccessible(
     <CreateAssemblyFields
       memberDivision="open"
       lobbyChoice={null}
@@ -19,30 +51,43 @@ test('creation presents format first and a complete progressively enhanced edito
       choices={[freestyleChoice]}
     />,
   );
+  const { names, values } = payload(view);
+  const format = view.within('radiogroup', 'Format').all('radio');
   assert({
     given: 'a room creator with the authoritative Freestyle preset',
     should:
       'offer Freestyle or Custom, Strike or Custom wording, and editable settings without a topic-first form',
     actual: [
-      ['freestyle', 'custom'].every(
-        (format) =>
-          html.includes(`name="format"`) && html.includes(`value="${format}"`),
+      format.map(
+        (radio) =>
+          `${radio.getAttribute('name')}=${radio.getAttribute('value')}`,
       ),
-      ['policy', 'value'].some((format) => html.includes(`value="${format}"`)),
-      html.includes('Policy res') || html.includes('Value res'),
-      html.includes('Points of information (POI)'),
-      html.includes('name="duration.segment.0"'),
-      html.includes('name="duration.preRound"'),
-      html.includes('value="add-side:affirmative"'),
-      html.includes('name="resolutionMethod"'),
-      html.includes('name="topic"'),
+      ['policy', 'value'].some((format) => values.includes(format)),
+      view.textContent().includes('Policy res') ||
+        view.textContent().includes('Value res'),
+      view.textContent().includes('Points of information (POI)'),
+      view.count('textbox', 'Time, minutes and seconds'),
+      view.count('textbox', 'Before the round, minutes and seconds'),
+      view.has('button', 'Add affirmative speech'),
+      view.attribute('combobox', 'Resolution', 'name'),
+      names.includes('topic'),
     ],
-    expected: [true, false, false, false, false, false, false, true, false],
+    expected: [
+      ['format=freestyle', 'format=custom'],
+      false,
+      false,
+      false,
+      0,
+      0,
+      false,
+      'resolutionMethod',
+      false,
+    ],
   });
 });
 
 test('an empty catalog cannot submit a fabricated template', () => {
-  const html = renderToStaticMarkup(
+  const view = renderAccessible(
     <CreateAssemblyFields
       memberDivision="open"
       lobbyChoice={null}
@@ -57,18 +102,18 @@ test('an empty catalog cannot submit a fabricated template', () => {
     should:
       'render the room name and a disabled create with no fabricated resolution or format',
     actual: [
-      html.includes('name="title"'),
-      html.includes('name="topic"'),
-      html.includes('disabled=""'),
-      html.includes('No formats are available yet.'),
-      html.includes('Placeholder'),
+      view.attribute('textbox', 'Room name', 'name'),
+      payload(view).names.includes('topic'),
+      view.get('button', 'Create room').hasAttribute('disabled'),
+      view.textContent().includes('No formats are available yet.'),
+      view.textContent().includes('Placeholder'),
     ],
-    expected: [true, false, true, true, false],
+    expected: ['title', false, true, true, false],
   });
 });
 
 test('native template selection carries the immutable revision and exact defaults', () => {
-  const html = renderToStaticMarkup(
+  const view = renderAccessible(
     <CreateAssemblyFields
       memberDivision="open"
       lobbyChoice={null}
@@ -91,20 +136,33 @@ test('native template selection carries the immutable revision and exact default
     should:
       'retain the template basis, exact timings, unequal seats and dedupe ID',
     actual: [
-      html.includes('2v3'),
-      html.includes('value="test-unequal-template@7@5"'),
-      html.includes('value="1:38.765"'),
-      html.includes('p'.repeat(24)),
-      html.includes('q'.repeat(24)),
-      html.includes('Retained title'),
-      html.includes('Retained topic'),
-      html.includes('name="duration.preRound"'),
+      view.textContent().includes('2v3'),
+      payload(view).hidden.basis,
+      view
+        .all('textbox', 'Time, minutes and seconds')
+        .map((field) => field.getAttribute('value'))[0],
+      payload(view).hidden.commandId,
+      view.attribute('textbox', 'Room name', 'value'),
+      view.get('textbox', 'Custom resolution').textContent,
+      view.attribute(
+        'textbox',
+        'Before the round, minutes and seconds',
+        'name',
+      ),
     ],
-    expected: [true, true, true, true, false, true, true, true],
+    expected: [
+      true,
+      'test-unequal-template@7@5',
+      '1:38.765',
+      'p'.repeat(24),
+      'Retained title',
+      'Retained topic',
+      'duration.preRound',
+    ],
   });
 });
 test('a new Room cannot be made private while no invite path exists', () => {
-  const html = renderToStaticMarkup(
+  const view = renderAccessible(
     <CreateAssemblyFields
       memberDivision="open"
       lobbyChoice={null}
@@ -114,13 +172,17 @@ test('a new Room cannot be made private while no invite path exists', () => {
       choices={[unequalTemplate]}
     />,
   );
+  const offered = view
+    .within('combobox', /^Who can join/)
+    .all('option')
+    .map((option) => option.getAttribute('value'));
   assert({
     given: 'the create form',
     should: 'offer unlisted and public, not private (ISSUE-443)',
     actual: [
-      html.includes('value="unlisted"'),
-      html.includes('value="public"'),
-      html.includes('value="private"'),
+      offered.includes('unlisted'),
+      offered.includes('public'),
+      offered.includes('private'),
     ],
     expected: [true, true, false],
   });

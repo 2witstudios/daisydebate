@@ -1,6 +1,6 @@
-import { renderToStaticMarkup } from 'react-dom/server';
-import { createElement } from 'react';
+import { createElement, type ReactNode } from 'react';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
+import { renderAccessible } from '../../../test-support/rendered/accessible';
 import { mountBrowserClient } from '../../test-support/browser-client.test-support';
 import { Announcement } from '../announcement/announcement';
 import { Dialog } from './dialog';
@@ -13,58 +13,74 @@ const noop = () => {};
 
 test('a dialog renders the platform element; a region renders the labelled shell', () => {
   const label = { 'aria-labelledby': 'title' };
+  const titled = (dialog: ReactNode) =>
+    renderAccessible(
+      createElement(
+        'div',
+        null,
+        createElement('h2', { id: 'title' }, 'Report'),
+        dialog,
+      ),
+    );
+  const modal = titled(
+    createElement(Dialog, { ...label, open: true, onClose: noop }, 'A'),
+  );
+  // A closed dialog is out of the tree until shown: absent, yet named.
+  const closedModal = [
+    modal.count('dialog'),
+    modal.text('dialog', 'Report', { hidden: true }),
+  ];
+  const inPlace = titled(
+    createElement(Dialog, {
+      ...label,
+      open: true,
+      modal: false,
+      onClose: noop,
+    }),
+  ).attribute('dialog', 'Report', 'open');
+  const region = titled(
+    createElement(DialogRegion, {
+      ...label,
+      as: 'section',
+      'aria-modal': true,
+    }),
+  );
   assert({
     given:
       'a closed modal, an open in-place dialog and a feature-managed overlay',
     should:
       'leave a modal’s showing to the dialog, render the in-place one open, and label the shell',
     actual: [
-      renderToStaticMarkup(
-        createElement(Dialog, { ...label, open: true, onClose: noop }, 'A'),
-      ),
-      renderToStaticMarkup(
-        createElement(Dialog, {
-          ...label,
-          open: true,
-          modal: false,
-          onClose: noop,
-        }),
-      ),
-      renderToStaticMarkup(
-        createElement(DialogRegion, {
-          ...label,
-          as: 'section',
-          'aria-modal': true,
-        }),
-      ),
+      closedModal,
+      inPlace,
+      [
+        region.get('dialog', 'Report').tagName,
+        region.attribute('dialog', 'Report', 'aria-modal'),
+      ],
     ],
-    expected: [
-      '<dialog aria-labelledby="title">A</dialog>',
-      '<dialog aria-labelledby="title" open=""></dialog>',
-      '<section aria-labelledby="title" aria-modal="true" role="dialog"></section>',
-    ],
+    expected: [[0, 'A'], '', ['SECTION', 'true']],
   });
 });
 
 test('an announcement decides its role from what it says', () => {
+  const progress = renderAccessible(
+    <Announcement as="span" kind="progress">
+      Saved
+    </Announcement>,
+  );
+  const saved = [progress.get('status').tagName, progress.text('status')];
+  const problem = renderAccessible(
+    <Announcement as="p" kind="problem">
+      Try again
+    </Announcement>,
+  );
   assert({
     given: 'progress in a span and a problem in a paragraph',
     should: 'wait its turn for progress and interrupt for a problem',
-    actual: [
-      renderToStaticMarkup(
-        <Announcement as="span" kind="progress">
-          Saved
-        </Announcement>,
-      ),
-      renderToStaticMarkup(
-        <Announcement as="p" kind="problem">
-          Try again
-        </Announcement>,
-      ),
-    ],
+    actual: [saved, [problem.get('alert').tagName, problem.text('alert')]],
     expected: [
-      '<span role="status">Saved</span>',
-      '<p role="alert">Try again</p>',
+      ['SPAN', 'Saved'],
+      ['P', 'Try again'],
     ],
   });
 });

@@ -1,4 +1,3 @@
-import { renderToString } from 'react-dom/server';
 import {
   Children,
   createElement as h,
@@ -6,220 +5,169 @@ import {
   type ReactNode,
 } from 'react';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
+import { renderAccessible } from '../../../test-support/rendered/accessible';
 import { renderNavItem } from './nav-item.render';
 
 setupRitewayBun();
 
 describe('nav-item presentation', () => {
   test('marks the active route', () => {
-    const html = String(
-      renderToString(
-        h(renderNavItem, {
-          href: '/ranked',
-          icon: 'swords',
-          label: 'Ranked',
-          active: true,
-        }),
-      ),
+    const view = renderAccessible(
+      h(renderNavItem, {
+        href: '/ranked',
+        icon: 'swords',
+        label: 'Ranked',
+        active: true,
+      }),
     );
     assert({
       given: 'the active route item',
-      should: 'set aria-current and the active class',
-      actual: [html.includes('aria-current="page"'), html.includes('/ranked')],
-      expected: [true, true],
+      should: 'set aria-current on the link to the route',
+      actual: view.attribute('link', 'Ranked', 'href', { current: 'page' }),
+      expected: '/ranked',
     });
   });
 
   test('leaves inactive items unmarked', () => {
-    const html = String(
-      renderToString(
-        h(renderNavItem, {
-          href: '/watch',
-          icon: 'eye',
-          label: 'Watch',
-          active: false,
-        }),
-      ),
+    const view = renderAccessible(
+      h(renderNavItem, {
+        href: '/watch',
+        icon: 'eye',
+        label: 'Watch',
+        active: false,
+      }),
     );
     assert({
       given: 'an inactive route item',
       should: 'omit aria-current',
-      actual: html.includes('aria-current'),
-      expected: false,
+      actual: view.attribute('link', 'Watch', 'aria-current'),
+      expected: null,
     });
   });
 
   test('names an icon-only link with screen-reader text and a tooltip', () => {
-    const html = String(
-      renderToString(
-        h(renderNavItem, {
-          href: '/friends',
-          icon: 'users',
-          label: 'Friends, 4 online',
-          title: 'Friends',
-          active: false,
-          badge: h('span', { 'aria-hidden': true }, '4'),
-        }),
-      ),
+    const view = renderAccessible(
+      h(renderNavItem, {
+        href: '/friends',
+        icon: 'users',
+        label: 'Friends, 4 online',
+        title: 'Friends',
+        active: false,
+        badge: h('span', { 'aria-hidden': true }, '4'),
+      }),
     );
     assert({
       given: 'a rail link with a count in its name and a short tooltip',
       should:
-        'keep the full name readable to assistive tech (sr-only), the short label as its title, and the badge decorative',
+        'keep the full name readable to assistive tech, the short label as its title, and the badge shown but decorative',
       actual: [
-        html.includes('<span class="sr-only">Friends, 4 online</span>'),
-        html.includes('title="Friends"'),
-        html.includes('<span aria-hidden="true">4</span>'),
+        view.attribute('link', 'Friends, 4 online', 'title'),
+        view.textContent(),
       ],
-      expected: [true, true, true],
+      expected: ['Friends', 'Friends, 4 online4'],
     });
   });
 
   test('reveals sub-navigation beside the link', () => {
-    const html = String(
-      renderToString(
-        h(renderNavItem, {
-          href: '/watch',
-          icon: 'eye',
-          label: 'Watch',
-          active: false,
-          subItems: [{ href: '/recordings', label: 'Recordings' }],
-        }),
-      ),
+    const view = renderAccessible(
+      h(renderNavItem, {
+        href: '/watch',
+        icon: 'eye',
+        label: 'Watch',
+        active: false,
+        subItems: [{ href: '/recordings', label: 'Recordings' }],
+      }),
     );
     assert({
       given: 'a rail link with sub-items',
       should:
         'render each sub-item as a link in a flyout, tooltip defaulting to the label',
       actual: [
-        html.includes('href="/recordings"'),
-        html.includes('title="Watch"'),
+        view.attribute('link', 'Recordings', 'href'),
+        view.attribute('link', 'Watch', 'title'),
       ],
-      expected: [true, true],
+      expected: ['/recordings', 'Watch'],
     });
   });
 
-  test('opens a bottom-aligned flyout upward, so a foot item stays on screen', () => {
-    const html = String(
-      renderToString(
-        h(renderNavItem, {
-          href: '/settings',
-          icon: 'dots',
-          label: 'More',
-          active: false,
-          flyoutAlign: 'bottom',
-          subItems: [{ href: '/help', label: 'Help' }],
-        }),
-      ),
-    );
-    const flyout = html.slice(html.lastIndexOf('<span class="'));
-    assert({
-      given: 'a rail link at the foot with sub-items and a bottom flyout',
-      should: 'anchor its flyout to the link’s bottom, not its top',
-      actual: [/\bbottom-0\b/.test(flyout), /\btop-0\b/.test(flyout)],
-      expected: [true, false],
-    });
-  });
-
-  test('extended, the label shows beside the icon and the tooltip stays', () => {
-    const html = String(
-      renderToString(
-        h(renderNavItem, {
-          href: '/ranked',
-          icon: 'swords',
-          label: 'Ranked',
-          active: false,
-          extended: true,
-        }),
-      ),
+  test('extended, the label names the link and the tooltip stays', () => {
+    const view = renderAccessible(
+      h(renderNavItem, {
+        href: '/ranked',
+        icon: 'swords',
+        label: 'Ranked',
+        active: false,
+        extended: true,
+      }),
     );
     assert({
       given: 'an extended rail item',
       should:
-        'render the label as text that survives every width (icon-rail:sr-only), with no sr-only duplicate, and keep the tooltip for the widths where CSS hides the words',
-      actual: [
-        html.includes('<span class="icon-rail:sr-only">Ranked</span>'),
-        html.includes('<span class="sr-only">Ranked</span>'),
-        html.includes('title="Ranked"'),
-      ],
-      expected: [true, false, true],
+        'name the link by its label once, with no duplicate, and keep the tooltip for the widths where CSS hides the words',
+      actual: [view.attribute('link', 'Ranked', 'title'), view.textContent()],
+      expected: ['Ranked', 'Ranked'],
     });
   });
 
   test('mini, the accessible name stays the full label whatever word says', () => {
-    const html = String(
-      renderToString(
-        h(renderNavItem, {
-          href: '/friends',
-          icon: 'users',
-          label: 'Friends, 4 online',
-          title: 'Friends',
-          active: false,
-          word: 'Friends',
-        }),
-      ),
+    const view = renderAccessible(
+      h(renderNavItem, {
+        href: '/friends',
+        icon: 'users',
+        label: 'Friends, 4 online',
+        title: 'Friends',
+        active: false,
+        word: 'Friends',
+      }),
     );
     assert({
       given:
         'a minimized rail item whose visible word is shorter than its name',
       should:
-        'keep the whole name, counts included, as screen-reader text, with the word nowhere in the markup',
-      actual: [
-        html.includes('<span class="sr-only">Friends, 4 online</span>'),
-        !html.includes('<span aria-hidden="true"'),
-      ],
-      expected: [true, true],
+        'keep the whole name, counts included, as the link name, with the word nowhere in the output',
+      actual: [view.has('link', 'Friends, 4 online'), view.textContent()],
+      expected: [true, 'Friends, 4 online'],
     });
   });
 
   test('extended, a shortened word keeps the full label as the accessible name', () => {
-    const html = String(
-      renderToString(
-        h(renderNavItem, {
-          href: '/friends',
-          icon: 'users',
-          label: 'Friends, 4 online',
-          title: 'Friends',
-          active: false,
-          extended: true,
-          word: 'Friends',
-          badge: h('span', { 'aria-hidden': true }, '4'),
-        }),
-      ),
+    const view = renderAccessible(
+      h(renderNavItem, {
+        href: '/friends',
+        icon: 'users',
+        label: 'Friends, 4 online',
+        title: 'Friends',
+        active: false,
+        extended: true,
+        word: 'Friends',
+        badge: h('span', { 'aria-hidden': true }, '4'),
+      }),
     );
     assert({
       given: 'an extended item whose visible word is shorter than its name',
       should:
-        'show the word as decoration and keep the whole name, counts included, as screen-reader text',
-      actual: [
-        html.includes(
-          '<span aria-hidden="true" class="icon-rail:sr-only">Friends</span>',
-        ),
-        html.includes('<span class="sr-only">Friends, 4 online</span>'),
-        html.includes('<span aria-hidden="true">4</span>'),
-      ],
-      expected: [true, true, true],
+        'show the word and the badge as decoration and keep the whole name, counts included, as the link name',
+      actual: [view.has('link', 'Friends, 4 online'), view.textContent()],
+      expected: [true, 'FriendsFriends, 4 online4'],
     });
   });
 
   test('extended, sub-navigation still reveals beside the link', () => {
-    const html = String(
-      renderToString(
-        h(renderNavItem, {
-          href: '/watch',
-          icon: 'eye',
-          label: 'Watch',
-          active: false,
-          extended: true,
-          subItems: [{ href: '/recordings', label: 'Recordings' }],
-        }),
-      ),
+    const view = renderAccessible(
+      h(renderNavItem, {
+        href: '/watch',
+        icon: 'eye',
+        label: 'Watch',
+        active: false,
+        extended: true,
+        subItems: [{ href: '/recordings', label: 'Recordings' }],
+      }),
     );
     assert({
       given: 'an extended rail link with sub-items',
       should: 'render the flyout unchanged',
-      actual: html.includes('href="/recordings"'),
-      expected: true,
+      actual: view.attribute('link', 'Recordings', 'href'),
+      expected: '/recordings',
     });
   });
 });

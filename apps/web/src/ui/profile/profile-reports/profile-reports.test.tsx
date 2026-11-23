@@ -1,5 +1,5 @@
-import { renderToStaticMarkup } from 'react-dom/server';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
+import { renderAccessible } from '../../../test-support/rendered/accessible';
 import { ProfileReports, profileReportTargets } from './profile-reports';
 
 setupRitewayBun();
@@ -42,21 +42,40 @@ describe('profileReportTargets', () => {
 
 describe('ProfileReports', () => {
   test('forms and the answer', () => {
-    const html = renderToStaticMarkup(
+    const view = renderAccessible(
       <ProfileReports shown={shown} notice="received" action={() => {}} />,
     );
+    const reports = view.within('group', 'Report this profile');
+    const targets = reports
+      .all('button', 'Send report')
+      .map(
+        (button) =>
+          (
+            button.closest('form')?.elements.namedItem('targetKind') as
+              HTMLInputElement | null | undefined
+          )?.value,
+      );
+    const reasons = reports
+      .all('option')
+      .map((option) => option.getAttribute('value'));
     assert({
       given: 'a full profile and a report that reached moderation',
       should:
         'offer three report forms with the safety reasons and say it was received',
       actual: [
-        html.match(/<form /g)?.length,
-        html.includes('name="targetKind" value="profile_photo"'),
-        html.includes('value="impersonation"'),
-        html.includes('value="result_dispute"'),
-        html.includes('Your report reached the moderation team'),
+        targets,
+        reasons.includes('impersonation'),
+        reasons.includes('result_dispute'),
+        reports
+          .text('status')
+          .includes('Your report reached the moderation team'),
       ],
-      expected: [3, true, true, false, true],
+      expected: [
+        ['profile_photo', 'profile_display_name', 'profile_bio'],
+        true,
+        false,
+        true,
+      ],
     });
   });
 
@@ -64,10 +83,17 @@ describe('ProfileReports', () => {
     assert({
       given: 'a profile that shows nothing and no answer',
       should: 'render nothing',
-      actual: renderToStaticMarkup(
-        <ProfileReports shown={nothing} notice={null} action={() => {}} />,
-      ),
-      expected: '',
+      actual: (() => {
+        const view = renderAccessible(
+          <ProfileReports shown={nothing} notice={null} action={() => {}} />,
+        );
+        return [
+          view.textContent(),
+          view.count('group', undefined, { hidden: true }),
+          view.count('generic', undefined, { hidden: true }),
+        ];
+      })(),
+      expected: ['', 0, 0],
     });
   });
 });

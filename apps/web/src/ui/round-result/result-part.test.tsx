@@ -1,7 +1,7 @@
-import { renderToStaticMarkup } from 'react-dom/server';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import type { ResultPart } from './result-part';
 import { mockNextRouter } from '../../lib/testing/mock-router';
+import { renderAccessible } from '../../test-support/rendered/accessible';
 
 await mockNextRouter();
 const { ResultUnavailable, resultPart, resultRetryOf } =
@@ -48,24 +48,25 @@ test('the page refreshes only when asking again can help', () => {
 });
 
 test('a temporary failure is announced and tried again by itself', () => {
-  const html = renderToStaticMarkup(<ResultUnavailable retrySeconds={3} />);
+  const view = renderAccessible(<ResultUnavailable retrySeconds={3} />);
+  // The `href=""` that asks again in place: markup-contracts/result-part.
   assert({
     given: 'a part refused for now',
     should: 'announce it and offer it now',
-    actual: [html.includes('role="status"'), html.includes('href=""')],
+    actual: [view.has('status'), view.textContent().includes('Try now')],
     expected: [true, true],
   });
 });
 
 test('a failure that may last is announced with no refresh loop', () => {
-  const html = renderToStaticMarkup(<ResultUnavailable retrySeconds={null} />);
+  const view = renderAccessible(<ResultUnavailable retrySeconds={null} />);
   assert({
     given: 'a part whose failure may never pass',
     should: 'announce it and leave asking again to the reader',
     actual: [
-      html.includes('role="status"'),
-      html.includes('Trying again'),
-      html.includes('href=""'),
+      view.has('status'),
+      view.text('status').includes('Trying again'),
+      view.textContent().includes('Try now'),
     ],
     expected: [true, false, true],
   });

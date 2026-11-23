@@ -1,6 +1,6 @@
 import { createElement as h } from 'react';
-import { renderToString } from 'react-dom/server';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
+import { renderAccessible } from '../../../test-support/rendered/accessible';
 import { OUTCOME_NOTICES } from './security-notices';
 import {
   openingSecurityOverview,
@@ -30,19 +30,20 @@ const answered = (answer: SecurityListsAnswer) =>
 
 /** What the two sections say about their lists. */
 const said = (overview: SecurityOverview) => {
-  const html = renderToString(
+  const view = renderAccessible(
     h(SecurityOverviewSections, { overview, screen }),
   );
   return {
-    loadingPasskeys: html.includes('Loading passkeys…'),
-    loadingSessions: html.includes('Loading sessions…'),
-    lists: (html.match(/<ul/g) ?? []).length,
-    rows: (html.match(/<li/g) ?? []).length,
-    unavailable: ['passkeys-load-notice', 'sessions-load-notice'].filter((id) =>
-      new RegExp(
-        `<div(?=[^>]* id="${id}")(?=[^>]* role="alert")[^>]*>.*?${OUTCOME_NOTICES.unavailable}`,
-      ).test(html),
-    ),
+    loadingPasskeys: view.textContent().includes('Loading passkeys…'),
+    loadingSessions: view.textContent().includes('Loading sessions…'),
+    lists: view.count('list'),
+    rows: view.count('listitem'),
+    unavailable: view
+      .all('alert')
+      .filter((alert) =>
+        (alert.textContent ?? '').includes(OUTCOME_NOTICES.unavailable),
+      )
+      .map((alert) => alert.id),
   };
 };
 

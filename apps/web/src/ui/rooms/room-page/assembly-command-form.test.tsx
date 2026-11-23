@@ -1,10 +1,13 @@
 import { FormData as BrowserFormData } from 'happy-dom';
-import { renderToStaticMarkup } from 'react-dom/server';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import type { RoomFormState } from '../../../features/rooms/command-answer';
 import { createLocalCommandAction } from '../../../features/rooms/local-command-action';
 import { mountBrowserClient } from '../../test-support/browser-client.test-support';
 import type * as Client from './assembly-command-form.test-support';
+import {
+  accessibleWithin,
+  renderAccessible,
+} from '../../../test-support/rendered/accessible';
 import { RetryRoomCommand } from './retry-room-command';
 
 setupRitewayBun();
@@ -17,15 +20,19 @@ const original = {
 };
 
 test('the retry of a room command posts exactly the original fields', () => {
-  const html = renderToStaticMarkup(
-    <RetryRoomCommand
-      values={{ ...original, $ACTION_ID_abc: '' }}
-      pending={false}
-    />,
+  // The retry stands inside its command's form; the test gives it one.
+  const view = renderAccessible(
+    <form aria-label="Claim seat">
+      <RetryRoomCommand
+        values={{ ...original, $ACTION_ID_abc: '' }}
+        pending={false}
+      />
+    </form>,
   );
-  const posted = [...html.matchAll(/name="([^"]+)" value="([^"]*)"/g)].map(
-    ([, name, value]) => [name, value],
-  );
+  const inputs = [
+    ...view.get('form', 'Claim seat').querySelectorAll('input'),
+  ].map((input) => input as HTMLInputElement);
+  const posted = inputs.map((input) => [input.name, input.value]);
   assert({
     given:
       'the fields of a claim whose answer was lost, with the action field React added to the post',
@@ -34,23 +41,18 @@ test('the retry of a room command posts exactly the original fields', () => {
     actual: [
       Object.fromEntries(posted),
       posted.length,
-      html.includes('type="hidden"'),
-      html.includes('>Retry command</button>'),
+      inputs.every((input) => input.type === 'hidden'),
+      view.count('button'),
+      view.has('button', 'Retry command'),
     ],
-    expected: [
-      // The seat travels as JSON, which the markup escapes.
-      { ...original, seat: original.seat.replaceAll('"', '&quot;') },
-      4,
-      true,
-      true,
-    ],
+    expected: [original, 4, true, 1, true],
   });
   assert({
     given: 'the same retry while it is in flight',
     should: 'say so',
-    actual: renderToStaticMarkup(
+    actual: renderAccessible(
       <RetryRoomCommand values={original} pending />,
-    ).includes('Retrying…'),
+    ).has('button', 'Retrying…'),
     expected: true,
   });
 });
@@ -90,12 +92,15 @@ test('a room command form whose answer was lost offers only the retry, then the 
     act(async () => {
       container.querySelector('button')!.click();
     });
-  const shown = () => ({
-    control: container.textContent.includes('Take seat'),
-    retry: container.textContent.includes('Retry command'),
-    says: container.querySelector('[role="alert"]')?.textContent ?? null,
-    signals: [...signals],
-  });
+  const shown = () => {
+    const view = accessibleWithin(container as unknown as Element);
+    return {
+      control: view.has('button', 'Take seat'),
+      retry: view.has('button', 'Retry command'),
+      says: view.has('alert') ? view.text('alert') : null,
+      signals: [...signals],
+    };
+  };
   try {
     await act(async () =>
       root.render(
