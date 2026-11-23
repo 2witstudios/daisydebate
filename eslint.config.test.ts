@@ -1174,15 +1174,16 @@ describe('browser edges', () => {
     assert({
       given:
         'a server module that statically imports, reexports or dynamically imports the browser adapter',
-      should: 'report each cross-boundary module dependency',
+      should:
+        'report each cross-boundary module dependency and the aliased port',
       actual: await probe(
         web('server/probe.ts'),
-        `import { browserFetch } from '../ui/edge/browser-request';
-         export { browserFetch as transport } from '../ui/edge/browser-request';
+        `import { browserTransport } from '../ui/edge/browser-request';
+         export { browserTransport as transport } from '../ui/edge/browser-request';
          export const read = () => import('../ui/edge/browser-request');
-         export const fetcher = browserFetch;`,
+         export const fetcher = browserTransport;`,
       ),
-      expected: 3,
+      expected: 4,
     });
   });
 
@@ -1246,6 +1247,61 @@ describe('browser edges', () => {
          export const driver = createDriver({ fetch: browserTransport, scheduler: browserScheduler });`,
       ),
       expected: 3,
+    });
+  });
+
+  test('refuses a port called through an alias, a destructure or a default', async () => {
+    assert({
+      given:
+        'a port aliased, destructured, defaulted as a parameter, and one handed on as an argument and a property',
+      should: 'report the three uses and allow the two hand-offs',
+      actual: await probe(
+        web('ui/room/controls.tsx'),
+        `import { browserScheduler } from '../edge/browser-time';
+         import { browserTransport } from '../edge/browser-request';
+         const s = browserScheduler;
+         const { every } = browserScheduler;
+         export const read = (transport = browserTransport) => transport('/x');
+         export const poll = startPoll(browserScheduler.after);
+         export const client = createClient({ fetch: browserTransport });
+         void s; void every;`,
+      ),
+      expected: 3,
+    });
+  });
+
+  test('refuses an edge hook handed a dependency list instead of its value', async () => {
+    assert({
+      given:
+        'a zero-parameter handler, an unused parameter, a template-literal key, a JSON.stringify key and an array key',
+      should:
+        'report each, and allow a job acting on its value or an answer’s arrival',
+      actual: await Promise.all([
+        probe(
+          web('ui/room/controls.tsx'),
+          `import { useDeliver } from '../edge/use-answer';
+           import { useResource } from '../edge/use-driver';
+           export function useMarks(a: string, b: number) {
+             useDeliver(a, () => mark());
+             useResource(a, (unused) => open());
+             useDeliver(\`\${a}|\${b}\`, (key) => mark(key));
+             useDeliver(JSON.stringify([a, b]), (key) => mark(key));
+             useResource([a, b], (key) => open(key));
+           }`,
+        ),
+        probe(
+          web('ui/room/controls.tsx'),
+          `import { useAnswer, useDeliver } from '../edge/use-answer';
+           import { useResource } from '../edge/use-driver';
+           export function useMarks(mark: Mark, answer: Answer, onAnswer: () => void) {
+             useDeliver(mark, (shown) => send(shown.sequence));
+             useResource(mark, ({ channelId }) => open(channelId));
+             useDeliver(answer, report);
+             useAnswer(answer, () => onAnswer());
+           }`,
+        ),
+      ]),
+      expected: [5, 0],
     });
   });
 

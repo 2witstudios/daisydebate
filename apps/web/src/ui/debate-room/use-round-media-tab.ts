@@ -30,9 +30,13 @@ export function useRoundMediaTab(
 ): RoundMediaTab {
   const [stepDown] = useState(createStepDown);
   // Entering a Round's room settles any departure or resume it recorded.
-  useDeliver(`${actorId}\u0000${view.id}`, () => {
-    clearDeparture(actorId, view.id);
-    clearResumeAttempt(actorId, view.id);
+  const entered = useMemo(
+    () => ({ actorId, roundId: view.id }),
+    [actorId, view.id],
+  );
+  useDeliver(entered, (seat) => {
+    clearDeparture(seat.actorId, seat.roundId);
+    clearResumeAttempt(seat.actorId, seat.roundId);
   });
   const ownership = useResumeLifetime(
     actorId,

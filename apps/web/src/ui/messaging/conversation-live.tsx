@@ -50,27 +50,29 @@ export function ConversationLive({
   const view = useRealtime(descriptor, history, socketUrl);
   const [typing, showTyping] = useState<boolean | null>(null);
   // One reader per conversation, socket and cadence; showTyping is stable.
-  useResource(
-    socketUrl === null ? null : `${channelId} ${socketUrl} ${typingRefetchMs}`,
-    (key) => {
-      if (key === null || socketUrl === null) return null;
-      const connection = tabConnection(socketUrl);
-      const reader = createBrowserTypingReader(
-        channelId,
-        connection,
-        showTyping,
-        typingRefetchMs,
-        browserTransport,
-      );
-      connection.connect();
-      return {
-        dispose: () => {
-          reader.close();
-          connection.dispose();
-        },
-      };
-    },
+  const typingChannel = useMemo(
+    () =>
+      socketUrl === null ? null : { channelId, socketUrl, typingRefetchMs },
+    [channelId, socketUrl, typingRefetchMs],
   );
+  useResource(typingChannel, (watched) => {
+    if (watched === null) return null;
+    const connection = tabConnection(watched.socketUrl);
+    const reader = createBrowserTypingReader(
+      watched.channelId,
+      connection,
+      showTyping,
+      watched.typingRefetchMs,
+      browserTransport,
+    );
+    connection.connect();
+    return {
+      dispose: () => {
+        reader.close();
+        connection.dispose();
+      },
+    };
+  });
   if (view.status === 'hidden')
     return (
       <Announcement

@@ -1,4 +1,5 @@
 'use client';
+import { browserScheduler } from '../../edge/browser-time';
 import { useDeliver } from '../../edge/use-answer';
 import { Announcement } from '../../components/announcement/announcement';
 import { drawnTopicLabel } from '../../../features/debate-room/vocabulary';
@@ -72,7 +73,13 @@ export function BallotPage({
   );
   const plan = useMemo(() => ballotPlanOf(view), [view]);
   const display = ballotDisplay(view, answer);
-  const draft = useBallotDraft(plan, view, display, fields.values);
+  const draft = useBallotDraft(
+    plan,
+    view,
+    display,
+    fields.values,
+    browserScheduler,
+  );
   const own = display === 'retry' ? null : view.own?.ballot;
   const opensInMs = useBallotOpensIn(
     view.round,

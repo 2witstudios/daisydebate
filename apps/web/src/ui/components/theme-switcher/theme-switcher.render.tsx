@@ -2,7 +2,7 @@ import { Button } from '../button/button';
 import type { KeyboardEvent, ReactNode } from 'react';
 import { Icon } from '../icon/icon';
 import type { ThemePreference } from '../../../features/theme/theme-preference';
-import { optionClass, switcherClass } from './theme-switcher-class';
+import { switcherClass } from './theme-switcher-class';
 
 const options = [
   { value: 'dark', label: 'Dark', icon: 'moon' },
@@ -57,14 +57,13 @@ export function renderThemeSwitcher({
         const checked = value === preference;
         return (
           <Button
-            variant="tab"
+            variant="segment"
             key={value}
             type="button"
             role="radio"
             aria-checked={checked}
             tabIndex={checked ? 0 : -1}
             data-preference={value}
-            className={optionClass(checked)}
             onClick={() => selectPreference(value)}
             onKeyDown={onKeyDown}
           >

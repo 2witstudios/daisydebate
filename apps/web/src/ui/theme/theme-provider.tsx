@@ -42,8 +42,9 @@ export function ThemeProvider({
 }: ThemeProviderProps) {
   const [preference, setPreference] = useState(initialPreference);
 
-  const controller = useResource('theme', () =>
-    openBrowserTheme((chosen) => flushSync(() => setPreference(chosen))),
+  // One controller for this provider's preference: it applies each choice.
+  const controller = useResource(setPreference, (apply) =>
+    openBrowserTheme((chosen) => flushSync(() => apply(chosen))),
   );
 
   const selectPreference = useCallback(

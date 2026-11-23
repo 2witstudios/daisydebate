@@ -3,6 +3,7 @@
 import { useAnswer, useDeliver } from '../edge/use-answer';
 import { useDocumentEvent } from '../edge/use-dom-events';
 import { Button } from '../components/button/button';
+import { buttonClass } from '../components/button/button-class';
 import { Announcement } from '../components/announcement/announcement';
 import { DialogRegion } from '../components/dialog/dialog-region';
 import { competitionTypes, type CompetitionType } from '@daisy/protocol/round';
@@ -41,7 +42,6 @@ import {
   reportFields,
   reportFormUnavailable,
 } from '../../features/reports/form';
-import { cn } from '../cn';
 import { useFormAction } from '../form-action/form-action';
 import { announceShellNavigation } from '../layout/app-shell/shell-link';
 import { useMovedOn } from '../form-action/use-moved-on';
@@ -53,12 +53,6 @@ import type { PersonActions } from './person-actions';
 import { publicNameLabel } from '../profile/public-name';
 
 /** A menu entry; as a button the `row` variant lays it out. */
-const itemShape =
-  'min-h-nav-target rounded-sm px-2 text-sm no-underline hover:bg-surface-overlay hover:no-underline disabled:text-ink-muted';
-const item = `${itemShape} w-full text-ink`;
-const back = `${itemShape} self-start text-ink-muted`;
-const chip =
-  'min-h-nav-target flex-1 rounded-sm border-border-strong px-1 text-sm font-semibold text-ink aria-pressed:bg-accent aria-pressed:text-accent-ink disabled:opacity-50';
 
 const modeLabels: Readonly<Record<CompetitionType, string>> = {
   ranked: 'Ranked',
@@ -96,7 +90,7 @@ function FriendItem({
     <form action={post}>
       <input type="hidden" name="intent" value={intent} />
       <input type="hidden" name="username" value={username} />
-      <Button variant="row" type="submit" disabled={pending} className={item}>
+      <Button variant="row" type="submit" disabled={pending} className="w-full">
         {label}
       </Button>
     </form>
@@ -126,7 +120,7 @@ function CancelChallengeItem({
     <form action={post} onSubmit={() => noteCancelled(challengeId)}>
       <input type="hidden" name="command" value="cancel" />
       <input type="hidden" name="challengeId" value={challengeId} />
-      <Button variant="row" type="submit" disabled={pending} className={item}>
+      <Button variant="row" type="submit" disabled={pending} className="w-full">
         Cancel challenge
       </Button>
     </form>
@@ -156,7 +150,7 @@ function MessageItem({
         type="submit"
 
         disabled={pending || next !== undefined}
-        className={item}
+        className="w-full"
       >
         Message
       </Button>
@@ -195,7 +189,7 @@ function BlockItem({
   return (
     <form action={post}>
       <input type="hidden" name="username" value={username} />
-      <Button variant="row" type="submit" disabled={pending} className={item}>
+      <Button variant="row" type="submit" disabled={pending} className="w-full">
         Block
       </Button>
       {notice ? (
@@ -269,7 +263,7 @@ function ChallengeView({
               value === 'ranked' && line !== null ? ladderLineId : undefined
             }
             onClick={() => setMode(value)}
-            className={chip}
+            className="flex-1"
           >
             {modeLabels[value]}
           </Button>
@@ -293,7 +287,12 @@ function ChallengeView({
       >
         Send challenge
       </Button>
-      <Button variant="row" type="button" onClick={onBack} className={back}>
+      <Button
+        variant="row-quiet"
+        type="button"
+        onClick={onBack}
+        className="self-start"
+      >
         Back
       </Button>
     </form>
@@ -334,7 +333,7 @@ function ReportView({
             type="button"
             aria-pressed={reason === value}
             onClick={() => setReason(value)}
-            className={cn(chip, 'text-left')}
+            className="flex-1 text-left"
           >
             {reportReasonLabels[value]}
           </Button>
@@ -353,7 +352,12 @@ function ReportView({
       >
         Send report
       </Button>
-      <Button variant="row" type="button" onClick={onBack} className={back}>
+      <Button
+        variant="row-quiet"
+        type="button"
+        onClick={onBack}
+        className="self-start"
+      >
         Back
       </Button>
     </form>
@@ -364,6 +368,15 @@ function ReportView({
  * The one menu a person opens by right-click, three dots, long press or click
  * (ADR 0103): their card, then what the viewer can do. A sheet on a phone.
  */
+
+type PersonMenuView = 'menu' | 'challenge' | 'report';
+
+/** Focus enters the view the card now shows, on its first control. */
+const focusViewStart = (card: HTMLElement | null, view: PersonMenuView) => {
+  if (card?.dataset.personView !== view) return;
+  card.querySelector<HTMLElement>('button, a, select')?.focus();
+};
+
 export function PersonMenu({
   member,
   actions,
@@ -390,7 +403,7 @@ export function PersonMenu({
     refreshPeople();
     refreshChallenges();
   };
-  const [view, setView] = useState<'menu' | 'challenge' | 'report'>('menu');
+  const [view, setView] = useState<PersonMenuView>('menu');
   const finish = () => {
     refresh();
     onClose();
@@ -401,9 +414,7 @@ export function PersonMenu({
   // it hands focus back to the row.
   const dialog = useRef<HTMLElement | null>(null);
   // Each view replaces the focused control, so focus moves in with every view.
-  useDeliver(view, () => {
-    dialog.current?.querySelector<HTMLElement>('button, a, select')?.focus();
-  });
+  useDeliver(view, (shown) => focusViewStart(dialog.current, shown));
   useDocumentEvent('keydown', (event) => {
     if (event.key === 'Escape') onClose();
   });
@@ -422,6 +433,7 @@ export function PersonMenu({
         as="section"
 
         aria-label={publicNameLabel(member)}
+        data-person-view={view}
         ref={(element) => {
           dialog.current = element;
           anchorAt(top)(element);
@@ -444,7 +456,7 @@ export function PersonMenu({
                 type="button"
 
                 onClick={() => setView('challenge')}
-                className={cn(item, 'font-bold')}
+                className="w-full font-bold"
               >
                 Challenge
               </Button>
@@ -479,7 +491,7 @@ export function PersonMenu({
             <MessageItem action={actions.message} username={username} />
             <Link
               href={`/profile/${username}`}
-              className={cn('flex items-center', item)}
+              className={`${buttonClass('row')} w-full`}
             >
               Profile
             </Link>
@@ -490,7 +502,7 @@ export function PersonMenu({
 
               disabled={reported}
               onClick={() => setView('report')}
-              className={item}
+              className="w-full"
             >
               {reported ? 'Reported' : 'Report'}
             </Button>

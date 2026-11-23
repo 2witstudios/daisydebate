@@ -5,8 +5,7 @@ import Link from 'next/link';
 import type { ReactNode } from 'react';
 import { numberedSteps } from '../../../features/onboarding/steps';
 
-const touch = buttonClass('touch');
-const primary = `${touch} bg-accent text-accent-ink hover:bg-accent-strong`;
+const primary = buttonClass('touch-primary');
 
 export type OnboardingFrameProps = {
   /** The step's number in the flow, or null where no count is shown. */
@@ -91,20 +90,15 @@ export function NextButton({
 }) {
   return (
     <Button
-      variant="touch"
+      variant="touch-primary"
       type="submit"
       disabled={pending}
       aria-busy={pending || undefined}
-      className="border-0 bg-accent text-accent-ink hover:bg-accent-strong disabled:cursor-wait disabled:opacity-60"
     >
       {children}
     </Button>
   );
 }
-
-/** The Skip control's look: a quiet underlined button inside its form. */
-export const skipClass =
-  'inline-flex min-h-onboarding-touch items-center border-0 bg-transparent px-3 text-base text-ink-muted underline underline-offset-4 hover:text-ink';
 
 /** Back (a link to the previous step) and Next, under a rule. */
 export function StepFooter({
@@ -119,10 +113,7 @@ export function StepFooter({
       {backHref === null ? (
         <span />
       ) : (
-        <Link
-          href={backHref}
-          className={`${touch} border border-border-strong text-ink`}
-        >
+        <Link href={backHref} className={buttonClass('touch-secondary')}>
           Back
         </Link>
       )}

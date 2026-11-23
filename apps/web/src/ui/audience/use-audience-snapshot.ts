@@ -11,7 +11,8 @@ import {
 } from '@daisy/protocol/audience';
 import { useState } from 'react';
 import { answerOfResponse } from '../../features/spectating/poll-pace';
-import { startBrowserPoll } from '../edge/poll-browser';
+import { startBrowserPoll } from '../spectating/browser-poll';
+import { browserScheduler } from '../edge/browser-time';
 import { usePublishedAudience } from '../spectating/published-state';
 import { newerAudience } from './newer-audience';
 
@@ -56,7 +57,7 @@ export function useAudienceSnapshot(
       if (parsed.success && !stopped)
         setSnapshot((shown) => newerAudience(shown, parsed.data));
       return answerOfResponse(response);
-    });
+    }, browserScheduler.after);
     return {
       dispose: () => {
         stopped = true;

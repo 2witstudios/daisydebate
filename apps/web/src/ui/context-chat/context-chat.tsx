@@ -8,8 +8,6 @@ import { ContextChatComposer } from './composer';
 import { ContextChatMessages } from './chat-messages';
 import { useContextChat, type ContextChatProps } from './use-context-chat';
 export type { ContextChatProps } from './use-context-chat';
-const chatAction =
-  'min-h-room-target rounded-sm border border-border px-3 font-strong disabled:opacity-60';
 type ThreadProps = ContextChatProps & {
   readonly context: ChatContext;
   readonly labels: ContextChatLabels;
@@ -98,21 +96,16 @@ function BoundContextChat({
         state.kind === 'denied' ||
         live.status === 'hidden' ||
         notice ? (
-          <Button
-            variant="compact"
-            type="button"
-            onClick={enter}
-            className={chatAction}
-          >
+          <Button variant="secondary" size="room" type="button" onClick={enter}>
             Try again
           </Button>
         ) : null}
         {!hidden && !expired && before !== null ? (
           <Button
-            variant="compact"
+            variant="secondary"
+            size="room"
             type="button"
             disabled={paging}
-            className={chatAction}
             onClick={() => loadOlder(before)}
           >
             {paging ? 'Loading…' : 'Older messages'}

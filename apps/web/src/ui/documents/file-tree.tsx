@@ -117,12 +117,12 @@ function NodeRow({
       ) : (
         <>
           <Button
-            variant="row"
+            variant="tree-row"
             type="button"
             ref={rowButton}
             aria-expanded={expanded}
             aria-current={current ? 'page' : undefined}
-            className={rowMain}
+
             onClick={onOpen}
           >
             {leading}
@@ -187,9 +187,10 @@ function Contents({
       {next ? (
         <li>
           <Button
-            variant="compact"
+            variant="text-link"
+            size="dense"
             type="button"
-            className="h-dense-target px-2 text-ink-muted underline"
+            className="text-ink-muted"
             onClick={() => drive.more(folderId, next)}
           >
             Show more
@@ -283,7 +284,7 @@ export function FileTree({
             type="button"
             aria-label="New"
             title="New"
-            className="size-dense-target shrink-0 rounded-sm text-ink-muted hover:bg-surface-overlay hover:text-ink"
+            size="dense"
             onClick={() => dispatch({ type: 'palette/open', mode: 'create' })}
           >
             <Icon name="plus" size={16} />
@@ -291,10 +292,11 @@ export function FileTree({
         </div>
       ) : null}
       <Button
-        variant="row"
+        variant="row-quiet"
+        size="dense"
         type="button"
         aria-keyshortcuts="Meta+K Control+K"
-        className="mx-2 mb-2 h-dense-target shrink-0 gap-2 rounded-sm bg-surface-overlay px-2 text-sm text-ink-muted hover:text-ink"
+        className="mx-2 mb-2 shrink-0 bg-surface-overlay"
         onClick={() => dispatch({ type: 'palette/open', mode: 'search' })}
       >
         <Icon name="search" size={14} />
@@ -312,8 +314,9 @@ export function FileTree({
                 <li key={document.id}>
                   <Button
                     variant="row"
+                    size="dense"
                     type="button"
-                    className="h-dense-target w-full min-w-0 gap-1 rounded-sm px-2 text-sm text-ink hover:bg-surface-overlay"
+                    className="w-full min-w-0"
                     onClick={() => drive.open(document.id, document.title)}
                   >
                     <Icon name="file" size={14} />

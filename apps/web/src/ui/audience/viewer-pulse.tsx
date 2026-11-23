@@ -5,6 +5,7 @@ import {
 } from '../edge/browser-request';
 import { useResource } from '../edge/use-driver';
 import { useTick } from '../edge/use-tick';
+import { useMemo } from 'react';
 import { createId } from '@paralleldrive/cuid2';
 import { tabPulses, VIEWER_PULSE_MS } from '@daisy/protocol/audience-state';
 import { usePublishedAudience } from '../spectating/published-state';
@@ -51,8 +52,8 @@ export function ViewerPulse({
 }) {
   // Unknown until the state arrives, and a tab sends nothing until it knows.
   const rate = usePublishedAudience()?.pulseRate ?? null;
-  const key = `${unlisted ? 'unlisted' : 'listed'} ${roundId}`;
-  const pulse = useResource(key, () => openPulse({ roundId, unlisted }));
+  const watching = useMemo(() => ({ roundId, unlisted }), [roundId, unlisted]);
+  const pulse = useResource(watching, openPulse);
   useTick(
     () => {
       if (pulse === null || rate === null || !tabPulses(pulse.draw, rate))
@@ -60,7 +61,7 @@ export function ViewerPulse({
       sendPulse(browserTransport, pulse);
     },
     VIEWER_PULSE_MS,
-    key,
+    watching,
   );
   return null;
 }

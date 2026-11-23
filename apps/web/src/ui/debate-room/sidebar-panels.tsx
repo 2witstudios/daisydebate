@@ -5,7 +5,6 @@ import { loadedDocuments } from '../../features/documents/open-documents';
 import type { Dispatch } from 'react';
 import type { Clock } from '@daisy/clock';
 import { unreadByChannel } from '../../features/debate-room/chat';
-import { cn } from '../cn';
 import { Icon } from '../components/icon/icon';
 import type { RoomAction, RoomState } from './room-state';
 import type { RoundSnapshot } from './round';
@@ -18,14 +17,6 @@ export type PanelProps = {
   readonly dispatch: Dispatch<RoomAction>;
   readonly clock: Clock;
 };
-
-const pill = (on: boolean, ink: string) =>
-  cn(
-    'inline-flex h-room-target items-center gap-1 px-3 text-xs font-strong',
-    on
-      ? cn('border-transparent bg-surface-overlay', ink)
-      : 'border-border text-ink-muted',
-  );
 
 export function Badge({ count }: { readonly count: number }) {
   if (count === 0) return null;
@@ -50,11 +41,11 @@ export function AgentPanel({ round, state, dispatch, clock }: PanelProps) {
         >
           {agents.map((a) => (
             <Button
-              variant="pill"
+              variant="chip"
+              size="room"
               key={a.id}
               type="button"
               aria-pressed={a.id === agent.id}
-              className={pill(a.id === agent.id, 'text-hue-plum')}
               onClick={() => dispatch({ type: 'agent/select', agentId: a.id })}
             >
               {a.title}
@@ -84,13 +75,7 @@ export function AgentPanel({ round, state, dispatch, clock }: PanelProps) {
       />
       <div className="flex flex-wrap gap-1 px-2 pb-2">
         {(round.agentPrompts[agent.id] ?? []).map((prompt) => (
-          <Button
-            variant="pill"
-            key={prompt}
-            type="button"
-            className="h-room-target border-border-strong px-3 text-xs opacity-60"
-            disabled
-          >
+          <Button variant="pill" key={prompt} type="button" disabled>
             {prompt}
           </Button>
         ))}
@@ -99,9 +84,6 @@ export function AgentPanel({ round, state, dispatch, clock }: PanelProps) {
     </>
   );
 }
-
-const listRow =
-  'h-room-target w-full gap-2 rounded-sm px-2 text-sm hover:bg-surface-raised';
 
 /** Channels and direct messages; a thread opens in their place. */
 export function ChatPanel({ round, state, dispatch, clock }: PanelProps) {
@@ -121,7 +103,7 @@ export function ChatPanel({ round, state, dispatch, clock }: PanelProps) {
             type="button"
             aria-label="Back to channels"
             onClick={() => dispatch({ type: 'channel/list' })}
-            className="size-room-target rounded-sm hover:bg-surface-raised"
+            size="room"
           >
             <Icon name="chevronLeft" size={16} />
           </Button>
@@ -148,7 +130,8 @@ export function ChatPanel({ round, state, dispatch, clock }: PanelProps) {
             variant="row"
             key={c.id}
             type="button"
-            className={listRow}
+            size="room"
+            className="w-full"
             onClick={() =>
               dispatch({
                 type: 'channel/open',

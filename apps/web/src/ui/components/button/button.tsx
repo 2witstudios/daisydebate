@@ -1,32 +1,33 @@
 import type { ComponentPropsWithRef } from 'react';
 import { cn } from '../../cn';
-import {
-  buttonClass,
-  type ButtonSize,
-  type ButtonVariant,
-} from './button-class';
+import { lookClass, type ButtonLook, type ButtonSize } from './button-class';
 
-export type ButtonProps = {
-  readonly variant?: ButtonVariant;
-  /** A standard action's compact size in a dense list. */
-  readonly size?: ButtonSize;
-} & Omit<ComponentPropsWithRef<'button'>, 'formMethod'>;
+export type ButtonProps = (
+  | ButtonLook
+  | { readonly variant?: undefined; readonly size?: ButtonSize<'primary'> }
+) &
+  Omit<ComponentPropsWithRef<'button'>, 'formMethod'>;
 
 /**
- * A native button of a named variant. It is `type="button"` unless it says
- * it submits; `className` adds only what the variant leaves to its site.
+ * A native button of a named variant, which owns its whole look (`primary`
+ * when unnamed). It is `type="button"` unless it says it submits;
+ * `className` adds only layout.
  */
 export function Button({
-  variant = 'primary',
+  variant,
   size,
   className,
   type = 'button',
   ...attributes
 }: ButtonProps) {
+  const look: ButtonLook =
+    variant === undefined
+      ? { variant: 'primary', ...(size === undefined ? {} : { size }) }
+      : ({ variant, size } as ButtonLook);
   return (
     <button
       type={type}
-      className={cn(buttonClass(variant, size), className)}
+      className={cn(lookClass(look), className)}
       {...attributes}
       formMethod={undefined}
     />

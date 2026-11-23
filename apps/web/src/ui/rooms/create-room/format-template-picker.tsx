@@ -119,7 +119,7 @@ function FormatBrowserDialog({
                   key={option.key}
                   aria-pressed={option.key === tab}
                   onClick={() => setTab(option.key)}
-                  className="min-h-room-target rounded-round border-border px-3 text-sm font-strong aria-pressed:bg-accent aria-pressed:text-accent-ink"
+                  size="room"
                 >
                   {option.label}
                 </Button>
@@ -132,11 +132,10 @@ function FormatBrowserDialog({
           >
             {listed.map((choice) => (
               <Button
-                variant="chip"
+                variant="option-card"
                 type="button"
                 key={`${choice.formatId}:${choice.formatVersion}`}
                 aria-pressed={draft === serialize(choice)}
-                className="rounded-lg border-border p-3 text-left hover:bg-surface-raised aria-pressed:bg-surface-raised"
                 onClick={() => setDraft(serialize(choice))}
               >
                 <span className="block">{choice.label}</span>

@@ -1,5 +1,5 @@
 import { Button } from '../../components/button/button';
-import type { ButtonVariant } from '../../components/button/button-class';
+import type { ButtonLook } from '../../components/button/button-class';
 import type { ReactNode } from 'react';
 import {
   affirmativeSide,
@@ -84,16 +84,11 @@ const boxTone: Readonly<Record<SideMark, string>> = {
   [negativeSide]: sideTone(twoSideTones, negativeSide),
   '?': 'border-2 border-dashed border-gold-border bg-gold-soft text-ink',
 };
-/** A seat's box: a span when shown, an `icon` button when it can be pressed. */
-const boxShape = 'min-h-roster-control w-full rounded-md text-sm font-semibold';
-const boxClass = `flex items-center justify-center ${boxShape}`;
-/** A row's text action: compact under a mouse, the full target under a finger. */
-const rowButton =
-  'min-h-roster-control gap-1 rounded-full border border-border-strong bg-transparent px-3 leading-tight font-strong whitespace-nowrap text-ink hover:border-ink-muted disabled:opacity-60';
-const iconButton =
-  'size-roster-control rounded-md text-ink-muted hover:bg-surface-sunken hover:text-ink';
-const menuItem =
-  'min-h-roster-control w-full rounded-sm px-2 text-sm text-ink hover:bg-surface-sunken';
+/** A seat's box shown as a value; pressable, it is a `seat-box` button. */
+const boxClass =
+  'flex min-h-roster-control w-full items-center justify-center rounded-md text-sm font-semibold';
+/** A row's text action. */
+const rowLook: ButtonLook = { variant: 'pill', size: 'roster' };
 
 /** One box of a row: a button that posts its next value, or the value alone. */
 function CycleBox({
@@ -131,10 +126,10 @@ function CycleBox({
         <input key={name} type="hidden" name={name} value={value} />
       ))}
       <Button
-        variant="icon"
+        variant="seat-box"
         type="submit"
         aria-label={label}
-        className={`${boxShape} ${tone} hover:ring-2 hover:ring-border-strong`}
+        className={tone}
       >
         {text}
       </Button>
@@ -306,8 +301,8 @@ function CommandButton({
   label,
   name = label,
   icon,
-  variant = 'compact',
-  className = rowButton,
+  look = rowLook,
+  className,
 }: {
   readonly props: RosterProps;
   readonly type: 'claim-seat' | 'assign-seat' | 'remove-seat' | 'leave-seat';
@@ -319,7 +314,8 @@ function CommandButton({
   /** Shown instead of the label, which becomes its tooltip. */
   readonly icon?: IconName;
   /** The look of the place it sits: a row's action, or a menu's row. */
-  readonly variant?: ButtonVariant;
+  readonly look?: ButtonLook;
+  /** Layout only. */
   readonly className?: string;
 }) {
   return (
@@ -333,11 +329,11 @@ function CommandButton({
         <input key={name} type="hidden" name={name} value={value} />
       ))}
       <Button
-        variant={icon ? 'icon' : variant}
+        {...(icon ? { variant: 'icon', size: 'roster' } : look)}
         type="submit"
         aria-label={name === label && !icon ? undefined : name}
         title={icon ? label : undefined}
-        className={icon ? iconButton : className}
+        className={icon ? undefined : className}
       >
         {icon ? <Icon name={icon} size={16} /> : label}
       </Button>
@@ -388,11 +384,10 @@ function FillSeat({
   return (
     <>
       <Button
-        variant="compact"
+        {...rowLook}
         type="button"
         popoverTarget={`${id}-menu`}
         aria-label={`Fill ${seatName}`}
-        className={rowButton}
       >
         Fill seat
         <Icon name="chevron-down" size={14} />
@@ -447,8 +442,8 @@ function FillSeat({
             commandId={ids.ai}
             fields={{ seat: JSON.stringify(seat), actorId: aiJudge.actorId }}
             label="AI judge"
-            variant="row"
-            className={menuItem}
+            look={{ variant: 'row', size: 'roster' }}
+            className="w-full"
           />
         ) : null}
       </PopoverDialog>
@@ -518,22 +513,20 @@ function OpenSeat({
           ) : null}
           {event ? null : !invited ? (
             <RoomInvite
-              variant="compact"
+              look={rowLook}
               roomId={view.id}
               visibility={view.visibility}
               label="Invite"
-              className={rowButton}
             />
           ) : view.capabilities.host ? (
             // The host releases the held seat by withdrawing its invitation (ADR 0124).
             <EndInvitationForm
-              variant="compact"
+              look={rowLook}
               action={props.invitationAction}
               intent="withdraw"
               invitationId={invited.id}
               label="Release"
               focusAfterAnswer={ROOM_TITLE_ID}
-              className={rowButton}
             />
           ) : null}
           {view.capabilities.host ? (

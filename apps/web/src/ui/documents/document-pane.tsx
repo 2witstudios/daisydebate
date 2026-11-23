@@ -77,10 +77,9 @@ function DocumentTabs({
             )}
           >
             <Button
-              variant="tab"
+              variant="doc-tab"
               type="button"
               aria-current={tab.id === active ? 'page' : undefined}
-              className="h-full pr-1 pl-3 text-sm whitespace-nowrap"
               onClick={() => dispatch({ type: 'tabs/activate', id: tab.id })}
             >
               {tab.title}
@@ -89,7 +88,7 @@ function DocumentTabs({
               variant="icon"
               type="button"
               aria-label={`Close ${tab.title}`}
-              className="size-dense-target rounded-sm opacity-60 hover:opacity-100"
+              size="dense"
               onClick={() => close(tab.id)}
             >
               <Icon name="close" size={12} />
@@ -103,7 +102,7 @@ function DocumentTabs({
             ref={newDocument}
             aria-label="New document"
             title="New document"
-            className="h-full w-tab-strip shrink-0 text-ink-muted hover:bg-surface-overlay hover:text-ink"
+            size="strip"
             onClick={onNew}
           >
             <Icon name="plus" size={14} />
@@ -185,10 +184,10 @@ export function DocumentPane({
         >
           <p>{active.title} did not open.</p>
           <Button
-            variant="compact"
+            variant="secondary"
+            size="room"
             type="button"
             onClick={() => onRetry?.(active.id, active.title)}
-            className="h-room-target rounded-sm border border-border px-3 hover:bg-surface-raised"
           >
             Try again
           </Button>

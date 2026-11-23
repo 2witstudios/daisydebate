@@ -97,11 +97,12 @@ export function ContextChatComposer({
         </Announcement>
       ) : null}
       <Button
-        variant="compact"
+        variant="primary"
+        size="room"
         type="submit"
         disabled={pending || locked}
         aria-label={fields.retrying ? 'Retry message' : 'Send message'}
-        className="h-room-target gap-2 self-end rounded-sm bg-accent px-3 font-strong text-accent-ink disabled:opacity-60"
+        className="self-end"
       >
         <Icon name="send" size={16} />
         {pending ? 'Sending…' : fields.retrying ? 'Retry message' : 'Send'}

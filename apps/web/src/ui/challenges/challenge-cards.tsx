@@ -4,6 +4,7 @@ import { useDeliver } from '../edge/use-answer';
 import { navigateDocument } from '../edge/browser-navigation';
 import { Announcement } from '../components/announcement/announcement';
 import { Button } from '../components/button/button';
+import { buttonClass } from '../components/button/button-class';
 import type { ChallengeList } from '@daisy/protocol/challenges';
 import { useMemo } from 'react';
 import type { EndedOffer } from '../../features/challenges/challenges-held';
@@ -20,11 +21,6 @@ import { announceShellNavigation } from '../layout/app-shell/shell-link';
 import { useMovedOn } from '../form-action/use-moved-on';
 import type { PersonActions } from '../people/person-actions';
 import { useChallenges } from './challenge-provider';
-
-const stageAccept =
-  'min-h-nav-target rounded-sm bg-stage-accent px-4 font-bold text-stage-accent-ink disabled:opacity-60';
-const stageDecline =
-  'min-h-nav-target rounded-sm px-3 font-semibold text-stage-ink-muted hover:text-stage-ink';
 
 function IncomingCard({
   offer,
@@ -79,10 +75,10 @@ function IncomingCard({
         <form action={accept}>
           <input type="hidden" name="challengeId" value={offer.id} />
           <Button
-            variant="compact"
+            variant="on-stage"
+            size="nav"
             type="submit"
             disabled={accepting || next !== undefined}
-            className={stageAccept}
           >
             Accept
           </Button>
@@ -91,10 +87,10 @@ function IncomingCard({
           <input type="hidden" name="command" value="decline" />
           <input type="hidden" name="challengeId" value={offer.id} />
           <Button
-            variant="compact"
+            variant="on-stage-quiet"
+            size="nav"
             type="submit"
             disabled={declining}
-            className={stageDecline}
           >
             Decline
           </Button>
@@ -192,8 +188,8 @@ function AcceptedCard({
       <a
         href={`/rooms/${offer.roomId}`}
         className={cn(
-          stageAccept,
-          'inline-flex items-center self-start no-underline',
+          buttonClass('on-stage', 'nav'),
+          'self-start no-underline',
         )}
       >
         Go to room
@@ -240,12 +236,12 @@ function useFollowAccepted(
     () => ({ accepted, activeRoomId }),
     [accepted, activeRoomId],
   );
-  useDeliver(following, () => {
-    if (activeRoomId !== null) return;
+  useDeliver(following, ({ accepted: answered, activeRoomId: inRoom }) => {
+    if (inRoom !== null) return;
     // Newest first: every accept is marked followed, and only the newest is
     // taken, so several at once never bounce a challenger between rooms.
     const followed = followedRooms();
-    const fresh = accepted.filter((row) => !followed.includes(row.roomId));
+    const fresh = answered.filter((row) => !followed.includes(row.roomId));
     const offer = fresh[0];
     if (!offer) return;
     rememberFollowed([...followed, ...fresh.map((row) => row.roomId)]);

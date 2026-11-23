@@ -2,10 +2,7 @@
 import { useDeliver } from '../../edge/use-answer';
 import { useDocumentHidden } from '../../edge/use-dom-events';
 import { useResource } from '../../edge/use-driver';
-import {
-  browserScheduler,
-  type BrowserScheduler,
-} from '../../edge/browser-time';
+import { type BrowserScheduler } from '../../edge/browser-time';
 import type { RoundBallotRead } from '@daisy/protocol/round-ballot-read';
 import { useCallback, useMemo, useRef, useSyncExternalStore } from 'react';
 import {
@@ -53,7 +50,7 @@ export function useBallotDraft(
   view: RoundBallotRead,
   display: BallotDisplay,
   posted: Readonly<Record<string, string>>,
-  scheduler: Pick<BrowserScheduler, 'after'> = browserScheduler,
+  scheduler: Pick<BrowserScheduler, 'after'>,
 ): {
   readonly values: Readonly<Record<string, string>>;
   readonly restored: boolean;
@@ -95,11 +92,13 @@ export function useBallotDraft(
   // What this draft still holds is written when its key or plan changes, or
   // the ballot leaves the page.
   useResource(flush, (pendingWrite) => ({ dispose: pendingWrite }));
-  // The draft read at mount belongs to its key, and leaves with it.
-  useResource(key, (held) =>
+  const settled = useMemo(() => ({ key, display }), [key, display]);
+  // The draft read at mount belongs to its key and display: either changing,
+  // or the ballot leaving, drops it, so a display that comes back reads the
+  // edits saved since.
+  useResource(settled, ({ key: held }) =>
     held === null ? null : { dispose: () => void firstRead.delete(held) },
   );
-  const settled = useMemo(() => ({ key, display }), [key, display]);
   useDeliver(settled, (shown) => {
     const storage = tabStorage();
     if (!shown.key) return;

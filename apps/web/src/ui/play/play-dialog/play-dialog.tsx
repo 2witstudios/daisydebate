@@ -25,9 +25,6 @@ export const opensInPlace = (click: Click): boolean =>
   !click.shiftKey &&
   !click.altKey;
 
-const closeClass =
-  'size-nav-target shrink-0 rounded-round text-ink-muted hover:bg-surface-overlay hover:text-ink';
-
 /**
  * Play over the Lobby: a link to `/play` that, once hydrated, opens the same
  * choices in a modal dialog instead. Escape, the close button and "Just
@@ -65,12 +62,7 @@ export function PlayDialog({ children }: { readonly children: ReactNode }) {
           >
             Play
           </h2>
-          <Button
-            variant="icon"
-            type="submit"
-            aria-label="Close"
-            className={closeClass}
-          >
+          <Button variant="icon" type="submit" aria-label="Close" size="nav">
             <Icon name="close" size={18} />
           </Button>
         </form>

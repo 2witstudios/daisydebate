@@ -4,8 +4,8 @@ import {
   ATTENDANCE_HEARTBEAT_MS,
   createAttendanceClient,
 } from '../../features/attendance/client';
-import { browserTransport } from './browser-request';
-import { browserScheduler } from './browser-time';
+import type { BrowserTransport } from '../edge/browser-request';
+import type { BrowserScheduler } from '../edge/browser-time';
 
 export type BrowserAttendance = ReturnType<typeof createAttendanceClient> & {
   readonly dispose: () => void;
@@ -23,10 +23,12 @@ export function openBrowserAttendance(input: {
   readonly reconnect?: {
     readonly subscribe: (listener: () => void) => () => void;
   };
+  readonly transport: BrowserTransport;
+  readonly every: BrowserScheduler['every'];
 }): BrowserAttendance {
   const http = createAttendanceHttpClient({
     roundId: input.roundId,
-    fetch: browserTransport,
+    fetch: input.transport,
     timeout: (ms) => AbortSignal.timeout(ms),
   });
   const consumer = createAttendanceClient({
@@ -45,7 +47,7 @@ export function openBrowserAttendance(input: {
   window.addEventListener('online', reconnect);
   const unsubscribe = input.reconnect?.subscribe(reconnect);
   document.addEventListener('visibilitychange', visible);
-  const stopHeartbeat = browserScheduler.every(() => {
+  const stopHeartbeat = input.every(() => {
     void consumer.heartbeat();
   }, ATTENDANCE_HEARTBEAT_MS);
   return {

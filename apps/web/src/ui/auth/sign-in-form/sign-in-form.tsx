@@ -79,7 +79,7 @@ export function SignInForm({
           disabled={busy}
           {...(refusesEmail ? { errorId: NOTICE_ID } : {})}
           action={
-            <Button type="submit" disabled={busy} className="h-auth-control">
+            <Button type="submit" disabled={busy} size="auth">
               {pending === 'link' ? 'Sending…' : 'Continue'}
               <Icon name="arrowRight" size={18} />
             </Button>
@@ -93,7 +93,7 @@ export function SignInForm({
           disabled={busy}
           onClick={signInWithPasskey}
           aria-describedby={PASSKEY_HINT_ID}
-          className="h-auth-control"
+          size="auth"
         >
           <Icon name="key" />
           {pending === 'passkey'

@@ -71,17 +71,17 @@ function EditCard({ turn, outcome, documentTitle, onDecide }: EditCardProps) {
       ) : (
         <div className="flex gap-2 pt-1">
           <Button
-            variant="compact"
+            variant="ai"
+            size="room"
             type="button"
-            className="h-room-target rounded-sm bg-hue-plum px-3 font-strong text-background"
             onClick={() => onDecide('applied')}
           >
             Apply
           </Button>
           <Button
-            variant="compact"
+            variant="secondary"
+            size="room"
             type="button"
-            className="h-room-target rounded-sm border border-border-strong px-3 text-ink-muted"
             onClick={() => onDecide('discarded')}
           >
             Discard
@@ -156,14 +156,11 @@ export function Composer({ label, tone }: ComposerProps) {
         className="h-room-target min-w-0 flex-1 rounded-sm border border-border-strong bg-background px-3 text-sm disabled:cursor-not-allowed disabled:opacity-60"
       />
       <Button
-        variant="icon"
+        variant={tone === 'ai' ? 'icon-ai' : 'icon-primary'}
+        size="room"
         type="button"
         aria-label="Send"
         disabled
-        className={cn(
-          'size-room-target rounded-sm text-background opacity-60',
-          tone === 'ai' ? 'bg-hue-plum' : 'bg-accent',
-        )}
       >
         <Icon name="send" size={17} />
       </Button>

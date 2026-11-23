@@ -235,14 +235,12 @@ export function NotificationToast({
         </div>
       </div>
       <Button
-        variant="icon"
+        variant={stage ? 'icon-on-stage' : 'icon'}
+        size="toast"
         type="button"
         aria-label="Dismiss"
         onClick={dismiss}
-        className={cn(
-          '-mt-2 size-toast-target flex-none rounded-md',
-          stage ? 'text-stage-ink-muted' : 'text-ink-muted hover:text-ink',
-        )}
+        className="-mt-2 flex-none"
       >
         <Icon name="close" className="size-4" />
       </Button>

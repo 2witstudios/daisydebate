@@ -149,7 +149,7 @@ export function SecurityOverviewSections({
               ? 'Signing out…'
               : 'Sign out of all other sessions'}
           </Button>
-          <SignOutForm next="/settings/security" variant="ghost" />
+          <SignOutForm next="/settings/security" look={{ variant: 'ghost' }} />
         </div>
       </section>
     </>

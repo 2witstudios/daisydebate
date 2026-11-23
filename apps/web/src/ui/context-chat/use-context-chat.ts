@@ -2,6 +2,7 @@
 import { useAnswer, useDeliver } from '../edge/use-answer';
 import { useResource, type Disposable } from '../edge/use-driver';
 import { browserScheduler } from '../edge/browser-time';
+import { browserTransport } from '../edge/browser-request';
 import { contextChatPagedHistory } from './paged-history';
 import { createContextChatDriver } from './chat-driver';
 import type { ChatContext } from '../../features/messaging/context-chat/chat-context';
@@ -92,7 +93,13 @@ export function useContextChat({
   readonly openingCheck?: OpeningCheck | undefined;
 }) {
   const [driver] = useState(() =>
-    createContextChatDriver(context, props.ownerId, props.retryDiscovery),
+    createContextChatDriver(
+      context,
+      props.ownerId,
+      props.retryDiscovery ?? false,
+      browserTransport,
+      browserScheduler,
+    ),
   );
   const { standing: state } = useSyncExternalStore(
     driver.subscribe,
@@ -134,21 +141,24 @@ export function useContextChat({
     [send],
   );
   // Entry follows whether the chat is in use, its standing and the hint.
-  const entryKey = `${active}|${state.kind}|${mayOpen}`;
-  useDeliver(entryKey, () => {
-    if (active && state.kind === 'idle') enter();
+  const entry = useMemo(
+    () => ({ active, standing: state.kind, mayOpen }),
+    [active, state.kind, mayOpen],
+  );
+  useDeliver(entry, ({ active: inUse, standing }) => {
+    if (inUse && standing === 'idle') enter();
   });
   // The hint is not latched: when the page learns the reader may now post, or
   // may no longer, the thread enters again under it (finding or opening the
   // chat, or giving up its composer). An entry already on its way finishes
   // first.
-  useDeliver(entryKey, () => {
+  useDeliver(entry, ({ active: inUse, standing, mayOpen: may }) => {
     if (
-      active &&
-      state.kind !== 'idle' &&
-      state.kind !== 'loading' &&
+      inUse &&
+      standing !== 'idle' &&
+      standing !== 'loading' &&
       enteredAs.current !== null &&
-      enteredAs.current !== mayOpen
+      enteredAs.current !== may
     )
       enter();
   });
@@ -168,10 +178,11 @@ export function useContextChat({
         },
   );
   const held = chat?.hidden ?? null;
-  useDeliver(`${held}|${withdrawn}`, () => {
+  const visibility = useMemo(() => ({ held, withdrawn }), [held, withdrawn]);
+  useDeliver(visibility, (seen) => {
     // A chat entered again starts shown, whatever the live channel still says.
-    if (held !== null && held !== withdrawn)
-      send({ type: withdrawn ? 'chat-hidden' : 'chat-shown' });
+    if (seen.held !== null && seen.held !== seen.withdrawn)
+      send({ type: seen.withdrawn ? 'chat-hidden' : 'chat-shown' });
   });
   const history = hidden ? null : live.body;
   const { messages, before } = history
@@ -181,25 +192,32 @@ export function useContextChat({
   const unread = contextChatUnread(messages, readSequence, props.actorId);
   useDeliver(unread, (count) => onUnread?.(count));
   const latestSequence = history?.messages[0]?.sequence ?? 0;
-  useDeliver(
-    `${active}|${hidden}|${channelId}|${latestSequence}|${readSequence}`,
-    () => {
-      if (active && !hidden && latestSequence > readSequence)
-        send({ type: 'messages-shown', sequence: latestSequence });
-    },
+  const shown = useMemo(
+    () => ({ active, hidden, channelId, latestSequence, readSequence }),
+    [active, hidden, channelId, latestSequence, readSequence],
   );
+  useDeliver(shown, (reading) => {
+    if (
+      reading.active &&
+      !reading.hidden &&
+      reading.latestSequence > reading.readSequence
+    )
+      send({ type: 'messages-shown', sequence: reading.latestSequence });
+  });
   const authors = thread?.authors ?? NO_AUTHORS;
   const unknownAuthor = history?.messages.some(
     (message) =>
       !('unavailable' in message) &&
       !authors.some((author) => author.actorId === message.authorActorId),
   );
-  useDeliver(
-    `${unknownAuthor}|${channelId}|${hidden}|${history?.changeVersion}`,
-    () => {
-      if (unknownAuthor && !hidden) send({ type: 'refresh-requested' });
-    },
+  const changeVersion = history?.changeVersion;
+  const authorship = useMemo(
+    () => ({ unknownAuthor, channelId, hidden, changeVersion }),
+    [unknownAuthor, channelId, hidden, changeVersion],
   );
+  useDeliver(authorship, (read) => {
+    if (read.unknownAuthor && !read.hidden) send({ type: 'refresh-requested' });
+  });
   const expired = chat?.expired ?? false;
   const notice =
     chat?.notice === 'read-failed'

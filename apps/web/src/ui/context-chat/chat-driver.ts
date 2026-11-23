@@ -1,9 +1,6 @@
 import '../../lib/zod-jitless';
-import { browserScheduler, type BrowserScheduler } from '../edge/browser-time';
-import {
-  browserTransport,
-  type BrowserTransport,
-} from '../edge/browser-request';
+import type { BrowserScheduler } from '../edge/browser-time';
+import { type BrowserTransport } from '../edge/browser-request';
 import { instantMs, nowMs, systemClock } from '@daisy/clock';
 import { idSchema } from '@daisy/protocol/primitives';
 import type { ChatContext } from '../../features/messaging/context-chat/chat-context';
@@ -37,9 +34,9 @@ const json = (body: unknown): RequestInit => ({
 export function createContextChatDriver(
   context: ChatContext,
   ownerId: string,
-  retryDiscovery = false,
-  transport: BrowserTransport = browserTransport,
-  scheduler: BrowserScheduler = browserScheduler,
+  retryDiscovery: boolean,
+  transport: BrowserTransport,
+  scheduler: BrowserScheduler,
 ) {
   const base = idSchema.safeParse(ownerId).success
     ? context.address(ownerId)

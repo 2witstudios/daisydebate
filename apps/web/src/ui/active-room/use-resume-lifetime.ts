@@ -1,6 +1,7 @@
 'use client';
 
-import { resumeHeartbeat } from '../edge/resume-browser';
+import { repeatEvery } from '../edge/browser-waits';
+import { resumeOwnershipHeartbeatMs } from '../../features/rooms/resume-ownership';
 import { useDeliver } from '../edge/use-answer';
 import { useResource } from '../edge/use-driver';
 import { nowMs, systemClock } from '@daisy/clock';
@@ -87,7 +88,7 @@ export function useResumeLifetime(
       },
       subscribe: (listener) =>
         subscribeOwnership(window, actorId, roundId, listener),
-      schedule: resumeHeartbeat,
+      schedule: repeatEvery(resumeOwnershipHeartbeatMs),
       changed: (value) => {
         if (!value) callbacks.steppedDown?.();
         setClaim({ actorId, roundId, owns: value });

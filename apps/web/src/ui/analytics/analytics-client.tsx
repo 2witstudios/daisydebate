@@ -1,5 +1,6 @@
 'use client';
 
+import { useMemo } from 'react';
 import { useResource } from '../edge/use-driver';
 import { browserTransport } from '../edge/browser-request';
 
@@ -18,30 +19,22 @@ export function AnalyticsClient({
 }: Capture & { readonly consent: Consent }) {
   const pathname = usePathname();
   const router = useRouter();
-  const consent: Consent = { version, necessary, analytics, replay };
-  const viewer = JSON.stringify([
-    version,
-    necessary,
-    analytics,
-    replay,
-    userId,
-  ]);
-  useResource(viewer, () =>
-    watchViewerConsent(consent, userId, () => router.refresh()),
+  const viewer = useMemo(
+    () => ({
+      consent: { version, necessary, analytics, replay },
+      userId,
+    }),
+    [version, necessary, analytics, replay, userId],
   );
-  const page = JSON.stringify([
-    viewer,
-    keyValue,
-    host,
-    pathname,
-    needsAdoption,
-  ]);
-  useResource(page, () =>
-    openAnalyticsPage(
-      { consent, userId, needsAdoption, keyValue, host, pathname },
-      browserTransport,
-      () => router.refresh(),
-    ),
+  useResource(viewer, (watched) =>
+    watchViewerConsent(watched.consent, watched.userId, () => router.refresh()),
+  );
+  const page = useMemo(
+    () => ({ ...viewer, needsAdoption, keyValue, host, pathname }),
+    [viewer, needsAdoption, keyValue, host, pathname],
+  );
+  useResource(page, (viewed) =>
+    openAnalyticsPage(viewed, browserTransport, () => router.refresh()),
   );
   return null;
 }

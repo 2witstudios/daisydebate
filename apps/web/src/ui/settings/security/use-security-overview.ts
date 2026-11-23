@@ -112,9 +112,10 @@ export function useSecurityOverview({
   );
   useDeliver(world, driver.reach);
   // Each loader reads the lists afresh; leaving closes the overview.
-  useResource(load, () => {
-    driver.send({ type: 'read-asked' });
-    return { dispose: driver.close };
+  const reading = useMemo(() => ({ driver, load }), [driver, load]);
+  useResource(reading, ({ driver: overviewDriver }) => {
+    overviewDriver.send({ type: 'read-asked' });
+    return { dispose: overviewDriver.close };
   });
 
   return {

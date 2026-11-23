@@ -147,7 +147,8 @@ export function FileMenu({
         type="button"
         popoverTarget={id}
         aria-label={`Actions for ${label}`}
-        className="mr-px size-dense-target shrink-0 rounded-sm file-action"
+        size="dense"
+        className="mr-px file-action"
       >
         <Icon name="dots" size={14} />
       </Button>

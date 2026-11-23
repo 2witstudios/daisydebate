@@ -249,7 +249,8 @@ export function ManagerWorkspace({
                 type="button"
                 ref={backToFiles}
                 aria-label="Back to Files"
-                className="h-full w-tab-strip shrink-0 border-r border-border compact:hidden"
+                size="strip"
+                className="border-r border-border compact:hidden"
                 onClick={() => dispatch({ type: 'pane/files' })}
               >
                 <Icon name="chevronLeft" size={16} />

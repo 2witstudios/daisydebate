@@ -3,6 +3,14 @@ const effects = new Set(['useEffect', 'useLayoutEffect', 'useInsertionEffect']);
 const effectTypes = new Set(['EffectCallback', 'DependencyList']);
 /** The edge's ports: injected into the code that waits or requests, never called outside it. */
 const portModule = /(?:^|\/)edge\/browser-(?:time|request)(?:\.[cm]?[jt]sx?)?$/;
+/** Edge hooks that hand a value to a job: the job must act on that value. */
+const valueHooks = new Set([
+  'useAnswer',
+  'useDeliver',
+  'useDeliverBeforePaint',
+  'useResource',
+]);
+const edgeHookModule = /(?:^|\/)edge\/use-[\w-]+(?:\.[cm]?[jt]sx?)?$/;
 const browserOperations = new Set([
   'fetch',
   'setTimeout',
@@ -33,7 +41,11 @@ const browserEdge = {
         'Do not re-export a React effect: it is the effect again under another name.',
       effectType:
         "A hook taking an arbitrary effect is the effect again; take the job's own inputs.",
-      port: 'Inject the ui/edge port into the code that waits or requests; do not call it here.',
+      port: 'Inject the ui/edge port into the code that waits or requests; pass it as an argument or property, never call, alias, destructure or default it here.',
+      dependencyKey:
+        'A key spelled from several values is a dependency list: hand the hook the value its job acts on.',
+      ignoredValue:
+        'The job must act on the value the hook hands it; a handler that ignores it is an effect with dependencies.',
       operation: 'Use the browser operation in ui/edge.',
       server: 'Keep server transport in the server boundary.',
     },
@@ -113,10 +125,88 @@ const browserEdge = {
         if (specifier.importKind !== 'type' && node.importKind !== 'type')
           portLocals.add(specifier.local.name);
     };
-    const portRoot = (callee) => {
-      let node = callee;
-      while (node.type === 'MemberExpression') node = node.object;
-      return node.type === 'Identifier' ? node : null;
+    /** A port reference is legal only where it is handed on, never used. */
+    const passed = (identifier) => {
+      let node = identifier;
+      while (
+        node.parent?.type === 'MemberExpression' &&
+        node.parent.object === node
+      )
+        node = node.parent;
+      const parent = node.parent;
+      if (!parent) return false;
+      if (
+        (parent.type === 'CallExpression' || parent.type === 'NewExpression') &&
+        parent.arguments.includes(node)
+      )
+        return true;
+      if (
+        parent.type === 'Property' &&
+        parent.value === node &&
+        parent.parent?.type === 'ObjectExpression'
+      )
+        return true;
+      return (
+        parent.type === 'JSXExpressionContainer' ||
+        (parent.type === 'ArrayExpression' && parent.elements.includes(node))
+      );
+    };
+    /** Local names bound to a value-handing edge hook. */
+    const hookLocals = new Map();
+    const hookBindings = (node) => {
+      if (inEdge || node.type !== 'ImportDeclaration') return;
+      if (!edgeHookModule.test(memberName(node.source, true) ?? '')) return;
+      for (const specifier of node.specifiers) {
+        const name = memberName(specifier.imported, false);
+        if (valueHooks.has(name)) hookLocals.set(specifier.local.name, name);
+      }
+    };
+    const spelledKey = (node) => {
+      if (node.type === 'ConditionalExpression')
+        return spelledKey(node.consequent) || spelledKey(node.alternate);
+      if (node.type === 'LogicalExpression')
+        return spelledKey(node.left) || spelledKey(node.right);
+      return (
+        (node.type === 'TemplateLiteral' && node.expressions.length > 0) ||
+        node.type === 'ArrayExpression' ||
+        (node.type === 'CallExpression' &&
+          node.callee.type === 'MemberExpression' &&
+          node.callee.object.type === 'Identifier' &&
+          node.callee.object.name === 'JSON' &&
+          memberName(node.callee.property, node.callee.computed) ===
+            'stringify')
+      );
+    };
+    const ignoresValue = (handler) => {
+      if (
+        handler?.type !== 'ArrowFunctionExpression' &&
+        handler?.type !== 'FunctionExpression'
+      )
+        return false;
+      const [first] = handler.params;
+      if (first === undefined) return true;
+      if (first.type !== 'Identifier') return false;
+      const variable = sourceCode
+        .getDeclaredVariables(handler)
+        .find((candidate) => candidate.name === first.name);
+      return variable !== undefined && variable.references.length === 0;
+    };
+    const inspectHookCall = (node) => {
+      if (
+        node.callee.type !== 'Identifier' ||
+        !hookLocals.has(node.callee.name)
+      )
+        return;
+      const [value, handler] = node.arguments;
+      if (value !== undefined && spelledKey(value))
+        report(value, 'dependencyKey');
+      // An answer's arrival is itself the news; every other hook hands its
+      // job the value to act on.
+      if (
+        hookLocals.get(node.callee.name) !== 'useAnswer' &&
+        ignoresValue(handler)
+      )
+        report(handler, 'ignoredValue');
     };
     const inspectMember = (node, object, member) => {
       if (object.type !== 'Identifier') return;
@@ -154,6 +244,7 @@ const browserEdge = {
       inspectModule(node);
       reactBindings(node);
       portBindings(node);
+      hookBindings(node);
       exportedEffects(node);
     };
     return {
@@ -163,13 +254,7 @@ const browserEdge = {
         inspectModule(node);
         if (node.source.value === 'react') report(node, 'reexport');
       },
-      CallExpression(node) {
-        const root = portRoot(node.callee);
-        if (root === null || !portLocals.has(root.name)) return;
-        const reference = references.get(root);
-        if (reference?.resolved?.defs.some((d) => d.type === 'ImportBinding'))
-          report(node, 'port');
-      },
+      CallExpression: inspectHookCall,
       TSTypeReference(node) {
         const name = node.typeName;
         if (
@@ -198,6 +283,13 @@ const browserEdge = {
         inspectPattern(node.left, node.right);
       },
       'Program:exit'() {
+        for (const [identifier, reference] of references)
+          if (
+            portLocals.has(identifier.name) &&
+            reference.resolved?.defs.some((d) => d.type === 'ImportBinding') &&
+            !passed(identifier)
+          )
+            report(identifier, 'port');
         if (!browser || inEdge) return;
         for (const [identifier, reference] of references)
           if (browserOperations.has(identifier.name) && isHost(reference))

@@ -171,7 +171,8 @@ export function AgeStep({
         <Button
           type="submit"
           disabled={pending}
-          className="h-auth-control self-start"
+          size="auth"
+          className="self-start"
         >
           {pending ? 'Saving…' : 'Continue'}
           <Icon name="arrowRight" size={18} />

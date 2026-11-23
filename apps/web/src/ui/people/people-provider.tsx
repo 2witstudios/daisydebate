@@ -63,7 +63,7 @@ export const useOptionalPeople = () => useContext(PeopleContext);
 const readJson = async <T,>(
   url: string,
   parse: (value: unknown) => T | null,
-  transport: BrowserTransport = browserTransport,
+  transport: BrowserTransport,
 ): Promise<{
   readonly value: T | null;
   readonly response: Response | null;
@@ -152,7 +152,11 @@ export function PeopleProvider({
       const read: {
         readonly value: PeopleList | null;
         readonly response: Response | null;
-      } = await readJson(listUrl(wanted, named, cursor), parseList);
+      } = await readJson(
+        listUrl(wanted, named, cursor),
+        parseList,
+        browserTransport,
+      );
       const { value, response } = read;
       const endpoint = response && realtimeEndpointOf(response);
       if (endpoint) setSocketUrl(endpoint);
@@ -192,7 +196,8 @@ export function PeopleProvider({
 
   // A changed filter or search reads at once.
   const [searches, setSearches] = useState(0);
-  useAnswer(JSON.stringify([filter, query]), () => {
+  const search = useMemo(() => ({ filter, query }), [filter, query]);
+  useAnswer(search, () => {
     pagesLoaded.current = 1;
     readSeq.current += 1;
     setSearches((count) => count + 1);
@@ -201,6 +206,8 @@ export function PeopleProvider({
 
   // The fallback when no ring arrives, and the first read that names the socket.
   useDeliver(socketUrl, (url) => {
+    // The server rendered this list a moment ago, so the first ring waits its turn.
+    if (lastRead.current === 0) lastRead.current = systemScheduler.now();
     if (url === null) void readList();
   });
   useTick(
@@ -228,25 +235,22 @@ export function PeopleProvider({
     };
   });
 
-  // The server rendered this list a moment ago, so the first ring waits its turn.
-  useDeliver(initialList, () => {
-    lastRead.current = systemScheduler.now();
-  });
-
   const loadingMore = useRef(false);
   const loadMore = useCallback(() => {
     const cursor = list.nextCursor;
     if (!cursor || loadingMore.current) return;
     loadingMore.current = true;
     const seq = readSeq.current;
-    void readJson(listUrl(filter, query, cursor), parseList).then(
-      ({ value }) => {
-        loadingMore.current = false;
-        if (!value || seq !== readSeq.current) return;
-        pagesLoaded.current += 1;
-        setList((current) => mergePages(current, value));
-      },
-    );
+    void readJson(
+      listUrl(filter, query, cursor),
+      parseList,
+      browserTransport,
+    ).then(({ value }) => {
+      loadingMore.current = false;
+      if (!value || seq !== readSeq.current) return;
+      pagesLoaded.current += 1;
+      setList((current) => mergePages(current, value));
+    });
   }, [filter, query, list.nextCursor]);
 
   const refresh = useCallback(() => {

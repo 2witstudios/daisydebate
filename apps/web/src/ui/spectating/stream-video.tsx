@@ -2,7 +2,7 @@
 import { useResource } from '../edge/use-driver';
 import { useLatest } from '../edge/use-latest';
 import type { BroadcastStream } from '@daisy/protocol/spectator-timeline';
-import { useRef, type RefObject } from 'react';
+import { useMemo, useRef, type RefObject } from 'react';
 import { trackClient } from '../../features/analytics/client-adapter';
 import { browserDocument } from '../round-media/browser-document';
 import { watchPlayback } from './playback-session';
@@ -60,7 +60,11 @@ export function StreamVideo({
     surface,
   });
   const { path, manifestUrl } = stream;
-  useResource(JSON.stringify([autoPlay, path, manifestUrl]), () => {
+  const playing = useMemo(
+    () => ({ autoPlay, path, manifestUrl }),
+    [autoPlay, path, manifestUrl],
+  );
+  useResource(playing, (watched) => {
     const element = video.current;
     if (!element) return null;
     if (
@@ -83,14 +87,19 @@ export function StreamVideo({
       report: trackClient,
       onEnded: () => latest().onFinished?.(),
     });
-    const detach = attachStream(element, { path, manifestUrl }, engine, {
-      // A refused autoplay leaves the controls for the viewer to press.
-      onReady: () => {
-        if (autoPlay) void element.play().catch(() => undefined);
+    const detach = attachStream(
+      element,
+      { path: watched.path, manifestUrl: watched.manifestUrl },
+      engine,
+      {
+        // A refused autoplay leaves the controls for the viewer to press.
+        onReady: () => {
+          if (watched.autoPlay) void element.play().catch(() => undefined);
+        },
+        onFailed: () => latest().onFailed(),
+        onCaptureJump: () => latest().onCaptureJump?.(),
       },
-      onFailed: () => latest().onFailed(),
-      onCaptureJump: () => latest().onCaptureJump?.(),
-    });
+    );
     return {
       dispose: () => {
         stopWatching();

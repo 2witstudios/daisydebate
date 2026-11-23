@@ -1,6 +1,7 @@
 'use client';
 
 import { browserTransport } from '../edge/browser-request';
+import { useDeliver } from '../edge/use-answer';
 import { useResource } from '../edge/use-driver';
 import { useMemo, useState } from 'react';
 import { refreshActiveRoom } from './refresh-membership';
@@ -30,6 +31,23 @@ export const showsActiveRoomBar = (
  * A slim bar above every other shell page while the viewer is in a Room, so
  * wherever they wander there is one way back.
  */
+/**
+ * The bar's reader: each read replaces the one before it, and leaving
+ * aborts the last.
+ */
+function openActiveRoomReader(adopt: (room: ActiveRoomSummary | null) => void) {
+  let current: AbortController | null = null;
+  return {
+    read() {
+      current?.abort();
+      const controller = new AbortController();
+      current = controller;
+      void refreshActiveRoom(browserTransport, controller.signal, adopt);
+    },
+    dispose: () => current?.abort(),
+  };
+}
+
 export function ActiveRoomBar({
   room: seed,
 }: {
@@ -38,12 +56,12 @@ export function ActiveRoomBar({
   const pathname = usePathname();
   const [room, setRoom] = useState(seed);
   // Each page the viewer reaches, and each new seed, reads the Room again.
-  const reading = useMemo(() => ({ pathname, seed }), [pathname, seed]);
-  useResource(reading, () => {
-    const controller = new AbortController();
-    void refreshActiveRoom(browserTransport, controller.signal, setRoom);
-    return { dispose: () => controller.abort() };
-  });
+  const reader = useResource(setRoom, openActiveRoomReader);
+  const view = useMemo(
+    () => ({ reader, pathname, seed }),
+    [reader, pathname, seed],
+  );
+  useDeliver(view, (shown) => shown.reader?.read());
   if (!room || !showsActiveRoomBar(pathname, room)) return null;
   return (
     <MediaPageLink

@@ -135,12 +135,11 @@ function MessageComposerForm({
           countClassName="order-last basis-full px-2 pb-1"
         />
         <Button
-          variant="icon"
+          variant="icon-primary"
           type="submit"
           disabled={pending || moving}
           aria-label={pending ? 'Sending…' : 'Send message'}
           title="Send message"
-          className="size-10 shrink-0 rounded-sm bg-accent text-accent-ink hover:bg-accent-strong disabled:opacity-60"
         >
           <Icon name="send" />
         </Button>

@@ -22,3 +22,7 @@ export const pause = (ms: number): Promise<void> =>
   new Promise((done) => {
     browserScheduler.after(done, ms);
   });
+
+/** A deadline: runs `fire` once after `ms`, in the deadline's argument order. */
+export const atDeadline = (ms: number, fire: () => void): (() => void) =>
+  browserScheduler.after(fire, ms);

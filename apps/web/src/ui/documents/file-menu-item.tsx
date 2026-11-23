@@ -2,10 +2,6 @@ import { Button } from '../components/button/button';
 import type { ReactNode } from 'react';
 import { Icon, type IconName } from '../components/icon/icon';
 
-const itemClass =
-  'min-h-dense-target w-full gap-2 rounded-sm px-2 text-sm text-ink no-underline hover:bg-surface-overlay hover:no-underline';
-const dangerClass = `${itemClass} text-live`;
-
 export function FileMenuItem({
   icon,
   danger = false,
@@ -23,7 +19,8 @@ export function FileMenuItem({
 }) {
   return (
     <Button
-      variant="row"
+      variant={danger ? 'row-danger' : 'row'}
+      size="dense"
       type="button"
       disabled={disabled}
       role="menuitem"
@@ -33,7 +30,7 @@ export function FileMenuItem({
           event.preventDefault();
         }
       }}
-      className={danger ? dangerClass : itemClass}
+      className="w-full"
       onClick={(event) => {
         if (event.detail <= 1) onClick();
       }}

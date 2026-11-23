@@ -3,7 +3,7 @@ import { useDeliver } from '../edge/use-answer';
 import { useFocusAfterLeave } from '../edge/use-focus';
 import { Announcement } from '../components/announcement/announcement';
 import { Button } from '../components/button/button';
-import { useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { systemId } from '@daisy/clock';
 import { contextChatFormUnavailable } from '../../features/messaging/context-chat/form';
 import {
@@ -85,13 +85,17 @@ export function ContextChatMessageControls({
   const removing = useRef(false);
   const form = useRef<HTMLFormElement>(null);
   const ownedFocus = useRef(false);
-  useDeliver(`${locked}|${returnFocusId}`, () => {
-    if (!locked || !ownedFocus.current) return;
+  const lock = useMemo(
+    () => ({ locked, returnFocusId }),
+    [locked, returnFocusId],
+  );
+  useDeliver(lock, (held) => {
+    if (!held.locked || !ownedFocus.current) return;
     if (
       document.activeElement === document.body ||
       form.current?.contains(document.activeElement)
     )
-      document.getElementById(returnFocusId)?.focus();
+      document.getElementById(held.returnFocusId)?.focus();
     ownedFocus.current = false;
   });
   useFocusAfterLeave(returnFocusId, removing);
@@ -225,7 +229,8 @@ export function ContextChatMessageControls({
           id={submitId}
           type="submit"
           disabled={pending || locked || (kind === 'edit' && editingLocked)}
-          className="min-h-room-target self-start"
+          size="room"
+          className="self-start"
         >
           {pending
             ? 'Submitting…'

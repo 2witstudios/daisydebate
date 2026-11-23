@@ -15,9 +15,6 @@ export const FILES_ID = 'drive-files';
 export const FILES_HIDE_ID = 'drive-files-hide';
 export const FILES_SHOW_ID = 'drive-files-show';
 
-const headerButton =
-  'size-dense-target shrink-0 rounded-sm hover:bg-surface-raised';
-
 /** The closed Files sidebar's way back, at the start of the document tabs. */
 export function ShowFiles({
   state,
@@ -30,6 +27,7 @@ export function ShowFiles({
   return (
     <Button
       variant="icon"
+      size="dense"
       id={FILES_SHOW_ID}
       type="button"
       aria-label="Show files"
@@ -40,7 +38,7 @@ export function ShowFiles({
         flushSync(() => dispatch({ type: 'files/toggle' }));
         document.getElementById(FILES_HIDE_ID)?.focus();
       }}
-      className={cn(headerButton, 'max-compact:hidden')}
+      className="max-compact:hidden"
     >
       <Icon name="drawer" size={18} />
     </Button>
@@ -76,22 +74,23 @@ export function FilesSidebar({
         <h2 className="flex-1 text-sm font-strong">Files</h2>
         <Button
           variant="icon"
+          size="dense"
           type="button"
           aria-label="New"
           onClick={() => dispatch({ type: 'palette/open', mode: 'create' })}
-          className={headerButton}
         >
           <Icon name="plus" size={18} />
         </Button>
         <Button
           variant="icon"
+          size="dense"
           id={FILES_HIDE_ID}
           type="button"
           aria-label="Hide files"
           aria-expanded={state.filesOpen}
           aria-controls={FILES_ID}
           onClick={() => dispatch({ type: 'files/toggle' })}
-          className={cn(headerButton, 'max-compact:hidden')}
+          className="max-compact:hidden"
         >
           <Icon name="drawer" size={18} />
         </Button>

@@ -81,9 +81,9 @@ export function TranscriptSeedAnswer({
         <>
           {' '}
           <Button
-            variant="text"
+            variant="text-link"
             type="button"
-            className="underline"
+
             onClick={() => window.location.reload()}
           >
             Reload

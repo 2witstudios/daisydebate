@@ -1,6 +1,15 @@
 'use client';
 
-import { useSessionRefresh } from '../../edge/use-session-refresh';
+import { useResource } from '../../edge/use-driver';
+import { authClient } from '../../../lib/auth-client';
+
+type SessionClient = Pick<typeof authClient, 'getSession'>;
+
+/** One sliding refresh per auth client: asked once, nothing held open. */
+const refreshSession = (client: SessionClient) => {
+  void client.getSession();
+  return { dispose: () => undefined };
+};
 
 /**
  * Keeps a durable session sliding. Server components read sessions without
@@ -10,6 +19,6 @@ import { useSessionRefresh } from '../../edge/use-session-refresh';
  * its cookie together. It shows nothing.
  */
 export function SessionRefresh() {
-  useSessionRefresh();
+  useResource(authClient, refreshSession);
   return null;
 }

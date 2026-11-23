@@ -94,7 +94,7 @@ export function UsernameForm({
               }
               className={fieldClass.input}
             />
-            <Button type="submit" disabled={pending} className="h-auth-control">
+            <Button type="submit" disabled={pending} size="auth">
               {pending ? 'Saving…' : 'Continue'}
               <Icon name="arrowRight" size={18} />
             </Button>

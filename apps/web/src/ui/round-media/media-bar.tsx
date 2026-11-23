@@ -8,9 +8,6 @@ import {
   statusOf,
 } from '../../features/round-media/model/media-status';
 
-const button =
-  'min-h-room-target rounded-md border border-border px-3 focus-visible:outline-2 focus-visible:outline-offset-2';
-
 /** The bar under the stage: everything on it is derived from the one media state. */
 export function MediaBar({
   state,
@@ -39,9 +36,9 @@ export function MediaBar({
       </Announcement>
       {controls.enableSound ? (
         <Button
-          variant="compact"
+          variant="secondary"
+          size="room"
           type="button"
-          className={button}
           onClick={() => dispatch({ type: 'enable-sound-pressed' })}
         >
           Enable sound
@@ -49,9 +46,9 @@ export function MediaBar({
       ) : null}
       {questioning && controls.muteOffered ? (
         <Button
-          variant="compact"
+          variant="secondary"
+          size="room"
           type="button"
-          className={button}
           disabled={!controls.muteEnabled}
           aria-pressed={!muted}
           onClick={() => dispatch({ type: 'mute-requested', muted: !muted })}
@@ -61,9 +58,9 @@ export function MediaBar({
       ) : null}
       {status.retry ? (
         <Button
-          variant="compact"
+          variant="secondary"
+          size="room"
           type="button"
-          className={button}
           onClick={() => dispatch({ type: 'retry-pressed' })}
         >
           Retry camera and sound

@@ -82,8 +82,12 @@ place, so a page answered before hydration already shows it;
 `requestDialog(titleId)` opens one another part of the page owns).
 `DialogRegion` is the labelled shell of an overlay a popover or sheet owns.
 `Announcement` takes what it says, `kind="progress"` or `kind="problem"`, and
-decides its own role. A submit button keeps its form, name and value; every
-button uses a named variant.
+decides its own role. A submit button keeps its form, name and value. Every
+button names a variant in `button-class.ts`, which owns its whole look, and
+one of the sizes that variant comes in (a table, `regular` by default); a site
+adds layout only, never a property its variant or size sets. A component that
+draws a button for its caller takes a `ButtonLook` (variant and size), and a
+link drawn as a button takes the same classes through `buttonClass`.
 
 ## Mutating forms
 

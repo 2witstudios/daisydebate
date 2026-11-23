@@ -2,6 +2,7 @@
 
 import { useAnswer } from '../edge/use-answer';
 import { browserHandleTimers } from '../edge/browser-time';
+import { browserTransport } from '../edge/browser-request';
 import { useResource } from '../edge/use-driver';
 import { nowMs, systemClock, systemId } from '@daisy/clock';
 import { useMemo, useReducer, useRef } from 'react';
@@ -14,7 +15,6 @@ import {
   type DocumentSync,
   type DocumentSyncResources,
   type DocumentsApi,
-  type Timers,
 } from './document-sync';
 import type { DraftStorage } from './document-draft-storage';
 import { releaseDraftOwner } from './draft-owner';
@@ -85,8 +85,6 @@ export const initialSavePage: SavePage = {
 /** One browser page's shared keepalive body budget across every owner. */
 const browserKeepaliveBudget = createKeepaliveBudget();
 
-const browserTimers: Timers = browserHandleTimers;
-
 const browserStorage = (): DraftStorage | null => {
   try {
     return typeof window === 'undefined' ? null : window.localStorage;
@@ -98,7 +96,7 @@ const browserStorage = (): DraftStorage | null => {
 /** The browser edge supplies every effect; all owners share this page's ledger. */
 export const browserDraftResources = (): DocumentSyncResources => ({
   nextGeneration: () => systemId.next(),
-  timers: browserTimers,
+  timers: browserHandleTimers,
   storage: browserStorage(),
   budget: browserKeepaliveBudget,
   wallClock: () => nowMs(systemClock),
@@ -359,7 +357,7 @@ export function useDocumentSaving(
     () =>
       documentSaving(
         principalId,
-        createDocumentsApi(),
+        createDocumentsApi({ send: browserTransport }),
         (event) => {
           dispatch({ owner: principalId, event });
           if (event.type === 'refused' && event.status === 401)

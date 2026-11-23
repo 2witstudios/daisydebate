@@ -4,8 +4,8 @@ import { Button } from '../../components/button/button';
 import { Announcement } from '../../components/announcement/announcement';
 import { useState, useSyncExternalStore } from 'react';
 import {
-  buttonClass,
-  type ButtonVariant,
+  lookClass,
+  type ButtonLook,
 } from '../../components/button/button-class';
 import { cn } from '../../cn';
 const subscribeNever = () => () => undefined;
@@ -15,14 +15,15 @@ export function RoomInvite({
   roomId,
   visibility,
   label,
-  variant = 'secondary',
+  look = { variant: 'secondary' },
   className,
 }: {
   readonly roomId: string;
   readonly visibility: string;
   readonly label: string;
   /** The look of the place it sits; the no-script link wears it too. */
-  readonly variant?: ButtonVariant;
+  readonly look?: ButtonLook;
+  /** Layout only. */
   readonly className?: string;
 }) {
   const [notice, setNotice] = useState('');
@@ -48,14 +49,14 @@ export function RoomInvite({
   };
   if (!interactive)
     return (
-      <a href={href} className={cn(buttonClass(variant), className)}>
+      <a href={href} className={cn(lookClass(look), className)}>
         {label}
       </a>
     );
   return (
     <span className="relative inline-flex">
       <Button
-        variant={variant}
+        {...look}
         type="button"
         onClick={() => void copy()}
         className={className}

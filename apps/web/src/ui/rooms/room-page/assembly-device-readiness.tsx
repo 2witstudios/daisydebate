@@ -225,14 +225,19 @@ export function AssemblyDeviceReadiness(props: Props) {
   const roomId = props.view.id;
   const actorId = props.actorId;
   // Authoritative updates flow through consent.updateView, not preview recreation.
+  const seat = useMemo(
+    () => (needsDevices ? { actorId, roomId } : null),
+    [needsDevices, actorId, roomId],
+  );
   const resources = useResource(
-    needsDevices ? `${actorId} ${roomId}` : null,
+    seat,
     (checking): (DeviceResources & { dispose: () => void }) | null => {
       if (checking === null) return null;
+      const { actorId: checker, roomId: room } = checking;
       const devices = createBrowserDeviceChecks();
       const consent = createLocalConsent({
         view: latest().props.view,
-        actorId,
+        actorId: checker,
         nextId: systemId.next,
         read: () => latest().props.read(),
         send: async (command) => {
@@ -246,7 +251,7 @@ export function AssemblyDeviceReadiness(props: Props) {
         },
       });
       const unsubscribe = devices.subscribe((snapshot) => {
-        rememberCheckedDevices(roomId, snapshot, undefined, actorId);
+        rememberCheckedDevices(room, snapshot, undefined, checker);
         void consent.devices(snapshot.devicesPassed);
       });
       return {

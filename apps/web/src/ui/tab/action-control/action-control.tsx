@@ -3,9 +3,9 @@ import type { ReactNode } from 'react';
 import type { TabAction } from '../../../features/tab/action';
 import { cn } from '../../cn';
 import {
-  buttonClass,
-  type ButtonSize,
-  type ButtonVariant,
+  lookClass,
+  type ButtonLook,
+  type ButtonActionVariant,
 } from '../../components/button/button-class';
 import { UnavailableControl } from './unavailable-control';
 import { linkTo, unavailableAction } from '../../../features/tab/action';
@@ -21,10 +21,9 @@ type ActionProps = {
 const nameOf = (action: TabAction, about: string | undefined) =>
   about === undefined ? undefined : `${action.label}: ${about}`;
 
-/** One look for an action and its disabled stand-in: a variant, its size, and what the site adds. */
+/** One look for an action and its disabled stand-in, and the layout its site adds. */
 type Look = {
-  readonly variant: ButtonVariant;
-  readonly size?: ButtonSize;
+  readonly button: ButtonLook;
   readonly className: string;
 };
 
@@ -37,8 +36,7 @@ function Control({
   const name = nameOf(action, about);
   return action.kind === 'unavailable' ? (
     <UnavailableControl
-      variant={look.variant}
-      {...(look.size === undefined ? {} : { size: look.size })}
+      look={look.button}
       className={look.className}
       {...(name === undefined ? {} : { ariaLabel: name })}
     >
@@ -48,7 +46,7 @@ function Control({
   ) : (
     <Link
       href={action.href}
-      className={cn(buttonClass(look.variant, look.size), look.className)}
+      className={cn(lookClass(look.button), look.className)}
       aria-label={name}
     >
       {lead}
@@ -69,7 +67,7 @@ export function ActionButton({
   size,
   className,
 }: ActionProps & {
-  readonly variant?: ButtonVariant;
+  readonly variant?: ButtonActionVariant;
   readonly size?: 'small';
 }) {
   const chosen = variant ?? (action.primary ? 'primary' : 'secondary');
@@ -78,8 +76,7 @@ export function ActionButton({
       action={action}
       {...(about === undefined ? {} : { about })}
       look={{
-        variant: chosen,
-        ...(size === 'small' ? { size: 'row' as const } : {}),
+        button: { variant: chosen, size: size === 'small' ? 'row' : 'regular' },
         className: cn(
           'whitespace-nowrap no-underline hover:no-underline',
           className,
@@ -99,7 +96,7 @@ export function TitleLink({ action, about, className }: ActionProps) {
       action={action}
       {...(about === undefined ? {} : { about })}
       look={{
-        variant: 'text',
+        button: { variant: 'text' },
         className: cn('text-ink no-underline hover:underline', className),
       }}
     />
@@ -124,8 +121,7 @@ export function BackButton({
       action={href === null ? unavailableAction(label) : linkTo(label, href)}
       lead={<span aria-hidden="true">←</span>}
       look={{
-        variant: 'secondary',
-        size: 'back',
+        button: { variant: 'secondary', size: 'back' },
         className: cn(
           'self-start whitespace-nowrap no-underline hover:no-underline',
           className,

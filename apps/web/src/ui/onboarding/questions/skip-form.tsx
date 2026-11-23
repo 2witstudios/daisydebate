@@ -3,7 +3,6 @@
 import { Button } from '../../components/button/button';
 import { useFormAction, type FormAction } from '../../form-action/form-action';
 import { useMovedOn } from '../../form-action/use-moved-on';
-import { skipClass } from '../frame/frame';
 import { destinationOf } from '../../../features/forms/form-state';
 import {
   initialStepForm,
@@ -33,12 +32,7 @@ export function SkipForm({
   const pending = posting || answered.kind === 'moved';
   return (
     <form action={post} aria-busy={pending}>
-      <Button
-        variant="text"
-        type="submit"
-        disabled={pending}
-        className={skipClass}
-      >
+      <Button variant="touch-skip" type="submit" disabled={pending}>
         {stepFields(answered).unsaved ? 'Skip (try again)' : 'Skip'}
       </Button>
     </form>

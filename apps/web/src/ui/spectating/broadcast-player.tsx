@@ -128,7 +128,8 @@ export function BroadcastPlayer({
           type="button"
           aria-pressed={showCaptions}
           onClick={() => setShowCaptions((shown) => !shown)}
-          className="self-start text-sm"
+          size="small"
+          className="self-start"
         >
           Captions
         </Button>

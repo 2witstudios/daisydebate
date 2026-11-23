@@ -126,33 +126,34 @@ export function InboxProvider({
   });
   // A server render elsewhere (a native answer, a refresh) says something changed.
   useAnswer(seed, () => reader.current?.ring());
-  useResource(
-    socketUrl === null ? null : JSON.stringify([actorId, socketUrl]),
-    (key) => {
-      if (key === null || socketUrl === null) return null;
-      const connection = tabConnection(socketUrl);
-      const attached = attachMessagingInboxDoorbells({
-        connection,
-        actorId,
-        catchUpOnSubscribe: true,
-        invalidate: () => undefined,
-        refetch: () => reader.current?.ring(),
-      });
-      doorbell.current = attached;
-      const unsubscribe = connection.subscribe((state) => {
-        if (terminalReason(state) !== null) reader.current?.ring();
-      });
-      connection.connect();
-      return {
-        dispose: () => {
-          attached.close();
-          unsubscribe();
-          connection.dispose();
-          doorbell.current = null;
-        },
-      };
-    },
+  const doorbells = useMemo(
+    () => (socketUrl === null ? null : { actorId, socketUrl }),
+    [actorId, socketUrl],
   );
+  useResource(doorbells, (listening) => {
+    if (listening === null) return null;
+    const connection = tabConnection(listening.socketUrl);
+    const attached = attachMessagingInboxDoorbells({
+      connection,
+      actorId: listening.actorId,
+      catchUpOnSubscribe: true,
+      invalidate: () => undefined,
+      refetch: () => reader.current?.ring(),
+    });
+    doorbell.current = attached;
+    const unsubscribe = connection.subscribe((state) => {
+      if (terminalReason(state) !== null) reader.current?.ring();
+    });
+    connection.connect();
+    return {
+      dispose: () => {
+        attached.close();
+        unsubscribe();
+        connection.dispose();
+        doorbell.current = null;
+      },
+    };
+  });
   const setSearch = useCallback((value: string) => {
     setSearchValue(value);
     const line = value.trim();

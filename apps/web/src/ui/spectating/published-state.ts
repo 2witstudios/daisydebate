@@ -9,9 +9,10 @@ import {
   audienceStateSchema,
   type AudienceState,
 } from '@daisy/protocol/audience-state';
-import { createContext, useContext, useState } from 'react';
+import { createContext, useContext, useMemo, useState } from 'react';
 import { answerOfResponse } from '../../features/spectating/poll-pace';
-import { startBrowserPoll } from '../edge/poll-browser';
+import { startBrowserPoll } from './browser-poll';
+import { browserScheduler } from '../edge/browser-time';
 import {
   firstPublishedReads,
   nextPublishedReads,
@@ -64,20 +65,21 @@ export function usePublishedState(
   const [held, setHeld] = useState<Held | null>(null);
   const published = held !== null && held.url === url ? held : NOTHING_READ;
   const polling = keepReading(published);
-  const reading =
-    url && polling
-      ? `${recheckBeforePublication ? 'recheck' : 'once'} ${url}`
-      : null;
-  useResource(reading, () => {
-    if (!url || !polling) return null;
+  const reading = useMemo(
+    () => (url && polling ? { url, recheck: recheckBeforePublication } : null),
+    [url, polling, recheckBeforePublication],
+  );
+  useResource(reading, (asked) => {
+    if (asked === null) return null;
+    const { url: address, recheck } = asked;
     let stopped = false;
     let reads = firstPublishedReads(performance.now());
     const settle = (read: PublishedRead) => {
       if (stopped) return;
       const now = performance.now();
-      reads = nextPublishedReads(reads, read, now, recheckBeforePublication);
+      reads = nextPublishedReads(reads, read, now, recheck);
       setHeld({
-        url,
+        url: address,
         state: reads.state,
         serverAsks: serverAsksOf(reads),
         sinceMovedMs: now - reads.movedAtMs,
@@ -85,7 +87,7 @@ export function usePublishedState(
     };
     const stop = startBrowserPoll(async () => {
       try {
-        const response = await readPublished(browserTransport, url);
+        const response = await readPublished(browserTransport, address);
         const parsed = audienceStateSchema.safeParse(
           response.ok ? await response.json() : null,
         );
@@ -101,7 +103,7 @@ export function usePublishedState(
         settle({ kind: 'failed' });
         throw error;
       }
-    });
+    }, browserScheduler.after);
     return {
       dispose: () => {
         stopped = true;

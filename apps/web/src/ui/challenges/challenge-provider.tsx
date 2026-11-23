@@ -61,7 +61,7 @@ export const useChallenges = (): ChallengeView => {
 const challengeRead = challengeListSchema.loose();
 
 const readList = async (
-  transport: BrowserTransport = browserTransport,
+  transport: BrowserTransport,
 ): Promise<ResourceRead<ChallengeList>> => {
   const response = await transport('/api/challenges', {
     credentials: 'same-origin',
@@ -103,7 +103,7 @@ export function ChallengeProvider({
     );
     return createChallengeSyncDriver({
       seed,
-      read: () => readList(),
+      read: () => readList(browserTransport),
       inbox: connection && actorId !== null ? { actorId, connection } : null,
       ...edges,
     });

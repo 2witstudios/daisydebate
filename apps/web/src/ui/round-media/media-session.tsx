@@ -2,7 +2,7 @@
 import '../../lib/zod-jitless';
 import { browserTransport } from '../edge/browser-request';
 import { browserScheduler } from '../edge/browser-time';
-import { mediaDeadlineAt } from '../edge/round-media-browser';
+import { atDeadline } from '../edge/browser-waits';
 import { useDeliver } from '../edge/use-answer';
 import { useResource } from '../edge/use-driver';
 import { useLeave } from '../edge/use-answer';
@@ -119,7 +119,7 @@ function RoundMediaSession({
       policy: MEDIA_POLICY,
       // Monotonic: elapsed time, and a clock step must not skew it.
       now: () => performance.now(),
-      at: mediaDeadlineAt,
+      at: atDeadline,
       api: {
         admit: (id, signal) => requestMedia(id, 'session', signal),
         reconcile: (id, signal) => requestMedia(id, 'reconcile', signal),

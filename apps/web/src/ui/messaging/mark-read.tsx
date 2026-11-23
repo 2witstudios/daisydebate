@@ -1,4 +1,5 @@
 'use client';
+import { useMemo } from 'react';
 import { useDeliver } from '../edge/use-answer';
 import {
   browserTransport,
@@ -7,11 +8,12 @@ import {
 
 import { messagingMarkReadBody } from '../../features/messaging/mark-read';
 
+type ReadMark = { readonly channelId: string; readonly sequence: number };
+
 /** One read mark; a failed attempt leaves the conversation unread. */
 const markRead = (
   transport: BrowserTransport,
-  channelId: string,
-  sequence: number,
+  { channelId, sequence }: ReadMark,
 ) =>
   transport('/api/messaging/read', {
     method: 'POST',
@@ -33,8 +35,7 @@ export function MarkConversationRead({
   readonly sequence: number;
 }) {
   // Each conversation and sequence shown is marked once.
-  useDeliver(`${sequence} ${channelId}`, () => {
-    void markRead(browserTransport, channelId, sequence);
-  });
+  const mark = useMemo(() => ({ channelId, sequence }), [channelId, sequence]);
+  useDeliver(mark, (shown) => void markRead(browserTransport, shown));
   return null;
 }

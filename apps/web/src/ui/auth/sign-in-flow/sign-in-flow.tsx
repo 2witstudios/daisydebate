@@ -20,7 +20,7 @@ import {
 } from '../sign-in-state';
 import { answerFocusId, renderSignInFlow } from './sign-in-flow.render';
 import { useLinkRequest, type RequestLinkAction } from './use-link-request';
-import { startPasskeyAutofill, type AutofillTimers } from './passkey-autofill';
+import { startPasskeyAutofill } from './passkey-autofill';
 
 const subscribeToVisibility = (onChange: () => void) => {
   document.addEventListener('visibilitychange', onChange);
@@ -38,8 +38,6 @@ const usePageVisible = (): boolean =>
     () => document.visibilityState === 'visible',
     () => false,
   );
-
-const browserTimers: AutofillTimers = browserHandleTimers;
 
 export type { RequestLinkAction };
 
@@ -100,7 +98,7 @@ export function SignInFlow({
             offer: () => offerPasskeyAutofillSafely(armed.port),
             onSettled: (outcome) =>
               dispatch({ type: 'passkey-autofilled', outcome }),
-            timers: browserTimers,
+            timers: browserHandleTimers,
             now: () => nowMs(armed.clock),
           }),
         },

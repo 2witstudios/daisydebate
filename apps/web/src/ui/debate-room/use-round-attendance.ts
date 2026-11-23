@@ -1,6 +1,8 @@
 'use client';
 import { useDeliver } from '../edge/use-answer';
-import { openBrowserAttendance } from '../edge/attendance-browser';
+import { openBrowserAttendance } from './browser-attendance';
+import { browserTransport } from '../edge/browser-request';
+import { browserScheduler } from '../edge/browser-time';
 import { useResource } from '../edge/use-driver';
 import { useMemo, useState } from 'react';
 import { isDebatingSeat } from '@daisy/protocol/seats';
@@ -44,6 +46,8 @@ export function useRoundAttendance({
       : openBrowserAttendance({
           roundId: asked.roundId,
           signedOut: () => setSignedOutKey(asked.key),
+          transport: browserTransport,
+          every: browserScheduler.every,
           ...(asked.reconnectSource
             ? { reconnect: asked.reconnectSource }
             : {}),

@@ -5,7 +5,7 @@ import {
 } from '../edge/browser-request';
 import { pause, repeatEvery } from '../edge/browser-waits';
 import { useResource } from '../edge/use-driver';
-import { useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { Room, RoomEvent, Track, type RemoteTrack } from 'livekit-client';
 import {
   applyStageSubscriptions,
@@ -103,7 +103,11 @@ export function StageRoom(props: {
   const watch = useRef(stageWatchStart);
   const identities = useRef<readonly string[]>([]);
   const { captureId, credential } = props;
-  useResource(JSON.stringify([captureId, credential]), () => {
+  const capture = useMemo(
+    () => ({ captureId, credential }),
+    [captureId, credential],
+  );
+  useResource(capture, (stage) => {
     const connection = createStageConnection<StageMediaRoom>({
       createRoom: () => {
         const room = new Room({ adaptiveStream: false, dynacast: false });
@@ -147,10 +151,7 @@ export function StageRoom(props: {
     /** One whole answer, body included, so the poll can order it; never rejects. */
     const read = async (): Promise<StageRead> => {
       // A web tier that is gone may never answer, so a read cannot wait for it.
-      const answer = await readStage(browserTransport, {
-        captureId,
-        credential,
-      });
+      const answer = await readStage(browserTransport, stage);
       // A body cut off mid-read is no new answer; the next read tries again.
       const next = answer?.ok
         ? drawableStageAnswer(await answer.json().catch(() => null))

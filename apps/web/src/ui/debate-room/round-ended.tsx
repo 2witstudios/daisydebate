@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { useDeliver } from '../edge/use-answer';
 import { Announcement } from '../components/announcement/announcement';
 
@@ -29,9 +30,14 @@ export function RoundEndedNotice({
    * own terminal effect cannot: the records are done once this Round's life
    * ends (ISSUE-879). No personal data leaves this tab.
    */
-  useDeliver(JSON.stringify([actorId, roundId, roomId ?? null]), () => {
-    if (roomId) clearRoundMediaPreferences(actorId, roomId, roundId);
-    else clearMutePreference(actorId, roundId);
+  const ended = useMemo(
+    () => ({ actorId, roundId, roomId }),
+    [actorId, roundId, roomId],
+  );
+  useDeliver(ended, (round) => {
+    if (round.roomId)
+      clearRoundMediaPreferences(round.actorId, round.roomId, round.roundId);
+    else clearMutePreference(round.actorId, round.roundId);
   });
   return (
     <div className="mx-auto flex w-full max-w-dash-column flex-col gap-3 p-6">

@@ -4,7 +4,7 @@ import { buttonClass } from '../../components/button/button-class';
 import { SignOutForm } from '../../components/sign-out-form/sign-out-form';
 import { SIGN_OUT_FAILED_NOTICE } from '../../components/sign-out-form/sign-out-notice';
 
-export const accountExitLink = `${buttonClass('touch')} border border-border`;
+export const accountExitLink = buttonClass('touch-secondary');
 
 /**
  * The account's way out (ISSUE-691, plan BETA §5): a native form, so it
@@ -32,11 +32,7 @@ export function AccountExit({
         <Link className={accountExitLink} href="/settings">
           Account settings
         </Link>
-        <SignOutForm
-          next={returnTo}
-          variant="touch"
-          className="border border-border bg-transparent"
-        />
+        <SignOutForm next={returnTo} look={{ variant: 'touch-secondary' }} />
       </div>
     </div>
   );

@@ -11,7 +11,7 @@ import { freezePostRoundCall } from '@daisy/protocol/post-round-call';
 import { isJudgeSeat } from '@daisy/protocol/seats';
 import { type RoomView } from '@daisy/protocol/room-contract';
 import { AssemblyCommandFields } from './assembly-command-fields';
-import type { ButtonVariant } from '../../components/button/button-class';
+import type { ButtonActionVariant } from '../../components/button/button-class';
 import { PopoverDialog } from '../../components/popover/popover-dialog';
 import {
   ownSeat,
@@ -99,7 +99,7 @@ function CommandForm({
   readonly expectedConsentVersion?: number | null;
   readonly noticeVersion?: string | null;
   /** The ready control's look where it stands. */
-  readonly variant: ButtonVariant;
+  readonly variant: ButtonActionVariant;
   readonly className?: string;
 }) {
   return (
@@ -279,7 +279,7 @@ export function ReadyControl({
         Turn on camera and mic
       </Button>
     );
-  const readyForm = (variant: ButtonVariant, className?: string) =>
+  const readyForm = (variant: ButtonActionVariant, className?: string) =>
     CommandForm({
       type: 'ready',
       label: 'I’m ready',

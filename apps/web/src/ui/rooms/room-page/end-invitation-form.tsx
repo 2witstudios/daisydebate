@@ -8,7 +8,7 @@ import {
   invitationFormUnavailable,
   type InvitationFormState,
 } from '../../../features/room-invitations/submit';
-import type { ButtonVariant } from '../../components/button/button-class';
+import type { ButtonLook } from '../../components/button/button-class';
 import {
   useFocusAfterAnswer,
   useFormAction,
@@ -29,7 +29,7 @@ export function EndInvitationForm({
   invitationId,
   label,
   focusAfterAnswer,
-  variant = 'secondary',
+  look = { variant: 'secondary' },
   className,
 }: {
   readonly action: FormAction<InvitationFormState>;
@@ -38,7 +38,8 @@ export function EndInvitationForm({
   readonly label: string;
   readonly focusAfterAnswer: string;
   /** The look of the list it sits in. */
-  readonly variant?: ButtonVariant;
+  readonly look?: ButtonLook;
+  /** Layout only. */
   readonly className?: string;
 }) {
   const [answer, post, pending] = useFormAction(
@@ -55,12 +56,7 @@ export function EndInvitationForm({
     <form action={post} className="flex items-center gap-2">
       <input type="hidden" name="intent" value={intent} />
       <input type="hidden" name="invitationId" value={invitationId} />
-      <Button
-        variant={variant}
-        type="submit"
-        className={className}
-        disabled={pending}
-      >
+      <Button {...look} type="submit" className={className} disabled={pending}>
         {label}
       </Button>
       {fields.notice ? (

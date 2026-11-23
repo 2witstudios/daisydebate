@@ -57,7 +57,7 @@ export const useNotificationShell = (): NotificationShell | null =>
   useContext(ShellContext);
 
 const readShell = async (
-  transport: BrowserTransport = browserTransport,
+  transport: BrowserTransport,
 ): Promise<ResourceRead<NotificationShell>> => {
   const response = await transport('/api/notifications/shell', {
     credentials: 'same-origin',
@@ -73,10 +73,7 @@ const readShell = async (
     : { kind: 'unavailable' };
 };
 
-const markRead = (
-  ids: readonly string[],
-  transport: BrowserTransport = browserTransport,
-) =>
+const markRead = (ids: readonly string[], transport: BrowserTransport) =>
   transport('/api/notifications/read', {
     method: 'POST',
     credentials: 'same-origin',
@@ -88,6 +85,12 @@ const markRead = (
 const chime = () => {
   try {
     const audio = new AudioContext();
+    // Without a gesture yet the context starts suspended and its clock never
+    // moves, so no note would end to close it: close it now instead.
+    if (audio.state !== 'running') {
+      void audio.close();
+      return;
+    }
     const gain = audio.createGain();
     gain.gain.value = 0.08;
     gain.connect(audio.destination);
@@ -161,7 +164,7 @@ export function NotificationShellProvider({
     const { connection, ...edges } = browserSyncEdges(socketUrl);
     return createNotificationShellSyncDriver({
       seed,
-      read: () => readShell(),
+      read: () => readShell(browserTransport),
       inbox: connection ? { actorId, connection } : null,
       ...edges,
     });
@@ -179,22 +182,22 @@ export function NotificationShellProvider({
   const marked = useRef(new Set<string>());
 
   const arrived = useMemo(() => ({ shell, path }), [shell, path]);
-  useDeliver(arrived, () => {
+  useDeliver(arrived, ({ shell: read, path: here }) => {
     // Without the server's read the seed says nothing about what was waiting:
     // the first real read only learns it, so old rows never burst in as news.
-    if (initialShell === null && shell === seed) return;
+    if (initialShell === null && read === seed) return;
     const arrivals = arrivalsOf({
       seen: seen.current,
-      recent: shell.recent,
-      path,
+      recent: read.recent,
+      path: here,
     });
     seen.current = new Set([
       ...(seen.current ?? []),
-      ...shell.recent.map(arrivalKey),
+      ...read.recent.map(arrivalKey),
     ]);
-    if (shell.presentation.toasts && arrivals.toasts.length > 0)
+    if (read.presentation.toasts && arrivals.toasts.length > 0)
       setToasts((shown) => [...arrivals.toasts, ...shown]);
-    alertUrgent(arrivals.urgent, shell.presentation, (href) =>
+    alertUrgent(arrivals.urgent, read.presentation, (href) =>
       router.push(href),
     );
   });
@@ -204,17 +207,17 @@ export function NotificationShellProvider({
     () => ({ shell, path, driver }),
     [shell, path, driver],
   );
-  useDeliver(surfacing, () => {
+  useDeliver(surfacing, ({ shell: read, path: here, driver: live }) => {
     // Keyed by arrival: a row brought back unread is read again here.
-    const shown = new Set(shownOn(shell.recent, path));
-    const surfaced = shell.recent.filter(
+    const shown = new Set(shownOn(read.recent, here));
+    const surfaced = read.recent.filter(
       (row) => shown.has(row.id) && !marked.current.has(arrivalKey(row)),
     );
     if (surfaced.length === 0) return;
     for (const row of surfaced) marked.current.add(arrivalKey(row));
-    const here = surfaced.map((row) => row.id);
-    setToasts((shown) => shown.filter((row) => !here.includes(row.id)));
-    void markRead(here).then(() => driver?.signal());
+    const ids = surfaced.map((row) => row.id);
+    setToasts((shown) => shown.filter((row) => !ids.includes(row.id)));
+    void markRead(ids, browserTransport).then(() => live?.signal());
   });
 
   // Next sets the title on each navigation, after this renders: keep the

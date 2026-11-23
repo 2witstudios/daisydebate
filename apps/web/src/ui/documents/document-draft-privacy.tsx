@@ -2,7 +2,8 @@
 
 import { useDocumentEvent } from '../edge/use-dom-events';
 import { useResource } from '../edge/use-driver';
-import { readBrowserSession } from '../edge/session-browser';
+import { readBrowserSession } from './session-read';
+import { browserTransport } from '../edge/browser-request';
 import { Announcement } from '../components/announcement/announcement';
 import { useState } from 'react';
 import { nowMs, systemClock } from '@daisy/clock';
@@ -88,7 +89,7 @@ function guardBrowserDrafts(
     events: window,
     visibility: document,
     storage: () => window.localStorage,
-    fetchSession: readBrowserSession,
+    fetchSession: (signal) => readBrowserSession(browserTransport, signal),
     hasSignOutIntent,
     takeSignOutIntent,
     takeAccountClosedProof: () => takeDraftsErasedCookie(document),
