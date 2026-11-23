@@ -11,11 +11,22 @@ const windowPorts = [
   'clearInterval',
 ] as const;
 
-/** Real React and client code in a private browser realm, without runner globals. */
+type RealmGlobals = Readonly<Record<string, unknown>>;
+
+/**
+ * Real React and client code in a private browser realm, without runner
+ * globals. `globals` may read the realm's window, for the DOM classes
+ * (`Element`, `HTMLAnchorElement`) client code tests instances against.
+ */
 export async function mountBrowserClient<
   T extends { createRoot: (container: HTMLElement) => Root },
->(entrypoint: string, globals: Readonly<Record<string, unknown>> = {}) {
+>(
+  entrypoint: string,
+  realmGlobals: RealmGlobals | ((browser: BrowserWindow) => RealmGlobals) = {},
+) {
   const browser = new BrowserWindow({ url: 'https://daisy.test/' });
+  const globals =
+    typeof realmGlobals === 'function' ? realmGlobals(browser) : realmGlobals;
   const built = await Bun.build({
     entrypoints: [entrypoint],
     format: 'cjs',
