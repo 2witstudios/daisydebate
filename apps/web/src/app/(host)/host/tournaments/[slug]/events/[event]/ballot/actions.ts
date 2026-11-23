@@ -15,7 +15,7 @@ import {
 } from '../../../../../../../../features/tab/ballot-authoring-form';
 import { hostRoutes } from '../../../../../../../../features/tab/routes';
 import { runTabCommandForm } from '../../../../../../../../features/tab/command-form-action';
-import { moveOn } from '../../../../../../../../server/form-action';
+import { moveOn } from '../../../../../../../../features/forms/form-action';
 import { POST as setupPOST } from '../../../../../../../api/tab/lobby-command/route';
 import { POST as settingsPOST } from '../../../../../../../api/tab/settings-command/route';
 

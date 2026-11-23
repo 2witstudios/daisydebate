@@ -20,12 +20,15 @@ mock.module('next/headers', () => ({
 mock.module(join(import.meta.dir, '../../../../server/process-app.ts'), () => ({
   processRoute: () => async () => routeAnswer(),
 }));
-mock.module(join(import.meta.dir, '../../../../server/form-action.ts'), () => ({
-  moveOn: (_incoming: Headers, to: string) => {
-    log.push(['moveOn', to]);
-    return { kind: 'moved', next: to };
-  },
-}));
+mock.module(
+  join(import.meta.dir, '../../../../features/forms/form-action.ts'),
+  () => ({
+    moveOn: (_incoming: Headers, to: string) => {
+      log.push(['moveOn', to]);
+      return { kind: 'moved', next: to };
+    },
+  }),
+);
 
 const { ageStepAction } = await import('./actions');
 const { AGE_HOLD_COOKIE, AGE_HOLD_COOKIE_OPTIONS } =

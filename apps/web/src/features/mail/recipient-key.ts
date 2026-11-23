@@ -1,15 +1,8 @@
 import { sha3Hex } from '@daisy/digest';
 
 import { normalizeEmail } from '@daisy/protocol/email';
+import { deriveSubkey } from '../../server/subkey';
 export { normalizeEmail } from '@daisy/protocol/email';
-
-/**
- * A subkey derived once from a secret, domain-separated by a fixed label per
- * use, so a leaked subkey can never double as a leaked secret or as another
- * use's subkey.
- */
-export const deriveSubkey = (secret: string, label: string): string =>
-  sha3Hex(`${secret}\0${label}`);
 
 /**
  * Keyed by `RECIPIENT_HASH_SECRET`, never `BETTER_AUTH_SECRET` (ADR 0044,

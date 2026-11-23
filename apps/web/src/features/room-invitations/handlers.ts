@@ -9,7 +9,7 @@ import {
   runMemberRoute,
   type BudgetedMemberBoundary,
   type MemberCaller,
-} from '../../server/member-boundary';
+} from '../auth/member-boundary';
 import { roomInvitationLimit } from './operations';
 
 const MAX_BODY_BYTES = 512;

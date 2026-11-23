@@ -17,7 +17,7 @@ import {
   readMessagingFile,
 } from './operations';
 import { requireMemberActor } from '../../access/actor';
-import { runEvaluatedRoute } from '../../../server/member-boundary';
+import { runEvaluatedRoute } from '../../auth/member-boundary';
 type JsonOperation = 'reserve' | 'finalize' | 'renew' | 'cancel';
 const operations = {
   reserve: reserveMessagingFile,

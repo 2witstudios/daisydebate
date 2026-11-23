@@ -8,6 +8,7 @@ import { createRateLimiter } from '../src/server/rate-limit';
 import { createAccountFlows } from './auth-account-helpers';
 import { createSecondInstances, elapse } from './auth-rate-limit-helpers';
 import { createTestApp, testRedisUrl } from './fixtures';
+import { authComposition } from '../src/features/auth/composition';
 
 requireTestServices(process.env);
 setupRitewayBun();
@@ -38,11 +39,11 @@ test('configured ceilings share real counters across instances without changing 
     email: string,
   ) => handler(minuteApp.jsonPost('/api/auth/sign-in/magic-link', { email }));
   const admitted = await Promise.all([
-    post(minuteApp.routes.auth.POST, minuteApp.freshEmail()),
+    post(minuteApp.routes(authComposition).POST, minuteApp.freshEmail()),
     post(other.handlers.POST, minuteApp.freshEmail()),
   ]);
   const unknown = await post(other.handlers.POST, minuteApp.freshEmail());
-  const known = await post(minuteApp.routes.auth.POST, existing);
+  const known = await post(minuteApp.routes(authComposition).POST, existing);
   await minuteApp.app.auth().settled();
   assert({
     given:

@@ -11,7 +11,7 @@ import {
   clubInvitationMailRefusal,
   type SeatInvitation,
 } from '@daisy/protocol/club-seats';
-import type { MemberCaller } from '../../server/member-boundary';
+import type { MemberCaller } from '../auth/member-boundary';
 
 /** A lapsed plan offers no seat worth mailing; earlier refusals win. */
 export function clubInvitationResendRefusal(input: {

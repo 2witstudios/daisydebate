@@ -1,6 +1,6 @@
 'use client';
 
-import { useBrowserLayoutEffect } from '../edge/browser-sync';
+import { useMediaQuery } from '../edge/use-dom-events';
 import { useState } from 'react';
 
 /**
@@ -25,21 +25,16 @@ export const phoneMediaQuery = (computed: {
  * knows, and no crossing fires on load.
  */
 export const usePhoneBreakpoint = (): boolean => {
-  const [phone, setPhone] = useState(liveBelowBreakpoint);
-  useBrowserLayoutEffect(() => {
-    const query = matchMedia(
-      phoneMediaQuery(getComputedStyle(document.documentElement)),
-    );
-    const report = () => setPhone(query.matches);
-    report();
-    query.addEventListener('change', report);
-    return () => query.removeEventListener('change', report);
-  }, []);
-  return phone;
+  // The token is read once; hydration reads the live answer too, so a phone
+  // that hydrates already knows and no crossing fires on load.
+  const [query] = useState(roomPhoneQuery);
+  const [firstMatch] = useState(
+    () => query !== null && matchMedia(query).matches,
+  );
+  return useMediaQuery(query, firstMatch);
 };
 
-const liveBelowBreakpoint = () =>
+const roomPhoneQuery = (): string | null =>
   typeof window === 'undefined'
-    ? false
-    : matchMedia(phoneMediaQuery(getComputedStyle(document.documentElement)))
-        .matches;
+    ? null
+    : phoneMediaQuery(getComputedStyle(document.documentElement));

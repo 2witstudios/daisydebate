@@ -1,4 +1,4 @@
-import { requestAudience } from '../../../lib/request-session';
+import { requestAudience } from '../../../features/spectating/page-reads';
 import { SeatedChatReader } from '../../../ui/audience/seated-chat-reader';
 
 /**

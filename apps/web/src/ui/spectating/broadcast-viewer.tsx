@@ -1,8 +1,9 @@
 'use client';
 import '../../lib/zod-jitless';
-import { useBrowserEffect, useBrowserLayoutEffect } from '../edge/browser-sync';
+import { useDeliver } from '../edge/use-answer';
+import { useNavigation } from '../edge/use-navigation';
 import { Button } from '../components/button/button';
-import { StatusRegion } from '../components/status-region/status-region';
+import { Announcement } from '../components/announcement/announcement';
 import { type SpectatorTimeline } from '@daisy/protocol/spectator-timeline';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -131,12 +132,7 @@ function StateInsteadOfPlayer({
           icon="alert"
           title="The video could not be played"
           actions={
-            <Button
-              variant="unstyled"
-              type="button"
-              onClick={onRetry}
-              className="font-strong"
-            >
+            <Button variant="text" type="button" onClick={onRetry}>
               Try again
             </Button>
           }
@@ -221,22 +217,27 @@ export function BroadcastViewer({
   const screen = viewerScreenOf(timeline, viewing);
   const playing = screen.kind === 'player' ? screen.stream : null;
   const attempt = attemptOf(viewing);
-  // A layout effect, so the viewing is on this stream before its player's own
-  // effect can report: a browser with no engine gives up as the player mounts.
-  useBrowserLayoutEffect(() => {
-    if (playing) dispatch({ kind: 'shown', stream: playing });
-  }, [playing]);
+  // Adopted while rendering, so the viewing is on this stream before its
+  // player's own effect can report: a browser with no engine gives up as the
+  // player mounts. Showing the stream already held changes nothing.
+  if (
+    playing &&
+    reduceViewing(viewing, { kind: 'shown', stream: playing }) !== viewing
+  )
+    dispatch({ kind: 'shown', stream: playing });
   const switchToRecording =
     screen.kind === 'ended' && screen.recording === 'ready';
   // Withdrawn, or a replaced link: the server says what this reader may still see.
   // It is asked again, ever less often, while the address stays gone, since it can
   // name the same address now and a replaced link later.
-  useBrowserEffect(() => {
-    if (serverAsks > 0) router.refresh();
-  }, [serverAsks, router]);
-  useBrowserEffect(() => {
-    if (switchToRecording) router.replace(replayHref(roundId));
-  }, [switchToRecording, router, roundId]);
+  useDeliver(serverAsks, (asks) => {
+    if (asks > 0) router.refresh();
+  });
+  useNavigation(
+    router,
+    switchToRecording ? replayHref(roundId) : undefined,
+    (navigator, destination) => navigator.replace(destination),
+  );
   const feedUrl = streamable ? streamableFeedOf(timeline) : null;
   return (
     <div className="mx-auto flex w-full max-w-dash-column flex-col gap-6 px-6 pt-5 pb-8 max-compact:gap-4 max-compact:px-4">
@@ -265,13 +266,13 @@ export function BroadcastViewer({
               }
             />
             {screen.notice ? (
-              <StatusRegion
+              <Announcement
                 as="p"
-                role="status"
+                kind="progress"
                 className="text-sm text-ink-muted"
               >
                 {playerNotices[screen.notice]}
-              </StatusRegion>
+              </Announcement>
             ) : null}
           </div>
         ) : (

@@ -1,4 +1,4 @@
-import { StatusRegion } from '../../../../ui/components/status-region/status-region';
+import { Announcement } from '../../../../ui/components/announcement/announcement';
 import type { Metadata } from 'next';
 import type { SearchParams } from '../../../../features/access/decision';
 import {
@@ -6,10 +6,8 @@ import {
   reportNotice,
 } from '../../../../features/content-moderation/submit-report';
 import { accountOf } from '../../../../features/access/account-of';
-import {
-  requestIdentity,
-  requestWatchRound,
-} from '../../../../lib/request-session';
+import { requestIdentity } from '../../../../lib/page-reads';
+import { requestWatchRound } from '../../../../features/spectating/page-reads';
 import { ReportForm } from '../../../../ui/content-moderation/report-form';
 import { reportFromPageAction } from '../../audience/actions';
 import { RoundAudience } from '../../audience/round-audience';
@@ -51,9 +49,9 @@ export default async function WatchRoundPage({
       refreshHref={returnTo}
     >
       {reported ? (
-        <StatusRegion as="p" role="status" className="text-sm text-ink-muted">
+        <Announcement as="p" kind="progress" className="text-sm text-ink-muted">
           {reportAnswerText(reported)}
-        </StatusRegion>
+        </Announcement>
       ) : null}
       <RoundAudience roundId={roundId} returnTo={returnTo} />
       {account ? (

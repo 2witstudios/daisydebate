@@ -2,7 +2,10 @@
 
 // First: protocol schemas built after this load without Zod's eval probe.
 import '../../lib/zod-jitless';
-import { browserFetch } from '../edge/browser-request';
+import {
+  browserTransport,
+  type BrowserTransport,
+} from '../edge/browser-request';
 import {
   messagingUnreadSchema,
   type MessagingUnread,
@@ -27,8 +30,10 @@ const UnreadContext = createContext<number>(0);
 /** Conversations waiting on the member, for the Messages badge; 0 for a visitor. */
 export const useMessagesUnread = (): number => useContext(UnreadContext);
 
-const readUnread = async (): Promise<ResourceRead<MessagingUnread>> => {
-  const response = await browserFetch('/api/messaging/unread', {
+const readUnread = async (
+  transport: BrowserTransport,
+): Promise<ResourceRead<MessagingUnread>> => {
+  const response = await transport('/api/messaging/unread', {
     credentials: 'same-origin',
     cache: 'no-store',
   });
@@ -58,7 +63,7 @@ export function MessagesUnreadProvider({
     const { connection, ...edges } = browserSyncEdges(socketUrl);
     const driver = createMessagesUnreadSyncDriver({
       seed,
-      read: readUnread,
+      read: () => readUnread(browserTransport),
       inbox: connection ? { actorId, connection } : null,
       ...edges,
     });

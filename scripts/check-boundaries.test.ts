@@ -297,7 +297,7 @@ describe('operatorApiIssue (ADR 0079)', () => {
   test('a Next route may not import the private operator API', () => {
     assert({
       given:
-        'a page importing the operator router, the server composing it, and a page importing another feature',
+        'a page importing the operator router, the feature composing it, and a page importing another feature',
       should: 'flag only the page that reaches into the operator API',
       actual: [
         operatorApiIssue(
@@ -305,8 +305,8 @@ describe('operatorApiIssue (ADR 0079)', () => {
           'apps/web/src/app/(shell)/page.tsx',
         ) !== null,
         operatorApiIssue(
-          '../features/operator-api/router',
-          'apps/web/src/server/operator-api.ts',
+          './router',
+          'apps/web/src/features/operator-api/start-listener.ts',
         ),
         operatorApiIssue(
           '../../features/access/decision',

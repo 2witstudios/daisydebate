@@ -1,6 +1,6 @@
 'use client';
 
-import { StatusRegion } from '../../components/status-region/status-region';
+import { Announcement } from '../../components/announcement/announcement';
 import { Button } from '../../components/button/button';
 import type { CreateLobbyChoice } from '../../../features/rooms/create-lobby-choice';
 
@@ -20,7 +20,6 @@ import {
   roomVisibilityChoices,
 } from '../../../features/rooms/room-visibility';
 import { controlClass } from '../../components/form-field/form-field-class';
-import { buttonClass } from '../../components/button/button-class';
 import { FormError } from '../../components/form-field/form-field';
 import { DraftSettings } from './draft-settings';
 import { DraftPreview } from './draft-preview';
@@ -233,13 +232,13 @@ export function CreateRoomEditor({
           {isRanked && values.recording === 'on' ? (
             <input type="hidden" name="recording" value="on" />
           ) : null}
-          <StatusRegion as="p" id="create-recording-notice" role="status">
+          <Announcement as="p" id="create-recording-notice" kind="progress">
             {isRanked
               ? 'Recording is on for ranked matches.'
               : values.recording === 'on'
                 ? 'Recording is subject to available capacity.'
                 : null}
-          </StatusRegion>
+          </Announcement>
           {!isRanked && values.recording === 'on' ? (
             <>
               <p>{casualCaptureNotice.text}</p>
@@ -382,11 +381,10 @@ export function CreateRoomEditor({
         </section>
         <div className="create-room-actions">
           <Button
-            variant="unstyled"
+            variant="primary"
             type="submit"
             name="intent"
             value="create"
-            className={buttonClass('primary')}
             disabled={pending}
           >
             {pending ? 'Creating…' : 'Create room'}

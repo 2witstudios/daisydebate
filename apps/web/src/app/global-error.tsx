@@ -1,6 +1,6 @@
 'use client';
 
-import { useBrowserEffect } from '../ui/edge/browser-sync';
+import { useDeliver } from '../ui/edge/use-answer';
 import { useState } from 'react';
 import { Button } from '../ui/components/button/button';
 import { reportClientError } from '../features/telemetry/report-client-error';
@@ -32,9 +32,7 @@ export default function GlobalError({
   // ADR 0037: the boundary is the client capture site; the raw error goes
   // only to the scrubbed reporter, and the digest below stays the only
   // identifier anyone sees here.
-  useBrowserEffect(() => {
-    reportClientError(error);
-  }, [error]);
+  useDeliver(error, reportClientError);
   return (
     <html lang="en" data-theme={theme}>
       <body>

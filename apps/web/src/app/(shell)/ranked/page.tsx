@@ -1,11 +1,11 @@
 import Link from 'next/link';
 import type { Metadata } from 'next';
 import type { SearchParams } from '../../../features/access/decision';
-import { requireAccess } from '../../../lib/access';
+import { requireAccess } from '../../../features/access/page-access';
 import {
   requestMemberDivision,
   requestMemberStandings,
-} from '../../../lib/request-session';
+} from '../../../features/ratings/page-reads';
 import { RankedLadders } from '../../../ui/ranked/ranked-ladders';
 import { PageHeader } from '../../../ui/components/page-header/page-header';
 import { buttonClass } from '../../../ui/components/button/button-class';

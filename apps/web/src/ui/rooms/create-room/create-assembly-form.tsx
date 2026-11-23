@@ -1,7 +1,7 @@
 'use client';
 
-import { browserFetch } from '../../edge/browser-request';
-import { StatusRegion } from '../../components/status-region/status-region';
+import { browserTransport } from '../../edge/browser-request';
+import { Announcement } from '../../components/announcement/announcement';
 import { Button } from '../../components/button/button';
 import type { CreateLobbyChoice } from '../../../features/rooms/create-lobby-choice';
 
@@ -21,7 +21,6 @@ import {
 import { defaultChoice } from '../../../features/rooms/format-browser';
 import { FormError } from '../../components/form-field/form-field';
 import { controlClass } from '../../components/form-field/form-field-class';
-import { buttonClass } from '../../components/button/button-class';
 import { useFocusAfterAnswer } from '../../form-action/form-action';
 import { useMovedOn } from '../../form-action/use-moved-on';
 import { CreateRoomEditor } from './create-room-editor';
@@ -60,15 +59,10 @@ export function CreateAssemblyFields({
           />
         </label>
         <FormError error={state.error} />
-        <StatusRegion as="p" role="status">
+        <Announcement as="p" kind="progress">
           No formats are available yet.
-        </StatusRegion>
-        <Button
-          variant="unstyled"
-          type="submit"
-          disabled
-          className={buttonClass('primary')}
-        >
+        </Announcement>
+        <Button variant="primary" type="submit" disabled>
           Create room
         </Button>
       </div>
@@ -131,7 +125,7 @@ export function CreateAssemblyForm({
           event.nativeEvent.submitter,
         );
         startTransition(async () => {
-          setState(await postRoomDraft(browserFetch, form));
+          setState(await postRoomDraft(browserTransport, form));
         });
       }}
       aria-label="Create a room"

@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { requireAccess } from '../../../../lib/access';
+import { requireAccess } from '../../../../features/access/page-access';
 import type { SearchParams } from '../../../../features/access/decision';
 import { billingSettingsSchema } from '../../../../features/billing/settings-view';
 import { BillingSettingsPage } from '../../../../ui/billing/settings-page';

@@ -8,6 +8,8 @@ import {
 } from './room-http.test-support';
 import { withSql } from './fixtures';
 import { createAccountFlows } from './auth-account-helpers';
+import { roundComposition } from '../src/features/round-runtime/composition';
+import { roundFloorComposition } from '../src/features/messaging/round-floor/composition';
 
 setupRitewayBun();
 const h = createRoomHttpFixture();
@@ -27,16 +29,18 @@ test('real floor HTTP binds debaters and host, denies judges, and retains read-o
         kind: 'open' | 'send' | 'edit' | 'remove' | 'markRead' | 'report',
         body: object,
       ) =>
-        h.routes.roundFloor[kind](
+        h.routes(roundFloorComposition)[kind](
           h.f.jsonPost(path + (kind === 'open' ? '' : '/messages'), body, {
             cookie,
           }),
           roundId,
         );
-      const discover = await h.routes.roundFloor.discover(
-        new Request(h.f.origin + path, { headers: h.headers(host) }),
-        roundId,
-      );
+      const discover = await h
+        .routes(roundFloorComposition)
+        .discover(
+          new Request(h.f.origin + path, { headers: h.headers(host) }),
+          roundId,
+        );
       assert({
         given: 'a live Round before floor use',
         should: 'authorize discovery without creating a channel',
@@ -97,7 +101,7 @@ test('real floor HTTP binds debaters and host, denies judges, and retains read-o
         expected: 409,
       });
       const read = (cookie: string) =>
-        h.routes.roundFloor.history(
+        h.routes(roundFloorComposition).history(
           new Request(`${h.f.origin}${path}/messages?channelId=${channelId}`, {
             headers: h.headers(cookie),
           }),
@@ -126,13 +130,15 @@ test('real floor HTTP binds debaters and host, denies judges, and retains read-o
         actual: [(await read(judge)).status, (await read(outsider)).status],
         expected: [404, 404],
       });
-      const older = await h.routes.roundFloor.history(
-        new Request(
-          `${h.f.origin}${path}/messages?channelId=${channelId}&limit=1&before=2`,
-          { headers: h.headers(guest) },
-        ),
-        roundId,
-      );
+      const older = await h
+        .routes(roundFloorComposition)
+        .history(
+          new Request(
+            `${h.f.origin}${path}/messages?channelId=${channelId}&limit=1&before=2`,
+            { headers: h.headers(guest) },
+          ),
+          roundId,
+        );
       assert({
         given: 'a bound older-page cursor',
         should: 'read only the earlier message',
@@ -220,7 +226,7 @@ test('real floor HTTP binds debaters and host, denies judges, and retains read-o
       });
       const current = roundViewSchema.parse(
         await (
-          await h.routes.rounds.read(
+          await h.routes(roundComposition).read(
             new Request(`${h.f.origin}/api/rounds/${roundId}`, {
               headers: h.headers(host),
             }),
@@ -233,7 +239,7 @@ test('real floor HTTP binds debaters and host, denies judges, and retains read-o
       );
       if (!seat || 'anonymous' in seat)
         throw Error('Expected own debater seat');
-      const ended = await h.routes.rounds.commands(
+      const ended = await h.routes(roundComposition).commands(
         h.f.jsonPost(
           `/api/rounds/${roundId}/commands`,
           {

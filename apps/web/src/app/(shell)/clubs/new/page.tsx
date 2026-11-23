@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { requireAccess } from '../../../../lib/access';
+import { requireAccess } from '../../../../features/access/page-access';
 import type { SearchParams } from '../../../../features/access/decision';
 import { PageHeader } from '../../../../ui/components/page-header/page-header';
 import { StartClubForm } from '../../../../ui/clubs/start-club-form';

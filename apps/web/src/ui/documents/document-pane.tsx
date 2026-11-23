@@ -1,7 +1,7 @@
 'use client';
 
 import { Button } from '../components/button/button';
-import { StatusRegion } from '../components/status-region/status-region';
+import { Announcement } from '../components/announcement/announcement';
 import { useRef, type Dispatch, type ReactNode } from 'react';
 import { flushSync } from 'react-dom';
 import { systemClock } from '@daisy/clock';
@@ -77,19 +77,18 @@ function DocumentTabs({
             )}
           >
             <Button
-              variant="unstyled"
+              variant="doc-tab"
               type="button"
               aria-current={tab.id === active ? 'page' : undefined}
-              className="h-full cursor-pointer pr-1 pl-3 text-sm whitespace-nowrap"
               onClick={() => dispatch({ type: 'tabs/activate', id: tab.id })}
             >
               {tab.title}
             </Button>
             <Button
-              variant="unstyled"
+              variant="icon"
               type="button"
               aria-label={`Close ${tab.title}`}
-              className="flex size-dense-target cursor-pointer items-center justify-center rounded-sm opacity-60 hover:opacity-100"
+              size="dense"
               onClick={() => close(tab.id)}
             >
               <Icon name="close" size={12} />
@@ -98,12 +97,12 @@ function DocumentTabs({
         ))}
         {onNew ? (
           <Button
-            variant="unstyled"
+            variant="icon"
             type="button"
             ref={newDocument}
             aria-label="New document"
             title="New document"
-            className="flex h-full w-tab-strip shrink-0 cursor-pointer items-center justify-center text-ink-muted hover:bg-surface-overlay hover:text-ink"
+            size="strip"
             onClick={onNew}
           >
             <Icon name="plus" size={14} />
@@ -170,29 +169,29 @@ export function DocumentPane({
         onLastTabClosed={onLastTabClosed}
       />
       {active?.kind === 'loading' ? (
-        <StatusRegion
+        <Announcement
           as="p"
-          role="status"
+          kind="progress"
           className="p-4 text-sm text-ink-muted"
         >
           Opening {active.title}
-        </StatusRegion>
+        </Announcement>
       ) : active?.kind === 'failed' ? (
-        <StatusRegion
+        <Announcement
           as="div"
-          role="alert"
+          kind="problem"
           className="flex flex-col items-start gap-2 p-4 text-sm"
         >
           <p>{active.title} did not open.</p>
           <Button
-            variant="unstyled"
+            variant="secondary"
+            size="room"
             type="button"
             onClick={() => onRetry?.(active.id, active.title)}
-            className="h-room-target cursor-pointer rounded-sm border border-border px-3 hover:bg-surface-raised"
           >
             Try again
           </Button>
-        </StatusRegion>
+        </Announcement>
       ) : active?.kind === 'loaded' ? (
         <DocumentEditor
           key={active.document.id}

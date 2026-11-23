@@ -1,3 +1,4 @@
+import { defineComposition } from '../../server/composition';
 import { runningWorkers } from './alert-state';
 import { createAlertsHandler } from './alerts';
 import { createMetricsHandler } from './metrics';
@@ -58,3 +59,22 @@ export function composeOpsRoutes(app: OpsInputs) {
     },
   };
 }
+
+/** ops: the health, alert and metrics routes bind here (`processRoute`). */
+export const opsComposition = defineComposition('ops', (app) =>
+  composeOpsRoutes({
+    database: app.database,
+    redis: app.redis,
+    isDraining: app.isDraining,
+    startupChecked: app.startupChecked,
+    logger: app.logger,
+    reporter: app.reporter,
+    local: app.localAlertState,
+    clock: app.clock,
+    waits: app.waits,
+    fileMaintenanceIntervalMs:
+      app.messagingFiles?.maintenance?.intervalMs ?? null,
+    token: () => app.opsProbeToken(),
+    metrics: app.metrics,
+  }),
+);

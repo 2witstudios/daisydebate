@@ -94,7 +94,7 @@ export function FriendButtonForm({
         variant={variant}
         disabled={pending}
         aria-label={accessibleName ?? `${label} @${username}`}
-        className="px-3 py-2 text-sm"
+        size="small"
       >
         {label}
       </Button>

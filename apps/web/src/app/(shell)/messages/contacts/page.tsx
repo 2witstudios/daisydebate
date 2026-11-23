@@ -1,6 +1,6 @@
 import { ConversationPane } from '../../../../ui/messaging/conversation-pane';
 import { systemId } from '@daisy/clock';
-import { requireAccess } from '../../../../lib/access';
+import { requireAccess } from '../../../../features/access/page-access';
 import type { SearchParams } from '../../../../features/access/decision';
 import { ContactBlockForm } from '../../../../ui/contacts/contact-block-form';
 import { blockContactAction } from './actions';

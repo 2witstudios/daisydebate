@@ -5,6 +5,7 @@ import { requireTestServices } from '@daisy/config';
 import { ticketSchema } from '@daisy/protocol/realtime';
 import { createAccountFlows, uniqueName } from './auth-account-helpers';
 import { createTestApp, origin, testRedisUrl, withSql } from './fixtures';
+import { ticketComposition } from '../src/features/realtime/composition';
 
 requireTestServices(process.env);
 setupRitewayBun();
@@ -14,7 +15,7 @@ const { flows, signUp, claim } = createAccountFlows(
   createTestApp({ REALTIME_PUBLIC_URL: socketUrl }),
 );
 const { testApp, jsonPost } = flows;
-const ticketRoute = testApp.routes.ticket;
+const ticketRoute = testApp.routes(ticketComposition);
 
 /** A real signed-in member (claimed username, so an actors row exists) through the mounted routes. */
 async function memberSession() {

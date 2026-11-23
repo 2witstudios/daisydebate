@@ -2,7 +2,7 @@ import { claimedUsername, type Identity } from '@daisy/auth';
 import { createRefusal } from '@daisy/errors';
 import type { Logger } from '@daisy/logger';
 import type { ErrorReporter } from '@daisy/observability';
-import type { OperationName } from '../features/ops/operation-names';
+import type { OperationName } from './operation-names';
 import {
   handleOperation,
   readJson,

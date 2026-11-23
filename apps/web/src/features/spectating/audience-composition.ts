@@ -1,6 +1,7 @@
+import { defineComposition } from '../../server/composition';
 import type { Waits } from '@daisy/clock';
 import { passOf, pollWork } from '@daisy/worker';
-import { identify } from '../../lib/identity';
+import { identify } from '../auth/identity';
 import type { App } from '../../server/app';
 import type { AccountRouteDeps } from '../../server/account-route';
 import { createAudienceReactionRoute } from '../audience-reactions/handler';
@@ -22,7 +23,7 @@ import { createAudienceSnapshotRoute } from './audience-snapshot';
 const NOTIFICATION_SWEEP_EVERY_MS = 15_000;
 
 /** The audience's routes, each from its owning feature. */
-export function composeAudienceRoutes(app: App) {
+function composeAudienceRoutes(app: App) {
   const account: AccountRouteDeps = {
     logger: app.logger,
     reporter: app.reporter,
@@ -99,3 +100,8 @@ export const startNotificationSweep = (app: App, waits: Waits) => {
       app.logger.log('notifications.sweep_failed', {}, 'Notifications'),
   });
 };
+
+/** audience: its route files bind here (`processRoute`). */
+export const audienceComposition = defineComposition('audience', (app) =>
+  composeAudienceRoutes(app),
+);

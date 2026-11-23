@@ -4,6 +4,7 @@ import {
   heartbeatOwnership,
   readOwnership,
   releaseOwnership,
+  resumeOwnershipHeartbeatMs,
   sweepExpiredClaims,
 } from './resume-ownership';
 
@@ -18,7 +19,8 @@ export function createResumeLifetime(input: {
   >;
   readonly now: () => number;
   readonly subscribe: (listener: () => void) => () => void;
-  readonly schedule: (tick: () => void) => () => void;
+  /** Runs `tick` every `ms` until the returned cancel. */
+  readonly schedule: (tick: () => void, ms: number) => () => void;
   /** Tab-local: names the document whose claim this tab's next document inherits. */
   readonly predecessor: {
     readonly read: () => string | null;
@@ -65,7 +67,7 @@ export function createResumeLifetime(input: {
   )
     claim();
   const unsubscribe = input.subscribe(check);
-  const cancel = input.schedule(check);
+  const cancel = input.schedule(check, resumeOwnershipHeartbeatMs);
   check();
   const stopTicking = () => {
     stopped = true;

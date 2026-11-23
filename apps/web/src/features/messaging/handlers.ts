@@ -5,7 +5,7 @@ import type { Logger } from '@daisy/logger';
 import type { ErrorReporter } from '@daisy/observability';
 import { createAppError } from '@daisy/errors';
 import { readJson } from '../../server/http';
-import { runEvaluatedRoute } from '../../server/member-boundary';
+import { runEvaluatedRoute } from '../auth/member-boundary';
 
 type Operation = (
   input: unknown,

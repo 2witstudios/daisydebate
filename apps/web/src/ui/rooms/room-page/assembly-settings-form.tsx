@@ -11,7 +11,6 @@ import type { RoomView } from '@daisy/protocol/room-contract';
 import type { FormFields } from '../../../features/forms/form-state';
 import type { RoomFormState } from '../../../features/rooms/command-answer';
 import { type FormAction } from '../../form-action/form-action';
-import { buttonClass } from '../../components/button/button-class';
 import { AssemblyEditForm, AssemblyEditFeedback } from './assembly-edit-form';
 import { DrawFields } from './assembly-draw-fields';
 import { segmentSeatLabel } from './assembly-controls';
@@ -99,12 +98,7 @@ export function AssemblySettingsFields({
       </details>
       <AssemblyEditFeedback state={state} roomId={view.id} />
       {view.capabilities.canEdit ? (
-        <Button
-          variant="unstyled"
-          type="submit"
-          disabled={pending}
-          className={buttonClass('primary')}
-        >
+        <Button variant="primary" type="submit" disabled={pending}>
           Save round settings
         </Button>
       ) : (

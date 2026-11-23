@@ -11,7 +11,10 @@ import {
 } from '../src/features/tab/host-events-route';
 import { readHostEvents } from '../src/features/tab/reads/host-events';
 import { organizationCommand } from '../src/features/tab/operations/organization';
-import { member, origin } from '../src/server/member-boundary.test-support';
+import {
+  member,
+  origin,
+} from '../src/features/auth/member-boundary.test-support';
 import { silentLogger } from '../src/server/test-loggers.test-support';
 import { createBots, type World } from './tab-tournament.test-support';
 import { as } from './tab-tournament-organization-wiring.test-support';

@@ -3,7 +3,7 @@ import { createId } from '@paralleldrive/cuid2';
 import { headers } from 'next/headers';
 import { revalidatePath } from 'next/cache';
 import { field, refused } from '../../../features/forms/form-state';
-import { moveOn } from '../../../server/form-action';
+import { moveOn } from '../../../features/forms/form-action';
 import { inProcessFetch } from '../../../server/in-process-fetch';
 import {
   clubAnswer,

@@ -1,6 +1,6 @@
 import { noopErrorReporter } from '@daisy/observability';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { member, origin } from '../../server/member-boundary.test-support';
+import { member, origin } from '../auth/member-boundary.test-support';
 import { silentLogger } from '../../server/test-loggers.test-support';
 import { createHostEventsRoute } from './host-events-route';
 import { createOrganizationPeopleRoute } from './organization-people-route';

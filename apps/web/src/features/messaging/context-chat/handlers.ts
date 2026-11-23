@@ -3,13 +3,13 @@ import { contentReportCreateSchema } from '@daisy/protocol/content-moderation';
 import { createMessagingCoreSchemas } from '@daisy/protocol/messaging/core';
 import { idSchema } from '@daisy/protocol/primitives';
 import type { z } from 'zod';
-import type { OperationName } from '../../ops/operation-names';
+import type { OperationName } from '../../../server/operation-names';
 import { contextChatReportSchema } from './report-command';
 import { parseValidated, readJson } from '../../../server/http';
 import {
   runEvaluatedRoute,
   type MemberBoundary,
-} from '../../../server/member-boundary';
+} from '../../auth/member-boundary';
 
 type Operation = (
   input: { readonly ownerId: string; readonly value: unknown },

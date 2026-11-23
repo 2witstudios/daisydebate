@@ -1,7 +1,8 @@
 'use client';
-import { useBrowserEffect } from '../edge/browser-sync';
-import { scheduleDelay } from '../edge/browser-time';
+import { browserScheduler } from '../edge/browser-time';
+import { useResource } from '../edge/use-driver';
 import { useRouter } from 'next/navigation';
+import { useMemo } from 'react';
 
 import { startRefusedPageRetries } from './refused-page-retries';
 
@@ -12,16 +13,16 @@ export function RefusedPageRetries({
   readonly firstWaitMs: number;
 }) {
   const router = useRouter();
-  useBrowserEffect(
-    () =>
-      startRefusedPageRetries({
-        firstWaitMs,
-        refresh: () => router.refresh(),
-        schedule: (next, waitMs) => {
-          return scheduleDelay(next, waitMs);
-        },
-      }),
+  const retries = useMemo(
+    () => ({ firstWaitMs, router }),
     [firstWaitMs, router],
   );
+  useResource(retries, (asked) => ({
+    dispose: startRefusedPageRetries({
+      firstWaitMs: asked.firstWaitMs,
+      refresh: () => asked.router.refresh(),
+      schedule: browserScheduler.after,
+    }),
+  }));
   return null;
 }

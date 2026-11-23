@@ -1,6 +1,6 @@
 'use client';
 
-import { useBrowserEffect } from '../../edge/browser-sync';
+import { useDeliver } from '../../edge/use-answer';
 import { Button } from '../../components/button/button';
 import { useRef, useState, useSyncExternalStore } from 'react';
 import { feedbackField } from '../../../features/judge/ballot';
@@ -20,7 +20,6 @@ import { firstName } from '../../ballot/ballot-labels';
 import { RankingChoice } from '../../ballot/ranking-choice/ranking-choice';
 import { ScoreSheet } from '../../ballot/score-sheet/score-sheet';
 import { WinnerChoice } from '../../ballot/winner-choice/winner-choice';
-import { buttonClass } from '../../components/button/button-class';
 import { FormError, FormField } from '../../components/form-field/form-field';
 import { DecisionChoice } from './decision-choice';
 
@@ -88,13 +87,14 @@ export function BallotFields({
   const [winner, setWinner] = useState<string | null>(postedWinner);
   const [scores, setScores] = useState<SheetScores>(posted);
   const root = useRef<HTMLDivElement>(null);
-  useBrowserEffect(() => {
+  // The browser may have restored the controls: each plan reads them once rendered.
+  useDeliver(plan, (shown) => {
     const form = root.current?.closest('form');
     if (!form) return;
     const held = formValues(new FormData(form));
-    setWinner(readSide(plan, held['winner']));
-    setScores(postedSheet(plan, held));
-  }, [plan]);
+    setWinner(readSide(shown, held['winner']));
+    setScores(postedSheet(shown, held));
+  });
   const setScore = (subject: string, row: string, score: number) =>
     setScores((current) => ({
       ...current,
@@ -304,11 +304,10 @@ function SubmitRow({
   return (
     <div className="flex flex-wrap items-center gap-4">
       <Button
-        variant="unstyled"
+        variant="primary"
         type="submit"
         disabled={pending || waiting}
         aria-describedby={waiting ? OPENS_ID : undefined}
-        className={buttonClass('primary')}
       >
         {pending ? 'Submitting…' : 'Submit ballot'}
       </Button>

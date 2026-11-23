@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { requestAnalytics } from '../../../lib/request-session';
+import { requestAnalytics } from '../../../features/analytics/page-reads';
 import { ConsentControls } from '../../../ui/analytics/consent-controls';
 export const metadata: Metadata = { title: 'Analytics preferences' };
 export default async function AnalyticsPreferences() {

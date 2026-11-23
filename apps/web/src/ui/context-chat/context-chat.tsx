@@ -1,5 +1,5 @@
 'use client';
-import { StatusRegion } from '../components/status-region/status-region';
+import { Announcement } from '../components/announcement/announcement';
 import { Button } from '../components/button/button';
 import { idSchema } from '@daisy/protocol/primitives';
 import type { ChatContext } from '../../features/messaging/context-chat/chat-context';
@@ -8,8 +8,6 @@ import { ContextChatComposer } from './composer';
 import { ContextChatMessages } from './chat-messages';
 import { useContextChat, type ContextChatProps } from './use-context-chat';
 export type { ContextChatProps } from './use-context-chat';
-const buttonClass =
-  'min-h-room-target cursor-pointer rounded-sm border border-border px-3 text-sm font-strong disabled:opacity-60';
 type ThreadProps = ContextChatProps & {
   readonly context: ChatContext;
   readonly labels: ContextChatLabels;
@@ -73,46 +71,41 @@ function BoundContextChat({
       </header>
       <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto p-3">
         {pending ? (
-          <StatusRegion
+          <Announcement
             as="p"
-            role="status"
-          >{`Loading ${context.name}…`}</StatusRegion>
+            kind="progress"
+          >{`Loading ${context.name}…`}</Announcement>
         ) : null}
         {state.kind === 'empty' || (history && !history.messages.length) ? (
-          <StatusRegion as="p" role="status">
+          <Announcement as="p" kind="progress">
             No messages.
-          </StatusRegion>
+          </Announcement>
         ) : null}
         {state.kind === 'denied' || live.status === 'hidden' || expired ? (
-          <StatusRegion
+          <Announcement
             as="p"
-            role="status"
-          >{`This ${context.name} is unavailable.`}</StatusRegion>
+            kind="progress"
+          >{`This ${context.name} is unavailable.`}</Announcement>
         ) : null}
         {state.kind === 'unavailable' || notice ? (
-          <StatusRegion as="p" role="status">
+          <Announcement as="p" kind="progress">
             {notice ?? `${context.name} could not be loaded.`}
-          </StatusRegion>
+          </Announcement>
         ) : null}
         {state.kind === 'unavailable' ||
         state.kind === 'denied' ||
         live.status === 'hidden' ||
         notice ? (
-          <Button
-            variant="unstyled"
-            type="button"
-            onClick={enter}
-            className={buttonClass}
-          >
+          <Button variant="secondary" size="room" type="button" onClick={enter}>
             Try again
           </Button>
         ) : null}
         {!hidden && !expired && before !== null ? (
           <Button
-            variant="unstyled"
+            variant="secondary"
+            size="room"
             type="button"
             disabled={paging}
-            className={buttonClass}
             onClick={() => loadOlder(before)}
           >
             {paging ? 'Loading…' : 'Older messages'}
@@ -140,15 +133,15 @@ function BoundContextChat({
         ) : null}
       </div>
       {readOnly ? (
-        <StatusRegion
+        <Announcement
           as="p"
-          role="status"
+          kind="progress"
           className="px-3 text-sm text-ink-muted"
           // With no composer, a message control returns focus here instead.
           {...(composed ? {} : { id: composerId, tabIndex: -1 })}
         >
           {labels.readOnly.notice}
-        </StatusRegion>
+        </Announcement>
       ) : null}
       {composed && channelId && idSchema.safeParse(channelId).success ? (
         <ContextChatComposer

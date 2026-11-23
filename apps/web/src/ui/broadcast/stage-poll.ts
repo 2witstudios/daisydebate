@@ -1,3 +1,6 @@
+/** The stage watch samples once a second. */
+const STAGE_POLL_MS = 1000;
+
 /**
  * Reads the stage now and on every tick, so the stage watch samples once a second even
  * while a dead web tier makes each read wait out its timeout. Reads may overlap, so the
@@ -8,7 +11,8 @@
 export function startStagePoll<A>(resources: {
   readonly read: () => Promise<A>;
   readonly apply: (answer: A) => void;
-  readonly every: (tick: () => void) => () => void;
+  /** Runs `tick` every `ms` until the returned cancel. */
+  readonly every: (tick: () => void, ms: number) => () => void;
 }) {
   let started = 0;
   let applied = 0;
@@ -26,7 +30,7 @@ export function startStagePoll<A>(resources: {
       .catch(() => undefined);
   };
   tick();
-  const clear = resources.every(tick);
+  const clear = resources.every(tick, STAGE_POLL_MS);
   return () => {
     stopped = true;
     clear();

@@ -9,7 +9,10 @@ import { noopErrorReporter } from '@daisy/observability';
 import { leagueSchoolCommand } from '../src/features/tab/operations/league-schools';
 import { createLeagueSchoolCommandRoute } from '../src/features/tab/league-school-command-route';
 import { organizationCommand } from '../src/features/tab/operations/organization';
-import { member, origin } from '../src/server/member-boundary.test-support';
+import {
+  member,
+  origin,
+} from '../src/features/auth/member-boundary.test-support';
 import { silentLogger } from '../src/server/test-loggers.test-support';
 import { as } from './tab-tournament-organization-wiring.test-support';
 import {

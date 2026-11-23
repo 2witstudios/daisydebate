@@ -1,11 +1,11 @@
-import type { OperationName } from '../ops/operation-names';
+import type { OperationName } from '../../server/operation-names';
 import type { AuthorizationPrincipal } from '@daisy/auth/authorization';
 import { contactBlockResultSchema } from '@daisy/protocol/contacts';
 import { readJson } from '../../server/http';
 import {
   runEvaluatedRoute,
   type MemberBoundary,
-} from '../../server/member-boundary';
+} from '../auth/member-boundary';
 
 const MAX_BODY_BYTES = 1024;
 

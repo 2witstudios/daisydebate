@@ -1,4 +1,4 @@
-import { StatusRegion } from '../../components/status-region/status-region';
+import { Announcement } from '../../components/announcement/announcement';
 import { Button } from '../../components/button/button';
 import { Icon } from '../../components/icon/icon';
 import { AuthFrame, AuthHeading, taglinePanel } from '../auth-frame/auth-frame';
@@ -79,7 +79,7 @@ export function SignInForm({
           disabled={busy}
           {...(refusesEmail ? { errorId: NOTICE_ID } : {})}
           action={
-            <Button type="submit" disabled={busy} className="h-auth-control">
+            <Button type="submit" disabled={busy} size="auth">
               {pending === 'link' ? 'Sending…' : 'Continue'}
               <Icon name="arrowRight" size={18} />
             </Button>
@@ -93,7 +93,7 @@ export function SignInForm({
           disabled={busy}
           onClick={signInWithPasskey}
           aria-describedby={PASSKEY_HINT_ID}
-          className="h-auth-control"
+          size="auth"
         >
           <Icon name="key" />
           {pending === 'passkey'
@@ -104,9 +104,9 @@ export function SignInForm({
           For returning users. New here? Use your email.
         </p>
       </div>
-      <StatusRegion as="p" role="status" className="sr-only">
+      <Announcement as="p" kind="progress" className="sr-only">
         {pendingStatus[pending]}
-      </StatusRegion>
+      </Announcement>
     </AuthFrame>
   );
 }

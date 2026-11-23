@@ -1,9 +1,13 @@
 'use client';
 
 import { Button } from '../../components/button/button';
-import { StatusRegion } from '../../components/status-region/status-region';
+import { Announcement } from '../../components/announcement/announcement';
 import { useState, useSyncExternalStore } from 'react';
-import { buttonClass } from '../../components/button/button-class';
+import {
+  lookClass,
+  type ButtonLook,
+} from '../../components/button/button-class';
+import { cn } from '../../cn';
 const subscribeNever = () => () => undefined;
 
 /** A room URL never grants private-room membership. */
@@ -11,11 +15,15 @@ export function RoomInvite({
   roomId,
   visibility,
   label,
-  className = buttonClass('secondary'),
+  look = { variant: 'secondary' },
+  className,
 }: {
   readonly roomId: string;
   readonly visibility: string;
   readonly label: string;
+  /** The look of the place it sits; the no-script link wears it too. */
+  readonly look?: ButtonLook;
+  /** Layout only. */
   readonly className?: string;
 }) {
   const [notice, setNotice] = useState('');
@@ -41,27 +49,27 @@ export function RoomInvite({
   };
   if (!interactive)
     return (
-      <a href={href} className={className}>
+      <a href={href} className={cn(lookClass(look), className)}>
         {label}
       </a>
     );
   return (
     <span className="relative inline-flex">
       <Button
-        variant="unstyled"
+        {...look}
         type="button"
         onClick={() => void copy()}
         className={className}
       >
         {label}
       </Button>
-      <StatusRegion
+      <Announcement
         as="span"
-        role="status"
+        kind="progress"
         className="absolute top-full right-0 mt-1 text-sm whitespace-nowrap text-ink-muted"
       >
         {notice}
-      </StatusRegion>
+      </Announcement>
     </span>
   );
 }

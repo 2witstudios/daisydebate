@@ -1,5 +1,5 @@
 import type { SearchParams } from '../../../../features/access/decision';
-import { requireAccess } from '../../../../lib/access';
+import { requireAccess } from '../../../../features/access/page-access';
 import { FamilySettings } from './family-settings';
 
 export const metadata = { title: 'Parental controls' };

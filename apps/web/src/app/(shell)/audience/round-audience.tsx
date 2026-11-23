@@ -1,6 +1,7 @@
 import { claimedUsername } from '@daisy/auth';
 import { systemId } from '@daisy/clock';
-import { requestAudience, requestIdentity } from '../../../lib/request-session';
+import { requestAudience } from '../../../features/spectating/page-reads';
+import { requestIdentity } from '../../../lib/page-reads';
 import { accountOf } from '../../../features/access/account-of';
 import { AudiencePanel } from '../../../ui/audience/audience-panel';
 import { audienceViewerOf } from '../../../ui/audience/audience-viewer';

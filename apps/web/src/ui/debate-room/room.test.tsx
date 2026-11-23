@@ -238,8 +238,12 @@ describe('DebateRoom', () => {
       given: 'the sidebars',
       should: 'size Files controls for the input and keep text at 12px or more',
       actual: [
-        /aria-label="New" class="[^"]*size-dense-target/.test(html),
-        /aria-label="Hide files"[^>]*class="[^"]*size-dense-target/.test(html),
+        /<button(?=[^>]*aria-label="New")[^>]*class="[^"]*size-dense-target/.test(
+          html,
+        ),
+        /<button(?=[^>]*aria-label="Hide files")[^>]*class="[^"]*size-dense-target/.test(
+          html,
+        ),
         html.includes('text-2xs'),
       ],
       expected: [true, true, false],

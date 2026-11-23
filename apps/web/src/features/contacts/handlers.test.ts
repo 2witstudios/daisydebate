@@ -1,7 +1,7 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { noopErrorReporter } from '@daisy/observability';
 import { silentLogger } from '../../server/test-loggers.test-support';
-import { member, origin } from '../../server/member-boundary.test-support';
+import { member, origin } from '../auth/member-boundary.test-support';
 import { createContactHandlers } from './handlers';
 
 setupRitewayBun();

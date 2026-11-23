@@ -3,7 +3,7 @@ import { createAppError } from '@daisy/errors';
 import { noopErrorReporter } from '@daisy/observability';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { silentLogger } from '../../server/test-loggers.test-support';
-import { member, origin } from '../../server/member-boundary.test-support';
+import { member, origin } from '../auth/member-boundary.test-support';
 import { CommandDenied } from './commands/run-command';
 import { createTabCommandRoute } from './command-route';
 setupRitewayBun();

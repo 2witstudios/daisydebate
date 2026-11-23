@@ -1,7 +1,7 @@
 'use client';
 
-import { useBrowserEffect } from '../../edge/browser-sync';
-import { scheduleTick } from '../../edge/browser-time';
+import { useAnswer } from '../../edge/use-answer';
+import { useTick } from '../../edge/use-tick';
 import { startTransition, useReducer, useState, type Dispatch } from 'react';
 import type { Clock } from '@daisy/clock';
 import {
@@ -36,10 +36,7 @@ export type RequestLinkAction = (
 function useNow(clock: Clock, state: SignInState): string {
   const ticking = state.step === 'check-inbox';
   const [now, setNow] = useState(() => (ticking ? state.sentAt : ''));
-  useBrowserEffect(() => {
-    if (!ticking) return;
-    return scheduleTick(() => setNow(clock.now()), 1000);
-  }, [clock, ticking]);
+  useTick(() => setNow(clock.now()), ticking ? 1000 : null, clock);
   return now;
 }
 
@@ -78,18 +75,18 @@ export function useLinkRequest(
 
   // The answer a page was rendered with settles nothing: no request is in
   // flight then.
-  useBrowserEffect(() => {
-    switch (answered.kind) {
+  useAnswer(answered, (answer) => {
+    switch (answer.kind) {
       case 'idle':
         return;
       case 'settled':
         dispatch({
           type: 'link-settled',
-          outcome: answered.outcome,
+          outcome: answer.outcome,
           at: clock.now(),
         });
     }
-  }, [answered, clock]);
+  });
 
   // Focus follows the state the answer settles into, one commit after the
   // answer itself: until then the screen is the pre-answer one.

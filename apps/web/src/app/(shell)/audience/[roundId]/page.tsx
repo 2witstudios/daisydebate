@@ -1,4 +1,4 @@
-import { StatusRegion } from '../../../../ui/components/status-region/status-region';
+import { Announcement } from '../../../../ui/components/announcement/announcement';
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import {
@@ -6,7 +6,7 @@ import {
   reportAnswerText,
 } from '../../../../features/content-moderation/submit-report';
 import type { SearchParams } from '../../../../features/access/decision';
-import { requestWatchRound } from '../../../../lib/request-session';
+import { requestWatchRound } from '../../../../features/spectating/page-reads';
 import { PublishedAudienceFeed } from '../../../../ui/spectating/published-audience-feed';
 import { RoundAudience } from '../round-audience';
 
@@ -37,9 +37,9 @@ export default async function AudiencePage({
   return (
     <div className="mx-auto flex w-full max-w-dash-column flex-col gap-4 px-6 pt-5 pb-8 max-compact:px-4">
       {reported ? (
-        <StatusRegion as="p" role="status" className="text-sm text-ink-muted">
+        <Announcement as="p" kind="progress" className="text-sm text-ink-muted">
           {reportAnswerText(reported)}
-        </StatusRegion>
+        </Announcement>
       ) : null}
       <PublishedAudienceFeed
         stateUrl={watched && watched !== 'refused' ? watched.stateUrl : null}

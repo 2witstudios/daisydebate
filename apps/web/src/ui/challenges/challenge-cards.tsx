@@ -1,11 +1,12 @@
 'use client';
 
-import { useBrowserEffect } from '../edge/browser-sync';
+import { useDeliver } from '../edge/use-answer';
 import { navigateDocument } from '../edge/browser-navigation';
-import { StatusRegion } from '../components/status-region/status-region';
+import { Announcement } from '../components/announcement/announcement';
 import { Button } from '../components/button/button';
+import { buttonClass } from '../components/button/button-class';
 import type { ChallengeList } from '@daisy/protocol/challenges';
-import { useRef } from 'react';
+import { useMemo } from 'react';
 import type { EndedOffer } from '../../features/challenges/challenges-held';
 import {
   challengeFields,
@@ -20,11 +21,6 @@ import { announceShellNavigation } from '../layout/app-shell/shell-link';
 import { useMovedOn } from '../form-action/use-moved-on';
 import type { PersonActions } from '../people/person-actions';
 import { useChallenges } from './challenge-provider';
-
-const stageAccept =
-  'min-h-nav-target rounded-sm bg-stage-accent px-4 text-sm font-bold text-stage-accent-ink disabled:opacity-60';
-const stageDecline =
-  'min-h-nav-target rounded-sm px-3 text-sm font-semibold text-stage-ink-muted hover:text-stage-ink';
 
 function IncomingCard({
   offer,
@@ -45,13 +41,10 @@ function IncomingCard({
     actions.endChallenge,
     initialChallengeForm,
     challengeFormUnavailable,
+    () => refresh(),
   );
   const next = destinationOf(accepted);
   useMovedOn(next, announceShellNavigation);
-  const initial = useRef(declined);
-  useBrowserEffect(() => {
-    if (declined !== initial.current) refresh();
-  }, [declined, refresh]);
   const notice =
     challengeFields(accepted).refusal ?? challengeFields(declined).refusal;
   return (
@@ -70,22 +63,22 @@ function IncomingCard({
       </p>
       <p className="text-sm text-stage-ink-muted">{challengeSummary(offer)}</p>
       {notice ? (
-        <StatusRegion
+        <Announcement
           as="p"
-          role="status"
+          kind="progress"
           className="text-sm text-stage-ink-muted"
         >
           {notice}
-        </StatusRegion>
+        </Announcement>
       ) : null}
       <div className="mt-1 flex gap-1">
         <form action={accept}>
           <input type="hidden" name="challengeId" value={offer.id} />
           <Button
-            variant="unstyled"
+            variant="on-stage"
+            size="nav"
             type="submit"
             disabled={accepting || next !== undefined}
-            className={stageAccept}
           >
             Accept
           </Button>
@@ -94,10 +87,10 @@ function IncomingCard({
           <input type="hidden" name="command" value="decline" />
           <input type="hidden" name="challengeId" value={offer.id} />
           <Button
-            variant="unstyled"
+            variant="on-stage-quiet"
+            size="nav"
             type="submit"
             disabled={declining}
-            className={stageDecline}
           >
             Decline
           </Button>
@@ -118,17 +111,15 @@ function OutgoingCard({
   readonly className?: string;
 }) {
   const { refresh, noteCancelled, forgetCancelled } = useChallenges();
-  const [answer, post, pending] = useFormAction(
+  const [, post, pending] = useFormAction(
     action,
     initialChallengeForm,
     challengeFormUnavailable,
+    (answered) => {
+      if (challengeFields(answered).refusal) forgetCancelled(offer.id);
+      refresh();
+    },
   );
-  const initial = useRef(answer);
-  useBrowserEffect(() => {
-    if (answer === initial.current) return;
-    if (challengeFields(answer).refusal) forgetCancelled(offer.id);
-    refresh();
-  }, [answer, forgetCancelled, offer.id, refresh]);
   return (
     <section
       aria-label={`Challenge sent to @${offer.username}`}
@@ -142,12 +133,7 @@ function OutgoingCard({
       <form action={post} onSubmit={() => noteCancelled(offer.id)}>
         <input type="hidden" name="command" value="cancel" />
         <input type="hidden" name="challengeId" value={offer.id} />
-        <Button
-          variant="unstyled"
-          type="submit"
-          disabled={pending}
-          className="min-h-nav-target text-sm font-semibold text-ink-muted hover:text-ink"
-        >
+        <Button variant="quiet" type="submit" disabled={pending}>
           Cancel
         </Button>
       </form>
@@ -172,15 +158,10 @@ function EndedCard({
         className,
       )}
     >
-      <StatusRegion as="p" role="status" className="text-sm">
+      <Announcement as="p" kind="progress" className="text-sm">
         Your challenge to @{username} ended.
-      </StatusRegion>
-      <Button
-        variant="unstyled"
-        type="button"
-        onClick={() => dismissEnded(id)}
-        className="min-h-nav-target text-sm font-semibold text-ink-muted hover:text-ink"
-      >
+      </Announcement>
+      <Button variant="quiet" type="button" onClick={() => dismissEnded(id)}>
         Dismiss
       </Button>
     </section>
@@ -207,8 +188,8 @@ function AcceptedCard({
       <a
         href={`/rooms/${offer.roomId}`}
         className={cn(
-          stageAccept,
-          'inline-flex items-center self-start no-underline',
+          buttonClass('on-stage', 'nav'),
+          'self-start no-underline',
         )}
       >
         Go to room
@@ -251,18 +232,22 @@ function useFollowAccepted(
   accepted: ChallengeList['accepted'],
   activeRoomId: string | null,
 ) {
-  useBrowserEffect(() => {
-    if (activeRoomId !== null) return;
+  const following = useMemo(
+    () => ({ accepted, activeRoomId }),
+    [accepted, activeRoomId],
+  );
+  useDeliver(following, ({ accepted: answered, activeRoomId: inRoom }) => {
+    if (inRoom !== null) return;
     // Newest first: every accept is marked followed, and only the newest is
     // taken, so several at once never bounce a challenger between rooms.
     const followed = followedRooms();
-    const fresh = accepted.filter((row) => !followed.includes(row.roomId));
+    const fresh = answered.filter((row) => !followed.includes(row.roomId));
     const offer = fresh[0];
     if (!offer) return;
     rememberFollowed([...followed, ...fresh.map((row) => row.roomId)]);
     if (!window.location.pathname.startsWith(`/rooms/${offer.roomId}`))
       navigateDocument(`/rooms/${offer.roomId}`);
-  }, [accepted, activeRoomId]);
+  });
 }
 
 /** Renders nothing: one follower for the tab, however many cards are mounted. */

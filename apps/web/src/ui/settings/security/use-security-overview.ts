@@ -1,7 +1,8 @@
 'use client';
 
-import { useBrowserEffect } from '../../edge/browser-sync';
-import { useState } from 'react';
+import { useDeliver } from '../../edge/use-answer';
+import { useResource } from '../../edge/use-driver';
+import { useMemo, useState } from 'react';
 import type { SecurityOutcome } from '../../../features/account/security-client';
 import type { PasskeyEnrollment } from '../../auth/onboarding/passkey-enrollment';
 import {
@@ -76,6 +77,19 @@ function driveSecurityOverview(
     close: () => {
       world = null;
     },
+    /**
+     * A loader is here: the lists are read afresh with it, until the screen
+     * closes.
+     */
+    readWith: (load: World['load']) => {
+      if (world !== null) world = { ...world, load };
+      send({ type: 'read-asked' });
+      return {
+        dispose: () => {
+          world = null;
+        },
+      };
+    },
   };
 }
 
@@ -105,13 +119,13 @@ export function useSecurityOverview({
   );
   const [driver] = useState(() => driveSecurityOverview(overview, show));
 
-  useBrowserEffect(() => {
-    driver.reach({ load, revokeOthers, enrol });
-  }, [driver, load, revokeOthers, enrol]);
-  useBrowserEffect(() => {
-    driver.send({ type: 'read-asked' });
-    return driver.close;
-  }, [driver, load]);
+  const world = useMemo(
+    () => ({ load, revokeOthers, enrol }),
+    [load, revokeOthers, enrol],
+  );
+  useDeliver(world, driver.reach);
+  // Each loader reads the lists afresh; leaving closes the overview.
+  useResource(load, driver.readWith);
 
   return {
     overview,

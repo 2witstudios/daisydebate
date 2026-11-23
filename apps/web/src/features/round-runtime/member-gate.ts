@@ -5,7 +5,7 @@ import {
   runMemberRoute,
   type BudgetedMemberBoundary,
   type MemberCaller,
-} from '../../server/member-boundary';
+} from '../auth/member-boundary';
 export type RoundCaller = MemberCaller;
 /** `view` is the Round itself, with its own budget beside the other member reads. */
 type RoundOperation = 'read' | 'view' | 'command';

@@ -12,7 +12,7 @@ import {
   estimateQualification,
   estimateAssumptions,
 } from '../billing/economics-qualification.test-support';
-import { createBillingEconomicsFiles } from '../../server/billing-economics-files';
+import { createBillingEconomicsFiles } from '../billing/economics-files';
 
 const variant = process.argv[2];
 if (

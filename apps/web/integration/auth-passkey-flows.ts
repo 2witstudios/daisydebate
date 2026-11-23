@@ -8,6 +8,7 @@ import {
   createSoftwareCredential,
   type SoftwareCredential,
 } from './webauthn-authenticator';
+import { confirmEmailComposition } from '../src/features/auth/composition';
 
 export const rpID = 'localhost';
 
@@ -150,7 +151,9 @@ export async function createPasskeyFlows() {
   const changeEmail = (cookie: string, newEmail: string) =>
     post('/api/auth/change-email', { newEmail }, cookie);
 
-  const confirmEmailRoute = account.flows.testApp.routes.confirmEmail;
+  const confirmEmailRoute = account.flows.testApp.routes(
+    confirmEmailComposition,
+  );
   /** Follows an email-change link to the confirm page as a browser does. */
   const confirmEmailGet = (link: URL) =>
     confirmEmailRoute.GET(

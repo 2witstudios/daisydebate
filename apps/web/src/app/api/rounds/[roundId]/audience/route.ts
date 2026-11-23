@@ -1,10 +1,12 @@
 import { processRoute } from '../../../../../server/process-app';
+import { audienceComposition } from '../../../../../features/spectating/audience-composition';
 
 type Params = Awaited<RouteContext<'/api/rounds/[roundId]/audience'>['params']>;
 
 export const runtime = 'nodejs';
-export const GET = processRoute.withParams<Params>(
+export const GET = processRoute.withParams(
+  audienceComposition,
   (routes) =>
-    (request, { roundId }) =>
-      routes.audience.snapshot(request, roundId),
+    (request, { roundId }: Params) =>
+      routes.snapshot(request, roundId),
 );

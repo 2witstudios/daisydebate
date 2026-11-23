@@ -1,3 +1,4 @@
+import { defineComposition } from '../../server/composition';
 import { createMessageRequestSettingRoute } from './request-setting-route';
 import { consumeMessagingRead } from './handler-boundary';
 import { composeMessagingReactionRoute } from './reaction-route';
@@ -25,7 +26,7 @@ import { channelMessageView } from '@daisy/protocol/messaging/channel-messages';
 import { messagingTypingSchemas } from '@daisy/protocol/messaging/typing';
 import type { MessagingCoreBounds } from '@daisy/protocol/messaging/core';
 import type { App } from '../../server/app';
-import { identify } from '../../lib/identity';
+import { identify } from '../auth/identity';
 import { consumeWindowsOrThrow, type RateRule } from '../../server/rate-limit';
 import {
   messagingAuthorizationFence,
@@ -192,3 +193,8 @@ export function composeMessagingRoutes(app: App) {
     markRead: (request: Request) => handlersForRequest().markRead(request),
   };
 }
+
+/** messaging: its route files bind here (`processRoute`). */
+export const messagingComposition = defineComposition('messaging', (app) =>
+  composeMessagingRoutes(app),
+);

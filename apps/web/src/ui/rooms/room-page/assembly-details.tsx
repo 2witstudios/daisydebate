@@ -8,7 +8,6 @@ import { type FormAction } from '../../form-action/form-action';
 import { FormField } from '../../components/form-field/form-field';
 import { drawnTopicLabel } from '../../../features/debate-room/vocabulary';
 import { controlClass } from '../../components/form-field/form-field-class';
-import { buttonClass } from '../../components/button/button-class';
 import { AssemblyEditForm, AssemblyEditFeedback } from './assembly-edit-form';
 import { AssemblyCommandFields } from './assembly-command-fields';
 
@@ -76,12 +75,7 @@ export function AssemblyDetailsFields({
       />
       <AssemblyEditFeedback state={state} roomId={view.id} />
       {view.capabilities.canEdit ? (
-        <Button
-          variant="unstyled"
-          type="submit"
-          disabled={pending}
-          className={buttonClass('primary')}
-        >
+        <Button variant="primary" type="submit" disabled={pending}>
           Save room
         </Button>
       ) : (

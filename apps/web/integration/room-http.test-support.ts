@@ -14,11 +14,13 @@ import {
   oneOnOneDefinition,
   oneOnOneRankedSettings,
 } from '@daisy/db/reference-formats';
-import { createRoutes } from '../src/server/routes';
 import { inProcessFetch } from '../src/server/in-process-fetch';
 import { createAccountFlows, uniqueName } from './auth-account-helpers';
 import { createTestApp, withSql } from './fixtures';
 import { deleteOrphanNotificationSignals } from './notification-signals.test-support';
+import { roomComposition } from '../src/features/room-runtime/composition';
+import { roundComposition } from '../src/features/round-runtime/composition';
+import { composer } from '../src/server/composition.test-support';
 export function createRoomHttpFixture() {
   // Explicit env policy through ordinary createApp; no injection/adoption.
   const f = createTestApp({
@@ -33,7 +35,7 @@ export function createRoomHttpFixture() {
     }),
   });
   const account = createAccountFlows(f);
-  const routes = createRoutes(f.app);
+  const routes = composer(f.app);
   const headers = (cookie: string) =>
     new Headers({
       cookie,
@@ -51,7 +53,7 @@ export function createRoomHttpFixture() {
   };
   const command = async (cookie: string, view: RoomView, body: object) => {
     const response = await inProcessFetch(
-      (request) => routes.rooms.commands(request, view.id),
+      (request) => routes(roomComposition).commands(request, view.id),
       headers(cookie),
     )(`/api/rooms/${view.id}/commands`, {
       method: 'POST',
@@ -112,7 +114,7 @@ export async function withHumanJudgeHttpRound(
       competitionType: 'casual',
       config,
     };
-    const created = await routes.rooms.create(
+    const created = await routes(roomComposition).create(
       f.jsonPost(
         '/api/rooms',
         {
@@ -142,7 +144,7 @@ export async function withHumanJudgeHttpRound(
     for (const seat of seats) {
       const own = roomViewSchema.parse(
         await (
-          await routes.rooms.read(
+          await routes(roomComposition).read(
             new Request(`${f.origin}/api/rooms/${roomId}`, {
               headers: headers(seat.cookie),
             }),
@@ -164,7 +166,7 @@ export async function withHumanJudgeHttpRound(
     roundId = room.roundRef!.id;
     const view = roundViewSchema.parse(
       await (
-        await routes.rounds.read(
+        await routes(roundComposition).read(
           new Request(`${f.origin}/api/rounds/${roundId}`, {
             headers: headers(host),
           }),

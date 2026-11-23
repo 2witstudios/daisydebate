@@ -1,7 +1,8 @@
 'use client';
-import { useBrowserEffect } from '../edge/browser-sync';
+import { useAnswer } from '../edge/use-answer';
+import { useResource } from '../edge/use-driver';
+import { browserTransport } from '../edge/browser-request';
 import { Button } from '../components/button/button';
-import { useRef } from 'react';
 import { createBrowserTypingWriter } from './typing-browser';
 import { DraftNotice } from './draft-notice';
 import { CountedTextarea } from './counted-textarea';
@@ -39,6 +40,12 @@ type ComposerProps = {
  * itself: React adopts a pre-hydration POST's answer only into the same key path,
  * and every server render issues a new ID.
  */
+/** This tab's typing signal for one conversation, closed when the composer leaves it. */
+const openTypingWriter = (channelId: string) => {
+  const writer = createBrowserTypingWriter(channelId, browserTransport);
+  return { writer, dispose: () => void writer.close() };
+};
+
 export function MessageComposer(props: ComposerProps) {
   const { requestId, generation, restoreFocus } = useConversationCommand();
   return (
@@ -69,20 +76,10 @@ function MessageComposerForm({
     messageIdle(requestId),
     messageFormUnavailable,
   );
-  const typing = useRef<ReturnType<typeof createBrowserTypingWriter> | null>(
-    null,
-  );
-  useBrowserEffect(() => {
-    const writer = createBrowserTypingWriter(channelId);
-    typing.current = writer;
-    return () => {
-      typing.current = null;
-      void writer.close();
-    };
-  }, [channelId]);
-  useBrowserEffect(() => {
-    if (pending) void typing.current?.activity(false);
-  }, [pending]);
+  const typing = useResource(channelId, openTypingWriter)?.writer;
+  useAnswer(pending, (sending) => {
+    if (sending) void typing?.activity(false);
+  });
   useConversationCompletion(answer, pending);
   const fields = messageFields(answer);
   const moving = destinationOf(answer) !== undefined;
@@ -128,22 +125,21 @@ function MessageComposerForm({
             event.currentTarget.form?.requestSubmit();
           }}
           onInput={(event) => {
-            void typing.current?.activity(event.currentTarget.value.length > 0);
+            void typing?.activity(event.currentTarget.value.length > 0);
           }}
           onBlur={() => {
-            void typing.current?.activity(false);
+            void typing?.activity(false);
           }}
           className="field-sizing-content max-h-composer-max min-w-0 flex-1 resize-none bg-transparent px-2 py-2 leading-normal text-ink placeholder:text-ink-muted disabled:opacity-60"
           describedBy={fields.notice ? 'message-notice' : undefined}
           countClassName="order-last basis-full px-2 pb-1"
         />
         <Button
-          variant="unstyled"
+          variant="icon-primary"
           type="submit"
           disabled={pending || moving}
           aria-label={pending ? 'Sending…' : 'Send message'}
           title="Send message"
-          className="flex size-10 shrink-0 cursor-pointer items-center justify-center rounded-sm bg-accent text-accent-ink hover:bg-accent-strong disabled:cursor-not-allowed disabled:opacity-60"
         >
           <Icon name="send" />
         </Button>
