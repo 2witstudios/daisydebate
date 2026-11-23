@@ -1,9 +1,9 @@
+import { createHealthStore } from '../src/stores/health';
+import { openDatabaseResources } from '../src/resources';
 import { hostWaits } from '@daisy/worker/host';
 import { afterAll } from 'bun:test';
 import { SQL } from 'bun';
-import { createId } from '@paralleldrive/cuid2';
 import { assert, test } from 'riteway/bun';
-import { createDatabase } from '../src/index';
 import {
   tenantIsolationFactsSql,
   tenantIsolationProblems,
@@ -19,6 +19,14 @@ import {
 } from './scratch-migrations.test-support';
 import { integrationSuite } from './suite.test-support';
 import { inRolledBackTransaction } from './tab.test-support';
+/** This file's database: the area stores it reads, over one set of resources. */
+const openStores = (options: Parameters<typeof openDatabaseResources>[0]) => {
+  const resources = openDatabaseResources(options);
+  return {
+    ...createHealthStore(resources),
+    close: resources.close,
+  };
+};
 
 const { databaseUrl: url } = integrationSuite();
 
@@ -49,10 +57,9 @@ const problemsOf = async (
  * `bun doctor` read it.
  */
 test('the migrated schema is fenced exactly as the manifest declares', async () => {
-  const database = createDatabase({
+  const database = openStores({
     waits: hostWaits,
     url,
-    nextActorId: createId,
   });
   try {
     assert({

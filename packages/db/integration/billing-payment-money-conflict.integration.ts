@@ -1,3 +1,5 @@
+import { createBillingStore } from '../src/stores/billing';
+import { openDatabaseResources } from '../src/resources';
 import { hostWaits } from '@daisy/worker/host';
 import { addMs } from '@daisy/clock';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
@@ -19,9 +21,21 @@ import { privacyJobs } from '../src/schema/privacy-jobs';
 import { paymentObservationValues } from '../src/billing-payment-observation-write';
 import { linkObservedRefund } from '../src/billing-observation-refund';
 import { enqueuePrivacyJob } from '../src/privacy/enqueue-job';
-import { createDatabase } from '../src/index';
 import { withClosedPurchase } from './billing-cleanup-purchases.test-support';
 import { fullRead } from './billing-payment-read.test-support';
+/** This file's database: the area stores it reads, over one set of resources. */
+const openStores = (
+  options: Parameters<typeof openDatabaseResources>[0] & {
+    readonly nextActorId: () => string;
+  },
+) => {
+  const resources = openDatabaseResources(options);
+  return {
+    ...createBillingStore(resources, { nextId: options.nextActorId }),
+    close: resources.close,
+  };
+};
+
 requireTestServices(process.env);
 setupRitewayBun();
 
@@ -33,7 +47,7 @@ test('an incompatible original-charge admission retains its positive owned obser
     const { priceId, invoicePaymentId, ...payment } = proof;
     void priceId;
     void invoicePaymentId;
-    const refunds = createDatabase({
+    const refunds = openStores({
       waits: hostWaits,
       url: process.env.TEST_DATABASE_URL!,
       client: pool,

@@ -1,3 +1,5 @@
+import { createOutboxStore } from '../src/stores/outbox';
+import { openDatabaseResources } from '../src/resources';
 import { hostWaits } from '@daisy/worker/host';
 import { SQL } from 'bun';
 import { drizzle } from 'drizzle-orm/bun-sql';
@@ -8,18 +10,22 @@ import { createId } from '@paralleldrive/cuid2';
 import { requireTestServices } from '@daisy/config';
 import { buildRoomTopic, buildUserInboxTopic } from '@daisy/protocol/topics';
 import { expect } from 'bun:test';
-import { createDatabase } from '../src';
 import { encodeOutboxCursor, type OutboxPosition } from '@daisy/db/outbox';
 import { waitForOutboxFinality } from '../src/testing';
 import { sqlStateOf } from './constraint-helpers';
+/** This file's database: the area stores it reads, over one set of resources. */
+const openStores = (options: Parameters<typeof openDatabaseResources>[0]) => {
+  const resources = openDatabaseResources(options);
+  return {
+    ...createOutboxStore(resources),
+    close: resources.close,
+  };
+};
 
 setupRitewayBun();
 const { databaseUrl: url } = requireTestServices(process.env);
 const cutoff = '2001-01-01T00:00:00.000Z';
-async function closePools(
-  database: ReturnType<typeof createDatabase>,
-  sql: SQL,
-) {
+async function closePools(database: ReturnType<typeof openStores>, sql: SQL) {
   const closed = await Promise.allSettled([database.close(), sql.close()]);
   if (closed.some((result) => result.status === 'rejected'))
     throw new Error('Prefix proof resource cleanup failed');
@@ -27,16 +33,15 @@ async function closePools(
 async function fixture(
   run: (f: {
     sql: SQL;
-    database: ReturnType<typeof createDatabase>;
+    database: ReturnType<typeof openStores>;
     topic: string;
     insert: (expired: boolean) => Promise<OutboxPosition>;
   }) => Promise<void>,
 ) {
   const sql = new SQL(url, { max: 3 });
-  const database = createDatabase({
+  const database = openStores({
     waits: hostWaits,
     url,
-    nextActorId: createId,
   });
   const roomId = createId(),
     topic = buildRoomTopic(roomId);

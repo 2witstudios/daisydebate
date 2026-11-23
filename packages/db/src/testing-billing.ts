@@ -3,17 +3,18 @@ import { privacyVendors } from './privacy/planner';
 import { listedValue } from './lifecycle-sql';
 import type { SQL } from 'bun';
 import { requireTestServices } from '@daisy/config';
-import type { createDatabase } from './index';
+import type { AvailabilityStore } from './stores/availability';
+import type { BillingStore } from './stores/billing';
 import type { CleanupWork } from '@daisy/protocol/billing';
 import type { createBillingPurchases } from './billing-purchase-store';
-type Cleanup = ReturnType<ReturnType<typeof createDatabase>['billingCleanup']>;
+type Cleanup = ReturnType<BillingStore['billingCleanup']>;
 type ScanWork = Extract<CleanupWork, { kind: 'scan' }>;
 
 /** Controlled vendor absence/deletion responses through real typed cleanup, never Stripe lifecycle proof. */
 export async function completeControlledStripeCleanup(input: {
   readonly owner: SQL;
   readonly database: Pick<
-    ReturnType<typeof createDatabase>,
+    BillingStore & AvailabilityStore,
     'billingCleanup' | 'renewServiceInstance'
   >;
   readonly userId: string;
