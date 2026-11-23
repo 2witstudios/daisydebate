@@ -1,7 +1,8 @@
 # 0164: Property tests and virtual time
 
 Status: accepted (owner, 2026-11-19: "execute it all" on Plan — reconcile,
-step R1.2).
+step R1.2). §2 amended by [ADR 0911](0911-round-engine-step-function.md):
+the round oracle's walks also run a rotating seed.
 
 ## Context
 

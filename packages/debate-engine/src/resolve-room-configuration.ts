@@ -18,7 +18,7 @@ import type { RoomConfig, RoomExecutionPlan } from '@daisy/protocol/room';
 /**
  * The one compiler (ADR 0058): pure and total over two declared inputs. For
  * every valid (FormatDefinition, RoomConfig) pair it produces every field
- * ECS reads — no fallback, no default, no "if undefined then …" branch in
+ * the engine reads — no fallback, no default, no "if undefined then …" branch in
  * engine code. A value that cannot be resolved is a named refusal at
  * resolution time, never a silent default at run time. The ranked/casual
  * distinction is upstream: this function never sees competition_type,
@@ -98,7 +98,7 @@ function resolveSegments(
   return { ok: true, value: segments };
 }
 
-/** Resolves the ECS-enforced in-round budget, or refuses. */
+/** Resolves the engine-enforced in-round budget, or refuses. */
 function resolveInRoundPrep(
   definition: FormatDefinition,
   config: RoomConfig,

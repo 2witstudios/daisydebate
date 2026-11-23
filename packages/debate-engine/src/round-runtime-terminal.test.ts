@@ -185,4 +185,44 @@ describe('terminal Round runtime', () => {
           });
         }
       });
+
+  for (const status of ['completed', 'abandoned'] as const)
+    for (const remaining of [1, 2] as const)
+      test(`${status} absorbs capture readiness for a retained start gate (ISSUE-1497, ${remaining} awaited)`, () => {
+        const seats = oneOnOneSeats.slice(0, remaining).map(({ id }) => id);
+        const world = runtimeWorld({
+          status,
+          checkpoint: {
+            ...emptyCheckpoint,
+            start_gate: {
+              phase: 'awaiting',
+              sequence: 0,
+              seats,
+              until: roundAt(65_000),
+            },
+          },
+        });
+        const before = world.checkpoint();
+        const projection = world.applyStartGate({
+          kind: 'heard',
+          atMs: instantMs(roundAt(61_000)),
+          seat: seats[0]!,
+        });
+        assert({
+          given: `a ${status} Round whose retained start gate awaits ${remaining} seat(s), hearing one of them`,
+          should: 'leave its checkpoint unchanged and project no change',
+          actual: {
+            checkpoint: world.checkpoint(),
+            projected: projection.round?.checkpoint,
+            inserts: projection.segmentInserts,
+            effects: projection.effects,
+          },
+          expected: {
+            checkpoint: before,
+            projected: before,
+            inserts: [],
+            effects: [],
+          },
+        });
+      });
 });

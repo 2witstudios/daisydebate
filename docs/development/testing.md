@@ -10,7 +10,7 @@ enforces the ADR-linked, time-bounded exception registry.
 ## Tiers
 
 1. **Unit/domain (`bun run test`)** — every package's `src/`. Debate engine
-   contract tests run the real Adobe ECS adapter; protocol, config, errors,
+   contract tests run the real step function; protocol, config, errors,
    logger, observability, and web HTTP-boundary tests are deterministic and
    need no services, no Next boot, no network.
 2. **Integration (`bun test:integration`)** — real PostgreSQL and Redis via
@@ -599,11 +599,13 @@ workflow called from `ci.yml` alone (ADR 0083). The quick check owns:
 
 - format and lint;
 - boundaries and styling;
-- root script tests;
+- root script tests, on every change: they hold repository-wide facts (the
+  round oracle, the start-up gate, the workflows' shapes), so no change is
+  outside them;
 - turbo typecheck and unit tests.
 
-It runs affected on PRs, and full on main pushes, merge groups and the
-nightly schedule. The CI matrix behind it runs only `policy`, `invariants`
+Lint, typecheck and unit tests run affected on PRs, and full on main pushes,
+merge groups and the nightly schedule. The CI matrix behind it runs only `policy`, `invariants`
 and `build`, beside the image, audit, migration and Infrastructure contracts
 jobs. CI gate requires every one of them.
 
