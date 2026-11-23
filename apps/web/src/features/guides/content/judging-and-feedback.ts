@@ -60,7 +60,7 @@ export const judgingAndFeedbackArticles: readonly Article[] = [
       },
       {
         kind: 'paragraph',
-        text: 'On Daisy, the scores record how well each debater did in each part of the round, and the decision records who won it. See how they fit on [Understanding a Daisy ballot](/guides/judging/understanding-a-ballot).',
+        text: 'On Daisy, the scores record how well each side did in each part of the round, and the decision records who won it. See how they fit on [Understanding a Daisy ballot](/guides/judging/understanding-a-ballot).',
       },
     ],
     related: [
@@ -116,7 +116,7 @@ export const judgingAndFeedbackArticles: readonly Article[] = [
           'Arguments nobody made in the round.',
           'Your view of the resolution.',
           'Comments about the person rather than the debating.',
-          'Advice for one debater: that is what feedback is for.',
+          'Advice for one side: that is what feedback is for.',
         ],
       },
     ],
@@ -130,13 +130,12 @@ export const judgingAndFeedbackArticles: readonly Article[] = [
     ...base,
     slug: 'writing-useful-feedback',
     title: 'Writing useful feedback',
-    summary:
-      'Short, specific notes one debater can act on in their next round.',
+    summary: 'Short, specific notes a side can act on in its next round.',
     updated,
     blocks: [
       {
         kind: 'paragraph',
-        text: 'Feedback is a private note to one debater. Where the reason explains the decision, feedback helps that debater improve. Each debater reads only their own, so you can be specific to them.',
+        text: 'Feedback is a note to one side: one debater in a one-on-one round, and both partners in a team format, who read it together. Where the reason explains the decision, feedback helps that side improve. The other side never reads it, so you can be specific.',
       },
       { kind: 'heading', id: 'one-thing', text: 'One thing they can change' },
       {
@@ -185,6 +184,8 @@ export const judgingAndFeedbackArticles: readonly Article[] = [
     sources: [
       'packages/protocol/src/ballot.ts',
       'packages/protocol/src/ballot-rubrics.ts',
+      'packages/protocol/src/ballot-definition.ts',
+      'packages/db/src/round-ballot-view.ts',
     ],
   },
 ];

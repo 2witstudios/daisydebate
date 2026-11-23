@@ -51,7 +51,10 @@ const linksOf = (article: Article): readonly string[] =>
  */
 const readingPaths = new Set([
   ...articles.map(articleHref),
-  ...collections.map(collectionHref),
+  // Stories are a flat feed: their collection has no page of its own.
+  ...collections
+    .filter((collection) => collection.home !== 'stories')
+    .map(collectionHref),
   ...homes.map((home) => `/${home}`),
 ]);
 const isReadingPath = (path: string) =>
@@ -110,15 +113,16 @@ describe('the article graph', () => {
   test('a reading path must name a real article', () => {
     assert({
       given:
-        'a missing guide, a missing Learn article, a real guide and an app route',
+        'a missing guide, a missing Learn article, the Stories collection, a real guide and an app route',
       should: 'resolve only the real guide and the app route',
       actual: [
         resolves('/guides/judging/no-such-guide'),
         resolves('/learn/anything/at-all'),
+        resolves('/stories/updates'),
         resolves('/guides/judging/understanding-a-ballot#who-reads'),
         resolves('/judge'),
       ],
-      expected: [false, false, true, true],
+      expected: [false, false, false, true, true],
     });
   });
 
