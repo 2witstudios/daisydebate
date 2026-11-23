@@ -1,4 +1,11 @@
-import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises';
+import {
+  mkdir,
+  mkdtemp,
+  readFile,
+  readdir,
+  rm,
+  writeFile,
+} from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { SQL } from 'bun';
@@ -6,7 +13,10 @@ import { drizzle } from 'drizzle-orm/bun-sql';
 import { readMigrationFiles } from 'drizzle-orm/migrator';
 import { authoredCheck, baselineSql } from '../src/baseline/baseline-sql';
 import { readBaselineRecord } from '../src/baseline/baseline-record';
-import { supersededFolders } from '../src/baseline/superseded-folders';
+import {
+  migrateOldWay,
+  supersededFolders,
+} from '../src/baseline/superseded-history';
 import {
   catalogDifferences,
   describeCatalogDifference,
@@ -107,7 +117,7 @@ const superseded = await supersededFolders(record);
 const oldWay = scratchDatabase(databaseUrl, 'baselinegen');
 try {
   await oldWay.create();
-  await oldWay.migrateFolder(superseded.folder);
+  await migrateOldWay({ databaseUrl: oldWay.url, folder: superseded.folder });
   const source = new URL(oldWay.url);
   const dump =
     await Bun.$`docker compose -f ${join(repository, 'infra/compose.yaml')} exec -T postgres pg_dump --username=${decodeURIComponent(source.username)} --dbname=${source.pathname.slice(1)} --no-owner --column-inserts --exclude-schema=drizzle`.text();
@@ -120,19 +130,32 @@ try {
   const history = await Promise.all(
     (await readdir(superseded.folder))
       .sort()
-      .map((tag) => readFile(join(superseded.folder, tag, 'migration.sql'), 'utf8')),
+      .map((tag) =>
+        readFile(join(superseded.folder, tag, 'migration.sql'), 'utf8'),
+      ),
   );
-  const draft = baselineSql({ dump, header, ...facts, authoredChecks: new Map() });
-  // A CHECK whose dumped text parses to another tree takes its authored text.
-  const reparsed = (await differencesOf(draft, expected)).flatMap((difference) => {
-    const match = /^constraint [a-z0-9_]+\.[a-z0-9_]+\.([a-z0-9_]+)$/.exec(difference.key);
-    return difference.kind === 'changed' && match?.[1] ? [match[1]] : [];
+  const draft = baselineSql({
+    dump,
+    header,
+    ...facts,
+    authoredChecks: new Map(),
   });
+  // A CHECK whose dumped text parses to another tree takes its authored text.
+  const reparsed = (await differencesOf(draft, expected)).flatMap(
+    (difference) => {
+      const match = /^constraint [a-z0-9_]+\.[a-z0-9_]+\.([a-z0-9_]+)$/.exec(
+        difference.key,
+      );
+      return difference.kind === 'changed' && match?.[1] ? [match[1]] : [];
+    },
+  );
   const sql = baselineSql({
     dump,
     header,
     ...facts,
-    authoredChecks: new Map(reparsed.map((name) => [name, authoredCheck(history, name)])),
+    authoredChecks: new Map(
+      reparsed.map((name) => [name, authoredCheck(history, name)]),
+    ),
   });
   const remaining = await differencesOf(sql, expected);
   if (remaining.length > 0)
@@ -143,7 +166,10 @@ try {
   await mkdir(folder, { recursive: true });
   await writeFile(join(folder, 'migration.sql'), sql);
   const snapshot = JSON.parse(
-    await readFile(join(superseded.folder, record.cutoff, 'snapshot.json'), 'utf8'),
+    await readFile(
+      join(superseded.folder, record.cutoff, 'snapshot.json'),
+      'utf8',
+    ),
   ) as { prevIds: string[] };
   // The cut-off's snapshot, as the origin of the chain: later folders name
   // its id as their predecessor, so they keep applying on top.
@@ -155,7 +181,11 @@ try {
     join(repository, 'packages/db/src/baseline/superseded-journal.json'),
     `${JSON.stringify(
       readMigrationFiles({ migrationsFolder: superseded.folder }).map(
-        ({ name, hash, folderMillis }) => ({ name, hash, createdAt: folderMillis }),
+        ({ name, hash, folderMillis }) => ({
+          name,
+          hash,
+          createdAt: folderMillis,
+        }),
       ),
       null,
       2,

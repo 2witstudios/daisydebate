@@ -17,7 +17,9 @@ export async function catalogAt(url: string): Promise<SchemaCatalog> {
  * stamps clock and transaction-id columns when each folder runs, so those
  * read as present or absent, never as a value.
  */
-export async function rowsAt(url: string): Promise<ReadonlyMap<string, string>> {
+export async function rowsAt(
+  url: string,
+): Promise<ReadonlyMap<string, string>> {
   const client = new SQL(url, { max: 1 });
   try {
     const columns = (await client`
@@ -38,9 +40,7 @@ export async function rowsAt(url: string): Promise<ReadonlyMap<string, string>> 
     for (const [table, list] of tables) {
       const select = list
         .map(({ column, stamped }) =>
-          stamped
-            ? `("${column}" is not null)::text`
-            : `"${column}"::text`,
+          stamped ? `("${column}" is not null)::text` : `"${column}"::text`,
         )
         .join(', ');
       const read = (await client.unsafe(

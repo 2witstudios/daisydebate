@@ -59,6 +59,7 @@
     "test:integration": "bun ../../scripts/test-integration.ts",
     "db:generate": "bun --bun x drizzle-kit generate",
     "db:migrate": "bun scripts/migrate.ts",
+    "db:adopt-baseline": "bun scripts/adopt-baseline.ts",
     "db:studio": "bun --bun x drizzle-kit studio"
   },
   "dependencies": {

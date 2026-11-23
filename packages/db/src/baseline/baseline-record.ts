@@ -16,6 +16,10 @@ export type BaselineRecord = z.infer<typeof baselineRecord>;
 export async function readBaselineRecord(): Promise<BaselineRecord> {
   const registry = z
     .object({ baselines: z.array(z.looseObject({})).length(1) })
-    .parse(await Bun.file(resolve(repository, 'policy/migration-baselines.json')).json());
+    .parse(
+      await Bun.file(
+        resolve(repository, 'policy/migration-baselines.json'),
+      ).json(),
+    );
   return baselineRecord.parse(registry.baselines[0]);
 }

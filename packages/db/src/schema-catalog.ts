@@ -11,12 +11,13 @@ import type { Tx } from './tx';
  *
  * It covers what a migration can create: schemas, extensions, types,
  * tables and their columns, constraints, indexes, sequences, views,
- * functions, triggers, rules, policies, every privilege (database, schema,
- * relation, column, sequence, function, type, default privileges), comments,
+ * functions, triggers, rules, policies, every privilege (schema, relation,
+ * column, sequence, function, type, default privileges), comments,
  * owners, and the roles any of those name, with their attributes and
  * memberships. Objects an extension owns are the extension's. Row contents,
  * sequence positions and object identifiers are not schema and are not read;
- * neither is the database's own name.
+ * neither is the database object itself (its name, encoding, CONNECT grants
+ * and settings), which the operator provisions and no migration writes.
  */
 export type SchemaCatalog = ReadonlyMap<string, string>;
 
@@ -56,20 +57,24 @@ export const describeCatalogDifference = (
     : `${difference.kind} ${difference.key}`;
 
 /** Schemas PostgreSQL itself owns; nothing a migration writes lives there. */
-const userNamespace = (alias: string) => sql.raw(
-  `${alias}.nspname not in ('pg_catalog', 'information_schema', 'pg_toast')
+const userNamespace = (alias: string) =>
+  sql.raw(
+    `${alias}.nspname not in ('pg_catalog', 'information_schema', 'pg_toast')
    and ${alias}.nspname not like 'pg_temp_%' and ${alias}.nspname not like 'pg_toast_temp_%'`,
-);
+  );
 
 /** Not a member of an extension: the extension entry covers it. */
-const notExtensionMember = (catalog: string, oid: string) => sql.raw(
-  `not exists (select 1 from pg_depend d where d.classid = '${catalog}'::regclass
+const notExtensionMember = (catalog: string, oid: string) =>
+  sql.raw(
+    `not exists (select 1 from pg_depend d where d.classid = '${catalog}'::regclass
      and d.objid = ${oid} and d.deptype = 'e')`,
-);
+  );
 
 /** An ACL's items in a stable order: grant order is history, not schema. */
 const sortedAcl = (column: string) =>
-  sql.raw(`(select array_agg(item::text order by item::text) from unnest(${column}) item)`);
+  sql.raw(
+    `(select array_agg(item::text order by item::text) from unnest(${column}) item)`,
+  );
 
 const entry = z.object({ key: z.string(), value: z.string() });
 
@@ -87,14 +92,6 @@ const catalogReads = (): readonly SQL[] => [
         'schema', n.nspname, 'version', e.extversion,
         'comment', obj_description(e.oid, 'pg_extension'))::text as value
       from pg_extension e join pg_namespace n on n.oid = e.extnamespace`,
-  sql`select 'database' as key, jsonb_build_object(
-        'acl', (select array_agg(a::text order by a::text) from unnest(d.datacl) a),
-        'encoding', pg_encoding_to_char(d.encoding),
-        'collate', d.datcollate, 'ctype', d.datctype,
-        'settings', (select array_agg(s order by s) from pg_db_role_setting r, unnest(r.setconfig) s
-                     where r.setdatabase = d.oid),
-        'comment', shobj_description(d.oid, 'pg_database'))::text as value
-      from pg_database d where d.datname = current_database()`,
   sql`select 'type ' || n.nspname || '.' || t.typname as key, jsonb_build_object(
         'kind', t.typtype,
         'owner', pg_get_userbyid(t.typowner),
@@ -252,8 +249,7 @@ const catalogReads = (): readonly SQL[] => [
           select (aclexplode(a)).grantee::regrole::text from (
             select nspacl a from pg_namespace union all select relacl from pg_class
             union all select attacl from pg_attribute union all select proacl from pg_proc
-            union all select typacl from pg_type union all select defaclacl from pg_default_acl
-            union all select datacl from pg_database where datname = current_database()) acls
+            union all select typacl from pg_type union all select defaclacl from pg_default_acl) acls
           where a is not null)
         or r.oid in (select unnest(polroles) from pg_policy)
         or r.oid in (select defaclrole from pg_default_acl))
@@ -273,7 +269,9 @@ export async function readSchemaCatalog(tx: Tx): Promise<SchemaCatalog> {
   for (const read of catalogReads())
     for (const { key, value } of await query(tx, entry, read)) {
       if (catalog.has(key))
-        throw new Error(`The catalog names ${key} twice; its key must be unique`);
+        throw new Error(
+          `The catalog names ${key} twice; its key must be unique`,
+        );
       catalog.set(key, value);
     }
   return catalog;

@@ -153,27 +153,33 @@ const withAuthoredChecks = (
 
 export function baselineSql(source: BaselineSource): string {
   const ownerGrant = new RegExp(`\\b(TO|FROM) ${source.owner}\\b`);
-  const lines = withAuthoredChecks(source.dump, source.authoredChecks).split('\n').flatMap((line): string[] => {
-    // psql meta-commands (`\restrict`) are not SQL the migrator can send.
-    if (line.startsWith('\\')) return [];
-    if (line.startsWith('COMMENT ON EXTENSION')) return [];
-    const setting = settingLine.exec(line);
-    if (setting) {
-      const [, name = '', value = ''] = setting;
-      return droppedSettings.has(name) ? [] : [`SET LOCAL ${name} = ${value};`];
-    }
-    if (line === "SELECT pg_catalog.set_config('search_path', '', false);")
-      return ["SELECT pg_catalog.set_config('search_path', '', true);"];
-    if (line.startsWith('ALTER DEFAULT PRIVILEGES FOR ROLE ')) {
-      const prefix = `ALTER DEFAULT PRIVILEGES FOR ROLE ${source.owner} `;
-      if (!line.startsWith(prefix))
-        throw new Error(`Default privileges name a role other than ${source.owner}`);
-      return [`ALTER DEFAULT PRIVILEGES ${line.slice(prefix.length)}`];
-    }
-    if (/^(GRANT|REVOKE) /.test(line) && ownerGrant.test(line))
-      throw new Error(`A privilege names the owner ${source.owner}: ${line}`);
-    return [restampTransactionIds(line, source.transactionIdColumns)];
-  });
+  const lines = withAuthoredChecks(source.dump, source.authoredChecks)
+    .split('\n')
+    .flatMap((line): string[] => {
+      // psql meta-commands (`\restrict`) are not SQL the migrator can send.
+      if (line.startsWith('\\')) return [];
+      if (line.startsWith('COMMENT ON EXTENSION')) return [];
+      const setting = settingLine.exec(line);
+      if (setting) {
+        const [, name = '', value = ''] = setting;
+        return droppedSettings.has(name)
+          ? []
+          : [`SET LOCAL ${name} = ${value};`];
+      }
+      if (line === "SELECT pg_catalog.set_config('search_path', '', false);")
+        return ["SELECT pg_catalog.set_config('search_path', '', true);"];
+      if (line.startsWith('ALTER DEFAULT PRIVILEGES FOR ROLE ')) {
+        const prefix = `ALTER DEFAULT PRIVILEGES FOR ROLE ${source.owner} `;
+        if (!line.startsWith(prefix))
+          throw new Error(
+            `Default privileges name a role other than ${source.owner}`,
+          );
+        return [`ALTER DEFAULT PRIVILEGES ${line.slice(prefix.length)}`];
+      }
+      if (/^(GRANT|REVOKE) /.test(line) && ownerGrant.test(line))
+        throw new Error(`A privilege names the owner ${source.owner}: ${line}`);
+      return [restampTransactionIds(line, source.transactionIdColumns)];
+    });
   // Each pg_dump entry starts with a `-- Name:` header; a breakpoint before
   // it lets the migrator name the statement that failed.
   const body = lines

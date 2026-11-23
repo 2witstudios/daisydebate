@@ -4,7 +4,10 @@ import { drizzle } from 'drizzle-orm/bun-sql';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { requireTestServices } from '@daisy/config';
 import { readBaselineRecord } from '../src/baseline/baseline-record';
-import { supersededFolders } from '../src/baseline/superseded-folders';
+import {
+  migrateOldWay,
+  supersededFolders,
+} from '../src/baseline/superseded-history';
 import {
   catalogDifferences,
   describeCatalogDifference,
@@ -32,7 +35,7 @@ const built = (async () => {
   try {
     await Promise.all([oldWay.create(), baseline.create()]);
     await Promise.all([
-      oldWay.migrateFolder(superseded.folder),
+      migrateOldWay({ databaseUrl: oldWay.url, folder: superseded.folder }),
       baseline.migrate((folder) => folder === record.tag),
     ]);
   } finally {
@@ -96,30 +99,37 @@ test(
         triggerTable: string;
       }[];
       if (!target) throw new Error('The baseline holds no policy');
-      await client.begin(async (tx) => {
-        await tx.unsafe(`drop policy "${target.policy}" on public."${target.table}"`);
-        await tx.unsafe(`grant select on public."${target.table}" to daisy_realtime`);
-        await tx.unsafe(
-          `alter table public."${target.triggerTable}" disable trigger "${target.trigger}"`,
-        );
-        const keys = catalogDifferences(
-          await catalogAt(oldWay.url),
-          await readCatalogIn(tx),
-        ).map(({ key }) => key);
-        assert({
-          given: 'the baseline with one policy dropped, one grant added and one trigger disabled',
-          should: 'name each changed entry',
-          actual: keys,
-          expected: [
-            `policy public.${target.table}.${target.policy}`,
-            `relation public.${target.table}`,
-            `trigger public.${target.triggerTable}.${target.trigger}`,
-          ].sort(),
+      await client
+        .begin(async (tx) => {
+          await tx.unsafe(
+            `drop policy "${target.policy}" on public."${target.table}"`,
+          );
+          await tx.unsafe(
+            `grant select on public."${target.table}" to daisy_realtime`,
+          );
+          await tx.unsafe(
+            `alter table public."${target.triggerTable}" disable trigger "${target.trigger}"`,
+          );
+          const keys = catalogDifferences(
+            await catalogAt(oldWay.url),
+            await readCatalogIn(tx),
+          ).map(({ key }) => key);
+          assert({
+            given:
+              'the baseline with one policy dropped, one grant added and one trigger disabled',
+            should: 'name each changed entry',
+            actual: keys,
+            expected: [
+              `policy public.${target.table}.${target.policy}`,
+              `relation public.${target.table}`,
+              `trigger public.${target.triggerTable}.${target.trigger}`,
+            ].sort(),
+          });
+          throw rollback;
+        })
+        .catch((error: unknown) => {
+          if (error !== rollback) throw error;
         });
-        throw rollback;
-      }).catch((error: unknown) => {
-        if (error !== rollback) throw error;
-      });
     } finally {
       await client.close();
     }
