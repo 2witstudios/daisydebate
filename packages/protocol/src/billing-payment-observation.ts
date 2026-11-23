@@ -1,4 +1,8 @@
-import { instantMs, isInstantAtOrBefore, isInstantBefore } from '@daisy/clock';
+import {
+  instantMs,
+  isInstantAtOrBefore,
+  isInstantBefore,
+} from '@daisy/clock/instant';
 import { z } from 'zod';
 import { idSchema } from './primitives';
 import { closurePaymentDisposition } from './billing-refund';

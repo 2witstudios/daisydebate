@@ -1,4 +1,5 @@
 import { instantMs, addMs } from '@daisy/clock';
+import { virtualClock } from '@daisy/clock/testing';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {
   ALERT_THRESHOLDS,
@@ -409,6 +410,7 @@ describe('readAlertSnapshot (AUTH-7.7)', () => {
         redis,
         clock,
         local: noLocalOutage,
+        waits: virtualClock(),
         workers: [],
       }),
       expected: {
@@ -435,6 +437,7 @@ describe('readAlertSnapshot (AUTH-7.7)', () => {
       redis: { get: async (key) => values.get(key) ?? null },
       clock,
       local: noLocalOutage,
+      waits: virtualClock(),
       workers: [
         { name: 'privacy_jobs', missedAfterMs: 1 },
         { name: 'observation_purges', missedAfterMs: 2 },
@@ -461,6 +464,7 @@ describe('readAlertSnapshot (AUTH-7.7)', () => {
         redis,
         clock,
         local: noLocalOutage,
+        waits: virtualClock(),
         workers: [],
       }),
       expected: baseSnapshot,

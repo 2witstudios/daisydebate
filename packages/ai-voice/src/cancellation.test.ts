@@ -1,3 +1,4 @@
+import { virtualClock } from '@daisy/clock/testing';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';
 import { createOpenRouter, type OpenRouter } from './openrouter';
@@ -20,6 +21,7 @@ for (const kind of ['complete', 'transcribe'] as const) {
   test(`${kind} refuses cancellation before transport`, async () => {
     let calls = 0;
     const client = createOpenRouter({
+      waits: virtualClock(),
       apiKey: 'unit-only',
       fetch: async () => {
         calls++;
@@ -63,6 +65,7 @@ for (const kind of ['complete', 'transcribe'] as const) {
         ),
     });
     const client = createOpenRouter({
+      waits: virtualClock(),
       apiKey: 'unit-only',
       timeoutMs: 2000,
       fetch: async (_url, init) => {

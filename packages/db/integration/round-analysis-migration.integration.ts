@@ -1,3 +1,4 @@
+import { hostWaits } from '@daisy/worker/host';
 import { roundDecisionReleasePolicy } from '@daisy/protocol/round-decision-release';
 import { afterAll } from 'bun:test';
 import { createId } from '@paralleldrive/cuid2';
@@ -198,6 +199,7 @@ test(
       const [usage] =
         await f.sql`select count(*)::integer as n from usage_reservations where kind='round_analysis'`;
       const store = createDatabase({
+        waits: hostWaits,
         decisionRelease: roundDecisionReleasePolicy,
         url: scratch.url,
         ...storeOptions,

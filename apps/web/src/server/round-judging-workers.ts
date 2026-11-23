@@ -1,3 +1,5 @@
+import { deadlineSignal, type Waits } from '@daisy/clock';
+import { type WorkWake } from '@daisy/worker';
 import { reportJudgingRecovery } from './round-judging-recovery-report';
 import type { JudgingTerminalReason } from '@daisy/protocol/round-judging-attempt';
 import type { RoundJudgingPolicy } from '@daisy/config';
@@ -8,8 +10,6 @@ import { startRoundJudgingService } from '../features/round-judging/service';
 import type { App } from './app';
 import type { createProviderBudget } from './provider-budget';
 import { workerFailures } from './recoverable-failure';
-import type { WorkerTimers } from '../lib/worker-timers';
-import type { WorkWake } from '../lib/worker-loop';
 
 /** AI judging's own worker (ISSUE-749), drawing on the competitive provider budget. */
 export function startRoundJudgingWorkers(input: {
@@ -17,7 +17,7 @@ export function startRoundJudgingWorkers(input: {
   readonly policy: RoundJudgingPolicy;
   readonly budget: ReturnType<typeof createProviderBudget>;
   readonly parallel: number;
-  readonly timers: WorkerTimers;
+  readonly waits: Waits;
   readonly wake?: WorkWake | undefined;
   readonly reporter?: ErrorReporter;
 }) {
@@ -47,18 +47,22 @@ export function startRoundJudgingWorkers(input: {
   return startRoundJudgingService({
     reserveCapacity: () => input.budget.reserve(),
     store: app.database,
-    execute: (claim, signal) =>
-      operations.executeClaim(
-        claim,
-        AbortSignal.any([signal, AbortSignal.timeout(policy.callTimeoutMs)]),
-      ),
+    execute: async (claim, signal) => {
+      const bound = deadlineSignal(input.waits, policy.callTimeoutMs, signal);
+      try {
+        return await operations.executeClaim(claim, bound.signal);
+      } finally {
+        bound.clear();
+      }
+    },
     limits: {
       parallel: input.parallel,
       scanBatch: policy.scanBatch,
       scanMs: policy.scanMs,
       renewMs: policy.renewMs,
+      leaseMs: policy.leaseMs,
     },
-    timers: input.timers,
+    waits: input.waits,
     wake: input.wake,
     jobEnded,
     failed: failure(

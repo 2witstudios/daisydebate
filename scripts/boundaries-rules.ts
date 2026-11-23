@@ -5,22 +5,28 @@ import { posix } from 'node:path';
  * filesystem or process state. The scan itself lives in check-boundaries.ts.
  */
 
-// ADR 0006: Adobe vendor packages live in the engine adapter only. The web
-// UI shell attempted an exception (ADR 0024 attempt) but client-side ECS
-// codegen conflicts with the strict CSP; the boundary stays engine-only.
-export const adobeWorkspaces = ['@daisy/debate-engine'] as const;
+// ADR 0911: the Round engine is one step function, so nothing needs ECS.
+// No Adobe package is declared or loaded anywhere, the engine included
+// (ADR 0024 had already rejected it in the browser).
+export const isAdobePackage = (specifier: string): boolean =>
+  specifier === '@adobe' || specifier.startsWith('@adobe/');
 
-export const adobeIsolationIssue = (
-  workspaceName: string,
+export const adobeBanIssue = (
+  owner: string,
   specifier: string,
   kind: 'dependency' | 'import',
-): string | null => {
-  if (!specifier.startsWith('@adobe/')) return null;
-  if ((adobeWorkspaces as readonly string[]).includes(workspaceName)) {
-    return null;
-  }
-  return `${workspaceName}: Adobe ${kind} outside the engine`;
-};
+): string | null =>
+  isAdobePackage(specifier)
+    ? `${owner}: Adobe ${kind} ${specifier} is banned (ADR 0911)`
+    : null;
+
+/** Every field of a manifest that declares a package. */
+export const manifestDependencyFields = [
+  'dependencies',
+  'devDependencies',
+  'peerDependencies',
+  'optionalDependencies',
+] as const;
 
 /** Workspace suffixes (after `@daisy/`) each workspace may depend on. */
 export const allowedWorkspaceDependencies: Record<string, readonly string[]> = {
@@ -28,21 +34,39 @@ export const allowedWorkspaceDependencies: Record<string, readonly string[]> = {
   // Seeded randomness is topic-agnostic: it knows a seed and nothing else.
   'seeded-random': ['digest'],
   clock: [],
+  // R4.7: background loops, leases and shutdown over the clock's waits;
+  // it knows no app, store or domain.
+  worker: ['clock'],
   digest: [],
   // The tab engine is plain data in and out: no app, database, protocol or
   // Room engine, only seeded randomness and digests.
   'tab-engine': ['digest', 'seeded-random'],
   // AIDB: the OpenRouter voice layer reads the engine's turn table and the
   // protocol's ballot contract only.
-  'ai-voice': ['debate-engine', 'errors', 'protocol'],
+  'ai-voice': ['clock', 'debate-engine', 'errors', 'protocol'],
   // VIDEO-1.4: isolated LiveKit vendor adapter; no competitive authority.
-  media: ['clock', 'digest', 'errors', 'protocol'],
+  media: ['clock', 'digest', 'errors', 'protocol', 'worker'],
   // ADR 0099: the hold worker's only credential is its broadcasts role.
-  'broadcast-worker': ['clock', 'db', 'debate-engine', 'logger', 'protocol'],
+  'broadcast-worker': [
+    'clock',
+    'db',
+    'debate-engine',
+    'logger',
+    'protocol',
+    'worker',
+  ],
   // ADR 0112: publishes released facts; its role reads them and nothing else.
-  'audience-publisher': ['db', 'debate-engine', 'logger', 'protocol', 'redis'],
+  'audience-publisher': [
+    'clock',
+    'db',
+    'debate-engine',
+    'logger',
+    'protocol',
+    'redis',
+    'worker',
+  ],
   // ADR 0107: builds from the hold; its role reaches only its jobs.
-  'recording-worker': ['clock', 'db', 'logger', 'protocol'],
+  'recording-worker': ['clock', 'db', 'logger', 'protocol', 'worker'],
   // ADR 0053: capture deployment discovers sessions read-only under
   // daisy_media_worker and writes only through signed web ingress.
   'media-worker': [
@@ -55,22 +79,23 @@ export const allowedWorkspaceDependencies: Record<string, readonly string[]> = {
     'errors',
     'logger',
     'protocol',
+    'worker',
   ],
   // ADR 0084: the log shipper reads the logger's vocabulary to admit
   // shipped lines; it holds no participant database or Redis credential.
-  'log-shipper': ['clock', 'config', 'logger'],
+  'log-shipper': ['clock', 'config', 'logger', 'worker'],
   protocol: ['clock'],
   // ADR 0048: pure capability evaluation consumes portable vocabulary only.
   auth: ['clock', 'errors', 'protocol'],
   errors: ['protocol'],
-  db: ['clock', 'config', 'digest', 'errors', 'protocol'],
-  redis: ['config', 'digest', 'errors', 'protocol'],
+  db: ['clock', 'config', 'digest', 'errors', 'protocol', 'worker'],
+  redis: ['clock', 'config', 'digest', 'errors', 'protocol', 'worker'],
   config: [],
   ingress: ['config'],
   // Test-only: the redaction tests derive their secret keys from config's
   // schema (ADR 0019); the logger itself imports nothing from it.
   logger: ['config'],
-  observability: ['logger'],
+  observability: ['clock', 'logger'],
   // ADR 0031 §12: the realtime deployment's explicit allowed edges. It
   // never depends on `debate-engine`, `apps/web` or a third-party socket
   // library. `@daisy/presence` is not yet a package (owned by a later RT
@@ -78,7 +103,16 @@ export const allowedWorkspaceDependencies: Record<string, readonly string[]> = {
   // ADR 0077: the admin app holds no participant database or Redis
   // credential, so it never depends on @daisy/db or @daisy/redis; it reaches
   // the participant app only through the signed operator API (`auth`).
-  admin: ['auth', 'clock', 'config', 'digest', 'errors', 'logger', 'protocol'],
+  admin: [
+    'auth',
+    'clock',
+    'config',
+    'digest',
+    'errors',
+    'logger',
+    'protocol',
+    'worker',
+  ],
   realtime: [
     'ingress',
     'protocol',
@@ -92,11 +126,12 @@ export const allowedWorkspaceDependencies: Record<string, readonly string[]> = {
     'logger',
     'observability',
     'presence',
+    'worker',
   ],
 };
 
 /**
- * Mirrors `adobeIsolationIssue`'s shape: a pure predicate the scan and its
+ * Mirrors `adobeBanIssue`'s shape: a pure predicate the scan and its
  * unit tests both call, so "a workspace's edges are mechanically enforced"
  * (ADR 0031 §12) is provable without re-deriving the rule in a test fixture.
  * A workspace absent from `allowedWorkspaceDependencies` is unrestricted.

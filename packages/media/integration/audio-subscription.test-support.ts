@@ -1,3 +1,4 @@
+import { hostWaits } from '@daisy/worker/host';
 import { assertRejects } from '@daisy/errors/testing';
 import { assert } from 'riteway/bun';
 import { createId } from '@paralleldrive/cuid2';
@@ -28,7 +29,7 @@ const openCaptureProbe = async (
       capture: true,
     }),
     identities: [identity],
-    nowMs: () => performance.now(),
+    waits: hostWaits,
     onTrackStarted: () => {},
     ...callbacks,
   });

@@ -1,17 +1,17 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { startTranscriptionRecoveryService } from './service';
-import { manualTimers, failureLog } from '../../lib/worker-timers.test-support';
+import { manualWaits, failureLog } from '../../lib/manual-waits.test-support';
 import { claim, limits } from './service.test-support';
 setupRitewayBun();
 test('missing-source enrollment progresses without provider capacity and after one unit fails', async () => {
-  const { timers } = manualTimers(),
+  const { waits } = manualWaits(),
     log = failureLog(),
     enrolled: string[] = [];
   let claims = 0;
   const service = startTranscriptionRecoveryService({
     workerId: 'worker-memory',
     limits,
-    timers,
+    waits,
     failed: log.failed,
     store: {
       missing: async () => [
@@ -49,13 +49,13 @@ test('missing-source enrollment progresses without provider capacity and after o
   }
 });
 test('a capacity subsystem failure is reported without leaving a rejected timer task', async () => {
-  const { timers } = manualTimers(),
+  const { waits } = manualWaits(),
     log = failureLog();
   let claims = 0;
   const service = startTranscriptionRecoveryService({
     workerId: 'worker-memory',
     limits,
-    timers,
+    waits,
     failed: log.failed,
     store: {
       missing: async () => [],

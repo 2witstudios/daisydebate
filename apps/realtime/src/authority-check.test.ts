@@ -1,3 +1,4 @@
+import { virtualClock } from '@daisy/clock/testing';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { refuseCapacity } from '@daisy/db/testing';
 import {
@@ -5,24 +6,18 @@ import {
   boundedAuthorityCheck,
 } from './authority-check';
 import { deferred } from './outbox-drain.test-support';
-import type { IntervalTimers } from './outbox-drain';
 
 setupRitewayBun();
 for (const result of ['allow', 'failure', 'late-allow'] as const)
   test(`bounded canonical authority check ${result}`, async () => {
     const read = deferred<boolean>();
-    let fire!: () => void;
+    const clock = virtualClock();
     let scheduled = 0;
-    let cleared = false;
-    const handle = {} as ReturnType<typeof setInterval>;
-    const timers: IntervalTimers = {
-      setInterval: (callback, ms) => {
-        fire = callback;
+    const waits = {
+      ...clock,
+      sleep: (ms: number, signal?: AbortSignal) => {
         scheduled = ms;
-        return handle;
-      },
-      clearInterval: (received) => {
-        cleared = received === handle;
+        return clock.sleep(ms, signal);
       },
     };
     const checked = boundedAuthorityCheck({
@@ -30,18 +25,21 @@ for (const result of ['allow', 'failure', 'late-allow'] as const)
         result === 'failure'
           ? Promise.reject(new Error('private adapter failure'))
           : read.promise,
-      timers,
+      waits,
       budgetMs: 5_000,
     });
     if (result === 'allow') read.resolve(true);
-    if (result === 'late-allow') fire();
-    const actual = await checked.then(
+    const outcome = checked.then(
       (allowed) => allowed,
       (error: unknown) =>
         error instanceof Error ? error.message : 'unexpected rejection',
     );
+    if (result === 'late-allow') await clock.advance(5_000);
+    const actual = await outcome;
     if (result === 'late-allow') read.resolve(true);
-    await Promise.resolve();
+    await clock.settle();
+    // The owned budget wait is released once the check settles.
+    const cleared = clock.sleepers() === 0;
     assert({
       given:
         'an injected canonical lookup and independently scheduled operational budget',
@@ -61,20 +59,15 @@ for (const result of ['allow', 'failure', 'late-allow'] as const)
   });
 
 test('an authority failure names its cause without the raw error', async () => {
-  let fire!: () => void;
+  const clock = virtualClock();
   const checked = boundedAuthorityCheck({
     check: () => new Promise(() => {}),
-    timers: {
-      setInterval: (callback) => {
-        fire = callback;
-        return {} as ReturnType<typeof setInterval>;
-      },
-      clearInterval: () => {},
-    },
+    waits: clock,
     budgetMs: 5_000,
   });
-  fire();
-  const spent = await checked.catch((error: unknown) => error);
+  const rejection = checked.catch((error: unknown) => error);
+  await clock.advance(5_000);
+  const spent = await rejection;
   assert({
     given: 'a lane refusal, the spent budget, a code bug and a lock timeout',
     should:

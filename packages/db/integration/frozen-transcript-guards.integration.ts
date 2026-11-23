@@ -1,3 +1,4 @@
+import { hostWaits } from '@daisy/worker/host';
 import { requireTestServices } from '@daisy/config';
 import type { SQL } from 'bun';
 import { createId } from '@paralleldrive/cuid2';
@@ -95,7 +96,7 @@ for (const first of ['utterance', 'freeze'] as const)
           next,
           fixture.sql,
           holder!.pid,
-          { now: performance.now },
+          { waits: hostWaits },
         );
         await held`commit`;
         assert({

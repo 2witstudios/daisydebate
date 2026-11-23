@@ -1,3 +1,4 @@
+import { hostWaits } from '@daisy/worker/host';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { requireTestServices } from '@daisy/config';
@@ -77,7 +78,11 @@ const passkeyData = (userId: string, credentialID: string) => ({
 });
 
 test('passkey records round-trip through the Better Auth adapter on the shared pool', async () => {
-  const database = createDatabase({ url, nextActorId: createId });
+  const database = createDatabase({
+    waits: hostWaits,
+    url,
+    nextActorId: createId,
+  });
   const adapter = await runtimeAdapter(database);
   const userId = await createFixtureUser();
   try {

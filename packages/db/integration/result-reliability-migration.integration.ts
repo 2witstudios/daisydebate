@@ -1,3 +1,4 @@
+import { hostWaits } from '@daisy/worker/host';
 import { judgedRound } from './judged-round.test-support';
 import { loanRoundAssignmentInterface } from '../src/testing-round-assignment-interface';
 import { requireTestServices } from '@daisy/config';
@@ -56,8 +57,8 @@ test(
           f.sql,
         );
         const run = createBoundedTransaction({
-          lane: testLane(f.sql, 4),
-          now: performance.now,
+          lane: testLane(f.sql, hostWaits, 4),
+          waits: hostWaits,
         });
         const queuedId = await judgedRound(f),
           failedId = await judgedRound(f);

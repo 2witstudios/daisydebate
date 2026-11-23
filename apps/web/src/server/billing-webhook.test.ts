@@ -4,6 +4,7 @@ import { fixedClock, sequentialId } from '@daisy/clock';
 import { authTestEnv } from '../features/auth/auth-server.test-support';
 import { betaMessagingPolicy } from '../features/messaging/beta-policy';
 import { createApp } from './app';
+import { virtualClock } from '@daisy/clock/testing';
 import { composeBillingWebhook } from './billing-webhook';
 import {
   createRecordingLogger,
@@ -19,6 +20,7 @@ const noVendor = (async () => {
 }) as unknown as typeof globalThis.fetch;
 const build = () =>
   createApp({
+    waits: virtualClock(),
     env: {
       ...authTestEnv,
       DATABASE_URL: 'postgres://unit:unit@localhost:5432/unit',
@@ -82,6 +84,7 @@ test('the process webhook reports persistence failure without forwarding vendor/
         },
       },
       noVendor,
+      virtualClock(),
     );
     const response = await handler(await request());
     assert({
@@ -138,6 +141,7 @@ test('failing diagnostic sinks cannot replace the durable-retry response', async
         },
       },
       noVendor,
+      virtualClock(),
     );
     const response = await handler(await request());
     assert({

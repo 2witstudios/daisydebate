@@ -1,3 +1,4 @@
+import { virtualClock } from '@daisy/clock/testing';
 import { readRealtimeConfig } from '@daisy/config';
 import { instantMs } from '@daisy/clock';
 import type { AuthorityResources } from './authorization';
@@ -35,6 +36,7 @@ const deployedReading = (groups?: 'staging') =>
     trustedProxies: [],
     instanceId: 'i'.repeat(24),
     nextId: () => 'n'.repeat(24),
+    waits: virtualClock(),
   }).readingPolicy;
 const principal = {
   userId: 'u'.repeat(24),

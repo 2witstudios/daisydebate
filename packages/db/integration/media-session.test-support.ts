@@ -1,3 +1,4 @@
+import { hostWaits } from '@daisy/worker/host';
 import type { SQL } from 'bun';
 import { testLane } from '../src/testing-lane';
 import { createId } from '@paralleldrive/cuid2';
@@ -58,8 +59,8 @@ export const mediaTestStore = (client: SQL) =>
   createMediaSessionStore({
     database: drizzle({ client }),
     run: createBoundedTransaction({
-      lane: testLane(client, 10),
-      now: performance.now,
+      lane: testLane(client, hostWaits, 10),
+      waits: hostWaits,
     }),
     nextId: createId,
   });

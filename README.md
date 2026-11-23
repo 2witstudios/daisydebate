@@ -10,8 +10,8 @@ architecture, boundaries, infrastructure, and verification loops are real.
 ## Stack
 
 Bun 1.4.2 · TypeScript (strict) · Turborepo · Next.js (App Router) ·
-React · PostgreSQL 18 + Drizzle · Redis 8 (Bun native client) · Adobe Data
-ECS (behind the domain boundary) · Zod · Pino · OpenTelemetry API ·
+React · PostgreSQL 18 + Drizzle · Redis 8 (Bun native client) · Zod · Pino ·
+OpenTelemetry API ·
 Playwright · Docker Compose · GitHub Actions.
 
 ## Quick start

@@ -1,3 +1,4 @@
+import { hostWaits } from '@daisy/worker/host';
 import { requireTestServices } from '@daisy/config';
 import { SQL } from 'bun';
 import { createId } from '@paralleldrive/cuid2';
@@ -24,7 +25,12 @@ const namingClient = () => {
 
 test('database factory ports keep their operation label through native I/O', async () => {
   const { client, seen } = namingClient();
-  const database = createDatabase({ url, client, nextActorId: createId });
+  const database = createDatabase({
+    waits: hostWaits,
+    url,
+    client,
+    nextActorId: createId,
+  });
   try {
     await database.databaseNow();
     await database.authAdapter({}).findOne({ model: 'user', where: [] });
@@ -43,6 +49,7 @@ test('database factory ports keep their operation label through native I/O', asy
 test('the realtime factory labels its nested observation read', async () => {
   const { client, seen } = namingClient();
   const database = createRealtimeDatabase({
+    waits: hostWaits,
     url,
     client,
     profile: WORKLOAD_PROFILES['realtime-observer'],

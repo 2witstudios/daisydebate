@@ -1,3 +1,4 @@
+import { hostWaits } from '@daisy/worker/host';
 import { createClamdScanner } from '../src/features/image-intake/clamd';
 import { createLocalPrivateObjectStore } from '../src/features/messaging/files/local-object-store';
 import { sanitizeImage } from '../src/features/image-intake/image-sanitizer';
@@ -21,7 +22,7 @@ export function messagingFileProofRuntime(
       serviceMs: 5000,
     },
     objects: createLocalPrivateObjectStore(directory),
-    scanner: createClamdScanner({ host: '127.0.0.1', port }),
+    scanner: createClamdScanner({ host: '127.0.0.1', port }, hostWaits),
     sanitizeImage: sanitizeImage,
   };
 }

@@ -1,10 +1,11 @@
+import { virtualClock } from '@daisy/clock/testing';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {
   OUTBOX_ORIGIN,
   type OutboxPosition,
   type OutboxRow,
 } from '@daisy/db/outbox';
-import { startOutboxDrain, type IntervalTimers } from './outbox-drain';
+import { startOutboxDrain } from './outbox-drain';
 import {
   buildTestLoop,
   deferred,
@@ -148,7 +149,7 @@ describe('startOutboxDrain startup order (ADR 0032 §2)', () => {
       database,
       sink: () => {},
       logger: noopLogger,
-      timers: { setInterval: () => 0 as never, clearInterval: () => {} },
+      waits: virtualClock(),
     });
 
     await flush();
@@ -179,21 +180,9 @@ describe('startOutboxDrain startup order (ADR 0032 §2)', () => {
     });
   });
 
-  test('wires the 1 s poll through the injected interval timers and stops it, and unlistens, on stop()', async () => {
-    let intervalCallback: (() => void) | undefined;
-    let intervalMs: number | undefined;
-    let cleared = false;
+  test('wires the 1 s poll through the injected waits and stops it, and unlistens, on stop()', async () => {
+    const clock = virtualClock();
     let unlistened = false;
-    const timers: IntervalTimers = {
-      setInterval: (callback, ms) => {
-        intervalCallback = callback;
-        intervalMs = ms;
-        return 1 as unknown as ReturnType<typeof setInterval>;
-      },
-      clearInterval: () => {
-        cleared = true;
-      },
-    };
     let drainCount = 0;
     const database = {
       async listenOutbox() {
@@ -217,29 +206,32 @@ describe('startOutboxDrain startup order (ADR 0032 §2)', () => {
       sink: () => {},
       logger: noopLogger,
       pollIntervalMs: 1_000,
-      timers,
+      waits: clock,
     });
+    await clock.advance(999);
     const drainCountBeforeTick = drainCount;
-    intervalCallback?.();
-    await flush();
+    await clock.advance(1);
+    const drainCountAfterTick = drainCount;
 
     await control.stop();
+    const cleared = clock.sleepers() === 0;
+    await clock.advance(5_000);
 
     assert({
-      given: 'a running drain wired to injected interval timers',
+      given: 'a running drain wired to injected waits',
       should:
-        'schedule the 1 s poll through the timers, run a pass on each tick, and clear the interval and unlisten on stop',
+        'schedule the 1 s poll on those waits, run a pass on each tick, and stop the poll and unlisten on stop',
       actual: {
-        intervalMs,
         drainCountBeforeTick,
-        drainCountAfterTick: drainCount,
+        drainCountAfterTick,
+        drainCountAfterStop: drainCount,
         cleared,
         unlistened,
       },
       expected: {
-        intervalMs: 1_000,
         drainCountBeforeTick: 0,
         drainCountAfterTick: 1,
+        drainCountAfterStop: 1,
         cleared: true,
         unlistened: true,
       },
@@ -270,7 +262,7 @@ describe('startOutboxDrain startup order (ADR 0032 §2)', () => {
         database,
         sink: () => {},
         logger: noopLogger,
-        timers: { setInterval: () => 0 as never, clearInterval: () => {} },
+        waits: virtualClock(),
       });
     } catch (error) {
       caught = error;

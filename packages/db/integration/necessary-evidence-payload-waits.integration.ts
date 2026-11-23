@@ -1,3 +1,4 @@
+import { hostWaits } from '@daisy/worker/host';
 import { requireTestServices } from '@daisy/config';
 import { necessaryEvidencePolicy } from '@daisy/protocol/necessary-evidence';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
@@ -45,7 +46,7 @@ for (const boundary of ['lease', 'receipt'] as const)
               (error: { code: string }) => error.code,
             );
           const observed = await finishedOrBlockedBehind(work, f.sql, pid, {
-            now: performance.now,
+            waits: hostWaits,
           });
           const until = performance.now() + 1500;
           let crossed = false;

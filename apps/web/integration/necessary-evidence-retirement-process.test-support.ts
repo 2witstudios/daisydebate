@@ -1,3 +1,4 @@
+import { hostWaits } from '@daisy/worker/host';
 import { existsSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { randomBytes } from 'node:crypto';
@@ -37,6 +38,7 @@ if (import.meta.main) {
   } else {
     const services = requireTestServices(process.env);
     const database = createDatabase({
+      waits: hostWaits,
       url: services.databaseUrl,
       nextActorId: createId,
     });

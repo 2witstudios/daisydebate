@@ -1,3 +1,4 @@
+import { hostWaits } from '@daisy/worker/host';
 import { captureAdmissionPolicy } from '../src/features/media-capture/capture-policy';
 import { captureRule } from '@daisy/debate-engine';
 import {
@@ -27,7 +28,8 @@ export const mediaDependencies = (
   }),
 ) => ({
   priority: createAdmissionPriority({
-    deadline: (work) => withTimeout(work, MEDIA_ADMISSION_HINT_TIMEOUT_MS),
+    deadline: (work) =>
+      withTimeout(hostWaits, work, MEDIA_ADMISSION_HINT_TIMEOUT_MS),
     hint: fixture.redis.mediaAdmissionHint,
     logger: createLogger({ service: 'round-media-proof', level: 'silent' }),
   }),
@@ -50,7 +52,7 @@ export const mediaDependencies = (
   nextId: createId,
   reporter: noopErrorReporter,
   logger: createLogger({ service: 'round-media-proof', level: 'silent' }),
-  deadline: <T>(work: Promise<T>) => withTimeout(work, 2000),
+  deadline: <T>(work: Promise<T>) => withTimeout(hostWaits, work, 2000),
   wait: () => Bun.sleep(10),
   now: () => performance.now(),
   // Every recover call is a pass; recovery-due tests choose their own heartbeat.

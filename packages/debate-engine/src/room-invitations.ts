@@ -1,4 +1,4 @@
-import { instantMs, addMs } from '@daisy/clock';
+import { instantMs, addMs } from '@daisy/clock/instant';
 import {
   ROOM_INVITATION_TTL_MS,
   type InvitationDecision,

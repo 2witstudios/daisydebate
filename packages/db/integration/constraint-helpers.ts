@@ -1,3 +1,4 @@
+import { hostWaits } from '@daisy/worker/host';
 import { roundDecisionReleasePolicy } from '@daisy/protocol/round-decision-release';
 import { causeChainMember } from '../src/capacity-refusal';
 import { SQL } from 'bun';
@@ -654,6 +655,7 @@ export const roundAuthoring = async (fixture: Fixture, url: string) => {
     formatId,
     rules: validRules,
     database: createDatabase({
+      waits: hostWaits,
       url,
       nextActorId: createId,
       decisionRelease: roundDecisionReleasePolicy,
@@ -705,6 +707,7 @@ export const withDatabase = async <T>(
   run: (database: ReturnType<typeof createDatabase>) => Promise<T>,
 ): Promise<T> => {
   const database = createDatabase({
+    waits: hostWaits,
     url,
     nextActorId: createId,
     decisionRelease: roundDecisionReleasePolicy,

@@ -1,3 +1,4 @@
+import { afterMs, type Waits } from '@daisy/clock';
 import { currentLaneOperation } from './lane-operation';
 import { createAppError } from '@daisy/errors';
 import { refuseCapacity } from './capacity-refusal';
@@ -158,12 +159,6 @@ export type LaneGate = {
   /** How long each operation held this lane's connections since the last drain. */
   readonly drainHolds: () => LaneHolds;
 };
-export type LaneTimer = (ms: number, fire: () => void) => () => void;
-export type LaneClock = () => number;
-const systemTimer: LaneTimer = (ms, fire) => {
-  const handle = setTimeout(fire, ms);
-  return () => clearTimeout(handle);
-};
 
 type Waiter = {
   readonly weight: number;
@@ -189,10 +184,11 @@ const holdersByOperation = (
 export function createLaneGate(
   name: WorkloadLane,
   budget: LaneBudget | undefined,
-  timer: LaneTimer = systemTimer,
-  clock: LaneClock = () => performance.now(),
+  /** The time waiters expire and holds are measured on (R4.7). */
+  waits: Waits,
   operationNow: () => string = currentLaneOperation,
 ): LaneGate {
+  const clock = waits.nowMs;
   let active = 0;
   let waiting = 0;
   const held = new Set<{
@@ -286,7 +282,7 @@ export function createLaneGate(
           grant: () => resolve(release(weight, operation, true)),
           cancel: () => undefined,
         };
-        waiter.cancel = timer(budget.maxWaitMs, () => {
+        waiter.cancel = afterMs(waits, budget.maxWaitMs, () => {
           remove(key, waiter);
           reject(refuse('expired'));
         });

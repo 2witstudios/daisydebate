@@ -1,3 +1,4 @@
+import { hostWaits } from '@daisy/worker/host';
 import { SQL } from 'bun';
 import { z } from 'zod';
 import {
@@ -44,6 +45,7 @@ try {
   }[];
   if (!owner) throw new Error('No account for that address');
   const organizationId = await fundTestClub(client, {
+    waits: hostWaits,
     owner: { userId: owner.user_id, actorId: owner.actor_id },
     name: input.name,
     seats: input.seats,

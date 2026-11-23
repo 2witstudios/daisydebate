@@ -1,3 +1,4 @@
+import { hostWaits } from '@daisy/worker/host';
 import { SQL } from 'bun';
 import { drizzle } from 'drizzle-orm/bun-sql';
 import { createId } from '@paralleldrive/cuid2';
@@ -171,7 +172,7 @@ test('a committed transaction delivers its outbox row with a txid, a NOTIFY and 
       });
       // The NOTIFY says the commit happened, not that every older
       // transaction in the cluster has ended: the drain reads only once it has.
-      await waitForOutboxFinality(reader, committed.txid, { now: Date.now });
+      await waitForOutboxFinality(reader, committed.txid, { waits: hostWaits });
 
       const rows = await drainOutbox(readerDb, OUTBOX_ORIGIN, 500);
       const delivered = rows.filter((row) => row.topic === topic);

@@ -6,11 +6,18 @@ import {
   ownedClaim,
   seat,
 } from './control-service.test-support';
-import { failureLog, manualTimers } from '../../lib/worker-timers.test-support';
+import { failureLog, manualWaits } from '../../lib/manual-waits.test-support';
 import { within } from '../../lib/deadline.test-support';
 setupRitewayBun();
 
-const limits = { maxControllers: 2, scanBatch: 4, scanMs: 500, renewMs: 3000 };
+const limits = {
+  maxControllers: 2,
+  scanBatch: 4,
+  scanMs: 500,
+  checkInMs: 3000,
+  renewMs: 4000,
+  leaseMs: 15000,
+};
 
 test('a deadline that cannot be kept reports its own error, revokes the lease, and a later stop failure is still reported (ISSUE-789)', async () => {
   const { failures, failed } = failureLog();
@@ -19,7 +26,7 @@ test('a deadline that cannot be kept reports its own error, revokes the lease, a
   const stopping = Promise.withResolvers<void>();
   let segment = 'first',
     deadlines = 0;
-  const { tasks, timers } = manualTimers();
+  const { tasks, waits } = manualWaits();
   const service = startBotControlService({
     store: {
       scanRoundBotWorkers: async () => [seat('seat', segment)],
@@ -27,6 +34,7 @@ test('a deadline that cannot be kept reports its own error, revokes the lease, a
       revokeRoundBotWorker: async (scope) => {
         revoked.push(scope.segmentId);
       },
+      renewRoundBotWorker: async () => {},
       verifyRoundBotWorker: async () => {},
     },
     control: (claim) => ({
@@ -41,7 +49,7 @@ test('a deadline that cannot be kept reports its own error, revokes the lease, a
           : Promise.resolve(),
     }),
     limits,
-    timers,
+    waits,
     // Only the outgoing ending's deadline is broken.
     overdue: () => {
       if (deadlines++ === 0) throw new Error('timer unavailable');
@@ -75,7 +83,7 @@ test('a revoke that throws synchronously is reported once, and the incoming clai
   const { failures, failed } = failureLog();
   const incoming = Promise.withResolvers<void>();
   let segment = 'first';
-  const { tasks, timers } = manualTimers();
+  const { tasks, waits } = manualWaits();
   const service = startBotControlService({
     store: {
       scanRoundBotWorkers: async () => [seat('seat', segment)],
@@ -84,6 +92,7 @@ test('a revoke that throws synchronously is reported once, and the incoming clai
         if (scope.segmentId === 'first') throw new Error('pool gone');
         return Promise.resolve();
       },
+      renewRoundBotWorker: async () => {},
       verifyRoundBotWorker: async () => {},
     },
     control: (claim) => ({
@@ -94,7 +103,7 @@ test('a revoke that throws synchronously is reported once, and the incoming clai
       stop: async () => {},
     }),
     limits,
-    timers,
+    waits,
     overdue: neverOverdue,
     failed,
   });

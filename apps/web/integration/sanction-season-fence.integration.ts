@@ -1,3 +1,4 @@
+import { hostWaits } from '@daisy/worker/host';
 import { SQL } from 'bun';
 import { authorize } from '@daisy/auth/authorization';
 import { requireTestServices } from '@daisy/config';
@@ -73,7 +74,7 @@ test('a separate-account season reader and league withdrawal retain canonical pa
       withdrawing,
       observer,
       Number(gateBackend!.pid),
-      { now: Date.now },
+      { waits: hostWaits },
     );
     reading = readLeagueSeason({
       store: createTabStore(committingRuntimeTestDatabase(reader)),
@@ -87,7 +88,7 @@ test('a separate-account season reader and league withdrawal retain canonical pa
       reading,
       observer,
       Number(writerBackend!.pid),
-      { now: Date.now },
+      { waits: hostWaits },
     );
     releaseGate();
     await holding;

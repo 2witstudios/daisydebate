@@ -1,3 +1,4 @@
+import { deadlineSignal } from '@daisy/clock';
 import type { cutCaptureClips } from './capture-clips';
 import { flushClipCarry, type ClipCarries } from './capture-batch';
 
@@ -38,7 +39,8 @@ export async function closeCaptureSession(input: {
   readonly nowMs: () => number;
   readonly waitUntilMs: (due: number, signal: AbortSignal) => Promise<void>;
 }) {
-  const cleanup = AbortSignal.timeout(CAPTURE_CLEANUP_BUDGET_MS);
+  const budget = deadlineSignal(input, CAPTURE_CLEANUP_BUDGET_MS);
+  const cleanup = budget.signal;
   const drainUntil =
     input.nowMs() + CAPTURE_CLEANUP_BUDGET_MS - SEAL_RESERVE_MS;
   for (const [key, carry] of input.carries) {
@@ -66,7 +68,11 @@ export async function closeCaptureSession(input: {
   input.halt();
   await input.consuming;
   input.dropped(input.discardQueued());
-  return input.seal(cleanup);
+  try {
+    return await input.seal(cleanup);
+  } finally {
+    budget.clear();
+  }
 }
 /**
  * Only the caller's own abort (SIGTERM: a deploy or restart) drains. A

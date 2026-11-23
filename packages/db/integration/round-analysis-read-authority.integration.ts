@@ -1,3 +1,4 @@
+import { hostWaits } from '@daisy/worker/host';
 import { roundDecisionReleasePolicy } from '@daisy/protocol/round-decision-release';
 import { createId } from '@paralleldrive/cuid2';
 import { authorize } from '@daisy/auth/authorization';
@@ -27,6 +28,7 @@ test('stored report reads survive lapse and serialize with every frozen particip
       await request(seats.aff);
       await deliverAnalysis(jobs, seats.aff, report);
       const store = createDatabase({
+        waits: hostWaits,
         decisionRelease: roundDecisionReleasePolicy,
         url: databaseUrl,
         client: fixture.sql,
@@ -134,7 +136,7 @@ test('stored report reads survive lapse and serialize with every frozen particip
           should:
             'block the other debater read at that participant account fence',
           actual: await finishedOrBlockedBehind(reading, fixture.sql, pid, {
-            now: performance.now,
+            waits: hostWaits,
             deadlineMs: 1000,
           }),
           expected: 'blocked',

@@ -1,3 +1,4 @@
+import { virtualClock } from '@daisy/clock/testing';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { capacityRefusalDetail } from './capacity-refusal';
 import { withLaneOperation } from './lane-operation';
@@ -6,33 +7,11 @@ import {
   profileConnections,
   validateWorkloadProfile,
   WORKLOAD_PROFILES,
-  type LaneTimer,
 } from './workload-admission';
 import { RUNTIME_SESSION } from './session-bounds';
 
 setupRitewayBun();
 
-/** A manual timer: `advance(ms)` fires every due callback in order. */
-function manualTimer() {
-  let now = 0;
-  let due: { at: number; fire: () => void; live: boolean }[] = [];
-  const timer: LaneTimer = (ms, fire) => {
-    const entry = { at: now + ms, fire, live: true };
-    due.push(entry);
-    return () => {
-      entry.live = false;
-    };
-  };
-  return {
-    timer,
-    advance(ms: number) {
-      now += ms;
-      const firing = due.filter((entry) => entry.live && entry.at <= now);
-      due = due.filter((entry) => !firing.includes(entry));
-      for (const entry of firing) entry.fire();
-    },
-  };
-}
 const settled = <T>(promise: Promise<T>) =>
   promise.then(
     (value) => ({ ok: true as const, value }),
@@ -45,11 +24,11 @@ const reasonOf = (error: unknown) => {
 };
 
 test('a lane refuses beyond its counted queue and reports why', async () => {
-  const { timer } = manualTimer();
+  const clock = virtualClock();
   const gate = createLaneGate(
     'social',
     { connections: 1, queue: 1, maxWaitMs: 100 },
-    timer,
+    clock,
   );
   await gate.admit();
   const queued = settled(gate.admit());
@@ -72,11 +51,11 @@ test('a lane refuses beyond its counted queue and reports why', async () => {
 });
 
 test('a refusal names what holds the lane, by the operation that asked (ISSUE-1110)', async () => {
-  const { timer } = manualTimer();
+  const clock = virtualClock();
   const gate = createLaneGate(
     'competitive',
     { connections: 3, queue: 1, maxWaitMs: 100 },
-    timer,
+    clock,
   );
   const leaveTick = await withLaneOperation('executeRoundTick', () =>
     gate.admit(2),
@@ -103,11 +82,11 @@ test('a refusal names what holds the lane, by the operation that asked (ISSUE-11
 });
 
 test('work under no operation is named as such, not dropped', async () => {
-  const { timer } = manualTimer();
+  const clock = virtualClock();
   const gate = createLaneGate(
     'competitive',
     { connections: 1, queue: 0, maxWaitMs: 100 },
-    timer,
+    clock,
   );
   await gate.admit();
   const refused = await settled(gate.admit());
@@ -122,22 +101,30 @@ test('work under no operation is named as such, not dropped', async () => {
 });
 
 test('a waiter older than the lane age is refused and leaves the queue', async () => {
-  const clock = manualTimer();
+  const clock = virtualClock();
   const gate = createLaneGate(
     'competitive',
     { connections: 1, queue: 4, maxWaitMs: 1000 },
-    clock.timer,
+    clock,
   );
   const release = await gate.admit();
   const waiting = settled(gate.admit());
-  clock.advance(1000);
+  await clock.advance(999);
+  const before = gate.stats();
+  await clock.advance(1);
   const outcome = await waiting;
   release();
   assert({
     given: 'a waiter still queued when the competitive lane age passes',
-    should: 'refuse it as expired, unrun, and free the lane for later work',
-    actual: [outcome.ok ? undefined : reasonOf(outcome.error), gate.stats()],
+    should:
+      'keep it queued until the age passes, then refuse it as expired, unrun, and free the lane for later work',
+    actual: [
+      before,
+      outcome.ok ? undefined : reasonOf(outcome.error),
+      gate.stats(),
+    ],
     expected: [
+      { active: 1, waiting: 1 },
       { lane: 'competitive', reason: 'expired' },
       { active: 0, waiting: 0 },
     ],
@@ -145,11 +132,11 @@ test('a waiter older than the lane age is refused and leaves the queue', async (
 });
 
 test('waiters take turns across fairness keys, FIFO within one', async () => {
-  const { timer } = manualTimer();
+  const clock = virtualClock();
   const gate = createLaneGate(
     'social',
     { connections: 1, queue: 8, maxWaitMs: 1000 },
-    timer,
+    clock,
   );
   const order: string[] = [];
   const first = await gate.admit(1, 'a');
@@ -175,11 +162,11 @@ test('waiters take turns across fairness keys, FIFO within one', async () => {
 });
 
 test('a two-connection writer holds its turn instead of being starved', async () => {
-  const { timer } = manualTimer();
+  const clock = virtualClock();
   const gate = createLaneGate(
     'competitive',
     { connections: 2, queue: 8, maxWaitMs: 1000 },
-    timer,
+    clock,
   );
   const order: string[] = [];
   const reader = await gate.admit(1);
@@ -206,15 +193,17 @@ test('a two-connection writer holds its turn instead of being starved', async ()
 });
 
 test('release is idempotent and an unconfigured lane refuses everything', async () => {
-  const gate = createLaneGate('social', {
-    connections: 1,
-    queue: 0,
-    maxWaitMs: 10,
-  });
+  const gate = createLaneGate(
+    'social',
+    { connections: 1, queue: 0, maxWaitMs: 10 },
+    virtualClock(),
+  );
   const release = await gate.admit();
   release();
   release();
-  const absent = await settled(createLaneGate('headers', undefined).admit());
+  const absent = await settled(
+    createLaneGate('headers', undefined, virtualClock()).admit(),
+  );
   assert({
     given: 'a double release, then a lane the profile does not configure',
     should: 'count the connection back once, and refuse as unconfigured',
@@ -241,7 +230,11 @@ test('the deployed profiles are valid and sized as the plan states', () => {
 });
 
 test('a full audience lane refuses at once and queues no viewer', async () => {
-  const gate = createLaneGate('audience', WORKLOAD_PROFILES.web.lanes.audience);
+  const gate = createLaneGate(
+    'audience',
+    WORKLOAD_PROFILES.web.lanes.audience,
+    virtualClock(),
+  );
   const held = [await gate.admit(), await gate.admit()];
   const refused = await gate.admit().catch((error: unknown) => error);
   assert({
@@ -267,20 +260,18 @@ test('a queued subscribe outlasts one read blocked on a fence (ISSUE-914)', () =
 });
 
 test('a refusal says what the lane was waiting on', async () => {
-  const lane = manualTimer();
-  let now = 0;
+  const clock = virtualClock();
   const gate = createLaneGate(
     'admission',
     { connections: 1, queue: 8, maxWaitMs: 100 },
-    lane.timer,
-    () => now,
+    clock,
   );
   await gate.admit();
+  await clock.advance(300);
   const expiring = settled(gate.admit());
-  lane.advance(50);
+  await clock.advance(50);
   const queued = settled(gate.admit());
-  now = 400;
-  lane.advance(50);
+  await clock.advance(50);
   const outcome = await expiring;
   assert({
     given: 'one hold of 400 ms, a waiter expiring and another still queued',
@@ -297,17 +288,16 @@ test('a refusal says what the lane was waiting on', async () => {
 });
 
 test('a lane reports how long each operation held its connections', async () => {
-  let now = 0;
+  const clock = virtualClock();
   const gate = createLaneGate(
     'competitive',
     { connections: 2, queue: 0, maxWaitMs: 100 },
-    undefined,
-    () => now,
+    clock,
   );
   const release = await withLaneOperation('claimMediaReconcile', () =>
     gate.admit(),
   );
-  now = 30;
+  await clock.advance(30);
   release();
   release();
   assert({
@@ -328,18 +318,17 @@ test('a lane reports how long each operation held its connections', async () => 
 });
 
 test('a lane counts the holds that queued before their grant', async () => {
-  let now = 0;
+  const clock = virtualClock();
   const gate = createLaneGate(
     'competitive',
     { connections: 1, queue: 4, maxWaitMs: 1000 },
-    undefined,
-    () => now,
+    clock,
   );
   const first = await withLaneOperation('scanRoundJudgingJobs', () =>
     gate.admit(),
   );
   const queued = withLaneOperation('claimRoundJudgingJob', () => gate.admit());
-  now = 5;
+  await clock.advance(5);
   first();
   (await queued)();
   const { total, operations } = gate.drainHolds();

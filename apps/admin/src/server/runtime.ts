@@ -1,3 +1,4 @@
+import { hostWaits } from '@daisy/worker/host';
 import { systemClock, systemId } from '@daisy/clock';
 import { createLogger, type Logger } from '@daisy/logger';
 import type { AuthDeps } from '../auth/attempts';
@@ -74,6 +75,7 @@ export function adminRuntime(): AdminRuntime {
         random: systemRandom,
         fetch: (url, init) => fetch(url, init),
         timeoutMs: OPERATOR_TIMEOUT_MS,
+        waits: hostWaits,
       }),
     },
     security: logStore && createSecurityStore(logStore),

@@ -130,25 +130,25 @@ const ratingState = fc.record({
     fc.double({ min: -100, max: 1_000 }),
   ),
   volatility: fc.oneof(
-    // ISSUE-1498 is pinned separately for values whose square underflows.
-    fc.double({ min: 1e-8, max: bounds.volatility.max, noNaN: true }),
+    fc.double({
+      min: bounds.volatility.min,
+      max: bounds.volatility.max,
+      noNaN: true,
+    }),
+    // Positive values under the floor, down to those whose square underflows.
+    fc.double({
+      min: Number.MIN_VALUE,
+      max: bounds.volatility.min,
+      maxExcluded: true,
+      noNaN: true,
+    }),
+    fc.constant(Number.MIN_VALUE),
     fc.double({ min: -0.1, max: 0 }),
     fc.double({ min: bounds.volatility.max, max: 1 }),
     fc.constant(Number.NaN),
   ),
 });
 
-/** ISSUE-1498: the ledger accepts a positive input whose square rounds to zero. */
-export const ratingVolatilityUnderflow = () => {
-  const state = { rating: 1_500, deviation: 100, volatility: Number.MIN_VALUE };
-  const rating = { state, lastRatedAt: null };
-  return rateDebate({
-    affirmative: rating,
-    negative: rating,
-    outcome: { kind: 'winner', side: 'affirmative' },
-    occurredAt: '2026-11-19T09:00:00.000Z',
-  }).affirmative.after.volatility;
-};
 type RatingState = { rating: number; deviation: number; volatility: number };
 
 const inBounds = (state: RatingState) =>
@@ -159,7 +159,7 @@ const inBounds = (state: RatingState) =>
   state.rating <= bounds.rating.max &&
   state.deviation >= bounds.deviation.min &&
   state.deviation <= bounds.deviation.max &&
-  state.volatility > 0 &&
+  state.volatility >= bounds.volatility.min &&
   state.volatility <= bounds.volatility.max;
 
 const ratingBounded: OracleProperty = {

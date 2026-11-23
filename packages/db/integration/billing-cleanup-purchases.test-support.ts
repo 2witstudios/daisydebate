@@ -1,3 +1,4 @@
+import { hostWaits } from '@daisy/worker/host';
 import { createId } from '@paralleldrive/cuid2';
 import { drizzle } from 'drizzle-orm/bun-sql';
 import { createDatabase } from '../src/index';
@@ -62,6 +63,7 @@ export function withClosedPurchase(
       return connection;
     };
     const database = createDatabase({
+      waits: hostWaits,
       url: process.env.TEST_DATABASE_URL!,
       client: pool,
       nextActorId: createId,

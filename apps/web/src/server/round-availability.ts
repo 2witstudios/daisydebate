@@ -9,7 +9,7 @@ import { startAvailabilityService } from '../features/availability/service';
 export function startRoundAvailability(input: {
   readonly app: App;
   readonly fetch: (url: string, init: RequestInit) => Promise<Response>;
-  readonly timers: Parameters<typeof startAvailabilityService>[0]['timers'];
+  readonly waits: Parameters<typeof startAvailabilityService>[0]['waits'];
 }) {
   const { app } = input;
   const instanceId = app.ids.next();
@@ -20,12 +20,12 @@ export function startRoundAvailability(input: {
   const lifecycle = startAvailabilityService({
     instanceId,
     store: app.database,
-    timers: input.timers,
-    nowMs: () => performance.now(),
+    waits: input.waits,
+    nowMs: input.waits.nowMs,
     probe: createPublicCheckInProbe({
       configuration,
       nextId: () => app.ids.next(),
-      nowMs: () => performance.now(),
+      waits: input.waits,
       fetch: input.fetch,
       sessionRejected: () =>
         app.logger.log(

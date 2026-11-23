@@ -1,12 +1,13 @@
 import { AsyncLocalStorage } from 'node:async_hooks';
 
-const STORE = Symbol.for('daisy.db.lane-operation');
-const host = globalThis as {
-  [STORE]?: AsyncLocalStorage<string>;
-};
-/** One per process, not per module copy: Next can bundle a page apart (ISSUE-927). */
-const store = host[STORE] ?? new AsyncLocalStorage<string>();
-host[STORE] = store;
+/**
+ * One per process, not per module copy: Next can bundle a page apart
+ * (ISSUE-927). The process-wide slot is a static member of the host object,
+ * so nothing else of the host is reached (R4.7).
+ */
+const store = ((
+  globalThis as { 'daisy.db.lane-operation'?: AsyncLocalStorage<string> }
+)['daisy.db.lane-operation'] ??= new AsyncLocalStorage<string>());
 
 /** Runs `work` so a lane admitting it can say which operation holds its slot. */
 export const withLaneOperation = <T>(operation: string, work: () => T): T =>

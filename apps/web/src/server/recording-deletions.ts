@@ -1,3 +1,5 @@
+import { repeatEvery } from '@daisy/worker';
+import type { Waits } from '@daisy/clock';
 import { instantMs } from '@daisy/clock';
 import type { Clock } from '@daisy/clock';
 import type { Logger } from '@daisy/logger';
@@ -6,9 +8,7 @@ import type {
   RecordingObjectStore,
   RecordingStore,
 } from '../features/recording/ports';
-import type { WorkerTimers } from '../lib/worker-timers';
 import { createRetentionSweep } from './retention-sweep';
-import { startRunSchedule } from './run-schedule';
 
 const RECORDING_DELETION_INTERVAL_MS = 60_000;
 
@@ -23,7 +23,7 @@ export function startRecordingDeletions(input: {
   readonly owner: string;
   readonly clock: Clock;
   readonly logger: Logger;
-  readonly timers: WorkerTimers;
+  readonly waits: Waits;
   readonly intervalMs?: number;
 }) {
   const sweep = createRetentionSweep({
@@ -48,10 +48,13 @@ export function startRecordingDeletions(input: {
       },
     ],
   });
-  return startRunSchedule({
-    work: sweep,
-    timers: input.timers,
-    intervalMs: input.intervalMs ?? RECORDING_DELETION_INTERVAL_MS,
+  const work = sweep;
+  return repeatEvery({
+    run: (signal) => work.run(signal),
+    waits: input.waits,
+    everyMs: input.intervalMs ?? RECORDING_DELETION_INTERVAL_MS,
     runOnStart: false,
+    // Each run reports its own failure.
+    failed: () => undefined,
   });
 }

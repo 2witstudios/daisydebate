@@ -1,4 +1,4 @@
-import { instantMs } from '@daisy/clock';
+import { instantMs } from '@daisy/clock/instant';
 import { createInvariantError } from '@daisy/errors';
 import { clockStopsOf, prepConsumedOf } from '@daisy/protocol/round';
 import { dueAfterStops } from '@daisy/protocol/clock-stops';

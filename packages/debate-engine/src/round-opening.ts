@@ -1,4 +1,4 @@
-import { instantMs } from '@daisy/clock';
+import { instantMs } from '@daisy/clock/instant';
 import { dueAfterStops } from '@daisy/protocol/clock-stops';
 import { isSideSeat, sideOfSeat, type SeatRef } from '@daisy/protocol/seats';
 import { type ClockStop } from '@daisy/protocol/clock-stops';

@@ -1,3 +1,6 @@
+import type { Waits } from '@daisy/clock';
+import { pollWork, type WorkWake } from '@daisy/worker';
+import { LIVE_IDLE_MAX_MS } from '../../lib/worker-idle';
 import { nowMs } from '@daisy/clock';
 import { spectatorClockAt } from '../spectating/spectator-clock';
 import { hostHoldsCasualCapture as holdsCasualCapture } from '../room-runtime/capture-offer';
@@ -10,12 +13,6 @@ import {
 import { isJudgeSeat, isModeratorSeat } from '@daisy/protocol/seats';
 import { identify } from '../../lib/identity';
 import type { App } from '../../server/app';
-import type { WorkerTimers } from '../../lib/worker-timers';
-import {
-  LIVE_IDLE_MAX_MS,
-  startWorkerLoop,
-  type WorkWake,
-} from '../../lib/worker-loop';
 import { stageEgressOf } from '../stage-capture/composition';
 import { newStageCredential } from '../stage-capture/stage-access';
 import { createRecordingCapturePort } from './capture-port';
@@ -139,11 +136,11 @@ const composeRecordingCapture = (app: App) =>
  */
 export const startRecordingCapture = (
   app: App,
-  timers: WorkerTimers,
+  waits: Waits,
   /** A Round changed: one may need recording now (ADR 0154). */
   wake?: WorkWake,
 ) => {
-  const egress = stageEgressOf(app);
+  const egress = stageEgressOf(app, waits);
   if (app.config.RECORDING_CAPTURE !== 'on' || !egress) return null;
   const sweep = createRecordingCaptureSweep({
     store: app.database.recordingCaptures,
@@ -169,12 +166,12 @@ export const startRecordingCapture = (
     stageUrl: (id, credential) =>
       `${app.config.PUBLIC_APP_URL}/stage/${id}?c=${encodeURIComponent(credential)}`,
     report: (event) => app.logger.log(event, {}, 'Recording capture'),
-    passBudget: () => Bun.sleep(PASS_BUDGET_MS),
+    passBudget: (signal?: AbortSignal) => waits.sleep(PASS_BUDGET_MS, signal),
   });
-  const running = startWorkerLoop({
-    run: sweep,
+  const running = pollWork({
+    pass: sweep,
     backoff: { busyMs: CAPTURE_SWEEP_EVERY_MS, idleMaxMs: LIVE_IDLE_MAX_MS },
-    timers,
+    waits,
     wake,
     failed: () =>
       app.logger.log('recording.capture_failed', {}, 'Recording capture'),

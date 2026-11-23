@@ -1,3 +1,4 @@
+import { type LoopPass } from '@daisy/worker';
 import { instantMs } from '@daisy/clock';
 import {
   plannedBroadcast,
@@ -26,7 +27,6 @@ import {
 } from './capture-decision';
 import { createSweepPass } from '../../lib/sweep-pass';
 import type { RecordingCapturePort } from './capture-port';
-import type { LoopPass } from '../../lib/idle-backoff';
 
 type Store = Pick<
   ReturnType<typeof createDatabase>['recordingCaptures'],

@@ -1,3 +1,4 @@
+import { hostWaits } from '@daisy/worker/host';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createAppError } from '@daisy/errors';
 import { assertRejects } from '@daisy/errors/testing';
@@ -140,7 +141,7 @@ test('a definite server response wins when fetch completes as the history deadli
       deadline.abort();
       return new Response(null, { status: 403 });
     },
-    nowMs: () => 0,
+    waits: { ...hostWaits, nowMs: () => 0 },
     deadlineSignal: () => new AbortController().signal,
   });
   await assertRejects({

@@ -1,3 +1,4 @@
+import { hostWaits } from '@daisy/worker/host';
 import { deriveRecipientSubkey } from '../src/features/mail/recipient-key';
 import { createId } from '@paralleldrive/cuid2';
 import { readAuthConfig } from '@daisy/config';
@@ -122,7 +123,11 @@ export const createDatabaseAuthServer = (
 ) => {
   const sent: SentMessages = [];
   const logged: RecordedLogs = [];
-  const database = createDatabase({ url, nextActorId: createId });
+  const database = createDatabase({
+    waits: hostWaits,
+    url,
+    nextActorId: createId,
+  });
   const auth = createTestAuthServer(database.authAdapter, {
     sent,
     recordedLogs: logged,

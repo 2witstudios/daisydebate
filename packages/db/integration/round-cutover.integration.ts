@@ -1,3 +1,4 @@
+import { hostWaits } from '@daisy/worker/host';
 import { roundDecisionReleasePolicy } from '@daisy/protocol/round-decision-release';
 import { createId } from '@paralleldrive/cuid2';
 import { requireTestServices } from '@daisy/config';
@@ -100,6 +101,7 @@ test('one write closes a speech and opens the next under the one-open-row index'
       effects: [],
     };
     const database = createDatabase({
+      waits: hostWaits,
       decisionRelease: roundDecisionReleasePolicy,
       url,
       nextActorId: createId,
@@ -144,6 +146,7 @@ test('hydration orders closed segments by their schedule sequence', async () => 
       });
     }
     const database = createDatabase({
+      waits: hostWaits,
       decisionRelease: roundDecisionReleasePolicy,
       url,
       nextActorId: createId,

@@ -1,4 +1,5 @@
 import { sha3Hex } from '@daisy/digest';
+import { hostWaits } from '@daisy/worker/host';
 import { SQL } from 'bun';
 import { systemId } from '@daisy/clock';
 import { createDatabase } from '@daisy/db';
@@ -18,6 +19,7 @@ export async function transcriptProofFixture(
   const database = createDatabase({
     url,
     nextActorId: createId,
+    waits: hostWaits,
   });
   try {
     await sql`insert into users (id,email,email_verified) values (${createId()},${email},true) on conflict (email) do nothing`;

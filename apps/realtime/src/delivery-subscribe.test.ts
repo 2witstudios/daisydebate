@@ -1,3 +1,4 @@
+import { virtualClock } from '@daisy/clock/testing';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { refuseCapacity } from '@daisy/db/testing';
 import { buildRoundTopic } from '@daisy/protocol/topics';
@@ -30,11 +31,11 @@ const session = {
 const roundId = 'd'.repeat(24);
 const settle = () => new Promise((resolve) => setTimeout(resolve, 0));
 
-/** The real delivery over fake reads, one connection, and a manual budget timer. */
+/** The real delivery over fake reads, one connection, and a virtual budget clock. */
 function subscribeRig(reads: unknown) {
   const logged: unknown[] = [];
   const sent: unknown[] = [];
-  let fire = () => {};
+  const clock = virtualClock();
   const delivery = createRealtimeDelivery({
     readingPolicy: refuseAllReading,
     resources: {
@@ -47,13 +48,7 @@ function subscribeRig(reads: unknown) {
     } as unknown as RealtimeApp,
     now: () => 0,
     publish: () => {},
-    timers: {
-      setInterval: (callback) => {
-        fire = callback;
-        return {} as ReturnType<typeof setInterval>;
-      },
-      clearInterval: () => {},
-    },
+    waits: clock,
   });
   const connection = delivery.registry.add(
     {
@@ -69,7 +64,7 @@ function subscribeRig(reads: unknown) {
     delivery,
     logged,
     sent,
-    spendBudget: () => fire(),
+    spendBudget: () => clock.advance(5_000),
     subscribe: () =>
       delivery.registry.subscribe(connection, {
         id: 'first',
@@ -160,7 +155,7 @@ test('a subscribe whose budget is spent stops before taking the lane again', asy
   });
   const subscribing = rig.subscribe();
   await settle();
-  rig.spendBudget();
+  await rig.spendBudget();
   await subscribing;
   finishSession(session);
   await settle();
@@ -190,7 +185,7 @@ test('a subscribe whose budget is spent during the facts read stops before the l
   });
   const subscribing = rig.subscribe();
   await settle();
-  rig.spendBudget();
+  await rig.spendBudget();
   await subscribing;
   finishFacts({
     account,

@@ -21,6 +21,8 @@ export async function consumeCaptureClips(input: {
   readonly signal: AbortSignal;
   readonly nowMs: () => number;
   readonly waitUntilMs: (due: number, signal: AbortSignal) => Promise<void>;
+  /** Each history read's deadline; by default its own timeout (capture-history.ts). */
+  readonly historyDeadline?: () => AbortSignal;
   readonly take: () => QueuedClip | undefined;
   /** Edge-straddling frames seen on a track (capture-staging). */
   readonly straddles: (trackId: string) => readonly FrameWindow[];
@@ -98,6 +100,7 @@ async function consumeClip(
     input.signal,
     input,
     clip.segmentId,
+    input.historyDeadline ? { deadlineSignal: input.historyDeadline } : {},
   );
   const admitted = containingGrant(fresh.state, clip.roundParticipantId, {
     beforeMs: instantMs(clip.before),

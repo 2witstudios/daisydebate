@@ -1,3 +1,4 @@
+import { hostWaits } from '@daisy/worker/host';
 import { SQL } from 'bun';
 import { drizzle } from 'drizzle-orm/bun-sql';
 import { createId } from '@paralleldrive/cuid2';
@@ -50,11 +51,11 @@ test('an open transaction in another database holds back the drain, and the fina
     const whileForeignOpen = await drainedForTopic();
 
     let settled = false;
-    const waiting = waitForOutboxFinality(client, txid, { now: Date.now }).then(
-      () => {
-        settled = true;
-      },
-    );
+    const waiting = waitForOutboxFinality(client, txid, {
+      waits: hostWaits,
+    }).then(() => {
+      settled = true;
+    });
     const settledWhileForeignOpen = await drainedForTopic().then(() => settled);
 
     await foreign.unsafe('COMMIT');
@@ -91,7 +92,7 @@ test('a finality wait that outlives its deadline names the transactions holding 
   try {
     const txid = await insertRow(client, topic);
     const message = await waitForOutboxFinality(client, txid, {
-      now: Date.now,
+      waits: hostWaits,
       deadlineMs: 200,
     }).then(
       () => 'resolved',

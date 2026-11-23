@@ -1,3 +1,4 @@
+import { hostWaits } from '@daisy/worker/host';
 import { judgingProgression } from '../src/features/round-judging/progression';
 import { randomBytes } from 'node:crypto';
 import { canUseAiAllowance } from '@daisy/auth/authorization';
@@ -158,7 +159,7 @@ test('shared ballot preparation admits fresh locked facts, rolls back refusal an
           pending,
           f.sql,
           Number(owner!.pid),
-          { now: performance.now },
+          { waits: hostWaits },
         ),
         expected: 'blocked',
       });

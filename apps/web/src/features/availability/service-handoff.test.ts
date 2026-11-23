@@ -1,9 +1,7 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { startAvailabilityService } from './service';
-import {
-  inertTimers,
-  withOneShots,
-} from '../../lib/worker-timers.test-support';
+import { inertWaits, manualWaits } from '../../lib/manual-waits.test-support';
+import { RENEW_INTERVAL_MS } from './lease-health';
 setupRitewayBun();
 
 test('a graceful elected sampler handoff measures fresh public health before releasing election', async () => {
@@ -12,7 +10,7 @@ test('a graceful elected sampler handoff measures fresh public health before rel
   const samples: { at: number; healthy: boolean; owner: string }[] = [];
   const events: string[] = [];
   const peer = (id: string) => {
-    let tick = () => {};
+    const beat = manualWaits();
     const service = startAvailabilityService({
       instanceId: id,
       nowMs: () => now,
@@ -39,19 +37,19 @@ test('a graceful elected sampler handoff measures fresh public health before rel
         now += 100;
         return true;
       },
-      timers: withOneShots({
-        setInterval: (callback) => {
-          tick = callback;
-          return 1;
-        },
-        clearInterval: () => {},
-      }),
+      waits: beat.waits,
       failed: () => {
         events.push('failed');
       },
       lapsing: { log: () => {}, report: () => {} },
     });
-    return { service, tick: () => tick() };
+    return {
+      service,
+      /** Fires the next heartbeat. */
+      tick: async () => {
+        await beat.tasks.get(RENEW_INTERVAL_MS)?.();
+      },
+    };
   };
   const leader = peer('leader');
   await new Promise<void>((resolve) => setImmediate(resolve));
@@ -61,7 +59,7 @@ test('a graceful elected sampler handoff measures fresh public health before rel
   await leader.service.stop();
   const atRelease = samples.at(-1)?.at;
   now = 2300;
-  follower.tick();
+  await follower.tick();
   await new Promise<void>((resolve) => setImmediate(resolve));
   const gaps = samples.slice(1).map((sample, i) => sample.at - samples[i]!.at);
   await follower.service.stop();
@@ -114,7 +112,7 @@ for (const fault of ['probe', 'reconcile', 'sample', 'nonelected'] as const)
         }),
       },
       probe: async () => !(shuttingDown && fault === 'probe'),
-      timers: inertTimers,
+      waits: inertWaits,
       failed: () => {
         events.push('failed');
       },

@@ -1,3 +1,4 @@
+import { hostWaits } from '@daisy/worker/host';
 import { createDatabase, type Database } from '@daisy/db';
 import {
   notificationPreferencesSchema,
@@ -23,6 +24,7 @@ export async function withTournamentNotificationReader<T>(
     connection: { role: 'daisy_web' },
   });
   const store = createDatabase({
+    waits: hostWaits,
     url: world.runtimeDatabaseUrl,
     client,
     nextActorId: createId,

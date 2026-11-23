@@ -1,3 +1,4 @@
+import { hostWaits } from '@daisy/worker/host';
 import { afterAll, setDefaultTimeout } from 'bun:test';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { systemClock, systemId } from '@daisy/clock';
@@ -154,6 +155,7 @@ describe('AUTH-6.7 AC3 Resend timeout and recovery', () => {
       });
     };
     const app = createApp({
+      waits: hostWaits,
       messagingPolicy: betaMessagingPolicy,
       env: testApp.env,
       fetch: onceHungThenRecovers,

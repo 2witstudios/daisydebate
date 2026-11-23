@@ -1,4 +1,5 @@
 import { captureAdmissionPolicy } from '../apps/web/src/features/media-capture/capture-policy';
+import { hostWaits } from '@daisy/worker/host';
 import { botGrantUnused } from '@daisy/debate-engine';
 import { judgingPolicy } from '@daisy/protocol/judging-policy';
 import { captureRule } from '@daisy/debate-engine';
@@ -163,7 +164,7 @@ async function publishContinuously(
   };
 }
 export async function proveMediaWorker(f: Fixture, key: string, root: string) {
-  const voice = createOpenRouter({ apiKey: key, fetch });
+  const voice = createOpenRouter({ apiKey: key, fetch, waits: hostWaits });
   const { roundId, deps, speech } = await startShortRound(f, voice);
   const bindings =
     await f.sql`select s.room_name,p.identity,r.actor_id from media_sessions s join media_participants p on p.session_id=s.id join round_participants r on r.id=p.round_participant_id where s.round_id=${roundId} and r.actor_id in ${f.sql([f.host.actorId, f.guest.actorId])}`;

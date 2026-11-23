@@ -1,4 +1,4 @@
-import { tryInstantMs, instantMs } from '@daisy/clock';
+import { tryInstantMs, instantMs } from '@daisy/clock/instant';
 import type {
   EntitlementGrant,
   PremiumEntitlementKind,

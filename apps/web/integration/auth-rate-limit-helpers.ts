@@ -1,3 +1,4 @@
+import { hostWaits } from '@daisy/worker/host';
 import { sha3Hex } from '@daisy/digest';
 import { systemClock, systemId } from '@daisy/clock';
 import { noopErrorReporter } from '@daisy/observability';
@@ -95,6 +96,7 @@ export function createSecondInstances(testApp: TestApp) {
     } = {},
   ) => {
     const database = createDatabase({
+      waits: hostWaits,
       url: testDatabaseUrl as string,
       nextActorId: () => systemId.next(),
     });

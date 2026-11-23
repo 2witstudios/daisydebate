@@ -1,4 +1,5 @@
 import type { ReservedSQL } from 'bun';
+import { afterMs, type Waits } from '@daisy/clock';
 import { createAppError } from '@daisy/errors';
 import { drizzle } from 'drizzle-orm/bun-sql';
 import { transactionContext } from './transaction-context';
@@ -21,7 +22,8 @@ export type TransactionLifecycle = {
 /** The control facade exists only inside its adapter-owned transaction callback. */
 export async function runTransactionLifecycle(input: {
   readonly control: ReservedSQL;
-  readonly now: () => number;
+  /** The time `deadline` is on (R4.7). */
+  readonly waits: Waits;
   readonly deadline: number;
   readonly run: (tx: Tx) => Promise<void>;
   readonly refuse: (message: string) => never;
@@ -38,7 +40,7 @@ export async function runTransactionLifecycle(input: {
   };
   const checkDeadline = () => {
     poisoned.signal.throwIfAborted();
-    if (input.now() >= input.deadline) throw expired;
+    if (input.waits.nowMs() >= input.deadline) throw expired;
   };
   const checkLifetime = () => {
     if (scopeClosed)
@@ -52,7 +54,10 @@ export async function runTransactionLifecycle(input: {
     checkDeadline();
     await input.control`begin isolation level read committed`;
     const backstop = String(
-      Math.max(1, Math.floor(Math.min(2000, input.deadline - input.now()))),
+      Math.max(
+        1,
+        Math.floor(Math.min(2000, input.deadline - input.waits.nowMs())),
+      ),
     );
     await input.control`select set_config('statement_timeout', ${backstop}, true),
       set_config('lock_timeout', ${backstop}, true),
@@ -77,23 +82,24 @@ export async function runTransactionLifecycle(input: {
       );
     checkDeadline();
   };
-  let timer: ReturnType<typeof setTimeout> | undefined;
+  let cancel = () => {};
   try {
     await Promise.race([
       execute(),
       new Promise<never>((_, reject) => {
-        timer = setTimeout(
+        cancel = afterMs(
+          input.waits,
+          input.deadline - input.waits.nowMs(),
           () => {
             scopeClosed = true;
             void input.control.close({ timeout: 0 }).catch(() => undefined);
             reject(expired);
           },
-          Math.max(0, input.deadline - input.now()),
         );
       }),
     ]);
   } finally {
     scopeClosed = true;
-    if (timer !== undefined) clearTimeout(timer);
+    cancel();
   }
 }

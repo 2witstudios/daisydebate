@@ -13,12 +13,13 @@
     "proof:pcm": "bun scripts/prove-pcm.ts"
   },
   "dependencies": {
+    "@daisy/clock": "workspace:*",
     "@daisy/errors": "workspace:*",
     "@daisy/protocol": "workspace:*",
     "zod": "4.6.6"
   },
   "devDependencies": {
-    "@daisy/clock": "workspace:*",
+    "@daisy/worker": "workspace:*",
     "riteway": "9.3.0"
   }
 }

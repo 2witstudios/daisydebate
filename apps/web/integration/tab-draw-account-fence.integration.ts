@@ -1,3 +1,4 @@
+import { hostWaits } from '@daisy/worker/host';
 import { afterAll } from 'bun:test';
 import { SQL } from 'bun';
 import { authorize } from '@daisy/auth/authorization';
@@ -131,7 +132,7 @@ test('draw requests fence the actual cast and refuse a roster discovered after a
       drawing,
       observer,
       Number(holding?.pid),
-      { now: Date.now },
+      { waits: hostWaits },
     );
     const [pending] =
       await judge`select id from tournament_judges where lobby_id=${lobbyId} and actor_id=${state.bots['Judge B']!.actorId}`;
@@ -241,7 +242,7 @@ test('draw requests fence the actual cast and refuse a roster discovered after a
       answering,
       observer,
       Number(writing?.pid),
-      { now: Date.now },
+      { waits: hostWaits },
     );
     release();
     const outcomes = await Promise.all([drawing, answering]);

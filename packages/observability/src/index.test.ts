@@ -1,4 +1,5 @@
 import { expect } from 'bun:test';
+import { virtualClock } from '@daisy/clock/testing';
 import { propagation, ROOT_CONTEXT, trace } from '@opentelemetry/api';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {
@@ -130,22 +131,43 @@ describe('tracing', () => {
 
 describe('withTimeout', () => {
   test('bounds the wait', async () => {
-    await expect(withTimeout(new Promise(() => {}), 5)).rejects.toThrow(
-      'timed out',
+    const clock = virtualClock();
+    await expect(
+      clock.run(withTimeout(clock, new Promise(() => {}), 5)),
+    ).rejects.toThrow('timed out');
+  });
+
+  test('answers an operation that settles in time, leaving no wait', async () => {
+    const clock = virtualClock();
+    const answer = await clock.run(
+      withTimeout(
+        clock,
+        clock.sleep(3).then(() => 'answered'),
+        5,
+      ),
     );
+    assert({
+      given: 'an operation that answers at 3 ms under a 5 ms bound',
+      should: 'resolve with its answer and cancel the bound',
+      actual: [answer, clock.sleepers()],
+      expected: ['answered', 0],
+    });
   });
 });
 
 describe('drainWithDeadline', () => {
   test('resolves once close finishes, never firing the deadline', async () => {
+    const clock = virtualClock();
     let deadlineFired = false;
     await drainWithDeadline({
+      waits: clock,
       deadlineMs: 50,
       onDeadlineExceeded: () => {
         deadlineFired = true;
       },
       close: async () => {},
     });
+    await clock.advance(50);
 
     assert({
       given: 'a close that finishes well within the deadline',
@@ -158,19 +180,23 @@ describe('drainWithDeadline', () => {
   test('fires onDeadlineExceeded when close outlasts the deadline', async () => {
     // The close settles only once the deadline has fired: a drain that
     // never fires it leaves the close pending and the test fails.
+    const clock = virtualClock();
     let deadlineFired = false;
     let finishClose = () => {};
-    await drainWithDeadline({
-      deadlineMs: 5,
-      onDeadlineExceeded: () => {
-        deadlineFired = true;
-        finishClose();
-      },
-      close: () =>
-        new Promise<void>((resolve) => {
-          finishClose = resolve;
-        }),
-    });
+    await clock.run(
+      drainWithDeadline({
+        waits: clock,
+        deadlineMs: 5,
+        onDeadlineExceeded: () => {
+          deadlineFired = true;
+          finishClose();
+        },
+        close: () =>
+          new Promise<void>((resolve) => {
+            finishClose = resolve;
+          }),
+      }),
+    );
 
     assert({
       given: 'a close slower than the deadline',

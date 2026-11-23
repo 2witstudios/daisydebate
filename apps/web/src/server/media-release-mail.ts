@@ -1,3 +1,4 @@
+import type { Waits } from '@daisy/clock';
 import type { ErrorReporter } from '@daisy/observability';
 import { deriveRecipientSubkey } from '../features/mail/recipient-key';
 import { startMailQueueWorker } from '../features/mail/queue-worker';
@@ -5,7 +6,6 @@ import { MAIL_QUEUE_BATCH } from '../features/mail/retry-policy';
 import { newReleaseLinkToken } from '../features/media-releases/link-token';
 import { createMediaReleaseMail } from '../features/media-releases/mail-delivery';
 import { deriveReleaseStopSubkey } from '../features/media-releases/stop-token';
-import type { WorkerTimers } from '../lib/worker-timers';
 import type { App } from './app';
 import { workerFailures } from './recoverable-failure';
 import { nextWorkerToken } from './worker-token';
@@ -16,7 +16,7 @@ import { nextWorkerToken } from './worker-token';
  */
 export function startMediaReleaseMail(input: {
   readonly app: App;
-  readonly timers: WorkerTimers;
+  readonly waits: Waits;
   readonly reporter?: ErrorReporter;
 }) {
   const { app } = input;
@@ -43,7 +43,7 @@ export function startMediaReleaseMail(input: {
     },
     batch: MAIL_QUEUE_BATCH,
     everyMs: 15_000,
-    timers: input.timers,
+    waits: input.waits,
     failed: (error) => failed(error, 'send'),
   });
 }

@@ -1,3 +1,4 @@
+import { hostWaits } from '@daisy/worker/host';
 import { afterAll } from 'bun:test';
 import type { Socket } from 'bun';
 import { systemClock, systemId, type Clock } from '@daisy/clock';
@@ -151,6 +152,7 @@ export function createFaultedApp(
     port: Number(target.port),
   });
   const app = createApp({
+    waits: hostWaits,
     messagingPolicy: betaMessagingPolicy,
     env: { ...testApp.env, [service]: throughProxy(url, proxy) },
     fetch: testApp.mailbox.fetch,

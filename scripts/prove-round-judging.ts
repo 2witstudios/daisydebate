@@ -1,4 +1,5 @@
 import { judgingProgression } from '../apps/web/src/features/round-judging/progression';
+import { hostWaits } from '@daisy/worker/host';
 import { randomBytes } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { requireTestSlotServices } from '@daisy/config';
@@ -38,6 +39,7 @@ await withRunDatabase({
         const provider = createOpenRouter({
           apiKey: key,
           timeoutMs: 115000,
+          waits: hostWaits,
           fetch: (url, init) => {
             calls++;
             return globalThis.fetch(url, init);

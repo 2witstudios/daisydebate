@@ -1,4 +1,4 @@
-import { isInstantBefore } from '@daisy/clock';
+import { isInstantBefore } from '@daisy/clock/instant';
 import { z } from 'zod';
 import { settingKeys, type SettingKey } from './keys';
 import { conflictHandlingSchema } from '../authorization';

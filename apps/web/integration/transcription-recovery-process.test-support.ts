@@ -1,3 +1,4 @@
+import { hostWaits } from '@daisy/worker/host';
 import { existsSync, writeFileSync } from 'node:fs';
 import { createDatabase } from '@daisy/db';
 import { requireTestServices } from '@daisy/config';
@@ -7,6 +8,7 @@ if (import.meta.main) {
   const request = await Bun.stdin.json();
   const services = requireTestServices(process.env);
   const database = createDatabase({
+    waits: hostWaits,
     url: services.databaseUrl,
     nextActorId: createId,
   });

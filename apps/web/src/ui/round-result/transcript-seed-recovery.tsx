@@ -5,7 +5,10 @@ import { useResource } from '../edge/use-driver';
 import { Announcement } from '../components/announcement/announcement';
 import { Button } from '../components/button/button';
 import { useState } from 'react';
-import { readTranscript } from '../../features/round-runtime/read-transcript';
+import {
+  readTranscript,
+  TRANSCRIPT_READ_DEADLINE_MS,
+} from '../../features/round-runtime/read-transcript';
 import {
   askForTranscriptSeed,
   type TranscriptSeed,
@@ -32,7 +35,12 @@ export function TranscriptSeedRecovery({
   const [state, setState] = useState<TranscriptSeed>({ kind: 'asking' });
   useResource(roundId, (round) => ({
     dispose: askForTranscriptSeed({
-      read: () => readTranscript(browserTransport, round),
+      read: () =>
+        readTranscript(
+          browserTransport,
+          round,
+          AbortSignal.timeout(TRANSCRIPT_READ_DEADLINE_MS),
+        ),
       after: browserScheduler.after,
       waitMs: nextAskMs,
       settled: setState,

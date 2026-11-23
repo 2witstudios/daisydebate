@@ -1,3 +1,4 @@
+import { hostWaits } from '@daisy/worker/host';
 import { testLane } from '../src/testing-lane';
 import { requireTestServices } from '@daisy/config';
 import { assertRejects } from '@daisy/errors/testing';
@@ -188,8 +189,8 @@ test(
       };
       let escaped: Tx | undefined;
       const run = createBoundedTransaction({
-        lane: testLane(client, 4),
-        now: performance.now,
+        lane: testLane(client, hostWaits, 4),
+        waits: hostWaits,
       });
       const result = run(async (tx) => {
         escaped = tx;
@@ -222,8 +223,8 @@ for (const command of ['SELECT 1; COMMIT', 'SELECT 1; END']) {
   test(`prepared protocol refuses multiple statements including ${command}`, async () =>
     withPool(async (client) => {
       const run = createBoundedTransaction({
-        lane: testLane(client, 4),
-        now: performance.now,
+        lane: testLane(client, hostWaits, 4),
+        waits: hostWaits,
       });
       await assertRejects({
         given: 'manual control hidden after a permitted first statement',

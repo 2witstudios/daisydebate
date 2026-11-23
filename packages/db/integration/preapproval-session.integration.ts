@@ -1,3 +1,4 @@
+import { hostWaits } from '@daisy/worker/host';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { requireTestServices } from '@daisy/config';
 import { createAppError } from '@daisy/errors';
@@ -39,7 +40,11 @@ test('preparing preapproval effects roll back on refusal, exception, missing app
   ] as const) {
     await withFixture(url, async (f) => {
       const account = await pendingAccount(f);
-      const db = createDatabase({ url, nextActorId: createId });
+      const db = createDatabase({
+        waits: hostWaits,
+        url,
+        nextActorId: createId,
+      });
       let live = true;
       const input = inputFor(`${account.userId}@operator.invalid`, () => live);
       const id = input.command.commandId;
@@ -117,7 +122,7 @@ test('preparing preapproval effects roll back on refusal, exception, missing app
 
 test('a preapproval session replays without a writer and rejects repeated or escaped load and apply', async () => {
   await withFixture(url, async (f) => {
-    const db = createDatabase({ url, nextActorId: createId });
+    const db = createDatabase({ waits: hostWaits, url, nextActorId: createId });
     const input = inputFor(`${createId()}@example.test`);
     let escaped: (() => Promise<unknown>) | null = null;
     const rejected: string[] = [];

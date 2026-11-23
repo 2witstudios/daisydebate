@@ -1,3 +1,4 @@
+import { hostWaits } from '@daisy/worker/host';
 import { nowMs } from '@daisy/clock';
 import { asc } from 'drizzle-orm';
 import {
@@ -61,6 +62,7 @@ export async function setupCommands(
     config: { baseUrl: 'http://operator.test', keyId, key, audience },
     crypto: bunOperatorCrypto,
     clock: base.clock,
+    waits: hostWaits,
     random: systemRandom,
     fetch: wrapFetch(async (url, init) => {
       if (init.body) await observe(JSON.parse(String(init.body)));

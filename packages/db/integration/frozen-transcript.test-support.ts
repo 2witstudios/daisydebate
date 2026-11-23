@@ -1,3 +1,4 @@
+import { hostWaits } from '@daisy/worker/host';
 import type { SQL } from 'bun';
 import { createId } from '@paralleldrive/cuid2';
 import { finishedOrBlockedBehind } from '../src/testing';
@@ -13,7 +14,7 @@ export async function writeBehindHolder(
 ) {
   const outcome = rejectedBy(() => writing);
   const blocked = await finishedOrBlockedBehind(writing, client, holderPid, {
-    now: performance.now,
+    waits: hostWaits,
   });
   await held`commit`;
   return { blocked, refusal: await outcome };

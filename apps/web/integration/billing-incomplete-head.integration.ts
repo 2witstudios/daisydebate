@@ -1,3 +1,4 @@
+import { hostWaits } from '@daisy/worker/host';
 import { SQL } from 'bun';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { requireTestServices } from '@daisy/config';
@@ -30,6 +31,7 @@ test('incomplete owned payment HEAD facts enter the real fenced intake once with
     return connection;
   };
   const database = createDatabase({
+      waits: hostWaits,
       url: databaseUrl,
       client: pool,
       nextActorId: createId,

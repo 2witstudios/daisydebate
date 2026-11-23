@@ -1,3 +1,4 @@
+import { virtualClock } from '@daisy/clock/testing';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {
   installForcedShutdown,
@@ -24,6 +25,7 @@ describe('installForcedShutdown (ISSUE-150)', () => {
       drainBudgetMs: 1000,
       exit: () => {},
       target: target as never,
+      waits: virtualClock(),
     });
     assert({
       given: 'no explicit signal list',
@@ -33,37 +35,41 @@ describe('installForcedShutdown (ISSUE-150)', () => {
     });
   });
 
-  test('schedules a hard exit(0) at the configured drain budget on SIGTERM', () => {
+  test('schedules a hard exit(0) at the configured drain budget on SIGTERM', async () => {
+    const clock = virtualClock();
     const target = fakeSignalTarget();
-    const scheduled: Array<{ callback: () => void; ms: number }> = [];
     const exitCodes: number[] = [];
     installForcedShutdown({
       drainBudgetMs: 3000,
       exit: (code) => exitCodes.push(code),
       target: target as never,
-      schedule: (callback, ms) => scheduled.push({ callback, ms }),
+      waits: clock,
     });
     target.fire('SIGTERM');
-    scheduled[0]?.callback();
+    await clock.advance(2999);
+    const beforeBudget = [...exitCodes];
+    await clock.advance(1);
     assert({
       given: 'a SIGTERM delivered to a registered target',
       should:
         'schedule the exit at the configured drain budget and then exit 0',
-      actual: { scheduledMs: scheduled[0]?.ms, exitCodes },
-      expected: { scheduledMs: 3000, exitCodes: [0] },
+      actual: { beforeBudget, exitCodes },
+      expected: { beforeBudget: [], exitCodes: [0] },
     });
   });
 
-  test('SIGINT forces the same bounded exit', () => {
+  test('SIGINT forces the same bounded exit', async () => {
+    const clock = virtualClock();
     const target = fakeSignalTarget();
     const exitCodes: number[] = [];
     installForcedShutdown({
       drainBudgetMs: 5,
       exit: (code) => exitCodes.push(code),
       target: target as never,
-      schedule: (callback) => callback(),
+      waits: clock,
     });
     target.fire('SIGINT');
+    await clock.advance(5);
     assert({
       given: 'a SIGINT delivered to a registered target',
       should: 'exit 0 the same way SIGTERM does',

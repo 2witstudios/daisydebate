@@ -5,7 +5,7 @@ import {
   createEventRecorder,
   createRecordingLogger,
 } from './test-loggers.test-support';
-import { inertTimers, withOneShots } from '../lib/worker-timers.test-support';
+import { inertWaits, recordingWaits } from '../lib/manual-waits.test-support';
 setupRitewayBun();
 
 test('due observation purge jobs are delivered with one confirmed Redis purge per run (ISSUE-852)', async () => {
@@ -27,12 +27,8 @@ test('due observation purge jobs are delivered with one confirmed Redis purge pe
     clock: fixedClock(now),
     logger,
     intervalMs: 5_000,
-    timers: withOneShots({
-      setInterval: (_callback, ms) => {
-        calls.push(ms);
-        return 1;
-      },
-      clearInterval: () => {},
+    waits: recordingWaits(inertWaits, (event, ms) => {
+      if (event === 'armed') calls.push(ms);
     }),
   });
   await worker.initial;
@@ -49,7 +45,7 @@ test('due observation purge jobs are delivered with one confirmed Redis purge pe
 test('a Redis failure never reports completion, on its retry or the idle runs after it (ISSUE-1007)', async () => {
   const now = '2026-10-28T00:00:00.000Z';
   const { logger, logged } = createEventRecorder();
-  const timers = inertTimers;
+  const waits = inertWaits;
   const start = (retried: number) =>
     startObservationPurges({
       deliver: async () => ({ succeeded: 0, retried }),
@@ -57,7 +53,7 @@ test('a Redis failure never reports completion, on its retry or the idle runs af
       purgeAll: async () => 0,
       clock: fixedClock(now),
       logger,
-      timers,
+      waits,
     });
   await start(1).stop();
   await start(0).stop();

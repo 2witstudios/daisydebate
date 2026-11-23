@@ -1,3 +1,4 @@
+import { virtualClock } from '@daisy/clock/testing';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import type { ServerWebSocket } from 'bun';
 import {
@@ -49,10 +50,7 @@ async function closeAfter(
   const ws = fakeSocket(closes);
   const handlers = createWebSocketHandlers({
     logger,
-    timers: {
-      setTimeout: () => 1 as unknown as ReturnType<typeof setTimeout>,
-      clearTimeout: () => {},
-    },
+    waits: virtualClock(),
     now: () => 0,
     failed: (_error, operation) => reported.push(operation),
     ...checks,
@@ -100,10 +98,7 @@ test('a check answering after the hello deadline, before its timer fires, closes
       log: (_event: string, fields: { cause?: unknown }) =>
         rejections.push(fields.cause),
     } as unknown as typeof logger,
-    timers: {
-      setTimeout: () => 1 as unknown as ReturnType<typeof setTimeout>,
-      clearTimeout: () => {},
-    },
+    waits: virtualClock(),
     now: () => elapsed,
     authenticate: async () => {
       elapsed = HELLO_TIMEOUT_MS;

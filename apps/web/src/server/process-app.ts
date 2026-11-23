@@ -1,4 +1,5 @@
 import { systemClock, systemId } from '@daisy/clock';
+import { hostWaits } from '@daisy/worker/host';
 import { createApp, type App } from './app';
 import type { Fetch } from '../features/mail/resend-sender';
 import { captureMail, fileRecorder, readDevMailFile } from './dev-mail';
@@ -79,19 +80,28 @@ export const fetchPublicAttendanceProbe = (url: string, init: RequestInit) =>
 export const processVendorFetch = (): typeof globalThis.fetch =>
   edge.get().vendorFetch;
 
-const edge = createProcessEdge(
-  globalThis as typeof globalThis & ProcessHolder<ProcessState>,
-  () =>
-    stateFor(
-      createApp({
-        env: process.env,
-        fetch: outboundFetch(process.env),
-        clock: systemClock,
-        ids: systemId,
-        nextWorkerToken,
-      }),
-      globalThis.fetch,
-    ),
+type ProcessSlot = typeof globalThis & ProcessHolder<ProcessState>;
+/** The process-wide slot: one named property of the host, never the host itself. */
+const processHolder: ProcessHolder<ProcessState> = {
+  get daisyWebApp() {
+    return (globalThis as ProcessSlot).daisyWebApp;
+  },
+  set daisyWebApp(value) {
+    (globalThis as ProcessSlot).daisyWebApp = value;
+  },
+};
+const edge = createProcessEdge(processHolder, () =>
+  stateFor(
+    createApp({
+      env: process.env,
+      fetch: outboundFetch(process.env),
+      clock: systemClock,
+      waits: hostWaits,
+      ids: systemId,
+      nextWorkerToken,
+    }),
+    globalThis.fetch,
+  ),
 );
 
 /** The originating bootstrap installs once; later Next instrumentation cannot replace it. */

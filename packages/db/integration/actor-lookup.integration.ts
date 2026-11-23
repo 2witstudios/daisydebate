@@ -1,3 +1,4 @@
+import { hostWaits } from '@daisy/worker/host';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { createDatabase } from '../src';
@@ -13,7 +14,11 @@ describe('getActorByUserId (ACTOR-1): the realtime and web seam', () => {
     await withFixture(url, async (fixture) => {
       const userId = await fixture.user();
       const actorId = await fixture.actor(userId);
-      const database = createDatabase({ url, nextActorId: createId });
+      const database = createDatabase({
+        waits: hostWaits,
+        url,
+        nextActorId: createId,
+      });
       let found;
       try {
         found = await database.getActorByUserId(userId);
@@ -32,7 +37,11 @@ describe('getActorByUserId (ACTOR-1): the realtime and web seam', () => {
   test('negative control: a user with no actor resolves to null', async () => {
     await withFixture(url, async (fixture) => {
       const userId = await fixture.user();
-      const database = createDatabase({ url, nextActorId: createId });
+      const database = createDatabase({
+        waits: hostWaits,
+        url,
+        nextActorId: createId,
+      });
       let found;
       try {
         found = await database.getActorByUserId(userId);

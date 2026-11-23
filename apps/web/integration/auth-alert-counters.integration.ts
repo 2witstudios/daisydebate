@@ -1,3 +1,4 @@
+import { hostWaits } from '@daisy/worker/host';
 import { afterAll } from 'bun:test';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
@@ -102,6 +103,7 @@ describe('ISSUE-190 auth request duration histogram', () => {
   };
   const logLines: string[] = [];
   const app = createApp({
+    waits: hostWaits,
     messagingPolicy: betaMessagingPolicy,
     env: testApp.env,
     fetch: delayedMail,

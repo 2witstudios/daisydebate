@@ -1,3 +1,4 @@
+import type { Waits } from '@daisy/clock';
 import { createAppError } from '@daisy/errors';
 import {
   AudioStream,
@@ -33,7 +34,8 @@ type SubscriptionInput = {
   readonly url: string;
   readonly token: string;
   readonly identities: readonly string[];
-  readonly nowMs: () => number;
+  /** The time frames are stamped on and subscription retries wait on (R4.7). */
+  readonly waits: Waits;
   readonly onFrame: (
     frame: RawAudioFrame & {
       readonly subscriptionGeneration: number;
@@ -81,10 +83,7 @@ export async function createAudioSubscription(input: SubscriptionInput) {
       transport: ReturnType<typeof TransportObservation.create>;
     }
   >();
-  const requests = createSubscriptionRequests({
-    set: (run, ms) => setTimeout(run, ms),
-    clear: (handle) => clearTimeout(handle as ReturnType<typeof setTimeout>),
-  });
+  const requests = createSubscriptionRequests(input.waits);
   const start = (
     track: Track,
     publication: TrackPublication,
@@ -106,7 +105,7 @@ export async function createAudioSubscription(input: SubscriptionInput) {
     const subscriptionGeneration = ++generation;
     const transport = TransportObservation.create({
       binding: { incarnation, trackId, generation: subscriptionGeneration },
-      nowMs: input.nowMs,
+      nowMs: input.waits.nowMs,
       readStats: (options) => track.getStats(options),
     });
     /** Set once by `stop`, which any callback below may reach first. */
@@ -114,7 +113,7 @@ export async function createAudioSubscription(input: SubscriptionInput) {
     const processor = new AudioFrameProcessor({
       identity,
       trackId,
-      nowMs: input.nowMs,
+      nowMs: input.waits.nowMs,
       onFrame: (frame) =>
         input.onFrame({
           ...frame,

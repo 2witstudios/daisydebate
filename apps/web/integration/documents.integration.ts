@@ -1,3 +1,4 @@
+import { hostWaits } from '@daisy/worker/host';
 import { createId } from '@paralleldrive/cuid2';
 import { instantMs, fixedClock, systemId } from '@daisy/clock';
 import { requireTestServices } from '@daisy/config';
@@ -50,6 +51,7 @@ const withDrive = async (
 ) => {
   const [me, stranger] = [await seedPerson(), await seedPerson()];
   const database = createDatabase({
+    waits: hostWaits,
     url: testDatabaseUrl,
     nextActorId: createId,
   });

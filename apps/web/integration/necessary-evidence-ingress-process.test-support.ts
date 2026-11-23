@@ -1,3 +1,4 @@
+import { hostWaits } from '@daisy/worker/host';
 import { captureAdmissionPolicy } from '../src/features/media-capture/capture-policy';
 import { sha3Hex } from '@daisy/digest';
 import { existsSync, writeFileSync } from 'node:fs';
@@ -17,6 +18,7 @@ if (import.meta.main) {
   const request = await Bun.stdin.json();
   const services = requireTestServices(process.env);
   const database = createDatabase({
+    waits: hostWaits,
     url: services.databaseUrl,
     nextActorId: createId,
   });

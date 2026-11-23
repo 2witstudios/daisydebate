@@ -1,13 +1,11 @@
+import { afterMs, type Waits } from '@daisy/clock';
+
 /** A remote publication as far as subscribing goes. */
 type Publication = {
   readonly sid?: string | undefined;
   /** True only once the track has arrived, not when it is asked for. */
   readonly subscribed: boolean;
   setSubscribed(subscribed: boolean): void;
-};
-type Timers = {
-  readonly set: (run: () => void, ms: number) => unknown;
-  readonly clear: (handle: unknown) => void;
 };
 
 /** An ask neither answered nor refused within this counts as refused. */
@@ -25,20 +23,20 @@ const RETRY_MAX_MS = 30000;
  * a stable one recovers quickly. A pending ask is never repeated, and withdrawing,
  * ending or closing forgets it entirely.
  */
-export function createSubscriptionRequests(timers: Timers) {
-  /** Each outstanding ask or retry, by publication sid, with its timer. */
-  const pending = new Map<string, unknown>();
+export function createSubscriptionRequests(waits: Waits) {
+  /** Each outstanding ask or retry, by publication sid, with its wait's cancel. */
+  const pending = new Map<string, () => void>();
   /** The next retry pause per sid, until the track holds or the publication ends. */
   const pauses = new Map<string, number>();
-  /** A held track's timer that, once it has held long enough, forgets its pause. */
-  const holds = new Map<string, unknown>();
+  /** A held track's wait that, once it has held long enough, forgets its pause. */
+  const holds = new Map<string, () => void>();
   let closed = false;
   const cancel = (sid: string) => {
-    if (pending.has(sid)) timers.clear(pending.get(sid));
+    pending.get(sid)?.();
     pending.delete(sid);
   };
   const release = (sid: string) => {
-    if (holds.has(sid)) timers.clear(holds.get(sid));
+    holds.get(sid)?.();
     holds.delete(sid);
   };
   const forget = (sid: string) => {
@@ -56,10 +54,10 @@ export function createSubscriptionRequests(timers: Timers) {
     cancel(sid);
     pending.set(
       sid,
-      timers.set(() => {
+      afterMs(waits, pauseMs, () => {
         pending.delete(sid);
         again();
-      }, pauseMs),
+      }),
     );
   };
   return {
@@ -80,7 +78,7 @@ export function createSubscriptionRequests(timers: Timers) {
       publication.setSubscribed(true);
       pending.set(
         sid,
-        timers.set(() => retry(sid, again), ASK_TIMEOUT_MS),
+        afterMs(waits, ASK_TIMEOUT_MS, () => retry(sid, again)),
       );
     },
     /**
@@ -100,10 +98,10 @@ export function createSubscriptionRequests(timers: Timers) {
       if (closed || !pauses.has(sid)) return;
       holds.set(
         sid,
-        timers.set(() => {
+        afterMs(waits, RETRY_MAX_MS, () => {
           holds.delete(sid);
           pauses.delete(sid);
-        }, RETRY_MAX_MS),
+        }),
       );
     },
     /** The publication went away. */

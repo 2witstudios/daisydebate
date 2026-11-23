@@ -1,4 +1,3 @@
-import { requireTestServices } from '@daisy/config';
 import { validRules } from '@daisy/db/testing';
 import { emptyRuntimeCheckpointFor } from '@daisy/protocol/round';
 import { createId } from '@paralleldrive/cuid2';
@@ -6,18 +5,38 @@ import { SQL } from 'bun';
 import { chmod, mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
-import { assert, setupRitewayBun, test } from 'riteway/bun';
 
-setupRitewayBun();
-const { databaseUrl } = requireTestServices(process.env);
+/** The actual worker process, holding one Broadcast inside a stalled encode. */
+export type EncodingWorker = {
+  readonly sql: SQL;
+  readonly broadcastId: string;
+  readonly worker: ReturnType<typeof Bun.spawn>;
+  /** The stalled encoder's process id. */
+  readonly encoderPid: number;
+  /** Every public write so far, by path. */
+  readonly writes: readonly string[];
+  /** Lets the stalled encoder finish. */
+  readonly releaseEncoder: () => void;
+  /** Whether the encoder process is still alive. */
+  readonly encoderAlive: () => boolean;
+};
 
-test('SIGTERM drains the actual broadcast process during an active encode', async () => {
+/**
+ * Seeds a releasing Broadcast, starts `src/start.ts` under a fresh login in
+ * the broadcast-worker role, with a replacement ffmpeg that stalls inside
+ * encoding, and hands the running process to `run` once it is encoding.
+ * Everything is cleaned up afterwards.
+ */
+export async function withEncodingWorker(
+  databaseUrl: string,
+  run: (encoding: EncodingWorker) => Promise<void>,
+) {
   const sql = new SQL(databaseUrl, { max: 1 });
   const id = createId();
   const roundId = createId();
   const role = `encoder_${createId()}`;
   const password = createId();
-  const dir = await mkdtemp(join(tmpdir(), 'broadcast-shutdown-'));
+  const dir = await mkdtemp(join(tmpdir(), 'broadcast-process-'));
   const began = Promise.withResolvers<number>();
   const release = Promise.withResolvers<Response>();
   const writes: string[] = [];
@@ -89,7 +108,7 @@ test('SIGTERM drains the actual broadcast process during an active encode', asyn
       stderr: 'pipe',
     });
     child = worker;
-    encoderPid = await Promise.race([
+    const pid = await Promise.race([
       began.promise,
       worker.exited.then(async (code) => {
         throw new Error(
@@ -100,46 +119,22 @@ test('SIGTERM drains the actual broadcast process during an active encode', asyn
         throw new Error('Actual worker never entered encoding');
       }),
     ]);
-    const before = [...writes];
-    const started = performance.now();
-    worker.kill('SIGTERM');
-    const drained = await Promise.race([
-      worker.exited.then((code) => ({ code })),
-      Bun.sleep(8000).then(() => null),
-    ]);
-    let encoderAlive = true;
-    try {
-      process.kill(encoderPid, 0);
-    } catch {
-      encoderAlive = false;
-    }
-    assert({
-      given:
-        'SIGTERM after the actual process has claimed and spawned a stalled encoder',
-      should:
-        'exit successfully well within Fly’s 30s grace, reap the encoder and publish nothing further',
-      actual: {
-        drained,
-        withinGrace: performance.now() - started < 30_000,
-        encoderAlive,
-        writes,
-        before,
+    encoderPid = pid;
+    await run({
+      sql,
+      broadcastId: id,
+      worker,
+      encoderPid: pid,
+      writes,
+      releaseEncoder: () => release.resolve(new Response(null)),
+      encoderAlive: () => {
+        try {
+          process.kill(pid, 0);
+          return true;
+        } catch {
+          return false;
+        }
       },
-      expected: {
-        drained: { code: 0 },
-        withinGrace: true,
-        encoderAlive: false,
-        writes: before,
-        before,
-      },
-    });
-    const [row] =
-      await sql`select next_segment, hold_cursor from broadcasts where id=${id}`;
-    assert({
-      given: 'a cancelled encoding attempt',
-      should: 'leave the durable cursor unchanged for the next owner',
-      actual: { ...row },
-      expected: { next_segment: 0, hold_cursor: 0 },
     });
   } finally {
     release.resolve(new Response(null));
@@ -165,4 +160,4 @@ test('SIGTERM drains the actual broadcast process during an active encode', asyn
       force: true,
     });
   }
-}, 30_000);
+}

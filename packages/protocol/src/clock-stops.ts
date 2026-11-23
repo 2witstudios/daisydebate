@@ -1,4 +1,4 @@
-import { instantMs } from '@daisy/clock';
+import { instantMs } from '@daisy/clock/instant';
 /**
  * Time the Round clock did not run. A stop is a closed span once its end is
  * known; an open one is still running, so anything waiting on it stays frozen.

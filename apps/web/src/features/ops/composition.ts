@@ -7,7 +7,10 @@ type OpsInputs = Omit<
   Parameters<typeof createReadinessHandler>[0],
   'startupChecked'
 > &
-  Pick<Parameters<typeof createAlertsHandler>[0], 'clock' | 'local' | 'token'> &
+  Pick<
+    Parameters<typeof createAlertsHandler>[0],
+    'clock' | 'local' | 'token' | 'waits'
+  > &
   Pick<Parameters<typeof createMetricsHandler>[0], 'metrics'> & {
     readonly redis: Parameters<typeof createReadinessHandler>[0]['redis'] &
       Parameters<typeof createAlertsHandler>[0]['redis'];
@@ -26,6 +29,7 @@ export function composeOpsRoutes(app: OpsInputs) {
         startupChecked: app.startupChecked,
         logger: app.logger,
         reporter: app.reporter,
+        waits: app.waits,
       }),
     },
     ops: {
@@ -36,6 +40,7 @@ export function composeOpsRoutes(app: OpsInputs) {
           redis: app.redis,
           local: app.local,
           clock: app.clock,
+          waits: app.waits,
           workers: runningWorkers({
             fileMaintenanceIntervalMs: app.fileMaintenanceIntervalMs,
           }),

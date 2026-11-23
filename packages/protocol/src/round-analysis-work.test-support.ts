@@ -1,4 +1,4 @@
-import { addMs } from '@daisy/clock';
+import { addMs } from '@daisy/clock/instant';
 import type { AnalysisWork } from './round-analysis-work';
 import {
   advanceAnalysisWork as advance,

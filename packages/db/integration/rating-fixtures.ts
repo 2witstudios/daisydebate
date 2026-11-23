@@ -1,3 +1,4 @@
+import { hostWaits } from '@daisy/worker/host';
 import { roundDecisionReleasePolicy } from '@daisy/protocol/round-decision-release';
 import {
   ratingEligibility,
@@ -229,6 +230,7 @@ export const withRatings = (
 ) =>
   withFixture(url, async (fixture) => {
     const database = createDatabase({
+      waits: hostWaits,
       decisionRelease: roundDecisionReleasePolicy,
       url,
       nextActorId: createId,

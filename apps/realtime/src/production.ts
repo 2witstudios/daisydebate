@@ -1,4 +1,5 @@
 import { messagingMemberReading } from '@daisy/auth/group-policy';
+import type { Waits } from '@daisy/clock';
 import type { RealtimeApp } from './app';
 import type { serveRealtime } from './serve';
 
@@ -15,6 +16,7 @@ export function productionServeOptions({
   trustedProxies,
   instanceId,
   nextId,
+  waits,
 }: {
   readonly resources: RealtimeApp;
   readonly port: number;
@@ -22,12 +24,15 @@ export function productionServeOptions({
   readonly trustedProxies: readonly string[];
   readonly instanceId: string;
   readonly nextId: () => string;
+  /** The process's time: `hostWaits` from the entry. */
+  readonly waits: Waits;
 }) {
   return {
     resources,
     port,
     hostname,
     trustedProxies,
+    waits,
     presence: { instanceId, nextId },
     readingPolicy: messagingMemberReading(
       resources.config.MESSAGING_PRIVATE_GROUPS === 'staging',

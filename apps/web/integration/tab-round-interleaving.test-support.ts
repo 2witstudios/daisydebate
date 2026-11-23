@@ -1,3 +1,4 @@
+import { hostWaits } from '@daisy/worker/host';
 import type { SQL } from 'bun';
 import { finishedOrBlockedBehind } from '@daisy/db/testing';
 
@@ -28,7 +29,7 @@ export async function interleaveRoundWriters<A, B>(input: {
         first,
         input.observer,
         Number(holder!.pid),
-        { now: Date.now },
+        { waits: hostWaits },
       )) !== 'blocked'
     )
       throw new Error('First writer did not reach the actual Round lock');
@@ -40,7 +41,7 @@ export async function interleaveRoundWriters<A, B>(input: {
     const second = settle(input.second);
     if (
       (await finishedOrBlockedBehind(second, input.observer, pids[0]!.pid, {
-        now: Date.now,
+        waits: hostWaits,
       })) !== 'blocked'
     )
       throw new Error(
