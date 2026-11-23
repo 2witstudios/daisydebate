@@ -14,6 +14,9 @@ import {
  * A literal in a Drizzle call (`eq`, `inArray`, `.set`, `.values`) or
  * compared with a typed field stays legal: every such column carries its
  * list's union (schema-vocabularies.test.ts), so the compiler checks it.
+ * A canonical `.sql` function file (pinned byte for byte to an installed
+ * function) cannot import a list, so there the rule is membership: each word
+ * compared with or written to a stored column must be in that column's list.
  */
 type Source = { readonly path: string; readonly text: string };
 type StoredColumn = {
@@ -87,10 +90,19 @@ type Found = {
   readonly word: string;
 };
 
+/**
+ * `spelled`: SQL built in TypeScript, where a stored word is banned (it can
+ * come from its list). `outside`: a canonical `.sql` function file, which a
+ * test pins byte for byte to an installed function and which cannot import a
+ * list, so a word there must be a member of its column's list instead.
+ */
+type Rule = 'spelled' | 'outside';
+
 function sqlLiterals(
   sql: string,
   fileSql: string,
   vocabularies: StoredVocabularies,
+  rule: Rule = 'spelled',
 ): readonly Found[] {
   const { comparison, insert } = patternsOf(vocabularies);
   const clean = sql
@@ -102,7 +114,8 @@ function sqlLiterals(
   const inferredTable = inferred.length === 1 ? inferred[0] : undefined;
   const found = new Map<string, Found>();
   const add = (table: string, column: string, word: string) => {
-    if (vocabularies.sql.get(table)?.get(column)?.has(word))
+    const words = vocabularies.sql.get(table)?.get(column);
+    if (words && words.has(word) === (rule === 'spelled'))
       found.set(`${table}.${column}:${word}`, { table, column, word });
   };
   for (const [, left, rightWords, leftWord, right] of clean.matchAll(
@@ -265,7 +278,17 @@ export function lifecycleLiteralIssues(
       );
   };
   if (path.endsWith('.sql')) {
-    report(source, sqlLiterals(text, text, vocabularies));
+    const line = (word: string) =>
+      text.slice(0, Math.max(0, text.indexOf(`'${word}'`))).split('\n').length;
+    for (const { table, column, word } of sqlLiterals(
+      text,
+      text,
+      vocabularies,
+      'outside',
+    ))
+      issues.push(
+        `${path}:${line(word)}: '${word}' is not a ${table}.${column} word; a canonical function file may compare or write only its list's words`,
+      );
     return issues;
   }
   const templates: { readonly node: ts.Node; readonly sql: string }[] = [];

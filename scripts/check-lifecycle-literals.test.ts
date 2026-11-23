@@ -113,3 +113,24 @@ test('leaves typed Drizzle comparisons and writes to the compiler', () => {
     ),
   ).toEqual([]);
 });
+
+// A canonical function file is pinned byte for byte to an installed
+// function and cannot import a list, so its words must belong to the list:
+// renaming or removing one fails here until a migration updates the function.
+test('holds a canonical .sql function file to its columns lists', () => {
+  const file = 'packages/db/src/account-fence-fixture.sql';
+  const fence = (kind: string) =>
+    lifecycleLiteralIssues({
+      path: file,
+      text: [
+        'SELECT a.id FROM actors a',
+        `WHERE a.kind = '${kind}' AND a.user_id = $1;`,
+      ].join('\n'),
+    });
+  expect([fence('human'), fence('robot')]).toEqual([
+    [],
+    [
+      `${file}:2: 'robot' is not a actors.kind word; a canonical function file may compare or write only its list's words`,
+    ],
+  ]);
+});
