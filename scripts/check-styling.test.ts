@@ -114,9 +114,9 @@ describe('UI primitive gate', () => {
       expected: [
         `${path}:1: use Button for this <button>`,
         `${path}:1: use Dialog for this <dialog>`,
-        `${path}:1: use Dialog for this <section>`,
-        `${path}:1: use StatusRegion for this <p>`,
-        `${path}:1: use StatusRegion for this <p>`,
+        `${path}:1: use Dialog or DialogRegion for this <section>`,
+        `${path}:1: use Announcement for this <p>`,
+        `${path}:1: use Announcement for this <p>`,
       ],
     });
   });
@@ -136,8 +136,38 @@ describe('UI primitive gate', () => {
          }`,
       ),
       expected: [
-        `${path}:2: use StatusRegion for this <p>`,
-        `${path}:3: use StatusRegion for this <p>`,
+        `${path}:2: use Announcement for this <p>`,
+        `${path}:3: use Announcement for this <p>`,
+      ],
+    });
+  });
+
+  test('refuses opening a dialog outside its Dialog and an unstyled Button', () => {
+    const component = 'apps/web/src/ui/components/upgrade-panel/panel.tsx';
+    assert({
+      given:
+        'a component calling showModal, a page calling show, an unstyled Button, and the Dialog’s own lifetime',
+      should: 'report the calls and the variant, and allow the owner',
+      actual: [
+        uiPrimitiveIssues(component, 'dialog.current?.showModal();'),
+        uiPrimitiveIssues(
+          path,
+          'node.show();\nconst b = <Button variant={"unstyled"} />;',
+        ),
+        uiPrimitiveIssues(
+          'apps/web/src/ui/edge/use-modal.ts',
+          'if (!node.open) node.showModal();',
+        ),
+      ],
+      expected: [
+        [
+          `${component}:1: open a dialog through Dialog, which owns its lifetime`,
+        ],
+        [
+          `${path}:1: open a dialog through Dialog, which owns its lifetime`,
+          `${path}:2: give this Button a variant that owns its look`,
+        ],
+        [],
       ],
     });
   });
@@ -148,7 +178,7 @@ describe('UI primitive gate', () => {
       should: 'report nothing',
       actual: uiPrimitiveIssues(
         path,
-        '<><Button /><StatusRegion as="p" role="alert" /><span role="img" />{"<button />"}</>',
+        '<><Button variant="ghost" /><Announcement as="p" kind="problem" /><span role="img" />{"<button />"}</>',
       ),
       expected: [],
     });

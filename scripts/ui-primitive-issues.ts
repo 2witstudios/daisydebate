@@ -1,16 +1,19 @@
 import ts from 'typescript';
 
 const componentDirectory = 'apps/web/src/ui/components/';
+/** The one place a native dialog is shown or closed (the Dialog's lifetime). */
+const modalOwner = 'apps/web/src/ui/edge/use-modal.ts';
+const dialogMethods = new Set(['showModal', 'show']);
 const productionMarkup = /^apps\/web\/src\/.*\.[jt]sx$/;
 const testMarkup = /\.test(?:[.-]|$)|\/test-support\//;
 
 const ownerForRole = (role: string) => {
   switch (role) {
     case 'dialog':
-      return 'Dialog';
+      return 'Dialog or DialogRegion';
     case 'alert':
     case 'status':
-      return 'StatusRegion';
+      return 'Announcement';
     default:
       return undefined;
   }
@@ -75,17 +78,42 @@ const checkRolesIn = (file: ts.SourceFile) => {
   return (value: ts.Node) => roleOwner(value, new Set());
 };
 
-/** Native JSX outside the primitive directory should use the shared owner. */
+const productionSource = /^apps\/web\/src\/.*\.[cm]?[jt]sx?$/;
+
+/**
+ * Native JSX outside the primitive directory should use the shared owner;
+ * anywhere in the web source, a dialog is opened only by its Dialog and a
+ * Button always names a variant that owns its look (RECON-3.8).
+ */
 export function uiPrimitiveIssues(path: string, source: string): string[] {
-  if (
-    !productionMarkup.test(path) ||
-    testMarkup.test(path) ||
-    path.startsWith(componentDirectory)
-  )
-    return [];
+  if (!productionSource.test(path) || testMarkup.test(path)) return [];
   const file = ts.createSourceFile(path, source, ts.ScriptTarget.Latest, true);
-  const roleOwner = checkRolesIn(file);
   const issues: string[] = [];
+  const report = (node: ts.Node, message: string) => {
+    const { line } = file.getLineAndCharacterOfPosition(node.getStart(file));
+    issues.push(`${path}:${line + 1}: ${message}`);
+  };
+  const owned = (node: ts.Node) => {
+    if (
+      ts.isCallExpression(node) &&
+      ts.isPropertyAccessExpression(node.expression) &&
+      dialogMethods.has(node.expression.name.text) &&
+      path !== modalOwner
+    )
+      report(node, 'open a dialog through Dialog, which owns its lifetime');
+    if (
+      ts.isJsxAttribute(node) &&
+      node.name.getText(file) === 'variant' &&
+      node.initializer !== undefined &&
+      /^\{?\s*["'`]unstyled["'`]\s*\}?$/.test(node.initializer.getText(file))
+    )
+      report(node, 'give this Button a variant that owns its look');
+    ts.forEachChild(node, owned);
+  };
+  owned(file);
+  if (!productionMarkup.test(path) || path.startsWith(componentDirectory))
+    return issues;
+  const roleOwner = checkRolesIn(file);
   const visit = (node: ts.Node) => {
     if (
       (ts.isJsxOpeningElement(node) || ts.isJsxSelfClosingElement(node)) &&
@@ -105,12 +133,7 @@ export function uiPrimitiveIssues(path: string, source: string): string[] {
             : role?.initializer === undefined
               ? undefined
               : roleOwner(role.initializer);
-      if (owner !== undefined) {
-        const { line } = file.getLineAndCharacterOfPosition(
-          node.getStart(file),
-        );
-        issues.push(`${path}:${line + 1}: use ${owner} for this <${tag}>`);
-      }
+      if (owner !== undefined) report(node, `use ${owner} for this <${tag}>`);
     }
     ts.forEachChild(node, visit);
   };
