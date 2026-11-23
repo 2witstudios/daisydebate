@@ -599,7 +599,7 @@ describe('a check the type already answers is refused', () => {
   test('the rule rejects a dead fallback in packages/db/src', async () => {
     const [result] = await typedRepositoryEslint().lintText(
       "export const name = (value: string): string => value ?? 'none';",
-      { filePath: 'packages/db/src/index.ts' },
+      { filePath: 'packages/db/src/tx.ts' },
     );
     assert({
       given: 'a dead fallback in the database package',
