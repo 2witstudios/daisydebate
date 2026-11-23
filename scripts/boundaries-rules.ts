@@ -76,7 +76,7 @@ export const allowedWorkspaceDependencies: Record<string, readonly string[]> = {
   ],
   // ADR 0084: the log shipper reads the logger's vocabulary to admit
   // shipped lines; it holds no participant database or Redis credential.
-  'log-shipper': ['clock', 'config', 'logger'],
+  'log-shipper': ['clock', 'config', 'logger', 'worker'],
   protocol: ['clock'],
   // ADR 0048: pure capability evaluation consumes portable vocabulary only.
   auth: ['clock', 'errors', 'protocol'],
@@ -96,7 +96,16 @@ export const allowedWorkspaceDependencies: Record<string, readonly string[]> = {
   // ADR 0077: the admin app holds no participant database or Redis
   // credential, so it never depends on @daisy/db or @daisy/redis; it reaches
   // the participant app only through the signed operator API (`auth`).
-  admin: ['auth', 'clock', 'config', 'digest', 'errors', 'logger', 'protocol'],
+  admin: [
+    'auth',
+    'clock',
+    'config',
+    'digest',
+    'errors',
+    'logger',
+    'protocol',
+    'worker',
+  ],
   realtime: [
     'ingress',
     'protocol',

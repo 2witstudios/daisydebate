@@ -230,6 +230,7 @@ COPY --chown=root:root packages/clock/src packages/clock/src
 COPY --chown=root:root packages/digest/src packages/digest/src
 COPY --chown=root:root packages/logger/src packages/logger/src
 COPY --chown=root:root packages/protocol/src packages/protocol/src
+COPY --chown=root:root packages/worker/src packages/worker/src
 COPY --chown=root:root apps/admin/src apps/admin/src
 WORKDIR /app/apps/admin
 USER daisy
