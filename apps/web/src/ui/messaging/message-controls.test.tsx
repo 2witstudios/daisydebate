@@ -84,7 +84,7 @@ test('native own-message fields retain escaped drafts and explicit removal while
 test('native reactions keep false cleanup intent distinct from addition and escape untrusted displayed choices', () => {
   // The fields sit inside the caller's form; a test form stands in for it.
   const own = renderAccessible(
-    <form>
+    <form action="/test-form" method="post">
       <ReactionFields
         answer={reactionIdle('r'.repeat(24))}
         pending={false}
@@ -94,7 +94,7 @@ test('native reactions keep false cleanup intent distinct from addition and esca
     </form>,
   );
   const held = renderAccessible(
-    <form>
+    <form action="/test-form" method="post">
       <ReactionFields
         answer={moved('/messages/channel')}
         pending={false}

@@ -22,7 +22,7 @@ const original = {
 test('the retry of a room command posts exactly the original fields', () => {
   // The retry stands inside its command's form; the test gives it one.
   const view = renderAccessible(
-    <form aria-label="Claim seat">
+    <form action="/test-form" method="post" aria-label="Claim seat">
       <RetryRoomCommand
         values={{ ...original, $ACTION_ID_abc: '' }}
         pending={false}

@@ -24,7 +24,7 @@ setupRitewayBun();
 /** The settings fields, server-rendered inside a named form, read by role. */
 const renderFields = (props: ComponentProps<typeof AssemblySettingsFields>) => {
   const view = renderAccessible(
-    <form aria-label="Round settings">
+    <form action="/test-form" method="post" aria-label="Round settings">
       <AssemblySettingsFields {...props} />
     </form>,
   );
