@@ -88,6 +88,32 @@ describe('accessible: names', () => {
     });
   });
 
+  test('inline elements add no space to a name', () => {
+    const view = accessible(
+      '<label><input type="checkbox"> I agree to the <a href="/t">terms</a>.</label><button>Invite people (2 <span>pending</span>)</button><button><span>Send</span><div>now</div></button>',
+    );
+    assert({
+      given: 'links and spans inside a name, and a block inside a button',
+      should: 'join inline text as written and space only around the block',
+      actual: [view.names('checkbox'), view.names('button')],
+      expected: [
+        ['I agree to the terms.'],
+        ['Invite people (2 pending)', 'Send now'],
+      ],
+    });
+  });
+
+  test('display utilities in the markup decide the spacing', () => {
+    assert({
+      given: 'a link of two spans, one a block by its class',
+      should: 'space them as the page lays them out',
+      actual: accessible(
+        '<a href="/a"><span class="block font-bold">1AC</span><span>The case</span></a><a href="/b"><span class="inline-flex">Live</span>now</a><a class="flex flex-col" href="/c"><span>1AC</span><span>The case</span></a>',
+      ).names('link'),
+      expected: ['1AC The case', 'Live now', '1AC The case'],
+    });
+  });
+
   test('names are exact unless a pattern is given', () => {
     const view = accessible('<button>Save draft</button>');
     assert({

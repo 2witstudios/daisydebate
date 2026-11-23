@@ -68,7 +68,70 @@ const describe = (role: Role, name: Name | undefined, states: States) => {
  * too (accname step 2A skipped), so a closed dialog is named by its title.
  */
 const nameOf = (element: Element, hidden = false) =>
-  computeAccessibleName(element, { hidden });
+  computeAccessibleName(element, {
+    hidden,
+    getComputedStyle: inlineStyle,
+    computedStyleSupportsPseudoElements: false,
+  });
+
+/**
+ * The display utilities Tailwind writes in the markup (ADR 0028), as the
+ * display they set. Only the unprefixed ones: a breakpoint or state variant
+ * depends on a viewport the test does not have.
+ */
+const displayUtilities: Readonly<Record<string, string>> = {
+  block: 'block',
+  flex: 'flex',
+  grid: 'grid',
+  table: 'table',
+  'flow-root': 'flow-root',
+  'list-item': 'list-item',
+  contents: 'contents',
+  inline: 'inline',
+  'inline-block': 'inline-block',
+  'inline-flex': 'inline-flex',
+  'inline-grid': 'inline-grid',
+};
+
+/**
+ * The style the name computation reads, as a browser would have it: happy-dom
+ * has no stylesheet, so it answers an empty `display` for an inline element
+ * (read as a block, padding "the terms." to "the terms .") and knows nothing
+ * of the utilities in `class`. Spaces then fall where the page's own CSS
+ * puts them: between blocks and flex or grid items, never inside inline
+ * text.
+ */
+/** An element's display: its own utility, else the element's default. */
+const declaredDisplay = (element: Element): string => {
+  const view = element.ownerDocument.defaultView;
+  if (view === null) throw new Error('A read element has no window');
+  const utility = [...element.classList]
+    .map((token) => displayUtilities[token])
+    .filter((display) => display !== undefined)
+    .at(-1);
+  const value = view.getComputedStyle(element).getPropertyValue('display');
+  return utility ?? (value === '' ? 'inline' : value);
+};
+
+/** A flex or grid container lays its children out as blocks. */
+const blockifies = new Set(['flex', 'grid', 'inline-flex', 'inline-grid']);
+
+const inlineStyle = (element: Element): CSSStyleDeclaration => {
+  const view = element.ownerDocument.defaultView;
+  if (view === null) throw new Error('A read element has no window');
+  const style = view.getComputedStyle(element);
+  const own = declaredDisplay(element);
+  const display =
+    own.startsWith('inline') &&
+    element.parentElement !== null &&
+    blockifies.has(declaredDisplay(element.parentElement))
+      ? 'block'
+      : own;
+  return {
+    getPropertyValue: (property: string) =>
+      property === 'display' ? display : style.getPropertyValue(property),
+  } as CSSStyleDeclaration;
+};
 
 const named = (element: Element, name: Name, hidden: boolean) => {
   const actual = nameOf(element, hidden);

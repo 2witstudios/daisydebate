@@ -8,6 +8,10 @@
 declare module 'dom-accessibility-api' {
   export function computeAccessibleName(
     root: Element,
-    options?: { readonly hidden?: boolean },
+    options?: {
+      readonly hidden?: boolean;
+      readonly getComputedStyle?: (element: Element) => CSSStyleDeclaration;
+      readonly computedStyleSupportsPseudoElements?: boolean;
+    },
   ): string;
 }
