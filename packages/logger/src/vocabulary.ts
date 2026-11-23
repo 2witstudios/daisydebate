@@ -51,6 +51,8 @@ export const eventRegistry = {
   'notification.mail.failed': 'error',
   'league_request.mail.failed': 'error',
   'league_request.mail.unconfigured': 'warn',
+  'support.mail.failed': 'error',
+  'support.mail.unconfigured': 'warn',
   'media_release.mail.failed': 'error',
   'operator.request.refused': 'warn',
   'flags.read.failed': 'warn',

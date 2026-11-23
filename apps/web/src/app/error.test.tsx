@@ -23,4 +23,19 @@ describe('ErrorBoundary', () => {
       expected: buttonClass('primary'),
     });
   });
+
+  test('offers a way to contact support', () => {
+    const html = renderToString(
+      h(ErrorBoundary, {
+        error: Object.assign(new Error('boom'), { digest: 'd1' }),
+        retry: () => undefined,
+      }),
+    );
+    assert({
+      given: 'a route error',
+      should: 'link to /support',
+      actual: html.includes('<a href="/support">Contact support</a>'),
+      expected: true,
+    });
+  });
 });

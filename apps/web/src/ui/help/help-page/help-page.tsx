@@ -42,6 +42,9 @@ export function HelpPage({
           </li>
         ))}
       </ul>
+      <p className="text-base text-ink-muted">
+        No answer here? <Link href="/support">Contact support</Link>.
+      </p>
       <OpenTopicFromHash topicIds={topics.map((topic) => topic.id)} />
     </ReadingPage>
   );

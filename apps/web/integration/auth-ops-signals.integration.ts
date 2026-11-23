@@ -256,6 +256,7 @@ describe('ISSUE-190 storage unavailable and retention signals', () => {
             'retention.email_delivery',
             'retention.club_seat_invitations',
             'retention.league_requests',
+            'retention.support_messages',
             'retention.media_release_requests',
             'retention.media_releases',
             'retention.mail_intents',

@@ -21,6 +21,7 @@ import {
 } from '../features/mail/retention';
 import { seatInvitationRetentionTarget } from '../features/clubs/retention';
 import { leagueRequestRetentionTarget } from '../features/league-requests/retention';
+import { supportMessageRetentionTarget } from '../features/support/retention';
 import { mediaReleaseRetentionTargets } from '../features/media-releases/retention';
 import { judgingRetentionTargets } from '../features/round-judging/retention';
 import { roundAnalysisRetentionTarget } from '../features/round-analysis/retention';
@@ -54,6 +55,7 @@ type RetentionDatabase = Parameters<typeof flagRetentionTargets>[0] &
   Parameters<typeof deliveryRetentionTargets>[0] &
   Parameters<typeof seatInvitationRetentionTarget>[0] &
   Parameters<typeof leagueRequestRetentionTarget>[0] &
+  Parameters<typeof supportMessageRetentionTarget>[0] &
   Parameters<typeof mediaReleaseRetentionTargets>[0] &
   Parameters<typeof mailIntentRetentionTarget>[0] &
   Parameters<typeof transcriptRetentionTarget>[0] &
@@ -98,6 +100,7 @@ export function retentionTargets({
     ...deliveryRetentionTargets(database),
     seatInvitationRetentionTarget(database),
     leagueRequestRetentionTarget(database),
+    supportMessageRetentionTarget(database),
     ...mediaReleaseRetentionTargets(database),
     mailIntentRetentionTarget(database),
     transcriptRetentionTarget(database),

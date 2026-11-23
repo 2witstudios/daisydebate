@@ -83,6 +83,7 @@
         "e2e/support/transcript-seed-process.ts",
         "e2e/support/broadcast-seed-process.ts",
         "e2e/support/league-request-process.ts",
+        "e2e/support/support-message-process.ts",
         "e2e/support/standing-lobby-host-process.ts",
         "e2e/support/hosting-seed-process.ts",
         "e2e/support/tab-oracle-data.ts",

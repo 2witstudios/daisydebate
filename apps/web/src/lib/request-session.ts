@@ -183,6 +183,19 @@ export const requestNow = (): string => processApp().clock.now();
 export const requestIdentity = async (): Promise<Identity> =>
   (await requestSession()).identity;
 
+/**
+ * The reply address /support starts with: the signed-in account's own
+ * email, which they may change, or empty for a visitor (SUPP-1).
+ */
+export const requestSupportReplyAddress = async (): Promise<string> => {
+  const { principal } = await requestIdentity();
+  if (principal.kind !== 'user') return '';
+  return (
+    (await processApp().database.readSupportReplyAddress(principal.userId)) ??
+    ''
+  );
+};
+
 /** Browser capture's attributes for this render's `<html>` (ISSUE-1008). */
 export const requestBrowserCapture = () =>
   browserCaptureAttributes(processApp().config);

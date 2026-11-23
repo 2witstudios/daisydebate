@@ -39,6 +39,7 @@ const OPERATION_NAMES = [
   'rooms.invitations.withdraw',
   'audience-link.issue',
   'league-request.create',
+  'support.create',
   'media-release.ask',
   'media-release.resend',
   'media-release.cancel',

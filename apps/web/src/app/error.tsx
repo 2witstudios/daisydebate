@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { Button } from '../ui/components/button/button';
 import { prose } from './ui/prose-class';
 
@@ -18,6 +19,9 @@ export default function ErrorBoundary({
         {error.digest ?? 'unknown'}.
       </p>
       <Button onClick={retry}>Try again</Button>
+      <p className={prose.p}>
+        <Link href="/support">Contact support</Link>
+      </p>
     </main>
   );
 }

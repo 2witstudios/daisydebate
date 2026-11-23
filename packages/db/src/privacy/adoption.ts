@@ -2,6 +2,7 @@ import { necessaryEvidencePrivacyAdopter } from '../necessary-evidence-privacy';
 import { agreementSignaturePrivacyAdopter } from '../agreement-signatures';
 import { audienceReactionPrivacyAdopter } from '../audience-reactions';
 import { debaterFollowPrivacyAdopter } from '../debater-follows';
+import { supportMessagePrivacyAdopter } from '../support-messages';
 import { notificationPrivacyAdopter } from '../notifications';
 import { roomInvitationsPrivacyAdopter } from '../room-invitations/privacy';
 import { watchHistoryPrivacyAdopter } from '../watch-history';
@@ -60,6 +61,7 @@ export const subjectRightsAdoption = (
   billingPrivacyAdopter,
   flagsPrivacyAdopter,
   contentModerationPrivacyAdopter,
+  supportMessagePrivacyAdopter,
   audienceReactionPrivacyAdopter,
   debaterFollowPrivacyAdopter,
   watchHistoryPrivacyAdopter,

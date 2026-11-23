@@ -26,6 +26,7 @@ import { composeContentModerationRoutes } from '../features/content-moderation/c
 import { composeRoomRoutes } from '../features/room-runtime/composition';
 import { composeTabRoutes } from '../features/tab/composition';
 import { composeLeagueRequestRoutes } from '../features/league-requests/composition';
+import { composeSupportRoutes } from '../features/support/composition';
 import { composeMediaReleaseRoutes } from '../features/media-releases/composition';
 import {
   createListSessionsHandler,
@@ -119,6 +120,7 @@ export function createRoutes(app: App) {
         app.database.tabCommands.lobbyIdOfHandle(handle),
     }),
     leagueRequests: composeLeagueRequestRoutes(app),
+    support: composeSupportRoutes(app),
     mediaReleases: composeMediaReleaseRoutes(app),
     audienceLink: createAudienceLinkHandlers({
       logger,

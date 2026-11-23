@@ -231,7 +231,7 @@ Minimize as the group's last row (Expand when mini). The foot is the
 account: a member's avatar and username open an account menu to the right.
 The menu lists their ratings on each ladder under the season's name, each
 as the rating, "Provisional", "Unrated" or "Hidden while judging", then
-Profile, Settings, Help, About Daisy, Terms, Privacy, Analytics preferences and Sign out.
+Profile, Settings, Help, Contact support, About Daisy, Terms, Privacy, Analytics preferences and Sign out.
 It is a native disclosure, so it opens on a tap without script. The shell
 reads the ratings once per request and does not wait for them: the menu
 streams them in, and a failed read says so in the menu. A visitor's Sign in

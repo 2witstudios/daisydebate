@@ -46,6 +46,10 @@ export default function GlobalError({
             {error.digest ?? 'unknown'}.
           </p>
           <Button onClick={retry}>Try again</Button>
+          <p className={prose.p}>
+            {/* A plain link: this document replaces the root layout and its router. */}
+            <a href="/support">Contact support</a>
+          </p>
         </main>
       </body>
     </html>

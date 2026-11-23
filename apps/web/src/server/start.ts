@@ -29,6 +29,7 @@ import { startRoundAvailability } from './round-availability';
 import { startBetaMail } from './beta-mail';
 import { startMediaReleaseMail } from './media-release-mail';
 import { startLeagueRequestMail } from './league-request-mail';
+import { startSupportMail } from './support-mail';
 import { startNotificationMail } from './notification-mail';
 import type { OneShotTimer, WorkerTimers } from '../lib/worker-timers';
 import { startOperatorApi } from './operator-api';
@@ -299,6 +300,11 @@ const leagueRequestMail = startLeagueRequestMail({
   timers: workerTimers,
   reporter: app.reporter,
 });
+const supportMail = startSupportMail({
+  app,
+  timers: workerTimers,
+  reporter: app.reporter,
+});
 const mediaReleaseMail = startMediaReleaseMail({
   app,
   timers: workerTimers,
@@ -381,6 +387,7 @@ async function shutdown() {
   const betaMailStopped = betaMail.stop();
   const notificationMailStopped = notificationMail.stop();
   const leagueRequestMailStopped = leagueRequestMail?.stop();
+  const supportMailStopped = supportMail?.stop();
   const mediaReleaseMailStopped = mediaReleaseMail.stop();
   const operatorApiStopped = operatorApi?.stop();
   const filesStopped = fileMaintenance?.stop();
@@ -430,6 +437,7 @@ async function shutdown() {
         betaMailStopped,
         notificationMailStopped,
         leagueRequestMailStopped,
+        supportMailStopped,
         mediaReleaseMailStopped,
         operatorApiStopped,
         filesStopped,

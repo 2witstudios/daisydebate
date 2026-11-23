@@ -41,4 +41,15 @@ describe('GlobalError', () => {
       expected: buttonClass('primary'),
     });
   });
+
+  test('offers a way to contact support', () => {
+    assert({
+      given: 'a root-layout failure',
+      should: 'link to /support',
+      actual: renderFailure().includes(
+        '<a href="/support">Contact support</a>',
+      ),
+      expected: true,
+    });
+  });
 });

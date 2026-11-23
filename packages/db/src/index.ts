@@ -108,6 +108,7 @@ import {
 import { claimUsername } from './username-claim';
 import { mailIntentOperations } from './mail-intents';
 import { leagueRequestOperations } from './league-requests';
+import { supportMessageOperations } from './support-messages';
 import { eraseGuardianChild } from './privacy/subject-rights';
 import { createMediaReleases } from './media-releases';
 import { createMediaReleaseClubs } from './media-release-club';
@@ -460,6 +461,7 @@ export function createDatabase({
     ...emailDeliveryOperations({ database: control, eventSink }),
     ...mailIntentOperations({ database: control, eventSink }),
     ...leagueRequestOperations({ database: control, eventSink }),
+    ...supportMessageOperations({ database: control, eventSink }),
     ...mediaReleaseMailOperations({ database: control, eventSink }),
     ...betaAccessOperations({ database: control, eventSink }),
     ...operatorAccountOperations({ database: control, eventSink }),
@@ -650,5 +652,6 @@ export function createDatabase({
 }
 export type Database = ReturnType<typeof createDatabase>;
 export type { LeagueRequestNotice } from './league-requests';
+export type { SupportMessageNotice } from './support-messages';
 
 export type { RoundBallotAccess } from './round-ballot-audience';

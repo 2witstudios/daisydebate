@@ -31,6 +31,7 @@
     "./protection-level": "./src/protection-level.ts",
     "./beta-preapproval": "./src/beta-preapproval.ts",
     "./league-request": "./src/league-request.ts",
+    "./support-message": "./src/support-message.ts",
     "./operator": "./src/operator.ts",
     "./flags": "./src/flags.ts",
     "./content-moderation": "./src/content-moderation.ts",
