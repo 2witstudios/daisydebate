@@ -1,6 +1,7 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { posix } from 'node:path';
 import { moduleLoads } from './module-loads';
+import { trackedFiles } from './tracked-files';
 
 export const protocolPackage = '@daisy/protocol';
 export const protocolDirectory = 'packages/protocol';
@@ -42,21 +43,7 @@ export function* repositorySources(
   cwd: string,
   pathspecs: readonly string[] = [],
 ) {
-  const files = Bun.spawnSync(
-    [
-      'git',
-      'ls-files',
-      '-z',
-      '--cached',
-      '--others',
-      '--exclude-standard',
-      '--',
-      ...pathspecs,
-    ],
-    { cwd },
-  );
-  if (files.exitCode !== 0) throw new Error(files.stderr.toString());
-  for (const path of new Set(files.stdout.toString().split('\0'))) {
+  for (const path of trackedFiles(cwd, pathspecs)) {
     if (!/\.[cm]?[jt]sx?$/.test(path)) continue;
     const absolutePath = posix.join(cwd, path);
     if (existsSync(absolutePath))

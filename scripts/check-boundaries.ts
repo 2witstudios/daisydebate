@@ -10,6 +10,7 @@ import {
   repositorySources,
 } from './protocol-root';
 import { moduleLoads } from './module-loads';
+import { trackedFiles } from './tracked-files';
 import { flagBoundaryProblems } from './flag-boundaries';
 import { flagCatalogue } from '../apps/web/src/features/flags/catalogue';
 import {
@@ -68,15 +69,9 @@ const rootExport = protocolRootExportIssue(
 if (rootExport) issues.push(rootExport);
 if (existsSync(resolve(root, protocolBarrel)))
   issues.push(`${protocolBarrel}: protocol has no root barrel`);
-for (const path of Bun.spawnSync(
-  ['git', 'ls-files', '--cached', '--others', '--exclude-standard'],
-  { cwd: root },
-)
-  .stdout.toString()
-  .split('\n')
-  .filter(
-    (file) => file === 'package.json' || file.endsWith('/package.json'),
-  )) {
+for (const path of trackedFiles(root).filter(
+  (file) => file === 'package.json' || file.endsWith('/package.json'),
+)) {
   if (!existsSync(resolve(root, path))) continue;
   const manifest = (await Bun.file(resolve(root, path)).json()) as Record<
     string,

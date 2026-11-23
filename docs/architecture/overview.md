@@ -71,7 +71,7 @@ package; this map lists only packages that exist today.
 
 - **PostgreSQL** owns durable competitive truth: users, Rooms, Rounds, ballots,
   ratings, tournaments, recording metadata. Rows are persistence
-  representations, never ECS entities or domain objects.
+  representations, never engine state or domain objects.
 - **Redis** is expendable: presence, queues, rate limits, ephemeral connection
   state. Keys are `<namespace>:v1:<validated-segment>` with mandatory expiry.
 - **Process-local state** is limited to one composed app per process

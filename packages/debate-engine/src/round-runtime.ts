@@ -18,7 +18,7 @@ import { advanceRoundClock } from './round-clock';
 import { debateHasEnded, normalizeRoundClock } from './round-clock-state';
 import { positionAtState, stageOf } from './round-position-projection';
 import { debateInvariantIds } from './invariant-ids';
-import { stepRound, type RoundEvent } from './step-round';
+import { stepRound, type RoundEvent } from './round-engine';
 import type { RoundState } from './round-step';
 import {
   projectRoundStep,

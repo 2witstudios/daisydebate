@@ -6,13 +6,15 @@
  * all miss, and only the generated walks catch. Run it by hand through the
  * heavy queue: `bun oracle:sabotage` (`--only <name>` runs one).
  *
- * Each mutation is applied to the working tree, checked and reverted before
- * the next, and the file is restored even when a run fails or is
- * interrupted. A mutation whose text no longer occurs once is a failure: the
- * engine moved, so the mutation must be re-aimed, never skipped.
+ * It runs against the committed HEAD in a temporary git worktree, never the
+ * checkout: each mutation is applied there, checked and reverted before the
+ * next, and the worktree is removed at the end. A mutation whose text no
+ * longer occurs once is a failure: the engine moved, so the mutation must be
+ * re-aimed, never skipped.
  */
-import { readFileSync, writeFileSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join, resolve } from 'node:path';
 
 type Mutation = {
   readonly name: string;
@@ -48,11 +50,11 @@ const mutations: readonly Mutation[] = [
   },
 ];
 
-const root = resolve(import.meta.dir, '..');
+const checkout = resolve(import.meta.dir, '..');
 
 type Run = { readonly ok: boolean; readonly output: string };
 
-const run = (cmd: readonly string[], cwd = root): Run => {
+const run = (cmd: readonly string[], cwd: string): Run => {
   const result = Bun.spawnSync([...cmd], {
     cwd,
     // One fixed rotating seed, so a sabotage run replays exactly.
@@ -84,7 +86,7 @@ const seedsOf = (output: string): string[] => [
   ),
 ];
 
-const check = (mutation: Mutation): string[] => {
+const check = (root: string, mutation: Mutation): string[] => {
   const path = resolve(root, mutation.file);
   const original = readFileSync(path, 'utf8');
   const occurrences = original.split(mutation.find).length - 1;
@@ -92,12 +94,6 @@ const check = (mutation: Mutation): string[] => {
     return [
       `${mutation.name}: its text occurs ${occurrences} times in ${mutation.file}; re-aim it`,
     ];
-  const restore = () => writeFileSync(path, original);
-  for (const signal of ['SIGINT', 'SIGTERM'] as const)
-    process.once(signal, () => {
-      restore();
-      process.exit(130);
-    });
   writeFileSync(path, original.replace(mutation.find, mutation.replace));
   try {
     const caughtBy = (net: string, result: Run) =>
@@ -119,35 +115,44 @@ const check = (mutation: Mutation): string[] => {
           resolve(root, 'apps/web'),
         ),
       ),
-      ...caughtBy('bun invariants', run(['bun', 'scripts/invariants.ts'])),
+      ...caughtBy(
+        'bun invariants',
+        run(['bun', 'scripts/invariants.ts'], root),
+      ),
       ...caughtBy(
         "the oracle's fixed cases",
-        run([
-          'bun',
-          'test',
-          'scripts/round-oracle.test.ts',
-          '-t',
-          `^(?!.*(${walkTests})).*$`,
-        ]),
+        run(
+          [
+            'bun',
+            'test',
+            'scripts/round-oracle.test.ts',
+            '-t',
+            `^(?!.*(${walkTests})).*$`,
+          ],
+          root,
+        ),
       ),
     ];
     if (earlier.length > 0) return earlier;
     // The walks stop at their first failure: shrinking every format is slow.
-    const walks = run([
-      'bun',
-      'test',
-      'scripts/round-oracle.test.ts',
-      '--bail',
-      '-t',
-      'generated walks hold every invariant',
-    ]);
+    const walks = run(
+      [
+        'bun',
+        'test',
+        'scripts/round-oracle.test.ts',
+        '--bail',
+        '-t',
+        'generated walks hold every invariant',
+      ],
+      root,
+    );
     if (walks.ok) return [`${mutation.name}: no walk catches it`];
     console.log(
       `CAUGHT ONLY BY A WALK  ${mutation.name}\n  first: ${failedTests(walks.output)[0] ?? 'a walk'}\n  ${seedsOf(walks.output)[0] ?? ''}`,
     );
     return [];
   } finally {
-    restore();
+    writeFileSync(path, original);
   }
 };
 
@@ -161,10 +166,27 @@ if (import.meta.main) {
     console.error('No mutation matches');
     process.exit(1);
   }
-  const problems = chosen.flatMap((mutation) => {
-    const found = check(mutation);
-    for (const problem of found) console.error(`NOT SHOWN  ${problem}`);
-    return found;
-  });
+  const scratch = mkdtempSync(join(tmpdir(), 'round-oracle-sabotage-'));
+  const git = (...args: string[]) => run(['git', ...args], checkout);
+  const remove = () => git('worktree', 'remove', '--force', scratch);
+  for (const signal of ['SIGINT', 'SIGTERM'] as const)
+    process.once(signal, () => {
+      remove();
+      process.exit(130);
+    });
+  const added = git('worktree', 'add', '--detach', scratch, 'HEAD');
+  if (!added.ok) throw new Error(added.output);
+  let problems: string[] = [];
+  try {
+    const installed = run(['bun', 'install', '--frozen-lockfile'], scratch);
+    if (!installed.ok) throw new Error(installed.output);
+    problems = chosen.flatMap((mutation) => {
+      const found = check(scratch, mutation);
+      for (const problem of found) console.error(`NOT SHOWN  ${problem}`);
+      return found;
+    });
+  } finally {
+    remove();
+  }
   process.exit(problems.length === 0 ? 0 : 1);
 }
