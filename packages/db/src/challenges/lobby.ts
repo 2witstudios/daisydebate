@@ -1,64 +1,20 @@
 import { and, eq, isNull, sql } from 'drizzle-orm';
 import { ageBands } from '@daisy/protocol/ladder';
-import { competitionTypes, type CompetitionType } from '@daisy/protocol/round';
+import { type CompetitionType } from '@daisy/protocol/round';
 import { z } from 'zod';
 import {
-  defaultStandingLobby,
-  mayDebate,
-  type StandingLobbyChoice,
+  challengeModes,
   isMinorAgeBand,
+  type ChallengeDebater,
+  type StandingLobbyChoice,
 } from '@daisy/protocol/lobby/eligibility';
 import { divisionAgeBand } from '../ladder-division-band';
 import { readOfficialStandingLobbies } from '../official-standing-lobbies';
 import { readGuardianLobbyIds } from '../guardians/lobby-permissions';
-import type { AgeBand } from '@daisy/protocol/ladder';
 import { actors } from '../schema/actors';
 import { query } from '../raw-rows';
 import { users } from '../schema/users';
 import type { Tx } from '../tx';
-
-type ChallengeDebater = {
-  readonly preferredAgeBand: AgeBand | null;
-  readonly ageByLobby: ReadonlyMap<string, AgeBand | null>;
-  readonly guardianLobbyIds: readonly string[];
-};
-
-export const sharedChallengeLobby = (
-  choices: readonly StandingLobbyChoice[],
-  first: ChallengeDebater,
-  second: ChallengeDebater,
-  mode: CompetitionType,
-) => {
-  const shared = choices.filter((lobby) =>
-    [first, second].every((member) =>
-      mayDebate(
-        {
-          ageBand: member.ageByLobby.get(lobby.id) ?? null,
-          guardianLobbyIds: member.guardianLobbyIds,
-        },
-        {
-          lobbyId: lobby.id,
-          ageRule: lobby.ageRule,
-          competitionType: mode,
-        },
-      ),
-    ),
-  );
-  return (
-    defaultStandingLobby(shared, first.preferredAgeBand) ?? shared[0] ?? null
-  );
-};
-
-export const challengeModes = (
-  choices: readonly StandingLobbyChoice[],
-  own: ChallengeDebater | undefined,
-  their: ChallengeDebater | undefined,
-) =>
-  own && their
-    ? competitionTypes.filter((mode) =>
-        sharedChallengeLobby(choices, own, their, mode),
-      )
-    : [];
 
 /** Read each candidate's age using that candidate's season, with one query
  * for the whole pair or People page. The default band only orders choices. */
