@@ -1,21 +1,25 @@
 'use client';
 
 import { useEffect, useEffectEvent } from 'react';
-import { routeReadTiming } from '../../features/route-read/route-read';
 
 /** A route read whose response has finished arriving. */
 export type RouteRead = {
   readonly url: URL;
 };
 
+/**
+ * The query Next's App Router puts on every RSC read it fetches
+ * (`NEXT_RSC_UNION_QUERY` in next 16.4.6); a server action posts to the
+ * page URL without it.
+ */
+const rscQuery = '_rsc';
+
 const routeReadOf = (entry: PerformanceEntry): RouteRead | null => {
   const timing = entry as PerformanceResourceTiming;
   if (timing.initiatorType !== 'fetch') return null;
-  if (!timing.serverTiming.some(({ name }) => name === routeReadTiming))
-    return null;
   const url = new URL(timing.name, window.location.href);
   if (url.origin !== window.location.origin) return null;
-  return { url };
+  return url.searchParams.has(rscQuery) ? { url } : null;
 };
 
 /**

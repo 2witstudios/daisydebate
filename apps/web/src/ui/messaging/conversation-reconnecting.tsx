@@ -58,7 +58,7 @@ export function ConversationReconnecting({
       /**
        * The first read of this page to finish after a refresh asked settles
        * it. Recovery holds one refresh at a time, so nothing but that refresh
-       * reads this page in between (prefetches and actions are not reads).
+       * reads this page in between (an action posts without a route read).
        */
       readFinished: ({ url }: RouteRead) => {
         if (!owner.awaitingRead) return;

@@ -538,22 +538,3 @@ describe('proxy search indexing', () => {
     });
   });
 });
-
-describe('proxy route reads', () => {
-  test('marks a router refresh, not a prefetch or a document', () => {
-    const timing = (headers: Record<string, string>) =>
-      proxy(new NextRequest('https://daisy.invalid/', { headers })).headers.get(
-        'server-timing',
-      );
-    assert({
-      given: 'a router refresh, a prefetch and a document request',
-      should: 'give only the refresh the route-read Server-Timing',
-      actual: [
-        timing({ rsc: '1' }),
-        timing({ rsc: '1', 'next-router-prefetch': '1' }),
-        timing({}),
-      ],
-      expected: ['route-read', null, null],
-    });
-  });
-});
