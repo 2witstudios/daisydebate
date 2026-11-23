@@ -276,12 +276,12 @@ export function createApp({
   const shared = new Map<string, unknown>();
   return {
     /** The value `key` names for this app, created once by its first caller. */
-    held: <Value>(key: string, create: () => Value): Value => {
+    held: <Value>(key: HeldKey<Value>, create: () => Value): Value => {
       if (!shared.has(key)) shared.set(key, create());
       return shared.get(key) as Value;
     },
     /** The value `key` names, if anything created it; never creates. */
-    heldIfAny: <Value>(key: string): Value | undefined =>
+    heldIfAny: <Value>(key: HeldKey<Value>): Value | undefined =>
       shared.get(key) as Value | undefined,
     billingNative(): NativeBillingRuntime | null {
       return billingNative?.() ?? null;
@@ -473,3 +473,12 @@ export function createApp({
 }
 
 export type App = ReturnType<typeof createApp>;
+
+/**
+ * A key into `App.held`, typed by the value it names. A string, because an
+ * object key would split across module copies too; its feature owns it and
+ * names it `<feature>/<name>`, declared once beside its one user.
+ */
+export type HeldKey<Value> = string & { readonly __held?: Value };
+export const heldKey = <Value>(name: `${string}/${string}`) =>
+  name as HeldKey<Value>;

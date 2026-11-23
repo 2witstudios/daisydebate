@@ -104,7 +104,6 @@ export function registerProcessEdgeTests() {
         [edgeImport('./server/'), web('instrumentation.ts'), []],
         [edgeImport('./'), web('server/start.ts'), []],
         [edgeImport('../server/'), web('lib/page-reads.ts'), []],
-
         [lazyEdge('./server/process-app'), web('instrumentation.ts'), []],
         [edgeImport('../../src/server/', 'adoptProcessApp'), e2eServer, []],
         [

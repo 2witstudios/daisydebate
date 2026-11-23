@@ -45,7 +45,7 @@ shared folder.
    production start load.
 3. **A feature with background work exports one start function.**
    `start<Feature>Work(process)` takes the process's shared parts (app,
-   waits, work wakes, instance identity, vendor fetch) and returns its
+   waits, work wakes, instance identity, vendor fetch, the round media runtime) and returns its
    running loops by name (`featureWork`), or null when nothing is
    configured. `server/process-work.ts` holds the one feature list, one line
    per feature, after what the process owns itself: the work wakes, the
@@ -90,7 +90,8 @@ shared folder.
    the error itself instead of a module-level set, so a refusal minted by
    the app's rate limiter or `@daisy/db` still reads as a refusal in the
    bundle. Per-app runtimes that shutdown must stop (round media, stage
-   capture) live in `App.held` instead of module-level maps.
+   capture) live in `App.held` instead of module-level maps, under typed
+   keys (`heldKey<Value>('<feature>/<name>')`) that their feature owns.
 
 ## Consequences
 

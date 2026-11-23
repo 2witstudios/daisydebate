@@ -9,7 +9,7 @@ import {
   createBroadcastEgress,
 } from '@daisy/media/broadcast';
 import { createMediaNodes } from '@daisy/media';
-import type { App } from '../../server/app';
+import { heldKey, type App } from '../../server/app';
 import { createStageRoute } from './stage-route';
 import { createStrayEgressSweep } from './stray-egress-sweep';
 
@@ -17,8 +17,6 @@ const STRAY_SWEEP_EVERY_MS = 15_000;
 const STRAY_CLAIM_MS = 800;
 
 const MEDIA_NODE_PROBE_MS = 5_000;
-
-const STAGE_MEDIA = 'stage-capture/media';
 
 /**
  * Capture's own view of the media nodes: which are up, and an Egress client for each
@@ -78,6 +76,10 @@ const composeStageMedia = (app: App, waits: Waits) => {
 };
 
 /** One stage media per app, its probe on the first caller's `waits`. */
+const STAGE_MEDIA = heldKey<ReturnType<typeof composeStageMedia>>(
+  'stage-capture/media',
+);
+
 const stageMediaOf = (app: App, waits: Waits) =>
   app.held(STAGE_MEDIA, () => composeStageMedia(app, waits));
 
@@ -90,9 +92,7 @@ export const stageEgressOf = (app: App, waits: Waits) =>
  * shutdown awaits it. Later reads compose no new probe for this app.
  */
 export const stopStageMedia = async (app: App): Promise<void> => {
-  await app
-    .heldIfAny<ReturnType<typeof composeStageMedia>>(STAGE_MEDIA)
-    ?.stop();
+  await app.heldIfAny(STAGE_MEDIA)?.stop();
 };
 
 /**

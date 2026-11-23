@@ -10,7 +10,7 @@ import {
   createAdmissionPriority,
   MEDIA_ADMISSION_HINT_TIMEOUT_MS,
 } from './admission-priority';
-import type { App } from '../../server/app';
+import { heldKey, type App } from '../../server/app';
 import { createAppError } from '@daisy/errors';
 import { mediaEndpointsOf } from '@daisy/config';
 import { createMediaNodes } from '@daisy/media';
@@ -34,11 +34,12 @@ const MEDIA_NODE_PROBE_MS = 1_000;
 type RoundMediaStop = { readonly stop: () => Promise<void> };
 
 /** Every round media runtime composed for an app, so its shutdown stops them all. */
+const RUNTIMES = heldKey<Set<RoundMediaStop>>('round-media/runtimes');
 const composedFor = (app: App) =>
-  app.held('round-media/runtimes', () => new Set<RoundMediaStop>());
+  app.held(RUNTIMES, () => new Set<RoundMediaStop>());
 /** Whether the app's round media was stopped: a runtime composed after starts no probe. */
-const stoppedFor = (app: App) =>
-  app.held('round-media/stopped', () => ({ stopped: false }));
+const STOPPED = heldKey<{ stopped: boolean }>('round-media/stopped');
+const stoppedFor = (app: App) => app.held(STOPPED, () => ({ stopped: false }));
 
 /**
  * Stops the node probe of every round media runtime composed for `app` (the
