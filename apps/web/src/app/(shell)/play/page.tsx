@@ -3,7 +3,7 @@ import Link from 'next/link';
 import type { SearchParams } from '../../../features/access/decision';
 import { destinationHref } from '../../../features/destinations/destinations';
 import { playOptionsFor } from '../../../features/play/options';
-import { botDebatesReleasedTo } from '../../../features/train/release';
+import { botDebatesReleasedTo } from '../../../features/bot-debates/release';
 import { requireAccess } from '../../../features/access/page-access';
 import { PageHeader } from '../../../ui/components/page-header/page-header';
 import { ReadingPage } from '../../../ui/components/reading-page/reading-page';

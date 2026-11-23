@@ -13,7 +13,7 @@ import {
 import { requestStudentRoundIds } from '../../../features/watch/page-reads';
 import { Lobby } from '../../../ui/lobby/lobby';
 import { playOptionsFor } from '../../../features/play/options';
-import { botDebatesReleasedTo } from '../../../features/train/release';
+import { botDebatesReleasedTo } from '../../../features/bot-debates/release';
 import { hostedRoomsRead, roomListing } from './actions';
 import { requestActiveRoom } from '../active-room';
 import { ResumeRound } from '../../../ui/active-room/resume-round';

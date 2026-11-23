@@ -1,10 +1,7 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import type { RoomCreate } from '@daisy/protocol/room-contract';
 import type { SeatRef } from '@daisy/protocol/seats';
-import {
-  requireBotDebateReleased,
-  seatsBotDebater,
-} from './bot-debate-release';
+import { requireBotDebateReleased } from './bot-debate-release';
 import type { Store } from './operations';
 import {
   account,
@@ -39,20 +36,6 @@ const reasonOf = (run: () => unknown): string => {
     return (error as { reason?: string }).reason ?? 'error';
   }
 };
-
-test('only a bot in a debating seat is a bot debate', () => {
-  assert({
-    given: 'a bot at negative, a bot judge, a person at negative and no target',
-    should: 'name only the bot at negative a bot debater',
-    actual: [
-      seatsBotDebater(botDebater, negative),
-      seatsBotDebater(aiJudge, judge),
-      seatsBotDebater({ kind: 'human' }, negative),
-      seatsBotDebater(null, negative),
-    ],
-    expected: [true, false, false, false],
-  });
-});
 
 test('unreleased bot debates refuse a bot debater whatever else holds', () => {
   const seat = (
