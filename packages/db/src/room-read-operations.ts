@@ -38,7 +38,6 @@ import type {
 } from '@daisy/protocol/room-contract';
 
 import { createAppError } from '@daisy/errors';
-import { botDifficulties } from '@daisy/protocol/room-read';
 
 import { instrumented, type DatabaseEventSink } from './instrumented';
 import { actors } from './schema/actors';
