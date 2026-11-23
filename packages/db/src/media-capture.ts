@@ -204,13 +204,13 @@ const streamFields = {
   segmentId: idSchema,
   roundParticipantId: idSchema,
 };
-export const captureWorkerIdentitySchema = z
+const captureWorkerIdentitySchema = z
   .object({
     ...leaseFields,
     epoch: z.number().int().positive().max(2147483647),
   })
   .strict();
-export const captureLeaseCheckSchema = captureWorkerIdentitySchema.safeExtend({
+const captureLeaseCheckSchema = captureWorkerIdentitySchema.safeExtend({
   /** Null during a countdown, when no segment is current to check against. */
   segmentId: idSchema.nullable(),
 });
@@ -225,7 +225,7 @@ export const captureReadSchema = captureWorkerIdentitySchema
       !value.afterIntervalId ||
       (value.expectedVersion !== undefined && value.segmentId !== undefined),
   );
-export const captureLeaseSchema = z
+const captureLeaseSchema = z
   .object({
     ...leaseFields,
     leaseMs: z.number().int().min(1000).max(30000),
@@ -249,12 +249,12 @@ export const captureClipSchema = z
     after: iso,
   })
   .strict();
-export const captureEvidenceReconciliationSchema = z.strictObject({
+const captureEvidenceReconciliationSchema = z.strictObject({
   roundId: idSchema,
   evidenceId: idSchema,
   workerId: idSchema,
 });
-export const captureRoundEvidenceSchema = z.strictObject({ roundId: idSchema });
+const captureRoundEvidenceSchema = z.strictObject({ roundId: idSchema });
 export const captureEvidenceIntentSchema = captureClipSchema
   .omit({ text: true })
   .safeExtend({

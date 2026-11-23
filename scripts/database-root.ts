@@ -7,9 +7,9 @@ import { moduleLoads } from './module-loads';
  * a root import, by any spelling, or a root export would bring back the one
  * object of every operation.
  */
-export const databasePackage = '@daisy/db';
-export const databaseDirectory = 'packages/db';
-export const databaseBarrel = `${databaseDirectory}/src/index.ts`;
+const databasePackage = '@daisy/db';
+const databaseDirectory = 'packages/db';
+const databaseBarrel = `${databaseDirectory}/src/index.ts`;
 
 export function databaseRootExportIssue(exports: unknown): string | null {
   return typeof exports === 'string' ||

@@ -343,7 +343,7 @@ export function requireFilePolicy(policy: FilePolicy | undefined): FilePolicy {
   return policy;
 }
 
-export function requireReservation(
+function requireReservation(
   command: FileReserveCommand,
   channelId: string,
   now: string,

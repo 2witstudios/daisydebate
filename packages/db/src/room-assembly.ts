@@ -284,7 +284,7 @@ export type NewRoom = {
 };
 
 /** A new Room's row: it assembles first, so no Room is ever stored started without its Round. */
-export const newRoomValues = (
+const newRoomValues = (
   room: NewRoom,
 ): Omit<typeof rooms.$inferInsert, 'lobbyId'> => ({
   id: room.id,

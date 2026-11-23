@@ -203,7 +203,7 @@ export type LoadedConfirmationCommand = NonNullable<
 >;
 
 /** Reparse the persisted original envelope; JSONB key order never becomes command identity. */
-export function confirmationSource(row: typeof pendingCommands.$inferSelect) {
+function confirmationSource(row: typeof pendingCommands.$inferSelect) {
   const envelope = {
     version: 1,
     commandId: row.commandId,

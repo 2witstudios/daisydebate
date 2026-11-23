@@ -535,7 +535,7 @@ type ChatRemovalPorts = {
 type ChatRemovalPhase = 'ready' | 'removing' | 'found' | 'closed';
 
 /** A composition with no Recording port: no Recording to report or take down. */
-export const noRecordings: RecordingModeration = {
+const noRecordings: RecordingModeration = {
   readReportFacts: async () => null,
   readSubject: async () => null,
   takeDown: async () => null,
@@ -548,7 +548,7 @@ export const noRecordings: RecordingModeration = {
 };
 
 /** A composition with no chat port: no message to report or remove. */
-export const noSpectatorChat: SpectatorChatModeration = {
+const noSpectatorChat: SpectatorChatModeration = {
   readReportFacts: async () => null,
   readSubject: async () => null,
   remove: async () => null,
