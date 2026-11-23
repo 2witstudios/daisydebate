@@ -20,10 +20,10 @@ import { fetchWithoutTracing } from '../features/telemetry/sentry-init';
  * and no-restricted-globals). Next loads route modules, the proxy and
  * instrumentation as separate bundles that share only `globalThis`, so the
  * one app this server process runs is kept there, built on first use from
- * the real environment, fetch, clock and ids. Only route bindings and the
- * process entries import this module (no-restricted-imports); everything
- * else receives the app, or a part of it, as an argument, and tests build
- * their own with `createApp`.
+ * the real environment, fetch, clock and ids. Only route bindings, page-read
+ * modules and the process entries import this module (no-restricted-imports,
+ * by path); everything else receives the app, or a part of it, as an
+ * argument, and tests build their own with `createApp`.
  */
 type ProcessState = {
   readonly app: App;
