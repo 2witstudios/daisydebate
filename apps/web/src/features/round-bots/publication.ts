@@ -22,7 +22,6 @@ import {
   type Input,
   type Publication,
 } from './publication-io';
-export type { PhraseOutcome } from './model/publisher';
 export type { BotSpeechJob } from './publication-io';
 
 type Claim = { readonly scope: BotPublicationScope; readonly token: string };

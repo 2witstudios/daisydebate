@@ -1,7 +1,6 @@
 import { createAppError, createRefusal, isAppError } from '@daisy/errors';
 import { virtualClock } from '@daisy/clock/testing';
-import { refuseCapacity } from '@daisy/db/testing';
-import { refuseFinalSpeech } from '@daisy/db/bot-publication';
+import { refuseCapacity, refuseFinalSpeech } from '@daisy/db/testing';
 import { createPhraseSource } from './phrase-source';
 import { createBotPublisher, type BotSpeechJob } from './publication';
 import { createBotSpeaker } from './speaker';

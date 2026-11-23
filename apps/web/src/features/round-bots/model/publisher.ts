@@ -26,7 +26,7 @@ import {
  */
 
 /** A failed call: `transient` (a lost reply, a timeout) is worth asking again. */
-export type Failure = {
+type Failure = {
   readonly error: unknown;
   readonly transient: boolean;
   /** Refused for a retired room: the next join takes the fresh one (ADR 0110). */
@@ -211,7 +211,7 @@ const SEGMENT_ENDED: Answer = {
 };
 
 /** A refusal is an answer; anything else (a lost reply, a timeout) is worth asking again. */
-export const failureOf = (error: unknown): Failure => ({
+const failureOf = (error: unknown): Failure => ({
   error,
   transient:
     !isAppError(error) ||
