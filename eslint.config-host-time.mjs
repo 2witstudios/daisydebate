@@ -1,7 +1,7 @@
 /**
  * Host time stays in one module (R4.7). Server code waits through an injected
  * `Waits` (`@daisy/clock`) and runs background work through `@daisy/worker`;
- * `@daisy/clock/host` is the only server module that touches the host's
+ * `@daisy/worker/host` is the only server module that touches the host's
  * timers. The rule refuses every spelling that reaches one: a timer global
  * read under any name (called, aliased, passed or destructured), a host
  * object (`globalThis`, `global`, `window`, `self`) read as anything but a
@@ -138,12 +138,26 @@ const hostTime = {
           report(specifier, 'timer', `bun ${imported}`);
       }
     };
+    /** Inside a type (`typeof setTimeout`), a name is no use of the host. */
+    const inType = (node) => {
+      for (let current = node.parent; current; current = current.parent)
+        if (current.type === 'TSTypeQuery') return true;
+      return false;
+    };
+    /**
+     * Every read of a host global: unresolved names, and names the parser
+     * resolves to an implicit library variable (`globalThis`, `Atomics`).
+     */
     const globals = () => {
       const scope = sourceCode.scopeManager.globalScope;
       if (scope === null) return [];
-      return scope.through.filter(
+      const implicit = scope.variables
+        .filter((variable) => variable.defs.length === 0)
+        .flatMap((variable) => variable.references);
+      return [...scope.through, ...implicit].filter(
         (reference) =>
           reference.isValueReference &&
+          !inType(reference.identifier) &&
           (reference.resolved === null || reference.resolved.defs.length === 0),
       );
     };
@@ -188,7 +202,7 @@ export const hostTimeRules = {
     '**/*.test-support.*',
     '**/test-support/**',
     // The one host-time module.
-    'packages/clock/src/host.ts',
+    'packages/worker/src/host.ts',
   ],
   plugins: { 'daisy-time': { rules: { 'host-time': hostTime } } },
   rules: { 'daisy-time/host-time': 'error' },
