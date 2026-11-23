@@ -1,8 +1,8 @@
-import { type BetaAccessStore } from '@daisy/db/stores/beta-access';
-import { type OperatorAccountsStore } from '@daisy/db/stores/operator-accounts';
-import { type FlagsStore } from '@daisy/db/stores/flags';
-import { type ReportsStore } from '@daisy/db/stores/reports';
-import { type ModerationStore } from '@daisy/db/stores/moderation';
+import type { BetaAccessStore } from '@daisy/db/stores/beta-access';
+import type { OperatorAccountsStore } from '@daisy/db/stores/operator-accounts';
+import type { FlagsStore } from '@daisy/db/stores/flags';
+import type { ReportsStore } from '@daisy/db/stores/reports';
+import type { ModerationStore } from '@daisy/db/stores/moderation';
 import { sha3Hex } from '@daisy/digest';
 import { runBetaAccessCommand } from './beta-access-command';
 import { runPreapprovalCommand } from './preapproval-command';

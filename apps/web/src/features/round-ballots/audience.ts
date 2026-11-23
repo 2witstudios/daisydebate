@@ -1,5 +1,5 @@
 import { type RoundBallotAccess } from '@daisy/protocol/ballot-audience';
-import { type RoundRoomAuthority } from '@daisy/db/stores/rounds';
+import type { RoundRoomAuthority } from '@daisy/db/stores/rounds';
 import { authorize } from '@daisy/auth/authorization';
 import { eventRoomOwner } from '../tab/event-room-direction';
 

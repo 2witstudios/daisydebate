@@ -1,4 +1,4 @@
-import { type GuardiansStore } from '@daisy/db/stores/guardians';
+import type { GuardiansStore } from '@daisy/db/stores/guardians';
 import { contentWaiverDocument } from '../../../../features/legal/agreements';
 import { controlClass } from '../../../../ui/components/form-field/form-field-class';
 import { GuardianForm } from '../../../../ui/settings/parental-controls/guardian-form';

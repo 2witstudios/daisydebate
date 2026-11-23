@@ -1,5 +1,5 @@
-import { type FormatsStore } from '@daisy/db/stores/formats';
-import { type RoundStore } from '@daisy/db/stores/rounds';
+import type { FormatsStore } from '@daisy/db/stores/formats';
+import type { RoundStore } from '@daisy/db/stores/rounds';
 import type { IdGenerator } from '@daisy/clock';
 import { createAppError, isAppError } from '@daisy/errors';
 import type { Principal } from '@daisy/auth';

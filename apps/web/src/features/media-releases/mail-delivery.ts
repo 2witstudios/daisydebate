@@ -1,6 +1,6 @@
-import {
-  type MediaReleaseMailKind,
-  type MediaReleaseStore,
+import type {
+  MediaReleaseMailKind,
+  MediaReleaseStore,
 } from '@daisy/db/stores/media-releases';
 import type { ReleaseLinkPurpose } from '@daisy/protocol/media-release';
 import type { EmailMessage } from '../mail/types';

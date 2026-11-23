@@ -1,4 +1,4 @@
-import { type BillingStore } from '@daisy/db/stores/billing';
+import type { BillingStore } from '@daisy/db/stores/billing';
 import { instantMs } from '@daisy/clock';
 
 type Page = Awaited<

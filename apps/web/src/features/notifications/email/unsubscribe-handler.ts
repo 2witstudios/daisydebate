@@ -1,4 +1,4 @@
-import { type NotificationsStore } from '@daisy/db/stores/notifications';
+import type { NotificationsStore } from '@daisy/db/stores/notifications';
 import type { Logger } from '@daisy/logger';
 import { readBytes } from '../../../server/http';
 import { verifyUnsubscribe } from './unsubscribe-token';

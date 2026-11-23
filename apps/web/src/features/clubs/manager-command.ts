@@ -1,6 +1,6 @@
-import {
-  type BillingStore,
-  type ClubSeatManagerCommand,
+import type {
+  BillingStore,
+  ClubSeatManagerCommand,
 } from '@daisy/db/stores/billing';
 import { createAppError } from '@daisy/errors';
 import { subscriptionAccess } from '@daisy/auth/authorization';

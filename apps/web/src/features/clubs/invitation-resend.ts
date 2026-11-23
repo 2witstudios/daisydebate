@@ -1,7 +1,7 @@
-import {
-  type BillingStore,
-  type ClubInvitationResendFacts,
-  type ClubSeatManagerCommand,
+import type {
+  BillingStore,
+  ClubInvitationResendFacts,
+  ClubSeatManagerCommand,
 } from '@daisy/db/stores/billing';
 import { runClubInviteeCommand } from './invitee-command';
 import { runClubManagerCommand } from './manager-command';

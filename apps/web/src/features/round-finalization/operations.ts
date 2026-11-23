@@ -1,4 +1,4 @@
-import { type RoundMaintenanceStore } from '@daisy/db/stores/round-maintenance';
+import type { RoundMaintenanceStore } from '@daisy/db/stores/round-maintenance';
 import { advanceOpening, createRoundRuntime } from '@daisy/debate-engine';
 
 type BuildProjection = Parameters<

@@ -1,6 +1,6 @@
-import {
-  type MessagingStore,
-  type MessagingUnreadEmailDelivery,
+import type {
+  MessagingStore,
+  MessagingUnreadEmailDelivery,
 } from '@daisy/db/stores/messaging';
 import { renderEmailLayout } from '../mail/layout';
 import type { EmailMessage } from '../mail/types';

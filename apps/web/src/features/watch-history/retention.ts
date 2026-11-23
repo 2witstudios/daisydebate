@@ -1,4 +1,4 @@
-import { type WatchHistoryStore } from '@daisy/db/stores/watch-history';
+import type { WatchHistoryStore } from '@daisy/db/stores/watch-history';
 import {
   DAY_MS,
   retentionAfter,

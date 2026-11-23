@@ -1,4 +1,4 @@
-import { type ClubSeatingRead } from '@daisy/db/stores/billing';
+import type { ClubSeatingRead } from '@daisy/db/stores/billing';
 import { instantMs } from '@daisy/clock';
 import { z } from 'zod';
 import { subscriptionAccess } from '@daisy/auth/authorization';

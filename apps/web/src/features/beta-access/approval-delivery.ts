@@ -1,4 +1,4 @@
-import { type MailStore } from '@daisy/db/stores/mail';
+import type { MailStore } from '@daisy/db/stores/mail';
 
 type ApprovalRead = Extract<
   Awaited<ReturnType<MailStore['readMailIntentDelivery']>>,

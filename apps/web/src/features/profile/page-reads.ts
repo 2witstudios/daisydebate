@@ -1,4 +1,4 @@
-import { type PublicProfileCard } from '@daisy/db/stores/profiles';
+import type { PublicProfileCard } from '@daisy/db/stores/profiles';
 import { createAppError } from '@daisy/errors';
 import { readSeasonHistory } from './season-history';
 import { headers } from 'next/headers';

@@ -1,4 +1,4 @@
-import { type OwnPublicProfile } from '@daisy/db/stores/profiles';
+import type { OwnPublicProfile } from '@daisy/db/stores/profiles';
 import { defineComposition } from '../../server/composition';
 import { nowMs } from '@daisy/clock';
 import { requireAuthorization } from '@daisy/auth/request-authorization';

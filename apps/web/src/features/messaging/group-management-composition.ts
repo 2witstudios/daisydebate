@@ -1,4 +1,4 @@
-import { type MessagingStore } from '@daisy/db/stores/messaging';
+import type { MessagingStore } from '@daisy/db/stores/messaging';
 import { requireMessagingGroupResult } from './group-command-result';
 import type { MessagingGroupManagementFence } from '@daisy/db/messaging';
 import type { AuthorizationPrincipal } from '@daisy/auth/authorization';

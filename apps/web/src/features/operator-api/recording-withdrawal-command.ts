@@ -1,4 +1,4 @@
-import { type ContentModerationStore } from '@daisy/db/stores/content-moderation';
+import type { ContentModerationStore } from '@daisy/db/stores/content-moderation';
 import { createAppError } from '@daisy/errors';
 
 type Store = Pick<ContentModerationStore, 'recordingWithdrawalCommand'>;

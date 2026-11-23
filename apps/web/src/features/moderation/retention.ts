@@ -1,4 +1,4 @@
-import { type ModerationStore } from '@daisy/db/stores/moderation';
+import type { ModerationStore } from '@daisy/db/stores/moderation';
 import {
   retentionAfter,
   type RetentionTarget,

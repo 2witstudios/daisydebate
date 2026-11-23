@@ -1,4 +1,4 @@
-import { type SpectatorChatStore } from '@daisy/db/stores/spectator-chat';
+import type { SpectatorChatStore } from '@daisy/db/stores/spectator-chat';
 import {
   DAY_MS,
   retentionAfter,

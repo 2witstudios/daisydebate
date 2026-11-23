@@ -1,4 +1,4 @@
-import { type ParentLinkRead } from '@daisy/db/stores/media-releases';
+import type { ParentLinkRead } from '@daisy/db/stores/media-releases';
 import {
   isReleaseRequestOpen,
   releaseRequestStanding,

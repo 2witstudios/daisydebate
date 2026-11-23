@@ -1,8 +1,8 @@
-import {
-  type GuardianSession,
-  type GuardiansStore,
+import type {
+  GuardianSession,
+  GuardiansStore,
 } from '@daisy/db/stores/guardians';
-import { type SocialRequestLimits } from '@daisy/db/stores/contacts';
+import type { SocialRequestLimits } from '@daisy/db/stores/contacts';
 import { instantMs } from '@daisy/clock';
 import { createId } from '@paralleldrive/cuid2';
 import { createAppError } from '@daisy/errors';

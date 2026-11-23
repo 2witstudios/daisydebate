@@ -1,4 +1,4 @@
-import { type PrivacyStore } from '@daisy/db/stores/privacy';
+import type { PrivacyStore } from '@daisy/db/stores/privacy';
 import type { Waits } from '@daisy/clock';
 import { passOf, pollWork } from '@daisy/worker';
 import { HOUSEKEEPING_IDLE_MAX_MS } from '../../../lib/worker-idle';

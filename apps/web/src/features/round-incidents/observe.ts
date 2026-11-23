@@ -1,5 +1,5 @@
-import { type RoundIncidentStore } from '@daisy/db/stores/round-incidents';
-import { type RoundHydration } from '@daisy/db/stores/rounds';
+import type { RoundIncidentStore } from '@daisy/db/stores/round-incidents';
+import type { RoundHydration } from '@daisy/db/stores/rounds';
 import { instantMs } from '@daisy/clock';
 import { isRoundRunning } from '@daisy/protocol/round';
 import {

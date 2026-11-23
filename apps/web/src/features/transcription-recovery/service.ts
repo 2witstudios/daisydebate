@@ -1,4 +1,4 @@
-import { type MediaCaptureStore } from '@daisy/db/stores/media-capture';
+import type { MediaCaptureStore } from '@daisy/db/stores/media-capture';
 import type { Waits } from '@daisy/clock';
 import { createAppError, isAppError } from '@daisy/errors';
 import { holdLease, repeatEvery, type Lease } from '@daisy/worker';

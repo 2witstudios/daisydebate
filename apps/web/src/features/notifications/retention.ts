@@ -1,4 +1,4 @@
-import { type NotificationsStore } from '@daisy/db/stores/notifications';
+import type { NotificationsStore } from '@daisy/db/stores/notifications';
 import {
   DAY_MS,
   retentionAfter,

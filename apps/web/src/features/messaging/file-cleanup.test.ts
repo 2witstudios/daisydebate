@@ -1,4 +1,4 @@
-import { type MessagingStore } from '@daisy/db/stores/messaging';
+import type { MessagingStore } from '@daisy/db/stores/messaging';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';
 import type { PendingFileAuthorizationFact } from '@daisy/auth/authorization';

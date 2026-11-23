@@ -1,4 +1,4 @@
-import { type MessagingStore } from '@daisy/db/stores/messaging';
+import type { MessagingStore } from '@daisy/db/stores/messaging';
 import type {
   AuthorizationPrincipal,
   AccountAuthorizationFact,

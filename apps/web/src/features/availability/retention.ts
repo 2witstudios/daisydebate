@@ -1,4 +1,4 @@
-import { type AvailabilityStore } from '@daisy/db/stores/availability';
+import type { AvailabilityStore } from '@daisy/db/stores/availability';
 import {
   DAY_MS,
   retentionAfter,

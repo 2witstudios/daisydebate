@@ -1,4 +1,4 @@
-import { type LiveBroadcastPage } from '@daisy/db/stores/spectating';
+import type { LiveBroadcastPage } from '@daisy/db/stores/spectating';
 import { instantMs } from '@daisy/clock';
 import { SPECTATOR_MARGIN_MS } from '@daisy/protocol/broadcast';
 import { twoSides } from '@daisy/protocol/seats';

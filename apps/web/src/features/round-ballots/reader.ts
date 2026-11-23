@@ -1,4 +1,4 @@
-import { type RoundBallotStore } from '@daisy/db/stores/rounds';
+import type { RoundBallotStore } from '@daisy/db/stores/rounds';
 import {
   captureRule,
   readRoundOpening,

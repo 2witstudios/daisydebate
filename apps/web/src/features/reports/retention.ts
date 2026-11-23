@@ -1,4 +1,4 @@
-import { type ReportsStore } from '@daisy/db/stores/reports';
+import type { ReportsStore } from '@daisy/db/stores/reports';
 import {
   retentionAfter,
   type RetentionTarget,

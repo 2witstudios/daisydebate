@@ -1,4 +1,4 @@
-import { type BroadcastStore } from '@daisy/db/stores/broadcasts';
+import type { BroadcastStore } from '@daisy/db/stores/broadcasts';
 import { type LoopPass } from '@daisy/worker';
 import {
   createRoundRuntime,

@@ -1,4 +1,4 @@
-import { type SpectatingStore } from '@daisy/db/stores/spectating';
+import type { SpectatingStore } from '@daisy/db/stores/spectating';
 import { projectAudienceSnapshot } from '@daisy/debate-engine';
 import type { Logger } from '@daisy/logger';
 import type { ErrorReporter } from '@daisy/observability';

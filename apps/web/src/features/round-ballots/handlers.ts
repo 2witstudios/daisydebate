@@ -1,4 +1,4 @@
-import { type RoundBallotStore } from '@daisy/db/stores/rounds';
+import type { RoundBallotStore } from '@daisy/db/stores/rounds';
 import { serverClockHeaders } from '../round-runtime/server-clock-header';
 import { idSchema } from '@daisy/protocol/primitives';
 import { type RoundBallotRead } from '@daisy/protocol/round-ballot-read';

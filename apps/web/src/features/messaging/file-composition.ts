@@ -1,4 +1,4 @@
-import { type MessagingStore } from '@daisy/db/stores/messaging';
+import type { MessagingStore } from '@daisy/db/stores/messaging';
 import type { FileStore } from '@daisy/db/messaging-files';
 import type { AuthorizationPrincipal } from '@daisy/auth/authorization';
 import type { Clock } from '@daisy/clock';

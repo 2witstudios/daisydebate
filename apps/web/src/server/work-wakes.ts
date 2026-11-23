@@ -1,4 +1,4 @@
-import { type WorkKind } from '@daisy/db/stores/listen';
+import type { WorkKind } from '@daisy/db/stores/listen';
 import { afterMs, type Waits } from '@daisy/clock';
 import { nextWaitMs, type IdleBackoff, type WorkWake } from '@daisy/worker';
 

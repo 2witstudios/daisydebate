@@ -1,4 +1,4 @@
-import { type PhotoDeletion } from '@daisy/db/stores/profiles';
+import type { PhotoDeletion } from '@daisy/db/stores/profiles';
 import { repeatEvery } from '@daisy/worker';
 import type { Waits } from '@daisy/clock';
 import { addMs, type Clock } from '@daisy/clock';

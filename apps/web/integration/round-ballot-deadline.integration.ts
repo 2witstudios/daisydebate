@@ -1,4 +1,4 @@
-import { type RatingStore } from '@daisy/db/stores/ratings';
+import type { RatingStore } from '@daisy/db/stores/ratings';
 import { judgingProgression } from '../src/features/round-judging/progression';
 import { canUseAiAllowance } from '@daisy/auth/authorization';
 import { atFinalJudgingStage } from '@daisy/db/testing';

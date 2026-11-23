@@ -1,4 +1,4 @@
-import { type BillingStore } from '@daisy/db/stores/billing';
+import type { BillingStore } from '@daisy/db/stores/billing';
 import { canReleaseFreeJudgeBinding } from '@daisy/auth/authorization';
 
 /** One bounded page per tick; a failed identity cannot starve later abandoned Rounds. */

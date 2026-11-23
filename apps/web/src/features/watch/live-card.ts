@@ -1,4 +1,4 @@
-import { type LiveBroadcastPage } from '@daisy/db/stores/spectating';
+import type { LiveBroadcastPage } from '@daisy/db/stores/spectating';
 import { releasedStage } from '@daisy/debate-engine';
 import { everySeatOf } from '@daisy/protocol/format-seating';
 import {

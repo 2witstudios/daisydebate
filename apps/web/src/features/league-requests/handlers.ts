@@ -1,4 +1,4 @@
-import { type LeagueRequestsStore } from '@daisy/db/stores/league-requests';
+import type { LeagueRequestsStore } from '@daisy/db/stores/league-requests';
 import { createAppError } from '@daisy/errors';
 import { CLIENT_IP_HEADER } from '@daisy/ingress/client-ip';
 import type { Logger } from '@daisy/logger';

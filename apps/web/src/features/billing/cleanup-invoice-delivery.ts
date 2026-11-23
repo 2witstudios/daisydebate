@@ -1,4 +1,4 @@
-import { type BillingStore } from '@daisy/db/stores/billing';
+import type { BillingStore } from '@daisy/db/stores/billing';
 import { hasObservationConflict } from './cleanup-observation-conflict';
 import {
   invoicePassOwnerSchema,

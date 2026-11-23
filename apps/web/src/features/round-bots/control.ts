@@ -1,4 +1,4 @@
-import { type RoundWorkerStore } from '@daisy/db/stores/round-workers';
+import type { RoundWorkerStore } from '@daisy/db/stores/round-workers';
 import type { createAttendanceFeature } from '../attendance/operations';
 type Claim = Awaited<ReturnType<RoundWorkerStore['claimRoundBotWorker']>>;
 /**

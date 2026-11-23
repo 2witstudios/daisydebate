@@ -1,4 +1,4 @@
-import { type TranscriptStore } from '@daisy/db/stores/transcripts';
+import type { TranscriptStore } from '@daisy/db/stores/transcripts';
 import {
   DAY_MS,
   retentionAfter,

@@ -1,4 +1,4 @@
-import { type NotificationsStore } from '@daisy/db/stores/notifications';
+import type { NotificationsStore } from '@daisy/db/stores/notifications';
 import { instantMs } from '@daisy/clock';
 import { participantAccess } from '@daisy/auth/authorization';
 import { hostLobbyResource } from '../tab/operations/host-lobby-resource';

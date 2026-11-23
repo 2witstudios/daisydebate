@@ -1,4 +1,4 @@
-import { type BillingStore } from '@daisy/db/stores/billing';
+import type { BillingStore } from '@daisy/db/stores/billing';
 import { decideClubSeating } from '@daisy/protocol/club-seats';
 import type { MemberCaller } from '../auth/member-boundary';
 

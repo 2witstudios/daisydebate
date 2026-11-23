@@ -1,4 +1,4 @@
-import { type MessagingStore } from '@daisy/db/stores/messaging';
+import type { MessagingStore } from '@daisy/db/stores/messaging';
 import { repeatEvery } from '@daisy/worker';
 import type { Waits } from '@daisy/clock';
 import type { Clock } from '@daisy/clock';

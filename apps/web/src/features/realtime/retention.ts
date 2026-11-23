@@ -1,4 +1,4 @@
-import { type OutboxStore } from '@daisy/db/stores/outbox';
+import type { OutboxStore } from '@daisy/db/stores/outbox';
 import {
   DAY_MS,
   retentionAfter,

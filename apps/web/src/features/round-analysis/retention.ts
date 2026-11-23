@@ -1,4 +1,4 @@
-import { type RoundAnalysisStore } from '@daisy/db/stores/round-analysis';
+import type { RoundAnalysisStore } from '@daisy/db/stores/round-analysis';
 import {
   DAY_MS,
   retentionAfter,

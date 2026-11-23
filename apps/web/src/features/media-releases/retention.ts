@@ -1,4 +1,4 @@
-import { type MediaReleaseStore } from '@daisy/db/stores/media-releases';
+import type { MediaReleaseStore } from '@daisy/db/stores/media-releases';
 import {
   DAY_MS,
   retentionAfter,

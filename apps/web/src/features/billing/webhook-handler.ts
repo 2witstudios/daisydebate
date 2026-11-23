@@ -1,4 +1,4 @@
-import { type BillingStore } from '@daisy/db/stores/billing';
+import type { BillingStore } from '@daisy/db/stores/billing';
 import { nowMs } from '@daisy/clock';
 import type { BillingConfig } from '@daisy/config';
 import type { Clock } from '@daisy/clock';

@@ -1,4 +1,4 @@
-import { type ContactsStore } from '@daisy/db/stores/contacts';
+import type { ContactsStore } from '@daisy/db/stores/contacts';
 import {
   DAY_MS,
   retentionAfter,

@@ -1,4 +1,4 @@
-import { type AudienceReactionsStore } from '@daisy/db/stores/audience-reactions';
+import type { AudienceReactionsStore } from '@daisy/db/stores/audience-reactions';
 import { instantMs } from '@daisy/clock';
 import type { Clock, IdGenerator } from '@daisy/clock';
 import { createAppError, createRefusal } from '@daisy/errors';

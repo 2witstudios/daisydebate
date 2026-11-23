@@ -1,4 +1,4 @@
-import { type OwnPublicProfile } from '@daisy/db/stores/profiles';
+import type { OwnPublicProfile } from '@daisy/db/stores/profiles';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import type { AccountAuthorizationFact } from '@daisy/auth/authorization';
 import type { App } from '../../server/app';

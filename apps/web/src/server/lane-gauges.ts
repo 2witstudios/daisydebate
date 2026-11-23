@@ -1,4 +1,4 @@
-import { type DatabaseResources } from '@daisy/db/resources';
+import type { DatabaseResources } from '@daisy/db/resources';
 import type { Waits } from '@daisy/clock';
 import { repeatEvery } from '@daisy/worker';
 import {

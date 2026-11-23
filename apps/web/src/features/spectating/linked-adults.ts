@@ -1,4 +1,4 @@
-import { type RecordingStore } from '@daisy/db/stores/recordings';
+import type { RecordingStore } from '@daisy/db/stores/recordings';
 import { linkedAdultsFor, type LinkedAdults } from '@daisy/db/youth-live';
 import type { YouthLiveFact } from '@daisy/auth/live-audience';
 import { isAppError } from '@daisy/errors';

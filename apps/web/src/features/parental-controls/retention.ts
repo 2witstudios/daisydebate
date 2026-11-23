@@ -1,4 +1,4 @@
-import { type GuardiansStore } from '@daisy/db/stores/guardians';
+import type { GuardiansStore } from '@daisy/db/stores/guardians';
 import type { RetentionTarget } from '../../server/retention-target';
 
 export const childAccountRequestRetentionTarget = (

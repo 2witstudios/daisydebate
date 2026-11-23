@@ -1,4 +1,4 @@
-import { type BillingStore } from '@daisy/db/stores/billing';
+import type { BillingStore } from '@daisy/db/stores/billing';
 import { z } from 'zod';
 import type { CleanupDeliveryRequest as Request } from './cleanup-delivery-request';
 import type { CleanupVendorPort } from './cleanup-vendor';

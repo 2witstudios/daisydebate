@@ -1,4 +1,4 @@
-import { type MediaCaptureStore } from '@daisy/db/stores/media-capture';
+import type { MediaCaptureStore } from '@daisy/db/stores/media-capture';
 import type { OpenRouter } from '@daisy/ai-voice';
 import type {
   NecessaryEvidenceRestore,

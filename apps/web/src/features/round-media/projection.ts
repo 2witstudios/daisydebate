@@ -1,4 +1,4 @@
-import { type MediaSessionStore } from '@daisy/db/stores/media-sessions';
+import type { MediaSessionStore } from '@daisy/db/stores/media-sessions';
 import { instantMs } from '@daisy/clock';
 import { mediaBindingRevoked } from '@daisy/protocol/media-binding-authority';
 import {

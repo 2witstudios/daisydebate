@@ -1,4 +1,4 @@
-import { type OperatorAccountsStore } from '@daisy/db/stores/operator-accounts';
+import type { OperatorAccountsStore } from '@daisy/db/stores/operator-accounts';
 import { createAppError } from '@daisy/errors';
 import { ageAdmitted } from '@daisy/auth/authorization';
 import { decideBetaAccessChange } from '@daisy/protocol/beta-access';

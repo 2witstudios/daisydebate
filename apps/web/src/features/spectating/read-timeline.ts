@@ -1,5 +1,5 @@
-import { type SpectatingStore } from '@daisy/db/stores/spectating';
-import { type RecordingStore } from '@daisy/db/stores/recordings';
+import type { SpectatingStore } from '@daisy/db/stores/spectating';
+import type { RecordingStore } from '@daisy/db/stores/recordings';
 import { instantMs, nowMs as clockNowMs } from '@daisy/clock';
 import type { Clock } from '@daisy/clock';
 import { spectatorTimelineHorizon } from '@daisy/debate-engine';

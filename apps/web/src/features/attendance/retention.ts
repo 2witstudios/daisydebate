@@ -1,4 +1,4 @@
-import { type RoomStore } from '@daisy/db/stores/rooms';
+import type { RoomStore } from '@daisy/db/stores/rooms';
 import {
   DAY_MS,
   retentionAfter,

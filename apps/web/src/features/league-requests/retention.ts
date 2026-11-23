@@ -1,4 +1,4 @@
-import { type LeagueRequestsStore } from '@daisy/db/stores/league-requests';
+import type { LeagueRequestsStore } from '@daisy/db/stores/league-requests';
 import {
   DAY_MS,
   retentionAfter,

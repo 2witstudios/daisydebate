@@ -1,4 +1,4 @@
-import { type FlagsStore } from '@daisy/db/stores/flags';
+import type { FlagsStore } from '@daisy/db/stores/flags';
 import { sha3Hex } from '@daisy/digest';
 import {
   authorize,

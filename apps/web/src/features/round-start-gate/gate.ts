@@ -1,5 +1,5 @@
-import { type RoundStartGateStore } from '@daisy/db/stores/round-start-gates';
-import { type RoundHydration } from '@daisy/db/stores/rounds';
+import type { RoundStartGateStore } from '@daisy/db/stores/round-start-gates';
+import type { RoundHydration } from '@daisy/db/stores/rounds';
 import { instantMs } from '@daisy/clock';
 import { createRoundRuntime } from '@daisy/debate-engine';
 import { roundStartPolicy } from '@daisy/protocol/round-start-policy';

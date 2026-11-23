@@ -1,5 +1,5 @@
-import { type WatchHistoryStore } from '@daisy/db/stores/watch-history';
-import { type SpectatingStore } from '@daisy/db/stores/spectating';
+import type { WatchHistoryStore } from '@daisy/db/stores/watch-history';
+import type { SpectatingStore } from '@daisy/db/stores/spectating';
 import type { Clock } from '@daisy/clock';
 import { watchHistoryUpdateSchema } from '@daisy/protocol/audience';
 import {

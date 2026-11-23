@@ -1,4 +1,4 @@
-import { type StandingsStore } from '@daisy/db/stores/standings';
+import type { StandingsStore } from '@daisy/db/stores/standings';
 import type { Ladder } from '@daisy/protocol/ladder';
 import { readRatingStandings } from '../ratings/read';
 import type { RatingPoint } from './history';

@@ -1,4 +1,4 @@
-import { type ClubReleaseStudent } from '@daisy/db/stores/media-releases';
+import type { ClubReleaseStudent } from '@daisy/db/stores/media-releases';
 import { instantMs } from '@daisy/clock';
 import type {
   MediaReleaseRecord,

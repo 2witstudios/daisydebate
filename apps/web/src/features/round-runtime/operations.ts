@@ -1,4 +1,4 @@
-import { type RoundStore } from '@daisy/db/stores/rounds';
+import type { RoundStore } from '@daisy/db/stores/rounds';
 import { commandDigest } from '@daisy/digest';
 import { bindRoundCommandPrincipal } from '@daisy/auth';
 import {

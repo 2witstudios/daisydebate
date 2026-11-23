@@ -1,4 +1,4 @@
-import { type RoomStore } from '@daisy/db/stores/rooms';
+import type { RoomStore } from '@daisy/db/stores/rooms';
 import type { Waits } from '@daisy/clock';
 import { pollWork, type LoopPass } from '@daisy/worker';
 import { LIVE_IDLE_MAX_MS } from '../../lib/worker-idle';

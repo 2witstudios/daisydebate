@@ -1,7 +1,4 @@
-import {
-  type ClubSeatAnswer,
-  type ClubSeatingRead,
-} from '@daisy/db/stores/billing';
+import type { ClubSeatAnswer, ClubSeatingRead } from '@daisy/db/stores/billing';
 import { z } from 'zod';
 import { createAppError } from '@daisy/errors';
 import type { createClubSeatCommands } from './invitation-resend';

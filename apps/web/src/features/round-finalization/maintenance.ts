@@ -1,5 +1,5 @@
-import { type RatingStore } from '@daisy/db/stores/ratings';
-import { type RoundMaintenanceStore } from '@daisy/db/stores/round-maintenance';
+import type { RatingStore } from '@daisy/db/stores/ratings';
+import type { RoundMaintenanceStore } from '@daisy/db/stores/round-maintenance';
 import { panelAdmission } from './admission';
 import { instantMs } from '@daisy/clock';
 import type { IdGenerator } from '@daisy/clock';

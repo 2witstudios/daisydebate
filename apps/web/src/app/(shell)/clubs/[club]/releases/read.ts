@@ -1,4 +1,4 @@
-import { type ClubReleasesRead } from '@daisy/db/stores/media-releases';
+import type { ClubReleasesRead } from '@daisy/db/stores/media-releases';
 import { notFound } from 'next/navigation';
 import { z } from 'zod';
 import type { SearchParams } from '../../../../../features/access/decision';

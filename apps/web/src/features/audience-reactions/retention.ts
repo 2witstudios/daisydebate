@@ -1,4 +1,4 @@
-import { type AudienceReactionsStore } from '@daisy/db/stores/audience-reactions';
+import type { AudienceReactionsStore } from '@daisy/db/stores/audience-reactions';
 import {
   DAY_MS,
   retentionAfter,

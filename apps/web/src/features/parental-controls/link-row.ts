@@ -1,4 +1,4 @@
-import { type GuardianLinkRow } from '@daisy/db/stores/guardians';
+import type { GuardianLinkRow } from '@daisy/db/stores/guardians';
 import { createAppError } from '@daisy/errors';
 import type { GuardianLink } from './guardian-link';
 

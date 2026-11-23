@@ -1,4 +1,4 @@
-import { type ContentModerationStore } from '@daisy/db/stores/content-moderation';
+import type { ContentModerationStore } from '@daisy/db/stores/content-moderation';
 
 type Store = Pick<ContentModerationStore, 'chatRemovalCommand'>;
 type Input = Parameters<Store['chatRemovalCommand']>[0];

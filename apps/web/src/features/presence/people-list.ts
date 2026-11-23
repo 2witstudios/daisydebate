@@ -1,4 +1,4 @@
-import { type PublicProfileCard } from '@daisy/db/stores/profiles';
+import type { PublicProfileCard } from '@daisy/db/stores/profiles';
 import {
   ADMITTED_AGE_BANDS,
   type AuthorizationPrincipal,

@@ -1,4 +1,4 @@
-import { type MediaCaptureStore } from '@daisy/db/stores/media-capture';
+import type { MediaCaptureStore } from '@daisy/db/stores/media-capture';
 import { createAppError } from '@daisy/errors';
 import { idSchema } from '@daisy/protocol/primitives';
 import { type NecessaryEvidenceCustody } from '@daisy/protocol/necessary-evidence';

@@ -1,4 +1,4 @@
-import { type FlagsStore } from '@daisy/db/stores/flags';
+import type { FlagsStore } from '@daisy/db/stores/flags';
 import {
   DAY_MS,
   retentionAfter,

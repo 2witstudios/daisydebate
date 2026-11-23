@@ -1,5 +1,5 @@
-import { type RatingStore } from '@daisy/db/stores/ratings';
-import { type StandingsStore } from '@daisy/db/stores/standings';
+import type { RatingStore } from '@daisy/db/stores/ratings';
+import type { StandingsStore } from '@daisy/db/stores/standings';
 import {
   affirmativeSide,
   isDebatingSeat,

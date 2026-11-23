@@ -1,4 +1,4 @@
-import { type ChallengesStore } from '@daisy/db/stores/challenges';
+import type { ChallengesStore } from '@daisy/db/stores/challenges';
 import {
   retentionAfter,
   type RetentionTarget,

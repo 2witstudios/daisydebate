@@ -1,4 +1,4 @@
-import { type MailStore } from '@daisy/db/stores/mail';
+import type { MailStore } from '@daisy/db/stores/mail';
 import { nowMs, instantMs } from '@daisy/clock';
 import { knownDeliveryRejection } from '../mail/resend-sender';
 import { operatorConsoleOrigin } from '@daisy/protocol/beta-access';

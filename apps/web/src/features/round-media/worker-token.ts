@@ -1,5 +1,5 @@
-import { type MediaCaptureStore } from '@daisy/db/stores/media-capture';
-import { type MediaSessionStore } from '@daisy/db/stores/media-sessions';
+import type { MediaCaptureStore } from '@daisy/db/stores/media-capture';
+import type { MediaSessionStore } from '@daisy/db/stores/media-sessions';
 import { addMs } from '@daisy/clock';
 import { admitsPrincipalAccess } from '@daisy/auth/authorization';
 import type { MediaNodes, MediaVendor } from '@daisy/media';

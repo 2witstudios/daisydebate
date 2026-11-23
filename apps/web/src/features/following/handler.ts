@@ -1,4 +1,4 @@
-import { type DebaterFollowsStore } from '@daisy/db/stores/debater-follows';
+import type { DebaterFollowsStore } from '@daisy/db/stores/debater-follows';
 import { createRefusal } from '@daisy/errors';
 import { debaterFollowUpdateSchema } from '@daisy/protocol/audience';
 import {

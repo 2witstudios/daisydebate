@@ -1,4 +1,4 @@
-import { type MailStore } from '@daisy/db/stores/mail';
+import type { MailStore } from '@daisy/db/stores/mail';
 import {
   DAY_MS,
   retentionAfter,

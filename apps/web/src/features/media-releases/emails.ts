@@ -1,4 +1,4 @@
-import { type PreparedReleaseMail } from '@daisy/db/stores/media-releases';
+import type { PreparedReleaseMail } from '@daisy/db/stores/media-releases';
 import { renderEmailLayout } from '../mail/layout';
 import { guardianRelationWords, releaseDate } from './release-words';
 

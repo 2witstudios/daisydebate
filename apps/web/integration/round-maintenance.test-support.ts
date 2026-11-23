@@ -1,6 +1,6 @@
-import { type AvailabilityStore } from '@daisy/db/stores/availability';
-import { type RoundMaintenanceStore } from '@daisy/db/stores/round-maintenance';
-import { type AttendanceStore } from '@daisy/db/stores/attendance';
+import type { AvailabilityStore } from '@daisy/db/stores/availability';
+import type { RoundMaintenanceStore } from '@daisy/db/stores/round-maintenance';
+import type { AttendanceStore } from '@daisy/db/stores/attendance';
 import { hostWaits } from '@daisy/worker/host';
 import { botGrantUnused, captureRule } from '@daisy/debate-engine';
 import { judgingPolicy } from '@daisy/protocol/judging-policy';

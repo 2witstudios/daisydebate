@@ -1,4 +1,4 @@
-import { type NotificationsStore } from '@daisy/db/stores/notifications';
+import type { NotificationsStore } from '@daisy/db/stores/notifications';
 import { spectatorClockAt } from '../spectating/spectator-clock';
 
 const BATCH = 64;

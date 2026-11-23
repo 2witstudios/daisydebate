@@ -1,8 +1,5 @@
-import { type MailStore } from '@daisy/db/stores/mail';
-import {
-  type AuthStore,
-  type ProvisionalLinkPurposes,
-} from '@daisy/db/stores/auth';
+import type { MailStore } from '@daisy/db/stores/mail';
+import type { AuthStore, ProvisionalLinkPurposes } from '@daisy/db/stores/auth';
 import {
   DAY_MS,
   retentionAfter,

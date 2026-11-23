@@ -1,4 +1,4 @@
-import { type SpectatorChatStore } from '@daisy/db/stores/spectator-chat';
+import type { SpectatorChatStore } from '@daisy/db/stores/spectator-chat';
 import type { Clock, IdGenerator } from '@daisy/clock';
 import { createAppError, createRefusal } from '@daisy/errors';
 import { spectatorChatPostSchema } from '@daisy/protocol/audience';

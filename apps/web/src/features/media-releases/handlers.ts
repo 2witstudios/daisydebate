@@ -1,4 +1,4 @@
-import { type MediaReleaseStore } from '@daisy/db/stores/media-releases';
+import type { MediaReleaseStore } from '@daisy/db/stores/media-releases';
 import { createAppError } from '@daisy/errors';
 import { CLIENT_IP_HEADER } from '@daisy/ingress/client-ip';
 import { idSchema } from '@daisy/protocol/primitives';

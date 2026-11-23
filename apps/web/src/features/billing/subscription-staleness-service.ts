@@ -1,4 +1,4 @@
-import { type BillingStore } from '@daisy/db/stores/billing';
+import type { BillingStore } from '@daisy/db/stores/billing';
 import { createAppError } from '@daisy/errors';
 import {
   subscriptionFreshness,

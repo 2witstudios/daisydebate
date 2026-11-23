@@ -1,4 +1,4 @@
-import { type DatabaseResources } from '@daisy/db/resources';
+import type { DatabaseResources } from '@daisy/db/resources';
 
 type Gauge = ReturnType<DatabaseResources['laneGauges']>[number];
 export type LaneHolds = ReturnType<DatabaseResources['drainLaneHolds']>[number];

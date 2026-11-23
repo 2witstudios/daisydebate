@@ -1,5 +1,5 @@
-import { type SpectatingStore } from '@daisy/db/stores/spectating';
-import { type RoomStore } from '@daisy/db/stores/rooms';
+import type { SpectatingStore } from '@daisy/db/stores/spectating';
+import type { RoomStore } from '@daisy/db/stores/rooms';
 import { authorize } from '@daisy/auth/authorization';
 import { createAppError } from '@daisy/errors';
 import { idSchema } from '@daisy/protocol/primitives';

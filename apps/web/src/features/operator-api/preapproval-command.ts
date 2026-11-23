@@ -1,4 +1,4 @@
-import { type BetaAccessStore } from '@daisy/db/stores/beta-access';
+import type { BetaAccessStore } from '@daisy/db/stores/beta-access';
 import { createAppError } from '@daisy/errors';
 import { decidePreapprovalChange } from '@daisy/protocol/beta-preapproval';
 

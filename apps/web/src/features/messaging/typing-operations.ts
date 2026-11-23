@@ -1,4 +1,4 @@
-import { type MessagingStore } from '@daisy/db/stores/messaging';
+import type { MessagingStore } from '@daisy/db/stores/messaging';
 import { instantMs } from '@daisy/clock';
 import type { createRedis } from '@daisy/redis';
 import type { Clock } from '@daisy/clock';

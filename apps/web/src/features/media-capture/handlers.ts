@@ -1,4 +1,4 @@
-import { type MediaCaptureStore } from '@daisy/db/stores/media-capture';
+import type { MediaCaptureStore } from '@daisy/db/stores/media-capture';
 import { prepareEvidenceBody } from './necessary-evidence-authentication';
 import type { Logger } from '@daisy/logger';
 import type { ErrorReporter } from '@daisy/observability';

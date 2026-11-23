@@ -1,4 +1,4 @@
-import { type LeagueRequestsStore } from '@daisy/db/stores/league-requests';
+import type { LeagueRequestsStore } from '@daisy/db/stores/league-requests';
 import { createAppError } from '@daisy/errors';
 import type { EmailMessage } from '../mail/types';
 import { retryOrFail } from '../mail/retry-policy';
