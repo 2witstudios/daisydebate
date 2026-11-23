@@ -1,5 +1,6 @@
-import { renderToStaticMarkup } from 'react-dom/server';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
+import { renderAccessible } from '../../test-support/rendered/accessible';
+import { postedBy } from '../test-support/posted-fields.test-support';
 import { UnacknowledgedCommand } from './unacknowledged-command';
 
 setupRitewayBun();
@@ -16,79 +17,86 @@ const render = (
   answer: Parameters<typeof UnacknowledgedCommand>[0]['answer'],
   pending = false,
 ) =>
-  renderToStaticMarkup(
+  renderAccessible(
     <UnacknowledgedCommand answer={answer} post={() => {}} pending={pending} />,
   );
+const FORM = 'Retry unacknowledged command';
 
 test('only an unacknowledged, still-valid original envelope can be retried', () => {
-  const html = render({ kind: 'unacknowledged', values: original });
+  const view = render({ kind: 'unacknowledged', values: original });
+  const retry = [
+    view.has('form', FORM),
+    postedBy(view.within('form', FORM), 'Retry command'),
+  ] as const;
   assert({
     given:
       'an unacknowledged yield envelope, then an acknowledged one, one with a stray field and a malformed one',
     should:
       'offer one retry form carrying the original envelope, and nothing for the others',
     actual: [
-      html.includes('aria-label="Retry unacknowledged command"'),
-      html.includes(`name="commandId" value="${id}"`),
-      html.includes('name="type" value="yield"'),
-      render({ kind: 'idle', values: original }),
-      render({ kind: 'unacknowledged', values: { ...original, note: 'x' } }),
+      retry[0],
+      retry[1].commandId,
+      retry[1].type,
+      render({ kind: 'idle', values: original }).textContent(),
+      render({
+        kind: 'unacknowledged',
+        values: { ...original, note: 'x' },
+      }).textContent(),
       render({
         kind: 'unacknowledged',
         values: { ...original, commandId: 'bad' },
-      }),
+      }).textContent(),
     ],
-    expected: [true, true, true, '', '', ''],
+    expected: [true, id, 'yield', '', '', ''],
   });
 });
 
 test('a pending retry is busy and cannot be sent twice', () => {
-  const html = render({ kind: 'unacknowledged', values: original }, true);
+  const view = render({ kind: 'unacknowledged', values: original }, true);
   assert({
     given: 'a retry already in flight',
     should: 'mark the form busy and disable its button',
     actual: [
-      html.includes('aria-busy="true"'),
-      html.includes('disabled=""'),
-      html.includes('Retrying…'),
+      view.attribute('form', FORM, 'aria-busy'),
+      view.get('button', 'Retrying…').hasAttribute('disabled'),
     ],
-    expected: [true, true, true],
+    expected: ['true', true],
   });
 });
 
 test('a retried strike carries the turn and position the debater struck', () => {
-  const html = render({
-    kind: 'unacknowledged',
-    values: {
-      ...original,
-      type: 'strike_resolution',
-      ordinal: '1',
-      position: '2',
-    },
-  });
+  const posted = postedBy(
+    render({
+      kind: 'unacknowledged',
+      values: {
+        ...original,
+        type: 'strike_resolution',
+        ordinal: '1',
+        position: '2',
+      },
+    }),
+    'Retry command',
+  );
   assert({
     given: 'an unacknowledged strike',
     should: 'offer a retry carrying its ordinal and position',
-    actual: [
-      html.includes('name="ordinal" value="1"'),
-      html.includes('name="position" value="2"'),
-    ],
-    expected: [true, true],
+    actual: [posted.ordinal, posted.position],
+    expected: ['1', '2'],
   });
 });
 
 test('the retry posts exactly the fields the debater sent, its segment included (ISSUE-838)', () => {
-  const html = render({
-    kind: 'unacknowledged',
-    values: { ...original, confirmed: 'true', segment: '0' },
-  });
+  const posted = postedBy(
+    render({
+      kind: 'unacknowledged',
+      values: { ...original, confirmed: 'true', segment: '0' },
+    }),
+    'Retry command',
+  );
   assert({
     given: 'an unacknowledged confirmed yield sent from segment 0',
     should: 'offer a retry carrying the same segment and confirmation',
-    actual: [
-      html.includes('name="segment" value="0"'),
-      html.includes('name="confirmed" value="true"'),
-    ],
-    expected: [true, true],
+    actual: [posted.segment, posted.confirmed],
+    expected: ['0', 'true'],
   });
 });

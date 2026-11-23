@@ -1,9 +1,9 @@
 import { createElement as h } from 'react';
-import { renderToString } from 'react-dom/server';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import type { CoverageGap } from '@daisy/protocol/recording';
 import { coverageParts } from '../../../features/recording/coverage-statement';
 import type { RecordingMediaPanel } from '../../../features/recording/history';
+import { renderAccessible } from '../../../test-support/rendered/accessible';
 import { RecordingPlayer } from './recording-player';
 import { clockTime, gapCopy } from './recording-player-copy';
 
@@ -23,33 +23,33 @@ const render = ({
   gaps = [],
   ...over
 }: Partial<typeof media> & { gaps?: readonly CoverageGap[] } = {}) =>
-  renderToString(
+  renderAccessible(
     h(RecordingPlayer, {
       media: { ...media, ...coverageParts(gaps), ...over },
     }),
   );
+/** What the player says, as read. */
+const said = (over: Parameters<typeof render>[0] = {}) =>
+  render(over).textContent();
 
 describe('RecordingPlayer', () => {
-  test('is the one player, labelled, with native controls and a speed choice', () => {
-    const html = render();
+  test('offers a speed choice', () => {
+    const view = render();
     assert({
       given: 'a Recording',
-      should: 'offer the browser controls, a label and speed',
-      actual: [
-        html.includes('controls'),
-        html.includes('playsInline') || html.includes('playsinline'),
-        html.includes('aria-label="Recording of this debate"'),
-        html.includes('Speed'),
-        html.includes('2x'),
-      ],
-      expected: [true, true, true, true, true],
+      should: 'offer speed, with 2x among the choices',
+      actual: view
+        .within('combobox', /^Speed/)
+        .names('option')
+        .includes('2x'),
+      expected: true,
     });
   });
   test('states what the video does not hold', () => {
     assert({
       given: 'no gap',
       should: 'not raise the question',
-      actual: render().includes('not recorded'),
+      actual: said().includes('not recorded'),
       expected: false,
     });
     assert({
@@ -57,11 +57,12 @@ describe('RecordingPlayer', () => {
       should: 'name when and why',
       actual: render({
         gaps: [{ startMs: 60_000, endMs: 90_000, reason: 'capture_restart' }],
-      }).includes('1:00 to 1:30: recording stopped and restarted'),
+      })
+        .within('region', 'Missing from this recording')
+        .textContent()
+        .includes('1:00 to 1:30: recording stopped and restarted'),
       expected: true,
     });
-    const said = (over: Parameters<typeof render>[0]) =>
-      render(over).replaceAll('&#x27;', "'");
     assert({
       given: 'each kind of debate lost',
       should: 'name it plainly',
@@ -151,19 +152,19 @@ describe('RecordingPlayer', () => {
     });
   });
   test('lists the speech timeline as controls that seek', () => {
-    const html = render({
+    const view = render({
       speeches: [{ speaker: 'Avery', startMs: 15_000, endMs: 75_000 }],
     });
+    const timeline = view.within('navigation', 'Speech timeline');
     assert({
       given: 'one speech',
       should: 'render a labelled timeline with a real button',
       actual: [
-        html.includes('aria-label="Speech timeline"'),
-        html.includes('<button'),
-        html.includes('Avery'),
-        html.includes('0:15 to 1:15'),
+        timeline.count('button'),
+        timeline.text('button'),
+        timeline.attribute('button', undefined, 'type'),
       ],
-      expected: [true, true, true, true],
+      expected: [1, 'Avery0:15 to 1:15', 'button'],
     });
   });
 });

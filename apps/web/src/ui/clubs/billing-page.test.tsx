@@ -1,12 +1,11 @@
 import { mock } from 'bun:test';
-import { renderToStaticMarkup } from 'react-dom/server';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
+import { renderAccessible } from '../../test-support/rendered/accessible';
 import {
   billingView,
   noAction,
   plan,
   seatsView,
-  words,
 } from './club-view.test-support';
 
 setupRitewayBun();
@@ -23,7 +22,7 @@ const render = (
   seating = seatsView,
   notice?: 'purchase-pending',
 ) =>
-  renderToStaticMarkup(
+  renderAccessible(
     <ClubBillingPage
       view={view}
       seating={seating}
@@ -34,8 +33,10 @@ const render = (
   );
 
 test('an active plan shows its total, seats, next invoice, invoices and the portal', () => {
-  const html = render();
-  const text = words(html);
+  const view = render();
+  const text = view.textContent();
+  const posts = (button: string) =>
+    view.get('button', button).closest('form')?.getAttribute('action');
   assert({
     given: 'a 14-seat plan renewing on 1 Dec',
     should:
@@ -45,14 +46,19 @@ test('an active plan shows its total, seats, next invoice, invoices and the port
       text.includes('14 × $10'),
       text.includes('8, with 2 invited'),
       text.includes('1 Dec 2026 · $140.00'),
-      text.includes('Change seats'),
+      view.has('form', 'Change seats'),
       text.includes('so the lowest without giving up a seat is 10'),
       text.includes('Seats added, prorated'),
       text.includes('$11.61'),
-      html.includes(
-        'action="/api/clubs/cccccccccccccccccccccccc/billing/portal"',
+      [
+        posts('Manage payment'),
+        posts('Download invoices'),
+        posts('Cancel the club'),
+      ].every(
+        (action) =>
+          action === '/api/clubs/cccccccccccccccccccccccc/billing/portal',
       ),
-      text.includes('Cancel the club'),
+      view.has('heading', 'Cancel the club', { level: 2 }),
       text.includes('Seats stay Premium until 1 Dec 2026'),
       text.includes('4242'),
     ],
@@ -92,21 +98,24 @@ test('a seat increase estimates the proration now; a decrease says no credit', (
 test('below the seats in use the form asks exactly who gives up a seat', () => {
   // A plan cut to 8 outside Daisy while 10 seats are in use.
   const cut = { ...plan, seatCount: 8, monthlyTotalMinor: 8000 };
-  const html = render(
+  const view = render(
     { ...billingView, plan: cut },
     { ...seatsView, plan: cut },
   );
+  const giveUp = view.within('group', 'Choose 2 seats to give up');
   assert({
     given: 'a plan whose seat count is under the seats in use',
     should:
       'list the holders and invitations to choose from, with the end-of-day consequence',
     actual: [
-      words(html).includes('Choose 2 seats to give up'),
-      html.includes('name="releaseSeat"'),
-      html.includes('name="releaseInvitation"'),
-      words(html).includes('drop to the free plan at the end of today (UTC)'),
+      giveUp.count('checkbox'),
+      giveUp.attribute('checkbox', 'Sam Rivera', 'name'),
+      giveUp.attribute('checkbox', 'rosa.j@lakeside.edu (invited)', 'name'),
+      giveUp
+        .textContent()
+        .includes('drop to the free plan at the end of today (UTC)'),
     ],
-    expected: [true, true, true, true],
+    expected: [10, 'releaseSeat', 'releaseInvitation', true],
   });
 });
 
@@ -118,7 +127,7 @@ test('before a first payment the club goes to Checkout; a return says seats are 
     monthlyTotalMinor: 0,
     renewsAt: null,
   };
-  const html = renderToStaticMarkup(
+  const view = renderAccessible(
     <ClubBillingPage
       view={{
         ...billingView,
@@ -137,20 +146,25 @@ test('before a first payment the club goes to Checkout; a return says seats are 
     should:
       'say the seats are being confirmed and offer Checkout, not a seat change',
     actual: [
-      words(html).includes('Your seats are being confirmed.'),
-      html.includes(
-        'action="/api/clubs/cccccccccccccccccccccccc/billing/checkout"',
-      ),
-      words(html).includes('Change seats'),
+      view.text('status').includes('Your seats are being confirmed.'),
+      view
+        .get('button', 'Continue to checkout')
+        .closest('form')
+        ?.getAttribute('action'),
+      view.textContent().includes('Change seats'),
     ],
-    expected: [true, true, false],
+    expected: [
+      true,
+      '/api/clubs/cccccccccccccccccccccccc/billing/checkout',
+      false,
+    ],
   });
   assert({
     given: 'the purchase-pending notice',
     should: 'show its fixed sentence',
-    actual: words(render(billingView, seatsView, 'purchase-pending')).includes(
-      'Your purchase is being checked.',
-    ),
+    actual: render(billingView, seatsView, 'purchase-pending')
+      .text('status')
+      .includes('Your purchase is being checked.'),
     expected: true,
   });
 });

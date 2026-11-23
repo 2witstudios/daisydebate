@@ -1,11 +1,11 @@
 import { createElement as h } from 'react';
-import { renderToString } from 'react-dom/server';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { ballotPlanFor } from '../../features/judge/ballot-plan';
 import {
   sampleBallotRound,
   sampleJudgeBallot,
 } from '../mock/judge.test-support';
+import { renderAccessible } from '../../test-support/rendered/accessible';
 
 const named = (aff: string, neg: string) => {
   const [a, n] = sampleBallotRound.participants;
@@ -24,7 +24,7 @@ import { StoredBallotScores } from './stored-ballot-scores';
 import { daisyWinnerBallot } from '@daisy/protocol/ballot-definition';
 setupRitewayBun();
 test('recorded scores name both actual sides and every rubric category without a fabricated companion', () => {
-  const html = renderToString(
+  const view = renderAccessible(
     h(StoredBallotScores, {
       title: 'Recorded ballot scores',
       ballot: sampleJudgeBallot,
@@ -36,10 +36,10 @@ test('recorded scores name both actual sides and every rubric category without a
     should:
       'render both sides, all ten categories and totals with no invented AI vote',
     actual: [
-      html.includes('a'.repeat(32)),
-      html.includes('n'.repeat(32)),
-      (html.match(/scope="row"/g) ?? []).length,
-      html.includes('AI judge'),
+      view.has('columnheader', 'a'.repeat(32)),
+      view.has('columnheader', 'n'.repeat(32)),
+      view.count('rowheader'),
+      view.textContent().includes('AI judge'),
     ],
     expected: [true, true, 11, false],
   });
@@ -57,7 +57,7 @@ test('a ballot written on the first rubric renders on its own categories', () =>
     organization: score,
     delivery: score,
   });
-  const html = renderToString(
+  const view = renderAccessible(
     h(StoredBallotScores, {
       title: 'Recorded ballot scores',
       ballot: {
@@ -75,13 +75,12 @@ test('a ballot written on the first rubric renders on its own categories', () =>
     should:
       'show its Framework, Analysis and Impact rows, no Burdens row, and its own totals',
     actual: [
-      html.includes('>Framework<'),
-      html.includes('>Analysis<'),
-      html.includes('>Impact<'),
-      html.includes('>Burdens<'),
-      html.includes('30<!-- --> / 50'),
-      html.includes('40<!-- --> / 50'),
+      view.has('rowheader', 'Framework'),
+      view.has('rowheader', 'Analysis'),
+      view.has('rowheader', 'Impact'),
+      view.has('rowheader', 'Burdens'),
+      view.within('row', /^Total/).names('cell'),
     ],
-    expected: [true, true, true, false, true, true],
+    expected: [true, true, true, false, ['30 / 50', '40 / 50']],
   });
 });

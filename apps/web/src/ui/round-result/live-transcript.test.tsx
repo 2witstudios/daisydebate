@@ -1,7 +1,7 @@
 import { createElement as h } from 'react';
-import { renderToString } from 'react-dom/server';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import type { LiveTranscriptRead } from '@daisy/protocol/round-transcript';
+import { renderAccessible } from '../../test-support/rendered/accessible';
 import { completed } from './result.test-support';
 import {
   liveTranscriptSections,
@@ -50,19 +50,19 @@ test('durable closure and freeze decide labels without a deadline or viewer seat
 test('an authorized transcript renders per speech with speakers and partial state in native markup', () => {
   const value = read('partial');
   const sections = liveTranscriptSections(value);
-  const html = renderToString(
+  const text = renderAccessible(
     h(TranscriptContent, { sections, empty: 'No speech was captured.' }),
-  );
+  ).textContent();
   assert({
     given: 'authorized text with no reader identity or seat prop',
     should:
       'render both speeches and their actual speakers and partial closure',
     actual: [
       sections.length,
-      html.includes('Access improves.'),
-      html.includes('Costs displace services'),
-      html.includes('Partial'),
-      html.includes('Sam Reyes'),
+      text.includes('Access improves.'),
+      text.includes('Costs displace services'),
+      text.includes('Partial'),
+      text.includes('Sam Reyes'),
     ],
     expected: [2, true, true, true, true],
   });
@@ -112,16 +112,16 @@ test('a gap sits where the capture stopped and shows the seat it belongs to', ()
     actual: sectionItems(section).map((item) => item.kind),
     expected: ['line', 'gap', 'line'],
   });
-  const html = renderToString(
+  const text = renderAccessible(
     h(TranscriptContent, { sections: [section], empty: '' }),
-  );
+  ).textContent();
   assert({
     given: 'the rendered gap',
     should: 'give its span with no explanation',
     actual:
-      html.includes('not captured') &&
-      html.includes('3:54') &&
-      html.includes('4:12'),
+      text.includes('not captured') &&
+      text.includes('3:54') &&
+      text.includes('4:12'),
     expected: true,
   });
 });
@@ -135,16 +135,16 @@ test('a gap under a second still shows a real span', () => {
       gaps: [{ fromOffsetMs: 5200, untilOffsetMs: 5500 }],
     })),
   };
-  const html = renderToString(
+  const text = renderAccessible(
     h(TranscriptContent, {
       sections: [liveTranscriptSections(value)[0]!],
       empty: '',
     }),
-  );
+  ).textContent();
   assert({
     given: 'a 300 ms hole inside one second',
     should: 'round outward rather than read 0:05 to 0:05',
-    actual: html.includes('0:05') && html.includes('0:06'),
+    actual: text.includes('0:05') && text.includes('0:06'),
     expected: true,
   });
 });
@@ -198,12 +198,12 @@ const withReasons = (partialReasons: readonly string[]) => ({
 });
 
 test('a partial speech with no gap says part of it was lost', () => {
-  const html = renderToString(
+  const text = renderAccessible(
     h(TranscriptContent, {
       sections: [liveTranscriptSections(withReasons(['frames-lost']))[0]!],
       empty: '',
     }),
-  );
+  ).textContent();
   const gapped = liveTranscriptSections({
     ...withReasons(['frames-lost']),
     streams: withReasons(['frames-lost']).streams.map((stream) => ({
@@ -214,7 +214,7 @@ test('a partial speech with no gap says part of it was lost', () => {
   assert({
     given: 'a partial stream with nothing to place, and one with a gap',
     should: 'say a part was lost only where no gap can say where',
-    actual: [html.includes('part of this speech was lost'), gapped.losses],
+    actual: [text.includes('part of this speech was lost'), gapped.losses],
     expected: [true, []],
   });
 });
@@ -285,12 +285,12 @@ test('a bot line being spoken reads as arriving, and a cut one as cut off (ADR 0
     liveTranscriptSections(view).flatMap((section) =>
       section.lines.map((line) => line.mark),
     );
-  const html = renderToString(
+  const text = renderAccessible(
     h(TranscriptContent, {
       sections: liveTranscriptSections(value),
       empty: 'No speech was captured.',
     }),
-  );
+  ).textContent();
   assert({
     given:
       'a live line still being spoken and one cut off, then the same Round frozen',
@@ -299,7 +299,7 @@ test('a bot line being spoken reads as arriving, and a cut one as cut off (ADR 0
     actual: {
       live: marks(value),
       frozen: marks({ ...value, freeze: { completeness: 'complete' } }),
-      rendered: [html.includes('…'), html.includes('(cut off)')],
+      rendered: [text.includes('…'), text.includes('(cut off)')],
     },
     expected: {
       live: ['arriving', 'cut'],

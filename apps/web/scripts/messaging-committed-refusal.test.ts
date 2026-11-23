@@ -11,6 +11,10 @@ const hostRoot = (child: unknown) => {
   return { host: state.current, select };
 };
 
+/** useDriver's holder, as the view's hook after its memoized driver start. */
+const holderOf = (driver: unknown) => ({ read: () => ({ driver }) });
+const startMemo = [() => {}, []] as unknown;
+
 const committedRefusalRenderId = (element: object, settled = false) =>
   committedRefusalState(element, settled).requestId;
 
@@ -76,8 +80,11 @@ test('settlement follows the installed router memo then transition hooks, never 
       next: {
         memoizedState: () => {},
         next: {
-          memoizedState: { current: { stop: () => {}, refused: () => {} } },
-          next: { memoizedState: false },
+          memoizedState: startMemo,
+          next: {
+            memoizedState: holderOf({ stop: () => {}, refused: () => {} }),
+            next: { memoizedState: false },
+          },
         },
       },
     };
@@ -169,7 +176,8 @@ test('private owner capture separates router wrapper replacement from recovery l
   const refresh = () => {};
   const original = { refresh };
   const recovery = { stop() {}, refused() {} };
-  const ownerRef = { current: recovery };
+  let held: unknown = recovery;
+  const ownerRef = { read: () => ({ driver: held }) };
   const start = () => {};
   const element: Record<string, unknown> = {};
   const memo = {
@@ -177,7 +185,10 @@ test('private owner capture separates router wrapper replacement from recovery l
     next: {
       memoizedState: false,
       queue: { dispatch: null, lastRenderedReducer() {} },
-      next: { memoizedState: start, next: { memoizedState: ownerRef } },
+      next: {
+        memoizedState: start,
+        next: { memoizedState: startMemo, next: { memoizedState: ownerRef } },
+      },
     },
   };
   const owner = {
@@ -191,7 +202,7 @@ test('private owner capture separates router wrapper replacement from recovery l
   const before = committedRefusalState(element, 'private-owner').privateOwner;
   memo.memoizedState = [{ refresh, bfcacheId: '_b_2_' }, [original, 2]];
   const changed = committedRefusalState(element, 'private-owner').privateOwner;
-  ownerRef.current = { stop() {}, refused() {} };
+  held = { stop() {}, refused() {} };
   const reset = committedRefusalState(element, 'private-owner').privateOwner;
   assert({
     given:

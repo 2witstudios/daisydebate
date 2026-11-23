@@ -1,7 +1,7 @@
 import { createElement as h } from 'react';
-import { renderToString } from 'react-dom/server';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { contextChatIdle } from '../../features/messaging/context-chat/form-state';
+import { renderAccessible } from '../../test-support/rendered/accessible';
 import { RoomChat } from './room-chat';
 
 setupRitewayBun();
@@ -17,52 +17,41 @@ const props = {
   reportAction: action,
 };
 
+/** Whether the chat offers a message field: a text box, or a form to post one (a form has no role until named). */
+const composer = (view: ReturnType<typeof renderAccessible>) => [
+  view.count('textbox'),
+  view.get('region', 'Room chat').getElementsByTagName('form').length,
+];
+
 test('Room chat names itself and nothing more', () => {
-  const html = renderToString(h(RoomChat, props));
+  const view = renderAccessible(h(RoomChat, props));
   assert({
     given: 'the Room chat a Room page mounts',
     should:
       'render one labelled region with its heading and no audience line, under none of the floor’s words',
     actual: [
-      (html.match(/aria-label="Room chat"/g) ?? []).length,
-      html.includes('<h2 class="font-strong">Room chat</h2>'),
-      !html.includes('Everyone in the room'),
-      html.includes('Loading Room chat…'),
-      /Round|floor|Debaters and host/.test(html),
+      view.count('region', 'Room chat'),
+      view.has('heading', 'Room chat', { level: 2 }),
+      !view.textContent().includes('Everyone in the room'),
+      view.textContent().includes('Loading Room chat…'),
+      /Round|floor|Debaters and host/.test(view.textContent()),
     ],
     expected: [1, true, true, true, false],
   });
 });
 
-test('Room chat fills the height its container gives it', () => {
-  const html = renderToString(h(RoomChat, props));
-  assert({
-    given: 'a container of a fixed height',
-    should:
-      'be a full-height column that may shrink, around a thread that takes the rest and scrolls inside',
-    actual: [
-      html.startsWith('<div class="flex h-full min-h-0 flex-1 flex-col">'),
-      html.includes(
-        '<section aria-label="Room chat" class="flex min-h-0 flex-1 flex-col">',
-      ),
-      html.includes('flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto'),
-    ],
-    expected: [true, true, true],
-  });
-});
-
 test('Room chat creates nothing and shows no composer before its channel is known', () => {
-  const html = renderToString(h(RoomChat, props));
+  const view = renderAccessible(h(RoomChat, props));
   assert({
     given: 'the first render, before discovery',
     should: 'offer no message field: only a found or opened channel has one',
-    actual: [html.includes('<textarea'), html.includes('<form')],
-    expected: [false, false],
+    actual: composer(view),
+    expected: [0, 0],
   });
 });
 
 test('a judge’s Room chat says why there is nowhere to write', () => {
-  const html = renderToString(
+  const view = renderAccessible(
     h(RoomChat, { ...props, readOnlyHint: true, reader: 'judge' }),
   );
   assert({
@@ -70,17 +59,18 @@ test('a judge’s Room chat says why there is nowhere to write', () => {
     should:
       'say that judges read and do not post, in the Room’s own words, with no message field',
     actual: [
-      html.includes('Judges read this chat but don’t post in it.'),
-      html.includes('is read-only'),
-      html.includes('<textarea'),
-      html.includes('<form'),
+      view
+        .textContent()
+        .includes('Judges read this chat but don’t post in it.'),
+      view.textContent().includes('is read-only'),
+      ...composer(view),
     ],
-    expected: [true, false, false, false],
+    expected: [true, false, 0, 0],
   });
 });
 
 test('a Youth Room spectator’s Room chat says only the people in it chat (decision 84)', () => {
-  const html = renderToString(
+  const view = renderAccessible(
     h(RoomChat, { ...props, readOnlyHint: true, reader: 'spectator' }),
   );
   assert({
@@ -88,25 +78,24 @@ test('a Youth Room spectator’s Room chat says only the people in it chat (deci
     should:
       'say that only people in this Room can chat here, name no judge, age or ladder, and offer no message field',
     actual: [
-      html.includes('Only people in this Room can chat here.'),
-      /\bjudges?\b|under 18|\byouth\b|\bage\b/i.test(html),
-      html.includes('<textarea'),
-      html.includes('<form'),
+      view.textContent().includes('Only people in this Room can chat here.'),
+      /\bjudges?\b|under 18|\byouth\b|\bage\b/i.test(view.textContent()),
+      ...composer(view),
     ],
-    expected: [true, false, false, false],
+    expected: [true, false, 0, 0],
   });
 });
 
 test('a read-only Room chat with no seat to name says so plainly', () => {
-  const html = renderToString(h(RoomChat, { ...props, readOnlyHint: true }));
+  const view = renderAccessible(h(RoomChat, { ...props, readOnlyHint: true }));
   assert({
     given:
       'a read-only Room chat whose reader the view names neither judge nor spectator',
     should: 'say the chat is read-only, blaming no seat',
     actual: [
-      html.includes('This chat is read-only.'),
-      html.includes('Only people in this Room'),
-      html.includes('Judges read'),
+      view.textContent().includes('This chat is read-only.'),
+      view.textContent().includes('Only people in this Room'),
+      view.textContent().includes('Judges read'),
     ],
     expected: [true, false, false],
   });

@@ -1,10 +1,10 @@
-import { renderToStaticMarkup } from 'react-dom/server';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
+import { renderAccessible } from '../../../test-support/rendered/accessible';
 import { RoomInvite } from './room-invite';
 
 setupRitewayBun();
 test('invite renders an actual room link before hydration', () => {
-  const html = renderToStaticMarkup(
+  const view = renderAccessible(
     <RoomInvite
       roomId={'i'.repeat(24)}
       visibility="private"
@@ -15,10 +15,9 @@ test('invite renders an actual room link before hydration', () => {
     given: 'a private room before hydration',
     should: 'offer the room link itself, labelled, without a dead copy button',
     actual: [
-      html.includes(`href="/rooms/${'i'.repeat(24)}"`),
-      html.includes('>Copy invite link</a>'),
-      html.includes('<button'),
+      view.attribute('link', 'Copy invite link', 'href'),
+      view.count('button'),
     ],
-    expected: [true, true, false],
+    expected: [`/rooms/${'i'.repeat(24)}`, 0],
   });
 });

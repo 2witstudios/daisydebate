@@ -1,7 +1,7 @@
 import { createElement as h } from 'react';
-import { renderToString } from 'react-dom/server';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import type { ArchiveEntry } from '../../../features/recording/archive';
+import { renderAccessible } from '../../../test-support/rendered/accessible';
 import { RecordingRow } from './recording-row';
 
 setupRitewayBun();
@@ -20,58 +20,68 @@ const row: ArchiveEntry = {
   ownVisibility: null,
 };
 const render = (over: Partial<ArchiveEntry> = {}) =>
-  renderToString(h(RecordingRow, { row: { ...row, ...over } }));
+  renderAccessible(h(RecordingRow, { row: { ...row, ...over } }));
 
 describe('RecordingRow', () => {
   test('a playable Recording', () => {
-    const html = render();
+    const view = render();
+    const text = view.textContent();
     assert({
       given: 'a ready Recording',
       should: 'show its facts, result and one Replay link',
       actual: [
-        'Semifinal',
-        '@ada',
-        '@lin',
-        'Negative wins',
-        'Replay Semifinal',
-      ].map((text) => html.includes(text)),
-      expected: [true, true, true, true, true],
+        ...['Semifinal', '@ada', '@lin', 'Negative wins'].map((fact) =>
+          text.includes(fact),
+        ),
+        view.names('link'),
+        view.attribute('link', 'Replay Semifinal', 'href'),
+      ],
+      expected: [
+        true,
+        true,
+        true,
+        true,
+        ['Replay Semifinal'],
+        '/recordings/round',
+      ],
     });
   });
 
   test('other states offer nothing fabricated', () => {
-    const text = render({ media: 'not_recorded', length: null });
+    const view = render({ media: 'not_recorded', length: null });
     assert({
       given: 'a transcript with no video',
       should: 'offer reading, not replay',
       actual: [
-        text.includes('Not recorded'),
-        text.includes('Read Semifinal'),
-        text.includes('Replay'),
+        view.textContent().includes('Not recorded'),
+        view.names('link'),
+        view.textContent().includes('Replay'),
       ],
-      expected: [true, true, false],
+      expected: [true, ['Read Semifinal'], false],
     });
     const held = render({ media: 'withheld', length: null });
     assert({
       given: 'video held back from this viewer, with a transcript',
       should: 'say so and offer reading, not replay',
       actual: [
-        held.includes('Video being held back'),
-        held.includes('Read Semifinal'),
-        held.includes('Replay'),
+        held.textContent().includes('Video being held back'),
+        held.names('link'),
+        held.textContent().includes('Replay'),
       ],
-      expected: [true, true, false],
+      expected: [true, ['Read Semifinal'], false],
     });
     assert({
       given: 'a permission that hides the result',
       should: 'show none',
-      actual: render({ result: null }).includes('wins'),
+      actual: render({ result: null }).textContent().includes('wins'),
       expected: false,
     });
     assert({
       given: 'the viewer own private Round',
       should: 'show its visibility',
-      actual: render({ ownVisibility: 'private' }).includes('private'),
+      actual: render({ ownVisibility: 'private' })
+        .textContent()
+        .includes('private'),
       expected: true,
     });
   });

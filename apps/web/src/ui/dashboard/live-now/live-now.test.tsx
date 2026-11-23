@@ -1,36 +1,41 @@
 import { createElement as h } from 'react';
-import { renderToString } from 'react-dom/server';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { liveCard } from '../../../features/watch/live-card.test-support';
+import { renderAccessible } from '../../../test-support/rendered/accessible';
 import { LiveNow } from './live-now';
 
 setupRitewayBun();
 
 describe('LiveNow', () => {
   test('nothing live', () => {
-    const html = renderToString(h(LiveNow, { rounds: [] }));
+    const view = renderAccessible(h(LiveNow, { rounds: [] })).within(
+      'region',
+      'Live now',
+    );
     assert({
       given: 'no live Rounds',
       should: 'say so, and still lead to the listing',
       actual: [
-        html.includes('Nothing live right now.'),
-        html.includes('href="/watch"'),
+        view.textContent().includes('Nothing live right now.'),
+        view.attribute('link', 'See all live debates', 'href'),
       ],
-      expected: [true, true],
+      expected: [true, '/watch'],
     });
   });
 
   test('a live Round', () => {
-    const html = renderToString(h(LiveNow, { rounds: [liveCard()] }));
+    const view = renderAccessible(h(LiveNow, { rounds: [liveCard()] })).within(
+      'region',
+      'Live now',
+    );
     assert({
       given: 'a live Round',
       should: 'link straight to it, with no invented count',
       actual: [
-        html.includes('href="/watch/abcdefghijklmnopqrstuvwx"'),
-        html.includes('Friday night'),
-        html.includes('watching'),
+        view.attribute('link', 'Friday night', 'href'),
+        view.textContent().includes('watching'),
       ],
-      expected: [true, true, false],
+      expected: ['/watch/abcdefghijklmnopqrstuvwx', false],
     });
   });
 });

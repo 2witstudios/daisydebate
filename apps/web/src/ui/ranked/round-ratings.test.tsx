@@ -1,5 +1,8 @@
-import { ladderCopyIn } from '../test-support/ladder-copy.test-support';
-import { renderToString } from 'react-dom/server';
+import { ladderCopyInView } from '../test-support/ladder-copy.test-support';
+import {
+  renderAccessible,
+  type AccessibleView,
+} from '../../test-support/rendered/accessible';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import type { RoundRatingsView } from '../../features/ratings/read-round';
 import {
@@ -23,7 +26,7 @@ const row = {
 };
 
 const render = (view: Partial<RoundRatingsView>) =>
-  renderToString(
+  renderAccessible(
     <RoundRatings
       view={{
         ladder: youth,
@@ -33,14 +36,18 @@ const render = (view: Partial<RoundRatingsView>) =>
         ...view,
       }}
     />,
-  ).replace(/<!-- -->/g, '');
+  );
+
+/** Whether one of the receipt's figures reads exactly this text. */
+const shows = (view: AccessibleView, text: string) =>
+  view.all('definition').some((element) => element.textContent === text);
 
 test('the receipt says whether the ladder rated the Round', () => {
   const says = (posting: 'rated' | 'pending' | 'none') => {
-    const html = render({ posting });
+    const view = render({ posting });
     return {
-      rated: html.includes('<p>Rated</p>'),
-      pending: html.includes('Rating update pending'),
+      rated: view.all('paragraph').some((p) => p.textContent === 'Rated'),
+      pending: view.textContent().includes('Rating update pending'),
     };
   };
   assert({
@@ -57,7 +64,7 @@ test('the receipt says whether the ladder rated the Round', () => {
 
 describe('the ladder a Round rated', () => {
   test('heading and rows', () => {
-    const html = render({
+    const view = render({
       posting: 'rated',
       rows: [
         row,
@@ -76,15 +83,11 @@ describe('the ladder a Round rated', () => {
       should:
         'head with the ladder and season, and name the ladder on each change',
       actual: [
-        /<h2[^>]*>Ranked · Fall 2026<\/h2>/.test(html) &&
-          ladderCopyIn(html) === null,
-        html.includes(
-          '1526<span class="font-body text-base font-book not-italic text-online"> +14</span>',
-        ),
-        html.includes(
-          '1466*<span class="font-body text-base font-book not-italic text-hue-clay"> −12</span>',
-        ),
-        html.includes('Win +14 · Loss −12'),
+        view.has('heading', 'Ranked · Fall 2026', { level: 2 }) &&
+          ladderCopyInView(view) === null,
+        shows(view, '1526 +14'),
+        shows(view, '1466* −12'),
+        view.textContent().includes('Win +14 · Loss −12'),
       ],
       expected: [true, true, true, true],
     });
@@ -94,9 +97,7 @@ describe('the ladder a Round rated', () => {
     const text = render({
       posting: 'rated',
       rows: [{ ...row, rating: 1662, provisional: true, delta: 162 }],
-    })
-      .replace(/<[^>]+>/g, '')
-      .replace(/&#x27;/g, "'");
+    }).textContent();
     assert({
       given: 'a provisional youth debater who gained 162',
       should:

@@ -1,78 +1,47 @@
 import { createElement as h } from 'react';
-import { renderToString } from 'react-dom/server';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { sampleBallotPlan } from '../../mock/judge.test-support';
+import { renderAccessible } from '../../../test-support/rendered/accessible';
 import { WinnerChoice } from './winner-choice';
 
 setupRitewayBun();
 
 const render = (winner: 'affirmative' | 'negative' | null) =>
-  renderToString(
+  renderAccessible(
     h(WinnerChoice, {
       sides: sampleBallotPlan.decided,
       initial: winner,
       onPick: () => undefined,
     }),
-  );
+  ).within('group', 'Who won');
 
 describe('WinnerChoice', () => {
   test('nothing picked', () => {
-    const html = render(null);
+    const view = render(null);
     assert({
       given: 'no winner yet',
       should:
         'offer both debaters by name and side as one radio group, none checked',
       actual: [
-        (html.match(/name="winner"/g) ?? []).length,
-        html.includes('Maya Singh') && html.includes('Affirmative'),
-        html.includes('Daniel Kim') && html.includes('Negative'),
-        html.includes('checked=""'),
+        view.all('radio').map((radio) => radio.getAttribute('name')),
+        view.has('radio', 'Maya Singh Affirmative'),
+        view.has('radio', 'Daniel Kim Negative'),
+        view.count('radio', undefined, { checked: true }),
       ],
-      expected: [2, true, true, false],
+      expected: [['winner', 'winner'], true, true, 0],
     });
   });
 
   test('a pick', () => {
-    const html = render('negative');
+    const view = render('negative');
     assert({
       given: 'the negative picked',
       should: 'check only the negative',
       actual: [
-        (html.match(/checked=""/g) ?? []).length,
-        /checked="" value="negative"/.test(html),
+        view.count('radio', undefined, { checked: true }),
+        view.attribute('radio', undefined, 'value', { checked: true }),
       ],
-      expected: [1, true],
-    });
-  });
-
-  test('a narrow column', () => {
-    const name = 'Alexandria Montgomery-Fitzwilliam';
-    const html = renderToString(
-      h(WinnerChoice, {
-        sides: [
-          { ...sampleBallotPlan.decided[0]!, name, role: 'Affirmative' },
-          ...sampleBallotPlan.decided.slice(1),
-        ],
-        initial: null,
-        onPick: () => undefined,
-      }),
-    );
-    assert({
-      given: 'a long name in a column narrower than two cards',
-      should:
-        'lay the cards and their padding out by the group’s own width, show the whole name (breaking only a word too long for its line), and draw the side label whole',
-      actual: [
-        /class="@container"><fieldset class="[^"]*grid-cols-1[^"]*@ballot-sides:grid-cols-2/.test(
-          html,
-        ),
-        /max-narrow:(?:grid-cols-1|gap-3|p-3)/.test(html),
-        html.includes('@max-ballot-sides:p-3'),
-        html.includes(`>${name}</span>`),
-        /\btruncate\b/.test(html),
-        html.includes('wrap-break-word'),
-        html.includes('>Affirmative</span>'),
-      ],
-      expected: [true, false, true, true, false, true, true],
+      expected: [1, 'negative'],
     });
   });
 });

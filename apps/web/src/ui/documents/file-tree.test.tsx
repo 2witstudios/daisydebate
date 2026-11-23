@@ -1,5 +1,6 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { renderToString } from 'react-dom/server';
+import { renderAccessible } from '../../test-support/rendered/accessible';
+import { postsAnyForm } from '../test-support/posted-fields.test-support';
 import { emptyDrive, withPage } from '../../features/documents/drive-tree';
 import { menuPlace } from './file-menu';
 import { FileTree } from './file-tree';
@@ -8,6 +9,7 @@ import type { DriveActions } from './use-drive';
 setupRitewayBun();
 
 const drive: DriveActions = {
+  ready: true,
   problem: null,
   folderProblem: null,
   folders: [{ id: 'folder-a', name: 'Cases', parentFolderId: null }],
@@ -31,7 +33,7 @@ const tree = withPage(emptyDrive, null, {
   first: true,
 });
 const render = (renaming: string | null = null) =>
-  renderToString(
+  renderAccessible(
     <FileTree
       tree={tree}
       active="doc-a"
@@ -44,24 +46,25 @@ const render = (renaming: string | null = null) =>
 
 describe('FileTree', () => {
   test('the sidebar', () => {
-    const html = render();
+    const view = render().within('navigation', 'Files');
+    const myDrive = view.within('region', 'My drive');
     assert({
       given: 'a heading and a drive',
       should:
         'offer one + and search, list each row, and post no forms of its own',
       actual: [
-        html.includes('aria-label="New"'),
-        html.includes('Search files'),
-        html.includes('Cases'),
-        html.includes('Plan'),
-        html.includes('<form'),
+        view.has('button', 'New'),
+        view.has('button', 'Search files ⌘K'),
+        myDrive.has('button', 'Cases'),
+        myDrive.has('button', 'Plan'),
+        postsAnyForm(view),
       ],
       expected: [true, true, true, true, false],
     });
   });
 
   test('what was edited last', () => {
-    const inARound = renderToString(
+    const inARound = renderAccessible(
       <FileTree
         tree={tree}
         active={null}
@@ -74,39 +77,41 @@ describe('FileTree', () => {
       given: 'recent documents, with and without a heading of its own',
       should: 'list them in the sidebar, and leave a Round’s frame alone',
       actual: [
-        render().includes('Last night'),
-        inARound.includes('Last night'),
+        render().within('region', 'Recent').has('button', 'Last night'),
+        inARound.has('region', 'Recent'),
+        inARound.textContent().includes('Last night'),
       ],
-      expected: [true, false],
+      expected: [true, false, false],
     });
   });
 
   test('a row in use', () => {
-    const html = render();
+    const view = render();
     assert({
       given: 'the open document and a folder',
       should:
         'mark the document current, and give each row a flat menu with a way to delete the folder',
       actual: [
-        html.includes('aria-current="page"'),
-        html.includes('aria-label="Actions for Plan"'),
-        html.includes('aria-label="Actions for Cases"'),
-        html.includes('role="menuitem"'),
+        view.names('button', { current: 'page' }),
+        view.has('button', 'Actions for Plan'),
+        view.has('button', 'Actions for Cases'),
+        view.count('menuitem', undefined, { hidden: true }),
       ],
-      expected: [true, true, true, false],
+      expected: [['Plan'], true, true, 0],
     });
   });
 
   test('a row being renamed', () => {
-    const html = render('doc-a');
+    const view = render('doc-a');
     assert({
       given: 'the document whose name is being typed',
       should: 'put a field in its row and hold back its menu',
       actual: [
-        html.includes('aria-label="Rename Plan"'),
-        html.includes('aria-label="Actions for Plan"'),
+        view.has('textbox', 'Rename Plan'),
+        view.has('button', 'Actions for Plan'),
+        view.has('menu', 'Actions for Plan', { hidden: true }),
       ],
-      expected: [true, false],
+      expected: [true, false, false],
     });
   });
 });

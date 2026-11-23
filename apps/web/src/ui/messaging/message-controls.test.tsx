@@ -1,4 +1,8 @@
-import { renderToStaticMarkup } from 'react-dom/server';
+import {
+  renderAccessible,
+  type AccessibleView,
+} from '../../test-support/rendered/accessible';
+import { postedBy } from '../test-support/posted-fields.test-support';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import {
   MessageMutationFields,
@@ -12,12 +16,18 @@ import {
 } from '../../features/messaging/forms/send-form';
 import { reactionIdle } from '../../features/messaging/forms/reaction-form';
 setupRitewayBun();
+/** How many of the view's controls are disabled. */
+const disabledControls = (view: AccessibleView) =>
+  [...view.all('button'), ...view.all('textbox')].filter((control) =>
+    control.hasAttribute('disabled'),
+  ).length;
+
 test('native own-message fields retain escaped drafts and explicit removal while refusing duplicate submission', () => {
   const state = messageRefused(
     { requestId: 'r'.repeat(24), text: '<script>private draft</script>' },
     'Your message could not be changed.',
   );
-  const ready = renderToStaticMarkup(
+  const ready = renderAccessible(
     <MessageMutationFields
       answer={state}
       pending={false}
@@ -25,7 +35,7 @@ test('native own-message fields retain escaped drafts and explicit removal while
       action={() => {}}
     />,
   );
-  const waiting = renderToStaticMarkup(
+  const waiting = renderAccessible(
     <MessageMutationFields
       answer={moved('/messages/channel')}
       pending={true}
@@ -33,60 +43,77 @@ test('native own-message fields retain escaped drafts and explicit removal while
       action={() => {}}
     />,
   );
-  const removal = renderToStaticMarkup(
+  const removal = renderAccessible(
     <MessageRemovalFields
       answer={messageIdle('s'.repeat(24))}
       pending={false}
       action={() => {}}
     />,
   );
+  const draft = ready.get('textbox', 'Revise your message');
   assert({
     given: 'refused draft and pending/completed navigation states',
     should:
       'escape content, retain request/text/notice, count instead of truncating, provide an explicit hidden edit intent, and disable pending submission',
     actual: [
-      ready.includes('&lt;script&gt;private draft&lt;/script&gt;'),
-      ready.includes('name="operation" value="edit"'),
-      removal.includes('name="operation" value="remove"'),
-      removal.includes('formNoValidate=""'),
-      ready.includes('Your message could not be changed.'),
-      ready.toLowerCase().includes('maxlength'),
-      ready.includes('30 / 100 characters'),
-      ready.includes('disabled=""'),
-      (waiting.match(/disabled=""/g) ?? []).length,
+      (draft as HTMLTextAreaElement).value,
+      postedBy(ready, 'Save message edit')['operation'],
+      postedBy(removal, 'Remove your message')['operation'],
+      removal
+        .get('button', 'Remove your message')
+        .hasAttribute('formnovalidate'),
+      ready.text('status'),
+      draft.hasAttribute('maxlength'),
+      ready.textContent().includes('30 / 100 characters'),
+      disabledControls(ready),
+      disabledControls(waiting),
     ],
-    expected: [true, true, true, true, true, false, true, false, 2],
+    expected: [
+      '<script>private draft</script>',
+      'edit',
+      'remove',
+      true,
+      'Your message could not be changed.',
+      false,
+      true,
+      0,
+      2,
+    ],
   });
 });
 test('native reactions keep false cleanup intent distinct from addition and escape untrusted displayed choices', () => {
-  const own = renderToStaticMarkup(
-    <ReactionFields
-      answer={reactionIdle('r'.repeat(24))}
-      pending={false}
-      reaction="👍"
-      active={false}
-    />,
+  // The fields sit inside the caller's form; a test form stands in for it.
+  const own = renderAccessible(
+    <form action="/test-form" method="post">
+      <ReactionFields
+        answer={reactionIdle('r'.repeat(24))}
+        pending={false}
+        reaction="👍"
+        active={false}
+      />
+    </form>,
   );
-  const held = renderToStaticMarkup(
-    <ReactionFields
-      answer={moved('/messages/channel')}
-      pending={false}
-      reaction="<img>"
-      active={true}
-    />,
+  const held = renderAccessible(
+    <form action="/test-form" method="post">
+      <ReactionFields
+        answer={moved('/messages/channel')}
+        pending={false}
+        reaction="<img>"
+        active={true}
+      />
+    </form>,
   );
   assert({
     given: 'current own removal and completed addition action',
     should:
       'render explicit false/true values, remove/add labels, escaped choices and no second completed submission',
     actual: [
-      own.includes('name="active" value="false"'),
-      own.includes('Remove 👍'),
-      own.includes('disabled=""'),
-      held.includes('name="active" value="true"'),
-      held.includes('React &lt;img&gt;'),
-      held.includes('disabled=""'),
+      postedBy(own, 'Remove 👍')['active'],
+      own.get('button', 'Remove 👍').hasAttribute('disabled'),
+      postedBy(held, 'React <img>')['active'],
+      held.get('button', 'React <img>').hasAttribute('disabled'),
+      held.count('img'),
     ],
-    expected: [true, true, false, true, true, true],
+    expected: ['false', false, 'true', true, 0],
   });
 });

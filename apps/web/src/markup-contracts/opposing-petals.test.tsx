@@ -1,18 +1,20 @@
-import { renderToString } from 'react-dom/server';
+import { renderMarkup } from '../test-support/rendered/markup';
 import { createElement as h } from 'react';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import {
-  opposingGeometry,
-  petalShape,
-} from '../../../features/brand/brand-geometry';
-import { opposingPetals } from '../../../features/brand/petal';
-import { OpposingPetals } from './opposing-petals';
+import { opposingGeometry, petalShape } from '../features/brand/brand-geometry';
+import { opposingPetals } from '../features/brand/petal';
+import { OpposingPetals } from '../ui/components/daisy-mark/opposing-petals';
 
 setupRitewayBun();
 
+/**
+ * The petal pair's drawing is the subject: its geometry and fill classes on
+ * a decorative, role-less `<svg>`, so no role, name or state expresses it.
+ */
+
 describe('OpposingPetals', () => {
   test('draws the two sides from the opposing-petals geometry, hidden from assistive tech', () => {
-    const html = renderToString(h(OpposingPetals, { size: 48 }));
+    const html = renderMarkup(h(OpposingPetals, { size: 48 }));
     const [left, right] = opposingPetals(petalShape, {
       centre: [opposingGeometry.width / 2, opposingGeometry.height / 2],
       gap: opposingGeometry.gap,

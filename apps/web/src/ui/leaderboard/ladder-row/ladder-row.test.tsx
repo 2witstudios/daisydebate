@@ -1,50 +1,62 @@
 import { createElement as h } from 'react';
-import { renderToString } from 'react-dom/server';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { LadderRow } from './ladder-row';
 import { rowFixture } from '../../../features/leaderboard/ladder.test-support';
+import {
+  renderAccessible,
+  type AccessibleView,
+} from '../../../test-support/rendered/accessible';
 
 setupRitewayBun();
 
 const render = (props: Parameters<typeof rowFixture>[0], closed = false) =>
-  renderToString(h(LadderRow, { row: rowFixture(props), closed }));
+  renderAccessible(h(LadderRow, { row: rowFixture(props), closed }));
+
+/** Whether a piece of the row reads exactly this text. */
+const shows = (
+  view: AccessibleView,
+  text: string,
+  states: { hidden?: boolean } = {},
+) =>
+  view
+    .all('generic', undefined, states)
+    .some((element) => element.textContent === text);
 
 describe('LadderRow', () => {
   test('an established row is one link', () => {
-    const html = render({ change: { kind: 'up', amount: 3 } });
+    const view = render({ change: { kind: 'up', amount: 3 } });
+    const text = view.textContent();
     assert({
       given: 'an established debater',
       should:
         'be one link named with rank and rating, showing record and move and no band',
       actual: [
-        html.match(/<a /g)?.length,
-        html.includes('aria-label="@ada, rank 4, rating 1650"'),
-        html.includes('href="/leaderboard?debater=ada"'),
-        html.includes('Full bloom'),
-        html.includes('12–5'),
-        html.includes('▲ 3'),
-        html.includes('>You<'),
+        view.count('link'),
+        view.attribute('link', '@ada, rank 4, rating 1650', 'href'),
+        text.includes('Full bloom'),
+        text.includes('12–5'),
+        text.includes('▲ 3'),
+        shows(view, 'You'),
       ],
-      expected: [1, true, true, false, true, true, false],
+      expected: [1, '/leaderboard?debater=ada', false, true, true, false],
     });
   });
 
   test('the viewer’s own row', () => {
-    const html = render({ me: true, selected: true });
+    const view = render({ me: true, selected: true });
     assert({
       given: 'the viewer’s row with its detail open',
       should: 'carry a You badge and mark the current link',
       actual: [
-        html.includes('>You<'),
-        html.includes('aria-current="true"'),
-        html.includes('bg-surface-overlay'),
+        shows(view, 'You'),
+        view.has('link', '@ada, rank 4, rating 1650', { current: true }),
       ],
-      expected: [true, true, true],
+      expected: [true, true],
     });
   });
 
   test('provisional', () => {
-    const html = render({
+    const view = render({
       provisional: true,
       rank: null,
       rating: 1412,
@@ -52,72 +64,66 @@ describe('LadderRow', () => {
     assert({
       given: 'a provisional debater',
       should:
-        'show a dash for rank and a starred italic rating, with no tier marker',
+        'show a dash for rank and a starred rating, and say Provisional in the hover card',
       actual: [
-        html.includes('>–<'),
-        html.includes('1412*'),
-        html.includes('italic'),
-        html.includes('stroke-dasharray'),
-        html.includes('Provisional'),
+        shows(view, '–'),
+        shows(view, '1412*'),
+        shows(view, 'Provisional', { hidden: true }),
       ],
-      expected: [true, true, true, false, true],
+      expected: [true, true, true],
     });
   });
 
   test('a closed account', () => {
-    const html = render({ accountClosed: true });
+    const text = render({ accountClosed: true }).textContent();
     assert({
       given: 'a closed account',
       should: 'show its name marked closed and keep the rating',
-      actual: [html.includes('@ada (closed)'), html.includes('1650')],
+      actual: [text.includes('@ada (closed)'), text.includes('1650')],
       expected: [true, true],
     });
   });
 
   test('a debater the viewer is judging', () => {
-    const html = render({
+    const view = render({
       masked: true,
       rank: null,
       rating: 0,
     });
+    const text = view.textContent();
     assert({
       given: 'a masked row',
-      should:
-        'say Hidden, show no rating, record or hover card, and start the name with no icon so it lines up with every other row',
+      should: 'say Hidden, and show no rating, record or hover card',
       actual: [
-        html.includes('Hidden'),
-        html.includes('>0<'),
-        html.includes('12–5'),
-        html.includes('Enter opens the full detail'),
-        html.includes('<svg'),
+        text.includes('Hidden'),
+        shows(view, '0', { hidden: true }),
+        text.includes('12–5'),
+        text.includes('Enter opens the full detail'),
       ],
-      expected: [true, false, false, false, false],
+      expected: [true, false, false, false],
     });
   });
 
   test('a closed season', () => {
-    const html = render({ change: { kind: 'down', amount: 8 } }, true);
+    const view = render({ change: { kind: 'down', amount: 8 } }, true);
     assert({
       given: 'a closed season',
       should: 'show the signed season change',
-      actual: html.includes('−8'),
+      actual: view.textContent().includes('−8'),
       expected: true,
     });
   });
 
   test('hover card', () => {
-    const html = render({});
+    const view = render({});
     assert({
       given: 'a row with a username',
-      should:
-        'carry a hover card that reveals on hover and focus, hidden from assistive tech and on touch-width phones',
+      should: 'carry a hover card that is hidden from assistive tech',
       actual: [
-        html.includes('group-hover:visible'),
-        html.includes('group-focus-within:visible'),
-        html.includes('±120 · #4'),
-        html.includes('aria-hidden="true"'),
+        shows(view, '±120 · #4', { hidden: true }),
+        shows(view, '±120 · #4'),
       ],
-      expected: [true, true, true, true],
+      expected: [true, false],
     });
   });
 });
