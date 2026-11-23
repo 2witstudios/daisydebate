@@ -17,7 +17,11 @@ export function SupportTopicNoteText({
     case 'settings':
       return (
         <p>
-          {note.text} <Link href={note.link.href}>{note.link.label}</Link>.
+          {note.text}{' '}
+          <Link href={note.link.href} className="underline">
+            {note.link.label}
+          </Link>
+          .
         </p>
       );
   }
