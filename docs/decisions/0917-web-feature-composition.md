@@ -43,14 +43,24 @@ shared folder.
    route bindings (`app/**/route.ts`, `app/**/actions.ts`: `processRoute`),
    the request scope (`processApp`), and the process entries Next and the
    production start load.
-3. **A feature with background work exports one start function.**
-   `start<Feature>Work(process)` takes the process's shared parts (app,
-   waits, work wakes, instance identity, vendor fetch, the round media runtime) and returns its
-   running loops by name (`featureWork`), or null when nothing is
-   configured. `server/process-work.ts` holds the one feature list, one line
-   per feature, after what the process owns itself: the work wakes, the
-   availability lease that gives the instance its identity, the lane gauges
-   and the retention sweep. `start.ts` names no worker. Shutdown calls every
+3. **A feature that runs anything in the process exports one entry.**
+   `<feature>InProcess` in its `work.ts` carries its start function
+   (`work`), its retention targets (`retention`), or both. A start takes the
+   process's shared parts (app, waits, work wakes, instance identity, vendor
+   fetch, the round media runtime) and returns its running loops by name
+   (`featureWork`), or null when nothing is configured; `retention` returns
+   the feature's stores the one sweep prunes, in its own order.
+   `server/process-work.ts` holds the one feature list, one line per feature,
+   in sweep order, after what the process owns itself: the work wakes, the
+   availability lease that gives the instance its identity, the lane gauges,
+   the round media runtime and the retention sweep, whose targets are every
+   entry's `retention`. `server/retention-targets.ts` is deleted; the
+   retention net pins the 42 target names, identical. Grouping by feature
+   moves four targets in sweep order (outbox after the session and
+   provisional-account targets, utterances after Round commands, mail
+   intents after email deliveries, unread-messages email after notification
+   digests), which matters only to where a shutdown cuts a run short.
+   `start.ts` names no worker. Shutdown calls every
    stop through `stopAll` before the drain begins and awaits it after the
    server and Next close and before the app closes; the drain deadline still
    exits 1. The Round AI work (judging, bot seats, analysis) is one start in
@@ -63,10 +73,10 @@ shared folder.
    (operation names, client addresses and subkey derivation moved in for
    that reason). A lint rule refuses any spelling (static, type, re-export,
    dynamic `import()`), with fixtures in
-   `eslint.config-feature-boundary.test-support.ts`. Five spots compose
+   `eslint.config-feature-boundary.test-support.ts`. Four spots compose
    features by their nature:
    - `server/process-work.ts`: the one feature list, where each feature's
-     background work starts.
+     background work starts and its retention targets join the sweep.
    - `server/app.ts`: it composes the resources every feature shares
      (database, auth, mail, analytics, policies) from validated config. Its
      per-area split is R4.5, which is held with the owner.
@@ -76,9 +86,6 @@ shared folder.
    - `server/proxy-handler.ts`: the one Next proxy decides each request
      before any route runs (access, auth redirect, each feature's browser
      policy).
-   - `server/retention-targets.ts`: the one bounded retention sweep's
-     targets across every feature's stores. The sweep was outside R4.6, so
-     this list is still central; see Consequences.
 
    Tests are not covered: a server test composes feature fixtures.
 
@@ -97,11 +104,10 @@ shared folder.
 
 - A new route is a route file and its feature's composition. A new page
   read is a function in the feature's `page-reads.ts`. New background work
-  is the feature's start function and one line in the feature list.
+  or a retention target is a change to the feature's `InProcess` entry; a
+  new feature is one line in the feature list.
 - `server/` went from 129 files to 76. The rule reports 204 violations in
   42 files on main (`bfb17fa8d`) and none on this branch.
-- Still central: the retention targets (27 features import into one list)
-  and the operation-name catalogue (`server/operation-names.ts`, shared
-  vocabulary for every route's logs). Both still change when a feature adds
-  a target or an operation. They are recorded as not met in the R4.6 PR, as
-  candidates for a later step.
+- Still central: the operation-name catalogue (`server/operation-names.ts`),
+  a closed vocabulary for every route's logs, which a new operation names
+  (accepted by the point guard, 2026-11-23, and recorded).

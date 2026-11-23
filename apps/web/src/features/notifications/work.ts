@@ -1,9 +1,13 @@
+import {
+  notificationRetentionTarget,
+  digestRetentionTarget,
+} from './retention';
 import { featureWork } from '../../server/feature-work';
-import type { ProcessWork } from '../../server/process-work';
+import type { ProcessFeature, ProcessWork } from '../../server/process-work';
 import { startNotificationMail } from './mail-worker';
 
 /** Notification email (ADR 0124, ADR 0144). */
-export const startNotificationWork = ({ app, waits }: ProcessWork) =>
+const startNotificationWork = ({ app, waits }: ProcessWork) =>
   featureWork({
     notificationMail: startNotificationMail({
       app,
@@ -11,3 +15,12 @@ export const startNotificationWork = ({ app, waits }: ProcessWork) =>
       reporter: app.reporter,
     }),
   });
+
+/** This feature in the web process: its background work and its retention targets. */
+export const notificationsInProcess: ProcessFeature = {
+  work: startNotificationWork,
+  retention: ({ app }) => [
+    notificationRetentionTarget(app.database),
+    digestRetentionTarget(app.database),
+  ],
+};

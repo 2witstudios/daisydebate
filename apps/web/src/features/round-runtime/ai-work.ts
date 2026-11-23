@@ -1,5 +1,9 @@
+import {
+  roundCommandRetentionTarget,
+  transcriptRetentionTarget,
+} from './retention';
 import { featureWork } from '../../server/feature-work';
-import type { ProcessWork } from '../../server/process-work';
+import type { ProcessFeature, ProcessWork } from '../../server/process-work';
 import type { Waits } from '@daisy/clock';
 import type { ErrorReporter } from '@daisy/observability';
 import type { App } from '../../server/app';
@@ -83,7 +87,7 @@ function startRoundWorkers(input: {
  * because the three share one competitive provider budget. The bot seats
  * end their media through this process's one round media runtime.
  */
-export const startCompetitiveRoundWork = ({
+const startCompetitiveRoundWork = ({
   app,
   instanceId,
   waits,
@@ -108,3 +112,12 @@ export const startCompetitiveRoundWork = ({
       reporter: app.reporter,
     }),
   });
+
+/** This feature in the web process: its background work and its retention targets. */
+export const roundInProcess: ProcessFeature = {
+  work: startCompetitiveRoundWork,
+  retention: ({ app }) => [
+    roundCommandRetentionTarget(app.database),
+    transcriptRetentionTarget(app.database),
+  ],
+};

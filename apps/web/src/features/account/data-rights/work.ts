@@ -1,10 +1,10 @@
 import { featureWork } from '../../../server/feature-work';
-import type { ProcessWork } from '../../../server/process-work';
+import type { ProcessFeature, ProcessWork } from '../../../server/process-work';
 import { startObservationPurges } from './observation-purges';
 import { privacyJobsQueue, startPrivacyJobs } from './privacy-jobs';
 
 /** An erasure's queued work, delivered, retried and recorded. */
-export const startDataRightsWork = ({ app, waits }: ProcessWork) =>
+const startDataRightsWork = ({ app, waits }: ProcessWork) =>
   featureWork({
     // ISSUE-852: no cached copy of erased content outlives its job.
     observationPurges: startObservationPurges({
@@ -23,3 +23,8 @@ export const startDataRightsWork = ({ app, waits }: ProcessWork) =>
       waits,
     }),
   });
+
+/** This feature in the web process: its background work. */
+export const dataRightsInProcess: ProcessFeature = {
+  work: startDataRightsWork,
+};

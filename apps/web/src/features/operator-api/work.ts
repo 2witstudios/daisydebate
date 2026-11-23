@@ -1,5 +1,5 @@
 import { featureWork } from '../../server/feature-work';
-import type { ProcessWork } from '../../server/process-work';
+import type { ProcessFeature, ProcessWork } from '../../server/process-work';
 import { startOperatorApi } from './start-listener';
 
 /**
@@ -7,5 +7,10 @@ import { startOperatorApi } from './start-listener';
  * Its unexpected failures go to the app's scrubbed reporter (ADR 0037):
  * uninitialized without a DSN, so an unconfigured deployment stays inert.
  */
-export const startOperatorApiWork = async ({ app }: ProcessWork) =>
+const startOperatorApiWork = async ({ app }: ProcessWork) =>
   featureWork({ operatorApi: await startOperatorApi(app, app.reporter) });
+
+/** This feature in the web process: its background work. */
+export const operatorApiInProcess: ProcessFeature = {
+  work: startOperatorApiWork,
+};

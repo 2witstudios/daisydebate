@@ -5,12 +5,11 @@ import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { requireTestServices } from '@daisy/config';
 import nextConfig from '../next.config';
 import { createRetentionSweep } from '../src/server/retention-sweep';
-import { retentionTargets } from '../src/server/retention-targets';
+import { retentionTargets } from '../src/server/retention-targets.test-support';
 import { createSelfSignedTlsEdge } from '../e2e/support/tls-edge';
 import { ALERT_STATE_READ_TIMEOUT_MS } from '../src/features/ops/alert-state';
 import { createFaultedApp } from './fault-proxy';
 import { createTestApp } from './fixtures';
-import { provisionalLinkPurposes } from '../src/features/auth/mail/provisional-mail';
 import { opsComposition } from '../src/features/ops/composition';
 
 requireTestServices(process.env);
@@ -126,7 +125,6 @@ describe('ISSUE-199 the probe over an unreadable alert state', () => {
       targets: retentionTargets({
         database: testApp.app.database,
         redis: testApp.app.redis,
-        provisionalLinks: provisionalLinkPurposes,
       }),
       clock: testApp.app.clock,
       logger: testApp.app.logger,

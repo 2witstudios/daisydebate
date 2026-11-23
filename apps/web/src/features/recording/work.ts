@@ -1,11 +1,11 @@
 import { featureWork } from '../../server/feature-work';
-import type { ProcessWork } from '../../server/process-work';
+import type { ProcessFeature, ProcessWork } from '../../server/process-work';
 import { startRecordingDeletions } from './deletions-worker';
 import { startRecordingCapture } from './composition';
 import { recordingPersistence } from './persistence';
 
 /** Recording deletions, and capture when it is switched on. */
-export const startRecordingWork = ({ app, waits, wakes }: ProcessWork) =>
+const startRecordingWork = ({ app, waits, wakes }: ProcessWork) =>
   featureWork({
     recordingDeletions: startRecordingDeletions({
       store: recordingPersistence(app),
@@ -17,3 +17,8 @@ export const startRecordingWork = ({ app, waits, wakes }: ProcessWork) =>
     }),
     recordingCapture: startRecordingCapture(app, waits, wakes.of('round')),
   });
+
+/** This feature in the web process: its background work. */
+export const recordingInProcess: ProcessFeature = {
+  work: startRecordingWork,
+};

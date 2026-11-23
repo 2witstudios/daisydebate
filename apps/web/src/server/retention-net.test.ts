@@ -1,10 +1,7 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { provisionalLinkPurposes } from '../features/auth/mail/provisional-mail';
-import { retentionTargets } from './retention-targets';
+import { retentionTargets } from './retention-targets.test-support';
 
 setupRitewayBun();
-
-type Targets = Parameters<typeof retentionTargets>[0];
 
 /**
  * The retention net (RECON-4.6): every store the one retention sweep
@@ -13,14 +10,10 @@ type Targets = Parameters<typeof retentionTargets>[0];
  */
 test('the retention sweep prunes the same stores, by name', () => {
   // Every purge answers nothing; only the names matter here.
-  const database = new Proxy(
-    {},
-    { get: () => async () => 0 },
-  ) as Targets['database'];
+  const database = new Proxy({}, { get: () => async () => 0 });
   const names = retentionTargets({
     database,
     redis: { sweepOnlinePresence: async () => 0 },
-    provisionalLinks: provisionalLinkPurposes,
   }).map(({ name }) => name);
   assert({
     given: 'the production retention targets',

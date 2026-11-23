@@ -320,9 +320,10 @@ const processEntries = [
  * RECON-4.6 (ADR 0917): `server/` and `lib/` are the process edge, HTTP
  * plumbing and what two or more features share, so they import no feature.
  * Each spot below composes features by its nature, one sentence each in the
- * ADR: the one feature list, the app's shared resources, the process edge's
- * outbound transport, the proxy's per-request gate and the one retention
- * sweep's targets. Tests compose feature fixtures and are not covered.
+ * ADR: the one feature list (each feature's work and retention targets), the
+ * app's shared resources, the process edge's outbound transport and the
+ * proxy's per-request gate. Tests compose feature fixtures and are not
+ * covered.
  */
 const featureMessage =
   "server/ and lib/ import no feature: move the code into its feature, or start the feature's work from the one feature list (server/process-work.ts) (ADR 0917).";
@@ -339,7 +340,6 @@ const featureComposers = [
   'apps/web/src/server/app.ts',
   'apps/web/src/server/process-app.ts',
   'apps/web/src/server/proxy-handler.ts',
-  'apps/web/src/server/retention-targets.ts',
 ];
 const sharedSources = ['apps/web/src/{server,lib}/**/*.{ts,tsx}'];
 const sharedSourceTests = [

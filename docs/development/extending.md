@@ -74,10 +74,13 @@ changes.
    `page-reads.ts` (or `page-reads/`), built on `lib/page-reads.ts`
    (`requestApp`, `requestIdentity`, `requestNow`). Only page-read modules
    may read the process app.
-3. **Background work.** Export one `start<Feature>Work(process)` from the
-   feature's `work.ts`, returning `featureWork({ loopName: … })` (null loops
-   when unconfigured) built on `@daisy/worker`, and add one line to the
-   feature list in `server/process-work.ts`. Shutdown stops it.
+3. **Background work and retention.** Export one
+   `<feature>InProcess: ProcessFeature` from the feature's `work.ts`:
+   `work` starts its loops (`featureWork({ loopName: … })`, null loops when
+   unconfigured, built on `@daisy/worker`) and `retention` returns its
+   retention targets. A new feature adds one line to the feature list in
+   `server/process-work.ts`; shutdown stops its work and the one sweep
+   prunes its stores.
 4. **Placement.** Feature code lives in its feature. `server/` and `lib/`
    hold the process edge, HTTP plumbing and what two or more features share,
    and import no feature (lint).

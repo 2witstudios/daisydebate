@@ -1,9 +1,9 @@
 import { featureWork } from '../../server/feature-work';
-import type { ProcessWork } from '../../server/process-work';
+import type { ProcessFeature, ProcessWork } from '../../server/process-work';
 import { startRoundCompetitiveMaintenance } from './maintenance-worker';
 
 /** A Round's competitive maintenance: finalization, attendance and ratings. */
-export const startRoundFinalizationWork = ({
+const startRoundFinalizationWork = ({
   app,
   instanceId,
   waits,
@@ -19,3 +19,8 @@ export const startRoundFinalizationWork = ({
       reporter: app.reporter,
     }),
   });
+
+/** This feature in the web process: its background work. */
+export const roundFinalizationInProcess: ProcessFeature = {
+  work: startRoundFinalizationWork,
+};

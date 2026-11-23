@@ -1,32 +1,51 @@
 import type { Waits } from '@daisy/clock';
 import { repeatEvery } from '@daisy/worker';
 import { releaseFlagDefault } from '../features/flags/release-default';
-import { startDataRightsWork } from '../features/account/data-rights/work';
-import { provisionalLinkPurposes } from '../features/auth/mail/provisional-mail';
-import { startBetaAccessWork } from '../features/beta-access/work';
-import { startBillingWork } from '../features/billing/work';
+import { flagsInProcess } from '../features/flags/work';
+import { authInProcess } from '../features/auth/work';
+import { realtimeInProcess } from '../features/realtime/work';
+import { parentalControlsInProcess } from '../features/parental-controls/work';
+import { roomInProcess } from '../features/room-runtime/work';
+import { roundInProcess } from '../features/round-runtime/ai-work';
+import { attendanceInProcess } from '../features/attendance/work';
+import { availabilityInProcess } from '../features/availability/work';
+import { mailInProcess } from '../features/mail/work';
+import { clubsInProcess } from '../features/clubs/work';
+import { leagueRequestsInProcess } from '../features/league-requests/work';
+import { mediaReleasesInProcess } from '../features/media-releases/work';
+import { roundJudgingInProcess } from '../features/round-judging/work';
+import { roundAnalysisInProcess } from '../features/round-analysis/work';
+import { contactsInProcess } from '../features/contacts/work';
+import { notificationsInProcess } from '../features/notifications/work';
+import { messagingInProcess } from '../features/messaging/work';
+import { roomInvitationsInProcess } from '../features/room-invitations/work';
+import { watchHistoryInProcess } from '../features/watch-history/work';
+import { spectatingInProcess } from '../features/spectating/work';
+import { audienceReactionsInProcess } from '../features/audience-reactions/work';
+import { roundFloorInProcess } from '../features/messaging/round-floor/work';
+import { roomCommunityInProcess } from '../features/messaging/room-community/work';
+import { challengesInProcess } from '../features/challenges/work';
+import { reportsInProcess } from '../features/reports/work';
+import { moderationInProcess } from '../features/moderation/work';
+import { presenceInProcess } from '../features/presence/work';
+import { operatorApiInProcess } from '../features/operator-api/work';
+import { roundMediaInProcess } from '../features/round-media/work';
+import { roundFinalizationInProcess } from '../features/round-finalization/work';
+import { billingInProcess } from '../features/billing/work';
+import { betaAccessInProcess } from '../features/beta-access/work';
+import { dataRightsInProcess } from '../features/account/data-rights/work';
+import { recordingInProcess } from '../features/recording/work';
+import { profileInProcess } from '../features/profile/work';
+import { broadcastInProcess } from '../features/broadcast/work';
+import { stageCaptureInProcess } from '../features/stage-capture/work';
 import { startRoundAvailability } from '../features/availability/worker';
-import { startBroadcastWork } from '../features/broadcast/work';
-import { startLeagueRequestWork } from '../features/league-requests/work';
-import { startMediaReleaseWork } from '../features/media-releases/work';
-import { startMessagingWork } from '../features/messaging/work';
-import { startNotificationWork } from '../features/notifications/work';
-import { startOperatorApiWork } from '../features/operator-api/work';
-import { startProfileWork } from '../features/profile/work';
-import { startRecordingWork } from '../features/recording/work';
-import { startRoomWork } from '../features/room-runtime/work';
-import { startRoundFinalizationWork } from '../features/round-finalization/work';
 import { createRoundMediaRuntime } from '../features/round-media/composition';
-import { startRoundMediaWork } from '../features/round-media/work';
-import { startCompetitiveRoundWork } from '../features/round-runtime/ai-work';
 import { mediaConfigured } from '../features/round-runtime/worker-policy';
-import { startSpectatingWork } from '../features/spectating/work';
-import { startStageCaptureWork } from '../features/stage-capture/work';
 import type { App } from './app';
 import type { FeatureWork, Stoppable } from './feature-work';
 import { startLaneGauges } from './lane-gauges';
 import { createRetentionSweep } from './retention-sweep';
-import { retentionTargets } from './retention-targets';
+import type { RetentionTarget } from './retention-target';
 import { waitForHealthy } from './wait-for-healthy';
 import {
   createWorkWakes,
@@ -60,30 +79,63 @@ type StartWork = (
   process: ProcessWork,
 ) => FeatureWork | null | Promise<FeatureWork | null>;
 
+/** What a feature runs in the web process: its background work, its retention targets, or both. */
+export type ProcessFeature = {
+  readonly work?: StartWork;
+  /** The stores of this feature the one retention sweep prunes, in its order. */
+  readonly retention?: (process: ProcessWork) => readonly RetentionTarget[];
+};
+
 /**
- * The one feature list: each feature with background work, one line each,
- * started in this order on the process's shared parts. A new feature's work
- * is one line here and nothing else.
+ * The one feature list: each feature that runs anything in the process, one
+ * line each, in retention-sweep order. A feature's work and retention targets
+ * change in its own entry; a new feature is one line here.
  */
-const featureWork: readonly StartWork[] = [
-  startOperatorApiWork,
-  startRoundMediaWork,
-  startRoundFinalizationWork,
-  startBillingWork,
-  startRoomWork,
-  startCompetitiveRoundWork,
-  startBetaAccessWork,
-  startNotificationWork,
-  startLeagueRequestWork,
-  startMediaReleaseWork,
-  startMessagingWork,
-  startDataRightsWork,
-  startRecordingWork,
-  startProfileWork,
-  startBroadcastWork,
-  startStageCaptureWork,
-  startSpectatingWork,
+const features: readonly ProcessFeature[] = [
+  flagsInProcess,
+  authInProcess,
+  realtimeInProcess,
+  parentalControlsInProcess,
+  roomInProcess,
+  roundInProcess,
+  attendanceInProcess,
+  availabilityInProcess,
+  mailInProcess,
+  clubsInProcess,
+  leagueRequestsInProcess,
+  mediaReleasesInProcess,
+  roundJudgingInProcess,
+  roundAnalysisInProcess,
+  contactsInProcess,
+  notificationsInProcess,
+  messagingInProcess,
+  roomInvitationsInProcess,
+  watchHistoryInProcess,
+  spectatingInProcess,
+  audienceReactionsInProcess,
+  roundFloorInProcess,
+  roomCommunityInProcess,
+  challengesInProcess,
+  reportsInProcess,
+  moderationInProcess,
+  presenceInProcess,
+  operatorApiInProcess,
+  roundMediaInProcess,
+  roundFinalizationInProcess,
+  billingInProcess,
+  betaAccessInProcess,
+  dataRightsInProcess,
+  recordingInProcess,
+  profileInProcess,
+  broadcastInProcess,
+  stageCaptureInProcess,
 ];
+
+/** Every feature's retention targets, in list order: what the one sweep prunes. */
+export const processRetentionTargets = (
+  process: ProcessWork,
+): readonly RetentionTarget[] =>
+  features.flatMap((feature) => feature.retention?.(process) ?? []);
 
 /**
  * Every piece of background work the production server runs: first what
@@ -151,6 +203,17 @@ export async function startProcessWork(input: {
     detail: ['debug', 'trace'].includes(app.config.LOG_LEVEL),
     waits,
   });
+  const mediaRuntime = mediaConfigured(app.config)
+    ? createRoundMediaRuntime(app, waits)
+    : null;
+  const process: ProcessWork = {
+    app,
+    waits,
+    wakes,
+    instanceId: availability.instanceId,
+    vendorFetch,
+    media: mediaRuntime,
+  };
   // The one bounded retention sweep runs at start and then hourly in this
   // process. The start-up run waits for Redis to answer first (ISSUE-146): a
   // freshly started Fly machine's Redis connection is not necessarily ready
@@ -159,11 +222,7 @@ export async function startProcessWork(input: {
   // flag) — this only stops the sweep from logging a spurious
   // retention.sweep.failed on every cold boot.
   const retentionSweep = createRetentionSweep({
-    targets: retentionTargets({
-      database: app.database,
-      redis: app.redis,
-      provisionalLinks: provisionalLinkPurposes,
-    }),
+    targets: processRetentionTargets(process),
     clock: app.clock,
     logger: app.logger,
   });
@@ -181,21 +240,10 @@ export async function startProcessWork(input: {
     // Each run reports its own failure.
     failed: () => undefined,
   });
-  const mediaRuntime = mediaConfigured(app.config)
-    ? createRoundMediaRuntime(app, waits)
-    : null;
-  const process: ProcessWork = {
-    app,
-    waits,
-    wakes,
-    instanceId: availability.instanceId,
-    vendorFetch,
-    media: mediaRuntime,
-  };
-  const features: FeatureWork[] = [];
-  for (const start of featureWork) {
-    const started = await start(process);
-    if (started) features.push(started);
+  const started: FeatureWork[] = [];
+  for (const { work } of features) {
+    const running = await work?.(process);
+    if (running) started.push(running);
   }
   const own = { workWakes, availability, laneGauges, retention, mediaRuntime };
   const owned = Object.entries(own).flatMap(([name, worker]) =>
@@ -203,13 +251,13 @@ export async function startProcessWork(input: {
   );
   const workers: readonly Stoppable[] = [
     ...owned.map(({ worker }) => worker),
-    ...features,
+    ...started,
   ];
   return {
     workers,
     running: [
       ...owned.map(({ name }) => name),
-      ...features.flatMap((f) => f.running),
+      ...started.flatMap((f) => f.running),
     ],
     probeChecked: availability.probeChecked,
     /** This instance's service identity. */

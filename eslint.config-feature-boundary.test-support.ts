@@ -52,15 +52,14 @@ export function registerFeatureBoundaryTests() {
           'server/app.ts',
           'server/process-app.ts',
           'server/proxy-handler.ts',
-          'server/retention-targets.ts',
           'server/app.test.ts',
         ].map((path) => messagesOf(featureImport('../'), web(path))),
       );
       assert({
-        given: 'the feature list, the four composers and a server test',
+        given: 'the feature list, the three composers and a server test',
         should: 'report no boundary violation',
         actual: admitted.map((found) => found.length),
-        expected: [0, 0, 0, 0, 0, 0],
+        expected: [0, 0, 0, 0, 0],
       });
     });
   });

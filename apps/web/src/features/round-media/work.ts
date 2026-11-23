@@ -1,12 +1,12 @@
 import { featureWork } from '../../server/feature-work';
-import type { ProcessWork } from '../../server/process-work';
+import type { ProcessFeature, ProcessWork } from '../../server/process-work';
 import { startRoundMediaRecovery } from './recovery-worker';
 import { readPublicCheckInProbe } from '../availability/configuration';
 import { stopRoundMedia } from './composition';
 import { recoveryFailureFields } from './recovery-failure';
 
 /** Round media's background work: session recovery and the node probes. */
-export const startRoundMediaWork = ({
+const startRoundMediaWork = ({
   app,
   waits,
   wakes,
@@ -39,4 +39,9 @@ export const startRoundMediaWork = ({
     // The node probes of every round media runtime the routes composed.
     roundMedia: { stop: () => stopRoundMedia(app) },
   });
+};
+
+/** This feature in the web process: its background work. */
+export const roundMediaInProcess: ProcessFeature = {
+  work: startRoundMediaWork,
 };
