@@ -47,20 +47,21 @@ const GUARDED_AREAS: Readonly<Record<string, Requirement>> = {
 };
 
 /**
- * The guarded area a path belongs to: the longest entry that is a whole
- * leading run of its segments, or null. The first segment is read exactly as
- * it always was (so `//lobby` and `/lobbyist` stay public); later empty
- * segments are dropped, so a doubled slash cannot step out of an area.
+ * The guarded area a path belongs to: the longest entry the path is, or
+ * begins as a whole segment, or null. A path that does not begin with one
+ * non-empty segment is public (so `//lobby` and `/lobbyist` stay public);
+ * later runs of slashes count as one, so a doubled slash cannot step out of
+ * an area.
  */
 export const guardedAreaFor = (pathname: string): string | null => {
-  const [, first = '', ...rest] = pathname.split('/');
-  if (first === '') return null;
-  const segments = [first, ...rest.filter((segment) => segment !== '')];
-  for (let depth = segments.length; depth > 0; depth -= 1) {
-    const area = `/${segments.slice(0, depth).join('/')}`;
-    if (area in GUARDED_AREAS) return area;
-  }
-  return null;
+  if (!pathname.startsWith('/') || pathname.startsWith('//')) return null;
+  const path = pathname.replaceAll(/\/{2,}/g, '/');
+  const inside = (area: string) => path === area || path.startsWith(`${area}/`);
+  return (
+    Object.keys(GUARDED_AREAS)
+      .filter(inside)
+      .sort((left, right) => right.length - left.length)[0] ?? null
+  );
 };
 
 /** The requirement for a guarded area or descendant, or null when public. */

@@ -3,7 +3,7 @@ import type {
   RegistrationResponseJSON,
 } from '@simplewebauthn/server';
 import { appendAudit } from '../audit/store';
-import type { AdminTransaction } from '../db/client';
+import { inTransaction, type AdminTx } from '../db/tx';
 import { operatorCredentials } from '../db/schema';
 import {
   isUniqueViolation,
@@ -106,7 +106,7 @@ type Enrolling = {
 
 const audit = (
   deps: AuthDeps,
-  tx: AdminTransaction,
+  tx: AdminTx,
   operatorId: string,
   kind: 'operator.enrolled' | 'credential.revoked' | 'session.revoked',
   detail: 'initial' | 'additional' | 'replace' | 'replaced',
@@ -126,7 +126,7 @@ const audit = (
 /** `--replace` (lost passkey) revokes every other credential and session. */
 async function replacePrevious(
   deps: AuthDeps,
-  tx: AdminTransaction,
+  tx: AdminTx,
   input: Enrolling & { readonly keep: string; readonly now: string },
 ) {
   const { operatorId, now } = input;
@@ -137,7 +137,7 @@ async function replacePrevious(
 }
 
 function storeEnrollment(deps: AuthDeps, input: Enrolling, now: string) {
-  return deps.db.transaction(async (tx) => {
+  return inTransaction(deps.db, async (tx) => {
     const consumed =
       (await consumeChallenge(tx, {
         challengeHash: input.challengeHash,

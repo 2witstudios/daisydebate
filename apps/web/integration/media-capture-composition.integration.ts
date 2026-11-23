@@ -40,6 +40,7 @@ test('the application composition binds signed capture to its real database and 
             'x-daisy-media-timestamp': signed.timestamp,
           },
         }),
+        operation,
       );
     };
     const claimed = await call('lease', { leaseMs: 30_000 });

@@ -59,22 +59,20 @@ const startClubSchema = z.strictObject({
 export type StartClub = z.infer<typeof startClubSchema>;
 
 const headers = { 'cache-control': 'no-store' };
-/** `/clubs/<id>/...` and `/api/clubs/<id>/...`: the club is the path segment after `clubs`. */
-export function clubIdFrom(request: Request) {
-  const parts = new URL(request.url).pathname.split('/');
-  const parsed = id.safeParse(parts[parts.indexOf('clubs') + 1]);
+/** The club a `[club]` route param names; anything else is not found. */
+export function clubIdOf(club: string) {
+  const parsed = id.safeParse(club);
   if (!parsed.success) throw createAppError('NOT_FOUND');
   return parsed.data;
 }
-/** `/api/clubs/invitations/<club>.<invitation>` */
-export function invitationFrom(request: Request) {
-  const last = new URL(request.url).pathname.split('/').at(-1) ?? '';
-  const [organizationId, invitationId, ...rest] = last.split('.');
+/** The `[invitation]` route param: `<club>.<invitation>`. */
+export function invitationOf(invitation: string) {
+  const [organizationId, invitationId, ...rest] = invitation.split('.');
   const club = id.safeParse(organizationId);
-  const invitation = id.safeParse(invitationId);
-  if (!club.success || !invitation.success || rest.length)
+  const invited = id.safeParse(invitationId);
+  if (!club.success || !invited.success || rest.length)
     throw createAppError('NOT_FOUND');
-  return { organizationId: club.data, invitationId: invitation.data };
+  return { organizationId: club.data, invitationId: invited.data };
 }
 
 async function formSeats(request: Request) {
@@ -219,7 +217,7 @@ export function composeClubRoutes(input: ClubRouteDependencies) {
 
   return {
     seats: {
-      GET: (request: Request) =>
+      GET: (request: Request, club: string) =>
         runMemberRoute(
           boundary,
           request,
@@ -231,11 +229,11 @@ export function composeClubRoutes(input: ClubRouteDependencies) {
           },
           async (subject) => {
             await gate(subject);
-            const read = await seating(subject, clubIdFrom(request));
+            const read = await seating(subject, clubIdOf(club));
             return Response.json(clubSeatsView(read), { headers });
           },
         ),
-      POST: (request: Request) =>
+      POST: (request: Request, club: string) =>
         runMemberRoute(
           boundary,
           request,
@@ -254,7 +252,7 @@ export function composeClubRoutes(input: ClubRouteDependencies) {
             return Response.json(
               await input.seats.command(
                 subject,
-                clubIdFrom(request),
+                clubIdOf(club),
                 command.data,
               ),
               { headers },
@@ -263,7 +261,7 @@ export function composeClubRoutes(input: ClubRouteDependencies) {
         ),
     },
     billing: {
-      GET: (request: Request) =>
+      GET: (request: Request, club: string) =>
         runMemberRoute(
           boundary,
           request,
@@ -276,7 +274,7 @@ export function composeClubRoutes(input: ClubRouteDependencies) {
           async (subject) => {
             const released = await input.released(subject.userId);
             if (!released) throw createAppError('NOT_FOUND');
-            const organizationId = clubIdFrom(request);
+            const organizationId = clubIdOf(club);
             const read = await seating(subject, organizationId);
             const invoices = read.plan.vendorSubscriptionId
               ? await input.billing.invoices(
@@ -295,7 +293,7 @@ export function composeClubRoutes(input: ClubRouteDependencies) {
             );
           },
         ),
-      checkout: (request: Request) =>
+      checkout: (request: Request, club: string) =>
         runMemberRoute(
           boundary,
           request,
@@ -308,7 +306,7 @@ export function composeClubRoutes(input: ClubRouteDependencies) {
           },
           async (subject) => {
             await gate(subject);
-            const organizationId = clubIdFrom(request);
+            const organizationId = clubIdOf(club);
             const seats = await formSeats(request);
             return redirect(
               destination(
@@ -318,7 +316,7 @@ export function composeClubRoutes(input: ClubRouteDependencies) {
             );
           },
         ),
-      portal: (request: Request) =>
+      portal: (request: Request, club: string) =>
         runMemberRoute(
           boundary,
           request,
@@ -331,7 +329,7 @@ export function composeClubRoutes(input: ClubRouteDependencies) {
           },
           async (subject) => {
             await gate(subject);
-            const organizationId = clubIdFrom(request);
+            const organizationId = clubIdOf(club);
             await seating(subject, organizationId);
             const result = await input.billing.portal(subject, organizationId);
             return redirect(
@@ -341,7 +339,7 @@ export function composeClubRoutes(input: ClubRouteDependencies) {
             );
           },
         ),
-      seats: (request: Request) =>
+      seats: (request: Request, club: string) =>
         runMemberRoute(
           boundary,
           request,
@@ -360,7 +358,7 @@ export function composeClubRoutes(input: ClubRouteDependencies) {
             return Response.json(
               await input.billing.changeSeats(
                 subject,
-                clubIdFrom(request),
+                clubIdOf(club),
                 change.data.seatCount,
                 change.data.release,
               ),
@@ -370,7 +368,7 @@ export function composeClubRoutes(input: ClubRouteDependencies) {
         ),
     },
     invitation: {
-      GET: (request: Request) =>
+      GET: (request: Request, invitation: string) =>
         runMemberRoute(
           boundary,
           request,
@@ -382,7 +380,7 @@ export function composeClubRoutes(input: ClubRouteDependencies) {
           },
           async (subject) => {
             await gate(subject);
-            const { organizationId, invitationId } = invitationFrom(request);
+            const { organizationId, invitationId } = invitationOf(invitation);
             const read = await input.reads.invitation(
               subject,
               organizationId,
@@ -411,7 +409,7 @@ export function composeClubRoutes(input: ClubRouteDependencies) {
             });
           },
         ),
-      POST: (request: Request) =>
+      POST: (request: Request, invitation: string) =>
         runMemberRoute(
           boundary,
           request,
@@ -423,7 +421,7 @@ export function composeClubRoutes(input: ClubRouteDependencies) {
           },
           async (subject) => {
             await gate(subject);
-            const { organizationId, invitationId } = invitationFrom(request);
+            const { organizationId, invitationId } = invitationOf(invitation);
             const body = z
               .strictObject({ answer: z.enum(['accept', 'decline']) })
               .safeParse(await readJson(request, 256));

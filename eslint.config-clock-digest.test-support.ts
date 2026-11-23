@@ -2,7 +2,7 @@ import { assert, describe, test } from 'riteway/bun';
 import { repositoryEslint } from './eslint.config.test-support';
 
 export function registerClockDigestTests() {
-  describe('shared instant and SHA3-256 helpers', () => {
+  describe('shared instant and digest helpers', () => {
     const lint = async (filePath: string, code: string) => {
       const [result] = await repositoryEslint().lintText(code, { filePath });
       return result!.messages
@@ -45,47 +45,85 @@ export function registerClockDigestTests() {
       });
     });
 
-    test('rejects duplicated SHA3-256 constructions and leaves other algorithms alone', async () => {
-      const old = [
-        "import { createHash as makeHash } from 'node:crypto';",
+    test('rejects every hasher and MAC outside the digest package', async () => {
+      // RECON-3.5: the rule matched only SHA3-256, so SHA-256, HMAC and the
+      // CSP hash were built in four places.
+      const spellings = [
+        "import { createHash as makeHash } from 'node:crypto'; makeHash('sha256');",
+        "import { createHmac } from 'node:crypto'; createHmac('sha256', key);",
+        "import * as crypto from 'node:crypto'; const hashing = crypto; hashing.createHash('sha1');",
+        "import { hash } from 'node:crypto'; hash('sha256', text);",
+        "const { createHmac: mac } = require('node:crypto'); mac('sha512', key);",
+        "new Bun.CryptoHasher('sha256');",
+        'const runtime = Bun; const { CryptoHasher: Hasher } = runtime; new Hasher(algorithm);',
         "import { sha3_256 } from '@noble/hashes/sha3.js';",
-        "const algorithm = 'sha3-256', indirect = algorithm;",
-        "const sha256 = 'sha256';",
-        "import * as crypto from 'node:crypto';",
-        'const hashing = crypto, runtime = Bun;',
-        'const { createHash: destructured, createHash: fallback = unknown } = hashing;',
-        'const { CryptoHasher: Constructor = unknown } = runtime;',
-        'const nativeAlias = makeHash;',
-        'export const hashes = [',
-        "  makeHash(`sha3-256`), new Bun.CryptoHasher('sha3-256'), ",
-        '  makeHash(sha256), nativeAlias(indirect), sha3_256(new Uint8Array()),',
-        "  hashing.createHash('sha3-256'), destructured('sha3-256'), new runtime.CryptoHasher('sha3-256'),",
-        "  fallback('sha3-256'), new Constructor('sha3-256'),",
-        '];',
-      ].join('\n');
+        "import { sha256 } from '@noble/hashes/sha2.js';",
+        "import { hmac } from '@noble/hashes/hmac.js';",
+        "const noble = require('@noble/hashes/sha2.js');",
+        "await import('@noble/hashes/legacy.js');",
+        "await crypto.subtle.digest('SHA-256', bytes);",
+        "const { subtle } = crypto; await subtle.digest('SHA-1', bytes);",
+        "await crypto.subtle.importKey('raw', key, { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);",
+        "await globalThis.crypto.subtle.sign('HMAC', key, bytes);",
+      ];
+      const legal = [
+        "import { utf8ToBytes } from '@noble/hashes/utils.js';",
+        "await crypto.subtle.sign({ name: 'ECDSA', hash: 'SHA-256' }, key, bytes);",
+        "export const hash = (createHash: Hasher) => createHash('sha256');",
+        "import { sha256Hex } from '@daisy/digest'; sha256Hex('x');",
+      ];
       assert({
         given:
-          'two native SHA3-256 hashers, a direct SHA3 import and an intentional SHA-256 hash',
-        should: 'allow SHA3 implementation only in the digest package',
+          'each native, noble and WebCrypto hash or HMAC spelling, in source, a script and the digest package',
+        should: 'refuse each one outside packages/digest only',
         actual: await Promise.all([
-          lint('packages/auth/src/digest-probe.ts', old),
-          lint('scripts/digest-probe.ts', old),
-          lint('packages/digest/src/digest-probe.ts', old),
-          lint(
-            'scripts/local-hasher.ts',
-            "export const hash = (createHash: Hasher) => createHash('sha3-256');",
+          ...spellings.map((code) => lint('packages/media/src/probe.ts', code)),
+          ...spellings.map((code) => lint('scripts/probe.ts', code)),
+          ...spellings.map((code) =>
+            lint('packages/digest/src/probe.ts', code),
           ),
-          lint(
-            'scripts/digest-512-probe.ts',
-            "import { sha3_512 } from '@noble/hashes/sha3.js'; sha3_512(new Uint8Array());",
-          ),
+          ...legal.map((code) => lint('apps/web/src/probe.ts', code)),
         ]),
         expected: [
-          Array<string>(9).fill('clock-digest/sha3-digest'),
-          Array<string>(9).fill('clock-digest/sha3-digest'),
-          [],
-          [],
-          [],
+          ...spellings.map(() => ['clock-digest/digest-home']),
+          ...spellings.map(() => ['clock-digest/digest-home']),
+          ...spellings.map(() => []),
+          ...legal.map(() => []),
+        ],
+      });
+    });
+
+    test("rejects reading an instant's milliseconds through a constructed Date", async () => {
+      // RECON-3.5: new Date(x).getTime() slipped past the Date.parse ban.
+      const spellings = [
+        'export const ms = new Date(at).getTime();',
+        'export const ms = new Date(at).valueOf();',
+        "export const ms = new Date(at)['getTime']();",
+        'const date = new Date(at); export const ms = date.getTime();',
+        'export const ms = +new Date(at);',
+        'export const ms = Number(new Date(at));',
+        'export const ms = new Date(at) - start;',
+        'export const late = new Date(at) < new Date(due);',
+        'export const ms = new globalThis.Date(at).getTime();',
+      ];
+      const legal = [
+        'export const ms = row.at.getTime();',
+        'export const late = row.expiresAt <= now;',
+        'export const at = new Date(ms).toISOString();',
+        'export const now = new Date().getTime();',
+      ];
+      assert({
+        given: 'each spelling outside and inside the clock package',
+        should: 'refuse them outside packages/clock only',
+        actual: await Promise.all([
+          ...spellings.map((code) => lint('packages/db/src/probe.ts', code)),
+          ...spellings.map((code) => lint('packages/clock/src/probe.ts', code)),
+          ...legal.map((code) => lint('packages/db/src/probe.ts', code)),
+        ]),
+        expected: [
+          ...spellings.map(() => ['clock-digest/iso-instant']),
+          ...spellings.map(() => []),
+          ...legal.map(() => []),
         ],
       });
     });

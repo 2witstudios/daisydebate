@@ -88,7 +88,7 @@ test('signed original evidence dispatches only to the explicit application capab
       return receipt;
     },
   });
-  const response = await handlers.handle(request(body));
+  const response = await handlers.handle(request(body), 'evidence');
   assert({
     given:
       'an actual HMAC-authenticated original frame unit and an explicit injected evidence port (this unit port is not storage proof)',
@@ -101,6 +101,7 @@ test('signed original evidence dispatches only to the explicit application capab
 test('missing evidence capability refuses before any custody or payload work', async () => {
   const response = await createMediaCaptureHandlers(base()).handle(
     request(body),
+    'evidence',
   );
   assert({
     given:
@@ -120,10 +121,13 @@ test('malformed or foreign original evidence never reaches the injected capabili
       return receipt;
     },
   });
-  const malformed = await handlers.handle(request({ ...body, heard: true }));
+  const malformed = await handlers.handle(
+    request({ ...body, heard: true }),
+    'evidence',
+  );
   const badSignature = request(body);
   badSignature.headers.set('x-daisy-media-signature', '0'.repeat(64));
-  const foreign = await handlers.handle(badSignature);
+  const foreign = await handlers.handle(badSignature, 'evidence');
   assert({
     given: 'extra fabricated hearing metadata or a bad request signature',
     should: 'refuse before any evidence side effect',

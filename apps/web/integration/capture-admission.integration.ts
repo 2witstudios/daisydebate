@@ -104,6 +104,7 @@ function caller(f: EvidenceIngressFixture, policy = captureAdmissionPolicy) {
           'x-daisy-media-timestamp': signed.timestamp,
         },
       }),
+      operation,
     );
   };
   return { post, custodyWrites: () => custodyWrites };

@@ -1,6 +1,6 @@
 import { instantMs } from '@daisy/clock';
 import { inArray, lt, or } from 'drizzle-orm';
-import type { AdminDatabase } from './client';
+import { inTransaction, type AdminTxSource } from './tx';
 import {
   authAttempts,
   operatorChallenges,
@@ -21,14 +21,14 @@ const day = 86_400_000;
 export const SWEEP_INTERVAL_MS = 60 * 60_000;
 
 export async function sweepExpired(
-  db: AdminDatabase,
+  db: AdminTxSource,
   now: string,
 ): Promise<number> {
   const at = instantMs(now);
   const secretsBefore = new Date(at - 7 * day);
   const attemptsBefore = new Date(at - day);
   const commandsBefore = new Date(at - 30 * day);
-  return db.transaction(async (tx) => {
+  return inTransaction(db, async (tx) => {
     // Challenges first: they reference their enrollment, and one issued in
     // an enrollment's last minutes expires after it, so it goes with it.
     const sweptEnrollments = tx

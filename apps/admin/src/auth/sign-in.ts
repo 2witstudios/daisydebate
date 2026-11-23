@@ -5,7 +5,7 @@ import type {
 } from '@simplewebauthn/server';
 import { appendAudit } from '../audit/store';
 import type { AuditDetail } from '../audit/chain';
-import type { AdminTransaction } from '../db/client';
+import { inTransaction, type AdminTx } from '../db/tx';
 import { operatorCredentials, operatorSessions } from '../db/schema';
 import {
   rateLimited,
@@ -78,7 +78,7 @@ export async function beginSignIn(
 
 export const auditSession = (
   deps: AuthDeps,
-  tx: AdminTransaction,
+  tx: AdminTx,
   input: {
     readonly kind: 'auth.success' | 'session.revoked';
     readonly operatorId: string;
@@ -111,7 +111,7 @@ class CredentialChanged extends Error {
  * The row lock serializes this with the revocation.
  */
 async function advanceCounter(
-  tx: AdminTransaction,
+  tx: AdminTx,
   input: {
     readonly id: string;
     readonly stored: number;
@@ -158,7 +158,7 @@ async function openSession(
   const previous = isSecret(input.presented)
     ? await findSession(deps.db, sha3(input.presented))
     : null;
-  await deps.db.transaction(async (tx) => {
+  await inTransaction(deps.db, async (tx) => {
     await advanceCounter(tx, { id: input.credentialRowId, ...input.counter });
     if (
       previous &&

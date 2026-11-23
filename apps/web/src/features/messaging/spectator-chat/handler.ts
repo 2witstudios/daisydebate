@@ -4,7 +4,6 @@ import { createAppError, createRefusal } from '@daisy/errors';
 import { spectatorChatPostSchema } from '@daisy/protocol/audience';
 import {
   audienceRoute,
-  roundIdOf,
   type AccountRouteDeps,
 } from '../../../server/account-route';
 import { parseValidated } from '../../../server/http';
@@ -27,7 +26,7 @@ export const createSpectatorChatRoute = (
     readonly ids: Pick<IdGenerator, 'next'>;
   },
 ) => {
-  return (request: Request) =>
+  return (request: Request, roundId: string) =>
     audienceRoute(
       deps,
       {
@@ -41,7 +40,6 @@ export const createSpectatorChatRoute = (
         if (actorId === null)
           throw createRefusal('CONFLICT', 'audience-needs-username');
         const post = parseValidated(spectatorChatPostSchema, body);
-        const roundId = roundIdOf(request);
         const message = await deps.store.postSpectatorChatMessage(
           {
             roundId,
