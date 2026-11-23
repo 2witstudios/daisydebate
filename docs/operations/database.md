@@ -2,41 +2,19 @@
 
 Local development uses one shared Compose stack (Postgres on 15432, Redis on 6379) and a database slot per checkout ([ADR 0034](../decisions/0034-shared-stack-slots.md)). `bun slot:up` starts the stack, creates this checkout's dev, test and e2e databases if missing (`daisy`/`daisy_test`/`daisy_e2e` in the main checkout, `daisy_wt_<id>`/`daisy_wt_<id>_test`/`daisy_wt_<id>_e2e` in a worktree), migrates all three, provisions the test logins and writes their URLs into `.env`. The browser suite runs the production server as the loopback-only `daisy_e2e` login against the e2e database, never the test database, so integration row counts never see e2e rows (ISSUE-17); `bun slot:reset-e2e` empties it back to the baseline. `bun slot:down` drops a worktree's databases and Redis keys; `bun slot:prune` (also run by every `slot:up`) drops those of worktrees git no longer lists. Redis keys go by namespace with `SCAN` and `UNLINK`, never `FLUSHDB`. Never stop or recreate the shared stack while other checkouts use it.
 
-Change a feature-owned schema file, run `bun db:generate`, review generated SQL and commit the new `packages/db/migrations/<timestamp>_<name>/` folder (`migration.sql` plus `snapshot.json`, the drizzle-kit 1.0 layout, [ADR 0038](../decisions/0038-drizzle-1-baseline.md)). Roles, grants and reference rows are hand-written, reviewed SQL appended to the generated migration. Once Daisy has real users, use expand/contract changes for rolling deployments; until then a merge to staging needs no deploy window, rolling-deploy compatibility or expand/contract staging, and a destructive migration only needs stating in its PR (DEC-304). At any stage, a migration must not be able to refuse and block a deploy: backfill before adding the constraint the backfill satisfies. Do not edit applied migrations; add a forward correction. The only sanctioned history rewrite is a greenfield baseline squash recorded in `policy/migration-baselines.json` (ADR 0023, ADR 0038), which requires resetting every local and test database once. Deploy migrations once as a release job before enabling dependent application code; do not run concurrently from every app instance. Back up production before destructive changes and test restore procedures ([restore rehearsal](restore-rehearsal.md), AUTH-7.6, staging-only until a production release). Production runtime credentials must not have schema-alter privileges: the web application connects as `daisy_web` and the realtime service as `daisy_realtime`, both created by the baseline, and migrations run with the separate owner credential.
+Change a feature-owned schema file, run `bun db:generate`, review generated SQL and commit the new `packages/db/migrations/<timestamp>_<name>/` folder (`migration.sql` plus `snapshot.json`, the drizzle-kit 1.0 layout, [ADR 0038](../decisions/0038-drizzle-1-baseline.md)). Roles, grants and reference rows are hand-written, reviewed SQL appended to the generated migration. Once Daisy has real users, use expand/contract changes for rolling deployments; until then a merge to staging needs no deploy window, rolling-deploy compatibility or expand/contract staging, and a destructive migration only needs stating in its PR (DEC-304). At any stage, a migration must not be able to refuse and block a deploy: backfill before adding the constraint the backfill satisfies. Do not edit applied migrations; add a forward correction. The only sanctioned history rewrite is a baseline recorded in `policy/migration-baselines.json` (ADR 0023, ADR 0038, ADR 0913): every local and test database resets once, and a database that holds data adopts it in place ([one baseline](#one-baseline-adr-0913)). Name each folder for its change, `bun db:generate --name <change>`: `bun migrations:check` refuses a name drizzle-kit drew from its word lists (`GENERATED_NAME`). Deploy migrations once as a release job before enabling dependent application code; do not run concurrently from every app instance. Back up production before destructive changes and test restore procedures ([restore rehearsal](restore-rehearsal.md), AUTH-7.6, staging-only until a production release). Production runtime credentials must not have schema-alter privileges: the web application connects as `daisy_web` and the realtime service as `daisy_realtime`, both created by the baseline, and migrations run with the separate owner credential.
 
 Run `bun db:migrate` with DATABASE_URL locally. In production the runner reads `MIGRATION_DATABASE_URL` (the owner) and refuses to run without it, or when it names the same role as the runtime `DATABASE_URL` (`readMigrationConfig`, ISSUE-39). Production startup refuses a `DATABASE_URL` role that can create or alter objects in schema `public` (`refuseSchemaAlteringRole` over `runtimeRoleProblems` in `packages/db`, called by `apps/web/src/server/start.ts` for `daisy_web` and by `apps/realtime/src/serve.ts` for `daisy_realtime`, ISSUE-101). On Fly the owner credential lives only in the separate migrator app, never in a runtime app's secrets ([ADR 0041](../decisions/0041-migration-credential-in-a-release-only-app.md)). The secrets and the one-time `daisy_web` password step are in [deploy-staging](deploy-staging.md#database-credentials-issue-39). The runtime migrator (`packages/db/src/migrator.ts`) uses the native Bun driver and applies each pending migration folder in its own transaction, recording its journal entry atomically. Earlier committed folders remain applied if a later folder fails. This flushes deferred foreign-key events from reference inserts before subsequent schema alterations. `bun db:studio` is a local inspection tool and must not be exposed publicly. Reset (`bun db:reset`) is destructive and accepts only the current checkout's own dev and test databases, on loopback, with `ALLOW_DATABASE_RESET=yes`, never in production; it must never be part of startup. It recreates `public`, re-applies committed migrations and re-provisions the test logins (`provisionTestRoles`, the one place they are defined), so a reset never costs the browser suite its access.
 
 **Release migrations are lock-bounded (ISSUE-112).** The release migration runs while the previous release still serves, and a DDL lock request that cannot be granted at once queues every later statement on that table behind it. The migrator's session therefore sets `lock_timeout = 1000` ms, below the runtime pool's `lock_timeout = 2000` ms, and `statement_timeout = 60000` ms, inside Fly's 5 minute release timeout (`MIGRATOR_SESSION` and `RUNTIME_SESSION` in `packages/db/src/session-bounds.ts`). A migration that cannot take its lock within 1 s fails with `55P03 lock_not_available`, the transaction rolls back, the release fails and the previous release keeps serving; app statements queued behind the lock request still get their lock inside their own 2 s bound. `packages/db/integration/migrator-lock-timeout.integration.ts` proves it against a held lock. Once real users exist, the expand/contract rule follows: hot-table DDL (`outbox`, `session` and any table the live app writes) must take only short locks, so an `ALTER TABLE` that rewrites the table, a blocking `CREATE INDEX` or a `CREATE TRIGGER` on a busy table becomes a smaller expand step, and a release that fails on the bound is retried when the table is quiet or split up, never run with a raised timeout.
 
-**No backfill migrations pre-ship (ADR 0018, ADR 0023, ACTOR-1, plan revision 4.12).** Daisy has no deployed consumers, so a schema change that needs existing rows to carry a new application-owned identifier is never a data backfill: cuid2 must be minted at the application boundary (ADR 0018), and a migration cannot do that. ACTOR-1 (actors created at username-claim onboarding) shipped with no backfill migration for exactly this reason: instead, reset and re-migrate any local or test database holding rows from before that change (`bun db:reset` — see above — reapplies every committed migration onto an empty schema, so the actor-provisioning write path recreates rows going forward). Do not add a policy exception to reach for `gen_random_uuid()` or any other database-side generator as a substitute; reset the database instead. The sole historical-accounting exception is canonical `20261107080513_fair_midnight`: it reconstructs missing casual-judge allowance identities from frozen Round/sponsor facts as specified in [ADR 0018](../decisions/0018-cuid2-identifiers.md) and [ADR 0117](../decisions/0117-premium-billing.md). It permits no actor/application provisioning backfill or runtime SQL ID generator.
-
-**Historical tournament lobby links (TF-2, ADR 0162).** The normal migration
-runner creates missing standing lobby IDs with application cuid2 inside the
-same transaction as the tournament eligibility migration. Each legacy
-tournament stays in its league and keeps its age rule. When more than one
-same-league standing lobby matches, the runner reports the tournament and
-candidate IDs and rolls back. Resolve that historical assignment before
-retrying. The migration preserves frozen Room classifications and freezes
-older tournament Rooms that still use the retired setting.
+**No backfill migrations pre-ship (ADR 0018, ADR 0023, ACTOR-1, plan revision 4.12).** Daisy has no deployed consumers, so a schema change that needs existing rows to carry a new application-owned identifier is never a data backfill: cuid2 must be minted at the application boundary (ADR 0018), and a migration cannot do that. ACTOR-1 (actors created at username-claim onboarding) shipped with no backfill migration for exactly this reason: instead, reset and re-migrate any local or test database holding rows from before that change (`bun db:reset` — see above — reapplies every committed migration onto an empty schema, so the actor-provisioning write path recreates rows going forward). Do not add a policy exception to reach for `gen_random_uuid()` or any other database-side generator as a substitute; reset the database instead. The sole historical-accounting exception is the superseded folder `20261107080513_fair_midnight`, now part of the baseline: it reconstructs missing casual-judge allowance identities from frozen Round/sponsor facts as specified in [ADR 0018](../decisions/0018-cuid2-identifiers.md) and [ADR 0117](../decisions/0117-premium-billing.md). It permits no actor/application provisioning backfill or runtime SQL ID generator.
 
 **Migration concurrency:** generation is single-writer across the whole repository at a time — two branches that each run `bun db:generate` fork the snapshot chain (both new snapshots name the same predecessor). `bun migrations:check` reads the committed migrations tree of HEAD and of its merge base with `origin/main`, and fails any file outside `<timestamp>_<name>/migration.sql` and `snapshot.json` (a legacy `meta/` file included), a snapshot with no `migration.sql` beside it (the migrator would skip it silently), SQL without a snapshot, two folders sharing a timestamp, a broken `prevIds` chain, and any shared migration removed, displaced, or edited (SQL or snapshot). Resolve collisions by rebasing and regenerating the conflicting tail as a forward correction; never auto-rewrite applied migrations on `main` after the fact.
 
-**A CHECK on a table that holds rows goes in two folders.** The first adds it `NOT VALID`: PostgreSQL reads no stored row, so it cannot refuse the deploy and holds its lock only for the catalog change, and every write from then on is checked. The next folder validates it inside a block that catches `check_violation` and leaves that one constraint `NOT VALID` with a warning, so a stored row that breaks the rule cannot block the release either (`20261111193716_persistence_state_checks` and `20261111193718_persistence_state_checks_validated`; `persistence-state-checks-migration.integration.ts` proves both outcomes). A write to a stored row that breaks a `NOT VALID` CHECK is refused unless it repairs the row, so the PR that adds one lists the query that finds such rows, and the owner runs it on staging before the deploy. The driver drops the migration's warning, so `bun db:migrate` itself prints one `migrate: constraint … is NOT VALID` line for each constraint left that way; a name it prints is a row to repair and a constraint to validate in a later migration. Where a stored violation has exactly one right repair, the first folder makes it before adding the constraint, with the seeded proof a row rewrite needs.
+**A CHECK on a table that holds rows goes in two folders.** The first adds it `NOT VALID`: PostgreSQL reads no stored row, so it cannot refuse the deploy and holds its lock only for the catalog change, and every write from then on is checked. The next folder validates it inside a block that catches `check_violation` and leaves that one constraint `NOT VALID` with a warning, so a stored row that breaks the rule cannot block the release either. A write to a stored row that breaks a `NOT VALID` CHECK is refused unless it repairs the row, so the PR that adds one lists the query that finds such rows, and the owner runs it on staging before the deploy. The driver drops the migration's warning, so `bun db:migrate` itself prints one `migrate: constraint … is NOT VALID` line for each constraint left that way; a name it prints is a row to repair and a constraint to validate in a later migration. Where a stored violation has exactly one right repair, the first folder makes it before adding the constraint, with the seeded proof a row rewrite needs.
 
-**Row rewrites are proven against rows (ISSUE-788).** CI and fresh slots migrate empty databases, so a statement that touches existing rows (an `UPDATE`, a `DELETE`, or an `INSERT` into a table the migration did not create) is never exercised there. `bun migrations:check` therefore fails a migration new on the branch that rewrites rows unless an integration test names its folder (`UNPROVEN_REWRITE`). That test is the seeded proof: `scratchDatabase` (`packages/db/integration/scratch-migrations.test-support.ts`) migrates a throwaway database to the folder before it, the test inserts the rows the rewrite touches, then it applies the folder and asserts the result (for example `one-unranked-type.integration.ts`). The check also fails a rewrite of table T followed by DDL on T in the same folder without an intervening `SET CONSTRAINTS ALL IMMEDIATE` (`PENDING_TRIGGER_HAZARD`). This is a conservative syntactic check: a rewrite can queue deferred constraint triggers on T, in which case PostgreSQL refuses the `ALTER TABLE` or `CREATE INDEX` with "cannot ALTER TABLE because it has pending trigger events". Put `SET CONSTRAINTS ALL IMMEDIATE;` before the DDL, which fires the queued checks then and there, or move the rewrite to its own folder. `20261027214801_room_closed_status` is the case that prompted the rule: its `UPDATE rooms` queues the deferred `rooms_topic_matches_draw` trigger before `ALTER TABLE rooms`, so it fails on any database that still holds an abandoned Room. It is applied history; reset such a local database (`bun db:reset`).
-
-**Applied judge-count proof exception (BILL-18).** The existing checker permits one
-`PENDING_TRIGGER_HAZARD` false positive for `usage_reservations` in applied
-`20261105051949_casual_judge_usage`. It matches the exact SQL digest, full
-migration path/tag, every predecessor SQL/snapshot path and blob, and the named
-`usage-count-basis-migration.integration.ts` populated proof. That proof asserts
-the actual predecessor FK/trigger inventory (no deferred event producer),
-exercises a counted row through the state-only UPDATE, and verifies data and
-the runtime attribution guard. An isolated adverse fixture adds a deferred
-UPDATE event and proves PostgreSQL rejects the same ENABLE TRIGGER. Any change
-to the bound SQL, predecessor or proof identity invalidates the exception.
-`UNPROVEN_REWRITE`, other hazards and all history checks remain enforced; this
-is not a general ENABLE TRIGGER exemption. Applied SQL stays immutable.
+**Row rewrites are proven against rows (ISSUE-788).** CI and fresh slots migrate empty databases, so a statement that touches existing rows (an `UPDATE`, a `DELETE`, or an `INSERT` into a table the migration did not create) is never exercised there. `bun migrations:check` therefore fails a migration new on the branch that rewrites rows unless an integration test names its folder (`UNPROVEN_REWRITE`). That test is the seeded proof: `scratchDatabase` (`packages/db/integration/scratch-migrations.test-support.ts`) migrates a throwaway database to the folder before it, the test inserts the rows the rewrite touches, then it applies the folder and asserts the result. The check also fails a rewrite of table T followed by DDL on T in the same folder without an intervening `SET CONSTRAINTS ALL IMMEDIATE` (`PENDING_TRIGGER_HAZARD`). This is a conservative syntactic check: a rewrite can queue deferred constraint triggers on T, in which case PostgreSQL refuses the `ALTER TABLE` or `CREATE INDEX` with "cannot ALTER TABLE because it has pending trigger events". Put `SET CONSTRAINTS ALL IMMEDIATE;` before the DDL, which fires the queued checks then and there, or move the rewrite to its own folder. The rule's fixture is the folder that prompted it (`scripts/fixtures/room-closed-status.sql`): its `UPDATE rooms` queues the deferred `rooms_topic_matches_draw` trigger before `ALTER TABLE rooms`.
 
 **A writer's own abort reads as a dropped client (ISSUE-809).** When a bounded transaction exceeds its budget, it closes its writer connection with the transaction still open, rather than return an uncertain writer to the pool. PostgreSQL then logs `unexpected EOF on client connection with an open transaction`. When that line appears for several writers in the same second, look for what stalled every round trip (database CPU, the network path), not for a network fault at that instant. On Fly, runtime apps dial Postgres directly over 6PN (`<db-app>.internal:5432`), never through Fly Proxy (`.flycast`); see [deploy-staging](deploy-staging.md).
 
@@ -95,6 +73,71 @@ passwords out of band, never committed.
 Integration tests connect as the migration owner, because their fixtures
 and role checks need it; a test that must act as a runtime role switches to
 it with `SET ROLE` on a dedicated session instead of setting a password.
+
+## One baseline (ADR 0913)
+
+`20261121235720_baseline` holds the schema that the 153 folders through
+`20261121235720_guardian_pending_friend_holds` built. Folders after that
+cut-off apply on top as usual. It was generated by
+`bun packages/db/scripts/generate-baseline.ts` from a database migrated the
+old way (the superseded folders read from git at the recorded commit),
+because the schema's functions, triggers, policies and grants exist only in
+migration SQL. `baseline-catalog.integration.ts` builds both databases and
+fails on any catalog entry or reference row that differs. Never edit the
+baseline by hand.
+
+**Local and test databases** reset once: `bun db:reset`, or `bun slot:up`
+for a new slot. A database migrated the old way refuses to start this image
+(`Database migration history does not extend this image`), and `bun
+db:migrate` fails on it at the baseline's first statement, rolling back.
+
+**Staging, and production if it exists before this lands, adopt the baseline
+in place.** Only the owner runs this. No agent runs it, or any command,
+against staging or production. `bun db:adopt-baseline` builds a reference
+database from the image: the baseline, then exactly the later folders the
+live journal records. Then, in one transaction on the live database, it:
+
+1. locks the journal;
+2. requires the journal to be exactly the superseded history (names, hashes
+   and timestamps, `packages/db/src/baseline/superseded-journal.json`)
+   followed by image folders;
+3. requires the live catalog to equal the reference's;
+4. deletes the superseded journal rows and records the baseline in the first
+   of their ids.
+
+It refuses on any difference, prints each one, and changes nothing. It never
+writes a table row. A database created after the baseline lands migrates
+from it and needs no adoption.
+
+**How a deploy crosses the swap.** No image passes the start-up check on both
+sides of the swap. An old image needs the superseded journal rows; this image
+needs the baseline's. The check runs only when a machine starts, so:
+
+1. Pause the staging deploy workflow, so that the merge does not release on
+   its own, and hold staging restarts.
+2. Merge. Check that staging has applied every folder main had up to the
+   merge, so that its journal is the superseded history plus later folders.
+3. As `postgres`, create an empty reference database on the same cluster,
+   owned by the migration owner (`create database daisy_baseline_reference
+owner daisy_migrator`).
+4. From the merge commit's migrator image, as the migration owner, run
+   `MIGRATION_DATABASE_URL=<owner URL> ADOPTION_REFERENCE_DATABASE_URL=<reference
+URL> bun db:adopt-baseline`. Expect `adopt-baseline: 20261121235720_baseline
+replaces 153 journal rows; N later folders kept`. If it refuses, nothing
+   has changed: read the differences, fix the cause forward, and run it again
+   with a new, empty reference database.
+5. Resume the deploy workflow for the merge commit. The migrator finds nothing
+   pending before the baseline, applies any newer folder, and the web,
+   realtime and worker images from that commit start.
+6. Drop the reference database.
+
+Between steps 4 and 5, machines on the old image keep serving, but one that
+restarts refuses to start, so keep that window short. After the swap, roll
+back with a forward fix, never with an old image.
+
+When staging and production have both adopted the baseline, the generator,
+the old-way builder, the superseded journal, the adoption command and the
+catalog-comparison suite are deleted (a task on the board, ADR 0913 §6).
 
 ## Tenant isolation
 
@@ -283,79 +326,7 @@ delete sessions, and what each one costs:
 for any reset that must close live sockets. A database reset that recreates
 the schema drops the trigger with it; migrations recreate it.
 
-## Freestyle only (ADR 0142)
-
-`20261116175848_freestyle_only_ranked` deletes every Policy and Value Room
-(with all its Rounds), every Round on either format, and their ratings,
-challenges, presets and formats; the owner waived keeping them. Chat files in
-those Rooms' and Rounds' channels become `messaging_file_deletion_intents`, so
-the file sweep still deletes their objects and releases their bytes. Recorded
-and broadcast media leave storage only through their own sweeps, which find
-it from its rows, so the migration refuses while any Policy or Value Round has
-a recording that is not `removed`, a capture that has not ended, a
-broadcast that is not withdrawn and completed, or a media session that has
-not ended. Deleted Rounds take their usage reservations with them (they
-cascade); billing is TEST mode before release and the owner waived the rows.
-
-Running it is FOR-H.1 and needs owner sign-off. The operator:
-
-1. Takes a restore point (see [restore rehearsal](restore-rehearsal.md)).
-2. Checks in a read-only session, over the same Rounds the migration deletes
-   (on either format or ladder, or in a Policy or Value Room):
-
-   ```sql
-   with doomed as (
-     select id from rounds
-      where format_id in ('policy','value') or ladder_id in ('policy','value')
-         or room_id in (select id from rooms where format_id in ('policy','value'))
-   )
-   select 'recording not removed' as blocker, count(*) from recordings
-    where round_id in (select id from doomed) and status <> 'removed'
-   union all
-   select 'capture not ended', count(*) from recording_captures
-    where round_id in (select id from doomed) and ended_at is null
-   union all
-   select 'broadcast not withdrawn and completed', count(*) from broadcasts
-    where round_id in (select id from doomed)
-      and (feed_withdrawn_at is null or completed_at is null)
-   union all
-   select 'media session not ended', count(*) from media_sessions
-    where round_id in (select id from doomed) and ended_at is null;
-   ```
-
-   Every count must be zero before the migration runs.
-
-3. Removes any recording that is not `removed` through the existing pipeline:
-   take it down and then remove it from the admin content-moderation screen
-   (`/operator/v1/recordings/:id/takedown`, then `/removal`). Waits until the
-   deletion sweep marks it `removed`, until every listed broadcast is withdrawn
-   and completed, and until no Policy or Value Round is still live (its media
-   session ended). Never edits a status by hand to pass the guard.
-4. Applies the migration, then confirms that no `policy` or `value` row is
-   left in `formats`, `rounds`, `rooms`, `ratings` or `challenges`, and that
-   Freestyle standings are unchanged.
-
-## Three-ladder rollout and beta Season 1
-
-Before applying `20261028224402_three_rating_ladders`, an authorized operator
-runs `bun packages/db/scripts/rating-preflight.ts` from the reviewed checkout
-with `DATABASE_URL` supplied by the existing environment's credential channel.
-It opens a read-only transaction, reports counts and every incoming/outgoing
-constraint of the affected competitive aggregates, and refuses any existing
-standings, postings, ranked Room/preset or ranked Round/ladder reference. No rows,
-identifiers or credentials are printed. Human production preflight occurs
-**before migration**, independently of the later RATE-H.1 activation gate.
-A nonzero count requires a concrete disposition decision; never relabel,
-reset, delete or edit a migration journal to proceed.
-
-The reviewed sequence is three_rating_ladders, frozen_round_finalization,
-finalization_reference_integrity, freeze_membership_transaction,
-round_finalization_aggregate_lifecycle, finalization_deferred_references,
-finalization_membership_index (their
-committed timestamp order). The first folder refuses before DDL. Subsequent
-folders add immutable terminal provenance and its aggregate lifecycle. The
-migrator applies each folder transactionally. Shared applied migration names
-and bytes are never renamed in a retained journal.
+## Beta Season 1
 
 Beta uses the existing main-after-green-CI staging workflow, migrator first,
 then the web/runtime image from the same commit. See
@@ -376,14 +347,6 @@ slice plan. Actual live activation/standing/UI evidence remains open under
 RATE-5 until this operation occurs after deployment; isolated proofs and code
 merge-readiness do not claim it.
 
-If preflight refuses, stop migration and obtain explicit disposition. If a
-migration fails, retain its transactional failure evidence and repair forward.
+If a migration fails, retain its transactional failure evidence and repair forward.
 If deployment verification fails, use the existing deploy incident process.
 RATE-H.1 gates the first production season.
-
-The main99 Billing candidate uses ordinary `SET CONSTRAINTS ALL IMMEDIATE`
-before final usage/analysis DDL and installs immutable guards after conversion.
-It does not activate the historical private51949 checker exception. That exact
-original binding remains regression-tested with its retained SQL fixture only;
-no new migration inherits it. See the original accounting namespace in ADR0018
-and ADR0117; the new populated-main proof owns current transition acceptance.

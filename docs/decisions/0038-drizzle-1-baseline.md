@@ -6,7 +6,11 @@ Drizzle, ADR 0023's journal-fingerprint sanction mechanism, and the
 template database and e2e grants of ADR 0034. Amends ADR 0007 and ADR 0029
 as noted below. Amended by ADR 0039: the rejection of `bun audit --ignore`
 and exception registries below no longer holds for the two dated,
-unreachable advisories that ADR 0039 lists.
+unreachable advisories that ADR 0039 lists. Amended by
+[ADR 0913](0913-one-baseline-adopted-in-place.md): the baseline is now
+`20261121235720_baseline`, read from a migrated database's catalog; a
+sanction records its cut-off and the superseded folders' fingerprint; and
+staging adopts a baseline in place instead of resetting.
 
 ## Context
 

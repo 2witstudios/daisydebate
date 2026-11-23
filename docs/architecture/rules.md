@@ -143,8 +143,10 @@ These rules are blockers in every plan and review (owner, 2026-10-27 and
   migration only needs stating in its PR (DEC-304). A migration must never be
   able to refuse and block a deploy, and production keeps human sign-off. Never
   rewrite an applied migration or reset production; the only sanctioned history
-  rewrite is a greenfield baseline squash recorded in
-  `policy/migration-baselines.json` (ADR 0023, ADR 0038), which requires resetting
-  every local and test database once.
+  rewrite is a baseline recorded in `policy/migration-baselines.json`
+  (ADR 0023, ADR 0038, ADR 0913): every local and test database resets once,
+  and a database that holds data adopts it by the owner-run, catalog-proved
+  journal swap. A migration folder is named for its change, never a name
+  drizzle-kit drew.
 - Update the relevant deeper document when behavior or architecture changes.
   Keep commits scoped.

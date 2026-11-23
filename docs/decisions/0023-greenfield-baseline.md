@@ -3,7 +3,10 @@
 Status: accepted. Amended by [ADR 0038](0038-drizzle-1-baseline.md): the
 second baseline squash is drizzle-kit 1.0's `20260923195259_baseline`, and a
 sanction now records `baseMigrationsHash`, the fingerprint of the replaced
-migrations tree, instead of the drizzle-kit 0.x journal.
+migrations tree, instead of the drizzle-kit 0.x journal. Amended by
+[ADR 0913](0913-one-baseline-adopted-in-place.md): a database that holds
+data adopts a baseline by a catalog-proved journal swap instead of a reset;
+only local and test databases still reset once.
 
 Daisy is pre-ship and greenfield. No deployed environment has ever persisted
 data against this repository's schema or contracts, so there is no durable
