@@ -103,6 +103,8 @@ const mutations: readonly Mutation[] = [
 ];
 
 const checkout = resolve(import.meta.dir, '..');
+/** Longer than any net takes unmutated, which is seconds. */
+const NET_TIMEOUT_MS = 120_000;
 
 type Run = { readonly ok: boolean; readonly output: string };
 
@@ -111,6 +113,8 @@ const run = (cmd: readonly string[], cwd: string): Run => {
     cwd,
     stdout: 'pipe',
     stderr: 'pipe',
+    // A mutation can leave work that never settles: a net that hangs caught it.
+    timeout: NET_TIMEOUT_MS,
   });
   return {
     ok: result.exitCode === 0,
