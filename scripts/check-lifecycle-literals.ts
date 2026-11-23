@@ -3,49 +3,77 @@ import ts from 'typescript';
 import {
   bindingOf,
   literalValues,
-  writtenStatuses,
+  writtenValues,
   type ReadModule,
 } from './lifecycle-write-values';
-import { roomStatuses } from '@daisy/protocol/room-contract';
-import { roundStatuses } from '@daisy/protocol/round';
+import {
+  loadStoredVocabularies,
+  type StoredVocabularies,
+  type Vocabulary,
+} from './stored-vocabularies';
 
-const tables = {
-  rooms: new Set<string>(roomStatuses),
-  rounds: new Set<string>(roundStatuses),
-};
-type LifecycleTable = keyof typeof tables;
+/**
+ * A stored vocabulary word spelled in SQL text or a Drizzle call, where the
+ * compiler cannot check it, is read from its list instead (RECON-3.11).
+ * Every column a CHECK constrains with `oneOf` counts, in both databases.
+ * TypeScript literals compared with a typed column or field stay legal:
+ * the compiler checks those against the union the column carries.
+ */
 type Source = { readonly path: string; readonly text: string };
+type StoredColumn = {
+  readonly table: string;
+  readonly column: string;
+  readonly words: Vocabulary;
+};
 
-const isLifecycleTable = (name: string): name is LifecycleTable =>
-  Object.hasOwn(tables, name);
+const storedVocabularies = await loadStoredVocabularies();
 
 const productionSource = (path: string) =>
   /^(?:apps|packages)\/[^/]+\/src\/.*\.(?:tsx?|sql)$/.test(path) &&
-  !/\.(?:test|test-support)\.tsx?$/.test(path);
+  !/\.(?:test|test-support)\.tsx?$/.test(path) &&
+  // An applied migration is history; it is never rewritten.
+  !/\/migrations\//.test(path);
 
-const statusColumn = (node: ts.Expression, readModule: ReadModule) => {
-  const table =
-    (ts.isPropertyAccessExpression(node) && node.name.text === 'status') ||
-    (ts.isElementAccessExpression(node) &&
-      ts.isStringLiteralLike(node.argumentExpression) &&
-      node.argumentExpression.text === 'status')
-      ? node.expression
-      : undefined;
-  if (!table || !ts.isIdentifier(table)) return undefined;
-  if (isLifecycleTable(table.text)) return table.text;
-  const binding = bindingOf(table, readModule);
-  if (
-    !binding ||
-    !ts.isCallExpression(binding) ||
-    !ts.isIdentifier(binding.expression) ||
-    binding.expression.text !== 'alias'
-  )
-    return undefined;
-  const base = binding.arguments[0];
-  return base && ts.isIdentifier(base) && isLifecycleTable(base.text)
-    ? base.text
-    : undefined;
-};
+const escape = (word: string) => word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+const quoted = "'(?:''|[^'])*'";
+const equality = '(?:[<>]=?|=|<>|!=|is\\s+(?:not\\s+)?distinct\\s+from)';
+const unquote = (word: string) => word.slice(1, -1).replaceAll("''", "'");
+
+const patterns = new WeakMap<
+  StoredVocabularies,
+  { readonly comparison: RegExp; readonly insert: RegExp }
+>();
+function patternsOf(vocabularies: StoredVocabularies) {
+  const known = patterns.get(vocabularies);
+  if (known) return known;
+  const columns = [
+    ...new Set(
+      [...vocabularies.sql.values()].flatMap((byColumn) => [
+        ...byColumn.keys(),
+      ]),
+    ),
+  ]
+    .sort((left, right) => right.length - left.length)
+    .map(escape)
+    .join('|');
+  const column = `((?:[a-z_]\\w*\\s*\\.\\s*)?\\b(?:${columns})\\b)`;
+  const tables = [...vocabularies.sql.keys()].map(escape).join('|');
+  const built = {
+    comparison: new RegExp(
+      [
+        `${column}\\s*(?:${equality}\\s*|(?:not\\s+)?in\\s*\\(\\s*|${equality}\\s*(?:any|all)\\s*\\(\\s*array\\s*\\[\\s*)(${quoted}(?:\\s*,\\s*${quoted})*)`,
+        `(${quoted})\\s*${equality}\\s*${column}`,
+      ].join('|'),
+      'gi',
+    ),
+    insert: new RegExp(
+      `\\binsert\\s+into\\s+(?:public\\.)?(${tables})\\s*\\(([^)]+)\\)\\s*values\\s*((?:\\([^()]+\\)(?:\\s*,\\s*)?)+)`,
+      'gi',
+    ),
+  };
+  patterns.set(vocabularies, built);
+  return built;
+}
 
 const trackedTables = (sql: string) => {
   const aliases = new Map<string, string>();
@@ -57,20 +85,18 @@ const trackedTables = (sql: string) => {
   return aliases;
 };
 
-const quoted = "'(?:''|[^'])*'";
-const column = '((?:[a-z_]\\w*\\s*\\.\\s*)?status)';
-const equality = '(?:[<>]=?|=|<>|!=|is\\s+(?:not\\s+)?distinct\\s+from)';
-const comparison = new RegExp(
-  [
-    `${column}\\s*(?:${equality}\\s*|(?:not\\s+)?in\\s*\\(\\s*|${equality}\\s*(?:any|all)\\s*\\(\\s*array\\s*\\[\\s*)(${quoted}(?:\\s*,\\s*${quoted})*)`,
-    `(${quoted})\\s*${equality}\\s*${column}`,
-  ].join('|'),
-  'gi',
-);
+type Found = {
+  readonly table: string;
+  readonly column: string;
+  readonly word: string;
+};
 
-const unquote = (word: string) => word.slice(1, -1).replaceAll("''", "'");
-
-function sqlLiterals(sql: string, fileSql: string, schema?: LifecycleTable) {
+function sqlLiterals(
+  sql: string,
+  fileSql: string,
+  vocabularies: StoredVocabularies,
+): readonly Found[] {
+  const { comparison, insert } = patternsOf(vocabularies);
   const clean = sql
     .replaceAll(/--[^\n]*|\/\*[\s\S]*?\*\//g, '')
     .replaceAll(/"([a-z_]\w*)"/gi, '$1');
@@ -78,55 +104,116 @@ function sqlLiterals(sql: string, fileSql: string, schema?: LifecycleTable) {
   const outer = trackedTables(fileSql);
   const inferred = [...new Set(local.values())];
   const inferredTable = inferred.length === 1 ? inferred[0] : undefined;
-  const found = new Set<string>();
+  const found = new Map<string, Found>();
+  const add = (table: string, column: string, word: string) => {
+    if (vocabularies.sql.get(table)?.get(column)?.has(word))
+      found.set(`${table}.${column}:${word}`, { table, column, word });
+  };
   for (const [, left, rightWords, leftWord, right] of clean.matchAll(
     comparison,
   )) {
-    const qualifier = (left ?? right)?.split('.')[0]?.trim().toLowerCase();
+    const reference = (left ?? right ?? '')
+      .replaceAll(/\s+/g, '')
+      .toLowerCase();
+    const [qualifier, column] = reference.includes('.')
+      ? reference.split('.')
+      : [undefined, reference];
+    if (!column) continue;
     const table =
-      qualifier === 'status'
-        ? (schema ?? inferredTable)
-        : qualifier === 'table'
-          ? schema
-          : qualifier === undefined
-            ? undefined
-            : (local.get(qualifier) ??
-              outer.get(qualifier) ??
-              (qualifier === 'round'
-                ? 'rounds'
-                : qualifier === 'room'
-                  ? 'rooms'
-                  : qualifier));
-    if (!table || !isLifecycleTable(table)) continue;
+      qualifier === undefined
+        ? inferredTable
+        : (local.get(qualifier) ??
+          outer.get(qualifier) ??
+          (qualifier === 'round'
+            ? 'rounds'
+            : qualifier === 'room'
+              ? 'rooms'
+              : qualifier));
+    if (!table) continue;
     for (const item of (rightWords ?? leftWord ?? '').matchAll(
       /'(?:''|[^'])*'/g,
-    )) {
-      const word = unquote(item[0]);
-      if (tables[table].has(word)) found.add(word);
-    }
+    ))
+      add(table, column, unquote(item[0]));
   }
 
   // INSERT names the destination columns separately from each row of values.
-  for (const [, table, columns, values] of clean.matchAll(
-    /\binsert\s+into\s+(?:public\.)?(rooms|rounds)\s*\(([^)]+)\)\s*values\s*((?:\([^()]+\)(?:\s*,\s*)?)+)/gi,
-  )) {
-    if (!table || !columns || !values || !isLifecycleTable(table)) continue;
-    const statusIndex = columns
-      .split(',')
-      .findIndex((name) => name.trim() === 'status');
+  for (const [, table, columns, values] of clean.matchAll(insert)) {
+    if (!table || !columns || !values) continue;
+    const names = columns.split(',').map((name) => name.trim().toLowerCase());
     for (const [, tuple] of values.matchAll(/\(([^()]+)\)/g)) {
-      const value = tuple?.split(',')[statusIndex]?.trim();
-      if (value?.startsWith("'") && tables[table].has(unquote(value)))
-        found.add(unquote(value));
+      const cells = tuple?.split(',') ?? [];
+      names.forEach((name, index) => {
+        const value = cells[index]?.trim();
+        if (value?.startsWith("'"))
+          add(table.toLowerCase(), name, unquote(value));
+      });
     }
   }
-  return [...found];
+  return [...found.values()];
+}
+
+/** The stored column `node` names: `table.key`, an alias of a table, or a schema callback's `table`. */
+function storedColumn(
+  node: ts.Expression,
+  readModule: ReadModule,
+  vocabularies: StoredVocabularies,
+): StoredColumn | undefined {
+  const key = ts.isPropertyAccessExpression(node)
+    ? node.name.text
+    : ts.isElementAccessExpression(node) &&
+        ts.isStringLiteralLike(node.argumentExpression)
+      ? node.argumentExpression.text
+      : undefined;
+  if (key === undefined) return undefined;
+  const owner = (
+    node as ts.PropertyAccessExpression | ts.ElementAccessExpression
+  ).expression;
+  if (!ts.isIdentifier(owner)) return undefined;
+  const lookup = (exportName: string) => {
+    const table = vocabularies.drizzle.get(exportName);
+    const words = table?.columns.get(key);
+    if (!table || !words) return undefined;
+    const column = [...(vocabularies.sql.get(table.table) ?? [])].find(
+      ([, set]) => set === words,
+    )?.[0];
+    return column ? { table: table.table, column, words } : undefined;
+  };
+  const direct = lookup(owner.text);
+  if (direct) return direct;
+  const binding = bindingOf(owner, readModule);
+  if (
+    binding &&
+    ts.isCallExpression(binding) &&
+    ts.isIdentifier(binding.expression) &&
+    binding.expression.text === 'alias'
+  ) {
+    const base = binding.arguments[0];
+    return base && ts.isIdentifier(base) ? lookup(base.text) : undefined;
+  }
+  // A schema file's `(table) => [...]` extras: the enclosing pgTable export.
+  for (let at: ts.Node | undefined = owner.parent; at; at = at.parent) {
+    if (
+      ts.isArrowFunction(at) &&
+      at.parameters.some(
+        (parameter) =>
+          ts.isIdentifier(parameter.name) && parameter.name.text === owner.text,
+      ) &&
+      ts.isCallExpression(at.parent) &&
+      ts.isIdentifier(at.parent.expression) &&
+      at.parent.expression.text === 'pgTable' &&
+      ts.isVariableDeclaration(at.parent.parent) &&
+      ts.isIdentifier(at.parent.parent.name)
+    )
+      return lookup(at.parent.parent.name.text);
+  }
+  return undefined;
 }
 
 const sqlTemplate = (
   template: ts.TemplateLiteral | ts.StringLiteral,
   source: ts.SourceFile,
   readModule: ReadModule,
+  vocabularies: StoredVocabularies,
 ): string => {
   if (ts.isStringLiteralLike(template)) return template.text;
   const fragment = (expression: ts.Expression): string => {
@@ -136,10 +223,10 @@ const sqlTemplate = (
       ts.isTaggedTemplateExpression(expression) &&
       expression.tag.getText(source) === 'sql'
     )
-      return sqlTemplate(expression.template, source, readModule);
-    const table = statusColumn(expression, readModule);
-    return table
-      ? `${table}.status`
+      return sqlTemplate(expression.template, source, readModule, vocabularies);
+    const stored = storedColumn(expression, readModule, vocabularies);
+    return stored
+      ? `${stored.table}.${stored.column}`
       : expression.getText(source).replaceAll(/[^\w.]/g, '_');
   };
   return (
@@ -164,9 +251,12 @@ const tableWrite = (callee: ts.Expression, source: ts.SourceFile) => {
     : undefined;
 };
 
+const comparisons = /^(?:eq|ne|inArray|notInArray|lt|lte|gt|gte)$/;
+
 export function lifecycleLiteralIssues(
   { path, text }: Source,
   readSource: (path: string) => string | undefined = () => undefined,
+  vocabularies: StoredVocabularies = storedVocabularies,
 ): readonly string[] {
   if (!productionSource(path)) return [];
   const issues: string[] = [];
@@ -186,59 +276,75 @@ export function lifecycleLiteralIssues(
     parsed.set(target, module);
     return module;
   };
-  const report = (node: ts.Node, values: readonly string[]) => {
+  const report = (node: ts.Node, found: readonly Found[]) => {
     const line =
       source.getLineAndCharacterOfPosition(node.getStart(source)).line + 1;
-    for (const value of values)
+    for (const { table, column, word } of found)
       issues.push(
-        `${path}:${line}: read lifecycle status '${value}' from @daisy/protocol`,
+        `${path}:${line}: '${word}' is a ${table}.${column} word; read it from its vocabulary list`,
       );
   };
   if (path.endsWith('.sql')) {
-    report(source, sqlLiterals(text, text));
+    report(source, sqlLiterals(text, text, vocabularies));
     return issues;
   }
-  const schema = path.endsWith('/schema/rooms.ts')
-    ? 'rooms'
-    : path.endsWith('/schema/rounds.ts')
-      ? 'rounds'
-      : undefined;
   const templates: { readonly node: ts.Node; readonly sql: string }[] = [];
   function visit(node: ts.Node) {
     if (ts.isTaggedTemplateExpression(node)) {
       templates.push({
         node,
-        sql: sqlTemplate(node.template, source, readModule),
+        sql: sqlTemplate(node.template, source, readModule, vocabularies),
       });
     }
     if (ts.isCallExpression(node)) {
       const [first, second] = node.arguments;
       const name = node.expression.getText(source);
       const destination = tableWrite(node.expression, source);
-      if (first && destination && isLifecycleTable(destination))
+      const written = destination
+        ? vocabularies.drizzle.get(destination)
+        : undefined;
+      if (first && written) {
+        const sqlColumns = vocabularies.sql.get(written.table);
         report(
           node,
-          writtenStatuses(first, readModule).filter((word) =>
-            tables[destination].has(word),
-          ),
+          writtenValues(
+            first,
+            readModule,
+            new Set(written.columns.keys()),
+          ).flatMap(([key, word]) => {
+            const words = written.columns.get(key);
+            const column = [...(sqlColumns ?? [])].find(
+              ([, set]) => set === words,
+            )?.[0];
+            return words?.has(word) && column
+              ? [{ table: written.table, column, word }]
+              : [];
+          }),
         );
+      }
       if ((name === 'sql.raw' || name.endsWith('.unsafe')) && first) {
         if (ts.isStringLiteralLike(first) || ts.isTemplateExpression(first))
-          templates.push({ node, sql: sqlTemplate(first, source, readModule) });
-      } else if (
-        first &&
-        second &&
-        /^(?:eq|ne|inArray|notInArray|lt|lte|gt|gte)$/.test(name)
-      ) {
-        const table =
-          statusColumn(first, readModule) ?? statusColumn(second, readModule);
-        if (table && isLifecycleTable(table))
+          templates.push({
+            node,
+            sql: sqlTemplate(first, source, readModule, vocabularies),
+          });
+      } else if (first && second && comparisons.test(name)) {
+        const stored =
+          storedColumn(first, readModule, vocabularies) ??
+          storedColumn(second, readModule, vocabularies);
+        if (stored)
           report(
             node,
             [
               ...literalValues(first, readModule),
               ...literalValues(second, readModule),
-            ].filter((word) => tables[table].has(word)),
+            ]
+              .filter((word) => stored.words.has(word))
+              .map((word) => ({
+                table: stored.table,
+                column: stored.column,
+                word,
+              })),
           );
       }
     }
@@ -247,7 +353,7 @@ export function lifecycleLiteralIssues(
   visit(source);
   const fileSql = templates.map(({ sql }) => sql).join('\n');
   for (const { node, sql } of templates)
-    report(node, sqlLiterals(sql, fileSql, schema));
+    report(node, sqlLiterals(sql, fileSql, vocabularies));
   return issues;
 }
 
@@ -287,13 +393,17 @@ if (import.meta.main) {
   let count = 0;
   for (const path of paths) {
     const text = readSource(path);
-    if (text === undefined || !/\bstatus\b|\.(?:insert|update)\(/.test(text))
-      continue;
+    if (text === undefined) continue;
     for (const issue of lifecycleLiteralIssues({ path, text }, readSource)) {
       console.error(issue);
       count += 1;
     }
   }
-  console.log(`${count} literal(s) in Round and Room lifecycle SQL`);
+  let columns = 0;
+  for (const byColumn of storedVocabularies.sql.values())
+    columns += byColumn.size;
+  console.log(
+    `${count} stored vocabulary word(s) spelled in SQL or Drizzle, over ${columns} CHECK-constrained columns`,
+  );
   process.exitCode = count === 0 ? 0 : 1;
 }

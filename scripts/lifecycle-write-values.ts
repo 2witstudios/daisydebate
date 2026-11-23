@@ -117,13 +117,19 @@ const resultsOf = (binding: Binding | undefined): readonly ts.Expression[] => {
   return results;
 };
 
-/** Follow row values before they reach the SQL builder, including local helper imports. */
-export function writtenStatuses(
+/**
+ * Follow row values before they reach the SQL builder, including local
+ * helper imports: each literal written to one of `keys`, with its key.
+ */
+export function writtenValues(
   input: ts.Expression,
   readModule: ReadModule,
-): readonly string[] {
+  keys: ReadonlySet<string>,
+): readonly (readonly [key: string, value: string])[] {
   const seen = new Set<ts.Expression>();
-  function visit(node: ts.Expression): readonly string[] {
+  function visit(
+    node: ts.Expression,
+  ): readonly (readonly [key: string, value: string])[] {
     const value = unwrap(node);
     if (seen.has(value)) return [];
     seen.add(value);
@@ -148,8 +154,11 @@ export function writtenStatuses(
         !ts.isStringLiteralLike(property.name)
       )
         return [];
-      return property.name.text === 'status'
-        ? literalValues(property.initializer, readModule)
+      const key = property.name.text;
+      return keys.has(key)
+        ? literalValues(property.initializer, readModule).map(
+            (value) => [key, value] as const,
+          )
         : [];
     });
   }

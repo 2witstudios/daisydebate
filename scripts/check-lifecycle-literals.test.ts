@@ -3,6 +3,8 @@ import { lifecycleLiteralIssues } from './check-lifecycle-literals';
 
 const path = 'packages/db/src/lifecycle-fixture.ts';
 const problems = (text: string) => lifecycleLiteralIssues({ path, text });
+const word = (line: number, value: string, column: string) =>
+  `${path}:${line}: '${value}' is a ${column} word; read it from its vocabulary list`;
 
 test('rejects SQL lifecycle literals in predicates and writes', () => {
   expect(
@@ -21,18 +23,18 @@ test('rejects SQL lifecycle literals in predicates and writes', () => {
       ].join('\n'),
     ),
   ).toEqual([
-    `${path}:7: read lifecycle status 'active' from @daisy/protocol`,
-    `${path}:8: read lifecycle status 'assembling' from @daisy/protocol`,
-    `${path}:8: read lifecycle status 'ready' from @daisy/protocol`,
-    `${path}:9: read lifecycle status 'assembling' from @daisy/protocol`,
-    `${path}:10: read lifecycle status 'completed' from @daisy/protocol`,
-    `${path}:1: read lifecycle status 'opening' from @daisy/protocol`,
-    `${path}:1: read lifecycle status 'active' from @daisy/protocol`,
-    `${path}:2: read lifecycle status 'ready' from @daisy/protocol`,
-    `${path}:3: read lifecycle status 'completed' from @daisy/protocol`,
-    `${path}:4: read lifecycle status 'closed' from @daisy/protocol`,
-    `${path}:5: read lifecycle status 'assembling' from @daisy/protocol`,
-    `${path}:6: read lifecycle status 'abandoned' from @daisy/protocol`,
+    word(7, 'active', 'rounds.status'),
+    word(8, 'assembling', 'rooms.status'),
+    word(8, 'ready', 'rooms.status'),
+    word(9, 'assembling', 'rooms.status'),
+    word(10, 'completed', 'rounds.status'),
+    word(1, 'opening', 'rounds.status'),
+    word(1, 'active', 'rounds.status'),
+    word(2, 'ready', 'rooms.status'),
+    word(3, 'completed', 'rounds.status'),
+    word(4, 'closed', 'rooms.status'),
+    word(5, 'assembling', 'rooms.status'),
+    word(6, 'abandoned', 'rounds.status'),
   ]);
 });
 
@@ -41,13 +43,50 @@ test('allows status values from protocol and unrelated lifecycle words', () => {
     problems(
       [
         'sql`select * from rounds d where d.status in ${lifecycleSqlList(runningRoundStatuses)}`;',
-        "sql`select * from rounds d join seasons s on s.id = d.season_id where s.status = 'active'`;",
         "sql`select * from round_judging_jobs r where r.status = 'completed'`;",
         'eq(rounds.status, roundStatus.active);',
-        "eq(seasons.status, 'active');",
+        "sql`select * from rounds where visibility = ${listedWord(roundVisibilities, 'public')}`;",
       ].join('\n'),
     ),
   ).toEqual([]);
+});
+
+// RECON-3.11: the check covered two vocabularies; every CHECK-constrained
+// column now counts, in SQL text, Drizzle calls and schema extras.
+test('rejects a word of any stored vocabulary, not only Room and Round status', () => {
+  expect(
+    problems(
+      [
+        "sql`select * from rounds d join seasons s on s.id = d.season_id where s.status = 'active'`;",
+        "eq(seasons.status, 'active');",
+        "sql`update messaging_files set lifecycle = 'deleting' where id = ${id}`;",
+        "sql`select 1 from actors a where a.kind = 'bot'`;",
+        "db.update(friendships).set({ state: 'accepted' });",
+      ].join('\n'),
+    ),
+  ).toEqual([
+    word(2, 'active', 'seasons.status'),
+    word(5, 'accepted', 'friendships.state'),
+    word(1, 'active', 'seasons.status'),
+    word(3, 'deleting', 'messaging_files.lifecycle'),
+    word(4, 'bot', 'actors.kind'),
+  ]);
+});
+
+test("rejects a word in a schema table's own CHECK text", () => {
+  const schema = 'packages/db/src/schema/messaging-social-fixture.ts';
+  expect(
+    lifecycleLiteralIssues({
+      path: schema,
+      text: [
+        "export const messagingDmPairs = pgTable('messaging_dm_pairs', {}, (table) => [",
+        "  check('x', sql`(${table.requestState} = 'pending') = (${table.decidedAt} is null)`),",
+        ']);',
+      ].join('\n'),
+    }),
+  ).toEqual([
+    `${schema}:2: 'pending' is a messaging_dm_pairs.request_state word; read it from its vocabulary list`,
+  ]);
 });
 
 test('rejects a lifecycle literal in a native Bun query', () => {
@@ -56,8 +95,8 @@ test('rejects a lifecycle literal in a native Bun query', () => {
       "client`select r.id from rounds r where r.status in ('opening', 'active')`;",
     ),
   ).toEqual([
-    `${path}:1: read lifecycle status 'opening' from @daisy/protocol`,
-    `${path}:1: read lifecycle status 'active' from @daisy/protocol`,
+    word(1, 'opening', 'rounds.status'),
+    word(1, 'active', 'rounds.status'),
   ]);
 });
 
@@ -78,10 +117,10 @@ test('rejects aliased comparisons and lifecycle values built before the write', 
         : undefined,
     ),
   ).toEqual([
-    `${path}:3: read lifecycle status 'completed' from @daisy/protocol`,
-    `${path}:4: read lifecycle status 'opening' from @daisy/protocol`,
-    `${path}:4: read lifecycle status 'active' from @daisy/protocol`,
-    `${path}:5: read lifecycle status 'assembling' from @daisy/protocol`,
-    `${path}:6: read lifecycle status 'started' from @daisy/protocol`,
+    word(3, 'completed', 'rounds.status'),
+    word(4, 'opening', 'rounds.status'),
+    word(4, 'active', 'rounds.status'),
+    word(5, 'assembling', 'rooms.status'),
+    word(6, 'started', 'rooms.status'),
   ]);
 });
