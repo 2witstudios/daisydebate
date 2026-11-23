@@ -3,7 +3,7 @@ import { requireTestServices } from '@daisy/config';
 import { assertRejects } from '@daisy/errors/testing';
 import { loseTransactionCommitReply } from './bounded-transaction.test-support';
 import { withSelectedInvoice } from './billing-invoice-retention.test-support';
-import { causeChainMember } from '../src/infrastructure-refusal';
+import { causeChainMember } from '../src/raw-rows';
 requireTestServices(process.env);
 setupRitewayBun();
 

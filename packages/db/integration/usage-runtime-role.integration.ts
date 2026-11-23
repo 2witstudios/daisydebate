@@ -16,7 +16,7 @@ import {
   testBotAdmission,
 } from './bot-admission.test-support';
 import { sqlStateOf } from './constraint-helpers';
-import { causeChainMember } from '../src/infrastructure-refusal';
+import { causeChainMember } from '../src/raw-rows';
 
 setupRitewayBun();
 requireTestServices(process.env);

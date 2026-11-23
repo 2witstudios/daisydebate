@@ -1,7 +1,7 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { requireTestServices } from '@daisy/config';
 import { withClosedPurchase } from './billing-cleanup-purchases.test-support';
-import { causeChainMember } from '../src/infrastructure-refusal';
+import { causeChainMember } from '../src/raw-rows';
 requireTestServices(process.env);
 setupRitewayBun();
 

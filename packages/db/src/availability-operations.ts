@@ -1,5 +1,5 @@
 import { deadlineSignal, tryInstantMs, type Waits } from '@daisy/clock';
-import { SERVICE_LEASE_WINDOW_MS } from './infrastructure-refusal';
+import { SERVICE_LEASE_WINDOW_MS } from './web-service-authority';
 import type { SQL, ReservedSQL } from 'bun';
 import { createAppError } from '@daisy/errors';
 import { availabilityRecoveryPolicy } from '@daisy/protocol/attendance';

@@ -1,6 +1,6 @@
 import { hostWaits } from '@daisy/worker/host';
 import { roundDecisionReleasePolicy } from '@daisy/protocol/round-decision-release';
-import { causeChainMember } from '../src/infrastructure-refusal';
+import { causeChainMember } from '../src/raw-rows';
 import { SQL } from 'bun';
 import {
   foundationDefinition,

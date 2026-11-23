@@ -19,7 +19,7 @@ import { roundRulesSchema } from '@daisy/protocol/format';
 import { privateSpanChanges } from '@daisy/protocol/public-interval';
 import { buildRoundTopic } from '@daisy/protocol/topics';
 import type { z } from 'zod';
-import { parsedColumn } from './raw-rows';
+import { parsedColumn, isUniqueViolation } from './raw-rows';
 import { appendOutboxEvent } from './outbox';
 import { appendRoundStrikes, revealEvidence } from './room-draw-persistence';
 import { refundUnservedPracticeLocked } from './round-bot-admission';
@@ -32,8 +32,7 @@ import {
 import { oweRoundStarted } from './round-began';
 import { releaseFinalizedDecision } from './round-decision-release';
 import { jsonObjectSchema } from './schema/columns';
-import { columnsOfOutcome, outcomeOfColumns } from './round-outcome-columns';
-import { isUniqueViolation } from './driver-failure';
+import { columnsOfOutcome, outcomeOfColumns } from './round-hydration';
 import { roundCommands } from './schema/round-commands';
 import { roundPrivateSpans } from './schema/round-private-spans';
 import { roundSegments } from './schema/round-segments';

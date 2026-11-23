@@ -5,7 +5,7 @@ import { readDatabaseTime } from './database-clock';
 import { createAppError } from '@daisy/errors';
 import { instrumented, type DatabaseEventSink } from './instrumented';
 import { hydrateRound, type RoundHydration } from './round-hydration';
-import { isUniqueViolation } from './driver-failure';
+import { isUniqueViolation } from './raw-rows';
 import { rounds } from './schema/rounds';
 import type { TxSource } from './tx';
 

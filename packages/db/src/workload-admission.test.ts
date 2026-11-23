@@ -1,7 +1,7 @@
 import { virtualClock } from '@daisy/clock/testing';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { capacityRefusalDetail } from './infrastructure-refusal';
 import {
+  capacityRefusalDetail,
   withLaneOperation,
   createLaneGate,
   profileConnections,

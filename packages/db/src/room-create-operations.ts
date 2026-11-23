@@ -35,7 +35,7 @@ import { instrumented, type DatabaseEventSink } from './instrumented';
 
 import { readEntitlementGrants } from './entitlement-grants';
 
-import type { NewRoom } from './room-operations';
+import type { NewRoom } from './room-assembly';
 
 import {
   type Caller,

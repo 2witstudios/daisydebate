@@ -13,7 +13,7 @@ import { roundParticipants } from './schema/round-participants';
 import { mediaSessions } from './schema/media-sessions';
 import { roundTranscriptFreezes } from './schema/round-transcript-freezes';
 import { roundCommands } from './schema/round-commands';
-import { recordedPanelRuling } from './round-panel-decisions';
+import { recordedPanelRuling } from './round-panel-completion';
 import { roundResolutionAudit } from './room-draw-persistence';
 import {
   runtimeCheckpointSchema,

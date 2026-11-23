@@ -44,24 +44,67 @@ test('refuses every spelling of an exported function', () => {
   });
 });
 
-test('accepts a module that touches storage by any primitive', () => {
-  const primitives = [
-    "import { sql } from 'drizzle-orm';",
-    "import type { SQL } from 'bun';",
-    "import { rounds } from './schema/rounds';",
-    "import type { Tx } from './tx.ts';",
-    "import { query } from './raw-rows';",
-    "import type { BoundedTransaction } from './bounded-transaction';",
-    "import type { Lane } from './workload';",
-    "type Pool = import('bun').SQL;",
+test('accepts a module that reads a storage primitive by any of them', () => {
+  const uses = [
+    "import { sql } from 'drizzle-orm';\nexport const filter = sql`true`;",
+    "import { SQL } from 'bun';\nexport const pool = () => new SQL('x');",
+    "import { rounds } from './schema/rounds';\nexport const table = () => rounds;",
+    "import * as schema from './schema/rounds';\nexport const table = () => schema.rounds;",
+    "import { inTransaction } from './tx.ts';\nexport const open = inTransaction;",
+    "import { query } from './raw-rows';\nexport const read = () => query;",
+    "import { createBoundedTransaction } from './bounded-transaction';\nexport const runner = createBoundedTransaction;",
+    "import { createWorkload } from './workload';\nexport const lanes = createWorkload;",
   ];
   assert({
-    given: 'a decision beside each storage primitive it loads',
+    given: 'a decision beside each storage primitive it reads as a value',
     should: 'report none',
-    actual: primitives.map((line) =>
-      issueOf('packages/db/src/round-store.ts', `${line}\n${decision}`),
+    actual: uses.map((source) =>
+      issueOf('packages/db/src/round-store.ts', `${source}\n${decision}`),
     ),
-    expected: primitives.map(() => false),
+    expected: uses.map(() => false),
+  });
+});
+
+test('accepts a function that takes and uses a transaction, connection or runner', () => {
+  const typed = [
+    "import type { Tx } from './tx';\nexport const lock = (tx: Tx) => tx.execute(1);",
+    "import type { SQL } from 'bun';\nexport async function read(client: SQL) { return client.unsafe('x'); }",
+    "import type { BoundedTransaction } from './bounded-transaction';\nexport const store = ({ run }: { readonly run: BoundedTransaction }) => ({ go: () => run(async () => 1) });",
+    "export const read = (client: import('bun').SQL) => client.unsafe('x');",
+    "import type { SQL } from 'bun';\ntype Opener = { readonly pool: SQL };\nexport const open = (opener: Opener) => opener.pool;",
+  ];
+  assert({
+    given:
+      'a function whose parameter a storage primitive types, and that uses it',
+    should: 'report none',
+    actual: typed.map((source) =>
+      issueOf('packages/db/src/round-store.ts', source),
+    ),
+    expected: typed.map(() => false),
+  });
+});
+
+test('refuses a pure decision dressed with a type-only or unused storage import', () => {
+  const dressed = [
+    "import type { Tx } from './tx';",
+    "import { type Tx } from './tx';",
+    "import type { rounds } from './schema/rounds';\ntype Row = typeof rounds.$inferSelect;",
+    "import type { SQL } from 'bun';\ntype Failure = Pick<SQL.PostgresError, 'errno'>;",
+    "import { sql } from 'drizzle-orm';",
+    "import { rounds } from './schema/rounds';\ntype Row = typeof rounds.$inferSelect;",
+    "import type { Tx } from './tx';\nexport const ignore = (tx: Tx, status: string) => status === 'live';",
+    "export { query } from './raw-rows';",
+    "import type { WorkloadLane } from './workload';\nexport const isBusy = (lane: WorkloadLane) => lane === 'social';",
+    "type Facts = { readonly status: string };\nexport const check = (facts: Facts) => facts.status === 'live';",
+  ];
+  assert({
+    given:
+      'a decision beside a type-only, unused or re-exported primitive, or a typed parameter it never uses',
+    should: 'report each one',
+    actual: dressed.map((line) =>
+      issueOf('packages/db/src/rule.ts', `${line}\n${decision}`),
+    ),
+    expected: dressed.map(() => true),
   });
 });
 

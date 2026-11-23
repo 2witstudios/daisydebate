@@ -4,8 +4,9 @@ import { instrumented } from './instrumented';
 import {
   refuseCapacity,
   reportCapacityHolders,
-} from './infrastructure-refusal';
-import { currentLaneOperation, namedLaneOperations } from './workload';
+  currentLaneOperation,
+  namedLaneOperations,
+} from './workload';
 
 setupRitewayBun();
 

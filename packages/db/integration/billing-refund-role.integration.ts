@@ -2,7 +2,7 @@ import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { requireTestServices } from '@daisy/config';
 import { createId } from '@paralleldrive/cuid2';
 import { sql, type SQL } from 'drizzle-orm';
-import { causeChainMember } from '../src/infrastructure-refusal';
+import { causeChainMember } from '../src/raw-rows';
 import { sqlStateOf } from './constraint-helpers';
 import { withBillingRefunds } from './billing-refunds.test-support';
 

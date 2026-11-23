@@ -10,7 +10,7 @@ import { billingPaymentObservations } from './schema/billing-payment-observation
 import {
   paymentObservationFromRow,
   paymentObservationValues,
-} from './billing-payment-observation-record';
+} from './billing-payment-observation-write';
 import { readDatabaseTime } from './database-clock';
 import type { Tx } from './tx';
 

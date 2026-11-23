@@ -1,5 +1,5 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { isUniqueViolation, isUniqueViolationOf } from './driver-failure';
+import { isUniqueViolation, isUniqueViolationOf } from './raw-rows';
 
 setupRitewayBun();
 

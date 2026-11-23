@@ -1,8 +1,6 @@
 /**
- * The capacity-refusal identity, without the database. It imports only
- * `@daisy/errors`, so modules a client bundle can reach (shared form
- * parsing through `apps/web/src/server/http.ts`) may classify a refusal
- * without loading the driver or schema.
+ * A lane's capacity refusal (ADR 0088), as callers outside the package
+ * classify and report it; the lanes raise it.
  */
 export {
   capacityRefusalFields,
@@ -10,4 +8,4 @@ export {
   isReportedCapacityRefusal,
   isCapacityRefusal,
   isTemporaryRefusal,
-} from './infrastructure-refusal';
+} from './workload';

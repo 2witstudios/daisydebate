@@ -9,7 +9,7 @@ import {
   requireCurrentRun,
   requireJudgingService,
   requireLiveJudgingLease,
-} from './round-judging-decisions';
+} from './round-judging-jobs';
 import type { Tx } from './tx';
 
 export type JudgingScope = {

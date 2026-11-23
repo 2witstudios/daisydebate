@@ -16,7 +16,7 @@ import { lockRefundAccount } from '../src/billing-refund-authority';
 import { readDatabaseTime } from '../src/database-clock';
 import { billingPaymentObservations } from '../src/schema/billing-payment-observations';
 import { privacyJobs } from '../src/schema/privacy-jobs';
-import { paymentObservationValues } from '../src/billing-payment-observation-record';
+import { paymentObservationValues } from '../src/billing-payment-observation-write';
 import { linkObservedRefund } from '../src/billing-observation-refund';
 import { enqueuePrivacyJob } from '../src/privacy/enqueue-job';
 import { createDatabase } from '../src/index';

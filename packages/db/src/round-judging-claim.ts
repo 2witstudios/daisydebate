@@ -16,8 +16,8 @@ import {
 } from './round-agent-runs';
 import { readDatabaseTime } from './database-clock';
 import { judgingJobWhere, type JudgingScope } from './round-judging-context';
-import { requireClaimableJob } from './round-judging-decisions';
 import {
+  requireClaimableJob,
   applyJudgingProgression,
   judgingStageFacts,
   type JudgingProgression,

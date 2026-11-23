@@ -4,7 +4,7 @@ import { sql } from 'drizzle-orm';
 import { withBoundedRound } from './bounded-transaction.test-support';
 import { withHeldCommit } from './usage-ledger.test-support';
 import type { BoundedTransaction } from '../src/bounded-transaction';
-import { causeChainMember } from '../src/infrastructure-refusal';
+import { causeChainMember } from '../src/raw-rows';
 
 setupRitewayBun();
 requireTestServices(process.env);

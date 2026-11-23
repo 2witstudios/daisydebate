@@ -11,7 +11,7 @@ import {
 } from '@daisy/protocol/billing';
 import { createDatabase } from '../src/index';
 import { billingPaymentObservations } from '../src/schema/billing-payment-observations';
-import { paymentObservationFromRow } from '../src/billing-payment-observation-record';
+import { paymentObservationFromRow } from '../src/billing-payment-observation-write';
 import { withClosedPurchase } from './billing-cleanup-purchases.test-support';
 import { fullRead } from './billing-payment-read.test-support';
 requireTestServices(process.env);
