@@ -18,7 +18,7 @@ import {
   visibleArticle,
 } from './library';
 import { guideEntryLinks } from './entry-links';
-import { proseLinks } from './prose';
+import { proseLinks, proseRuns } from './prose';
 
 setupRitewayBun();
 
@@ -131,6 +131,50 @@ describe('the article graph', () => {
       given: 'every link the product makes into the guides',
       should: 'name a collection or article that exists',
       actual: Object.values(guideEntryLinks).filter((href) => !resolves(href)),
+      expected: [],
+    });
+  });
+
+  test('an article links only to what its readers can open', () => {
+    const releasesOf = (article: Article) =>
+      new Set(
+        [article.release, collectionOf(article)?.release].filter(
+          (release) => release !== undefined,
+        ),
+      );
+    assert({
+      given: 'every link from one article to another',
+      should:
+        'reach an article visible wherever the linking article is, never one behind a release it does not share',
+      actual: articles.flatMap((article) =>
+        linksOf(article)
+          .map((href) =>
+            articles.find(
+              (target) => articleHref(target) === href.split('#')[0],
+            ),
+          )
+          .filter(
+            (target): target is Article =>
+              target !== undefined &&
+              !visibleArticle(target, releasesOf(article)),
+          )
+          .map((target) => `${articleRef(article)} → ${articleRef(target)}`),
+      ),
+      expected: [],
+    });
+  });
+
+  test('no copy is a malformed link', () => {
+    assert({
+      given: 'every piece of article copy',
+      should: 'leave no text that still looks like markdown link syntax',
+      actual: articles.flatMap((article) =>
+        article.blocks
+          .flatMap(blockProse)
+          .flatMap(proseRuns)
+          .filter((run) => run.kind === 'text' && run.text.includes(']('))
+          .map(() => articleRef(article)),
+      ),
       expected: [],
     });
   });
