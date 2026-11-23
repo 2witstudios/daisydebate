@@ -26,6 +26,13 @@ export async function supersededFolders({
   readonly cutoff: string;
 }): Promise<{ readonly folder: string; readonly close: () => Promise<void> }> {
   const scratch = await mkdtemp(join(tmpdir(), 'daisy-superseded-'));
+  // A shallow checkout lacks the cut-off commit; fetch that one commit.
+  const present =
+    await Bun.$`git -C ${repository} cat-file -e ${`${commit}^{tree}`}`
+      .quiet()
+      .nothrow();
+  if (present.exitCode !== 0)
+    await Bun.$`git -C ${repository} fetch --quiet --depth=1 origin ${commit}`.quiet();
   await Bun.$`git -C ${repository} archive --format=tar ${commit} -- ${migrationsPath} | tar -x -C ${scratch}`.quiet();
   const folder = join(scratch, migrationsPath);
   const entries = await readdir(folder);
