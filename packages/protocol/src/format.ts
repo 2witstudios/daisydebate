@@ -337,7 +337,7 @@ const rulesSegmentSchema = z.strictObject({
 
 /**
  * The executable ruleset, version 3 (ADR 0058, TAB-6.2): fully resolved, immutable on
- * `rounds.rules_snapshot`, the only rules shape ECS ever reads. No field
+ * `rounds.rules_snapshot`, the only rules shape the engine ever reads. No field
  * originates in the compiler — every value traces to the definition or the
  * config. Carries in-round prep (nullable), never pre-round prep.
  */

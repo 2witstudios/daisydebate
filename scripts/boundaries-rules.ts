@@ -5,22 +5,28 @@ import { posix } from 'node:path';
  * filesystem or process state. The scan itself lives in check-boundaries.ts.
  */
 
-// ADR 0006: Adobe vendor packages live in the engine adapter only. The web
-// UI shell attempted an exception (ADR 0024 attempt) but client-side ECS
-// codegen conflicts with the strict CSP; the boundary stays engine-only.
-export const adobeWorkspaces = ['@daisy/debate-engine'] as const;
+// ADR 0911: the Round engine is one step function, so nothing needs ECS.
+// No Adobe package is declared or loaded anywhere, the engine included
+// (ADR 0024 had already rejected it in the browser).
+export const isAdobePackage = (specifier: string): boolean =>
+  specifier === '@adobe' || specifier.startsWith('@adobe/');
 
-export const adobeIsolationIssue = (
-  workspaceName: string,
+export const adobeBanIssue = (
+  owner: string,
   specifier: string,
   kind: 'dependency' | 'import',
-): string | null => {
-  if (!specifier.startsWith('@adobe/')) return null;
-  if ((adobeWorkspaces as readonly string[]).includes(workspaceName)) {
-    return null;
-  }
-  return `${workspaceName}: Adobe ${kind} outside the engine`;
-};
+): string | null =>
+  isAdobePackage(specifier)
+    ? `${owner}: Adobe ${kind} ${specifier} is banned (ADR 0911)`
+    : null;
+
+/** Every field of a manifest that declares a package. */
+export const manifestDependencyFields = [
+  'dependencies',
+  'devDependencies',
+  'peerDependencies',
+  'optionalDependencies',
+] as const;
 
 /** Workspace suffixes (after `@daisy/`) each workspace may depend on. */
 export const allowedWorkspaceDependencies: Record<string, readonly string[]> = {
@@ -125,7 +131,7 @@ export const allowedWorkspaceDependencies: Record<string, readonly string[]> = {
 };
 
 /**
- * Mirrors `adobeIsolationIssue`'s shape: a pure predicate the scan and its
+ * Mirrors `adobeBanIssue`'s shape: a pure predicate the scan and its
  * unit tests both call, so "a workspace's edges are mechanically enforced"
  * (ADR 0031 §12) is provable without re-deriving the rule in a test fixture.
  * A workspace absent from `allowedWorkspaceDependencies` is unrestricted.

@@ -169,6 +169,14 @@ describe('rateDebate', () => {
         'a volatility above 0.1',
         { rating: 1500, deviation: 100, volatility: 0.2 },
       ],
+      [
+        'a volatility whose square underflows (ISSUE-1498)',
+        { rating: 1500, deviation: 100, volatility: Number.MIN_VALUE },
+      ],
+      [
+        'a volatility just below the ledger floor of 0.0001',
+        { rating: 1500, deviation: 100, volatility: 0.000_099_999 },
+      ],
     ] as const)
       await assertRejects({
         given,

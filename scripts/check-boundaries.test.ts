@@ -1,12 +1,14 @@
 import {
-  adobeIsolationIssue,
-  adobeWorkspaces,
+  adobeBanIssue,
+  isAdobePackage,
+  manifestDependencyFields,
   allowedWorkspaceDependencies,
   deepImportIssue,
   forbiddenDependencyIssue,
   operatorApiIssue,
 } from './boundaries-rules';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
+import { moduleLoads } from './module-loads';
 
 setupRitewayBun();
 
@@ -26,65 +28,78 @@ const workspaces = [
   '@daisy/typescript-config',
 ] as const;
 
-describe('Adobe isolation rule', () => {
-  for (const name of workspaces) {
-    if (name === '@daisy/debate-engine') continue;
-    test(`${name} declaring an @adobe dependency is blocked`, () => {
+describe('Adobe ban (ADR 0911)', () => {
+  for (const name of [...workspaces, '@daisy/debate-engine', 'package.json'])
+    test(`${name} may neither declare nor load an @adobe package`, () => {
       assert({
-        given: `${name} declaring dependency @adobe/data`,
-        should: 'report an Adobe isolation issue',
-        actual: adobeIsolationIssue(name, '@adobe/data', 'dependency'),
-        expected: `${name}: Adobe dependency outside the engine`,
+        given: `${name} declaring @adobe/data and loading @adobe/data/ecs`,
+        should: 'report both as banned',
+        actual: [
+          adobeBanIssue(name, '@adobe/data', 'dependency'),
+          adobeBanIssue(name, '@adobe/data/ecs', 'import'),
+        ],
+        expected: [
+          `${name}: Adobe dependency @adobe/data is banned (ADR 0911)`,
+          `${name}: Adobe import @adobe/data/ecs is banned (ADR 0911)`,
+        ],
       });
     });
-    test(`${name} importing @adobe/* is blocked`, () => {
-      assert({
-        given: `${name} importing @adobe/data/ecs`,
-        should: 'report an Adobe isolation issue',
-        actual: adobeIsolationIssue(name, '@adobe/data/ecs', 'import'),
-        expected: `${name}: Adobe import outside the engine`,
-      });
-    });
-  }
 
-  test('the engine may declare and import @adobe packages', () => {
+  test('every spelling the compiler reads as a module load is found', () => {
+    const source = [
+      "import { Database } from '@adobe/data/ecs';",
+      "export { Schema } from '@adobe/data/schema';",
+      "type Plugin = import('@adobe/data').Plugin;",
+      "import ecs = require('@adobe/data/ecs');",
+      "const late = await import(('@adobe/data' as string));",
+      'const escaped = require(`\\u0040adobe/data`);',
+      "declare module '@adobe/data-react' {}",
+      "const name = '@adobe/data'; // data, not a load",
+      "import { other } from '@adobe-not/data';",
+    ].join('\n');
     assert({
-      given: '@daisy/debate-engine using @adobe packages',
-      should: 'report no issue',
-      actual: [
-        adobeIsolationIssue(
-          '@daisy/debate-engine',
-          '@adobe/data',
-          'dependency',
-        ),
-        adobeIsolationIssue(
-          '@daisy/debate-engine',
-          '@adobe/data/ecs',
-          'import',
-        ),
+      given:
+        'seven module loads of Adobe packages, a string and a lookalike scope',
+      should: 'find exactly the seven loads',
+      actual: moduleLoads('scripts/probe.ts', source, isAdobePackage).map(
+        ({ specifier }) => specifier.text,
+      ),
+      expected: [
+        '@adobe/data/ecs',
+        '@adobe/data/schema',
+        '@adobe/data',
+        '@adobe/data/ecs',
+        '@adobe/data',
+        '@adobe/data',
+        '@adobe/data-react',
       ],
-      expected: [null, null],
     });
   });
 
   test('non-Adobe specifiers are never flagged', () => {
     assert({
-      given: 'a non-Adobe dependency or import in a restricted workspace',
+      given: 'other packages, including a lookalike scope',
       should: 'report no issue',
       actual: [
-        adobeIsolationIssue('@daisy/db', 'drizzle-orm', 'dependency'),
-        adobeIsolationIssue('@daisy/protocol', 'zod', 'import'),
+        adobeBanIssue('@daisy/db', 'drizzle-orm', 'dependency'),
+        adobeBanIssue('@daisy/protocol', 'zod', 'import'),
+        adobeBanIssue('@daisy/web', '@adobe-not/data', 'import'),
       ],
-      expected: [null, null],
+      expected: [null, null, null],
     });
   });
 
-  test('the allowlist covers exactly the engine', () => {
+  test('every dependency field of a manifest is read', () => {
     assert({
-      given: 'the Adobe workspace allowlist',
-      should: 'list exactly the engine adapter owner',
-      actual: [...adobeWorkspaces],
-      expected: ['@daisy/debate-engine'],
+      given: 'the manifest fields the ban reads',
+      should: 'name every field that declares a package',
+      actual: [...manifestDependencyFields],
+      expected: [
+        'dependencies',
+        'devDependencies',
+        'peerDependencies',
+        'optionalDependencies',
+      ],
     });
   });
 });

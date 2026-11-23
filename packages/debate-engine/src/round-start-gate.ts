@@ -1,6 +1,6 @@
 import { instantMs } from '@daisy/clock/instant';
 import type { RoundStartGate } from '@daisy/protocol/round';
-import { clockStopsOf } from '@daisy/protocol/round';
+import { clockStopsOf, isRoundOver } from '@daisy/protocol/round';
 import { dueAfterStops } from '@daisy/protocol/clock-stops';
 import {
   roundStartPolicy,
@@ -103,13 +103,16 @@ const heard = (
 
 /**
  * How capture's readiness changes a start gate; pure and total. Opening the segment, an
- * incident and prep each spend the gate as part of their own transition.
+ * incident and prep each spend the gate as part of their own transition. An ended Round
+ * keeps the gate it ended with: its checkpoint is history (ISSUE-1497).
  */
 export const startGateTransition = (
   state: ClockState,
   countdownMs: number,
   event: StartGateEvent,
-): ClockTransition =>
-  event.kind === 'await'
+): ClockTransition => {
+  if (isRoundOver(state.lifecycle.status)) return stay(state);
+  return event.kind === 'await'
     ? awaitCapture(state, countdownMs, event)
     : heard(state, event);
+};
