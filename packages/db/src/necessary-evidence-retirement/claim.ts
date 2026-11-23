@@ -4,8 +4,8 @@ import { addMs } from '@daisy/clock';
 import { eq, sql } from 'drizzle-orm';
 import { necessaryEvidence } from '../schema/necessary-evidence';
 import { sampleRoundExecutionTime } from '../round-execution-time';
-import { evidenceLeaseDigest } from '../necessary-evidence-policy';
-import { nextEpoch } from '../lease-policy';
+import { leaseTokenDigest } from '../lease';
+import { nextEpoch } from '../lease';
 import { select } from './select';
 import { lock } from './lock';
 import { eligible } from './eligible';
@@ -41,7 +41,7 @@ export async function claim(
     'Evidence retirement epoch exhausted',
   );
   const token = options.nextToken(),
-    leaseDigest = evidenceLeaseDigest(token);
+    leaseDigest = leaseTokenDigest(token);
   const nowIso = await sampleRoundExecutionTime(tx);
   const now = new Date(nowIso);
   await tx

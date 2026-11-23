@@ -6,7 +6,7 @@ import {
   messagingSocialCommands,
 } from '../schema/messaging-social';
 import { messagingSocialCommandSubjects } from '../schema/messaging-social-command-subjects';
-import { planGroupIssuance } from './group-issuance-plan';
+import { planGroupIssuance } from '@daisy/protocol/messaging/group-issuance-plan';
 import { advanceSocialChannelAuthority } from './social-channel-change';
 import { invalidateMessagingInboxes } from './inbox-change';
 import type { MessagingChannelFact } from './social';
@@ -49,6 +49,7 @@ export async function writeGroupIssuance(
     activeMemberActorIds: fact.authority.activeMemberActorIds,
     previous,
   });
+  if ('refused' in plan) throw createAppError(plan.refused);
   const now = new Date(command.now);
   for (const invitation of plan) {
     const fields = {

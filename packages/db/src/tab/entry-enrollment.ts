@@ -1,3 +1,4 @@
+import { isMinorAgeBand } from '@daisy/protocol/lobby/eligibility';
 import { and, eq, inArray } from 'drizzle-orm';
 import { createAppError } from '@daisy/errors';
 import type { EntryCommand } from '@daisy/protocol/lobby/entry-command';
@@ -14,10 +15,7 @@ import { draws } from '../schema/draws';
 import { tournamentJudges } from '../schema/tournament-judges';
 import { fixtureJudges, fixtures } from '../schema/fixtures';
 import { scopeTransaction } from '../tenant-scope';
-import {
-  isMinorAgeBand,
-  readGuardianLobbyIds,
-} from '../guardians/lobby-permissions';
+import { readGuardianLobbyIds } from '../guardians/lobby-permissions';
 import { lockTabCommandAccounts } from './command-accounts';
 import { loadAuthorityContext } from './authority-context';
 import { loadEntryPeople } from './entry-person-rows';

@@ -1,13 +1,23 @@
+import { createMessagingStore } from '../src/stores/messaging';
+import { contactReactions } from '../src/stores/contacts';
+import { openDatabaseResources } from '../src/resources';
 import { hostWaits } from '@daisy/worker/host';
 import { requireTestServices } from '@daisy/config';
 import { assertRejects } from '@daisy/errors/testing';
 import { createId } from '@paralleldrive/cuid2';
 import { drizzle } from 'drizzle-orm/bun-sql';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { createDatabase } from '../src';
 import { createMessagingTypingPrivacyPort } from '../src/privacy/typing-rights';
 import { runPrivacyErasure } from '../src/privacy/operations';
 import { bindings, now, withPrivacySubject } from './privacy.test-support';
+/** This file's database: the area stores it reads, over one set of resources. */
+const openStores = (options: Parameters<typeof openDatabaseResources>[0]) => {
+  const resources = openDatabaseResources(options);
+  return {
+    ...createMessagingStore(resources, { reactions: contactReactions }),
+    close: resources.close,
+  };
+};
 
 setupRitewayBun();
 const { databaseUrl: url } = requireTestServices(process.env);
@@ -45,10 +55,9 @@ test('typing rights bind producer work to the real subject and require a committ
       },
     };
     const port = createMessagingTypingPrivacyPort(database, producer);
-    const publicDb = createDatabase({
+    const publicDb = openStores({
       waits: hostWaits,
       url,
-      nextActorId: createId,
     });
     try {
       await assertRejects({

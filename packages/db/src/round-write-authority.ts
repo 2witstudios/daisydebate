@@ -19,7 +19,8 @@ import {
 import { rounds } from './schema/rounds';
 import { roundParticipants } from './schema/round-participants';
 import { agentRuns } from './schema/agent-runs';
-import { fencedActorIds, seatEligibility } from './seat-eligibility';
+import { seatEligibility } from '@daisy/protocol/seat-eligibility';
+import { fencedActorIds } from './round-command-record';
 import { principalAccessOf } from './participant-admission';
 import type { Tx } from './tx';
 import { takeLock, transactionLocks } from './locks';

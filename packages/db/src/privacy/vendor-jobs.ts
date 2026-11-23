@@ -6,7 +6,7 @@ import { createAppError } from '@daisy/errors';
 import { idSchema } from '@daisy/protocol/primitives';
 import { retriedJob } from '../retried-job';
 import { privacyJobs } from '../schema/privacy-jobs';
-import { privacyVendors, type PrivacyVendor } from './planner';
+import { privacyVendors, type PrivacyVendor } from '../schema/privacy-jobs';
 import type { Tx } from '../tx';
 import { query } from '../raw-rows';
 import { z } from 'zod';

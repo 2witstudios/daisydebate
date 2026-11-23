@@ -1,6 +1,6 @@
 import { createId } from '@paralleldrive/cuid2';
 import { randomBytes } from 'node:crypto';
-import { agentLeaseDigest } from '../src/round-agent-lease';
+import { leaseTokenDigest } from '../src/lease';
 import { admissionSponsor } from './bot-admission.test-support';
 import { createBotSeat } from './bot-seat.test-support';
 import { validRules } from './round-fixtures';
@@ -150,7 +150,7 @@ export async function seedHistoricalJudge(f: Fixture, mode: JudgeCase) {
           : 1,
         configuration_snapshot: {
           ...scope,
-          executionTokenDigest: agentLeaseDigest(token),
+          executionTokenDigest: leaseTokenDigest(token),
         },
         input_tokens: received ? 7 : 0,
         started_at: new Date(originalAdmission),

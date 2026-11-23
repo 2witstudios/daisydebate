@@ -6,7 +6,7 @@ import { refundIdempotencyKey } from '@daisy/protocol/billing';
 import { withClosedPurchase } from './billing-cleanup-purchases.test-support';
 import { fullRead } from './billing-payment-read.test-support';
 import { loseTransactionCommitReply } from './bounded-transaction.test-support';
-import { causeChainMember } from '../src/capacity-refusal';
+import { causeChainMember } from '../src/raw-rows';
 requireTestServices(process.env);
 setupRitewayBun();
 type Input = Parameters<Parameters<typeof withClosedPurchase>[1]>[0];

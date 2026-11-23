@@ -6,11 +6,7 @@ import { notificationPresentationOperations } from './presentation';
 import { watchNotificationOperations } from './watch-fanout';
 import type { TxSource } from '../tx';
 
-export {
-  type NotificationDigestDelivery,
-  type NotificationDigestOutcome,
-} from './digests';
-export { type InboxCursor, type InboxRow } from './inbox';
+export { type InboxRow } from './inbox';
 export { oweNotifications } from './owe';
 export { notificationPrivacyAdopter } from './privacy';
 

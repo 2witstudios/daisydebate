@@ -1,5 +1,5 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { roleSeniority } from './role-seniority';
+import { roleSeniority } from './authority-facts';
 
 setupRitewayBun();
 

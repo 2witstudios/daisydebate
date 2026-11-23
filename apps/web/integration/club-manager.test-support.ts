@@ -1,6 +1,6 @@
+import { openWebDatabase } from '../src/server/database';
 import { hostWaits } from '@daisy/worker/host';
 import { createId } from '@paralleldrive/cuid2';
-import { createDatabase } from '@daisy/db';
 import { clubSeatGrants } from '@daisy/auth/authorization';
 import type { SubscriptionEvidence } from '@daisy/protocol/billing';
 import { noopErrorReporter } from '@daisy/observability';
@@ -16,11 +16,11 @@ import { createClubSeatCommands } from '../src/features/clubs/invitation-resend'
 export async function withClub(
   work: (input: {
     sql: Parameters<Parameters<typeof withSql>[0]>[0];
-    database: ReturnType<typeof createDatabase>;
+    database: ReturnType<typeof openWebDatabase>;
     owner: { userId: string; actorId: string };
     organizationId: string;
     paid: SubscriptionEvidence;
-    store: ReturnType<ReturnType<typeof createDatabase>['clubSeats']>;
+    store: ReturnType<ReturnType<typeof openWebDatabase>['clubSeats']>;
     seats: ReturnType<typeof createClubSeatCommands>;
     post: (command: unknown) => Promise<Response>;
     person: () => Promise<{ userId: string; actorId: string; email: string }>;
@@ -32,7 +32,7 @@ export async function withClub(
   }) => Promise<void>,
 ) {
   await withSql(async (sql) => {
-    const database = createDatabase({
+    const database = openWebDatabase({
       waits: hostWaits,
       url: testDatabaseUrl,
       nextActorId: createId,

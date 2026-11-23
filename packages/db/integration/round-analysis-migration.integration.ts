@@ -1,5 +1,6 @@
+import { createRoundAnalysisStore } from '../src/stores/round-analysis';
+import { openDatabaseResources } from '../src/resources';
 import { hostWaits } from '@daisy/worker/host';
-import { roundDecisionReleasePolicy } from '@daisy/protocol/round-decision-release';
 import { afterAll } from 'bun:test';
 import { createId } from '@paralleldrive/cuid2';
 import { randomBytes } from 'node:crypto';
@@ -18,7 +19,28 @@ import {
   ddlTimeoutMs,
 } from './scratch-migrations.test-support';
 import { completedRound } from './round-analysis.test-support';
-import { createDatabase } from '../src';
+/** This file's database: the area stores it reads, over one set of resources. */
+const openStores = (
+  options: Parameters<typeof openDatabaseResources>[0] & {
+    readonly nextActorId: () => string;
+    readonly roundAnalysis?: NonNullable<
+      Parameters<typeof createRoundAnalysisStore>[1]
+    >['roundAnalysis'];
+    readonly aiAllowance?: NonNullable<
+      Parameters<typeof createRoundAnalysisStore>[1]
+    >['aiAllowance'];
+  },
+) => {
+  const resources = openDatabaseResources(options);
+  return {
+    ...createRoundAnalysisStore(resources, {
+      nextId: options.nextActorId,
+      roundAnalysis: options.roundAnalysis,
+      aiAllowance: options.aiAllowance,
+    }),
+    close: resources.close,
+  };
+};
 
 setupRitewayBun();
 const { databaseUrl } = requireTestServices(process.env);
@@ -116,7 +138,7 @@ const storeOptions = {
         now,
         betaGrantsPremium: true,
       })) satisfies NonNullable<
-      Parameters<typeof createDatabase>[0]['aiAllowance']
+      Parameters<typeof openStores>[0]['aiAllowance']
     >['decide'],
   },
 };
@@ -198,9 +220,8 @@ test(
       });
       const [usage] =
         await f.sql`select count(*)::integer as n from usage_reservations where kind='round_analysis'`;
-      const store = createDatabase({
+      const store = openStores({
         waits: hostWaits,
-        decisionRelease: roundDecisionReleasePolicy,
         url: scratch.url,
         ...storeOptions,
       });

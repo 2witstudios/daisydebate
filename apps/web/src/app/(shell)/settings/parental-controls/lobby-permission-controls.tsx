@@ -1,11 +1,11 @@
-import type { Database } from '@daisy/db';
+import type { GuardiansStore } from '@daisy/db/stores/guardians';
 import { contentWaiverDocument } from '../../../../features/legal/agreements';
 import { controlClass } from '../../../../ui/components/form-field/form-field-class';
 import { GuardianForm } from '../../../../ui/settings/parental-controls/guardian-form';
 import { lobbyPermissionAction } from './lobby-permission-action';
 
 type LobbyPermissions = Awaited<
-  ReturnType<Database['lobbyPermissions']['read']>
+  ReturnType<GuardiansStore['lobbyPermissions']['read']>
 >;
 
 export function LobbyPermissionControls({

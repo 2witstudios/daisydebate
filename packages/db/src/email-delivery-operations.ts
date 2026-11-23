@@ -15,7 +15,7 @@ import { inTransaction, type TxSource } from './tx';
 
 /**
  * The email area (ISSUE-8 AC1, ADR 0025): delivery ledger, suppressions and
- * verification retention, composed into `createDatabase`.
+ * verification retention, composed into the mail store (`@daisy/db/stores/mail`).
  */
 export const emailDeliveryOperations = ({
   database,

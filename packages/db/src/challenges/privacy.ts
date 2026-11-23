@@ -2,8 +2,7 @@ import { competitionTypes } from '@daisy/protocol/round';
 import { sql } from 'drizzle-orm';
 import { idSchema } from '@daisy/protocol/primitives';
 import type { PrivacyAdopter, PrivacyExport } from '../privacy/contracts';
-import { exportRows } from '../privacy/export-rows';
-import { run, query } from '../raw-rows';
+import { exportRows, run, query } from '../raw-rows';
 import { z } from 'zod';
 
 /** Challenges' subject rights (ADR 0103): every challenge naming the subject. */

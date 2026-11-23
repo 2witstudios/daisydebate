@@ -2,7 +2,7 @@ import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assertRejects, rejectionOf } from '@daisy/errors/testing';
 import { createAppError } from '@daisy/errors';
 import { drizzle } from 'drizzle-orm/bun-sql';
-import { fakeSql } from '../index.test-support';
+import { fakeSql } from '../scripted-bun-wire';
 import { createMessagingGroupCreationStore } from './group-creation-store';
 import { groupStoreFacts } from './group-store.test-support';
 setupRitewayBun();

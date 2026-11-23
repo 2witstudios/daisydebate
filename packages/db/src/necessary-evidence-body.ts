@@ -7,7 +7,7 @@ import {
   type CaptureEvidenceBody,
 } from '@daisy/protocol/capture-evidence-body';
 import { captureEvidenceSpeakerSchema } from '@daisy/protocol/capture-evidence-speaker';
-import { originalEvidenceBinding } from './necessary-evidence-binding';
+import { originalEvidenceBinding } from './capture-evidence-intents';
 import { lockOriginalNecessaryEvidence } from './necessary-evidence-subjects';
 import { requireRoundEvidenceOpen } from './necessary-evidence-rounds';
 import { sampleRoundExecutionTime } from './round-execution-time';

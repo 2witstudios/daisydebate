@@ -12,7 +12,7 @@ import {
 import { cleanupFacts, cleanupContext } from './billing-cleanup-authority';
 import { currentPassMembers } from './billing-invoice-pass-authority';
 import { billingPaymentObservations } from './schema/billing-payment-observations';
-import { paymentObservationValues } from './billing-payment-observation-record';
+import { paymentObservationValues } from './billing-payment-observation-write';
 import type { Tx } from './tx';
 export async function finishInvoice(
   tx: Tx,

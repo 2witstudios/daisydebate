@@ -5,8 +5,7 @@ import { idSchema } from '@daisy/protocol/primitives';
 import type { PrivacyAdopter, PrivacyExport } from '../privacy/contracts';
 import { scopeTransaction } from '../tenant-scope';
 import { guardianWaitingLabel } from './guardian-approval-standing';
-import { exportRows } from '../privacy/export-rows';
-import { run, query } from '../raw-rows';
+import { exportRows, run, query } from '../raw-rows';
 import { z } from 'zod';
 
 /** Friends' subject rights (ADR 0072): the subject's pairs. */

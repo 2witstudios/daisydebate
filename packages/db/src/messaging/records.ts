@@ -3,7 +3,7 @@ import type {
   ChannelMessageRecord,
 } from '@daisy/protocol/messaging/channel-messages';
 import type { MessagingChannelFact } from './social';
-import type { authorizationAccountFact } from '../authorization-account';
+import type { authorizationAccountFact } from '../authorization';
 import type { Tx } from '../tx';
 
 /** One stored message: the shape the shared channel mapper reads (ADR 0089). */

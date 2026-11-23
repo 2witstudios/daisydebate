@@ -1,8 +1,8 @@
+import { openWebDatabase } from '../src/server/database';
 import { hostWaits } from '@daisy/worker/host';
 import { SQL } from 'bun';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { requireTestServices, type BillingConfig } from '@daisy/config';
-import { createDatabase } from '@daisy/db';
 import { systemClock } from '@daisy/clock';
 import { createId } from '@paralleldrive/cuid2';
 import type { Logger } from '@daisy/logger';
@@ -48,7 +48,7 @@ for (const mapped of [false, true])
       roles.add(row!.role);
       return connection;
     };
-    const database = createDatabase({
+    const database = openWebDatabase({
       waits: hostWaits,
       url: databaseUrl,
       client: pool,

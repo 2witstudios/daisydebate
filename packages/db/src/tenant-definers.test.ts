@@ -2,7 +2,7 @@ import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {
   tenantDefinerProblems,
   type TenantDefinerFacts,
-} from './tenant-definers';
+} from './tenant-isolation';
 import type { TenantIsolationManifest } from './tenant-isolation-manifest';
 
 setupRitewayBun();

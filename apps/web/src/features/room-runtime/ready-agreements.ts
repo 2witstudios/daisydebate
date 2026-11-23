@@ -1,4 +1,4 @@
-import type { ContentWaiverStanding } from '@daisy/db';
+import type { ContentWaiverStanding } from '@daisy/db/stores/agreements';
 import { isDebatingSeat } from '@daisy/protocol/seats';
 import { type AgeBand } from '@daisy/protocol/ladder';
 import {

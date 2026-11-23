@@ -1,14 +1,11 @@
 import { isDebatingSeat } from '@daisy/protocol/seats';
 import { ageBands } from '@daisy/protocol/ladder';
 import { type RoomAssemblyState } from '@daisy/protocol/room-contract';
-import { mayDebate } from '@daisy/protocol/lobby/eligibility';
+import { mayDebate, isMinorAgeBand } from '@daisy/protocol/lobby/eligibility';
 import { createRefusal } from '@daisy/errors';
 import { sql } from 'drizzle-orm';
 import { z } from 'zod';
-import {
-  isMinorAgeBand,
-  readGuardianLobbyIds,
-} from './guardians/lobby-permissions';
+import { readGuardianLobbyIds } from './guardians/lobby-permissions';
 import {
   divisionAgeBand,
   readCompetitionAgeBand,

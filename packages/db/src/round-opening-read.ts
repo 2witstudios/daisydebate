@@ -4,7 +4,7 @@ import { type LaunchedRound, type RoundView } from '@daisy/protocol/round-view';
 import { type SeatDraw } from '@daisy/protocol/seat-draw';
 import type { RoundOpening } from '@daisy/protocol/resolution-draw';
 import { transactionNow, type Account } from './room-command-facts';
-import { humanSeatEligible } from './seat-eligibility';
+import { humanSeatEligible } from '@daisy/protocol/seat-eligibility';
 import { loadRoundDraw } from './room-draw-persistence';
 import { rounds } from './schema/rounds';
 import type { Tx } from './tx';

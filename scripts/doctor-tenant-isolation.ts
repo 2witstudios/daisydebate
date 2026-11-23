@@ -18,9 +18,7 @@ export async function checkTenantIsolation(
   if (!url) return check('fail', 'DATABASE_URL unavailable');
   const client = new SQL(url, { max: 1, connectionTimeout: 3 });
   try {
-    const problems = await readTenantIsolationProblems((statement) =>
-      client.unsafe(statement),
-    );
+    const problems = await readTenantIsolationProblems(client);
     return problems.length === 0
       ? check('pass', 'every tenant-owned table is fenced')
       : check('fail', problems.join('; '));

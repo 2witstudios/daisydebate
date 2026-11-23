@@ -1,5 +1,5 @@
+import type { SpectatingStore } from '@daisy/db/stores/spectating';
 import { projectAudienceSnapshot } from '@daisy/debate-engine';
-import type { Database } from '@daisy/db';
 import type { Logger } from '@daisy/logger';
 import type { ErrorReporter } from '@daisy/observability';
 import { idSchema } from '@daisy/protocol/primitives';
@@ -10,7 +10,10 @@ import { admitAudience } from './read-timeline';
 import { answerUnlessRefused } from './refused-read';
 import { audienceShownTo, type AudienceShown } from './seated-audience';
 
-export type AudienceSnapshotStore = Pick<Database, 'readAudienceSnapshot'>;
+export type AudienceSnapshotStore = Pick<
+  SpectatingStore,
+  'readAudienceSnapshot'
+>;
 /** A Round's audience as it stands, not yet admitted to anyone. */
 export type AudienceRead = {
   readonly visibility: 'public' | 'unlisted';
@@ -50,7 +53,7 @@ export const audienceFor = (
 });
 
 type AdmissionStore = Parameters<typeof admitAudience>[0] &
-  Pick<Database, 'readLiveRoomStanding'>;
+  Pick<SpectatingStore, 'readLiveRoomStanding'>;
 
 /**
  * GET /api/rounds/:id/audience, for someone in the Round's live room alone: what they

@@ -1,4 +1,4 @@
-import type { Database } from '@daisy/db';
+import type { StandingsStore } from '@daisy/db/stores/standings';
 import type { Ladder } from '@daisy/protocol/ladder';
 import { readRatingStandings } from '../ratings/read';
 import type { RatingPoint } from './history';
@@ -19,7 +19,7 @@ export type DebaterRead = {
 };
 
 type Store = Pick<
-  Database,
+  StandingsStore,
   | 'listLadderSeasons'
   | 'readStandings'
   | 'readRatingBlindings'

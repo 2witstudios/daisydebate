@@ -1,8 +1,8 @@
+import { openWebDatabase } from '../src/server/database';
 import { hostWaits } from '@daisy/worker/host';
 import { hmacSha256Base64, sha3Hex } from '@daisy/digest';
 import { SQL } from 'bun';
 import { systemId } from '@daisy/clock';
-import { createDatabase } from '@daisy/db';
 import { runBetaAccessCommand } from '../src/features/operator-api/beta-access-command';
 
 /** Owner-authorized staging-only synthetic identity, following the existing transcript fixture conventions. */
@@ -13,7 +13,7 @@ export async function createStagingAttendanceMember(input: {
 }) {
   const nextId = () => systemId.next();
   const userId = nextId();
-  const database = createDatabase({
+  const database = openWebDatabase({
     waits: hostWaits,
     url: input.url,
     nextActorId: nextId,

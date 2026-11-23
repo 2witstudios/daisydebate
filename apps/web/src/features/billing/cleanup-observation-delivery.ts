@@ -1,9 +1,9 @@
+import type { BillingStore } from '@daisy/db/stores/billing';
 import { hasObservationConflict } from './cleanup-observation-conflict';
-import type { Database } from '@daisy/db';
 import type { CleanupDeliveryRequest } from './cleanup-delivery-request';
 import type { createPaymentObservationReader } from './payment-observation-reader';
 type Store = Pick<
-  ReturnType<Database['billingCleanup']>,
+  ReturnType<BillingStore['billingCleanup']>,
   | 'observations'
   | 'selectedObservation'
   | 'retainObservation'

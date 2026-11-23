@@ -1,5 +1,5 @@
+import type { SocialRequestLimits } from '@daisy/db/stores/contacts';
 import { tryInstantMs, instantMs } from '@daisy/clock';
-import type { SocialRequestLimits } from '@daisy/db';
 import type { AuthorizationPrincipal } from '@daisy/auth/authorization';
 import type { MessagingDmStore } from '@daisy/db/messaging';
 import { createAppError } from '@daisy/errors';

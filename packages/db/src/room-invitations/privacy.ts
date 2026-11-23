@@ -2,8 +2,7 @@ import { roomInvitationStates } from '@daisy/protocol/room-invitations';
 import { idSchema } from '@daisy/protocol/primitives';
 import { sql } from 'drizzle-orm';
 import type { PrivacyAdopter, PrivacyExport } from '../privacy/contracts';
-import { exportRows } from '../privacy/export-rows';
-import { run, query } from '../raw-rows';
+import { exportRows, run, query } from '../raw-rows';
 import { z } from 'zod';
 
 /**

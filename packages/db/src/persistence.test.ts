@@ -1,5 +1,5 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import type { Database } from './index';
+import type { RoundStore } from './stores/rounds';
 import { validRules } from './testing-rules';
 import { emptyRuntimeCheckpointFor } from '@daisy/protocol/round';
 import { type RoundProjection } from '@daisy/protocol/runtime';
@@ -22,7 +22,7 @@ const activeCountdownProjection: RoundProjection = {
 };
 test('Round projection callbacks are synchronous pure execution seams', () => {
   type BuildProjection = Parameters<
-    Database['executeRoundCommand']
+    RoundStore['executeRoundCommand']
   >[0]['buildProjection'];
   // @ts-expect-error A callback cannot perform asynchronous I/O while holding the transaction.
   const asynchronous: BuildProjection = async () => activeCountdownProjection;

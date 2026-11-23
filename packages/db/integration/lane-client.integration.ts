@@ -3,7 +3,7 @@ import { requireTestServices } from '@daisy/config';
 import { SQL } from 'bun';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { laneClient } from '../src/lane-client';
-import { createLaneGate } from '../src/workload-admission';
+import { createLaneGate } from '../src/workload';
 
 setupRitewayBun();
 const { databaseUrl } = requireTestServices(process.env);

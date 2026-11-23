@@ -1,3 +1,4 @@
+import type { BroadcastStore } from '@daisy/db/stores/broadcasts';
 import { type LoopPass } from '@daisy/worker';
 import {
   createRoundRuntime,
@@ -5,7 +6,6 @@ import {
   broadcastPhase,
   phasePrivateAt,
 } from '@daisy/debate-engine';
-import type { createDatabase } from '@daisy/db';
 import { broadcastHoldPrefix } from '@daisy/protocol/broadcast-hold';
 import { holdAttemptPrefix } from '@daisy/protocol/recording';
 import { isRoundOver } from '@daisy/protocol/round';
@@ -14,7 +14,7 @@ import { reconcileFacts } from './reconcile-facts';
 import { releaseOverdue } from './release-lag';
 import { reconcileStep, type ReconcilePorts } from './reconcile-step';
 
-type Database = ReturnType<typeof createDatabase>;
+type Database = BroadcastStore;
 type Store = Database['broadcasts'];
 type Egress = {
   readonly start: (input: {

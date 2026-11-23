@@ -32,7 +32,7 @@ import {
   closeUnresolvedStreams,
   lockFinalizationStreams,
 } from './transcript-finalization-streams';
-import { finalizationState } from './transcript-finalization-state';
+import { finalizationState } from '@daisy/protocol/transcript-finalization';
 import { roundTranscriptFreezes } from './schema/round-transcript-freezes';
 import { roundTranscripts } from './schema/transcript-segments';
 import { rounds } from './schema/rounds';

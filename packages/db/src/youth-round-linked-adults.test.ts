@@ -1,5 +1,5 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { youthRoundLinkedAdults } from './youth-round-linked-adults';
+import { youthRoundLinkedAdults } from './youth-live-reads';
 
 setupRitewayBun();
 

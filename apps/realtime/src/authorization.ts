@@ -17,7 +17,7 @@ import { bindAuthorizationAgeFact } from '@daisy/db/account-age';
 import { loadAuthorizationSession } from '@daisy/db/authorization';
 import { parseTopic } from '@daisy/protocol/topics';
 import type { Clock } from '@daisy/clock';
-import type { RealtimeAuthorityReads } from '@daisy/db';
+import type { RealtimeAuthorityReads } from '@daisy/db/stores/realtime-authority';
 import type { SocketPrincipal } from './registry';
 
 export type RealtimeReadingPolicy = (input: {

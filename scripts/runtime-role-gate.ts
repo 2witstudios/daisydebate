@@ -50,7 +50,7 @@ import { bypassToken } from './runtime-role-gate-bypass';
  * - pass that call one object literal that sets refuseRole once, by a
  *   plain key, with no spread or computed key;
  * - set it to `() => refuseSchemaAlteringRole(app, 'daisy_web')`, where
- *   refuseSchemaAlteringRole is @daisy/db's import, not a local or shadow,
+ *   refuseSchemaAlteringRole is @daisy/db/startup's import, not a local or shadow,
  *   and used nowhere else (ISSUE-223);
  * - await the `started` the call returns.
  * `files` overlays repository-relative paths (a test's shim module).
@@ -183,7 +183,7 @@ const isTopLevelDeclaration = (start: ts.SourceFile, node: ts.Node) =>
   ts.isVariableStatement(node.parent.parent) &&
   node.parent.parent.parent === start;
 
-/** One object literal, refuseRole set once by a plain key to @daisy/db's
+/** One object literal, refuseRole set once by a plain key to @daisy/db/startup's
  * refuseSchemaAlteringRole, and nothing that could override it. */
 const refusalProblem = (
   checker: ts.TypeChecker,
@@ -246,7 +246,7 @@ const ONE_CALL =
 const OVERRIDDEN =
   "start.ts's startProductionServer call must set refuseRole once by a plain key, with no spread or computed key that could override it (ISSUE-206, ISSUE-218)";
 const NOT_FROM_DB =
-  'start.ts must import refuseSchemaAlteringRole from @daisy/db and use it only as the refuseRole (ISSUE-206)';
+  'start.ts must import refuseSchemaAlteringRole from @daisy/db/startup and use it only as the refuseRole (ISSUE-206)';
 
 const moduleOf = (declaration: ts.ImportDeclaration) =>
   ts.isStringLiteral(declaration.moduleSpecifier)
@@ -398,7 +398,7 @@ const refusalCallee = (property: ts.ObjectLiteralElementLike) => {
     : undefined;
 };
 
-/** The binding is @daisy/db's own export, imported under its own name. */
+/** The binding is @daisy/db/startup's own export, imported under its own name. */
 const isDaisyDbRefusal = (symbol: ts.Symbol | undefined) => {
   const [declaration] = symbol?.declarations ?? [];
   if (!declaration || !ts.isImportSpecifier(declaration)) return false;
@@ -406,7 +406,7 @@ const isDaisyDbRefusal = (symbol: ts.Symbol | undefined) => {
   return (
     declaration.propertyName === undefined &&
     ts.isImportDeclaration(importDeclaration) &&
-    moduleOf(importDeclaration) === '@daisy/db'
+    moduleOf(importDeclaration) === '@daisy/db/startup'
   );
 };
 

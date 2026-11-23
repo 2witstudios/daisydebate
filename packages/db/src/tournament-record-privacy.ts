@@ -1,9 +1,8 @@
 import { tournamentJudgeStatuses } from '@daisy/protocol/lobby';
 import { sql } from 'drizzle-orm';
 import type { PrivacyAdopter } from './privacy/contracts';
-import { exportRows } from './privacy/export-rows';
+import { exportRows, query } from './raw-rows';
 import { scopeTransaction } from './tenant-scope';
-import { query } from './raw-rows';
 import { z } from 'zod';
 
 /**

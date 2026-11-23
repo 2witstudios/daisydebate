@@ -1,5 +1,5 @@
 import { createAppError } from '@daisy/errors';
-import { postgresViolation } from '../postgres-violation';
+import { postgresViolation } from '../raw-rows';
 import { bumpTabAccountRevision } from './command-accounts';
 import { and, eq, isNull } from 'drizzle-orm';
 import type {

@@ -1,6 +1,6 @@
+import type { MessagingStore } from '@daisy/db/stores/messaging';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';
-import type { Database } from '@daisy/db';
 import { composeMessagingTyping } from './typing-operations';
 import { typingWorld } from './typing.test-support';
 import type { Tx } from '@daisy/db/tx';
@@ -22,7 +22,7 @@ test('typing factory threads one fenced transaction through canonical facts and 
       throw new Error('No insert allowed');
     },
   };
-  const database: Pick<Database, 'messagingTypingStore'> = {
+  const database: Pick<MessagingStore, 'messagingTypingStore'> = {
     messagingTypingStore: async (scope, budget, work) => {
       if (
         scope.actorId !== self.actorId ||
@@ -94,7 +94,7 @@ function completingTransaction(completedAt: string) {
     self = f.accounts[0]!.account;
   let now = f.now;
   const evaluatedAt: string[] = [];
-  const database: Pick<Database, 'messagingTypingStore'> = {
+  const database: Pick<MessagingStore, 'messagingTypingStore'> = {
     messagingTypingStore: async (scope, budget, work) => {
       if (
         scope.actorId !== self.actorId ||

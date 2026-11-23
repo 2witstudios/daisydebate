@@ -1,5 +1,5 @@
+import { WORKLOAD_PROFILES } from '@daisy/db/resources';
 import { AsyncLocalStorage } from 'node:async_hooks';
-import { WORKLOAD_PROFILES } from '@daisy/db';
 import type { Logger } from '@daisy/logger';
 import { reportAuthFailure } from './failure-report';
 

@@ -1,9 +1,5 @@
+import type { SQL } from 'bun';
 import { caseMapSchema } from '@daisy/protocol/case-map';
-
-type Sql = (
-  strings: TemplateStringsArray,
-  ...values: unknown[]
-) => PromiseLike<unknown>;
 
 const caseOf = (id: 'A' | 'N') => ({
   thesis: { id, claim: 'Synthetic thesis', line: '0.0' },
@@ -32,7 +28,7 @@ export const syntheticCaseMap = caseMapSchema.parse({
  * ballot buys that ballot directly.
  */
 export const atFinalJudgingStage = (
-  sql: Sql,
+  sql: SQL,
   target: { readonly roundId: string; readonly judgeParticipantId: string },
 ) =>
   sql`update round_judging_jobs set first_ballot_failed=true,case_map=${JSON.stringify(syntheticCaseMap)}::text::jsonb,case_map_received_at=clock_timestamp()

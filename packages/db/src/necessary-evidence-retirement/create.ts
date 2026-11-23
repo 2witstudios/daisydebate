@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { idSchema } from '@daisy/protocol/primitives';
 import { createAppError } from '@daisy/errors';
 import type { BoundedTransaction } from '../bounded-transaction';
-import { requireLeaseMs } from '../lease-policy';
+import { requireLeaseMs } from '../lease';
 import { claim } from './claim';
 import { finish } from './finish';
 import { receipt } from './receipt';

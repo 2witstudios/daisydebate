@@ -1,9 +1,25 @@
+import { createAvailabilityStore } from '../src/stores/availability';
+import { createBillingStore } from '../src/stores/billing';
+import { openDatabaseResources } from '../src/resources';
 import { hostWaits } from '@daisy/worker/host';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { requireTestServices } from '@daisy/config';
 import { createId } from '@paralleldrive/cuid2';
-import { createDatabase } from '../src/index';
 import { withBillingRefunds } from './billing-refunds.test-support';
+/** This file's database: the area stores it reads, over one set of resources. */
+const openStores = (
+  options: Parameters<typeof openDatabaseResources>[0] & {
+    readonly nextActorId: () => string;
+  },
+) => {
+  const resources = openDatabaseResources(options);
+  return {
+    ...createAvailabilityStore(resources),
+    ...createBillingStore(resources, { nextId: options.nextActorId }),
+    close: resources.close,
+  };
+};
+
 const { databaseUrl } = requireTestServices(process.env);
 setupRitewayBun();
 
@@ -12,7 +28,7 @@ test('new financial facts rotate only Stripe execution and stale progress cannot
     async ({ fixture, pool, instanceId, userId, payment, refunds }) => {
       const [old] =
         await fixture.sql`select id from privacy_jobs where subject_ref=${userId} and vendor='stripe'`;
-      const cleanup = createDatabase({
+      const cleanup = openStores({
         waits: hostWaits,
         url: databaseUrl,
         client: pool,
@@ -96,7 +112,7 @@ test('durable progress preserves failure attempts and uses its fixed due time ra
   withBillingRefunds(async ({ fixture, pool, instanceId, userId }) => {
     const [job] =
       await fixture.sql`select id from privacy_jobs where subject_ref=${userId} and vendor='stripe'`;
-    const database = createDatabase({
+    const database = openStores({
       waits: hostWaits,
       url: databaseUrl,
       client: pool,
