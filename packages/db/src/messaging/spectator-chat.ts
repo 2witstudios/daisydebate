@@ -3,7 +3,7 @@ import { and, eq, sql } from 'drizzle-orm';
 import { readAuthorizationActors } from '../authorization';
 import type { SpectatorChatModeration } from '../content-moderation-ports';
 import { inLiveRoomSql, liveRoomOfR } from '../live-room-sql';
-import { postgresInt8, run, query } from '../raw-rows';
+import { postgresInstantMs, postgresInt8, run, query } from '../raw-rows';
 import { instrumented, type DatabaseEventSink } from '../instrumented';
 import {
   messagingMessages,
@@ -193,7 +193,7 @@ export const spectatorChatOperations = ({
         );
         const [last] = await query(
           tx,
-          z.object({ at: z.union([z.string(), z.date()]).nullable() }),
+          z.object({ at: postgresInstantMs.nullable() }),
           sql`select max(created_at) as at from messaging_messages
             where channel_id=${channelId} and author_actor_id=${input.actorId}`,
         );
@@ -217,7 +217,7 @@ export const spectatorChatOperations = ({
               : null,
             banned: banned !== undefined,
             inLiveRoom: round.in_live_room,
-            lastPostAtMs: last?.at ? new Date(last.at).getTime() : null,
+            lastPostAtMs: last?.at ?? null,
           },
           {
             counters: { channelId, ...counters },

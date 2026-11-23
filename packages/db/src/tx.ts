@@ -8,16 +8,18 @@ import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
  * opens one with `inTransaction`. Raw statements go through `query` and
  * `run` in `raw-rows`.
  */
-export type Tx = Pick<
-  BunSQLDatabase,
-  | 'select'
-  | 'selectDistinct'
-  | 'selectDistinctOn'
-  | 'insert'
-  | 'update'
-  | 'delete'
-  | 'execute'
->;
+export type Tx = Pick<BunSQLDatabase, (typeof txMethods)[number]>;
+
+/** The statement methods a `Tx` carries, which the bounded adapter binds. */
+export const txMethods = [
+  'select',
+  'selectDistinct',
+  'selectDistinctOn',
+  'insert',
+  'update',
+  'delete',
+  'execute',
+] as const satisfies readonly (keyof BunSQLDatabase)[];
 
 /** How a transaction is opened: isolation and access mode. */
 export type TransactionConfig = PgTransactionConfig;

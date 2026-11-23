@@ -142,9 +142,6 @@
         "integration/**/*.integration.ts",
         "scripts/rating-preflight.ts",
         "scripts/bench-row-parsing.ts",
-        "scripts/sweeps/tx.ts",
-        "scripts/sweeps/locks.ts",
-        "scripts/sweeps/run.ts",
         // Prints a new tenant table's policies (docs/operations/database.md).
         "scripts/tenant-policies.ts",
       ],

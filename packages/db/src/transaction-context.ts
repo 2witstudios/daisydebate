@@ -1,6 +1,5 @@
 import type { TenantScope } from './tenant-scope';
-import { boundExecute } from './raw-rows';
-import type { TxSource, Tx } from './tx';
+import { txMethods, type TxSource, type Tx } from './tx';
 
 // Identity stays internal to the adapter; callers cannot forge a bounded context
 // by supplying a structurally similar execute method.
@@ -31,15 +30,9 @@ export function transactionContext(
   refuse: (message: string) => never,
   scopeTenant?: (scope: TenantScope) => Promise<void>,
 ): Tx {
-  const methods: Tx = {
-    select: database.select.bind(database),
-    selectDistinct: database.selectDistinct.bind(database),
-    selectDistinctOn: database.selectDistinctOn.bind(database),
-    insert: database.insert.bind(database),
-    update: database.update.bind(database),
-    delete: database.delete.bind(database),
-    execute: boundExecute(database),
-  };
+  const methods = Object.fromEntries(
+    txMethods.map((name) => [name, database[name].bind(database)]),
+  ) as Tx;
   const context = new Proxy(Object.freeze(methods), {
     get(target, property, receiver) {
       check();
