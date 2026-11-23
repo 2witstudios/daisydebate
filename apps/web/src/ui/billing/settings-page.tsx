@@ -199,10 +199,12 @@ function PlanPanel({ settings }: { readonly settings: BillingSettings }) {
   }
 }
 
+/** What Premium includes; bot debates are no part of it (BCS-7). */
 const included = [
-  ['Debate a bot', 'As many Rounds as you want.'],
   ['Ask for analysis', 'On any Round you debated.'],
+  ['AI judge', 'On the casual Rounds you host.'],
   ['Record and broadcast', 'Turn it on when you host a casual Room.'],
+  ['Download Recordings', 'Any Recording you can watch.'],
 ] as const;
 
 /** The checkout return once current server evidence shows Premium, never the return URL alone. */
@@ -245,7 +247,7 @@ function PremiumConfirmed({
         ) : null}
         A receipt is on its way to your email.
       </p>
-      <div className="grid gap-3 narrow:grid-cols-3">
+      <div className="grid gap-3 narrow:grid-cols-2">
         {included.map(([title, body]) => (
           <div
             key={title}
@@ -261,7 +263,7 @@ function PremiumConfirmed({
           href="/play"
           className={`${buttonClass('primary')} min-h-nav-target`}
         >
-          Debate a bot
+          Play a debate
         </Link>
         <Link href="/settings/billing" className={secondary}>
           Back to billing

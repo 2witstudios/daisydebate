@@ -1,4 +1,5 @@
 import { requireTestServices } from '@daisy/config';
+import { botDebatesReleased } from './bot-admission.test-support';
 import { isAppError } from '@daisy/errors';
 import { createId } from '@paralleldrive/cuid2';
 import { buildRoomTopic } from '@daisy/protocol/topics';
@@ -33,6 +34,7 @@ test('Room commands retry a real change between preparation and locking, with a 
           formatTuple: null,
           roundId: createId(),
           seatsBotDebater: () => false,
+          botRelease: botDebatesReleased,
           readyAgreements: () => null,
           authorizeRead: (
             room: { hostActorId: string | null },

@@ -1,4 +1,5 @@
 import { ladderCopyInView } from '../test-support/ladder-copy.test-support';
+import { playOptionsFor } from '../../features/play/options';
 import { instantMs } from '@daisy/clock';
 import {
   renderAccessible,
@@ -65,6 +66,7 @@ const render = (props: Partial<LobbyProps> = {}) =>
       activeRoom={null}
       now={now}
       viewer={{ actorId: id('d'), ageBand: 'adult' }}
+      playOptions={playOptionsFor(true)}
       lobbies={[
         { id: id('o'), name: 'Open', ageRule: 'adults' },
         { id: id('y'), name: 'Youth', ageRule: 'under-18' },

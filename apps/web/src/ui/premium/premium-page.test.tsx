@@ -19,12 +19,11 @@ test('public Premium terms say unlimited at $20 a month, with no counter', () =>
     actual: [
       'Premium · $20/month',
       'Get Premium · $20/month',
-      'Unlimited bot Rounds.',
       'Unlimited casual AI judging.',
       'Round analysis whenever you ask.',
       'No counters to watch.',
       'Human debate stays free',
-      'one bot Round, one AI-judged casual Round and one requested Round analysis, ever',
+      'one requested Round analysis, ever',
       'after Premium ends',
       'visibility rules',
     ].filter((line) => !text.includes(line)),
@@ -39,7 +38,7 @@ test('public Premium terms say unlimited at $20 a month, with no counter', () =>
       hrefs(view).includes('/play'),
       text.includes('authorized to watch'),
       ['button', 'textbox', 'checkbox'].some((role) => view.count(role) > 0),
-      /USD 10|Five bot debates|remaining/.test(text),
+      /USD 10|Five bot debates|remaining|\bbots?\b/i.test(text),
     ],
     expected: [true, true, true, false, false],
   });

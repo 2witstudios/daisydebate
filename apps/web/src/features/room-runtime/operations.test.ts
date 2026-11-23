@@ -189,6 +189,8 @@ test('Room runtime distinguishes Redis consent loss', async () => {
     ids: fixedIds(['c6n6p8r2t4v6x8z1k3b5c7d9']),
     consentTtlMs: () => 60_000,
     aiSeats: () => ({ debater: true, judge: true }),
+    botDebatesReleased: async () => true,
+    botRelease: { keys: ['bot-debates'], decide: () => true },
     betaGrantsPremium: true,
     entropy: () => '01'.repeat(32),
   });
@@ -257,6 +259,8 @@ test('Room creation pins resolved rules and replays the accepted receipt before 
     ids: fixedIds(['c8n6p8r2t4v6x8z1k3b5c7d9']),
     consentTtlMs: () => 60_000,
     aiSeats: () => ({ debater: true, judge: true }),
+    botDebatesReleased: async () => true,
+    botRelease: { keys: ['bot-debates'], decide: () => true },
     betaGrantsPremium: true,
     entropy: () => '01'.repeat(32),
   });

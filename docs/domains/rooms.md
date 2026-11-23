@@ -320,7 +320,13 @@ and carry rules ([ADR 0147](../decisions/0147-ladder-style-and-division.md) §3)
 - **Debater seats.** Claiming or assigning a debater seat uses the Room's
   age rule. A minor can claim an adult lobby’s debater seat after their guardian
   signs that lobby’s ranked content waiver. A member without an age record may debate casually in an adults
-  or anyone lobby. A bot debates only casually.
+  or anyone lobby. A bot debates only casually, and only for a host with
+  the `bot-debates` release ([ADR 0921](../decisions/0921-bot-debates-release.md)):
+  create, rematch and assign-seat refuse a bot debater with
+  `bot-debates-coming-soon`, cast choices offer none, and the start-round
+  freeze rechecks the release on the charged host's account inside the
+  transaction that reserves the bot allowance, whatever entitlement the host
+  holds. A Round already running is never stopped by it.
 - **Judges.** Judge seats take anyone: minors judge Open Rooms, adults Youth.
 - **Start.** Start checks seated debaters again. A ranked Round uses the
   existing rating and season keys, and Start answers `ranked-unavailable`

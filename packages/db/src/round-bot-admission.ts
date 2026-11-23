@@ -22,6 +22,7 @@ import {
 import { usageStateSchema } from '@daisy/protocol/billing';
 import type { Tx } from './tx';
 import { takeLock, transactionLocks } from './locks';
+import { requireFlagAdmission, type ReleaseAdmission } from './flags';
 export {
   refundUnservedPracticeLocked,
   refundPlatformEndedLocked,
@@ -120,11 +121,22 @@ export function createRoundBotAdmission(input: {
   readonly accountEligible: AllowanceAccountPolicy;
 }) {
   requireBusyCap(input.busyCap);
+  /**
+   * `release` is the application's trusted `bot-debates` closure (ADR 0921),
+   * required on the charged host's account before any allowance decision.
+   */
   const reserveLocked = async (
     tx: Tx,
     target: Target,
+    release: ReleaseAdmission,
   ): Promise<Reservation> => {
     const account = await lockUsageSponsor(tx, target);
+    // Release before allowance, under the account fence (ADR 0921): no
+    // entitlement, subscription or free use opens an unreleased bot debate.
+    if (!account) throw createAppError('AUTHORIZATION');
+    await requireFlagAdmission(tx, account.userId, release, () =>
+      createRefusal('CONFLICT', 'bot-debates-coming-soon'),
+    );
     const [existing] = await tx
       .select()
       .from(usageReservations)
@@ -180,10 +192,10 @@ export function createRoundBotAdmission(input: {
         };
       }),
     reserveLocked,
-    reserve: (target: Target) =>
+    reserve: (target: Target, release: ReleaseAdmission) =>
       input.run(async (tx) => {
         await lockBotAdmission(tx);
-        return reserveLocked(tx, target);
+        return reserveLocked(tx, target, release);
       }),
   };
 }

@@ -183,6 +183,7 @@ const refusalText: Readonly<Record<RoomRefusal, string>> = {
   'other-division': 'a debater seat in your own lobby',
   'draw-unavailable': 'enough resolutions to draw from',
   'bots-busy': 'a free bot: bots are busy, try again shortly',
+  'bot-debates-coming-soon': 'a person to debate: bot debates are coming soon',
   'ai-judge-premium':
     'a person to judge: AI judging on casual rounds is premium',
   'capture-premium':

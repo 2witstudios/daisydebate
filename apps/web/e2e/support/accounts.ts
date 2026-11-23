@@ -3,6 +3,7 @@ import { createId } from '@paralleldrive/cuid2';
 import { resolveE2EOrigin, resolveE2EPorts } from '../../playwright.config';
 import { hydrated } from './hydration';
 import { enrollFromSettings, signInWithPasskey } from './webauthn';
+import { releaseBotDebates } from './bot-debates';
 import { approveBetaAccounts } from './beta-access';
 
 /**
@@ -128,6 +129,21 @@ export async function signUpMember(
   );
   await approveBetaAccounts(email);
   return { email, username };
+}
+
+/**
+ * A beta member with bot debates opened for their own account through the
+ * operator override (ADR 0921): every spec that hosts a bot debate signs up
+ * this way, as the few real accounts finishing bots are granted.
+ */
+export async function signUpBotDebater(
+  request: APIRequestContext,
+  birth: BirthMonth = adultBirth,
+  usernamePrefix = 'member',
+) {
+  const member = await signUpMember(request, birth, usernamePrefix);
+  await releaseBotDebates(member.email);
+  return member;
 }
 
 /** A new account with a claimed username, still waiting on the beta list. */

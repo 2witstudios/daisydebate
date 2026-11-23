@@ -23,7 +23,7 @@ export function PremiumPage({
     <ReadingPage>
       <PageHeader
         title="Daisy Premium"
-        lede="More ways to practise, review and share your debates."
+        lede="More ways to review and share your debates."
         actions={
           comparePlans ? (
             <Link href="/pricing" className={secondary}>
@@ -42,7 +42,6 @@ export function PremiumPage({
       >
         <div className="flex flex-col gap-4">
           <ul className="flex list-disc flex-col gap-3 pl-5">
-            <li>Unlimited bot Rounds.</li>
             <li>Unlimited casual AI judging.</li>
             <li>Round analysis whenever you ask.</li>
             <li>Host casual recording and broadcast.</li>
@@ -65,10 +64,7 @@ export function PremiumPage({
             Play against other people for free. Ranked AI judging and access to
             existing ballots stay free under their normal permissions.
           </p>
-          <p>
-            Each free account can try one bot Round, one AI-judged casual Round
-            and one requested Round analysis, ever.
-          </p>
+          <p>Each free account can try one requested Round analysis, ever.</p>
           <Link href="/play" className={secondary}>
             Play a debate
           </Link>

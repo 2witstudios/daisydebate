@@ -107,6 +107,7 @@ const refusalLines: Readonly<Record<RoomCreateRefusal, string>> = {
   'actor-ineligible':
     'That opponent can’t start a practice right now. Pick another.',
   'seat-unavailable': 'Someone took that seat first. Start again.',
+  'bot-debates-coming-soon': 'Bot debates are coming soon.',
   settings: 'Practice couldn’t start. Try again.',
   'ranked-unavailable': 'Practice couldn’t start. Try again.',
   'ai-judge-premium': aiJudgePremiumText,
