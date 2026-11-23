@@ -13,7 +13,8 @@
 0 begin id1 120ms in=0 at=2027-01-15T08:00:00.000Z room
 0 begin id3 260ms in=120 at=2027-01-15T08:00:00.120Z room
 0 reveal id1 room at=2027-01-15T08:00:00.000Z
-0..70 frames TR_0 x38
+0 frames TR_0 x31
+10..70 frames TR_0 x7 every 10ms
 120 close answer 1
 120 abandon answer 1
 120 end id1 whole
@@ -32,7 +33,8 @@
 6000 begin id6 120ms in=0 at=2027-01-15T08:00:06.000Z room
 6000 begin id8 260ms in=120 at=2027-01-15T08:00:06.120Z room
 6000 reveal id6 room at=2027-01-15T08:00:06.000Z
-6000..6070 frames TR_0 x38
+6000 frames TR_0 x31
+6010..6070 frames TR_0 x7 every 10ms
 6120 close answer 2
 6120 abandon answer 2
 6120 end id6 whole

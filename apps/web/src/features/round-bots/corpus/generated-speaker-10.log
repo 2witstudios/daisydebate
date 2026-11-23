@@ -19,12 +19,12 @@
 520 begin id3 260ms in=120 at=2027-01-15T08:00:00.640Z room
 520 reveal id9 room at=2027-01-15T08:00:00.520Z
 520 reveal -> Error
-520..520 frames TR_0 x12
+520 frames TR_0 x12
 620 tts "Three."
 620 settle tts "Three."
 620 reveal id9 room at=2027-01-15T08:00:00.520Z
 620 begin id12 80ms in=280 at=2027-01-15T08:00:00.900Z room
-620..620 frames TR_0 x26
+620 frames TR_0 x26
 640 end id9 whole
 640 reveal id3 room at=2027-01-15T08:00:00.640Z
 700 begin -> CONFLICT/bot-room-changed
@@ -39,7 +39,8 @@
 920 begin id14 260ms in=0 at=2027-01-15T08:00:00.920Z room
 920 begin id12 80ms in=260 at=2027-01-15T08:00:01.180Z room
 920 reveal id14 room at=2027-01-15T08:00:00.920Z
-920..950 frames TR_1 x34
+920 frames TR_1 x31
+930..950 frames TR_1 x3 every 10ms
 1180 close answer 1
 1180 abandon answer 1
 1180 end id14 whole

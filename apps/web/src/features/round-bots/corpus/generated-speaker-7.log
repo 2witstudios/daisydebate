@@ -16,11 +16,11 @@
 679 reveal -> CONFLICT/platform-incident
 679 clear TR_0 queued=120
 679 end id1 cut 0ms ""
-679..679 frames TR_0 x12
+679 frames TR_0 x12
 1179 verify
 1179 begin id8 120ms in=0 at=2027-01-15T08:00:01.179Z room
 1179 reveal id8 room at=2027-01-15T08:00:01.179Z
-1179..1179 frames TR_0 x12
+1179 frames TR_0 x12
 1259 reveal -> Error
 1359 settle tts "Two."
 1359 abandon answer 1
@@ -29,7 +29,7 @@
 1359 begin id5 80ms in=260 at=2027-01-15T08:00:01.619Z room
 1359 end id8 whole
 1359 reveal id3 room at=2027-01-15T08:00:01.359Z
-1359..1359 frames TR_0 x26
+1359 frames TR_0 x26
 1399 end -> CONFLICT
 1439 begin -> CONFLICT/platform-incident
 1619 end id3 whole

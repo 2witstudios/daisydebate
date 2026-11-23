@@ -5,7 +5,8 @@
 10 verify
 10 begin p0 470ms in=0 at=2027-01-15T08:00:00.010Z room
 10 reveal p0 room at=2027-01-15T08:00:00.010Z
-10..40 frames TR_0 x34
+10 frames TR_0 x31
+20..40 frames TR_0 x3 every 10ms
 50 reveal -> CONFLICT
 50 clear TR_0 queued=300
 50 end p0 cut 40ms ""

@@ -5,11 +5,13 @@
 10 verify
 10 begin p0 520ms in=0 at=2027-01-15T08:00:00.010Z room
 10 reveal p0 room at=2027-01-15T08:00:00.010Z
-10..210 frames TR_0 x51
+10 frames TR_0 x31
+20..210 frames TR_0 x20 every 10ms
 220 published p0 complete=true ended=false
-220..220 frames TR_0 x1
+220 frames TR_0 x1
 319 begin p1 140ms in=211 at=2027-01-15T08:00:00.530Z room
-319..360 frames TR_0 x14
+319 frames TR_0 x9
+320..360 frames TR_0 x5 every 10ms
 530 published p1 complete=true ended=false
 530 query audible=true p0:closed p1:open
 530 end p0 whole

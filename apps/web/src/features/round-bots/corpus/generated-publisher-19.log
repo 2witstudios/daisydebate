@@ -5,7 +5,7 @@
 10 verify
 10 begin p0 210ms in=0 at=2027-01-15T08:00:00.010Z room
 10 reveal p0 room at=2027-01-15T08:00:00.010Z
-10..10 frames TR_0 x21
+10 frames TR_0 x21
 90 reveal -> CONFLICT
 90 clear TR_0 queued=130
 90 end p0 cut 80ms "one two three"
@@ -13,7 +13,8 @@
 170 end -> CONFLICT
 175 begin p1 560ms in=0 at=2027-01-15T08:00:00.175Z room
 175 reveal p1 room at=2027-01-15T08:00:00.175Z
-175..245 frames TR_0 x38
+175 frames TR_0 x31
+185..245 frames TR_0 x7 every 10ms
 255 reveal -> CONFLICT/bot-room-changed
 255 clear TR_0 queued=300
 255 end p1 cut 80ms "one"
@@ -27,17 +28,18 @@
 305 begin p2 190ms in=0 at=2027-01-15T08:00:00.305Z room
 305 reveal p2 room at=2027-01-15T08:00:00.305Z
 305 begin p3 530ms in=190 at=2027-01-15T08:00:00.495Z room
-305..485 frames TR_1 x49
+305 frames TR_1 x31
+315..485 frames TR_1 x18 every 10ms
 495 end p2 whole
 495 reveal p3 room at=2027-01-15T08:00:00.495Z
-495..545 frames TR_1 x6
+495..545 frames TR_1 x6 every 10ms
 555 floor room
-555..705 frames TR_1 x16
+555..705 frames TR_1 x16 every 10ms
 715 published p3 complete=true ended=false
 715 query audible=false p0:closed p1:closed p2:closed p3:open/tail-cut
 715 clear TR_1 queued=310
 715 end p3 cut 220ms "one two three four"
-715..715 frames TR_1 x1
+715 frames TR_1 x1
 915 closed
 915 published late -> CONFLICT
 915 close TR_1

@@ -5,7 +5,8 @@
 10 verify
 10 begin p0 560ms in=0 at=2027-01-15T08:00:00.010Z room
 10 reveal p0 room at=2027-01-15T08:00:00.010Z
-10..120 frames TR_0 x42
+10 frames TR_0 x31
+20..120 frames TR_0 x11 every 10ms
 130 published p0 -> Error
 130 published p1 complete=true ended=false
 130 query audible=true p0:closed p1:open
@@ -16,7 +17,7 @@
 130 reveal p1 room at=2027-01-15T08:00:00.130Z
 130 clear TR_0 queued=120
 130 end p1 cut 0ms ""
-130..130 frames TR_0 x12
+130 frames TR_0 x12
 430 closed
 430 published late -> CONFLICT
 430 close TR_0

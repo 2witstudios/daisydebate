@@ -93,24 +93,35 @@ type Ask = {
 type Answer =
   | { readonly kind: 'outcome'; readonly outcome: PhraseOutcome }
   | { readonly kind: 'error'; readonly error: unknown };
+/** A reveal not yet due, asked, settled, or never to be sent. */
+type Reveal = 'waiting' | 'asking' | 'settled' | 'skipped';
+/** Once its audio is being written: its reveal, and why its line cannot be written. */
+type Audible = {
+  readonly audioStartsAtMs: number;
+  readonly reveal: Reveal;
+  readonly refusal: Failure | null;
+};
 type Stage =
   /** `early` uses the join begun ahead of speech; `replace` follows a broken one. */
   | { readonly name: 'joining'; readonly using: 'early' | 'fresh' | 'replace' }
   /** `fresh` once asked at play rather than ahead. */
   | { readonly name: 'authorizing'; readonly fresh: boolean }
-  | { readonly name: 'writing' }
-  | { readonly name: 'revealing'; readonly written: Written }
+  | ({
+      readonly name: 'writing';
+      /** The floor re-read beside its audio. */
+      readonly floor: 'waiting' | 'reading';
+    } & Audible)
+  | ({
+      readonly name: 'revealing';
+      readonly written: Written;
+      readonly playsUntilMs: number;
+    } & Audible)
   | { readonly name: 'ending'; readonly call: number; readonly answer: Answer };
 type Playing = {
   readonly phrase: PhraseFacts;
   readonly stopAtMs: number;
   readonly stopped: boolean;
-  readonly refusal: Failure | null;
   readonly stage: Stage;
-  readonly audioStartsAtMs: number;
-  readonly playsUntilMs: number;
-  readonly reveal: 'waiting' | 'asking' | 'settled' | 'skipped';
-  readonly floor: 'waiting' | 'reading' | 'off';
 };
 /** A played phrase's line, closed in turn once its queued tail played out. */
 type Closing = {
@@ -118,15 +129,33 @@ type Closing = {
   readonly playsUntilMs: number;
   readonly status: 'queued' | 'waiting' | { readonly call: number };
 };
+/** The room of the last grant, kept until the next: what a phrase is authorized against. */
+type Room = { readonly room: string | null };
+type Track =
+  | ({ readonly status: 'none' } & Room)
+  | ({ readonly status: 'joining'; readonly join: number } & Room)
+  | {
+      readonly status: 'joined';
+      readonly join: number;
+      readonly room: string;
+      /** A refusal said this room was retired: the next use joins afresh. */
+      readonly retired: boolean;
+    }
+  /** A broken track being left before a fresh one is joined. */
+  | ({ readonly status: 'replacing'; readonly join: number } & Room);
+type Claim =
+  | { readonly status: 'open' }
+  /** Ending: its closes, then its retries, then a last retry drain first. */
+  | {
+      readonly status: 'closing';
+      readonly drain: 'closes' | 'retries' | 'last';
+    }
+  /** Waiting on the one join it is leaving, if any. */
+  | { readonly status: 'leaving'; readonly join: number }
+  | { readonly status: 'closed' };
 export type PublisherState = {
-  readonly claim: 'open' | 'closing' | 'leaving' | 'closed';
-  /** What the claim's end waits on: closes, then retries, then a last retry. */
-  readonly drain: 'closes' | 'retries' | 'last';
-  readonly track:
-    | { readonly status: 'none' | 'left' }
-    | { readonly status: 'joining' | 'joined'; readonly join: number };
-  readonly room: string | null;
-  readonly roomLeft: boolean;
+  readonly claim: Claim;
+  readonly track: Track;
   /** The database clock less the monotonic one, read with the speech's deadline. */
   readonly dbOffsetMs: number | null;
   readonly lines: ReturnType<typeof emptyLineLedger>;
@@ -173,7 +202,8 @@ export type PublisherEventBody =
       readonly usable: boolean;
     }
   | { readonly type: 'join-failed'; readonly join: number }
-  | { readonly type: 'left'; readonly join: number }
+  /** A track closed, or failed to: `error` is why. */
+  | { readonly type: 'left'; readonly join: number; readonly error?: unknown }
   | { readonly type: 'answered'; readonly call: number }
   | { readonly type: 'refused'; readonly call: number; readonly error: unknown }
   | { readonly type: 'woke'; readonly wait: Wait }
@@ -193,7 +223,9 @@ export type PublisherEffect =
    * already in hand is still taken asynchronously, so what the speaker asks
    * right after a publish (the next phrase ahead) lands first.
    */
-  | { readonly type: 'stop-writing' | 'clear-queue' | 'closed' | 'resume' }
+  | { readonly type: 'stop-writing' | 'clear-queue' | 'resume' }
+  /** The claim has ended; `error` when its track failed to close. */
+  | { readonly type: 'closed'; readonly error?: unknown }
   | { readonly type: 'wait'; readonly wait: Wait; readonly untilMs: number }
   | { readonly type: 'cancel'; readonly wait: Wait }
   | ({ readonly type: 'answer' } & Answer);
@@ -225,11 +257,8 @@ export const localInstant = (state: PublisherState, databaseMs: number) =>
   databaseMs - (state.dbOffsetMs ?? 0);
 
 export const emptyPublisher = (): PublisherState => ({
-  claim: 'open',
-  drain: 'closes',
-  track: { status: 'none' },
-  room: null,
-  roomLeft: false,
+  claim: { status: 'open' },
+  track: { status: 'none', room: null },
   dbOffsetMs: null,
   lines: emptyLineLedger(),
   schedule: emptyPublicationSchedule(),
@@ -273,12 +302,27 @@ const play = (step: Step, change: Partial<Playing>) => {
   const { playing } = step.state;
   if (playing) set(step, { playing: { ...playing, ...change } });
 };
+/** Changes the stage in play, if it is still `name`. */
+const restage = <N extends Stage['name']>(
+  step: Step,
+  name: N,
+  change: Partial<Extract<Stage, { name: N }>>,
+) => {
+  const stage = step.state.playing?.stage;
+  if (stage?.name === name) play(step, { stage: { ...stage, ...change } });
+};
 const nextId = (step: Step) => {
   set(step, { sequence: step.state.sequence + 1 });
   return step.state.sequence;
 };
-const noteRoom = (step: Step, failure: Failure) =>
-  set(step, { roomLeft: failure.roomChanged });
+const room = (step: Step) => step.state.track.room ?? '';
+const open = (step: Step) => step.state.claim.status === 'open';
+/** A refusal marks the room in use retired, or not, until the next join. */
+const noteRoom = (step: Step, failure: Failure) => {
+  const { track } = step.state;
+  if (track.status === 'joined')
+    set(step, { track: { ...track, retired: failure.roomChanged } });
+};
 const wait = (step: Step, target: Wait, untilMs: number) =>
   emit(step, { type: 'wait', wait: target, untilMs });
 /** An instant on the database clock, once its offset is known. */
@@ -303,7 +347,7 @@ function handle(step: Step, event: PublisherEvent) {
       const { id } = event.phrase;
       const ahead = step.state.ahead.filter((phrase) => phrase.id !== id);
       set(step, { ahead: [...ahead, event.phrase] });
-      const joined = step.state.room !== null;
+      const joined = step.state.track.room !== null;
       return plan(step, {
         type: 'prepare',
         phraseId: id,
@@ -327,7 +371,7 @@ function handle(step: Step, event: PublisherEvent) {
     case 'join-failed':
       return joinSettled(step, event);
     case 'left':
-      return left(step);
+      return left(step, event);
     case 'answered':
       return settled(step, event.call, null);
     case 'refused':
@@ -341,7 +385,9 @@ function handle(step: Step, event: PublisherEvent) {
 
 const join = (step: Step) => {
   const id = nextId(step);
-  set(step, { track: { status: 'joining', join: id } });
+  set(step, {
+    track: { status: 'joining', join: id, room: step.state.track.room },
+  });
   emit(step, { type: 'join', join: id });
 };
 /** Forgets phrases authorized ahead: nothing was written for them. */
@@ -368,7 +414,7 @@ const plan = (step: Step, event: ScheduleEvent) => {
     const phrase = step.state.ahead.find(({ id }) => id === phraseId);
     const ahead = step.state.ahead.filter(({ id }) => id !== phraseId);
     set(step, { ahead });
-    if (phrase && step.state.room !== null)
+    if (phrase && step.state.track.room !== null)
       authorize(step, phrase, startsInMs, 'ahead');
   }
 };
@@ -383,7 +429,6 @@ const call = (step: Step, args: StoreCall) => {
   emit(step, { type: 'call', call: id, args });
   return id;
 };
-const room = (step: Step) => step.state.room ?? '';
 /** Authorizes a phrase, its audio starting `startsInMs` from now; it writes nothing. */
 function authorize(
   step: Step,
@@ -417,20 +462,12 @@ function publish(
   plan(step, { type: 'starting' });
   const { status } = step.state.track;
   const using = status === 'none' ? 'fresh' : 'early';
-  set(step, {
-    playing: {
-      phrase: event.phrase,
-      stopAtMs: event.stopAtMs,
-      stopped: false,
-      refusal: null,
-      stage: { name: 'joining', using },
-      audioStartsAtMs: 0,
-      playsUntilMs: 0,
-      reveal: 'skipped',
-      floor: 'off',
-    },
-  });
-  if (status === 'left') return fail(step, STOPPED);
+  const { phrase, stopAtMs } = event;
+  const stage: Stage = { name: 'joining', using };
+  set(step, { playing: { phrase, stopAtMs, stopped: false, stage } });
+  // The claim is leaving its track: nothing new is said.
+  if (!open(step) && step.state.claim.status !== 'closing')
+    return fail(step, STOPPED);
   if (status === 'none') return join(step);
   if (status === 'joined') emit(step, { type: 'resume' });
 }
@@ -439,45 +476,68 @@ function publish(
 function resumed(step: Step) {
   const { playing, track, asks } = step.state;
   if (playing?.stage.name === 'joining' && track.status === 'joined')
-    return trackReady(step, track.join, step.event.trackUsable, 'early');
+    return trackReady(step, step.event.trackUsable, 'early');
   const id = playing?.phrase.id;
   const held = asks.find((ask) => ask.holder === 'play' && ask.phraseId === id);
   if (playing?.stage.name === 'authorizing' && held)
     askSettled(step, held.call);
 }
 
+const leaving = (step: Step) =>
+  step.state.claim.status === 'leaving' || step.state.claim.status === 'closed';
+
 function joinSettled(
   step: Step,
   event: Extract<PublisherEventBody, { type: 'joined' | 'join-failed' }>,
 ) {
-  const { track, playing } = step.state;
+  const { track, playing, claim } = step.state;
   const current = track.status === 'joining' && track.join === event.join;
   const using =
     playing?.stage.name === 'joining' && current ? playing.stage.using : null;
   if (event.type === 'join-failed') {
-    if (current) set(step, { track: { status: 'none' } });
-    if (step.state.claim === 'leaving') return left(step);
+    if (current) set(step, { track: { status: 'none', room: track.room } });
+    if (claim.status === 'leaving' && claim.join === event.join)
+      return closed(step);
     // A failed early join is joined again once, not reported as speech.
-    if (using === 'early') {
+    if (using === 'early' && !leaving(step)) {
       play(step, { stage: { name: 'joining', using: 'fresh' } });
       return join(step);
     }
     if (using !== null) fail(step, STOPPED);
     return;
   }
-  set(step, { room: event.room, roomLeft: false });
-  if (!current) return emit(step, { type: 'leave', join: event.join });
-  set(step, { track: { status: 'joined', join: event.join } });
-  if (using !== null) trackReady(step, event.join, event.usable, using);
+  // A track landing after the claim left it, or no longer wanted, is left.
+  if (!current || leaving(step)) {
+    if (current) set(step, { track: { status: 'none', room: event.room } });
+    emit(step, { type: 'leave', join: event.join });
+    if (using !== null) fail(step, STOPPED);
+    return;
+  }
+  const joined: Track = {
+    status: 'joined',
+    join: event.join,
+    room: event.room,
+    retired: false,
+  };
+  set(step, { track: joined });
+  if (using !== null) trackReady(step, event.usable, using);
 }
 
 /** The track in hand is used, unless it broke or its room was retired. */
-function trackReady(step: Step, id: number, usable: boolean, using: string) {
-  if (using === 'replace' || (usable && !step.state.roomLeft))
+function trackReady(step: Step, usable: boolean, using: string) {
+  const { track } = step.state;
+  if (track.status !== 'joined') return;
+  if (using === 'replace' || (usable && !track.retired))
     return joinedForPlay(step);
-  emit(step, { type: 'leave', join: id });
+  // The broken track is left first; a fresh one is joined once it has gone.
+  const replacing: Track = {
+    status: 'replacing',
+    join: track.join,
+    room: track.room,
+  };
+  set(step, { track: replacing });
+  emit(step, { type: 'leave', join: track.join });
   play(step, { stage: { name: 'joining', using: 'replace' } });
-  join(step);
 }
 
 function joinedForPlay(step: Step) {
@@ -490,7 +550,6 @@ function joinedForPlay(step: Step) {
     discard(step);
     return answer(step, SEGMENT_ENDED);
   }
-  if (step.state.room === null) return fail(step, STOPPED);
   const ahead = step.state.asks.find(
     (ask) => ask.holder === 'ahead' && ask.phraseId === phrase.id,
   );
@@ -526,22 +585,42 @@ function askSettled(step: Step, id: number) {
 /** Authorized: its reveal waits for its audio, its floor is watched, its frames written. */
 function authorized(step: Step, playing: Playing) {
   if (playing.stopped) return stopped(step);
+  // The claim left its track while this was asked: none of it is written.
+  if (step.state.track.status !== 'joined') return fail(step, STOPPED);
   const audioStartsAtMs = now(step) + step.queuedMs;
   const endsAtMs = audioStartsAtMs + playing.phrase.durationMs;
   plan(step, { type: 'scheduled', endsAtMs, nowMs: now(step) });
-  const stage = { name: 'writing' } as const;
-  play(step, { stage, audioStartsAtMs, reveal: 'waiting', floor: 'waiting' });
+  const stage: Stage = {
+    name: 'writing',
+    floor: 'waiting',
+    audioStartsAtMs,
+    reveal: 'waiting',
+    refusal: null,
+  };
+  play(step, { stage });
   const phraseId = playing.phrase.id;
   wait(step, { kind: 'audio-start', phraseId }, audioStartsAtMs);
   wait(step, { kind: 'floor', phraseId }, now(step) + FLOOR_WATCH_MS);
   emit(step, { type: 'write', stopAtMs: playing.stopAtMs });
 }
 
+/** The stage in play once its audio is being written, if it is. */
+const audible = (step: Step) => {
+  const stage = step.state.playing?.stage;
+  return stage?.name === 'writing' || stage?.name === 'revealing'
+    ? stage
+    : null;
+};
+const setAudible = (step: Step, change: Partial<Audible>) => {
+  const stage = audible(step);
+  if (stage) play(step, { stage: { ...stage, ...change } });
+};
+
 /** A reveal not yet sent never is, once its phrase cannot be said. */
 function skipReveal(step: Step) {
   const { playing } = step.state;
-  if (playing?.reveal !== 'waiting') return;
-  play(step, { reveal: 'skipped' });
+  if (!playing || audible(step)?.reveal !== 'waiting') return;
+  setAudible(step, { reveal: 'skipped' });
   const phraseId = playing.phrase.id;
   emit(step, { type: 'cancel', wait: { kind: 'audio-start', phraseId } });
   revealDone(step);
@@ -549,11 +628,11 @@ function skipReveal(step: Step) {
 
 /** Its line cannot be written: it stops, and the speech says it again. */
 function refuse(step: Step, failure: Failure) {
-  const { playing } = step.state;
   noteRoom(step, failure);
-  if (!playing || playing.refusal) return;
-  play(step, { refusal: failure });
-  if (playing.stage.name === 'writing') emit(step, { type: 'stop-writing' });
+  const stage = audible(step);
+  if (!stage || stage.refusal) return;
+  setAudible(step, { refusal: failure });
+  if (stage.name === 'writing') emit(step, { type: 'stop-writing' });
   skipReveal(step);
 }
 
@@ -580,51 +659,63 @@ function woke(step: Step, target: Wait) {
   if (target.kind === 'retry') return askAgain(step, target.call);
   if (target.kind === 'tail') return tailPlayed(step);
   const { playing } = step.state;
+  const stage = audible(step);
   const { phraseId } = target;
-  if (playing?.phrase.id !== phraseId) return;
+  if (!playing || !stage || playing.phrase.id !== phraseId) return;
   if (target.kind === 'floor') {
-    if (playing.floor !== 'waiting') return;
-    play(step, { floor: 'reading' });
+    if (stage.name !== 'writing' || stage.floor !== 'waiting') return;
+    restage(step, 'writing', { floor: 'reading' });
     return void call(step, { kind: 'floor', phraseId, room: room(step) });
   }
-  if (playing.reveal !== 'waiting') return;
+  if (stage.reveal !== 'waiting') return;
   // Its reveal as its audio starts, dated by its audio, never by its commit.
   record(step, { type: 'reveal', phraseId });
-  play(step, { reveal: 'asking' });
-  const startedAt = dbInstant(step, playing.audioStartsAtMs);
+  setAudible(step, { reveal: 'asking' });
+  const startedAt = dbInstant(step, stage.audioStartsAtMs);
   const phrase = lineOf(playing.phrase);
   call(step, { kind: 'reveal', phrase, room: room(step), startedAt });
 }
 
 /** The floor re-read beside the audio: a refusal stops it; a passing failure reads again. */
 function floorRead(step: Step, phraseId: string, failure: Failure | null) {
-  const { playing } = step.state;
-  const current = playing?.phrase.id === phraseId;
+  const current = step.state.playing?.phrase.id === phraseId;
   if (failure && !failure.transient) {
     if (current) refuse(step, failure);
     else noteRoom(step, failure);
   }
-  if (!current || playing.floor !== 'reading') return;
-  if (step.state.playing?.refusal) return play(step, { floor: 'off' });
-  play(step, { floor: 'waiting' });
+  const stage = audible(step);
+  if (!current || stage?.name !== 'writing' || stage.floor !== 'reading')
+    return;
+  if (stage.refusal) return;
+  restage(step, 'writing', { floor: 'waiting' });
   wait(step, { kind: 'floor', phraseId }, now(step) + FLOOR_WATCH_MS);
 }
 
 function written(step: Step, result: Written) {
   const { playing } = step.state;
-  if (playing?.stage.name !== 'writing') return;
+  const stage = playing?.stage;
+  if (!playing || stage?.name !== 'writing') return;
   const phraseId = playing.phrase.id;
-  if (playing.floor === 'waiting')
+  if (stage.floor === 'waiting')
     emit(step, { type: 'cancel', wait: { kind: 'floor', phraseId } });
-  play(step, { floor: 'off', stage: { name: 'revealing', written: result } });
+  const { audioStartsAtMs, reveal, refusal } = stage;
+  const revealing = (playsUntilMs: number): Stage => ({
+    name: 'revealing',
+    written: result,
+    playsUntilMs,
+    audioStartsAtMs,
+    reveal,
+    refusal,
+  });
   if (result.aborted) {
+    play(step, { stage: revealing(0) });
     // Any stop dropped the queue: a reveal not yet asked never writes a line.
     record(step, { type: 'clear', atMs: now(step) });
     scheduledNow(step);
     discard(step);
   } else {
     const playsUntilMs = now(step) + step.queuedMs;
-    play(step, { playsUntilMs });
+    play(step, { stage: revealing(playsUntilMs) });
     const { sentSamples } = result;
     const phraseSamples = playing.phrase.samples;
     const handed = { phraseId, sentSamples, phraseSamples, playsUntilMs };
@@ -638,11 +729,11 @@ function written(step: Step, result: Written) {
 /** Once its audio was handed over and its reveal settled, the phrase ends. */
 function revealDone(step: Step) {
   const { playing } = step.state;
-  const { stage, reveal } = playing ?? {};
+  const stage = playing?.stage;
   if (!playing || stage?.name !== 'revealing') return;
-  if (reveal === 'waiting' || reveal === 'asking') return;
-  const { written: result } = stage;
-  const { phrase, refusal, playsUntilMs } = playing;
+  if (stage.reveal === 'waiting' || stage.reveal === 'asking') return;
+  const { written: result, refusal, playsUntilMs } = stage;
+  const { phrase } = playing;
   if (result.aborted) {
     const error = refusal ? refusal.error : result.failure;
     const fraction = Math.min(1, result.playedSamples / phrase.samples);
@@ -727,7 +818,7 @@ function nextClose(step: Step): void {
   if (!head) return drained(step);
   if (head.status !== 'queued') return;
   set(step, { closes: [{ ...head, status: 'waiting' }, ...rest] });
-  if (step.state.claim !== 'open') return tailPlayed(step);
+  if (!open(step)) return tailPlayed(step);
   wait(step, { kind: 'tail', phraseId: head.phrase.id }, head.playsUntilMs);
 }
 function tailPlayed(step: Step): void {
@@ -754,7 +845,7 @@ function refused(step: Step, id: number, failure: Failure) {
     kind === 'floor' ||
     !failure.transient ||
     asked.attempt >= ATTEMPTS ||
-    (writes && step.state.claim !== 'open')
+    (writes && !open(step))
   )
     return settled(step, id, failure);
   const calls = step.state.calls.map((entry) =>
@@ -790,8 +881,8 @@ function settled(step: Step, id: number, failure: Failure | null) {
       return askSettled(step, id);
     }
     case 'reveal':
-      if (step.state.playing?.reveal !== 'asking') return;
-      play(step, { reveal: 'settled' });
+      if (audible(step)?.reveal !== 'asking') return;
+      setAudible(step, { reveal: 'settled' });
       if (failure) refuse(step, failure);
       return revealDone(step);
     case 'floor':
@@ -824,9 +915,9 @@ function endSettled(
 
 /** Ends the claim: silences it, closes every played line at what was heard, then leaves. */
 function close(step: Step) {
-  if (step.state.claim !== 'open') return;
+  if (!open(step)) return;
   clearNow(step, true);
-  set(step, { claim: 'closing' });
+  set(step, { claim: { status: 'closing', drain: 'closes' } });
   // What waited on the claim ends now: starts and reveals backing off, the next reveal, a tail.
   for (const { id, args, last } of step.state.calls)
     if (args.kind !== 'end' && last) {
@@ -842,25 +933,47 @@ function close(step: Step) {
   }
   drained(step);
 }
-/** The claim's end goes on once what it waits on settled, then leaves the track. */
+/** The claim's end goes on once what it waits on settled, then leaves its track. */
 function drained(step: Step) {
-  if (step.state.claim !== 'closing') return;
-  if (step.state.drain === 'closes' && step.state.closes.length === 0)
-    set(step, { drain: 'retries' });
-  if (step.state.drain === 'retries' && step.state.retrying.length === 0) {
-    set(step, { drain: 'last' });
+  const drain = () => {
+    const { claim } = step.state;
+    return claim.status === 'closing' ? claim.drain : null;
+  };
+  const advance = (next: 'retries' | 'last') =>
+    set(step, { claim: { status: 'closing', drain: next } });
+  if (drain() === 'closes' && step.state.closes.length === 0)
+    advance('retries');
+  if (drain() === 'retries' && step.state.retrying.length === 0) {
+    advance('last');
     retryUnfinished(step);
   }
-  const { drain, retrying, track } = step.state;
-  if (drain !== 'last' || retrying.length > 0) return;
-  set(step, { claim: 'leaving', track: { status: 'left' } });
-  if (track.status === 'joined')
-    return emit(step, { type: 'leave', join: track.join });
-  if (track.status !== 'joining') left(step);
+  if (drain() !== 'last' || step.state.retrying.length > 0) return;
+  const { track } = step.state;
+  if (track.status === 'none') return closed(step);
+  set(step, { claim: { status: 'leaving', join: track.join } });
+  // A joined or broken track is left now; one still joining, once it lands.
+  if (track.status === 'joined' || track.status === 'replacing') {
+    if (track.status === 'joined')
+      set(step, { track: { status: 'none', room: track.room } });
+    emit(step, { type: 'leave', join: track.join });
+  }
 }
-/** The track closed, or a join in flight at the claim's end landed and was left. */
-function left(step: Step) {
-  if (step.state.claim !== 'leaving') return;
-  set(step, { claim: 'closed' });
-  emit(step, { type: 'closed' });
+/** A track closed: the claim's own leaving ends it, a broken one makes way for a fresh one. */
+function left(
+  step: Step,
+  event: Extract<PublisherEventBody, { type: 'left' }>,
+) {
+  const { claim, track, playing } = step.state;
+  if (claim.status === 'leaving' && claim.join === event.join)
+    return closed(step, event.error);
+  if (track.status !== 'replacing' || track.join !== event.join) return;
+  set(step, { track: { status: 'none', room: track.room } });
+  if (playing?.stage.name !== 'joining') return;
+  if (event.error !== undefined) return fail(step, event.error);
+  if (leaving(step)) return fail(step, STOPPED);
+  join(step);
 }
+const closed = (step: Step, error?: unknown) => {
+  set(step, { claim: { status: 'closed' } });
+  emit(step, { type: 'closed', ...(error === undefined ? {} : { error }) });
+};

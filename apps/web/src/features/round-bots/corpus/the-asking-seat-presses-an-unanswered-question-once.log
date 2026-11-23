@@ -10,7 +10,7 @@
 0 join TR_0
 0 begin id1 120ms in=0 at=2027-01-15T08:00:00.000Z room
 0 reveal id1 room at=2027-01-15T08:00:00.000Z
-0..0 frames TR_0 x12
+0 frames TR_0 x12
 120 end id1 whole
 8000 generate unanswered
 8000 settle answer 2
@@ -22,7 +22,8 @@
 8000 begin id4 120ms in=0 at=2027-01-15T08:00:08.000Z room
 8000 begin id6 260ms in=120 at=2027-01-15T08:00:08.120Z room
 8000 reveal id4 room at=2027-01-15T08:00:08.000Z
-8000..8070 frames TR_0 x38
+8000 frames TR_0 x31
+8010..8070 frames TR_0 x7 every 10ms
 8120 close answer 2
 8120 abandon answer 2
 8120 end id4 whole

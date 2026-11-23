@@ -12,13 +12,13 @@
 0 begin id3 260ms in=120 at=2027-01-15T08:00:00.120Z room
 0 begin -> CONFLICT
 0 reveal id1 room at=2027-01-15T08:00:00.000Z
-0..0 frames TR_0 x12
+0 frames TR_0 x12
 120 end id1 whole
 200 close answer 1
 200 abandon answer 1
 200 verify
 200 begin id3 260ms in=0 at=2027-01-15T08:00:00.200Z room
 200 reveal id3 room at=2027-01-15T08:00:00.200Z
-200..200 frames TR_0 x26
+200 frames TR_0 x26
 460 end id3 whole
 3500 close TR_0

@@ -8,6 +8,6 @@
 110 published a complete=true ended=false
 110 begin a 100ms in=0 at=2027-01-15T08:00:00.010Z room
 110 reveal a room at=2027-01-15T08:00:00.110Z
-110..110 frames TR_0 x10
+110 frames TR_0 x10
 210 end a whole
 510 close TR_0

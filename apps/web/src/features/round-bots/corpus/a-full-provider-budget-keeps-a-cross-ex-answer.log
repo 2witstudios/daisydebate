@@ -14,7 +14,8 @@
 200 begin id5 120ms in=0 at=2027-01-15T08:00:00.200Z room
 200 begin id3 260ms in=120 at=2027-01-15T08:00:00.320Z room
 200 reveal id5 room at=2027-01-15T08:00:00.200Z
-200..270 frames TR_0 x38
+200 frames TR_0 x31
+210..270 frames TR_0 x7 every 10ms
 320 close answer 1
 320 abandon answer 1
 320 end id5 whole

@@ -16,10 +16,10 @@
 450 begin id1 120ms in=0 at=2027-01-15T08:00:00.350Z room
 450 begin id3 260ms in=120 at=2027-01-15T08:00:00.570Z room
 450 reveal id1 room at=2027-01-15T08:00:00.450Z
-450..450 frames TR_0 x12
+450 frames TR_0 x12
 650 end id1 whole
 650 reveal id3 room at=2027-01-15T08:00:00.650Z
-650..650 frames TR_0 x26
+650 frames TR_0 x26
 690 reveal -> Error
 790 close answer 1
 790 abandon answer 1
@@ -47,7 +47,8 @@
 2520 begin id8 120ms in=0 at=2027-01-15T08:00:02.520Z room
 2520 begin id10 260ms in=120 at=2027-01-15T08:00:02.640Z room
 2520 reveal id8 room at=2027-01-15T08:00:02.520Z
-2520..2590 frames TR_0 x38
+2520 frames TR_0 x31
+2530..2590 frames TR_0 x7 every 10ms
 2640 failed generate Error
 2640 close answer 3
 2640 abandon answer 3
@@ -65,7 +66,8 @@
 10640 begin id12 120ms in=0 at=2027-01-15T08:00:10.640Z room
 10640 begin id14 260ms in=120 at=2027-01-15T08:00:10.760Z room
 10640 reveal id12 room at=2027-01-15T08:00:10.640Z
-10640..10710 frames TR_0 x38
+10640 frames TR_0 x31
+10650..10710 frames TR_0 x7 every 10ms
 10760 failed generate Error
 10760 close answer 4
 10760 abandon answer 4

@@ -5,9 +5,10 @@
 10 verify
 10 begin p0 520ms in=0 at=2027-01-15T08:00:00.010Z room
 10 reveal p0 room at=2027-01-15T08:00:00.010Z
-10..210 frames TR_0 x51
+10 frames TR_0 x31
+20..210 frames TR_0 x20 every 10ms
 220 published p0 complete=true ended=false
-220..220 frames TR_0 x1
+220 frames TR_0 x1
 483 published p1 complete=false ended=true
 483 begin p1 480ms in=47 at=2027-01-15T08:00:00.530Z room
 483 clear TR_0 queued=47

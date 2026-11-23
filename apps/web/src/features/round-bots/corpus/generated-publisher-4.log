@@ -15,5 +15,5 @@
 50 clear TR_0 queued=80
 50 end p1 cut 0ms ""
 50 close TR_0
-50..50 frames TR_0 x8
+50 frames TR_0 x8
 546 abort p1

@@ -16,14 +16,14 @@
 540 begin id1 120ms in=0 at=2027-01-15T08:00:00.540Z room
 540 begin id3 260ms in=120 at=2027-01-15T08:00:00.660Z room
 540 reveal id1 room at=2027-01-15T08:00:00.540Z
-540..540 frames TR_0 x12
+540 frames TR_0 x12
 620 begin -> Error
 660 end id1 whole
 720 begin id3 260ms in=120 at=2027-01-15T08:00:00.660Z room
 720 begin id5 80ms in=260 at=2027-01-15T08:00:00.980Z room
 720 reveal id3 room at=2027-01-15T08:00:00.720Z
-720..720 frames TR_0 x26
-870..870 frames TR_0 x8
+720 frames TR_0 x26
+870 frames TR_0 x8
 980 end id3 whole
 980 reveal id5 room at=2027-01-15T08:00:00.980Z
 1060 end -> CONFLICT

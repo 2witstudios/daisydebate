@@ -16,4 +16,4 @@
 10 clear TR_1 queued=100
 10 end b cut 0ms ""
 10 close TR_1
-10..10 frames TR_1 x10
+10 frames TR_1 x10

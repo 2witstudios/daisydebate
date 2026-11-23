@@ -19,12 +19,12 @@
 200 begin id1 120ms in=0 at=2027-01-15T08:00:00.200Z room
 200 begin id7 260ms in=120 at=2027-01-15T08:00:00.320Z room
 200 reveal id1 room at=2027-01-15T08:00:00.200Z
-200..200 frames TR_0 x12
+200 frames TR_0 x12
 240 tts "Four." -> CONFLICT
 320 end id1 whole
 400 begin id5 80ms in=260 at=2027-01-15T08:00:00.660Z room
 400 reveal id7 room at=2027-01-15T08:00:00.400Z
-400..400 frames TR_0 x26
+400 frames TR_0 x26
 480 reveal -> CONFLICT/bot-room-changed
 480 clear TR_0 queued=180
 480 end id7 cut 80ms ""
@@ -41,18 +41,19 @@
 1080 begin id14 260ms in=0 at=2027-01-15T08:00:01.080Z room
 1080 begin id5 80ms in=260 at=2027-01-15T08:00:01.340Z room
 1080 reveal id14 room at=2027-01-15T08:00:01.080Z
-1080..1080 frames TR_1 x26
+1080 frames TR_1 x26
 1180 begin id12 400ms in=240 at=2027-01-15T08:00:01.420Z room
-1180..1180 frames TR_1 x8
+1180 frames TR_1 x8
 1340 end id14 whole
 1340 reveal id5 room at=2027-01-15T08:00:01.340Z
-1340..1410 frames TR_1 x30
+1340 frames TR_1 x23
+1350..1410 frames TR_1 x7 every 10ms
 1420 end id5 whole
 1420 reveal id12 room at=2027-01-15T08:00:01.420Z
-1420..1500 frames TR_1 x9
+1420..1500 frames TR_1 x9 every 10ms
 1510 failed generate Error
 1510 close answer 2
 1510 abandon answer 2
-1510..1510 frames TR_1 x1
+1510 frames TR_1 x1
 1820 end id12 whole
 11349 close TR_1

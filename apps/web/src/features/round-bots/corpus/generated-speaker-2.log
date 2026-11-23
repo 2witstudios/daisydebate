@@ -29,7 +29,8 @@
 1623 begin id5 120ms in=0 at=2027-01-15T08:00:01.623Z room
 1623 begin id7 260ms in=120 at=2027-01-15T08:00:01.743Z room
 1623 reveal id5 room at=2027-01-15T08:00:01.623Z
-1623..1693 frames TR_0 x38
+1623 frames TR_0 x31
+1633..1693 frames TR_0 x7 every 10ms
 1743 close answer 3
 1743 abandon answer 3
 1743 end id5 whole
@@ -48,7 +49,8 @@
 1801 begin id10 120ms in=0 at=2027-01-15T08:00:01.801Z room
 1851 begin id12 260ms in=120 at=2027-01-15T08:00:01.971Z room
 1851 reveal id10 room at=2027-01-15T08:00:01.851Z
-1851..1921 frames TR_0 x38
+1851 frames TR_0 x31
+1861..1921 frames TR_0 x7 every 10ms
 1971 close answer 4
 1971 abandon answer 4
 1971 reveal id12 room at=2027-01-15T08:00:01.971Z

@@ -12,7 +12,7 @@
 440 published p1 complete=true ended=false
 440 reveal p1 room at=2027-01-15T08:00:00.440Z
 440 begin p2 270ms in=270 at=2027-01-15T08:00:00.710Z room
-440..440 frames TR_0 x27
+440 frames TR_0 x27
 480 begin -> Error
 513 abort p2
 513 clear TR_0 queued=197

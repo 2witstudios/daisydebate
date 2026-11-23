@@ -90,6 +90,23 @@ function write(shell: Shell, stopAtMs: number) {
   );
 }
 
+/** Closes a track, reporting its close, or why it failed, for its join. */
+function leave(shell: Shell, join: number) {
+  const left = (error?: unknown) => {
+    shell.tracks.delete(join);
+    dispatch(shell, {
+      type: 'left',
+      join,
+      ...(error === undefined ? {} : { error }),
+    });
+  };
+  const track = shell.tracks.get(join);
+  void (track ? track.close() : Promise.resolve()).then(
+    () => left(),
+    (error: unknown) => left(error),
+  );
+}
+
 function wait(shell: Shell, target: Wait, untilMs: number) {
   const cancel = new AbortController();
   shell.waits.set(keyOf(target), cancel);
@@ -104,12 +121,8 @@ function perform(shell: Shell, effect: PublisherEffect) {
   switch (effect.type) {
     case 'join':
       return join(shell, effect.join);
-    case 'leave': {
-      const track = shell.tracks.get(effect.join);
-      shell.tracks.delete(effect.join);
-      const left: Event = { type: 'left', join: effect.join };
-      return void track?.close().then(() => dispatch(shell, left));
-    }
+    case 'leave':
+      return leave(shell, effect.join);
     case 'call': {
       const { call } = effect;
       return void storeCall(shell.input.store, shell.claim, effect.args).then(
@@ -143,6 +156,7 @@ function perform(shell: Shell, effect: PublisherEffect) {
       );
     }
     case 'closed':
+      if ('error' in effect) return shell.closed.reject(effect.error);
       return shell.closed.resolve();
   }
 }

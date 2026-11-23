@@ -7,7 +7,7 @@
 10 begin a 300ms in=0 at=2027-01-15T08:00:00.010Z room
 10 reveal a room at=2027-01-15T08:00:00.010Z
 10 begin b 100ms in=300 at=2027-01-15T08:00:00.310Z room
-10..10 frames TR_0 x30
+10 frames TR_0 x30
 310 end a whole
 510 query audible=false a:closed b:open
 510 close TR_0

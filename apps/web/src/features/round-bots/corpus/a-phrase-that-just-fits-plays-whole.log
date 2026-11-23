@@ -5,9 +5,10 @@
 10 verify
 10 begin a 500ms in=0 at=2027-01-15T08:00:00.010Z room
 10 reveal a room at=2027-01-15T08:00:00.010Z
-10..190 frames TR_0 x49
+10 frames TR_0 x31
+20..190 frames TR_0 x18 every 10ms
 200 published a complete=true ended=false
 200 clear TR_0 queued=310
 200 end a cut 190ms "one two three"
 200 close TR_0
-200..200 frames TR_0 x1
+200 frames TR_0 x1

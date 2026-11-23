@@ -5,30 +5,33 @@
 10 verify
 10 begin p0 520ms in=0 at=2027-01-15T08:00:00.010Z room
 60 reveal p0 room at=2027-01-15T08:00:00.060Z
-60..260 frames TR_0 x51
+60 frames TR_0 x31
+70..260 frames TR_0 x20 every 10ms
 270 published p0 complete=true ended=false
 270 published p1 -> CONFLICT
 270 begin p1 80ms in=310 at=2027-01-15T08:00:00.580Z room
 270 begin -> CONFLICT
 270 clear TR_0 queued=310
-270..270 frames TR_0 x1
+270 frames TR_0 x1
 485 begin p2 230ms in=95 at=2027-01-15T08:00:00.580Z room
 580 end p0 cut 210ms "one two three four"
 635 published p2 complete=true ended=false
 635 reveal p2 room at=2027-01-15T08:00:00.635Z
 635 begin p3 460ms in=230 at=2027-01-15T08:00:00.865Z room
-635..855 frames TR_0 x53
+635 frames TR_0 x31
+645..855 frames TR_0 x22 every 10ms
 865 end p2 whole
 865 reveal p3 room at=2027-01-15T08:00:00.865Z
-865..875 frames TR_0 x2
+865..875 frames TR_0 x2 every 10ms
 885 floor room
-885..1005 frames TR_0 x13
+885..1005 frames TR_0 x13 every 10ms
 1015 published p3 complete=true ended=false
-1015..1015 frames TR_0 x1
+1015 frames TR_0 x1
 1325 end p3 whole
 1344 begin p4 360ms in=0 at=2027-01-15T08:00:01.344Z room
 1344 reveal p4 room at=2027-01-15T08:00:01.344Z
-1344..1374 frames TR_0 x34
+1344 frames TR_0 x31
+1354..1374 frames TR_0 x3 every 10ms
 1384 frame TR_0 #155 failed
 1384 clear TR_0 queued=300
 1384 end p4 cut 40ms "one"
@@ -47,4 +50,4 @@
 2017 clear TR_0 queued=120
 2017 end p5 cut 0ms ""
 2017 close TR_0
-2017..2017 frames TR_0 x12
+2017 frames TR_0 x12

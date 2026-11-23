@@ -5,7 +5,7 @@
 10 verify
 10 begin p0 150ms in=0 at=2027-01-15T08:00:00.010Z room
 10 reveal p0 room at=2027-01-15T08:00:00.010Z
-10..10 frames TR_0 x15
+10 frames TR_0 x15
 50 published p0 -> CONFLICT
 50 reveal -> CONFLICT
 50 clear TR_0 queued=110
@@ -14,7 +14,8 @@
 90 begin -> Error
 190 begin p1 410ms in=0 at=2027-01-15T08:00:00.050Z room
 190 reveal p1 room at=2027-01-15T08:00:00.190Z
-190..260 frames TR_0 x38
+190 frames TR_0 x31
+200..260 frames TR_0 x7 every 10ms
 270 published p1 complete=false ended=true
 556 published p2 complete=false ended=true
 556 published p3 complete=false ended=true

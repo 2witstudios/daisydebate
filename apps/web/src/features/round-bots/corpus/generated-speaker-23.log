@@ -22,7 +22,7 @@
 0 begin id1 120ms in=0 at=2027-01-15T08:00:00.000Z room
 0 clear TR_0 queued=120
 0 verify
-0..0 frames TR_0 x12
+0 frames TR_0 x12
 50 tts "Three."
 50 settle tts "One."
 90 tts "Three." -> Error
@@ -51,13 +51,15 @@
 870 begin id14 260ms in=120 at=2027-01-15T08:00:00.990Z room
 870 reveal id12 room at=2027-01-15T08:00:00.870Z
 870 begin id16 80ms in=380 at=2027-01-15T08:00:01.250Z room
-870..940 frames TR_1 x38
+870 frames TR_1 x31
+880..940 frames TR_1 x7 every 10ms
 990 tts "Five."
 990 settle tts "Five."
 990 end id12 whole
 990 reveal id14 room at=2027-01-15T08:00:00.990Z
 990 begin id19 400ms in=340 at=2027-01-15T08:00:01.330Z room
-990..1020 frames TR_1 x8
+990 frames TR_1 x5
+1000..1020 frames TR_1 x3 every 10ms
 1198 peer barge-in peer
 1198 abandon answer 3
 1198 clear TR_1 queued=132

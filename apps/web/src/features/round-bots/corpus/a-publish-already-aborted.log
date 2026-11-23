@@ -8,4 +8,4 @@
 10 begin a 100ms in=0 at=2027-01-15T08:00:00.010Z room
 10 clear TR_0 queued=100
 10 close TR_0
-10..10 frames TR_0 x10
+10 frames TR_0 x10

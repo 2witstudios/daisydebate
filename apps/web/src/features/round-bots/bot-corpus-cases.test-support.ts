@@ -346,6 +346,28 @@ const publisherCases: readonly CorpusScript[] = [
     [{ start: true }, p('a', 100, { stopAtMs: 60_000 }), advance(500)],
     { join: [fail('lost', 100)] },
   ),
+  publisher(
+    'a native close that fails fails the claim close',
+    [...opened, p('a', 100), advance(500), { close: true }],
+    { leave: [fail('lost')] },
+  ),
+  publisher(
+    'a broken track is replaced and the claim waits for the replacement',
+    [
+      { start: true },
+      advance(10),
+      p('a', 100, { stopAtMs: 60_000, detach: true }),
+      advance(20),
+      { close: true },
+    ],
+    { unusable: [0], leave: [slow(300)], join: [ok, slow(200)] },
+  ),
+  // The old closure wrote this phrase into the closed track (ISSUE-1529).
+  publisher(
+    'a start granted after the claim closed plays nothing',
+    [...opened, p('a', 100, { detach: true }), { close: true }, advance(500)],
+    { begin: [slow(200)] },
+  ),
 ];
 
 const speaker = (
@@ -769,10 +791,15 @@ export function generatedSpeaker(
     () => ended,
     () => spoke,
     () => bargeIn,
-    ...(replays ? [(): SpeakerStep => ({ ...ended, replay: true })] : []),
   ];
+  // A turn's end can be reported again only once it was reported at all.
+  const replay = (): SpeakerStep => ({ ...ended, replay: true });
   for (let index = 0; index < 6 + draw(10); index++) {
-    const move = moves[draw(segment === 'speech' ? 2 : moves.length)]!();
+    const turnEnded = steps.some(
+      (step) => 'peer' in step && step.peer === 'end-of-turn',
+    );
+    const offered = replays && turnEnded ? [...moves, replay] : moves;
+    const move = offered[draw(segment === 'speech' ? 2 : offered.length)]!();
     steps.push(move);
     // The seat's pulse follows what its hearing reports, as it does live.
     if ('peer' in move && draw(3) > 0) steps.push(wake);

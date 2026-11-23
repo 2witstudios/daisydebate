@@ -200,6 +200,16 @@ if (import.meta.main) {
   try {
     const installed = run(['bun', 'install', '--frozen-lockfile'], scratch);
     if (!installed.ok) throw new Error(installed.output);
+    // Every net must pass unmutated, or a failure would read as a catch.
+    const files = netFiles(scratch);
+    for (const net of NETS) {
+      const baseline = run(
+        ['bun', 'test', ...files[net]],
+        resolve(scratch, 'apps/web'),
+      );
+      if (!baseline.ok)
+        throw new Error(`the ${net} fail unmutated:\n${baseline.output}`);
+    }
     console.log(`| Mutation | ${NETS.join(' | ')} |`);
     console.log(`|---|${NETS.map(() => '---').join('|')}|`);
     for (const mutation of chosen) {

@@ -13,7 +13,7 @@
 350 begin id1 120ms in=0 at=2027-01-15T08:00:00.350Z room
 350 begin id3 260ms in=120 at=2027-01-15T08:00:00.470Z room
 350 reveal id1 room at=2027-01-15T08:00:00.350Z
-350..350 frames TR_0 x12
+350 frames TR_0 x12
 430 reveal -> CONFLICT/platform-incident
 430 clear TR_0 queued=40
 430 end id1 cut 80ms ""
@@ -25,7 +25,7 @@
 630 reveal -> CONFLICT
 630 clear TR_0 queued=120
 630 end id6 cut 0ms ""
-630..630 frames TR_0 x12
+630 frames TR_0 x12
 1030 heard peer@1000
 1030 generate peer-turn peer@1000
 1030 generate -> lost

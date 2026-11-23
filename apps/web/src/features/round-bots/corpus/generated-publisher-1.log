@@ -5,17 +5,18 @@
 10 verify
 10 begin p0 420ms in=0 at=2027-01-15T08:00:00.010Z room
 10 reveal p0 room at=2027-01-15T08:00:00.010Z
-10..110 frames TR_0 x41
+10 frames TR_0 x31
+20..110 frames TR_0 x10 every 10ms
 120 published p0 complete=true ended=false
 120 begin p1 430ms in=310 at=2027-01-15T08:00:00.430Z room
-120..360 frames TR_0 x25
+120..360 frames TR_0 x25 every 10ms
 370 floor room
-370..370 frames TR_0 x1
+370 frames TR_0 x1
 374 abort p0
-380..420 frames TR_0 x5
+380..420 frames TR_0 x5 every 10ms
 430 end p0 whole
 430 reveal p1 room at=2027-01-15T08:00:00.430Z
-430..500 frames TR_0 x8
+430..500 frames TR_0 x8 every 10ms
 510 published p1 -> CONFLICT/bot-room-changed
 510 reveal -> CONFLICT/bot-room-changed
 510 clear TR_0 queued=300
@@ -26,7 +27,8 @@
 510 token
 510 join TR_1
 510 reveal p2 room at=2027-01-15T08:00:00.510Z
-510..540 frames TR_1 x34
+510 frames TR_1 x31
+520..540 frames TR_1 x3 every 10ms
 550 published p2 -> CONFLICT/platform-incident
 550 reveal -> CONFLICT/platform-incident
 550 clear TR_1 queued=300

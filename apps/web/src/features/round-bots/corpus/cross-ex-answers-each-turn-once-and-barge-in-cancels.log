@@ -16,7 +16,8 @@
 0 begin id3 260ms in=120 at=2027-01-15T08:00:00.120Z room
 0 reveal id1 room at=2027-01-15T08:00:00.000Z
 0 begin id5 80ms in=380 at=2027-01-15T08:00:00.380Z room
-0..70 frames TR_0 x38
+0 frames TR_0 x31
+10..70 frames TR_0 x7 every 10ms
 100 peer barge-in peer
 100 abandon answer 1
 100 clear TR_0 queued=280
@@ -38,20 +39,23 @@
 1100 begin id12 260ms in=120 at=2027-01-15T08:00:01.220Z room
 1100 reveal id10 room at=2027-01-15T08:00:01.100Z
 1100 begin id14 80ms in=380 at=2027-01-15T08:00:01.480Z room
-1100..1170 frames TR_0 x38
+1100 frames TR_0 x31
+1110..1170 frames TR_0 x7 every 10ms
 1220 end id10 whole
 1220 reveal id12 room at=2027-01-15T08:00:01.220Z
 1220 begin id16 400ms in=340 at=2027-01-15T08:00:01.560Z room
-1220..1250 frames TR_0 x8
+1220 frames TR_0 x5
+1230..1250 frames TR_0 x3 every 10ms
 1480 end id12 whole
 1480 reveal id14 room at=2027-01-15T08:00:01.480Z
-1480..1550 frames TR_0 x30
+1480 frames TR_0 x23
+1490..1550 frames TR_0 x7 every 10ms
 1560 end id14 whole
 1560 reveal id16 room at=2027-01-15T08:00:01.560Z
-1560..1640 frames TR_0 x9
+1560..1640 frames TR_0 x9 every 10ms
 1650 close answer 2
 1650 abandon answer 2
-1650..1650 frames TR_0 x1
+1650 frames TR_0 x1
 1960 end id16 whole
 4100 peer end-of-turn peer
 4100 heard peer@2000
@@ -70,19 +74,22 @@
 4100 begin id20 260ms in=120 at=2027-01-15T08:00:04.220Z room
 4100 reveal id18 room at=2027-01-15T08:00:04.100Z
 4100 begin id22 80ms in=380 at=2027-01-15T08:00:04.480Z room
-4100..4170 frames TR_0 x38
+4100 frames TR_0 x31
+4110..4170 frames TR_0 x7 every 10ms
 4220 end id18 whole
 4220 reveal id20 room at=2027-01-15T08:00:04.220Z
 4220 begin id24 400ms in=340 at=2027-01-15T08:00:04.560Z room
-4220..4250 frames TR_0 x8
+4220 frames TR_0 x5
+4230..4250 frames TR_0 x3 every 10ms
 4480 end id20 whole
 4480 reveal id22 room at=2027-01-15T08:00:04.480Z
-4480..4550 frames TR_0 x30
+4480 frames TR_0 x23
+4490..4550 frames TR_0 x7 every 10ms
 4560 end id22 whole
 4560 reveal id24 room at=2027-01-15T08:00:04.560Z
-4560..4640 frames TR_0 x9
+4560..4640 frames TR_0 x9 every 10ms
 4650 close answer 3
 4650 abandon answer 3
-4650..4650 frames TR_0 x1
+4650 frames TR_0 x1
 4960 end id24 whole
 7100 close TR_0

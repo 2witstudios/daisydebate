@@ -35,10 +35,12 @@
 2663 begin id11 260ms in=120 at=2027-01-15T08:00:02.783Z room
 2663 reveal id9 room at=2027-01-15T08:00:02.663Z
 2663 begin id13 80ms in=380 at=2027-01-15T08:00:03.043Z room
-2663..2733 frames TR_0 x38
+2663 frames TR_0 x31
+2673..2733 frames TR_0 x7 every 10ms
 2783 end id9 whole
 2783 reveal id11 room at=2027-01-15T08:00:02.783Z
-2783..2813 frames TR_0 x8
+2783 frames TR_0 x5
+2793..2813 frames TR_0 x3 every 10ms
 3043 failed generate Error
 3043 close answer 3
 3043 abandon answer 3
@@ -58,10 +60,12 @@
 11043 begin id18 260ms in=120 at=2027-01-15T08:00:11.163Z room
 11043 reveal id16 room at=2027-01-15T08:00:11.043Z
 11043 begin id20 80ms in=380 at=2027-01-15T08:00:11.423Z room
-11043..11113 frames TR_0 x38
+11043 frames TR_0 x31
+11053..11113 frames TR_0 x7 every 10ms
 11163 end id16 whole
 11163 reveal id18 room at=2027-01-15T08:00:11.163Z
-11163..11193 frames TR_0 x8
+11163 frames TR_0 x5
+11173..11193 frames TR_0 x3 every 10ms
 11423 failed generate Error
 11423 close answer 4
 11423 abandon answer 4

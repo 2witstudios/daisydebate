@@ -10,7 +10,7 @@
 0 join TR_0
 0 begin id1 120ms in=0 at=2027-01-15T08:00:00.000Z room
 0 reveal id1 room at=2027-01-15T08:00:00.000Z
-0..0 frames TR_0 x12
+0 frames TR_0 x12
 120 end id1 whole
 390 peer speech-start peer
 1390 peer end-of-turn peer
@@ -24,6 +24,6 @@
 1390 verify
 1390 begin id4 120ms in=0 at=2027-01-15T08:00:01.390Z room
 1390 reveal id4 room at=2027-01-15T08:00:01.390Z
-1390..1390 frames TR_0 x12
+1390 frames TR_0 x12
 1510 end id4 whole
 4390 close TR_0

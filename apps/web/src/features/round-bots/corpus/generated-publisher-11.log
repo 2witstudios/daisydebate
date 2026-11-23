@@ -5,41 +5,43 @@
 10 verify
 10 begin p0 260ms in=0 at=2027-01-15T08:00:00.010Z room
 10 reveal p0 room at=2027-01-15T08:00:00.010Z
-10..10 frames TR_0 x26
+10 frames TR_0 x26
 110 published p0 complete=true ended=false
 110 published p1 complete=true ended=false
 110 clear TR_0 queued=160
 110 begin p1 130ms in=160 at=2027-01-15T08:00:00.270Z room
 110 reveal p1 room at=2027-01-15T08:00:00.110Z
-110..110 frames TR_0 x13
+110 frames TR_0 x13
 187 begin p2 430ms in=53 at=2027-01-15T08:00:00.240Z room
-187..230 frames TR_0 x30
+187 frames TR_0 x25
+190..230 frames TR_0 x5 every 10ms
 240 reveal p2 room at=2027-01-15T08:00:00.240Z
-240..260 frames TR_0 x3
+240..260 frames TR_0 x3 every 10ms
 270 end p0 cut 100ms "one two three"
-270..350 frames TR_0 x9
+270..350 frames TR_0 x9 every 10ms
 360 published p2 complete=true ended=false
 360 begin p3 280ms in=310 at=2027-01-15T08:00:00.670Z room
-360..460 frames TR_0 x11
+360..460 frames TR_0 x11 every 10ms
 470 end p1 whole
-470..600 frames TR_0 x14
+470..600 frames TR_0 x14 every 10ms
 610 floor room
-610..640 frames TR_0 x4
+610..640 frames TR_0 x4 every 10ms
 670 published p3 complete=true ended=false
 670 reveal p3 room at=2027-01-15T08:00:00.670Z
 670 begin p4 350ms in=280 at=2027-01-15T08:00:00.950Z room
 670 end p2 whole
-670..700 frames TR_0 x6
+670 frames TR_0 x3
+680..700 frames TR_0 x3 every 10ms
 710 end -> Error
-710..800 frames TR_0 x10
+710..800 frames TR_0 x10 every 10ms
 810 end p2 whole
-810..910 frames TR_0 x11
+810..910 frames TR_0 x11 every 10ms
 920 floor room
-920..940 frames TR_0 x3
+920..940 frames TR_0 x3 every 10ms
 950 reveal p4 room at=2027-01-15T08:00:00.950Z
-950..980 frames TR_0 x4
+950..980 frames TR_0 x4 every 10ms
 990 published p4 complete=true ended=false
-990..990 frames TR_0 x1
+990 frames TR_0 x1
 1025 query audible=true p0:closed p1:closed p2:closed p3:open p4:open
 1025 clear TR_0 queued=275
 1055 abort p4

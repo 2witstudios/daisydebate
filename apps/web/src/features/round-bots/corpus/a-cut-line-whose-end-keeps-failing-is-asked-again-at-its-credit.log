@@ -5,9 +5,10 @@
 10 verify
 10 begin a 1000ms in=0 at=2027-01-15T08:00:00.010Z room
 10 reveal a room at=2027-01-15T08:00:00.010Z
-10..250 frames TR_0 x55
+10 frames TR_0 x31
+20..250 frames TR_0 x24 every 10ms
 260 floor room
-260..400 frames TR_0 x15
+260..400 frames TR_0 x15 every 10ms
 410 abort a
 410 clear TR_0 queued=300
 410 end a cut 400ms "one two three four"
@@ -21,6 +22,6 @@
 1210 begin b 100ms in=0 at=2027-01-15T08:00:01.210Z room
 1210 end a cut 400ms "one two three four"
 1210 reveal b room at=2027-01-15T08:00:01.210Z
-1210..1210 frames TR_0 x10
+1210 frames TR_0 x10
 1310 end b whole
 1710 close TR_0

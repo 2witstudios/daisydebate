@@ -35,13 +35,14 @@
 2895 begin id7 120ms in=0 at=2027-01-15T08:00:02.715Z room
 2895 begin id10 260ms in=120 at=2027-01-15T08:00:03.015Z room
 2895 reveal id7 room at=2027-01-15T08:00:02.895Z
-2895..2965 frames TR_0 x38
+2895 frames TR_0 x31
+2905..2965 frames TR_0 x7 every 10ms
 3015 end id7 whole
 3015 reveal id10 room at=2027-01-15T08:00:03.015Z
 3137 tts "Three."
 3137 settle tts "Three."
 3137 begin id12 80ms in=138 at=2027-01-15T08:00:03.275Z room
-3165..3165 frames TR_0 x8
+3165 frames TR_0 x8
 3275 failed generate Error
 3275 close answer 3
 3275 abandon answer 3
@@ -56,13 +57,13 @@
 11375 verify
 11375 begin id14 120ms in=0 at=2027-01-15T08:00:11.375Z room
 11375 reveal id14 room at=2027-01-15T08:00:11.375Z
-11375..11375 frames TR_0 x12
+11375 frames TR_0 x12
 11495 end id14 whole
 11536 tts "Two."
 11536 settle tts "Two."
 11536 begin id16 260ms in=0 at=2027-01-15T08:00:11.536Z room
 11536 reveal id16 room at=2027-01-15T08:00:11.536Z
-11536..11536 frames TR_0 x26
+11536 frames TR_0 x26
 11796 end id16 whole
 11797 tts "Three."
 11797 settle tts "Three."
@@ -71,6 +72,6 @@
 11797 abandon answer 4
 11797 begin id18 80ms in=0 at=2027-01-15T08:00:11.797Z room
 11797 reveal id18 room at=2027-01-15T08:00:11.797Z
-11797..11797 frames TR_0 x8
+11797 frames TR_0 x8
 11877 end id18 whole
 12415 close TR_0

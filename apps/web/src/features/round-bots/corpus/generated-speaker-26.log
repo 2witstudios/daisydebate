@@ -16,7 +16,8 @@
 2259 begin id1 120ms in=0 at=2027-01-15T08:00:02.259Z room
 2259 begin id3 260ms in=120 at=2027-01-15T08:00:02.379Z room
 2259 reveal id1 room at=2027-01-15T08:00:02.259Z
-2259..2329 frames TR_0 x38
+2259 frames TR_0 x31
+2269..2329 frames TR_0 x7 every 10ms
 2379 close answer 2
 2379 abandon answer 2
 2379 end id1 whole

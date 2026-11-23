@@ -6,6 +6,6 @@
 10 verify
 10 begin a 110ms in=0 at=2027-01-15T08:00:00.010Z room
 10 reveal a room at=2027-01-15T08:00:00.010Z
-10..10 frames TR_0 x11
+10 frames TR_0 x11
 120 end a whole
 510 close TR_0

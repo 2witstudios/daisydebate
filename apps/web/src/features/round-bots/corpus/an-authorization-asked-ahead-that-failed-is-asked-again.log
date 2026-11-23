@@ -5,17 +5,18 @@
 10 verify
 10 begin a 400ms in=0 at=2027-01-15T08:00:00.010Z room
 10 reveal a room at=2027-01-15T08:00:00.010Z
-10..90 frames TR_0 x39
+10 frames TR_0 x31
+20..90 frames TR_0 x8 every 10ms
 100 published a complete=true ended=false
 100 begin b 100ms in=310 at=2027-01-15T08:00:00.410Z room
 100 begin -> Error
-100..100 frames TR_0 x1
+100 frames TR_0 x1
 200 begin b 100ms in=310 at=2027-01-15T08:00:00.410Z room
 200 begin -> Error
 400 begin b 100ms in=310 at=2027-01-15T08:00:00.410Z room
 400 begin -> Error
 400 begin b 100ms in=10 at=2027-01-15T08:00:00.410Z room
-400..400 frames TR_0 x10
+400 frames TR_0 x10
 410 published b complete=true ended=false
 410 end a whole
 410 reveal b room at=2027-01-15T08:00:00.410Z

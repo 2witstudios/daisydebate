@@ -5,7 +5,8 @@
 10 verify
 10 begin p0 540ms in=0 at=2027-01-15T08:00:00.010Z room
 10 reveal p0 room at=2027-01-15T08:00:00.010Z
-10..230 frames TR_0 x53
+10 frames TR_0 x31
+20..230 frames TR_0 x22 every 10ms
 240 published p0 complete=true ended=false
 240 published p1 -> CONFLICT
 240 clear TR_0 queued=310
@@ -13,7 +14,7 @@
 240 begin -> CONFLICT
 240 begin p2 90ms in=310 at=2027-01-15T08:00:00.550Z room
 240 reveal p2 room at=2027-01-15T08:00:00.240Z
-240..240 frames TR_0 x10
+240 frames TR_0 x10
 320 reveal -> CONFLICT/platform-incident
 320 clear TR_0 queued=10
 320 end p2 cut 80ms "one two three four five six seven eight"

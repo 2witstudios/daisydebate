@@ -8,7 +8,7 @@
 0 join TR_0
 0 begin id1 120ms in=0 at=2027-01-15T08:00:00.000Z room
 0 reveal id1 room at=2027-01-15T08:00:00.000Z
-0..0 frames TR_0 x12
+0 frames TR_0 x12
 50 abandon answer 1
 50 stopped
 50 clear TR_0 queued=70

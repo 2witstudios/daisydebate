@@ -37,13 +37,13 @@ const readCase = (file: string): string | null => {
 describe('the bot corpus (R4.3)', () => {
   test('holds exactly the scripted rounds', async () => {
     if (updating) {
+      // Every log is recorded before the committed ones are replaced.
+      const logs: [string, string][] = [];
+      for (const script of scripts)
+        logs.push([fileOf(script.name), await recordCorpus(script)]);
       rmSync(root, { recursive: true, force: true });
       mkdirSync(root, { recursive: true });
-      for (const script of scripts)
-        writeFileSync(
-          join(root, fileOf(script.name)),
-          await recordCorpus(script),
-        );
+      for (const [file, log] of logs) writeFileSync(join(root, file), log);
     }
     assert({
       given: 'the corpus folder',

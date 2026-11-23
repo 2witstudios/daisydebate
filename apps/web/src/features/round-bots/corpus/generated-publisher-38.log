@@ -5,10 +5,11 @@
 10 verify
 10 begin p0 360ms in=0 at=2027-01-15T08:00:00.010Z room
 360 reveal p0 room at=2027-01-15T08:00:00.360Z
-360..400 frames TR_0 x35
+360 frames TR_0 x31
+370..400 frames TR_0 x4 every 10ms
 410 published p0 complete=true ended=false
 410 begin p1 160ms in=310 at=2027-01-15T08:00:00.720Z room
-410..410 frames TR_0 x1
+410 frames TR_0 x1
 490 published p1 -> CONFLICT/bot-room-changed
 490 begin -> CONFLICT/bot-room-changed
 720 end p0 whole
@@ -18,7 +19,8 @@
 878 join TR_1
 878 begin p2 540ms in=0 at=2027-01-15T08:00:00.878Z room
 878 reveal p2 room at=2027-01-15T08:00:00.878Z
-878..908 frames TR_1 x34
+878 frames TR_1 x31
+888..908 frames TR_1 x3 every 10ms
 918 published p2 -> CONFLICT/bot-room-changed
 918 query audible=false p0:closed p1:open p2:closed
 918 reveal -> CONFLICT/bot-room-changed

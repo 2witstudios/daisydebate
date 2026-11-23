@@ -6,12 +6,12 @@
 10 verify
 10 begin a 100ms in=0 at=2027-01-15T08:00:00.010Z room
 10 reveal a room at=2027-01-15T08:00:00.010Z
-10..10 frames TR_0 x10
+10 frames TR_0 x10
 110 end a whole
 110 end -> CONFLICT
 510 published b complete=true ended=false
 510 begin b 100ms in=0 at=2027-01-15T08:00:00.510Z room
 510 reveal b room at=2027-01-15T08:00:00.510Z
-510..510 frames TR_0 x10
+510 frames TR_0 x10
 610 end b whole
 1010 close TR_0

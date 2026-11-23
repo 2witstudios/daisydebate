@@ -13,5 +13,5 @@
 2618 join TR_0
 2618 begin id1 120ms in=0 at=2027-01-15T08:00:02.618Z room
 2618 clear TR_0 queued=120
-2618..2618 frames TR_0 x12
+2618 frames TR_0 x12
 12618 close TR_0

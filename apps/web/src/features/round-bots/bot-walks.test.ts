@@ -56,9 +56,11 @@ function oneEndPerLine(facts: Facts): string[] {
 /** A line's end never credits more than the audio handed over for it. */
 function creditWithinHandoff(facts: Facts): string[] {
   return of(facts, 'end').flatMap((end) => {
+    // Only the audio handed over before the line's end counts towards it.
     const handedMs =
-      of(facts, 'frame').filter((frame) => frame.phraseId === end.phraseId)
-        .length * 10;
+      of(facts.slice(0, facts.indexOf(end)), 'frame').filter(
+        (frame) => frame.phraseId === end.phraseId,
+      ).length * 10;
     const durationMs =
       of(facts, 'publish').find((asked) => asked.phraseId === end.phraseId)
         ?.durationMs ?? 0;
@@ -91,7 +93,9 @@ function nothingAfterClaimEnd(facts: Facts): string[] {
   if (closed < 0) return [];
   return facts
     .slice(closed)
-    .filter((fact) => ['begin', 'reveal', 'frame'].includes(fact.kind))
+    .filter((fact) =>
+      ['begin', 'reveal', 'frame', 'join-asked'].includes(fact.kind),
+    )
     .map((fact) => `${fact.kind} at ${fact.at} after the claim ended`);
 }
 
@@ -179,6 +183,8 @@ function quietOverPeers(facts: Facts): string[] {
   const midTurn = new Set<string>();
   const problems: string[] = [];
   for (const fact of facts) {
+    // An end reported again is taken as the end of the peer's speech, as the
+    // duty takes it today; that it should not be is ISSUE-1533.
     if (fact.kind === 'peer')
       if (fact.event === 'end-of-turn') midTurn.delete(fact.peer);
       else midTurn.add(fact.peer);
@@ -202,7 +208,24 @@ function silentAfterOver(facts: Facts): string[] {
         fact.kind === 'publish' ||
         (fact.kind === 'begin' && facts[over]?.kind === 'stop'),
     )
-    .map((fact) => `${fact.kind} at ${fact.at} after the speech was over`);
+    .map((fact) => `${fact.kind} at ${fact.at} after the speech was over`)
+    .concat(voicedAfterStop(facts));
+}
+
+/**
+ * No voice asked after the claim stopped is bought. One asked then goes out
+ * under the turn's aborted signal and is refused before it reaches the
+ * provider, so it costs nothing; one asked before the stop may still land.
+ */
+function voicedAfterStop(facts: Facts): string[] {
+  const stop = facts.findIndex((fact) => fact.kind === 'stop');
+  if (stop < 0) return [];
+  const asked = new Set(
+    of(facts.slice(stop), 'tts-asked').map(({ text }) => text),
+  );
+  return of(facts.slice(stop), 'tts')
+    .filter(({ ok, text }) => ok && asked.has(text))
+    .map(({ text, at }) => `"${text}" voiced at ${at} after the claim stopped`);
 }
 
 const speakerProperties = [
@@ -284,7 +307,15 @@ function repeatedTurns(draw: Draw): CorpusScript {
     if (draw(3) === 0) steps.push({ peer: 'speech-start' });
     steps.push({ advance: draw(3000) });
   }
-  steps.push({ advance: 5000 });
+  // The last turn is left to finish, then reported again: it is owed one answer.
+  steps.push(
+    { peer: 'end-of-turn' },
+    { wake: true },
+    { advance: 5000 },
+    { peer: 'end-of-turn', replay: true },
+    { wake: true },
+    { advance: 5000 },
+  );
   const phrases = PLACES.slice(0, 1 + draw(3)).map((text) => ({
     text,
     ms: (1 + draw(40)) * 10,
@@ -297,6 +328,21 @@ function repeatedTurns(draw: Draw): CorpusScript {
     answers: [{ phrases, ...(draw(2) === 0 ? { delayMs: draw(400) } : {}) }],
     steps,
   };
+}
+
+/** The last turn, left to finish, is bought and said exactly once. */
+function lastTurnAnswered(facts: Facts): string[] {
+  const ends = of(facts, 'peer').filter(
+    (fact) => fact.event === 'end-of-turn' && !fact.replay,
+  ).length;
+  const to = `peer@${ends * 1000}`;
+  const bought = of(facts, 'generate').filter((f) => f.ok && f.to === to);
+  const said = of(facts, 'delivered').filter((f) => f.to === to);
+  return bought.length === 1 && said.length === 1
+    ? []
+    : [
+        `the last turn ${to} was bought ${bought.length} and said ${said.length} times`,
+      ];
 }
 
 /** With nothing failing, each peer turn is bought one answer at most. */
@@ -375,12 +421,13 @@ describe('the bot’s generated walks (R4.3)', () => {
     assert({
       given: `a respondent's peer turns reported again at any moment, over seeds ${SEEDS.join(', ')}`,
       should:
-        'buy and say one answer per turn, never over the peer, and leave no wait',
+        'buy and say one answer per turn, the last one exactly once, never over the peer, and leave no wait',
       actual: await holds(
         walk(repeatedTurns, [
           ...speakerProperties,
           quietOverPeers,
           boughtOncePerTurn,
+          lastTurnAnswered,
         ]),
       ),
       expected: [],

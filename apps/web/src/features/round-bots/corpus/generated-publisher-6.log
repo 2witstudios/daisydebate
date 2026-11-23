@@ -12,12 +12,13 @@
 385 join TR_1
 385 begin p1 580ms in=0 at=2027-01-15T08:00:00.385Z room
 685 reveal p1 room at=2027-01-15T08:00:00.685Z
-685..925 frames TR_1 x55
+685 frames TR_1 x31
+695..925 frames TR_1 x24 every 10ms
 935 floor room
-935..945 frames TR_1 x2
+935..945 frames TR_1 x2 every 10ms
 955 published p1 complete=true ended=false
 955 clear TR_1 queued=310
-955..955 frames TR_1 x1
+955 frames TR_1 x1
 1015 floor -> CONFLICT/bot-room-changed
 1192 close TR_1
 1192 verify
@@ -31,4 +32,4 @@
 1242 end p1 cut 270ms "one two three four"
 1242 end p2 cut 0ms ""
 1242 close TR_2
-1242..1242 frames TR_2 x15
+1242 frames TR_2 x15

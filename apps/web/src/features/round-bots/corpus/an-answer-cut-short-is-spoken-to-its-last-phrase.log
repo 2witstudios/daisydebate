@@ -8,11 +8,11 @@
 0 join TR_0
 0 begin id1 120ms in=0 at=2027-01-15T08:00:00.000Z room
 0 reveal id1 room at=2027-01-15T08:00:00.000Z
-0..0 frames TR_0 x12
+0 frames TR_0 x12
 100 tts "Two."
 100 settle tts "Two."
 100 begin id4 260ms in=20 at=2027-01-15T08:00:00.120Z room
-100..100 frames TR_0 x26
+100 frames TR_0 x26
 120 failed generate Error
 120 close answer 1
 120 abandon answer 1

@@ -31,7 +31,7 @@
 1707 begin id3 260ms in=120 at=2027-01-15T08:00:01.827Z room
 1707 begin -> CONFLICT
 1707 reveal id7 room at=2027-01-15T08:00:01.707Z
-1707..1707 frames TR_0 x12
+1707 frames TR_0 x12
 1827 end id7 whole
 1907 heard peer@2000
 1907 generate peer-turn peer@2000
@@ -48,10 +48,11 @@
 1907 end -> CONFLICT/platform-incident
 1907 reveal id10 room at=2027-01-15T08:00:01.907Z
 1907 begin id14 80ms in=380 at=2027-01-15T08:00:02.287Z room
-1907..1977 frames TR_0 x38
+1907 frames TR_0 x31
+1917..1977 frames TR_0 x7 every 10ms
 2027 end id10 whole
 2027 reveal id12 room at=2027-01-15T08:00:02.027Z
-2027..2027 frames TR_0 x5
+2027 frames TR_0 x5
 2029 peer barge-in peer
 2029 abandon answer 4
 2029 peer barge-in peer

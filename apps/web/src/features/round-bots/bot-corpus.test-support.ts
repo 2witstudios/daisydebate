@@ -4,6 +4,7 @@ import { refuseCapacity, refuseFinalSpeech } from '@daisy/db/testing';
 import { createPhraseSource } from './phrase-source';
 import { createBotPublisher, type BotSpeechJob } from './publication';
 import { createBotSpeaker } from './speaker';
+import { scope } from './bot-scope.test-support';
 
 /**
  * The bot corpus (R4.3 net first): a scripted round drives the real speaker
@@ -43,6 +44,10 @@ type Store = {
   readonly floor?: readonly Reply[];
   readonly verify?: readonly Reply[];
   readonly join?: readonly Reply[];
+  /** Each native track's close, in turn: it may take time or fail. */
+  readonly leave?: readonly Reply[];
+  /** Tracks, counted from 0, that report themselves unusable once joined. */
+  readonly unusable?: readonly number[];
   /** Handoffs that fail, counted from 0 over the claim. */
   readonly failFrames?: readonly number[];
   /** The segment's due instant, in virtual ms. */
@@ -164,8 +169,12 @@ type FactBody =
       readonly kind: 'peer';
       readonly peer: string;
       readonly event: 'speech-start' | 'barge-in' | 'end-of-turn';
+      /** An end the hearing reported again: it belongs to an earlier turn. */
+      readonly replay: boolean;
     }
-  | { readonly kind: 'close' | 'stop' | 'final' };
+  | { readonly kind: 'close' | 'stop' | 'final' | 'join-asked' }
+  /** A voice asked for, before its answer. */
+  | { readonly kind: 'tts-asked'; readonly text: string };
 type Note = (body: FactBody) => void;
 
 /** Runs one script and returns its log, one line per call across the edge. */
@@ -287,17 +296,20 @@ export async function traceCorpus(script: CorpusScript): Promise<{
         }),
     } as never,
     botToken: async () => {
+      note({ kind: 'join-asked' });
       log('token');
       return { url: 'ws://media.test', token: 'grant', roomName: `room` };
     },
     connect: (async () => {
-      const track = `TR_${joins++}`;
+      const index = joins++;
+      const track = `TR_${index}`;
       log(`join ${track}`);
       await reply('join', store.join);
       let closed = false;
+      const broken = store.unusable?.includes(index) ?? false;
       return {
         trackSid: track,
-        usable: () => !closed,
+        usable: () => !closed && !broken,
         sentSamples: () => handoffs * 240,
         capture10ms: async () => {
           const frame = handoffs;
@@ -321,6 +333,10 @@ export async function traceCorpus(script: CorpusScript): Promise<{
         close: async () => {
           closed = true;
           log(`close ${track}`);
+          await reply('leave', store.leave).catch((error: unknown) => {
+            log(`close ${track} -> ${describeError(error)}`);
+            throw error;
+          });
           return { consumedSamples: 0 };
         },
       };
@@ -395,25 +411,39 @@ function logText(lines: readonly Line[]): string {
         a.index - b.index,
     )
     .map(({ line }) => line);
+  // A burst is one instant's frames; a paced run is one frame every 10 ms.
+  type Burst = { track: string; at: number; count: number };
   type Run = { track: string; from: number; to: number; count: number };
   const out: string[] = [];
-  const runs: Run[] = [];
+  const pending: (Burst | Run)[] = [];
   const flush = () => {
-    for (const run of runs.splice(0))
-      out.push(`${run.from}..${run.to} frames ${run.track} x${run.count}`);
+    for (const entry of pending.splice(0))
+      out.push(
+        'at' in entry
+          ? `${entry.at} frames ${entry.track} x${entry.count}`
+          : `${entry.from}..${entry.to} frames ${entry.track} x${entry.count} every 10ms`,
+      );
   };
   for (const line of ordered) {
-    const run = runs[0];
+    const last = pending.at(-1);
     if (line.frame === undefined) {
       flush();
       out.push(`${line.at} ${line.text}`);
-    } else if (run?.track === line.frame && run.to + 10 >= line.at) {
-      run.count += 1;
-      run.to = line.at;
-    } else {
+    } else if (last?.track !== line.frame) {
       flush();
-      runs.push({ track: line.frame, from: line.at, to: line.at, count: 1 });
-    }
+      pending.push({ track: line.frame, at: line.at, count: 1 });
+    } else if ('at' in last && last.at === line.at) last.count += 1;
+    else if ('at' in last && last.count === 1 && last.at + 10 === line.at)
+      pending[pending.length - 1] = {
+        track: line.frame,
+        from: last.at,
+        to: line.at,
+        count: 2,
+      };
+    else if (!('at' in last) && last.to + 10 === line.at) {
+      last.count += 1;
+      last.to = line.at;
+    } else pending.push({ track: line.frame, at: line.at, count: 1 });
   }
   flush();
   return `${out.join('\n')}\n`;
@@ -431,12 +461,7 @@ const stubWait = async (clock: Clock, wait: Promise<void>) => {
   }
 };
 type Log = (line: string) => void;
-const scopeOf = () =>
-  ({
-    roundId: 'round',
-    roundParticipantId: 'seat',
-    segmentId: 'segment',
-  }) as BotSpeechJob['scope'];
+const scopeOf = (): BotSpeechJob['scope'] => scope;
 const jobOf = (phraseId: string, text: string, ms: number): BotSpeechJob => ({
   scope: scopeOf(),
   token: 't',
@@ -447,6 +472,14 @@ const jobOf = (phraseId: string, text: string, ms: number): BotSpeechJob => ({
   channels: 1,
 });
 const WORDS = 'one two three four five six seven eight nine ten';
+/** Ends the claim, logging that it closed (when asked to) or why it could not. */
+const closeClaim = (claim: Claim, clock: Clock, log: Log, logged: boolean) =>
+  clock.run(
+    claim.close().then(
+      () => (logged ? log('closed') : undefined),
+      (error: unknown) => log(`closed -> ${describeError(error)}`),
+    ),
+  );
 /** Long enough for every wait the bot can arm to come due. */
 const DRAIN_MS = 30_000;
 
@@ -499,10 +532,8 @@ async function runPublisher(
       claim.writeAhead(jobOf(step.writeAhead, WORDS, step.ms));
     } else if ('silence' in step) claim.silence();
     else if ('discard' in step) claim.discard();
-    else if ('close' in step) {
-      await clock.run(claim.close());
-      log('closed');
-    } else
+    else if ('close' in step) await closeClaim(claim, clock, log, true);
+    else
       log(
         `query audible=${claim.audible()} ${[...seen]
           .map(
@@ -513,7 +544,7 @@ async function runPublisher(
       );
   }
   await clock.run(Promise.all(pending));
-  await clock.run(claim.close());
+  await closeClaim(claim, clock, log, false);
   const left = clock.sleepers() - clock.stubbed;
   await clock.advance(DRAIN_MS);
   return left;
@@ -547,6 +578,11 @@ async function runSpeaker(
       );
       if (answer?.delayMs)
         await stubWait(clock, clock.sleep(answer.delayMs, signal));
+      // A provider call stopped by the turn's abort answers nothing, as live.
+      if (signal.aborted) {
+        log('generate -> stopped');
+        throw createAppError('CONFLICT', 'aborted');
+      }
       note({ kind: 'generate', to: turn, ok: !answer?.fail });
       if (answer?.fail) {
         log(`generate -> ${answer.fail}`);
@@ -589,6 +625,7 @@ async function runSpeaker(
     waits: clock,
     synthesize: async (_scope, _token, phraseId, text, signal) => {
       log(`tts "${text}"`);
+      note({ kind: 'tts-asked', text });
       const ms =
         script.answers
           ?.flatMap((answer) => answer.phrases)
@@ -631,7 +668,7 @@ async function runSpeaker(
     } else {
       const peer = step.who ?? 'peer';
       log(`peer ${step.peer} ${peer}${step.replay ? ' again' : ''}`);
-      note({ kind: 'peer', peer, event: step.peer });
+      note({ kind: 'peer', peer, event: step.peer, replay: !!step.replay });
       speaker.peer(
         step.peer === 'end-of-turn'
           ? {
@@ -647,7 +684,7 @@ async function runSpeaker(
   }
   note({ kind: 'stop' });
   await clock.run(speaker.stop());
-  await clock.run(claim.close());
+  await closeClaim(claim, clock, log, false);
   const left = clock.sleepers() - clock.stubbed;
   await clock.advance(DRAIN_MS);
   return left;

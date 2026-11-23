@@ -16,7 +16,8 @@
 2070 begin id3 260ms in=120 at=2027-01-15T08:00:02.190Z room
 2070 reveal id1 room at=2027-01-15T08:00:02.070Z
 2070 begin id5 80ms in=380 at=2027-01-15T08:00:02.450Z room
-2070..2140 frames TR_0 x38
+2070 frames TR_0 x31
+2080..2140 frames TR_0 x7 every 10ms
 2190 end id1 whole
 2190 reveal id3 room at=2027-01-15T08:00:02.190Z
 2230 reveal -> CONFLICT/bot-room-changed
@@ -33,15 +34,17 @@
 2480 begin id5 80ms in=260 at=2027-01-15T08:00:02.740Z room
 2480 reveal id10 room at=2027-01-15T08:00:02.480Z
 2480 begin id8 400ms in=340 at=2027-01-15T08:00:02.820Z room
-2480..2510 frames TR_1 x34
+2480 frames TR_1 x31
+2490..2510 frames TR_1 x3 every 10ms
 2740 end id10 whole
 2740 reveal id5 room at=2027-01-15T08:00:02.740Z
 2740 begin id12 120ms in=480 at=2027-01-15T08:00:03.220Z room
-2740..2810 frames TR_1 x30
+2740 frames TR_1 x23
+2750..2810 frames TR_1 x7 every 10ms
 2820 reveal id8 room at=2027-01-15T08:00:02.820Z
-2820..2930 frames TR_1 x12
+2820..2930 frames TR_1 x12 every 10ms
 2940 end id5 whole
-2940..3030 frames TR_1 x10
+2940..3030 frames TR_1 x10 every 10ms
 3220 failed generate Error
 3220 close answer 1
 3220 abandon answer 1

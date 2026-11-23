@@ -7,7 +7,7 @@
 10 begin a 50ms in=0 at=2027-01-15T08:00:00.010Z room
 10 reveal a room at=2027-01-15T08:00:00.010Z
 10 begin b 50ms in=50 at=2027-01-15T08:00:00.060Z room
-10..10 frames TR_0 x10
+10 frames TR_0 x10
 60 published b complete=true ended=false
 60 end a whole
 60 reveal b room at=2027-01-15T08:00:00.060Z

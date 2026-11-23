@@ -28,7 +28,8 @@
 410 begin id6 120ms in=0 at=2027-01-15T08:00:00.410Z room
 410 begin id8 260ms in=120 at=2027-01-15T08:00:00.530Z room
 410 reveal id6 room at=2027-01-15T08:00:00.410Z
-410..480 frames TR_0 x38
+410 frames TR_0 x31
+420..480 frames TR_0 x7 every 10ms
 530 close answer 2
 530 abandon answer 2
 530 end id6 whole
