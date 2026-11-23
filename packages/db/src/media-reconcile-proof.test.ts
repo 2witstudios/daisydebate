@@ -1,5 +1,5 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { proofMatches } from './media-reconcile-contracts';
+import { proofMatches } from './media-reconcile-store';
 
 setupRitewayBun();
 
