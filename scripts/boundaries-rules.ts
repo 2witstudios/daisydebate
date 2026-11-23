@@ -43,7 +43,15 @@ export const allowedWorkspaceDependencies: Record<string, readonly string[]> = {
   // ADR 0099: the hold worker's only credential is its broadcasts role.
   'broadcast-worker': ['clock', 'db', 'debate-engine', 'logger', 'protocol'],
   // ADR 0112: publishes released facts; its role reads them and nothing else.
-  'audience-publisher': ['db', 'debate-engine', 'logger', 'protocol', 'redis'],
+  'audience-publisher': [
+    'clock',
+    'db',
+    'debate-engine',
+    'logger',
+    'protocol',
+    'redis',
+    'worker',
+  ],
   // ADR 0107: builds from the hold; its role reaches only its jobs.
   'recording-worker': ['clock', 'db', 'logger', 'protocol'],
   // ADR 0053: capture deployment discovers sessions read-only under

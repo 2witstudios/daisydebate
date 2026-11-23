@@ -24,6 +24,7 @@ COPY apps/web/package.json apps/web/package.json
 COPY packages/ai-voice/package.json packages/ai-voice/package.json
 COPY packages/auth/package.json packages/auth/package.json
 COPY packages/clock/package.json packages/clock/package.json
+COPY packages/worker/package.json packages/worker/package.json
 COPY packages/config/package.json packages/config/package.json
 COPY packages/db/package.json packages/db/package.json
 COPY packages/debate-engine/package.json packages/debate-engine/package.json
@@ -81,6 +82,7 @@ COPY apps/web/package.json apps/web/package.json
 COPY packages/ai-voice/package.json packages/ai-voice/package.json
 COPY packages/auth/package.json packages/auth/package.json
 COPY packages/clock/package.json packages/clock/package.json
+COPY packages/worker/package.json packages/worker/package.json
 COPY packages/config/package.json packages/config/package.json
 COPY packages/db/package.json packages/db/package.json
 COPY packages/debate-engine/package.json packages/debate-engine/package.json
@@ -125,6 +127,7 @@ RUN groupadd --system --gid 1001 daisy \
 COPY --from=prod-deps --chown=daisy:daisy /app /app
 COPY --chown=daisy:daisy packages/auth/src packages/auth/src
 COPY --chown=daisy:daisy packages/clock/src packages/clock/src
+COPY --chown=daisy:daisy packages/worker/src packages/worker/src
 COPY --chown=daisy:daisy packages/config/src packages/config/src
 COPY --chown=daisy:daisy packages/db/src packages/db/src
 # fly.migrate.toml's release_command runs the migration runner directly out

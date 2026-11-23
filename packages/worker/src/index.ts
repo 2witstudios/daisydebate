@@ -17,3 +17,4 @@ export {
   type LeaseLoss,
   type LeaseRenewal,
 } from './lease';
+export { stopAll, type Drain } from './shutdown';

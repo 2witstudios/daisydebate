@@ -34,6 +34,8 @@ export function repeatEvery(input: {
     throw new Error('Invalid repeat cadence');
   const { waits } = input;
   const stopping = new AbortController();
+  /** Read live: a stop lands while a run or a wait is pending. */
+  const stopped = () => stopping.signal.aborted;
   let current: Promise<void> | null = null;
   const runOnce = async () => {
     try {
@@ -44,7 +46,7 @@ export function repeatEvery(input: {
   };
   /** Starts `work` unless a run is going; resolves when it ends. */
   const claim = (work: () => Promise<void>): Promise<void> => {
-    if (current !== null || stopping.signal.aborted) return Promise.resolve();
+    if (current !== null || stopped()) return Promise.resolve();
     const going = work().finally(() => {
       current = null;
     });
@@ -55,14 +57,14 @@ export function repeatEvery(input: {
     ? claim(async () => {
         if (input.ready === undefined) return runOnce();
         const ready = await input.ready(stopping.signal).catch(() => false);
-        if (ready && !stopping.signal.aborted) await runOnce();
+        if (ready && !stopped()) await runOnce();
       })
     : undefined;
   const cadence = async () => {
     let dueMs = waits.nowMs() + input.everyMs;
-    while (!stopping.signal.aborted) {
+    while (!stopped()) {
       await waits.waitUntilMs(dueMs, stopping.signal);
-      if (stopping.signal.aborted) return;
+      if (stopped()) return;
       void claim(runOnce);
       // A process that slept through several runs makes up none of them.
       dueMs = Math.max(dueMs, waits.nowMs()) + input.everyMs;

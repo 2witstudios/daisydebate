@@ -64,7 +64,10 @@ export function pollWork(input: {
   const backoff = validateIdleBackoff(input.backoff);
   const { waits } = input;
   const stopping = new AbortController();
+  /** Read live: a wake or a stop changes these while the loop awaits. */
+  const stopped = () => stopping.signal.aborted;
   let phase: Phase = { kind: 'passing', woken: false };
+  const wokenDuringPass = () => phase.kind === 'passing' && phase.woken;
   let markStarted = () => {};
   const started = new Promise<void>((resolve) => {
     markStarted = resolve;
@@ -87,15 +90,15 @@ export function pollWork(input: {
   const loop = async () => {
     let waitMs: number | null = null;
     let first = true;
-    while (!stopping.signal.aborted) {
+    while (!stopped()) {
       const startedAt = waits.nowMs();
       phase = { kind: 'passing', woken: false };
       const pass = passOnce();
       if (first) void pass.then(markStarted);
       first = false;
       const outcome = await pass;
-      const woken = phase.kind === 'passing' && phase.woken;
-      if (stopping.signal.aborted) break;
+      const woken = wokenDuringPass();
+      if (stopped()) break;
       if (woken && outcome !== 'failed') {
         waitMs = null;
         await pace(startedAt);
@@ -112,7 +115,7 @@ export function pollWork(input: {
         waitMs,
         AbortSignal.any([stopping.signal, interrupt.signal]),
       );
-      if (interrupt.signal.aborted && !stopping.signal.aborted) {
+      if (interrupt.signal.aborted && !stopped()) {
         waitMs = null;
         await pace(startedAt);
       }

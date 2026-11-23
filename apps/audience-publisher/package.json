@@ -10,11 +10,13 @@
     "test:integration": "bun ../../scripts/test-integration.ts"
   },
   "dependencies": {
+    "@daisy/clock": "workspace:*",
     "@daisy/db": "workspace:*",
     "@daisy/debate-engine": "workspace:*",
     "@daisy/logger": "workspace:*",
     "@daisy/protocol": "workspace:*",
     "@daisy/redis": "workspace:*",
+    "@daisy/worker": "workspace:*",
     "zod": "4.6.6"
   },
   "devDependencies": {

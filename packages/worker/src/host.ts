@@ -3,8 +3,9 @@ import type { Waits } from '@daisy/clock';
 /**
  * The host's time, the one server module that touches its timers (R4.7;
  * `daisy-time/host-time` refuses them everywhere else). A process entry
- * passes it to the work it starts. A pending wait never holds the process
- * open, and an aborted wait clears its timer at once.
+ * passes it to the work it starts. A pending wait keeps the process alive,
+ * as a worker process's schedule must; stopping a worker aborts its waits,
+ * and an aborted wait clears its timer at once, so a stopped process exits.
  */
 const waitUntilMs = (dueMs: number, signal?: AbortSignal): Promise<void> =>
   new Promise<void>((resolve) => {
@@ -14,10 +15,7 @@ const waitUntilMs = (dueMs: number, signal?: AbortSignal): Promise<void> =>
       signal?.removeEventListener('abort', done);
       resolve();
     };
-    const timer = setTimeout(
-      done,
-      Math.max(0, dueMs - performance.now()),
-    ).unref();
+    const timer = setTimeout(done, Math.max(0, dueMs - performance.now()));
     signal?.addEventListener('abort', done, { once: true });
   });
 
