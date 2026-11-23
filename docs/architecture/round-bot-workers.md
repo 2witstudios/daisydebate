@@ -262,6 +262,16 @@ finish in time is never started, and the speech ends at its last whole
 phrase. A seat's takeover, and the freeze, close any line a lost worker left
 open to the words that could have played.
 
+Every decision above is made by one pure step, `stepPublisher`
+(`round-bots/model/publisher.ts`): what is authorized and when, what starts,
+where a phrase is cut and what its line is credited, the hard stop, which
+store calls are asked again (three attempts, 100 ms then 200 ms apart) and
+how a claim drains before it leaves. `publication.ts` only performs the
+effects it returns and reports each result as the next event
+([ADR 0920](../decisions/0920-bot-speech-machines.md)). The speaker
+(`round-bots/speaker.ts`) decides only from its speech state
+(`round-bots/model/speech-state.ts`).
+
 Each claim joins one native publication when its seat starts, ahead of
 generation and synthesis, and every attempt reuses it (DEC-225). A refused
 phrase start, a lost floor (`CONFLICT`), a full pool or provider budget and a
