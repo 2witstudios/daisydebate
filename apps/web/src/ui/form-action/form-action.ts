@@ -1,6 +1,6 @@
 'use client';
 
-import { useFormAnswer } from '../edge/use-form-answer';
+import { useAnswer } from '../edge/use-answer';
 import { useActionState } from 'react';
 
 /** A form's server action, as `useActionState` calls it. */
@@ -45,7 +45,7 @@ export function useFormAction<S>(
       : answerUnavailableOnThrow(action, unavailable),
     initial,
   );
-  useFormAnswer(result[0], onAnswer);
+  useAnswer(result[0], onAnswer);
   return result;
 }
 
