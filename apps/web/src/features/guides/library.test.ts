@@ -142,23 +142,25 @@ describe('the article graph', () => {
           (release) => release !== undefined,
         ),
       );
+    const blockedFor = (article: Article) => (href: string) => {
+      const path = href.split('#')[0];
+      const releases = releasesOf(article);
+      const target = articles.find((entry) => articleHref(entry) === path);
+      if (target) return !visibleArticle(target, releases);
+      const shelf = collections.find((entry) => collectionHref(entry) === path);
+      return (
+        shelf !== undefined &&
+        findCollection(shelf.home, shelf.slug, releases) === undefined
+      );
+    };
     assert({
-      given: 'every link from one article to another',
+      given: 'every link from one article to another article or a collection',
       should:
-        'reach an article visible wherever the linking article is, never one behind a release it does not share',
+        'reach a page visible wherever the linking article is, never one behind a release it does not share',
       actual: articles.flatMap((article) =>
         linksOf(article)
-          .map((href) =>
-            articles.find(
-              (target) => articleHref(target) === href.split('#')[0],
-            ),
-          )
-          .filter(
-            (target): target is Article =>
-              target !== undefined &&
-              !visibleArticle(target, releasesOf(article)),
-          )
-          .map((target) => `${articleRef(article)} → ${articleRef(target)}`),
+          .filter(blockedFor(article))
+          .map((href) => `${articleRef(article)} → ${href}`),
       ),
       expected: [],
     });
