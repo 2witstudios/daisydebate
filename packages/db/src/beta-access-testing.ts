@@ -1,7 +1,7 @@
 import { betaAccessStates } from '@daisy/protocol/beta-access';
 import { mailJobStates } from './schema/columns';
 import { mailIntentPurposes } from './schema/mail-intents';
-import { listedWord } from './lifecycle-sql';
+import { listedValue } from './lifecycle-sql';
 import type { SQL } from 'bun';
 
 /**
@@ -18,9 +18,9 @@ export async function removeUnowedBetaDigests(sql: SQL): Promise<void> {
     await sql`select to_regclass('public.mail_intents') is not null as present`;
   if (!present?.present) return;
   await sql`delete from mail_intents m
-    where m.purpose = ${listedWord(mailIntentPurposes, 'beta-requests-digest')} and m.state = ${listedWord(mailJobStates, 'queued')}
+    where m.purpose = ${listedValue(mailIntentPurposes, 'beta-requests-digest')} and m.state = ${listedValue(mailJobStates, 'queued')}
       and not exists (select 1 from account_beta_access b
-        where b.state = ${listedWord(betaAccessStates, 'pending')}
+        where b.state = ${listedValue(betaAccessStates, 'pending')}
           and b.requested_at >= m.window_start
           and b.requested_at < m.window_start + interval '10 minutes')`;
 }
@@ -43,9 +43,9 @@ export async function admitParticipants(
   const ids = `{${userIds.join(',')}}`;
   await sql`insert into account_beta_access (user_id, state, revision, requested_at, decided_at, provenance)
     select id, 'approved', 1, now(), now(), 'signup' from unnest(${ids}::text[]) as id
-    on conflict (user_id) do update set state = ${listedWord(betaAccessStates, 'approved')}, revision = account_beta_access.revision + 1,
+    on conflict (user_id) do update set state = ${listedValue(betaAccessStates, 'approved')}, revision = account_beta_access.revision + 1,
       decided_at = now()
-    where account_beta_access.state <> ${listedWord(betaAccessStates, 'approved')}`;
+    where account_beta_access.state <> ${listedValue(betaAccessStates, 'approved')}`;
   // Approval writes the beta grants (ISSUE-779), as the operator command does.
   // A scratch database migrated only to an earlier folder has no grant table.
   const [grants] =

@@ -3,7 +3,7 @@ import {
   type PreapprovalCommand,
 } from '@daisy/protocol/beta-preapproval';
 import { and, asc, eq, isNull } from 'drizzle-orm';
-import type { AdminTx } from '../../db/tx';
+import type { AdminTransaction, AdminTx } from '../../db/tx';
 import { auditEvents, pendingCommands } from '../../db/schema';
 
 /**
@@ -28,7 +28,7 @@ type PreapprovalPendingCommand = {
 export type PendingCommand = AccountPendingCommand | PreapprovalPendingCommand;
 
 export async function openPendingCommand(
-  tx: AdminTx,
+  tx: AdminTransaction,
   command: PendingCommand & { readonly now: string },
 ): Promise<void> {
   await tx.insert(pendingCommands).values({
@@ -61,7 +61,7 @@ export async function markSigned(
 
 /** True when this caller closed it; false when someone already had. */
 export async function resolvePendingCommand(
-  tx: AdminTx,
+  tx: AdminTransaction,
   commandId: string,
   now: string,
 ): Promise<boolean> {

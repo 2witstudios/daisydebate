@@ -7,8 +7,8 @@ import {
   sha1Base64,
   sha256Base64,
   sha256Hex,
-  sha256Stream,
 } from './index';
+import { nativeSha256Stream } from './server';
 import { standaloneHmacSha256Hex } from './standalone';
 
 setupRitewayBun();
@@ -33,19 +33,6 @@ test('SHA-256 matches the platform hasher byte for byte', () => {
     actual: sha256Hex('abc'),
     expected:
       'ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad',
-  });
-});
-
-test('streamed SHA-256 equals the one-shot digest', () => {
-  const stream = sha256Stream();
-  const bytes = new TextEncoder().encode('chunked '.repeat(300));
-  for (let offset = 0; offset < bytes.length; offset += 97)
-    stream.update(bytes.subarray(offset, offset + 97));
-  assert({
-    given: 'input fed in uneven chunks',
-    should: 'give the digest of the whole',
-    actual: stream.hex(),
-    expected: sha256Hex(bytes),
   });
 });
 
@@ -89,5 +76,18 @@ test('the standalone HMAC for the uninstalled Incidents poster matches', () => {
     should: 'give the bytes the package HMAC gives',
     actual: standaloneHmacSha256Hex('incidents-secret', 'v0:1:{"a":1}'),
     expected: hmacSha256Hex('incidents-secret', 'v0:1:{"a":1}'),
+  });
+});
+
+test('the native server stream equals the one-shot digest', () => {
+  const bytes = new TextEncoder().encode('archive '.repeat(5000));
+  const stream = nativeSha256Stream();
+  for (let offset = 0; offset < bytes.length; offset += 4093)
+    stream.update(bytes.subarray(offset, offset + 4093));
+  assert({
+    given: 'input fed in uneven chunks',
+    should: 'give the digest of the whole',
+    actual: stream.hex(),
+    expected: sha256Hex(bytes),
   });
 });

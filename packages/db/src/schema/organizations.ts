@@ -99,8 +99,8 @@ export const memberships = pgTable(
     check(
       'memberships_joined_once_accepted',
       sql`case ${table.status}
-        when 'active' then ${table.joinedAt} is not null
-        when 'ended' then true
+        when ${listedWord(membershipStatuses, 'active')} then ${table.joinedAt} is not null
+        when ${listedWord(membershipStatuses, 'ended')} then true
         else ${table.joinedAt} is null end`,
     ),
     check(

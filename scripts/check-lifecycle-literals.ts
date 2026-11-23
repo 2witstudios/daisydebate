@@ -40,7 +40,12 @@ const unquote = (word: string) => word.slice(1, -1).replaceAll("''", "'");
 
 const patterns = new WeakMap<
   StoredVocabularies,
-  { readonly comparison: RegExp; readonly insert: RegExp }
+  {
+    readonly comparison: RegExp;
+    readonly caseWhen: RegExp;
+    readonly arrayText: RegExp;
+    readonly insert: RegExp;
+  }
 >();
 function patternsOf(vocabularies: StoredVocabularies) {
   const known = patterns.get(vocabularies);
@@ -55,7 +60,8 @@ function patternsOf(vocabularies: StoredVocabularies) {
     .sort((left, right) => right.length - left.length)
     .map(escape)
     .join('|');
-  const column = `((?:[a-z_]\\w*\\s*\\.\\s*)?\\b(?:${columns})\\b)`;
+  // A column, qualified or not, optionally cast (`r.status::text`).
+  const column = `((?:[a-z_]\\w*\\s*\\.\\s*)?\\b(?:${columns})\\b)(?:\\s*::\\s*\\w+)?`;
   const tables = [...vocabularies.sql.keys()].map(escape).join('|');
   const built = {
     comparison: new RegExp(
@@ -63,6 +69,16 @@ function patternsOf(vocabularies: StoredVocabularies) {
         `${column}\\s*(?:${equality}\\s*|(?:not\\s+)?in\\s*\\(\\s*|${equality}\\s*(?:any|all)\\s*\\(\\s*array\\s*\\[\\s*)(${quoted}(?:\\s*,\\s*${quoted})*)`,
         `(${quoted})\\s*${equality}\\s*${column}`,
       ].join('|'),
+      'gi',
+    ),
+    // `case <column> when 'a' then … when 'b' then … end`
+    caseWhen: new RegExp(
+      `\\bcase\\s+${column}((?:\\s*\\bwhen\\s+${quoted}\\s+then\\b(?:(?!\\bwhen\\b|\\bend\\b)[\\s\\S])*)+)`,
+      'gi',
+    ),
+    // `<column> = any('{a,b}')`, an array literal's text
+    arrayText: new RegExp(
+      `${column}\\s*${equality}\\s*(?:any|all)\\s*\\(\\s*'\\{([^}']*)\\}'`,
       'gi',
     ),
     insert: new RegExp(
@@ -88,6 +104,8 @@ type Found = {
   readonly table: string;
   readonly column: string;
   readonly word: string;
+  /** Where the word's comparison starts in the statement's text. */
+  readonly at: number;
 };
 
 /**
@@ -104,26 +122,55 @@ function sqlLiterals(
   vocabularies: StoredVocabularies,
   rule: Rule = 'spelled',
 ): readonly Found[] {
-  const { comparison, insert } = patternsOf(vocabularies);
+  const { comparison, caseWhen, arrayText, insert } = patternsOf(vocabularies);
+  // Comments and identifier quotes become spaces, so every offset still
+  // points into the original text.
   const clean = sql
-    .replaceAll(/--[^\n]*|\/\*[\s\S]*?\*\//g, '')
-    .replaceAll(/"([a-z_]\w*)"/gi, '$1');
+    .replaceAll(/--[^\n]*|\/\*[\s\S]*?\*\//g, (comment) =>
+      comment.replaceAll(/[^\n]/g, ' '),
+    )
+    .replaceAll(/"([a-z_]\w*)"/gi, ' $1 ');
   const local = trackedTables(clean);
   const outer = trackedTables(fileSql);
   const inferred = [...new Set(local.values())];
   const inferredTable = inferred.length === 1 ? inferred[0] : undefined;
   const found = new Map<string, Found>();
-  const add = (table: string, column: string, word: string) => {
+  const add = (table: string, column: string, word: string, at: number) => {
     const words = vocabularies.sql.get(table)?.get(column);
     if (words && words.has(word) === (rule === 'spelled'))
-      found.set(`${table}.${column}:${word}`, { table, column, word });
+      found.set(`${table}.${column}:${word}:${at}`, {
+        table,
+        column,
+        word,
+        at,
+      });
   };
-  for (const [, left, rightWords, leftWord, right] of clean.matchAll(
-    comparison,
-  )) {
-    const reference = (left ?? right ?? '')
-      .replaceAll(/\s+/g, '')
-      .toLowerCase();
+  const compared = [
+    ...[...clean.matchAll(comparison)].map((match) => ({
+      reference: match[1] ?? match[4] ?? '',
+      words: [...(match[2] ?? match[3] ?? '').matchAll(/'(?:''|[^'])*'/g)].map(
+        (item) => unquote(item[0]),
+      ),
+      at: match.index,
+    })),
+    ...[...clean.matchAll(caseWhen)].map((match) => ({
+      reference: match[1] ?? '',
+      words: [...(match[2] ?? '').matchAll(/\bwhen\s+('(?:''|[^'])*')/gi)].map(
+        (item) => unquote(item[1] ?? "''"),
+      ),
+      at: match.index,
+    })),
+    ...[...clean.matchAll(arrayText)].map((match) => ({
+      reference: match[1] ?? '',
+      words: (match[2] ?? '')
+        .split(',')
+        .map((word) => word.trim().replace(/^"|"$/g, ''))
+        .filter(Boolean),
+      at: match.index,
+    })),
+  ];
+  for (const { reference: raw, words, at } of compared) {
+    const reference = raw.replaceAll(/\s+/g, '').toLowerCase();
     const [qualifier, column] = reference.includes('.')
       ? reference.split('.')
       : [undefined, reference];
@@ -139,14 +186,12 @@ function sqlLiterals(
               ? 'rooms'
               : qualifier));
     if (!table) continue;
-    for (const item of (rightWords ?? leftWord ?? '').matchAll(
-      /'(?:''|[^'])*'/g,
-    ))
-      add(table, column, unquote(item[0]));
+    for (const word of words) add(table, column, word, at);
   }
 
   // INSERT names the destination columns separately from each row of values.
-  for (const [, table, columns, values] of clean.matchAll(insert)) {
+  for (const match of clean.matchAll(insert)) {
+    const [, table, columns, values] = match;
     if (!table || !columns || !values) continue;
     const names = columns.split(',').map((name) => name.trim().toLowerCase());
     for (const [, tuple] of values.matchAll(/\(([^()]+)\)/g)) {
@@ -154,7 +199,7 @@ function sqlLiterals(
       names.forEach((name, index) => {
         const value = cells[index]?.trim();
         if (value?.startsWith("'"))
-          add(table.toLowerCase(), name, unquote(value));
+          add(table.toLowerCase(), name, unquote(value), match.index);
       });
     }
   }
@@ -278,16 +323,15 @@ export function lifecycleLiteralIssues(
       );
   };
   if (path.endsWith('.sql')) {
-    const line = (word: string) =>
-      text.slice(0, Math.max(0, text.indexOf(`'${word}'`))).split('\n').length;
-    for (const { table, column, word } of sqlLiterals(
+    const line = (at: number) => text.slice(0, at).split('\n').length;
+    for (const { table, column, word, at } of sqlLiterals(
       text,
       text,
       vocabularies,
       'outside',
     ))
       issues.push(
-        `${path}:${line(word)}: '${word}' is not a ${table}.${column} word; a canonical function file may compare or write only its list's words`,
+        `${path}:${line(at)}: '${word}' is not a ${table}.${column} word; a canonical function file may compare or write only its list's words`,
       );
     return issues;
   }

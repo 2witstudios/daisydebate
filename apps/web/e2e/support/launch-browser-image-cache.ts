@@ -1,5 +1,5 @@
 import { createId } from '@paralleldrive/cuid2';
-import { sha256Stream } from '@daisy/digest';
+import { nativeSha256Stream } from '@daisy/digest/server';
 import { open, mkdir, rename, rm, stat } from 'node:fs/promises';
 import { join } from 'node:path';
 import { validatedLaunchImage } from './launch-browser-image-build';
@@ -26,7 +26,7 @@ const MAX_RECEIPT_BYTES = 1024;
 async function fileDigest(path: string, owner: Owner) {
   const file = await open(path, 'r');
   try {
-    const hash = sha256Stream();
+    const hash = nativeSha256Stream();
     const buffer = Buffer.allocUnsafe(CHUNK);
     for (;;) {
       owner.checkpoint();

@@ -2,7 +2,8 @@
  * A route's ids come from its typed Next.js params, never from its URL by
  * position (RECON-3.4). This refuses splitting or pattern-matching a
  * request path anywhere in the participant app: `request.url`, a URL's
- * `pathname`, and any const or destructured binding of either. Testing a
+ * `pathname`, and any const or destructured binding of either, by
+ * splitting, slicing, replacing or matching it. Testing a
  * path's shape (`test`) reads nothing out of it and stays legal, as does
  * `URLPattern`, whose `exec` is named route params.
  */
@@ -10,8 +11,17 @@ const message =
   'Take the id from the route params (processRoute.withParams) or pass the bound value; never split or match a request path.';
 
 const pathKeys = new Set(['pathname', 'url']);
-const textMethods = new Set(['split', 'match', 'matchAll']);
-const patternMethods = new Set(['exec']);
+const textMethods = new Set([
+  'split',
+  'match',
+  'matchAll',
+  'slice',
+  'substring',
+  'substr',
+  'replace',
+  'replaceAll',
+]);
+const patternMethods = new Set(['exec', 'match', 'matchAll']);
 
 function keyOf(node) {
   if (node.type !== 'MemberExpression') return undefined;

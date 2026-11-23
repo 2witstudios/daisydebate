@@ -24,9 +24,10 @@ const DIRECT_REDEMPTION_BLOCKED_PATHS = new Set([
   EMAIL_CHANGE_VERIFY_PATH,
 ]);
 
-/** Strips the mount prefix so only the stable Better Auth path is compared. */
+/** The Better Auth route under `/api/auth`, named by its mount pattern. */
+const authMount = new URLPattern({ pathname: '/api/auth/:route*' });
 const mountedPath = (url: string): string =>
-  new URL(url).pathname.replace(/^\/api\/auth/, '');
+  `/${authMount.exec(url)?.pathname.groups['route'] ?? ''}`;
 
 /**
  * Copies a Better Auth response into a fresh mutable one without consuming

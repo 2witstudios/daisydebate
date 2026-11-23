@@ -134,3 +134,41 @@ test('holds a canonical .sql function file to its columns lists', () => {
     ],
   ]);
 });
+
+test('rejects a word in a CASE, a cast column and an array literal', () => {
+  expect(
+    problems(
+      [
+        "sql`select case m.status when 'active' then 1 when 'ended' then 2 end from memberships m`;",
+        "sql`select 1 from seasons s where s.status::text = 'active'`;",
+        "sql`select 1 from rounds r where r.status = any('{opening,active}')`;",
+      ].join('\n'),
+    ),
+  ).toEqual([
+    word(1, 'active', 'memberships.status'),
+    word(1, 'ended', 'memberships.status'),
+    word(2, 'active', 'seasons.status'),
+    word(3, 'opening', 'rounds.status'),
+    word(3, 'active', 'rounds.status'),
+  ]);
+});
+
+test('reports each word outside its list in a .sql file at its own line', () => {
+  const file = 'packages/db/src/account-fence-fixture.sql';
+  expect(
+    lifecycleLiteralIssues({
+      path: file,
+      text: [
+        "-- a.kind = 'robot' in a comment says nothing",
+        'SELECT a.id FROM actors a',
+        "WHERE a.kind = 'robot'",
+        "   OR a.kind = 'robot';",
+      ].join('\n'),
+    }),
+  ).toEqual(
+    [3, 4].map(
+      (line) =>
+        `${file}:${line}: 'robot' is not a actors.kind word; a canonical function file may compare or write only its list's words`,
+    ),
+  );
+});

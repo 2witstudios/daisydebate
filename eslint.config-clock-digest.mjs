@@ -210,6 +210,10 @@ const webCryptoKeyed = new Set([
 
 function nativeModule(node, sourceCode, seen) {
   if (isGlobal(node, 'Bun', sourceCode)) return 'bun';
+  // `(await import('node:crypto')).createHash`, inline or through a const.
+  if (node?.type === 'AwaitExpression') node = node.argument;
+  if (node?.type === 'ImportExpression')
+    return staticText(node.source, sourceCode);
   if (
     node?.type === 'CallExpression' &&
     isGlobal(node.callee, 'require', sourceCode) &&

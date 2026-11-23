@@ -72,17 +72,6 @@ export const sha256Hex = (value: Input): string =>
 export const sha256Base64 = (value: Input): string =>
   base64(sha256(bytesOf(value)));
 
-/** SHA-256 over input that arrives in chunks, such as a large file. */
-export function sha256Stream() {
-  const state = sha256.create();
-  return {
-    update(chunk: Uint8Array) {
-      state.update(chunk);
-    },
-    hex: (): string => bytesToHex(state.digest()),
-  };
-}
-
 /** SHA-1 as base64: only the WebSocket handshake's `Sec-WebSocket-Accept`. */
 export const sha1Base64 = (value: Input): string =>
   base64(sha1(bytesOf(value)));

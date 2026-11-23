@@ -65,6 +65,8 @@ export function registerClockDigestTests() {
         "const { subtle } = crypto; await subtle.digest('SHA-1', bytes);",
         "await crypto.subtle.importKey('raw', key, { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);",
         "await globalThis.crypto.subtle.sign('HMAC', key, bytes);",
+        "(await import('node:crypto')).createHash('sha256');",
+        "const native = await import('node:crypto'); native.createHmac('sha256', key);",
       ];
       const legal = [
         "import { utf8ToBytes } from '@noble/hashes/utils.js';",

@@ -1,6 +1,6 @@
 import { sql, type SQL } from 'drizzle-orm';
 import { run } from './raw-rows';
-import type { AdminTx } from './tx';
+import type { AdminTransaction } from './tx';
 
 const lockBrand: unique symbol = Symbol('admin transaction lock');
 
@@ -22,7 +22,10 @@ export const adminTransactionLocks = {
   }),
 } as const;
 
-/** Takes `lock` until the caller's transaction ends. */
-export async function takeLock(tx: AdminTx, { key }: AdminTransactionLock) {
+/** Takes `lock` until the caller's transaction ends; only a transaction can hold one. */
+export async function takeLock(
+  tx: AdminTransaction,
+  { key }: AdminTransactionLock,
+) {
   await run(tx, sql`select pg_advisory_xact_lock(${key})`);
 }

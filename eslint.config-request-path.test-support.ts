@@ -23,6 +23,10 @@ export function registerRequestPathTests() {
         'export const found = /\\/rounds\\/([^/]+)/.exec(url.pathname);',
         'export const parts = [...url.pathname.matchAll(/\\/(\\w+)/g)];',
         "export const id = url?.pathname.split('/')[1];",
+        'export const rest = url.pathname.slice(7);',
+        'export const rest = url.pathname.substring(7);',
+        "export const rest = url.pathname.replace(/^\\/clubs\\//, '');",
+        "export const found = 'x'.match(url.pathname);",
       ];
       const legal = [
         'export const room = /^\\/rooms\\/[^/]+$/.test(pathname);',

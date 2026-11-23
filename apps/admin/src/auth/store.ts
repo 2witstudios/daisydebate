@@ -1,5 +1,5 @@
 import { and, eq, gt, isNull, ne, sql } from 'drizzle-orm';
-import type { AdminTx } from '../db/tx';
+import type { AdminTransaction, AdminTx } from '../db/tx';
 import {
   authAttempts,
   operatorChallenges,
@@ -37,7 +37,7 @@ export async function findActiveOperatorByName(
 }
 
 export async function revokeOpenEnrollments(
-  tx: AdminTx,
+  tx: AdminTransaction,
   operatorId: string,
   now: string,
 ): Promise<void> {
@@ -76,7 +76,7 @@ export async function findOpenEnrollment(
 }
 
 export async function consumeEnrollment(
-  tx: AdminTx,
+  tx: AdminTransaction,
   id: string,
   now: string,
 ): Promise<boolean> {
@@ -197,7 +197,7 @@ export async function findActiveCredential(db: AdminTx, credentialId: string) {
 
 /** Revokes every live credential of the operator but `keep`; returns how many. */
 export async function revokeCredentials(
-  tx: AdminTx,
+  tx: AdminTransaction,
   input: {
     readonly operatorId: string;
     readonly keep: string;

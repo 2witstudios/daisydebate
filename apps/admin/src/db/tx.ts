@@ -14,10 +14,20 @@ export type AdminTx = Pick<
   'select' | 'selectDistinct' | 'insert' | 'update' | 'delete' | 'execute'
 >;
 
+/**
+ * An open transaction, which only `inTransaction` hands out: what a write
+ * that must commit with others, or a transaction-scoped lock, requires. The
+ * pool is not one, so it cannot stand in where the lock must outlive a
+ * single statement (the audit chain's append).
+ */
+export type AdminTransaction = Parameters<
+  Parameters<BunSQLDatabase['transaction']>[0]
+>[0];
+
 /** A connection that can also open a transaction: the admin pool. */
 export interface AdminTxSource extends AdminTx {
   readonly transaction: <T>(
-    work: (tx: AdminTx) => Promise<T>,
+    work: (tx: AdminTransaction) => Promise<T>,
     config?: PgTransactionConfig,
   ) => Promise<T>;
 }
@@ -25,6 +35,6 @@ export interface AdminTxSource extends AdminTx {
 /** The one transaction opener: `work` runs inside a transaction of `source`. */
 export const inTransaction = <T>(
   source: AdminTxSource,
-  work: (tx: AdminTx) => Promise<T>,
+  work: (tx: AdminTransaction) => Promise<T>,
   config?: PgTransactionConfig,
 ): Promise<T> => source.transaction(work, config);

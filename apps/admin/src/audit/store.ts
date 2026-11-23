@@ -1,6 +1,6 @@
 import { and, asc, countDistinct, desc, inArray, lt } from 'drizzle-orm';
 import { adminTransactionLocks, takeLock } from '../db/locks';
-import type { AdminTx } from '../db/tx';
+import type { AdminTransaction, AdminTx } from '../db/tx';
 import { auditEvents, chainCheckpoints } from '../db/schema';
 import {
   chainNext,
@@ -37,7 +37,7 @@ async function chainStart(db: AdminTx): Promise<ChainAnchor> {
  * a failed insert rolls back with the work it records.
  */
 export async function appendAudit(
-  tx: AdminTx,
+  tx: AdminTransaction,
   event: AuditEvent,
 ): Promise<AuditRow> {
   await takeLock(tx, adminTransactionLocks.auditChain());
