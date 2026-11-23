@@ -1,3 +1,4 @@
+import { hostWaits } from '@daisy/worker/host';
 import { roundDecisionReleasePolicy } from '@daisy/protocol/round-decision-release';
 import { createId } from '@paralleldrive/cuid2';
 import { requireTestServices } from '@daisy/config';
@@ -12,6 +13,7 @@ setupRitewayBun();
 const { databaseUrl } = requireTestServices(process.env);
 const maintenanceStore = (client: SQL) =>
   createDatabase({
+    waits: hostWaits,
     decisionRelease: roundDecisionReleasePolicy,
     url: databaseUrl,
     client,
@@ -162,7 +164,7 @@ test('maintenance rechecks service authority after a competing Round lock before
         pending,
         f.sql,
         backend.pid,
-        { now: performance.now, deadlineMs: 800 },
+        { waits: hostWaits, deadlineMs: 800 },
       );
       await f.sql`update service_instances set renewed_at=clock_timestamp()-interval '4 seconds' where instance_id=${instanceId}`;
       await holder`commit`;

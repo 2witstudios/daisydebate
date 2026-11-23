@@ -6,17 +6,25 @@ import type { Waits } from '@daisy/clock';
  * passes it to the work it starts. A pending wait keeps the process alive,
  * as a worker process's schedule must; stopping a worker aborts its waits,
  * and an aborted wait clears its timer at once, so a stopped process exits.
+ * A host timer may fire a little before its delay; the wait re-arms until
+ * the clock has reached `dueMs`, so a wait never ends early.
  */
 const waitUntilMs = (dueMs: number, signal?: AbortSignal): Promise<void> =>
   new Promise<void>((resolve) => {
     if (signal?.aborted) return resolve();
+    let timer: ReturnType<typeof setTimeout> | undefined;
     const done = () => {
       clearTimeout(timer);
       signal?.removeEventListener('abort', done);
       resolve();
     };
-    const timer = setTimeout(done, Math.max(0, dueMs - performance.now()));
+    const arm = () => {
+      const leftMs = dueMs - performance.now();
+      if (leftMs <= 0) return done();
+      timer = setTimeout(arm, Math.ceil(leftMs));
+    };
     signal?.addEventListener('abort', done, { once: true });
+    arm();
   });
 
 export const hostWaits: Waits = {

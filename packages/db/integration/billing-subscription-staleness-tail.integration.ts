@@ -1,3 +1,4 @@
+import { hostWaits } from '@daisy/worker/host';
 import { instantMs } from '@daisy/clock';
 import { SQL } from 'bun';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
@@ -23,6 +24,7 @@ test('actual role traversal reaches a stale subscription after twelve full pages
       return connection;
     };
     const database = createDatabase({
+      waits: hostWaits,
       url: databaseUrl,
       client: pool,
       nextActorId: createId,

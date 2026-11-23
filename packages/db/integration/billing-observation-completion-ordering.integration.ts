@@ -1,3 +1,4 @@
+import { hostWaits } from '@daisy/worker/host';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { requireTestServices } from '@daisy/config';
 import { createId } from '@paralleldrive/cuid2';
@@ -46,7 +47,7 @@ for (const order of ['reversal-first', 'completion-first'] as const)
             second,
             fixture.sql,
             pid,
-            { now: performance.now, deadlineMs: 300 },
+            { waits: hostWaits, deadlineMs: 300 },
           );
           assert({
             given:

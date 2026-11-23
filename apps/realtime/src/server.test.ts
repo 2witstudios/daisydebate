@@ -1,3 +1,4 @@
+import { virtualClock } from '@daisy/clock/testing';
 import type { Server } from 'bun';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import type { Logger } from '@daisy/logger';
@@ -30,7 +31,10 @@ const fakeServer = (upgraded: boolean): Server<SocketData> =>
 
 describe('createRealtimeServer socket tuning', () => {
   test('applies the ADR 0031 idle window, frame cap and hard backpressure backstop', () => {
-    const { websocket } = createRealtimeServer({ resources: resources() });
+    const { websocket } = createRealtimeServer({
+      waits: virtualClock(),
+      resources: resources(),
+    });
     assert({
       given: 'the Bun websocket options',
       should: 'use the ADR-fixed bounds with compression off',
@@ -54,7 +58,10 @@ describe('createRealtimeServer socket tuning', () => {
 
 describe('createRealtimeServer fetch', () => {
   test('answers /health/live without touching resources', async () => {
-    const server = createRealtimeServer({ resources: resources() });
+    const server = createRealtimeServer({
+      waits: virtualClock(),
+      resources: resources(),
+    });
     const response = await server.fetch(
       new Request('http://localhost/health/live'),
       fakeServer(false),
@@ -69,7 +76,10 @@ describe('createRealtimeServer fetch', () => {
   });
 
   test('answers /health/ready 200 when every dependency is healthy', async () => {
-    const server = createRealtimeServer({ resources: resources() });
+    const server = createRealtimeServer({
+      waits: virtualClock(),
+      resources: resources(),
+    });
     const response = await server.fetch(
       new Request('http://localhost/health/ready'),
       fakeServer(false),
@@ -85,6 +95,7 @@ describe('createRealtimeServer fetch', () => {
 
   test('answers /health/ready 503 when draining', async () => {
     const server = createRealtimeServer({
+      waits: virtualClock(),
       resources: resources({ isDraining: () => true }),
     });
     const response = await server.fetch(
@@ -102,6 +113,7 @@ describe('createRealtimeServer fetch', () => {
 
   test('never exposes which dependency is down in the public response', async () => {
     const server = createRealtimeServer({
+      waits: virtualClock(),
       resources: resources({ redis: { health: async () => false } }),
     });
     const response = await server.fetch(
@@ -119,6 +131,7 @@ describe('createRealtimeServer fetch', () => {
 
   test('upgrades a WebSocket request on the socket path', async () => {
     const server = createRealtimeServer({
+      waits: virtualClock(),
       resources: resources(),
       allowedOrigins: ['http://localhost'],
     });
@@ -139,7 +152,10 @@ describe('createRealtimeServer fetch', () => {
   });
 
   test('answers 400 on the socket path when the upgrade is refused', async () => {
-    const server = createRealtimeServer({ resources: resources() });
+    const server = createRealtimeServer({
+      waits: virtualClock(),
+      resources: resources(),
+    });
     const response = await server.fetch(
       new Request(`http://localhost${SOCKET_PATH}`),
       fakeServer(false),
@@ -154,7 +170,10 @@ describe('createRealtimeServer fetch', () => {
   });
 
   test('answers 404 for any other path', async () => {
-    const server = createRealtimeServer({ resources: resources() });
+    const server = createRealtimeServer({
+      waits: virtualClock(),
+      resources: resources(),
+    });
     const response = await server.fetch(
       new Request('http://localhost/anything-else'),
       fakeServer(false),
@@ -180,6 +199,7 @@ describe('createRealtimeServer fetch', () => {
       child: () => recordingLogger,
     };
     const server = createRealtimeServer({
+      waits: virtualClock(),
       resources: resources({
         logger: recordingLogger,
         outbox: {
@@ -224,6 +244,7 @@ describe('createRealtimeServer fetch', () => {
         child: () => recordingLogger,
       };
       const server = createRealtimeServer({
+        waits: virtualClock(),
         resources: resources({
           logger: recordingLogger,
           outbox: {
@@ -261,6 +282,7 @@ describe('createRealtimeServer fetch', () => {
       child: () => recordingLogger,
     };
     const server = createRealtimeServer({
+      waits: virtualClock(),
       resources: resources({ logger: recordingLogger }),
     });
 

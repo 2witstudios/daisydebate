@@ -1,10 +1,10 @@
+import type { Waits } from '@daisy/clock';
+import { passOf, pollWork, type LoopPass } from '@daisy/worker';
+import { HOUSEKEEPING_IDLE_MAX_MS } from '../lib/worker-idle';
 import type { App } from './app';
 import { createBillingStripe, type BillingFetch } from './billing-stripe';
 import { privacyJobRetryAt } from './privacy-jobs';
 import { workerFailures } from './recoverable-failure';
-import type { WorkerTimers } from '../lib/worker-timers';
-import { passOf, type LoopPass } from '../lib/idle-backoff';
-import { HOUSEKEEPING_IDLE_MAX_MS, startWorkerLoop } from '../lib/worker-loop';
 import { createScheduledWorker } from '../features/ops/scheduled-worker';
 import { createBillingCleanupDelivery } from '../features/billing/cleanup-delivery';
 import { createCleanupRechecks } from '../features/billing/cleanup-rechecks';
@@ -17,7 +17,7 @@ import { stripeClosurePaymentReadPort } from '../features/billing/closure-paymen
 export function startBillingCleanup(input: {
   readonly app: App;
   readonly instanceId: string;
-  readonly timers: WorkerTimers;
+  readonly waits: Waits;
   readonly fetch: BillingFetch;
 }) {
   const { app } = input,
@@ -101,17 +101,17 @@ export function startBillingCleanup(input: {
   });
   // A due privacy job is delivered within a second while any is due; an
   // empty queue backs off to the housekeeping cap (ADR 0154).
-  const schedule = startWorkerLoop({
-    run,
+  const schedule = pollWork({
+    pass: run,
     backoff: { busyMs: 1000, idleMaxMs: HOUSEKEEPING_IDLE_MAX_MS },
-    timers: input.timers,
+    waits: input.waits,
     failed: (error) => {
       if (!isStopped()) failed(error, 'due');
     },
   });
   // Health and acknowledged-job revisits have their own bounded minute cadence; empty queues do not emit 1Hz heartbeats.
-  const monitoring = startWorkerLoop({
-    run: async () => {
+  const monitoring = pollWork({
+    pass: async () => {
       if (isStopped()) return 'idle';
       await rechecks.run();
       if (!isStopped()) await health.run();
@@ -119,7 +119,7 @@ export function startBillingCleanup(input: {
     },
     // A fixed minute cadence: it measures, it does not poll for work.
     backoff: { busyMs: 60_000, idleMaxMs: 60_000 },
-    timers: input.timers,
+    waits: input.waits,
     failed: (error) => {
       if (!isStopped()) failed(error, 'monitor');
     },

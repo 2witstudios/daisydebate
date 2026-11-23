@@ -1,13 +1,10 @@
 import type { Server } from 'bun';
+import type { Waits } from '@daisy/clock';
 import type { Logger } from '@daisy/logger';
 import { resolveClientIp } from '@daisy/ingress/client-ip';
 import { createAdmission } from './admission';
 import { checkReadiness, type ReadinessResources } from './health';
-import {
-  createWebSocketHandlers,
-  type SocketData,
-  type SocketTimers,
-} from './socket';
+import { createWebSocketHandlers, type SocketData } from './socket';
 
 /**
  * Bun socket tuning, server-side and Bun-specific, so it lives here rather
@@ -41,8 +38,11 @@ const liveResponse = () =>
 /** A retained row older than this is a stall worth logging. */
 const BACKLOG_LOG_AGE_MS = 1_000;
 
-const readyResponse = async (resources: RealtimeServerResources) => {
-  const report = await checkReadiness(resources);
+const readyResponse = async (
+  resources: RealtimeServerResources,
+  waits: Waits,
+) => {
+  const report = await checkReadiness(resources, waits);
   if (report.deliverySeqLagEstimate !== undefined)
     resources.logger.log(
       'realtime.outbox.delivery_lag_estimated',
@@ -73,7 +73,7 @@ const readyResponse = async (resources: RealtimeServerResources) => {
  */
 export function createRealtimeServer({
   resources,
-  timers,
+  waits,
   allowedOrigins = [],
   trustedProxies = [],
   socketDependencies,
@@ -85,19 +85,20 @@ export function createRealtimeServer({
   }),
 }: {
   readonly resources: RealtimeServerResources;
-  readonly timers?: SocketTimers;
+  /** The socket lifecycle's deadlines run on this time. */
+  readonly waits: Waits;
   readonly allowedOrigins?: readonly string[];
   readonly trustedProxies?: readonly string[];
   readonly admission?: ReturnType<typeof createAdmission>;
   readonly socketDependencies?: Omit<
     Parameters<typeof createWebSocketHandlers>[0],
-    'logger' | 'timers'
+    'logger' | 'waits'
   >;
 }) {
   const websocket = createWebSocketHandlers({
     logger: resources.logger,
     ...socketDependencies,
-    ...(timers ? { timers } : {}),
+    waits,
   });
   function isUpgrade(request: Request) {
     return (
@@ -133,7 +134,7 @@ export function createRealtimeServer({
     ): Promise<Response | undefined> {
       const { pathname } = new URL(request.url);
       if (pathname === '/health/live') return liveResponse();
-      if (pathname === '/health/ready') return readyResponse(resources);
+      if (pathname === '/health/ready') return readyResponse(resources, waits);
       if (pathname === SOCKET_PATH) {
         return upgrade(request, server);
       }

@@ -1,3 +1,4 @@
+import { hostWaits } from '@daisy/worker/host';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { requireTestServices } from '@daisy/config';
 import { canUseAiAllowance } from '@daisy/auth/authorization';
@@ -30,8 +31,8 @@ test('daisy_web admits and settles usage while direct attribution and original-c
       return connection;
     };
     const runtime = createBoundedTransaction({
-      lane: testLane(client, 4),
-      now: performance.now,
+      lane: testLane(client, hostWaits, 4),
+      waits: hostWaits,
     });
     const role = await runtime(
       async (tx) =>

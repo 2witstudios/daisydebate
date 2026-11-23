@@ -137,6 +137,9 @@
         "scripts/auth-load/instance-process.ts",
       ],
     },
+    "packages/worker": {
+      "entry": ["integration/**/*.integration.ts"],
+    },
     "packages/db": {
       "entry": [
         "integration/**/*.integration.ts",

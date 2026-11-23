@@ -1,4 +1,4 @@
-import { instantMs } from '@daisy/clock';
+import { instantMs } from '@daisy/clock/instant';
 import { everyMemberOf } from './every-member';
 import { publicIntervalsSchema } from './public-interval';
 import { z } from 'zod';

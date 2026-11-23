@@ -1,3 +1,4 @@
+import { hostWaits } from '@daisy/worker/host';
 import { randomBytes } from 'node:crypto';
 import { requireTestServices } from '@daisy/config';
 import { createAppError } from '@daisy/errors';
@@ -62,7 +63,7 @@ test('signed capture recovers a lost actual HTTP payload reply without replacing
       },
       authentication,
       url: `http://127.0.0.1:${server.port}`,
-      nowMs: performance.now,
+      waits: hostWaits,
       deadlineSignal: () => AbortSignal.timeout(5000),
       unavailableRetryMs: [],
       fetch: async (url, init) => {
@@ -151,7 +152,7 @@ test('signed capture without an injected evidence capability cannot activate pay
       },
       authentication,
       url: `http://127.0.0.1:${server.port}`,
-      nowMs: performance.now,
+      waits: hostWaits,
       deadlineSignal: () => AbortSignal.timeout(5000),
       unavailableRetryMs: [],
       fetch,

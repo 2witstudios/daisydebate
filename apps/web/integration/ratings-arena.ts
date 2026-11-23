@@ -1,3 +1,4 @@
+import { hostWaits } from '@daisy/worker/host';
 import { decisionRelease as roundDecisionReleasePolicy } from '../src/features/notifications/decision-release';
 import { createId } from '@paralleldrive/cuid2';
 import type { RatingDivision } from '@daisy/protocol/ladder';
@@ -57,6 +58,7 @@ export async function arena(
   } = {},
 ) {
   const database = createDatabase({
+    waits: hostWaits,
     decisionRelease: roundDecisionReleasePolicy,
     url: testDatabaseUrl,
     nextActorId: createId,

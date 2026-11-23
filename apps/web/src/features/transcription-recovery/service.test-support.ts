@@ -14,4 +14,5 @@ export const limits = {
   scanMs: 1000,
   enrollMs: 2000,
   renewMs: 3000,
+  leaseMs: 30_000,
 };

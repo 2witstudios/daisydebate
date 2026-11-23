@@ -1,6 +1,6 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { startRoundCompetitiveMaintenance } from './round-maintenance';
-import { inertTimers } from '../lib/worker-timers.test-support';
+import { inertWaits } from '../lib/manual-waits.test-support';
 setupRitewayBun();
 
 const id = (letter: string) => letter.repeat(24);
@@ -31,7 +31,7 @@ async function maintained(probe: string | undefined) {
       },
     } as never,
     instanceId: id('i'),
-    timers: inertTimers,
+    waits: inertWaits,
   });
   await service.ready;
   // The fleet holds two at a time: let the queue drain before stopping.
@@ -83,7 +83,7 @@ async function reportedBy(database: Record<string, unknown>) {
       },
     } as never,
     instanceId: id('i'),
-    timers: inertTimers,
+    waits: inertWaits,
   });
   await service.ready;
   for (let turn = 0; turn < 4; turn++) await new Promise(setImmediate);

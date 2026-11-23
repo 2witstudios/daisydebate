@@ -1,3 +1,4 @@
+import { hostWaits } from '@daisy/worker/host';
 import { SQL } from 'bun';
 import { sql } from 'drizzle-orm';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
@@ -18,17 +19,23 @@ test('real bounded current-service aggregate preserves original source/period an
     const pool = new SQL(databaseUrl, { max: 6 });
     const instanceId = createId();
     const db = createDatabase({
+      waits: hostWaits,
       url: databaseUrl,
       client: pool,
       nextActorId: createId,
     });
     const run = createBoundedTransaction({
-      lane: createLane('control', pool, {
-        connections: 6,
-        queue: 16,
-        maxWaitMs: 1000,
-      }),
-      now: performance.now,
+      lane: createLane(
+        'control',
+        pool,
+        {
+          connections: 6,
+          queue: 16,
+          maxWaitMs: 1000,
+        },
+        { waits: hostWaits },
+      ),
+      waits: hostWaits,
     });
     const reader = createBillingEconomicsReader({ run, instanceId });
     try {

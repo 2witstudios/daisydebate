@@ -1,3 +1,4 @@
+import { hostWaits } from '@daisy/worker/host';
 import { afterAll, setDefaultTimeout } from 'bun:test';
 import { SQL } from 'bun';
 import { createId } from '@paralleldrive/cuid2';
@@ -114,6 +115,7 @@ export function createTestApp(
   // The suite's log output: kept for assertions, never printed.
   const logLines: string[] = [];
   const app = createApp({
+    waits: hostWaits,
     env,
     fetch: wrapFetch ? wrapFetch(mailbox.fetch) : mailbox.fetch,
     clock,

@@ -1,3 +1,4 @@
+import { hostWaits } from '@daisy/worker/host';
 import { SQL } from 'bun';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
@@ -17,6 +18,7 @@ const { databaseUrl: ownerUrl } = requireTestServices(process.env);
 const problemsAs = async (role: 'owner' | 'daisy_web' | 'daisy_realtime') => {
   const client = new SQL(ownerUrl, { max: 1 });
   const database = createDatabase({
+    waits: hostWaits,
     url: ownerUrl,
     client,
     nextActorId: createId,

@@ -1,3 +1,4 @@
+import { hostWaits } from '@daisy/worker/host';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { recordingCaptureClient } from './capture-client.test-support';
 import { createOpenRouter } from '@daisy/ai-voice';
@@ -115,6 +116,7 @@ const providerFailure = (status: number) =>
   createOpenRouter({
     apiKey: 'key',
     fetch: async () => new Response('refused', { status }),
+    waits: hostWaits,
   })
     .transcribe({ model: 'stt', audioBase64: 'AAAA', format: 'wav' })
     .then(

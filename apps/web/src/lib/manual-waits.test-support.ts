@@ -65,11 +65,15 @@ export function manualWaits() {
         return sleeper === undefined ? undefined : () => fire(sleeper);
       },
       has: (ms: number) => armedFor(ms) !== undefined,
+      /** How many waits are armed now. */
+      get size() {
+        return sleepers.size;
+      },
     },
-    /** Fires the first wait armed, whatever its length. */
-    nextPass: async () => {
+    /** Fires the first wait armed whose length `accept` takes; by default any. */
+    nextPass: async (accept: (ms: number) => boolean = () => true) => {
       await settle();
-      const [sleeper] = sleepers;
+      const sleeper = [...sleepers].find(({ ms }) => accept(ms));
       if (sleeper === undefined) throw new Error('No worker pass armed');
       await fire(sleeper);
     },
@@ -93,3 +97,32 @@ export function failureLog() {
 
 /** Time that never moves: a worker runs only its start-up pass. */
 export const inertWaits: Waits = virtualClock();
+
+/**
+ * `waits` that tells `record` of each wait as it is armed (with its length)
+ * and of each one a stop aborts while it is still pending: a worker's
+ * cadence and shutdown, as events a test orders beside the work's own.
+ */
+export function recordingWaits(
+  waits: Waits,
+  record: (event: 'armed' | 'cleared', ms: number) => void,
+): Waits {
+  const waitUntilMs = (dueMs: number, signal?: AbortSignal) => {
+    const ms = Math.max(0, dueMs - waits.nowMs());
+    record('armed', ms);
+    let settled = false;
+    const cleared = () => {
+      if (!settled) record('cleared', ms);
+    };
+    signal?.addEventListener('abort', cleared, { once: true });
+    return waits.waitUntilMs(dueMs, signal).finally(() => {
+      settled = true;
+      signal?.removeEventListener('abort', cleared);
+    });
+  };
+  return {
+    nowMs: waits.nowMs,
+    waitUntilMs,
+    sleep: (ms, signal) => waitUntilMs(waits.nowMs() + Math.max(0, ms), signal),
+  };
+}

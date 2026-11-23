@@ -1,3 +1,4 @@
+import { hostWaits } from '@daisy/worker/host';
 import Stripe from 'stripe';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { requireTestServices } from '@daisy/config';
@@ -34,6 +35,7 @@ test('signed HTTP receipts and scheduled vendor observations share durable synch
       eventId = `evt_${createId()}`;
     let customerId: string;
     const database = createDatabase({
+      waits: hostWaits,
       url: testDatabaseUrl,
       client: sql,
       nextActorId: createId,

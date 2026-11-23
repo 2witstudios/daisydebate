@@ -139,11 +139,11 @@ test('a short opening does not wait for a phrase that does not exist yet', async
 
 test('after a refusal the speaker wakes itself, and starts nothing until then', async () => {
   let refusals = 2;
-  const pending: { run: () => void; ms: number }[] = [];
   let bought = 0;
   const { createBotSpeaker } = await import('./speaker');
-  const { generated, isBudgetFull, scope } =
+  const { generated, isBudgetFull, recordedWaits, scope } =
     await import('./speaker.test-support');
+  const { waits, pending } = recordedWaits();
   const speaker = createBotSpeaker({
     claim: {
       scope,
@@ -157,10 +157,7 @@ test('after a refusal the speaker wakes itself, and starts nothing until then', 
       return generated(answered({ phrases: ['One.'] }));
     },
     heard: async () => undefined,
-    timer: {
-      setTimeout: (run, ms) => pending.push({ run, ms }),
-      clearTimeout: () => undefined,
-    },
+    waits,
     synthesize: async (_scope, _token, phraseId, text) =>
       answered(job(phraseId, text)),
     deadline: async () => 1e12,

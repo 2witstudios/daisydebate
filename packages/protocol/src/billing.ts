@@ -1,4 +1,4 @@
-import { isInstantAtOrBefore, isInstantBefore } from '@daisy/clock';
+import { isInstantAtOrBefore, isInstantBefore } from '@daisy/clock/instant';
 export {
   classifyPaymentObservation,
   paymentObservationComplete,

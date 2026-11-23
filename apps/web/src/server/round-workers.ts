@@ -1,10 +1,10 @@
+import type { Waits } from '@daisy/clock';
 import type { ErrorReporter } from '@daisy/observability';
 import type { App } from './app';
 import { createProviderBudget } from './provider-budget';
 import { startRoundAnalysisWorkers } from './round-analysis-workers';
 import { startRoundBotWorkers } from './round-bot-workers';
 import { startRoundJudgingWorkers } from './round-judging-workers';
-import type { OneShotTimer, WorkerTimers } from '../lib/worker-timers';
 import type { WorkWakes } from './work-wakes';
 
 type Started = {
@@ -21,11 +21,10 @@ type Started = {
 export function startRoundWorkers(input: {
   readonly app: App;
   readonly instanceId: string;
-  readonly timers: WorkerTimers;
+  readonly waits: Waits;
   /** Each worker's wake for the work it looks for (ADR 0154). */
   readonly wakes: WorkWakes;
   /** Bot seat ending deadlines (ISSUE-789). */
-  readonly deadlineTimer: OneShotTimer;
   readonly botMedia: Parameters<typeof startRoundBotWorkers>[0]['botMedia'];
   /** Scrubbed raw-error destination (ADR 0037); inert until configured. */
   readonly reporter?: ErrorReporter;

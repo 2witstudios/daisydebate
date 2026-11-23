@@ -1,3 +1,4 @@
+import { deadlineSignal, type Waits } from '@daisy/clock';
 import { createAppError, isAppError } from '@daisy/errors';
 import { createMediaService } from './service';
 
@@ -43,6 +44,8 @@ export function createMediaNodes(input: {
   readonly apiKey: string;
   readonly apiSecret: string;
   readonly fetch: Fetch;
+  /** The time a probe's bound is measured on (R4.7). */
+  readonly waits: Waits;
   /** A node's health moved; its index only, never its address. */
   readonly healthChanged?: (nodeIndex: number, healthy: boolean) => void;
   /** One per node, for tests; the real SDK client otherwise. */
@@ -110,18 +113,19 @@ export function createMediaNodes(input: {
     async probe() {
       await Promise.all(
         input.nodes.map(async ({ url, publicUrl }, index) => {
-          const answers = (route: string) =>
-            input
-              .fetch(new URL('/', route).toString(), {
-                signal: AbortSignal.timeout(PROBE_TIMEOUT_MS),
-              })
+          const answers = (route: string) => {
+            const bound = deadlineSignal(input.waits, PROBE_TIMEOUT_MS);
+            return input
+              .fetch(new URL('/', route).toString(), { signal: bound.signal })
               .then(
                 async (response) => {
                   await response.body?.cancel();
                   return response.ok;
                 },
                 () => false,
-              );
+              )
+              .finally(bound.clear);
+          };
           // Browsers join the public route, so it must answer as well as the API.
           const [api, joinable] = await Promise.all([
             answers(url),

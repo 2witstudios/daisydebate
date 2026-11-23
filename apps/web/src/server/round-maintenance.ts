@@ -11,7 +11,7 @@ import { readPublicCheckInProbe } from '../features/availability/configuration';
 export function startRoundCompetitiveMaintenance(input: {
   readonly app: App;
   readonly instanceId: string;
-  readonly timers: Parameters<typeof startRoundMaintenance>[0]['timers'];
+  readonly waits: Parameters<typeof startRoundMaintenance>[0]['waits'];
   readonly wake?: Parameters<typeof startRoundMaintenance>[0]['wake'];
   readonly ratingWake?: Parameters<
     typeof startRoundMaintenance
@@ -74,7 +74,7 @@ export function startRoundCompetitiveMaintenance(input: {
           app.config.PUBLIC_APP_URL,
         )?.roundId ?? null,
     }),
-    timers: input.timers,
+    waits: input.waits,
     wake: input.wake,
     ratingWake: input.ratingWake,
     now: () => performance.now(),

@@ -1,3 +1,4 @@
+import { hostWaits } from '@daisy/worker/host';
 import { SQL } from 'bun';
 import { z } from 'zod';
 import { createId } from '@paralleldrive/cuid2';
@@ -19,7 +20,11 @@ const { username, rooms } = z
   .parse(JSON.parse(await Bun.stdin.text()));
 const url = betaAccessTarget(process.env);
 const sql = new SQL(url, { max: 1 });
-const database = createDatabase({ url, nextActorId: createId });
+const database = createDatabase({
+  waits: hostWaits,
+  url,
+  nextActorId: createId,
+});
 try {
   const [who] = await sql`select current_user as role`;
   if (who?.role !== 'daisy_e2e')

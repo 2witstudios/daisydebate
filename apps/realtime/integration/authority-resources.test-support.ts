@@ -1,3 +1,4 @@
+import { hostWaits } from '@daisy/worker/host';
 import { SQL } from 'bun';
 import { createRealtimeDatabase } from '@daisy/db';
 import { systemId, type Clock } from '@daisy/clock';
@@ -16,6 +17,7 @@ export async function authorityResources(
   const database = createRealtimeDatabase({
     url: services.databaseUrl,
     client,
+    waits: hostWaits,
   });
   const resources = createRealtimeApp({
     database: {
@@ -39,6 +41,7 @@ export async function authorityResources(
       REALTIME_MAX_SUBSCRIPTIONS: String(maxSubscriptions),
     },
     clock,
+    waits: hostWaits,
   });
   try {
     await client.unsafe('set role daisy_realtime');

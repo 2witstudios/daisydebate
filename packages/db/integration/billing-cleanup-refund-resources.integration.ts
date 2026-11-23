@@ -1,3 +1,4 @@
+import { hostWaits } from '@daisy/worker/host';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { requireTestServices } from '@daisy/config';
 import { createId } from '@paralleldrive/cuid2';
@@ -22,6 +23,7 @@ test('owned cleanup refund resources retain original money identity after the or
           await fixture.sql`select id from privacy_jobs where subject_ref=${userId} and vendor='stripe'`;
         const jobId = job!.id as string;
         const database = createDatabase({
+            waits: hostWaits,
             url: databaseUrl,
             client: pool,
             nextActorId: createId,

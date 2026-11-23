@@ -1,3 +1,4 @@
+import { hostWaits } from '@daisy/worker/host';
 import { addMs } from '@daisy/clock';
 import {
   scratchDatabase,
@@ -102,17 +103,23 @@ test(
         });
         pool = new SQL(scratch.url, { max: 6 });
         const db = createDatabase({
+          waits: hostWaits,
           url: scratch.url,
           client: pool,
           nextActorId: createId,
         });
         const run = createBoundedTransaction({
-          lane: createLane('control', pool, {
-            connections: 6,
-            queue: 16,
-            maxWaitMs: 1000,
-          }),
-          now: performance.now,
+          lane: createLane(
+            'control',
+            pool,
+            {
+              connections: 6,
+              queue: 16,
+              maxWaitMs: 1000,
+            },
+            { waits: hostWaits },
+          ),
+          waits: hostWaits,
         });
         await db.renewServiceInstance({ instanceId, role: 'web' });
         const reserve = pool.reserve.bind(pool);

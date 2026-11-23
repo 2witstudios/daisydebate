@@ -1,5 +1,5 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { failureLog, manualTimers } from '../../lib/worker-timers.test-support';
+import { failureLog, manualWaits } from '../../lib/manual-waits.test-support';
 import { createRoomMaintenance, startRoomMaintenance } from './maintenance';
 setupRitewayBun();
 
@@ -99,14 +99,14 @@ test('one Room that cannot be maintained does not stop the rest of the sweep (PR
 });
 
 test('Room maintenance runs on its own 500 ms worker loop (ISSUE-771)', async () => {
-  const { tasks, timers } = manualTimers();
+  const { tasks, waits } = manualWaits();
   const { failures, failed } = failureLog();
   const pageFailure = new Error('page read failed');
   const service = startRoomMaintenance({
     maintainRooms: async () => {
       throw pageFailure;
     },
-    timers,
+    waits,
     failed,
   });
   await service.started;

@@ -1,3 +1,4 @@
+import { hostWaits } from '@daisy/worker/host';
 import { roundDecisionReleasePolicy } from '@daisy/protocol/round-decision-release';
 import { requireTestServices } from '@daisy/config';
 import { buildRoomTopic } from '@daisy/protocol/topics';
@@ -272,7 +273,7 @@ test('a Round with nothing to run first tells its seated humans at the Start', a
     try {
       await roomCommandOperations({
         database: drizzle({ client: f.sql }),
-        commandTransaction: roomCommandTransaction(f.sql, 2),
+        commandTransaction: roomCommandTransaction(f.sql, 2, hostWaits),
         judgeAdmission: createCasualJudgeAdmission({
           nextId: createId,
           policy: {

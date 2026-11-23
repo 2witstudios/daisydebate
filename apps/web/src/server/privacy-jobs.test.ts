@@ -3,7 +3,7 @@ import { fixedClock } from '@daisy/clock';
 import type { App } from './app';
 import { privacyJobsQueue, startPrivacyJobs } from './privacy-jobs';
 import { createEventRecorder } from './test-loggers.test-support';
-import { inertTimers, withOneShots } from '../lib/worker-timers.test-support';
+import { inertWaits, recordingWaits } from '../lib/manual-waits.test-support';
 
 setupRitewayBun();
 const now = '2026-10-28T00:00:00.000Z';
@@ -35,12 +35,8 @@ test('due vendor deletion jobs are delivered with per-attempt backoff (ISSUE-833
     clock: fixedClock(now),
     logger,
     intervalMs: 60_000,
-    timers: withOneShots({
-      setInterval: (_callback, ms) => {
-        calls.push(ms);
-        return 1;
-      },
-      clearInterval: () => {},
+    waits: recordingWaits(inertWaits, (event, ms) => {
+      if (event === 'armed') calls.push(ms);
     }),
   });
   await worker.stop();
@@ -50,8 +46,8 @@ test('due vendor deletion jobs are delivered with per-attempt backoff (ISSUE-833
       'read one bounded batch, deliver each in read order with a retry deadline that backs off by attempts, and run at start on its interval',
     actual: calls,
     expected: [
-      60_000,
       { due: { now, limit: 32 } },
+      60_000,
       {
         delivered: 'abcdefghijklmnopqrstuvwx',
         vendor: 'messaging-typing',
@@ -81,7 +77,7 @@ test('a failed due-read reports failure and an empty batch reports completion', 
     clock: fixedClock(now),
     logger,
     intervalMs: 60_000,
-    timers: inertTimers,
+    waits: inertWaits,
   });
   await failing.stop();
   const empty = startPrivacyJobs({
@@ -91,7 +87,7 @@ test('a failed due-read reports failure and an empty batch reports completion', 
     clock: fixedClock(now),
     logger,
     intervalMs: 60_000,
-    timers: inertTimers,
+    waits: inertWaits,
   });
   await empty.stop();
   assert({
@@ -113,14 +109,14 @@ test('a failed due-read reports failure and an empty batch reports completion', 
 
 test('a vendor failure never reports completion, on its retry or the idle runs after it', async () => {
   const { logger, logged: events } = createEventRecorder();
-  const timers = inertTimers;
+  const waits = inertWaits;
   const retried = startPrivacyJobs({
     due: async () => [{ id: 'job', vendor: 'messaging-typing', attempts: 0 }],
     deliver: async () => 'retry',
     owed: async () => 1,
     clock: fixedClock(now),
     logger,
-    timers,
+    waits,
   });
   await retried.stop();
   const idle = startPrivacyJobs({
@@ -129,7 +125,7 @@ test('a vendor failure never reports completion, on its retry or the idle runs a
     owed: async () => 1,
     clock: fixedClock(now),
     logger,
-    timers,
+    waits,
   });
   await idle.stop();
   assert({

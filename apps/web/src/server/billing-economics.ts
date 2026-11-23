@@ -1,3 +1,5 @@
+import type { Waits } from '@daisy/clock';
+import { pollWork } from '@daisy/worker';
 import { isCapacityRefusal } from '@daisy/db/capacity';
 import { isServiceLeaseLapse } from '@daisy/db/service-lease-lapse';
 import { createRefusal, errorCodeOf, isAppError } from '@daisy/errors';
@@ -21,8 +23,6 @@ import {
 import { previousEconomicsMonth } from '../features/billing/economics-policy';
 import { createBillingEconomicsFiles } from './billing-economics-files';
 import { workerFailures } from './recoverable-failure';
-import type { WorkerTimers } from '../lib/worker-timers';
-import { startWorkerLoop } from '../lib/worker-loop';
 
 /** The current-service source and a provisioned private sink; absent inputs never become measured zero. */
 export function composeBillingEconomics(
@@ -140,7 +140,7 @@ export async function correctBillingEconomics(
 export function startBillingEconomics(input: {
   readonly app: App;
   readonly instanceId: string;
-  readonly timers: WorkerTimers;
+  readonly waits: Waits;
 }) {
   const { app } = input;
   const log = (
@@ -218,8 +218,8 @@ export function startBillingEconomics(input: {
     if (settled) collectRaised = new Set();
     if (!settled) raiseOnce(month, 'report_failed', submitted.cause);
   };
-  return startWorkerLoop({
-    timers: input.timers,
+  return pollWork({
+    waits: input.waits,
     // A fixed hourly cadence: a collection is due by the calendar, not found.
     backoff: { busyMs: 3_600_000, idleMaxMs: 3_600_000 },
     // A failure outside any collection (an invalid clock, a defect) is raised once per month and
@@ -238,7 +238,7 @@ export function startBillingEconomics(input: {
       );
       collectRaised = new Set([...collectRaised, key]);
     },
-    run: async () => {
+    pass: async () => {
       collecting = null;
       const window = previousEconomicsMonth(app.clock.now());
       if (!window)

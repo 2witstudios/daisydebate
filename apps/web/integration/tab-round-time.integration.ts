@@ -1,3 +1,4 @@
+import { hostWaits } from '@daisy/worker/host';
 import { instantMs } from '@daisy/clock';
 import { SQL } from 'bun';
 import { requireTestServices } from '@daisy/config';
@@ -132,7 +133,7 @@ test('trusted Round time preserves actual command receipts and samples the ballo
                 result,
                 f.sql,
                 Number(holder!.pid),
-                { now: Date.now },
+                { waits: hostWaits },
               );
               assert({
                 given:

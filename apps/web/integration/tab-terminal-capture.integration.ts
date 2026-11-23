@@ -1,3 +1,4 @@
+import { hostWaits } from '@daisy/worker/host';
 import { finishedOrBlockedBehind } from '@daisy/db/testing';
 import { createId } from '@paralleldrive/cuid2';
 import { isAppError } from '@daisy/errors';
@@ -326,7 +327,7 @@ for (const work of ['open', 'dispatch'] as const)
             const a = first === 'work' ? perform() : settle();
             if (
               (await finishedOrBlockedBehind(a, f.sql, Number(holder!.pid), {
-                now: Date.now,
+                waits: hostWaits,
               })) !== 'blocked'
             )
               throw new Error('First actual admission writer did not wait');
@@ -338,7 +339,7 @@ for (const work of ['open', 'dispatch'] as const)
             const b = first === 'work' ? settle() : perform();
             if (
               (await finishedOrBlockedBehind(b, f.sql, waiters[0]!.pid, {
-                now: Date.now,
+                waits: hostWaits,
               })) !== 'blocked'
             )
               throw new Error(

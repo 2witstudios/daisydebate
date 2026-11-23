@@ -1,9 +1,9 @@
+import { repeatEvery } from '@daisy/worker';
+import type { Waits } from '@daisy/clock';
 import type { Clock } from '@daisy/clock';
 import type { PhotoDeletion } from '@daisy/db';
 import type { Logger } from '@daisy/logger';
 import { createScheduledWorker } from '../../ops/scheduled-worker';
-import { startRunSchedule } from '../../../server/run-schedule';
-import type { WorkerTimers } from '../../../lib/worker-timers';
 import type { ProfilePhotoObjects } from './ports';
 
 const SWEEP_INTERVAL_MS = 60_000;
@@ -70,17 +70,20 @@ export function startPhotoDeletions(input: {
   readonly objects: ProfilePhotoObjects | null;
   readonly clock: Clock;
   readonly logger: Logger;
-  readonly timers: WorkerTimers;
+  readonly waits: Waits;
 }) {
-  return startRunSchedule({
-    work: createScheduledWorker({
-      name: 'profile_photo_deletions',
-      clock: input.clock,
-      logger: input.logger,
-      pass: (now) => sweepPhotoDeletions(now, input.store, input.objects),
-    }),
-    timers: input.timers,
-    intervalMs: SWEEP_INTERVAL_MS,
+  const work = createScheduledWorker({
+    name: 'profile_photo_deletions',
+    clock: input.clock,
+    logger: input.logger,
+    pass: (now) => sweepPhotoDeletions(now, input.store, input.objects),
+  });
+  return repeatEvery({
+    run: () => work.run(),
+    waits: input.waits,
+    everyMs: SWEEP_INTERVAL_MS,
     runOnStart: true,
+    // Each run reports its own failure.
+    failed: () => undefined,
   });
 }

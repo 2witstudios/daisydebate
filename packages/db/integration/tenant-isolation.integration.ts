@@ -1,3 +1,4 @@
+import { hostWaits } from '@daisy/worker/host';
 import { afterAll } from 'bun:test';
 import { SQL } from 'bun';
 import { createId } from '@paralleldrive/cuid2';
@@ -50,7 +51,11 @@ const problemsOf = async (
  * `bun doctor` read it.
  */
 test('the migrated schema is fenced exactly as the manifest declares', async () => {
-  const database = createDatabase({ url, nextActorId: createId });
+  const database = createDatabase({
+    waits: hostWaits,
+    url,
+    nextActorId: createId,
+  });
   try {
     assert({
       given: 'every committed migration applied to an empty database',

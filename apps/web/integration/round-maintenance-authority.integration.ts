@@ -1,3 +1,4 @@
+import { hostWaits } from '@daisy/worker/host';
 import { decisionOf } from './attendance-evaluation.test-support';
 import { buildRoundTopic } from '@daisy/protocol/topics';
 import { finishedOrBlockedBehind } from '@daisy/db/testing';
@@ -165,7 +166,7 @@ for (const waitAt of ['Round', 'receipt'] as const)
           pending,
           f.sql,
           backend.pid,
-          { now: performance.now, deadlineMs: 700 },
+          { waits: hostWaits, deadlineMs: 700 },
         );
         await f.sql`select pg_sleep(greatest(extract(epoch from (renewed_at+interval '3.03 seconds'-clock_timestamp())),0)) from service_instances where instance_id=${instanceId}`;
         await holder`rollback`;

@@ -1,4 +1,4 @@
-import { instantMs } from '@daisy/clock';
+import { instantMs } from '@daisy/clock/instant';
 import { unknownPaymentFacts } from './billing-payment-observation-facts';
 import {
   billingPaymentObservationSchema,

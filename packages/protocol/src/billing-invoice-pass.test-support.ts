@@ -1,4 +1,4 @@
-import { instantMs, addMs } from '@daisy/clock';
+import { instantMs, addMs } from '@daisy/clock/instant';
 import { billingPaymentObservationSchema } from './billing-payment-observation';
 import {
   invoicePassOwnerSchema,

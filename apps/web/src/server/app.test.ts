@@ -1,3 +1,4 @@
+import { virtualClock } from '@daisy/clock/testing';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { fixedClock, sequentialId } from '@daisy/clock';
 import { rejectionOf } from '@daisy/errors/testing';
@@ -33,6 +34,7 @@ function recordingFetch() {
 
 const build = (env: Record<string, string>, fetch = recordingFetch().fetch) =>
   createApp({
+    waits: virtualClock(),
     messagingPolicy: betaMessagingPolicy,
     env,
     fetch,

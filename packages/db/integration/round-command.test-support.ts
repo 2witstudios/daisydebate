@@ -1,3 +1,4 @@
+import { hostWaits } from '@daisy/worker/host';
 import { roundDecisionReleasePolicy } from '@daisy/protocol/round-decision-release';
 import { createId } from '@paralleldrive/cuid2';
 import type { RoundCommandEnvelope } from '@daisy/protocol/round-command';
@@ -25,6 +26,7 @@ export const withAuthoredRound = (
       ...round,
     });
     const database = createDatabase({
+      waits: hostWaits,
       decisionRelease: roundDecisionReleasePolicy,
       url,
       nextActorId: createId,

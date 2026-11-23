@@ -1,4 +1,4 @@
-import { deadlineSignal } from '@daisy/clock';
+import { deadlineSignal, waitsOf } from '@daisy/clock';
 import { instantMs } from '@daisy/clock';
 import type { OpenRouter } from '@daisy/ai-voice';
 import type { createAudioSubscription } from '@daisy/media/subscription';
@@ -165,7 +165,7 @@ async function captureSession(
       url: token.url,
       token: token.token,
       identities: identities(current),
-      nowMs: input.nowMs,
+      waits: waitsOf({ nowMs: input.nowMs, waitUntilMs: input.waitUntilMs }),
       onFrame: (raw) => {
         if (signal.aborted) return;
         // A bot's words are authored from its own text (ADR 0122): its track

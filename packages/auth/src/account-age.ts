@@ -1,4 +1,4 @@
-import { instantMs, tryInstantMs } from '@daisy/clock';
+import { instantMs, tryInstantMs } from '@daisy/clock/instant';
 import type { AgeBand } from '@daisy/protocol/ladder';
 import { ageBand } from './age-band';
 import { ageAdmitted } from './participant-access';

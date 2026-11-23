@@ -1,4 +1,4 @@
-import { instantMs, tryInstantMs } from '@daisy/clock';
+import { instantMs, tryInstantMs } from '@daisy/clock/instant';
 import { speakingChangesOf } from './round-speaking';
 import { closePlayedRound, startRound } from './round-commands';
 import { roundHoldsMembers } from './room-membership';

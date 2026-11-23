@@ -1,3 +1,4 @@
+import { hostWaits } from '@daisy/worker/host';
 import { requireTestServices } from '@daisy/config';
 import { assertRejects } from '@daisy/errors/testing';
 import { createId } from '@paralleldrive/cuid2';
@@ -44,7 +45,11 @@ test('typing rights bind producer work to the real subject and require a committ
       },
     };
     const port = createMessagingTypingPrivacyPort(database, producer);
-    const publicDb = createDatabase({ url, nextActorId: createId });
+    const publicDb = createDatabase({
+      waits: hostWaits,
+      url,
+      nextActorId: createId,
+    });
     try {
       await assertRejects({
         given: 'a live account',

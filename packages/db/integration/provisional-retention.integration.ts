@@ -1,3 +1,4 @@
+import { hostWaits } from '@daisy/worker/host';
 import { emailDeliveryStatusRank } from '@daisy/protocol/email-delivery';
 import { createId } from '@paralleldrive/cuid2';
 import { requireTestServices } from '@daisy/config';
@@ -23,7 +24,11 @@ const options = {
 
 test('retention deletes only old unclaimed unanswered accounts and their owned mail/session state', async () => {
   await withFixture(url, async (f) => {
-    const database = createDatabase({ url, nextActorId: createId });
+    const database = createDatabase({
+      waits: hostWaits,
+      url,
+      nextActorId: createId,
+    });
     const ids = Array.from({ length: 6 }, createId);
     const [expired, recent, member, aged, termed, actor] = ids as [
       string,
@@ -211,7 +216,11 @@ test('invalid retention bounds are refused before sending any SQL', async () => 
 
 test('busy provisional rows skip the batch and a cleanup failure inside an account transaction keeps it whole', async () => {
   await withFixture(url, async (f) => {
-    const database = createDatabase({ url, nextActorId: createId });
+    const database = createDatabase({
+      waits: hostWaits,
+      url,
+      nextActorId: createId,
+    });
     const id = createId(),
       tag = createId(),
       email = `${id}@example.test`;
@@ -255,7 +264,11 @@ test('busy provisional rows skip the batch and a cleanup failure inside an accou
 
 test('retention drains the oldest eligible account in each bounded batch', async () => {
   await withFixture(url, async (f) => {
-    const database = createDatabase({ url, nextActorId: createId });
+    const database = createDatabase({
+      waits: hostWaits,
+      url,
+      nextActorId: createId,
+    });
     const first = createId(),
       second = createId();
     await f.insert('users', { id: first, created_at: old });
@@ -295,7 +308,11 @@ test('retention drains the oldest eligible account in each bounded batch', async
 
 test('age refusal uses the same owner-scoped email-change cleanup', async () => {
   await withFixture(url, async (f) => {
-    const database = createDatabase({ url, nextActorId: createId });
+    const database = createDatabase({
+      waits: hostWaits,
+      url,
+      nextActorId: createId,
+    });
     const id = createId(),
       other = createId(),
       tag = createId();
@@ -329,7 +346,11 @@ test('age refusal uses the same owner-scoped email-change cleanup', async () => 
 
 test('a sign-up active since the cutoff is not abandoned (review on #474)', async () => {
   await withFixture(url, async (f) => {
-    const database = createDatabase({ url, nextActorId: createId });
+    const database = createDatabase({
+      waits: hostWaits,
+      url,
+      nextActorId: createId,
+    });
     const [refreshed, linked] = [createId(), createId()];
     const tag = createId();
     for (const id of [refreshed, linked])

@@ -1,3 +1,4 @@
+import { hostWaits } from '@daisy/worker/host';
 import { eventBallotAccess } from '../src/features/round-ballots/audience';
 import {
   captureRule,
@@ -123,7 +124,7 @@ test('only an explicit authorized request runs analysis, and delivered reports s
           discovery.work,
           f.sql,
           Number(backend!.pid),
-          { now: Date.now },
+          { waits: hostWaits },
         );
       });
       await discovery.work;

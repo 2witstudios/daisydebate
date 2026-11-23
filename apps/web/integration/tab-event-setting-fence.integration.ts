@@ -1,3 +1,4 @@
+import { hostWaits } from '@daisy/worker/host';
 import { afterAll } from 'bun:test';
 import { SQL } from 'bun';
 import { authorize } from '@daisy/auth/authorization';
@@ -130,7 +131,7 @@ test('real entry requests serialize only with their actual setting parents', asy
       enrollment,
       observer,
       Number(writing!.pid),
-      { now: Date.now },
+      { waits: hostWaits },
     );
     release();
     const outcomes = await Promise.all([setting, enrollment]);
@@ -163,7 +164,7 @@ test('real entry requests serialize only with their actual setting parents', asy
       enrollment,
       observer,
       Number(writing!.pid),
-      { now: Date.now },
+      { waits: hostWaits },
     );
     await writer.unsafe('commit');
     outcomes.push(await enrollment);
@@ -251,7 +252,7 @@ test('real entry requests serialize only with their actual setting parents', asy
       enrollment,
       observer,
       Number(writing!.pid),
-      { now: Date.now },
+      { waits: hostWaits },
     );
     const [beforeUnfollow] =
       await owner`select version, entries_version, settings_version from events where id=${cEventId}`;

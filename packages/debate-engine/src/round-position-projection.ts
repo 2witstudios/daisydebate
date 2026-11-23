@@ -1,4 +1,4 @@
-import { instantMs } from '@daisy/clock';
+import { instantMs } from '@daisy/clock/instant';
 import { countdownDue } from './round-start-gate';
 import {
   clockStopsOf,

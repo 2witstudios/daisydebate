@@ -1,3 +1,4 @@
+import { hostWaits } from '@daisy/worker/host';
 import { requireTestServices } from '@daisy/config';
 import { assertRejects } from '@daisy/errors/testing';
 import { drizzle } from 'drizzle-orm/bun-sql';
@@ -102,7 +103,7 @@ test('selection waits for the publisher’s format lock', async () => {
           presetVersion: 1,
         });
         const blocked = await finishedOrBlockedBehind(read, reader.sql, pid, {
-          now: Date.now,
+          waits: hostWaits,
         });
         return { blocked, read };
       });

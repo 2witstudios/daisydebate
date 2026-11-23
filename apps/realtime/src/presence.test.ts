@@ -1,3 +1,4 @@
+import { virtualClock } from '@daisy/clock/testing';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import {
   createPresenceTracker,
@@ -9,15 +10,13 @@ import {
 setupRitewayBun();
 
 const actorId = 'a'.repeat(24);
-const flush = () => new Promise((resolve) => setImmediate(resolve));
 
 const harness = ({
   refreshed = true,
   failing = false,
 }: { refreshed?: boolean; failing?: boolean } = {}) => {
   const calls: unknown[][] = [];
-  const intervals: { callback: () => void; ms: number; cleared: boolean }[] =
-    [];
+  const clock = virtualClock();
   const settle = <T>(value: T) =>
     failing ? Promise.reject(new Error('redis down')) : Promise.resolve(value);
   const leases: PresenceLeases = {
@@ -45,28 +44,24 @@ const harness = ({
     leases,
     instanceId: 'inst1',
     nextId: () => `conn${(ids += 1)}`,
-    timers: {
-      setInterval: (callback, ms) => {
-        intervals.push({ callback, ms, cleared: false });
-        return intervals.length as unknown as ReturnType<typeof setInterval>;
-      },
-      clearInterval: (handle) => {
-        intervals[(handle as unknown as number) - 1]!.cleared = true;
-      },
-    },
+    waits: clock,
   });
-  return { tracker, calls, intervals };
+  return { tracker, calls, clock };
 };
 
 test('a socket’s lease lifecycle', async () => {
-  const { tracker, calls, intervals } = harness();
+  const { tracker, calls, clock } = harness();
   const session = tracker.start(actorId, 'active');
-  intervals[0]!.callback();
+  await clock.advance(PRESENCE_REFRESH_MS - 1);
+  const beforeDue = calls.length;
+  await clock.advance(1);
   session.activity('idle');
   session.activity('idle');
   session.stop();
   session.stop();
-  await flush();
+  await clock.settle();
+  const sleepersAfterStop = clock.sleepers();
+  await clock.advance(PRESENCE_REFRESH_MS * 3);
   assert({
     given: 'start, a refresh tick, one idle report twice and a double stop',
     should:
@@ -80,18 +75,17 @@ test('a socket’s lease lifecycle', async () => {
     ],
   });
   assert({
-    given: 'the refresh timer',
-    should: 'tick every 20 s and clear on stop',
-    actual: [intervals[0]!.ms, intervals[0]!.cleared],
-    expected: [PRESENCE_REFRESH_MS, true],
+    given: 'the refresh cadence',
+    should: 'tick every 20 s and stop on stop',
+    actual: [beforeDue, sleepersAfterStop, calls.length],
+    expected: [1, 0, 4],
   });
 });
 
 test('an expired lease is upserted again on refresh', async () => {
-  const { tracker, calls, intervals } = harness({ refreshed: false });
+  const { tracker, calls, clock } = harness({ refreshed: false });
   tracker.start(actorId, 'active');
-  intervals[0]!.callback();
-  await flush();
+  await clock.advance(PRESENCE_REFRESH_MS);
   assert({
     given: 'a refresh that finds the lease gone',
     should: 'upsert it again with the current activity',
@@ -101,12 +95,12 @@ test('an expired lease is upserted again on refresh', async () => {
 });
 
 test('a Redis outage never throws into the socket', async () => {
-  const { tracker, intervals } = harness({ failing: true });
+  const { tracker, clock } = harness({ failing: true });
   const session = tracker.start(actorId, 'active');
-  intervals[0]!.callback();
+  await clock.advance(PRESENCE_REFRESH_MS);
   session.activity('idle');
   session.stop();
-  await flush();
+  await clock.settle();
   assert({
     given: 'every lease write rejecting',
     should: 'swallow each failure',

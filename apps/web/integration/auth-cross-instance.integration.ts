@@ -1,3 +1,4 @@
+import { hostWaits } from '@daisy/worker/host';
 import { afterAll } from 'bun:test';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { systemClock, systemId } from '@daisy/clock';
@@ -39,6 +40,7 @@ const testApp = createTestApp();
 const rpID = 'localhost';
 
 const instanceB = createApp({
+  waits: hostWaits,
   messagingPolicy: betaMessagingPolicy,
   env: testApp.env,
   fetch: testApp.mailbox.fetch,

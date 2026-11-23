@@ -1,9 +1,9 @@
+import type { Waits } from '@daisy/clock';
 import type { ErrorReporter } from '@daisy/observability';
 import { leagueRequestOwnerAddress } from '../features/league-requests/owner-address';
 import { createLeagueRequestNotices } from '../features/league-requests/owner-notice';
 import { startMailQueueWorker } from '../features/mail/queue-worker';
 import { MAIL_QUEUE_BATCH } from '../features/mail/retry-policy';
-import type { WorkerTimers } from '../lib/worker-timers';
 import type { App } from './app';
 import { workerFailures } from './recoverable-failure';
 import { nextWorkerToken } from './worker-token';
@@ -17,7 +17,7 @@ import { nextWorkerToken } from './worker-token';
  */
 export function startLeagueRequestMail(input: {
   readonly app: App;
-  readonly timers: WorkerTimers;
+  readonly waits: Waits;
   readonly reporter?: ErrorReporter;
 }) {
   const { app } = input;
@@ -58,7 +58,7 @@ export function startLeagueRequestMail(input: {
       }).run(limit),
     batch: MAIL_QUEUE_BATCH,
     everyMs: 15_000,
-    timers: input.timers,
+    waits: input.waits,
     failed: (error) => failed(error, 'send'),
   });
 }

@@ -93,10 +93,10 @@ export function createRoutes(app: App) {
   return {
     analyticsConsent: { POST: createConsentHandler(app) },
     mediaCapture: composeMediaCaptureRoutes(app),
-    stage: composeStage(app),
+    stage: composeStage(app, app.waits),
     roundMedia: createRoundMediaHandlers({
       ...memberBoundary,
-      operations: createRoundMediaRuntime(app).operations,
+      operations: createRoundMediaRuntime(app, app.waits).operations,
     }),
     rooms,
     attendance: composeAttendanceRoutes(app),
@@ -269,6 +269,7 @@ export function createRoutes(app: App) {
       reporter: app.reporter,
       local: app.localAlertState,
       clock: app.clock,
+      waits: app.waits,
       fileMaintenanceIntervalMs:
         app.messagingFiles?.maintenance?.intervalMs ?? null,
       token: () => app.opsProbeToken(),

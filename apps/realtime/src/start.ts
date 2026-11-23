@@ -4,6 +4,7 @@ import {
   drainWithDeadline,
   installShutdownSignals,
 } from '@daisy/observability';
+import { hostWaits } from '@daisy/worker/host';
 import { createRealtimeApp } from './app';
 import { DEFAULT_REALTIME_PORT, parseHostname, parsePort } from './port';
 import { serveRealtime } from './serve';
@@ -36,6 +37,7 @@ const reporter = realtimeErrorReporter();
 const resources = createRealtimeApp({
   env: process.env,
   clock: systemClock,
+  waits: hostWaits,
 });
 const port = parsePort(process.env.REALTIME_PORT, DEFAULT_REALTIME_PORT);
 const hostname = parseHostname(process.env.REALTIME_HOST);
@@ -65,6 +67,7 @@ const { close, drain } = await serveRealtime(
     trustedProxies,
     instanceId,
     nextId: () => systemId.next(),
+    waits: hostWaits,
   }),
 );
 const lease = startRealtimeServiceLease({
@@ -86,11 +89,7 @@ const lease = startRealtimeServiceLease({
       errorCode,
     });
   },
-  timers: {
-    setInterval: (tick, ms) => setInterval(tick, ms).unref(),
-    clearInterval: (handle) =>
-      clearInterval(handle as ReturnType<typeof setInterval>),
-  },
+  waits: hostWaits,
 });
 resources.logger.log(
   'server.start',
@@ -112,6 +111,7 @@ async function shutdown() {
     'Draining requests',
   );
   await drainWithDeadline({
+    waits: hostWaits,
     deadlineMs: 25_000,
     onDeadlineExceeded: () => process.exit(1),
     close: async () => {

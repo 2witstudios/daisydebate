@@ -33,17 +33,17 @@ export function createRetentionSweep({
   readonly clock: Clock;
   readonly logger: Logger;
 }) {
-  let stopped = false;
   const sweepTarget = async (
     target: RetentionTarget,
     now: string,
+    signal: AbortSignal,
   ): Promise<RetentionResult> => {
     const operation = target.name;
     let deleted = 0;
     let batches = 0;
     let drained = false;
     try {
-      while (!stopped && batches < target.maxBatches) {
+      while (!signal.aborted && batches < target.maxBatches) {
         const count = await target.purge({ now, limit: target.batchSize });
         batches += 1;
         deleted += count;
@@ -66,18 +66,17 @@ export function createRetentionSweep({
     return { operation, ok: true, drained, deleted, batches };
   };
   return {
-    /** Ends a run between batches so shutdown never closes a pool under it. */
-    stop: () => {
-      stopped = true;
-    },
-    async run(): Promise<readonly RetentionResult[]> {
+    /** `signal` ends a run between batches, so shutdown never closes a pool under it. */
+    async run(
+      signal: AbortSignal = new AbortController().signal,
+    ): Promise<readonly RetentionResult[]> {
       const now = clock.now();
       const results: RetentionResult[] = [];
       for (const target of targets) {
-        if (stopped) break;
-        results.push(await sweepTarget(target, now));
+        if (signal.aborted) break;
+        results.push(await sweepTarget(target, now, signal));
       }
-      if (!stopped && results.every(({ ok, drained }) => ok && drained))
+      if (!signal.aborted && results.every(({ ok, drained }) => ok && drained))
         logger.log(
           'retention.run.completed',
           { deleted: results.reduce((sum, { deleted }) => sum + deleted, 0) },

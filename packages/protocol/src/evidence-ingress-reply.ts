@@ -1,4 +1,4 @@
-import { tryInstantMs } from '@daisy/clock';
+import { tryInstantMs } from '@daisy/clock/instant';
 import { z } from 'zod';
 import { idSchema } from './primitives';
 import { evidenceEnvelopeSchema } from './evidence-envelope';

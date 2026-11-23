@@ -1,13 +1,12 @@
 import type { ServerWebSocket } from 'bun';
+import type { Waits } from '@daisy/clock';
+import { virtualClock } from '@daisy/clock/testing';
 import { expect } from 'bun:test';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import type { Logger } from '@daisy/logger';
 import { closeFor } from './handlers/hello';
-import {
-  createWebSocketHandlers,
-  type SocketData,
-  type SocketTimers,
-} from './socket';
+import { createWebSocketHandlers, type SocketData } from './socket';
+import { recordingWaits } from './socket.test-support';
 import { fixture, topic } from './registry.test-support';
 
 setupRitewayBun();
@@ -35,10 +34,7 @@ for (const nativeAccepts of [true, false])
       logger,
       registry,
       now: () => 0,
-      timers: {
-        setTimeout: () => 1 as unknown as ReturnType<typeof setTimeout>,
-        clearTimeout: () => {},
-      },
+      waits: virtualClock(),
       authenticate: async () => ({
         actorId: 'a'.repeat(24),
         userId: 'b'.repeat(24),
@@ -100,10 +96,7 @@ const orderedHandlers = (
   validatePrincipal: () => Promise<boolean>,
   failed?: (error: unknown, operation: string) => void,
   registry = fixture().registry,
-  timers: SocketTimers = {
-    setTimeout: () => 1 as unknown as ReturnType<typeof setTimeout>,
-    clearTimeout: () => {},
-  },
+  waits: Waits = virtualClock(),
   logged: unknown[] = [],
 ) => {
   const logger = {
@@ -114,7 +107,7 @@ const orderedHandlers = (
     logger,
     registry,
     now: () => 0,
-    timers,
+    waits,
     authenticate: async () => ({
       actorId: 'a'.repeat(24),
       userId: 'b'.repeat(24),
@@ -283,27 +276,21 @@ test('a reporter that throws leaves the queue working', async () => {
 test('a stalled turn closes the socket so the client reconnects', async () => {
   const { ws, closes } = orderedSocket();
   const { check } = heldChecks();
-  const scheduled: Array<{ callback: () => void; ms: number }> = [];
+  const { waits, clock, armed } = recordingWaits();
   const logged: unknown[] = [];
   const handlers = orderedHandlers(
     check,
     undefined,
     fixture().registry,
-    {
-      setTimeout: (callback, ms) => {
-        scheduled.push({ callback, ms });
-        return scheduled.length as unknown as ReturnType<typeof setTimeout>;
-      },
-      clearTimeout: () => {},
-    },
+    waits,
     logged,
   );
   handlers.open(ws);
   await handlers.message(ws, hello);
   void handlers.message(ws, frameOf('subscribe', 'd'));
   await flush();
-  const budget = scheduled.at(-1)!;
-  budget.callback();
+  const budget = armed.at(-1)!;
+  await clock.advance(budget.ms);
   assert({
     given: 'a turn that never settles, with pings still answering around it',
     should: 'close on its budget, inside the 30 s the client allows',
@@ -322,30 +309,23 @@ test('a stalled turn closes the socket so the client reconnects', async () => {
 
 test('a turn that finishes clears its budget', async () => {
   const { ws, closes } = orderedSocket();
-  const scheduled: Array<{ handle: number; ms: number }> = [];
-  const cleared: unknown[] = [];
+  const { waits, armed } = recordingWaits();
   const handlers = orderedHandlers(
     async () => true,
     undefined,
     fixture().registry,
-    {
-      setTimeout: (_, ms) => {
-        scheduled.push({ handle: scheduled.length + 1, ms });
-        return scheduled.length as unknown as ReturnType<typeof setTimeout>;
-      },
-      clearTimeout: (handle) => cleared.push(handle),
-    },
+    waits,
   );
   handlers.open(ws);
   await handlers.message(ws, hello);
   await handlers.message(ws, frameOf('subscribe', 'd'));
-  const budget = scheduled.at(-1)!;
+  const budget = armed.at(-1)!;
   assert({
     given: 'a frame that takes effect within its budget',
     should: 'clear that budget, so an idle socket is never closed by it',
     actual: {
       budget: budget.ms,
-      cleared: cleared.includes(budget.handle),
+      cleared: budget.signal?.aborted === true,
       closes,
     },
     expected: { budget: 15_000, cleared: true, closes: [] },

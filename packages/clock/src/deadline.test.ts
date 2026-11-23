@@ -1,5 +1,5 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { afterMs, deadlineSignal, withDeadline } from './deadline';
+import { afterMs, deadlineSignal } from './deadline';
 import { virtualClock } from './testing';
 
 setupRitewayBun();
@@ -58,39 +58,6 @@ test('a parent that aborts first ends the deadline with its own reason', async (
       sleepers: clock.sleepers(),
     },
     expected: { reason: 'stopping', sleepers: 0 },
-  });
-});
-
-test('withDeadline rejects a slow operation and passes a fast one through', async () => {
-  const clock = virtualClock();
-  let sawAbort = false;
-  const slow = withDeadline(clock, 100, async (signal) => {
-    await clock.sleep(1_000, signal);
-    sawAbort = signal.aborted;
-    return 'late';
-  }).catch((error: DOMException) => error.name);
-  const fast = withDeadline(clock, 100, async () => {
-    await clock.sleep(10);
-    return 'on time';
-  });
-  await clock.advance(200);
-  assert({
-    given:
-      'an operation that takes 1 s and one that takes 10 ms, each bounded at 100 ms',
-    should:
-      'reject the slow one with a TimeoutError, aborting it, and resolve the fast one',
-    actual: {
-      slow: await slow,
-      sawAbort,
-      fast: await fast,
-      sleepers: clock.sleepers(),
-    },
-    expected: {
-      slow: 'TimeoutError',
-      sawAbort: true,
-      fast: 'on time',
-      sleepers: 0,
-    },
   });
 });
 

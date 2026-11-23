@@ -1,4 +1,4 @@
-import { instantMs } from '@daisy/clock';
+import { instantMs } from '@daisy/clock/instant';
 import { retainPaymentObservationFacts } from './billing-payment-observation-retention';
 import {
   mergePaymentFacts,

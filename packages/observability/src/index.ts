@@ -9,6 +9,7 @@ import {
   type Context,
 } from '@opentelemetry/api';
 
+import { afterMs, type Waits } from '@daisy/clock';
 import type { SignalTarget } from './process-lifecycle';
 export {
   installForcedShutdown,
@@ -92,44 +93,56 @@ export class OperationTimedOut extends Error {
   }
 }
 
+/**
+ * Rejects with `OperationTimedOut` when `timeoutMs` pass on `waits` before
+ * `operation` settles (R4.7: the bound is injected time).
+ */
 export async function withTimeout<T>(
+  waits: Waits,
   operation: Promise<T>,
   timeoutMs: number,
 ): Promise<T> {
-  let timer: ReturnType<typeof setTimeout> | undefined;
+  let cancel = () => {};
   try {
     return await Promise.race([
       operation,
       new Promise<never>((_, reject) => {
-        timer = setTimeout(() => reject(new OperationTimedOut()), timeoutMs);
+        cancel = afterMs(waits, timeoutMs, () =>
+          reject(new OperationTimedOut()),
+        );
       }),
     ]);
   } finally {
-    if (timer) clearTimeout(timer);
+    cancel();
   }
 }
 
 /**
  * Runs `close`, force-exiting through `onDeadlineExceeded` if it does not
- * finish within `deadlineMs`; shared by every deployment's SIGTERM drain
- * (`apps/web/src/server/start.ts`, `apps/realtime/src/start.ts`) so a hung
- * close cannot block a restart or deploy forever. Each caller supplies its
- * own close sequence (its listener, app framework, background jobs,
- * connection pools); this owns only the shared deadline race.
+ * finish within `deadlineMs` on `waits`; shared by every deployment's
+ * SIGTERM drain (`apps/web/src/server/start.ts`, `apps/realtime/src/start.ts`)
+ * so a hung close cannot block a restart or deploy forever. Each caller
+ * supplies its own close sequence (its listener, app framework, background
+ * jobs, connection pools); this owns only the shared deadline race. The
+ * deadline ends once `close` settles, resolved or rejected.
  */
 export async function drainWithDeadline({
+  waits,
   deadlineMs,
   onDeadlineExceeded,
   close,
 }: {
+  readonly waits: Waits;
   readonly deadlineMs: number;
   readonly onDeadlineExceeded: () => void;
   readonly close: () => Promise<void>;
 }): Promise<void> {
-  const deadline = setTimeout(onDeadlineExceeded, deadlineMs);
-  deadline.unref();
-  await close();
-  clearTimeout(deadline);
+  const cancel = afterMs(waits, deadlineMs, onDeadlineExceeded);
+  try {
+    await close();
+  } finally {
+    cancel();
+  }
 }
 
 /**

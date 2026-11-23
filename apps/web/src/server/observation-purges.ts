@@ -1,10 +1,10 @@
+import type { Waits } from '@daisy/clock';
+import { passOf, pollWork } from '@daisy/worker';
+import { HOUSEKEEPING_IDLE_MAX_MS } from '../lib/worker-idle';
 import type { Clock } from '@daisy/clock';
 import type { createDatabase } from '@daisy/db';
 import type { Logger } from '@daisy/logger';
 import { createScheduledWorker } from '../features/ops/scheduled-worker';
-import type { WorkerTimers } from '../lib/worker-timers';
-import { passOf } from '../lib/idle-backoff';
-import { HOUSEKEEPING_IDLE_MAX_MS, startWorkerLoop } from '../lib/worker-loop';
 
 /** How often due observation purge jobs are delivered (ISSUE-852). */
 const OBSERVATION_PURGE_INTERVAL_MS = 5_000;
@@ -24,7 +24,7 @@ export function startObservationPurges(input: {
   readonly purgeAll: () => Promise<unknown>;
   readonly clock: Clock;
   readonly logger: Logger;
-  readonly timers: WorkerTimers;
+  readonly waits: Waits;
   readonly intervalMs?: number;
 }) {
   const worker = createScheduledWorker({
@@ -41,13 +41,13 @@ export function startObservationPurges(input: {
   });
   const busyMs = input.intervalMs ?? OBSERVATION_PURGE_INTERVAL_MS;
   // Its alert reads a completion within 15 minutes; the idle cap is well inside.
-  const loop = startWorkerLoop({
-    run: () => worker.run().then(passOf),
+  const loop = pollWork({
+    pass: () => worker.run().then(passOf),
     backoff: {
       busyMs,
       idleMaxMs: Math.max(busyMs, HOUSEKEEPING_IDLE_MAX_MS),
     },
-    timers: input.timers,
+    waits: input.waits,
     failed: () => undefined,
   });
   return { initial: loop.started, stop: loop.stop };

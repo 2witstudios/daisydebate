@@ -1,4 +1,4 @@
-import { instantMs } from '@daisy/clock';
+import { instantMs } from '@daisy/clock/instant';
 import { Database } from '@adobe/data/ecs';
 import { Schema } from '@adobe/data/schema';
 import { segmentTypes, type SegmentType } from '@daisy/protocol/format';

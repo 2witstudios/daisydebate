@@ -1,3 +1,4 @@
+import { hostWaits } from '@daisy/worker/host';
 import { decisionRelease as roundDecisionReleasePolicy } from '../src/features/notifications/decision-release';
 import { pinRankedFixturePool } from '@daisy/db/testing';
 import { SQL } from 'bun';
@@ -71,6 +72,7 @@ async function fixture(
   await client.connect();
   const redis = createRedis({ url: services.redisUrl, namespace, client });
   const store = createDatabase({
+    waits: hostWaits,
     decisionRelease: roundDecisionReleasePolicy,
     url: databaseUrl,
     nextActorId: createId,

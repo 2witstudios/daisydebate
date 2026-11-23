@@ -91,7 +91,7 @@ export async function runCaptureProcess(input: {
     url,
     authentication,
     fetch: input.fetch,
-    nowMs: performance.now,
+    waits: hostWaits,
     deadlineSignal: () =>
       deadlineSignal(hostWaits, CAPTURE_CALL_DEADLINE_MS).signal,
   });
@@ -107,6 +107,7 @@ export async function runCaptureProcess(input: {
           apiKey,
           fetch: input.fetch,
           timeoutMs: CAPTURE_STT_TIMEOUT_MS,
+          waits: hostWaits,
         }),
         sttModel: 'openai/whisper-large-v3-turbo',
         subscribe: input.subscribe ?? createAudioSubscription,

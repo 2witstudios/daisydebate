@@ -1,3 +1,4 @@
+import { hostWaits } from '@daisy/worker/host';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { requireTestServices } from '@daisy/config';
 import { createDatabase } from '@daisy/db';
@@ -17,6 +18,7 @@ test('real Billing admission consumes fresh Flags authority while a cached displ
     const userId = createId(),
       actorId = createId();
     const database = createDatabase({
+      waits: hostWaits,
       url: testDatabaseUrl,
       nextActorId: createId,
     });

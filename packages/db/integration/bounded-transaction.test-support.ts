@@ -1,3 +1,4 @@
+import { hostWaits } from '@daisy/worker/host';
 import { testLane } from '../src/testing-lane';
 import {
   createBoundedTransaction,
@@ -62,8 +63,8 @@ export const withBoundedRound = async (
       await work(
         fixture,
         createBoundedTransaction({
-          lane: testLane(client, 4),
-          now: performance.now,
+          lane: testLane(client, hostWaits, 4),
+          waits: hostWaits,
         }),
         roundId,
         client,

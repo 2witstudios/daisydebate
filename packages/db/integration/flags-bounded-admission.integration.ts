@@ -1,3 +1,4 @@
+import { hostWaits } from '@daisy/worker/host';
 import { requireTestServices } from '@daisy/config';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';
@@ -21,8 +22,8 @@ test('Flags admission works on the guarded bounded transaction facade without ch
     await executeFlagCommand(store, flagCommand(key, 0));
     await withPool(async (client) => {
       const run = createBoundedTransaction({
-        lane: testLane(client, 4),
-        now: performance.now,
+        lane: testLane(client, hostWaits, 4),
+        waits: hostWaits,
       });
       let decided = false;
       const admittedAt = await run(async (tx) => {

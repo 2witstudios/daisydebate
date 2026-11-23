@@ -1,3 +1,4 @@
+import { hostWaits } from '@daisy/worker/host';
 import { spyOn } from 'bun:test';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
@@ -19,7 +20,11 @@ type ReportedFailure = { event: string; fields: unknown; message: string };
 test('delivery failure surfaces a safe retryable error and cleanup still leaves no fixture rows', async () => {
   const email = fixtureEmail();
   const sent: SentMessages = [];
-  const database = createDatabase({ url, nextActorId: createId });
+  const database = createDatabase({
+    waits: hostWaits,
+    url,
+    nextActorId: createId,
+  });
   const auth = createTestAuthServer(database.authAdapter, {
     sent,
     deliveryFailure: new Error('resend unavailable'),
@@ -64,6 +69,7 @@ test('delivery failure surfaces a safe retryable error and cleanup still leaves 
 test('pool lifecycle closes and the app failure boundary reports without SQL material', async () => {
   const failures: ReportedFailure[] = [];
   const database = createDatabase({
+    waits: hostWaits,
     url,
     eventSink: (event, fields, message) =>
       failures.push({ event, fields, message }),
@@ -135,7 +141,11 @@ test('pool lifecycle closes and the app failure boundary reports without SQL mat
 test('a persistence failure inside Better Auth leaks no SQL, parameters, token or email', async () => {
   const email = fixtureEmail();
   const recorded: RecordedLogs = [];
-  const database = createDatabase({ url, nextActorId: createId });
+  const database = createDatabase({
+    waits: hostWaits,
+    url,
+    nextActorId: createId,
+  });
   const auth = createTestAuthServer(database.authAdapter, {
     sent: [],
     recordedLogs: recorded,

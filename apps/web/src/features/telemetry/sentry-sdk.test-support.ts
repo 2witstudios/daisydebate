@@ -1,3 +1,4 @@
+import { virtualClock } from '@daisy/clock/testing';
 import * as Sentry from '@sentry/nextjs';
 import { initSentry, fetchWithoutTracing } from './sentry-init';
 import { createPublicCheckInProbe } from '../availability/public-probe';
@@ -99,7 +100,7 @@ const fixture = {
 const probe = createPublicCheckInProbe({
   configuration: fixture,
   nextId,
-  nowMs: () => 0,
+  waits: virtualClock(),
   fetch: (url, init) =>
     fetchWithoutTracing(url, init, async () => {
       const path = new URL(url).pathname;

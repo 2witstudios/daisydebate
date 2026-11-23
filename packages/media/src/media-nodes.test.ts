@@ -1,3 +1,4 @@
+import { virtualClock } from '@daisy/clock/testing';
 import { createAppError } from '@daisy/errors';
 import { assertRejects } from '@daisy/errors/testing';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
@@ -17,6 +18,7 @@ const fixture = (a: Partial<Service>, b: Partial<Service>, up: string[]) =>
     nodes,
     apiKey: 'key',
     apiSecret: 'secret',
+    waits: virtualClock(),
     services: [a as Service, b as Service],
     fetch: async (url) => {
       if (!up.some((host) => url.includes(host))) throw new Error('refused');
@@ -114,6 +116,7 @@ test('a node whose public route fails is not offered, even with its API up', asy
     ],
     apiKey: 'key',
     apiSecret: 'secret',
+    waits: virtualClock(),
     services: [{} as Service, {} as Service],
     fetch: async (url) => {
       if (url.includes('a.public')) throw new Error('refused');
@@ -157,5 +160,37 @@ test('a node down is reported, and clears when its probe answers', async () => {
     should: 'say so each time',
     actual: [before, during, service.someNodeDown()],
     expected: [false, true, false],
+  });
+});
+
+test('a node whose probe never answers is called down at the probe bound', async () => {
+  const clock = virtualClock();
+  const changes: [number, boolean][] = [];
+  const service = createMediaNodes({
+    nodes,
+    apiKey: 'key',
+    apiSecret: 'secret',
+    waits: clock,
+    services: [{} as Service, {} as Service],
+    healthChanged: (index, healthy) => changes.push([index, healthy]),
+    fetch: (url, init) =>
+      url.includes('a.invalid')
+        ? new Promise<Response>((_resolve, reject) =>
+            init.signal?.addEventListener('abort', () =>
+              reject(init.signal?.reason),
+            ),
+          )
+        : Promise.resolve(new Response('OK')),
+  });
+  const probing = service.probe();
+  await clock.advance(999);
+  const beforeBound = [...changes];
+  await clock.advance(1);
+  await probing;
+  assert({
+    given: 'node A whose routes never answer, under the 1 s probe bound',
+    should: 'call A down once the bound passes, and leave no wait behind',
+    actual: { beforeBound, changes, sleepers: clock.sleepers() },
+    expected: { beforeBound: [], changes: [[0, false]], sleepers: 0 },
   });
 });

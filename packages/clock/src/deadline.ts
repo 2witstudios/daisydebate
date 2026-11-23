@@ -1,10 +1,10 @@
 import type { Pace } from './waits';
 
 /** The reason a deadline aborts with, as `AbortSignal.timeout` gives it. */
-export const deadlineReason = (): DOMException =>
+const deadlineReason = (): DOMException =>
   new DOMException('The operation timed out.', 'TimeoutError');
 
-export type Deadline = {
+type Deadline = {
   /** Aborts `ms` after the deadline was set, or when any parent aborts. */
   readonly signal: AbortSignal;
   /** Ends the wait early; the signal stays as it is. */
@@ -39,30 +39,6 @@ export function deadlineSignal(
         timeout.abort(deadlineReason());
     });
   return { signal, clear: () => cancel.abort() };
-}
-
-/**
- * Runs `work` under a deadline: rejects with a `TimeoutError` when `ms`
- * pass first. `work` receives the deadline's signal so it can stop too.
- */
-export async function withDeadline<T>(
-  waits: Pace,
-  ms: number,
-  work: (signal: AbortSignal) => Promise<T>,
-  ...parents: readonly AbortSignal[]
-): Promise<T> {
-  const deadline = deadlineSignal(waits, ms, ...parents);
-  const aborted = new Promise<never>((_, reject) => {
-    const refuse = () => reject(deadline.signal.reason);
-    if (deadline.signal.aborted) refuse();
-    else deadline.signal.addEventListener('abort', refuse, { once: true });
-  });
-  aborted.catch(() => undefined);
-  try {
-    return await Promise.race([work(deadline.signal), aborted]);
-  } finally {
-    deadline.clear();
-  }
 }
 
 /**

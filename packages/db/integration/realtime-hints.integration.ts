@@ -1,3 +1,4 @@
+import { hostWaits } from '@daisy/worker/host';
 import { requireTestServices } from '@daisy/config';
 import { buildChannelTopic } from '@daisy/protocol/topics';
 import { type ServerMessage } from '@daisy/protocol/realtime-server';
@@ -13,6 +14,7 @@ test('the pooled realtime hint listener acknowledges LISTEN and admits only chan
   const client = new SQL(databaseUrl, { max: 1 });
   const writer = new SQL(databaseUrl, { max: 1 });
   const database = createDatabase({
+    waits: hostWaits,
     url: databaseUrl,
     client,
     nextActorId: createId,

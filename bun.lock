@@ -17,6 +17,7 @@
         "@daisy/media": "workspace:*",
         "@daisy/protocol": "workspace:*",
         "@daisy/redis": "workspace:*",
+        "@daisy/worker": "workspace:*",
         "@livekit/rtc-node": "1.2.0",
         "zod": "4.6.6",
       },
@@ -242,12 +243,13 @@
       "name": "@daisy/ai-voice",
       "version": "0.0.0",
       "dependencies": {
+        "@daisy/clock": "workspace:*",
         "@daisy/errors": "workspace:*",
         "@daisy/protocol": "workspace:*",
         "zod": "4.6.6",
       },
       "devDependencies": {
-        "@daisy/clock": "workspace:*",
+        "@daisy/worker": "workspace:*",
         "riteway": "9.3.0",
       },
     },
@@ -300,6 +302,7 @@
       "devDependencies": {
         "@daisy/auth": "workspace:*",
         "@daisy/debate-engine": "workspace:*",
+        "@daisy/worker": "workspace:*",
         "drizzle-kit": "1.0.0-rc.4",
         "riteway": "9.3.0",
         "typescript": "6.0.3",
@@ -377,6 +380,7 @@
       "devDependencies": {
         "@daisy/config": "workspace:*",
         "@daisy/db": "workspace:*",
+        "@daisy/worker": "workspace:*",
         "riteway": "9.3.0",
       },
     },
@@ -384,6 +388,7 @@
       "name": "@daisy/observability",
       "version": "0.0.0",
       "dependencies": {
+        "@daisy/clock": "workspace:*",
         "@opentelemetry/api": "1.9.1",
       },
       "devDependencies": {
@@ -405,11 +410,13 @@
       "name": "@daisy/redis",
       "version": "0.0.0",
       "dependencies": {
+        "@daisy/clock": "workspace:*",
         "@daisy/protocol": "workspace:*",
       },
       "devDependencies": {
         "@daisy/config": "workspace:*",
         "@daisy/digest": "workspace:*",
+        "@daisy/worker": "workspace:*",
         "@paralleldrive/cuid2": "3.3.0",
         "riteway": "9.3.0",
       },

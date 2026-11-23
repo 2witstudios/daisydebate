@@ -1,3 +1,4 @@
+import { hostWaits } from '@daisy/worker/host';
 import { requireTestServices } from '@daisy/config';
 import {
   createMessagingTestFixture,
@@ -22,7 +23,11 @@ const { databaseUrl } = requireTestServices(process.env);
 /** One reader with a DM to each of `count` other members, messages under the test's control. */
 async function openReader(count: number) {
   const client = new SQL(databaseUrl);
-  const database = createDatabase({ url: databaseUrl, nextActorId: createId });
+  const database = createDatabase({
+    waits: hostWaits,
+    url: databaseUrl,
+    nextActorId: createId,
+  });
   const fixtures = await Promise.all(
     Array.from({ length: count }, () => createMessagingTestFixture(client)),
   );

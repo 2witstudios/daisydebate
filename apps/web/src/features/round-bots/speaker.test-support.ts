@@ -1,3 +1,4 @@
+import type { Waits } from '@daisy/clock';
 import { createAppError } from '@daisy/errors';
 import { phraseSourceOf, type PhraseSource } from './phrase-source';
 import { createBotSpeaker, type PeerActivity } from './speaker';
@@ -45,36 +46,82 @@ export const peerSaid = (
     ? { kind, peer, spokeUntilMs: (spokeUntilMs += 1000), spokeForMs: 800 }
     : { kind, peer };
 /**
- * One-shot timers for a speaker under test. The short pause after a refusal
- * ends when the test next wakes the speaker (`resume`), as the next pulse
- * would find it; the wait for a reply to a question ends only when the test
- * lets it elapse.
+ * Time for a speaker under test. The short pause after a refusal ends when
+ * the test next wakes the speaker (`resume`), as the next pulse would find
+ * it; the wait for a reply to a question ends only when the test lets it
+ * elapse. Each wait is sorted by its length when it is armed.
  */
 export function testTimer() {
-  const pauses: (() => void)[] = [];
-  const replies: (() => void)[] = [];
-  const run = (pending: (() => void)[]) => {
-    for (const due of pending.splice(0)) due();
+  type Wait = { readonly atMs: number; readonly wake: () => void };
+  let clock = 0;
+  const pauses: Wait[] = [];
+  const replies: Wait[] = [];
+  const drop = (wait: Wait) => {
+    for (const pending of [pauses, replies]) {
+      const at = pending.indexOf(wait);
+      if (at >= 0) pending.splice(at, 1);
+    }
+  };
+  const waitUntilMs = (dueMs: number, signal?: AbortSignal) =>
+    new Promise<void>((resolve) => {
+      if (signal?.aborted) return resolve();
+      const wait: Wait = {
+        atMs: dueMs,
+        wake: () => {
+          drop(wait);
+          signal?.removeEventListener('abort', wait.wake);
+          resolve();
+        },
+      };
+      signal?.addEventListener('abort', wait.wake, { once: true });
+      (dueMs - clock <= 3000 ? pauses : replies).push(wait);
+    });
+  const waits: Waits = {
+    nowMs: () => clock,
+    waitUntilMs,
+    sleep: (ms, signal) => waitUntilMs(clock + Math.max(0, ms), signal),
+  };
+  /** Each wait due now ends, at its own instant. */
+  const run = (pending: Wait[]) => {
+    for (const due of pending.splice(0)) {
+      clock = Math.max(clock, due.atMs);
+      due.wake();
+    }
   };
   return {
-    timer: {
-      setTimeout: (due: () => void, ms: number) => {
-        (ms <= 3000 ? pauses : replies).push(due);
-        return due;
-      },
-      clearTimeout: (handle: unknown) => {
-        for (const pending of [pauses, replies]) {
-          const at = pending.indexOf(handle as () => void);
-          if (at >= 0) pending.splice(at, 1);
-        }
-      },
-    },
+    waits,
     /** The pause after a refusal is over. */
     resume: () => run(pauses),
     /** The question has met silence for long enough. */
     elapse: () => run(replies),
     pending: () => ({ pauses: pauses.length, replies: replies.length }),
   };
+}
+/**
+ * Waits that only record: each wait's length as it is armed, and a `run`
+ * that ends it. A cancelled wait stays listed, so a test sees every ask.
+ */
+export function recordedWaits() {
+  let clock = 0;
+  const pending: { readonly ms: number; readonly run: () => void }[] = [];
+  const waitUntilMs = (dueMs: number, signal?: AbortSignal) =>
+    new Promise<void>((resolve) => {
+      if (signal?.aborted) return resolve();
+      pending.push({
+        ms: dueMs - clock,
+        run: () => {
+          clock = Math.max(clock, dueMs);
+          resolve();
+        },
+      });
+      signal?.addEventListener('abort', () => resolve(), { once: true });
+    });
+  const waits: Waits = {
+    nowMs: () => clock,
+    waitUntilMs,
+    sleep: (ms, signal) => waitUntilMs(clock + Math.max(0, ms), signal),
+  };
+  return { waits, pending };
 }
 const budgetRefusals = new WeakSet<Error>();
 /** The provider budget's own refusal, as the speaker is told to recognise it. */
@@ -137,7 +184,7 @@ export function harness(
             answered({ text: 'One. Two.', phrases: ['One.', 'Two.'] })),
       ),
     heard: options.heard ?? (async () => undefined),
-    timer: timers.timer,
+    waits: timers.waits,
     synthesize: async (_scope, _token, phraseId, text, signal) => {
       log.push(`tts:${text}`);
       return options.synthesize

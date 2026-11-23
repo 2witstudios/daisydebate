@@ -1,4 +1,4 @@
-import { instantMs } from '@daisy/clock';
+import { instantMs } from '@daisy/clock/instant';
 import { clockStopsOf, prepConsumedOf } from '@daisy/protocol/round';
 import { otherSide } from '@daisy/protocol/seats';
 import { runningMs } from '@daisy/protocol/clock-stops';

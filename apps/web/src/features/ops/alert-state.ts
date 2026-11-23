@@ -1,4 +1,4 @@
-import { instantMs } from '@daisy/clock';
+import { instantMs, type Waits } from '@daisy/clock';
 import { withTimeout } from '@daisy/observability';
 import {
   SCHEDULED_WORKERS,
@@ -363,6 +363,7 @@ export async function readAlertSnapshot({
   workers,
   windowMinutes = ALERT_THRESHOLDS.auth5xxWindowMinutes,
   readTimeoutMs = ALERT_STATE_READ_TIMEOUT_MS,
+  waits,
 }: {
   readonly redis: AlertStateRedis;
   readonly local: LocalAlertState;
@@ -370,12 +371,14 @@ export async function readAlertSnapshot({
   readonly workers: readonly RunningWorker[];
   readonly windowMinutes?: number;
   readonly readTimeoutMs?: number;
+  /** The time each Redis read's bound is measured on (R4.7). */
+  readonly waits: Waits;
 }): Promise<AlertSnapshot> {
   const nowIso = clock.now();
   const localLimiterSince = local.limiterUnavailableSince();
   try {
     const read = await readRedisMarkers(
-      { get: (key) => withTimeout(redis.get(key), readTimeoutMs) },
+      { get: (key) => withTimeout(waits, redis.get(key), readTimeoutMs) },
       nowIso,
       windowMinutes,
       workers,

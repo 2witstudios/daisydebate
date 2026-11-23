@@ -1,3 +1,4 @@
+import { hostWaits } from '@daisy/worker/host';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { requireTestServices } from '@daisy/config';
 import { createId } from '@paralleldrive/cuid2';
@@ -25,7 +26,7 @@ test('a creation cutoff crossed during the account lock wait abandons only the p
         result,
         fixture.sql,
         Number(backend!.pid),
-        { now: performance.now, deadlineMs: 300 },
+        { waits: hostWaits, deadlineMs: 300 },
       );
       const [edge] =
         await holder`select clock_timestamp()<admitted_at+interval '5 minutes' as before from billing_purchases where id=${id}`;
@@ -81,7 +82,7 @@ test('a possible creation claim expiring during a lock wait rejects stale unknow
         result,
         fixture.sql,
         Number(backend!.pid),
-        { now: performance.now, deadlineMs: 300 },
+        { waits: hostWaits, deadlineMs: 300 },
       );
       const [edge] =
         await holder`select clock_timestamp()<(state->'claim'->>'expiresAt')::timestamptz as before from billing_purchases where id=${id}`;

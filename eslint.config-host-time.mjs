@@ -110,6 +110,13 @@ const hostTime = {
     };
     /** A host object (`globalThis` and its aliases) reached at `node`. */
     const inspectHost = (node, host) => {
+      const used = usage(node);
+      // `typeof window` asks whether there is a host; it reads nothing off it.
+      if (
+        used.parent?.type === 'UnaryExpression' &&
+        used.parent.operator === 'typeof'
+      )
+        return;
       const read = memberRead(node);
       if (read === undefined) return report(usage(node), 'host', host);
       if (timerNames.has(read.name))

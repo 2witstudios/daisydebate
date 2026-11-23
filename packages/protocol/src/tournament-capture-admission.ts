@@ -1,4 +1,4 @@
-import { isInstantAtOrBefore, tryInstantMs } from '@daisy/clock';
+import { isInstantAtOrBefore, tryInstantMs } from '@daisy/clock/instant';
 import { z } from 'zod';
 import { idSchema } from './primitives';
 import { tournamentHostingGrantSchema } from './tournament-hosting';

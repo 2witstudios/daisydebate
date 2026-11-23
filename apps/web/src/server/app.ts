@@ -22,7 +22,7 @@ import type { MessagingFileRuntime } from '../features/messaging/files/runtime';
 import { readRealtimePublicUrl } from '@daisy/config';
 import type { MessagingRuntimePolicy } from '../features/messaging/composition';
 import type { RoomPolicy } from '../features/room-runtime/composition';
-import type { Clock, IdGenerator } from '@daisy/clock';
+import type { Clock, IdGenerator, Waits } from '@daisy/clock';
 import {
   readAuthConfig,
   readMailConfig,
@@ -92,6 +92,8 @@ export type AppDependencies = {
   /** Outbound HTTP (the Resend mail transport). */
   readonly fetch: Fetch;
   readonly clock: Clock;
+  /** Injected time for every wait, deadline and one-shot (ADR 0915). */
+  readonly waits: Waits;
   readonly ids: IdGenerator;
   /** OS-CSPRNG bearer capability, supplied only by the process edge. */
   readonly nextWorkerToken?: () => string;
@@ -128,6 +130,7 @@ export function createApp({
   messagingFiles,
   fetch,
   clock,
+  waits,
   ids,
   nextWorkerToken,
   logDestination,
@@ -163,6 +166,7 @@ export function createApp({
     eventSink: logger.log,
     fairnessKey: requestNetwork.current,
     nextActorId: () => ids.next(),
+    waits,
     ...roundWorkerDatabaseOptions(config, nextWorkerToken),
     ...aiAdmissionOptions(config),
   });
@@ -196,6 +200,7 @@ export function createApp({
       nowMs: () => nowMs(clock),
       ids,
       fetch,
+      waits,
     });
   const ledger = {
     isSuppressed: (hash: string) => database.isRecipientSuppressed(hash),
@@ -288,13 +293,15 @@ export function createApp({
     /** The private profile photo bucket; null refuses every upload (ADR 0143). */
     profilePhotoObjects: profilePhotoObjects(env),
     /** The malware scanner photo intake requires; null refuses every upload. */
-    imageScanner: configuredScanner(env),
+    imageScanner: configuredScanner(env, waits),
     /**
      * The automated photo check. None is approved yet (PROF-12, owner), so
      * every photo waits for an operator: nothing unchecked is ever public.
      */
     profilePhotoClassifier: null as PhotoClassifier | null,
     clock,
+    /** Injected time for every wait, deadline and one-shot (ADR 0915). */
+    waits,
     ids,
     logger,
     /**
@@ -389,6 +396,7 @@ export function createApp({
       return (aiVoice ??= createOpenRouter({
         apiKey: config.OPENROUTER_API_KEY,
         fetch,
+        waits,
         appUrl: config.PUBLIC_APP_URL,
       }));
     },
@@ -417,6 +425,7 @@ export function createApp({
             key: config.POSTHOG_PERSONAL_API_KEY,
             projectId: config.POSTHOG_PROJECT_ID,
             fetch,
+            waits,
           })
         : null,
     analyticsDelivery,

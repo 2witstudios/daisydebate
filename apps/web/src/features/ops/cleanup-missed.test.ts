@@ -1,3 +1,4 @@
+import { virtualClock } from '@daisy/clock/testing';
 import { instantMs } from '@daisy/clock';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { createRetentionSweep } from '../../server/retention-sweep';
@@ -83,6 +84,7 @@ const world = () => {
       evaluateAlerts(
         await readAlertSnapshot({
           clock,
+          waits: virtualClock(),
           redis: { get: async (key) => markers.get(key) ?? null },
           local: { limiterUnavailableSince: () => null },
           workers: runningWorkers({ fileMaintenanceIntervalMs: null }),

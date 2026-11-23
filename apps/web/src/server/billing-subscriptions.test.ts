@@ -1,3 +1,4 @@
+import { virtualClock } from '@daisy/clock/testing';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createId } from '@paralleldrive/cuid2';
 import { fixedClock } from '@daisy/clock';
@@ -11,11 +12,16 @@ import {
   invoice,
 } from '../features/billing/subscription-observation.test-support';
 import type { BillingFetch } from './billing-stripe';
-import { withOneShots } from '../lib/worker-timers.test-support';
+import {
+  inertWaits,
+  manualWaits,
+  recordingWaits,
+} from '../lib/manual-waits.test-support';
 
 setupRitewayBun();
 const build = () =>
   createApp({
+    waits: virtualClock(),
     env: {
       ...authTestEnv,
       DATABASE_URL: 'postgres://unit:unit@localhost:5432/unit',
@@ -56,17 +62,11 @@ function harness() {
     revision: 1,
     claimId: createId(),
   };
-  let tick: () => Promise<void> = async () => undefined,
-    cadence = 0;
-  const timers = withOneShots({
-    setInterval: (run: () => Promise<void>, ms: number) => {
-      tick = run;
-      cadence = ms;
-      return 1;
-    },
-    clearInterval: () => {
-      calls.push('clear');
-    },
+  let cadence = 0;
+  const manual = manualWaits();
+  const waits = recordingWaits(manual.waits, (event, ms) => {
+    if (event === 'armed') cadence = ms;
+    else calls.push('clear');
   });
   const store: ReturnType<typeof app.database.billingSynchronization> = {
     receipts: async () => ({ rows: [], afterId: null, exhausted: true }),
@@ -115,8 +115,11 @@ function harness() {
     },
     store,
     calls,
-    timers,
-    tick: () => tick(),
+    waits,
+    /** Fires the next pass, if one is armed. */
+    tick: async () => {
+      await manual.tasks.get(cadence)?.();
+    },
     cadence: () => cadence,
   };
 }
@@ -127,12 +130,8 @@ test('no-Stripe beta starts neither subscription timers nor transport', () => {
   const result = startBillingSubscriptions({
     app,
     instanceId: createId(),
-    timers: withOneShots({
-      setInterval: () => {
-        calls.push('timer');
-        return 1;
-      },
-      clearInterval: () => undefined,
+    waits: recordingWaits(inertWaits, (event) => {
+      if (event === 'armed') calls.push('timer');
     }),
     fetch: Object.assign(
       async () => {
@@ -170,7 +169,7 @@ test('actual scheduled SDK reads use current-service original offer despite new-
   const service = startBillingSubscriptions({
     app: h.app,
     instanceId: 'current-service-fixture',
-    timers: h.timers,
+    waits: h.waits,
     fetch,
   })!;
   await service.started;
@@ -216,7 +215,7 @@ test('subscription shutdown waits for the bounded SDK read and never applies a r
   const service = startBillingSubscriptions({
     app: h.app,
     instanceId: 'current-service-fixture',
-    timers: h.timers,
+    waits: h.waits,
     fetch,
   })!;
   await entered.promise;

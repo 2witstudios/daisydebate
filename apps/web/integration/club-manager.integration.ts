@@ -1,3 +1,4 @@
+import { hostWaits } from '@daisy/worker/host';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createAppError } from '@daisy/errors';
 import { createId } from '@paralleldrive/cuid2';
@@ -133,7 +134,7 @@ test('manager decisions see plan changes after the Club fence and permit inactiv
         const [holder] = await tx`select pg_backend_pid() as pid`;
         response = post({ kind: 'invite', email: 'fresh@example.test' });
         waited = await finishedOrBlockedBehind(response, sql, holder!.pid, {
-          now: Date.now,
+          waits: hostWaits,
           deadlineMs: 1500,
         });
         await tx`update billing_subscriptions set evidence=${{ ...paid, lifecycle: 'canceled' }} where organization_id=${organizationId}`;

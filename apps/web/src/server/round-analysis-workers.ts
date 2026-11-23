@@ -1,3 +1,5 @@
+import { deadlineSignal, type Waits } from '@daisy/clock';
+import { type WorkWake } from '@daisy/worker';
 import type { RoundAnalysisPolicy } from '@daisy/config';
 import type { ErrorReporter } from '@daisy/observability';
 import { createRoundAnalysisOperations } from '../features/round-analysis/operations';
@@ -5,8 +7,6 @@ import { startRoundAnalysisService } from '../features/round-analysis/service';
 import type { App } from './app';
 import { createProviderBudget } from './provider-budget';
 import { workerFailures } from './recoverable-failure';
-import type { WorkerTimers } from '../lib/worker-timers';
-import type { WorkWake } from '../lib/worker-loop';
 
 /**
  * Round analysis's own worker and lifecycle (DEC-247): its own policy, its
@@ -16,7 +16,7 @@ import type { WorkWake } from '../lib/worker-loop';
 export function startRoundAnalysisWorkers(input: {
   readonly app: App;
   readonly policy: RoundAnalysisPolicy;
-  readonly timers: WorkerTimers;
+  readonly waits: Waits;
   readonly wake?: WorkWake | undefined;
   readonly reporter?: ErrorReporter;
 }) {
@@ -30,17 +30,20 @@ export function startRoundAnalysisWorkers(input: {
   });
   return startRoundAnalysisService({
     scan: (limit) => app.database.scanRoundAnalysisJobs(limit),
-    analyse: (seat, signal) =>
-      operations.analyse(
-        seat,
-        AbortSignal.any([signal, AbortSignal.timeout(policy.callTimeoutMs)]),
-      ),
+    analyse: async (seat, signal) => {
+      const bound = deadlineSignal(input.waits, policy.callTimeoutMs, signal);
+      try {
+        return await operations.analyse(seat, bound.signal);
+      } finally {
+        bound.clear();
+      }
+    },
     limits: {
       parallel: policy.concurrency,
       scanBatch: policy.scanBatch,
       scanMs: policy.scanMs,
     },
-    timers: input.timers,
+    waits: input.waits,
     wake: input.wake,
     failed: failure(
       'round.analysis.failed',

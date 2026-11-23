@@ -62,6 +62,11 @@ mock.module(join(import.meta.dir, '../../lib/request-session.ts'), () => ({
     onlyYouthLobby ? adultCoach : { state: 'anonymous' },
   // A stored league's people page words time by the process clock.
   requestNow: () => '2027-03-06T08:00:00.000Z',
+  // A Round page's transcript seed is bounded on the process's time.
+  renderReadDeadline: () => ({
+    signal: new AbortController().signal,
+    clear: () => {},
+  }),
   // The event Room pages reach the release reader through their form action.
   requestReleaseEnabled: async () => false,
   requestMediaReleaseSettings: async () => null,

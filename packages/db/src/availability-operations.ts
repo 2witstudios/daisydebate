@@ -1,4 +1,4 @@
-import { tryInstantMs } from '@daisy/clock';
+import { deadlineSignal, tryInstantMs, type Waits } from '@daisy/clock';
 import { SERVICE_LEASE_WINDOW_MS } from './service-lease-lapse';
 import type { SQL, ReservedSQL } from 'bun';
 import { createAppError } from '@daisy/errors';
@@ -34,7 +34,7 @@ type ProbeEvidence = {
 };
 
 /** One session owns election AND insertion. Closing it releases election on process death. */
-export function createAvailabilitySampler(client: SQL) {
+export function createAvailabilitySampler(client: SQL, waits: Waits) {
   let session: ReservedSQL | null = null;
   let running = false;
   let stopped = false;
@@ -50,7 +50,14 @@ export function createAvailabilitySampler(client: SQL) {
     void failed?.close({ timeout: 0 }).catch(() => undefined);
   };
   const electSession = async () => {
-    session ??= await client.reserve({ signal: AbortSignal.timeout(900) });
+    if (session === null) {
+      const bound = deadlineSignal(waits, 900);
+      try {
+        session = await client.reserve({ signal: bound.signal });
+      } finally {
+        bound.clear();
+      }
+    }
     return sessionLocks.availabilitySampler.elect(session);
   };
   return {
@@ -176,7 +183,11 @@ export const availabilitySamplesFrom = <T>(
  * Service leases and samples on the control lane; the sampler's election
  * session is a dedicated connection, held for the process lifetime.
  */
-export function availabilityOperations(client: SQL, dedicated: SQL) {
+export function availabilityOperations(
+  client: SQL,
+  dedicated: SQL,
+  waits: Waits,
+) {
   return {
     async renewServiceInstance(
       input: { readonly instanceId: string } & (
@@ -208,7 +219,7 @@ export function availabilityOperations(client: SQL, dedicated: SQL) {
           'Service lease belongs to another role',
         );
     },
-    availabilitySampler: () => createAvailabilitySampler(dedicated),
+    availabilitySampler: () => createAvailabilitySampler(dedicated, waits),
     /**
      * Whether the configured probe's synthetic resources still exist and can
      * take a receipt. A healthy answer says nothing about public ingress: only

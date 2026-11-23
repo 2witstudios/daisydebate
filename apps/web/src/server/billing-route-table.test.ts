@@ -1,3 +1,4 @@
+import { virtualClock } from '@daisy/clock/testing';
 import { composeClubs } from '../features/clubs/composition';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createAppError } from '@daisy/errors';
@@ -13,6 +14,7 @@ setupRitewayBun();
 
 const fixture = () =>
   createApp({
+    waits: virtualClock(),
     env: {
       ...authTestEnv,
       DATABASE_URL: 'postgres://unit:unit@localhost:5432/unit',

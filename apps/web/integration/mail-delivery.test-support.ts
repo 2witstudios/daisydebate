@@ -1,3 +1,4 @@
+import { hostWaits } from '@daisy/worker/host';
 import { z } from 'zod';
 import { createId } from '@paralleldrive/cuid2';
 import { createMailIntentDelivery } from '../src/features/beta-access/mail-delivery';
@@ -14,6 +15,7 @@ export function mailWorker(db: Db, ownerAddress?: string) {
     apiKey: 'test-provider-key',
     from: 'beta@example.test',
     nowMs: Date.now,
+    waits: hostWaits,
     ids: { next: createId },
     fetch: async (_request, init) => {
       keys.push(new Headers(init?.headers).get('Idempotency-Key'));

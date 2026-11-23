@@ -37,9 +37,9 @@ export const allowedWorkspaceDependencies: Record<string, readonly string[]> = {
   'tab-engine': ['digest', 'seeded-random'],
   // AIDB: the OpenRouter voice layer reads the engine's turn table and the
   // protocol's ballot contract only.
-  'ai-voice': ['debate-engine', 'errors', 'protocol'],
+  'ai-voice': ['clock', 'debate-engine', 'errors', 'protocol'],
   // VIDEO-1.4: isolated LiveKit vendor adapter; no competitive authority.
-  media: ['clock', 'digest', 'errors', 'protocol'],
+  media: ['clock', 'digest', 'errors', 'protocol', 'worker'],
   // ADR 0099: the hold worker's only credential is its broadcasts role.
   'broadcast-worker': [
     'clock',
@@ -82,14 +82,14 @@ export const allowedWorkspaceDependencies: Record<string, readonly string[]> = {
   // ADR 0048: pure capability evaluation consumes portable vocabulary only.
   auth: ['clock', 'errors', 'protocol'],
   errors: ['protocol'],
-  db: ['clock', 'config', 'digest', 'errors', 'protocol'],
-  redis: ['config', 'digest', 'errors', 'protocol'],
+  db: ['clock', 'config', 'digest', 'errors', 'protocol', 'worker'],
+  redis: ['clock', 'config', 'digest', 'errors', 'protocol', 'worker'],
   config: [],
   ingress: ['config'],
   // Test-only: the redaction tests derive their secret keys from config's
   // schema (ADR 0019); the logger itself imports nothing from it.
   logger: ['config'],
-  observability: ['logger'],
+  observability: ['clock', 'logger'],
   // ADR 0031 §12: the realtime deployment's explicit allowed edges. It
   // never depends on `debate-engine`, `apps/web` or a third-party socket
   // library. `@daisy/presence` is not yet a package (owned by a later RT

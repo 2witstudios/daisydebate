@@ -1,3 +1,4 @@
+import { hostWaits } from '@daisy/worker/host';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { requireTestServices } from '@daisy/config';
 import { clubSeatGrants, subscriptionGrants } from '@daisy/auth/authorization';
@@ -19,6 +20,7 @@ test('the public billing store recovers an early receipt after mapping and disco
   withBillingSynchronization(
     async ({ fixture, pool, customerId, vendorCustomerId, paid }) => {
       const database = createDatabase({
+        waits: hostWaits,
         url: databaseUrl,
         client: pool,
         nextActorId: createId,
@@ -125,6 +127,7 @@ test('a billing worker that loses service authority during an account lock wait 
   withBillingSynchronization(
     async ({ fixture, pool, run, customerId, userId, actorId, paid }) => {
       const database = createDatabase({
+        waits: hostWaits,
         url: databaseUrl,
         client: pool,
         nextActorId: createId,
@@ -153,7 +156,7 @@ test('a billing worker that loses service authority during an account lock wait 
                 'a current worker with a verified payment waiting on the canonical account fence',
               should: 'reach the actual PostgreSQL lock',
               actual: await finishedOrBlockedBehind(pending, fixture.sql, pid, {
-                now: performance.now,
+                waits: hostWaits,
                 deadlineMs: 500,
               }),
               expected: 'blocked',

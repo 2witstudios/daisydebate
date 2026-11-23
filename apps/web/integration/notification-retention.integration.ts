@@ -1,3 +1,4 @@
+import { hostWaits } from '@daisy/worker/host';
 import { expect, test } from 'bun:test';
 import type { SavepointSQL } from 'bun';
 import { fixedClock } from '@daisy/clock';
@@ -22,6 +23,7 @@ test('the scheduled notification sweep drains bounded batches and keeps recent p
   const expired = new Date(at.getTime() - 91 * day);
   const recent = new Date(at.getTime() - day);
   const appDatabase = createDatabase({
+    waits: hostWaits,
     url: databaseUrl,
     nextActorId: createId,
   });

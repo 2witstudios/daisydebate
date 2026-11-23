@@ -1,12 +1,14 @@
+import type { Waits } from '@daisy/clock';
 import type { Database } from '@daisy/db';
-import { createAppError } from '@daisy/errors';
-import type { WorkerTimers } from '../../lib/worker-timers';
+import { createAppError, isAppError } from '@daisy/errors';
+import { holdLease, repeatEvery, type Lease } from '@daisy/worker';
 type Work = ReturnType<Database['createTranscriptionRecovery']>;
 type Claim = Extract<Awaited<ReturnType<Work['claim']>>, { kind: 'claimed' }>;
 type Missing = Awaited<ReturnType<Work['missing']>>[number];
 type Entry = {
   readonly claim: Claim;
   readonly abort: AbortController;
+  readonly lease: Lease<undefined>;
   work: Promise<void>;
 };
 /** Injected local composition. DB fairness, finite spending and original evidence authority remain owning contracts. */
@@ -23,18 +25,22 @@ export function startTranscriptionRecoveryService(input: {
     readonly scanMs: number;
     readonly enrollMs: number;
     readonly renewMs: number;
+    /** How long an execution's lease holds after a renewal that held. */
+    readonly leaseMs: number;
   };
-  readonly timers: WorkerTimers;
+  readonly waits: Waits;
   readonly failed: (error: unknown, stage: string) => void;
 }) {
-  const { parallel, claimBatch, scanMs, enrollMs, renewMs } = input.limits;
+  const { parallel, claimBatch, scanMs, enrollMs, renewMs, leaseMs } =
+    input.limits;
   if (
     ![parallel, claimBatch].every(
       (value) => Number.isSafeInteger(value) && value >= 1 && value <= 64,
     ) ||
-    ![scanMs, enrollMs, renewMs].every(
+    ![scanMs, enrollMs, renewMs, leaseMs].every(
       (value) => Number.isSafeInteger(value) && value >= 100 && value <= 60000,
-    )
+    ) ||
+    leaseMs <= renewMs
   )
     throw createAppError('VALIDATION', 'Invalid recognition service bounds');
   const entries = new Map<string, Entry>();
@@ -43,21 +49,46 @@ export function startTranscriptionRecoveryService(input: {
   const isStopped = () => stopped;
   let scanning: Promise<void> | null = null;
   let enrolling: Promise<void> | null = null;
-  let renewing: Promise<void> | null = null;
   const active = (entry: Entry) => entries.get(entry.claim.contextId) === entry;
   const launch = (claim: Claim, free: () => void) => {
+    // A stale execution (another worker, epoch or token) is a loss; any other
+    // failure is retried until the lease would lapse.
+    const lease = holdLease({
+      waits: input.waits,
+      facts: undefined,
+      renewEveryMs: renewMs,
+      retryMs: renewMs,
+      horizonMs: leaseMs,
+      renew: async () => {
+        await input.store.renew(claim);
+        return { kind: 'held', facts: undefined };
+      },
+      lossOf: (error) => {
+        if (!isAppError(error) || error.code !== 'CONFLICT') return null;
+        input.failed(error, 'renew');
+        return 'taken';
+      },
+      failed: (error) => input.failed(error, 'renew'),
+    });
     const entry: Entry = {
       claim,
       abort: new AbortController(),
+      lease,
       work: Promise.resolve(),
     };
     entries.set(claim.contextId, entry);
+    // Abort future execution steps; owning PG fences still serialize commits.
+    // Already-authorized in-flight work cannot be recalled. Keep its slot until settlement.
+    void lease.ended.then((end) => {
+      if (end !== 'stopped' && active(entry)) entry.abort.abort();
+    });
     entry.work = (async () => {
       try {
         await input.execute(claim, entry.abort.signal);
       } catch (error) {
         if (!entry.abort.signal.aborted) input.failed(error, 'execute');
       } finally {
+        await lease.stop();
         if (active(entry)) entries.delete(claim.contextId);
         free();
       }
@@ -126,39 +157,36 @@ export function startTranscriptionRecoveryService(input: {
     });
     return enrolling;
   };
-  const renew = (): Promise<void> => {
-    if (stopped || renewing) return renewing ?? Promise.resolve();
-    renewing = Promise.all(
-      [...entries.values()].map(async (entry) => {
-        if (entry.abort.signal.aborted) return;
-        try {
-          await input.store.renew(entry.claim);
-        } catch (error) {
-          if (!active(entry)) return;
-          // Abort future execution steps; owning PG fences still serialize commits.
-          // Already-authorized in-flight work cannot be recalled. Keep its slot until settlement.
-          entry.abort.abort();
-          input.failed(error, 'renew');
-        }
-      }),
-    ).then(() => {
-      renewing = null;
-    });
-    return renewing;
-  };
-  const handles = [
-    input.timers.setInterval(scan, scanMs),
-    input.timers.setInterval(enroll, enrollMs),
-    input.timers.setInterval(renew, renewMs),
+  const cadences = [
+    repeatEvery({
+      waits: input.waits,
+      everyMs: scanMs,
+      runOnStart: true,
+      run: scan,
+      failed: (error) => input.failed(error, 'scan'),
+    }),
+    repeatEvery({
+      waits: input.waits,
+      everyMs: enrollMs,
+      runOnStart: true,
+      run: enroll,
+      failed: (error) => input.failed(error, 'missing'),
+    }),
   ];
-  const started = Promise.all([scan(), enroll()]).then(() => undefined);
+  const started = Promise.all(
+    cadences.map(({ initial }) => initial ?? Promise.resolve()),
+  ).then(() => undefined);
   return {
     started,
     async stop() {
       stopped = true;
-      for (const handle of handles) input.timers.clearInterval(handle);
       for (const entry of entries.values()) entry.abort.abort();
-      await Promise.allSettled([scanning, enrolling, renewing]);
+      await Promise.allSettled([
+        ...cadences.map((cadence) => cadence.stop()),
+        scanning,
+        enrolling,
+        ...[...entries.values()].map((entry) => entry.lease.stop()),
+      ]);
       // A late successful claim is refused by scan's stopped check before launch.
       await Promise.allSettled(
         [...entries.values()].map((entry) => entry.work),

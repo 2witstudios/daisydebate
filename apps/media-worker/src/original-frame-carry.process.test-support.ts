@@ -29,7 +29,7 @@ async function main() {
     authentication: createMediaWorkerAuthentication({ secret, now: Date.now }),
     url,
     fetch,
-    nowMs: performance.now,
+    waits: hostWaits,
     deadlineSignal: () => AbortSignal.timeout(5000),
     unavailableRetryMs: [],
   });

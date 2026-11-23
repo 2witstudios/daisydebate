@@ -1,3 +1,4 @@
+import { hostWaits } from '@daisy/worker/host';
 import { requireTestServices } from '@daisy/config';
 import { createId } from '@paralleldrive/cuid2';
 import { createDatabase } from '@daisy/db';
@@ -21,7 +22,11 @@ test('real PostgreSQL recovery crosses full pages after transient write failure 
         }),
       );
     ids.sort();
-    let db = createDatabase({ url: testDatabaseUrl, nextActorId: createId });
+    let db = createDatabase({
+      waits: hostWaits,
+      url: testDatabaseUrl,
+      nextActorId: createId,
+    });
     const failures: string[] = [];
     let writesAvailable = false;
     const makeSweep = () =>
@@ -60,7 +65,11 @@ test('real PostgreSQL recovery crosses full pages after transient write failure 
         if (page.exhausted) break;
       }
       await db.close();
-      db = createDatabase({ url: testDatabaseUrl, nextActorId: createId });
+      db = createDatabase({
+        waits: hostWaits,
+        url: testDatabaseUrl,
+        nextActorId: createId,
+      });
       // A separate worker process opens new connections and restarts at the failed head.
       const child = Bun.spawn(
         [

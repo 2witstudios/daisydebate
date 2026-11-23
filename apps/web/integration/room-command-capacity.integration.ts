@@ -1,3 +1,4 @@
+import { hostWaits } from '@daisy/worker/host';
 import { WORKLOAD_PROFILES } from '@daisy/db';
 import { noopErrorReporter } from '@daisy/observability';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
@@ -57,6 +58,7 @@ test('Room command admission leaves default-pool readiness capacity during pause
           database: f.store,
           redis: f.redis,
           isDraining: () => false,
+          waits: hostWaits,
           logger: createRecordingLogger().logger,
           reporter: noopErrorReporter,
         })(new Request('http://localhost/api/health/ready'))
@@ -234,6 +236,7 @@ test('same-command retries retain readiness capacity and never repeat lease prep
         database: f.store,
         redis: f.redis,
         isDraining: () => false,
+        waits: hostWaits,
         logger: createRecordingLogger().logger,
         reporter: noopErrorReporter,
       })(new Request('http://localhost/api/health/ready'));
