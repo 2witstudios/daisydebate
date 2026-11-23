@@ -3,6 +3,7 @@ import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { mountBrowserClient } from '../test-support/browser-client.test-support';
 import { virtualBrowserTime } from '../test-support/virtual-browser-time.test-support';
 import type { MessagingInboxPageAnswer } from '../../features/messaging/inbox-view';
+import type { useInbox } from './inbox-provider';
 import type * as Client from './inbox-provider.test-support';
 
 setupRitewayBun();
@@ -25,7 +26,7 @@ const page = (
     { version: 1, entries, nextAfter },
     { headers: { 'x-messaging-page-items': '50' } },
   );
-type Inbox = ReturnType<typeof Client.useInbox>;
+type Inbox = ReturnType<typeof useInbox>;
 
 /** The provider mounted in a private browser realm, its reads answered by the test. */
 const mount = async (

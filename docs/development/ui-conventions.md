@@ -67,7 +67,7 @@ hook does one named job and takes that job's inputs, never an effect callback
 or a dependency list: `useDriver` and `useResource` hold a subscribed or
 disposable resource, `useAnswer` and `useDeliver` hand a rendered value on,
 the DOM event, media-query and observer hooks own one listener, the focus
-hooks move focus, `useTick`, `useDelay` and `useWait` own waits, and
+hooks move focus, `useTick` and `useDelay` own waits, and
 `useNavigation` follows a destination. Handlers are read at their latest, so a
 caller keeps no "latest" ref. A driver or HTTP client receives
 `browserTransport` and `browserScheduler` as injected ports; outside the edge a

@@ -524,5 +524,3 @@ export function createDriveDriver(ports: {
     },
   };
 }
-
-export type DriveDriver = ReturnType<typeof createDriveDriver>;

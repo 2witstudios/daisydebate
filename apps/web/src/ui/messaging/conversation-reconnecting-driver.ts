@@ -83,7 +83,3 @@ export function createConversationReconnectingDriver(ports: {
     },
   };
 }
-
-export type ConversationReconnectingDriver = ReturnType<
-  typeof createConversationReconnectingDriver
->;

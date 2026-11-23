@@ -224,5 +224,3 @@ export function createPeopleDriver(ports: {
     },
   };
 }
-
-export type PeopleDriver = ReturnType<typeof createPeopleDriver>;

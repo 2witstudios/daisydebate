@@ -3,6 +3,7 @@ import type { PeopleList, Person } from '@daisy/protocol/people-list';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { mountBrowserClient } from '../test-support/browser-client.test-support';
 import { virtualBrowserTime } from '../test-support/virtual-browser-time.test-support';
+import type { usePeople } from './people-provider';
 import type * as Client from './people-provider.test-support';
 
 setupRitewayBun();
@@ -36,7 +37,7 @@ const list = (
   counts: { everyone: names.length, friends: 0, online: names.length },
   self: 'online',
 });
-type People = ReturnType<typeof Client.usePeople>;
+type People = ReturnType<typeof usePeople>;
 type Answer = (url: URL) => PeopleList | Promise<PeopleList> | null;
 
 /** The provider in a private browser realm on a virtual clock, its reads answered by the test. */

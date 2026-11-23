@@ -138,5 +138,3 @@ export function createInboxDriver(ports: {
     },
   };
 }
-
-export type InboxDriver = ReturnType<typeof createInboxDriver>;
