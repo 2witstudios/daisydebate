@@ -1,6 +1,11 @@
 'use client';
 
-import { useEffect, useEffectEvent, useState, useSyncExternalStore } from 'react';
+import {
+  useEffect,
+  useEffectEvent,
+  useState,
+  useSyncExternalStore,
+} from 'react';
 
 type Driver<T> = {
   readonly readSnapshot: () => T;
@@ -84,7 +89,8 @@ export function useResource<K, R extends Disposable>(
     holder.hold({ state: held, driver: null });
     return () => {
       resource.dispose();
-      if (holder.read().state === held) holder.hold({ state: null, driver: null });
+      if (holder.read().state === held)
+        holder.hold({ state: null, driver: null });
     };
   }, [holder, key]);
   const held = useSyncExternalStore(

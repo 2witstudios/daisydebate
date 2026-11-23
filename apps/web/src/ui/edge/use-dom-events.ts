@@ -92,7 +92,7 @@ export function useDocumentHidden(handle: () => void): void {
 const subscribeNothing = () => () => undefined;
 
 const subscribeMedia = (query: string) => (changed: () => void) => {
-  const list = matchMedia(query);
+  const list = window.matchMedia(query);
   list.addEventListener('change', changed);
   return () => list.removeEventListener('change', changed);
 };
@@ -107,7 +107,7 @@ export function useMediaQuery(
 ): boolean {
   return useSyncExternalStore(
     query === null ? subscribeNothing : subscribeMedia(query),
-    () => (query === null ? serverMatches : matchMedia(query).matches),
+    () => (query === null ? serverMatches : window.matchMedia(query).matches),
     () => serverMatches,
   );
 }

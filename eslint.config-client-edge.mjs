@@ -32,7 +32,7 @@ const browserEdge = {
       reexport:
         'Do not re-export a React effect: it is the effect again under another name.',
       effectType:
-        'A hook taking an arbitrary effect is the effect again; take the job\'s own inputs.',
+        "A hook taking an arbitrary effect is the effect again; take the job's own inputs.",
       port: 'Inject the ui/edge port into the code that waits or requests; do not call it here.',
       operation: 'Use the browser operation in ui/edge.',
       server: 'Keep server transport in the server boundary.',

@@ -12,7 +12,11 @@
 import { relative, resolve } from 'node:path';
 import ts from 'typescript';
 
-const effectHooks = new Set(['useEffect', 'useLayoutEffect', 'useInsertionEffect']);
+const effectHooks = new Set([
+  'useEffect',
+  'useLayoutEffect',
+  'useInsertionEffect',
+]);
 
 export type EffectSite = {
   readonly file: string;
