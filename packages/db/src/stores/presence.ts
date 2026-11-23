@@ -13,4 +13,3 @@ export const createPresenceStore = (resources: DatabaseResources) => {
     ...peopleListOperations({ database: social, eventSink }),
   });
 };
-export type PresenceStore = ReturnType<typeof createPresenceStore>;

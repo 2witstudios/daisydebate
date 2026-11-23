@@ -10,4 +10,3 @@ export const createTabCommandStore = (resources: DatabaseResources) =>
       resourcesOf(resources).lane('competitive').database,
     ),
   });
-export type TabCommandStore = ReturnType<typeof createTabCommandStore>;

@@ -11,4 +11,3 @@ export const createMemberDivisionStore = (resources: DatabaseResources) => {
     ...memberDivisionOperations({ database: control, eventSink }),
   });
 };
-export type MemberDivisionStore = ReturnType<typeof createMemberDivisionStore>;

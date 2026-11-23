@@ -55,6 +55,5 @@ export const createRoundBallotStore = (
   );
 };
 export type RoundBallotStore = ReturnType<typeof createRoundBallotStore>;
-export type { RoundTimeSource } from '../round-execution-time';
 export type { RoundRoomAuthority } from '../round-room-authority';
 export type { RoundHydration } from '../round-hydration';

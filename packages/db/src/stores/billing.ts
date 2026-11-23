@@ -21,4 +21,4 @@ export type {
   ClubInvitationResendFacts,
   ClubSeatManagerCommand,
 } from '../club-seat-commands';
-export type { ClubSeatingRead, ClubPerson } from '../club-seat-reads';
+export type { ClubSeatingRead } from '../club-seat-reads';

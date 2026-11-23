@@ -14,4 +14,3 @@ export const createHealthStore = (resources: DatabaseResources) => {
     }),
   );
 };
-export type HealthStore = ReturnType<typeof createHealthStore>;

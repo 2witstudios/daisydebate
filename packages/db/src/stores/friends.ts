@@ -19,4 +19,3 @@ export const createFriendsStore = (
       createFriendStore({ database: social, authorize, reactions }),
   });
 };
-export type FriendsStore = ReturnType<typeof createFriendsStore>;

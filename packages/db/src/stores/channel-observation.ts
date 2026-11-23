@@ -20,6 +20,3 @@ export const createChannelObservationStore = (resources: DatabaseResources) => {
         : null,
   });
 };
-export type ChannelObservationStore = ReturnType<
-  typeof createChannelObservationStore
->;

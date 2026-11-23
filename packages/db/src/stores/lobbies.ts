@@ -13,4 +13,3 @@ export const createLobbyStore = (resources: DatabaseResources) => {
       readCompetitionAgeBand(browse, userId, lobbyId),
   });
 };
-export type LobbyStore = ReturnType<typeof createLobbyStore>;

@@ -306,11 +306,3 @@ export const spectatorTimelineReads = ({
     );
   },
 });
-
-export type SpectatorTimelineRead = NonNullable<
-  Awaited<
-    ReturnType<
-      ReturnType<typeof spectatorTimelineReads>['readSpectatorTimeline']
-    >
-  >
->;

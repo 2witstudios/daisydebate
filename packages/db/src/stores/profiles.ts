@@ -25,5 +25,4 @@ export type {
   OwnPublicProfile,
   PhotoDeletion,
   PublicProfileCard,
-  StoredProfilePhoto,
 } from '../public-profile-operations';

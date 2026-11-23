@@ -26,5 +26,4 @@ export const createListenStore = (resources: DatabaseResources) => {
       subscribeWorkWakes(dedicated, handlers),
   });
 };
-export type ListenStore = ReturnType<typeof createListenStore>;
 export type { WorkKind } from '../work-wake';

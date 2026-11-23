@@ -8,6 +8,3 @@ export const createAnalyticsConsentStore = (resources: DatabaseResources) =>
   namedLaneOperations(
     analyticsConsentOperations(resourcesOf(resources).lane('control').database),
   );
-export type AnalyticsConsentStore = ReturnType<
-  typeof createAnalyticsConsentStore
->;

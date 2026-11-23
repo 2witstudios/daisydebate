@@ -41,7 +41,7 @@ import { inTransaction, type Tx, type TxSource } from './tx';
  */
 
 /** A debater's current state on the ladder in one season. */
-export type StandingRating = {
+type StandingRating = {
   readonly seasonId: string;
   readonly actorId: string;
   /** Null for an actor with no account. */
