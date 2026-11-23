@@ -7,7 +7,7 @@ import { advanceTranscriptRevision } from './capture-history';
 import { appendTranscriptChanged } from './transcript-signal';
 import { lockRoundAgentContext } from './round-agent-runs';
 import { requireLeaseToken } from './lease';
-import { refuseFinalSpeech } from './bot-generation-rules';
+import { refuseFinalSpeech } from './bot-generation';
 import {
   requireBotRoom,
   requireBotSpeakingWindow,

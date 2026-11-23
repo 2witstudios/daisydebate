@@ -8,15 +8,13 @@ import {
   type BotGenerationSession,
 } from './bot-generation';
 import type { BotClaimActivity } from '@daisy/protocol/bot-admission';
-export {
-  isFinalBotSpeechRefusal,
-  refuseFinalSpeech,
-} from './bot-generation-rules';
+export { isFinalBotSpeechRefusal, refuseFinalSpeech } from './bot-generation';
 import {
   leaseExpiresIn,
   leaseTokenDigest,
   nextEpoch,
   requireLeaseToken,
+  requireLeaseMs,
 } from './lease';
 import {
   endLockedRoundAgentRun,
@@ -45,7 +43,6 @@ import { peerLineCovers } from './bot-peer-line';
 import { agentRuns } from './schema/agent-runs';
 import { scanBotWorkers } from './bot-worker-discovery';
 import { roundBotPublications } from './schema/round-bot-publications';
-import { requireLeaseMs } from './lease';
 export type { BotPublicationScope } from './bot-publication-context';
 export type { BotPhrase, BotPhraseEnd } from './bot-phrases';
 type Target = Pick<

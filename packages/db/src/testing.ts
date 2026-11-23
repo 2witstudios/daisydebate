@@ -142,7 +142,7 @@ export {
   eraseRoomAccountClosure,
   exportRoomAccountClosure,
 } from './testing-room-account-closure';
-export { refuseFinalSpeech } from './bot-generation-rules';
+export { refuseFinalSpeech } from './bot-generation';
 
 /** The database boundary's failure wrapper, for composing refusal telemetry across packages. */
 export { instrumented } from './instrumented';

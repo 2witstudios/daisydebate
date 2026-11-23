@@ -7,7 +7,7 @@ import {
   requireSameSettlement,
   requireSpeechPolicy,
   requireUsage,
-} from './bot-generation-rules';
+} from './bot-generation';
 
 setupRitewayBun();
 
