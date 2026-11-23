@@ -9,17 +9,35 @@ import {
 
 type Listening = boolean | AddEventListenerOptions;
 
-/** One listener on the document while mounted; the handler is read at its latest. */
+type DocumentListening = {
+  readonly capture?: boolean;
+  readonly passive?: boolean;
+};
+
+/**
+ * One listener on the document while mounted; the handler is read at its
+ * latest. Custom event names carry a plain `Event`.
+ */
 export function useDocumentEvent<K extends keyof DocumentEventMap>(
   type: K,
   handle: (event: DocumentEventMap[K]) => void,
-  options?: { readonly capture?: boolean; readonly passive?: boolean },
+  options?: DocumentListening,
+): void;
+export function useDocumentEvent(
+  type: string,
+  handle: (event: Event) => void,
+  options?: DocumentListening,
+): void;
+export function useDocumentEvent(
+  type: string,
+  handle: (event: Event) => void,
+  options?: DocumentListening,
 ): void {
   const onEvent = useEffectEvent(handle);
   const capture = options?.capture ?? false;
   const passive = options?.passive;
   useEffect(() => {
-    const listener = (event: DocumentEventMap[K]) => onEvent(event);
+    const listener = (event: Event) => onEvent(event);
     const listening: Listening =
       passive === undefined ? { capture } : { capture, passive };
     document.addEventListener(type, listener, listening);
@@ -112,10 +130,7 @@ export function useMediaQuery(
   );
 }
 
-export function observeResize(
-  target: Element,
-  callback: ResizeObserverCallback,
-) {
+function observeResize(target: Element, callback: ResizeObserverCallback) {
   const observer = new ResizeObserver(callback);
   observer.observe(target);
   return () => observer.disconnect();
@@ -161,4 +176,42 @@ export function useMutationObserver<K>(
     observer.observe(node, { childList, characterData, subtree, attributes });
     return () => observer.disconnect();
   }, [key, childList, characterData, subtree, attributes]);
+}
+
+/**
+ * Calls `handle` with the new answer each time a media query's answer
+ * changes, as the browser reports it and before React renders anything for
+ * it. The handler is read at its latest.
+ */
+export function useMediaChange(
+  query: string,
+  handle: (matches: boolean) => void,
+): void {
+  const onChange = useEffectEvent(handle);
+  useEffect(() => {
+    const list = window.matchMedia(query);
+    const changed = () => onChange(list.matches);
+    list.addEventListener('change', changed);
+    return () => list.removeEventListener('change', changed);
+  }, [query]);
+}
+
+/**
+ * One listener on the form that holds the anchor element, while it holds
+ * one: a field's way to hear its whole form (a reset, a submit) without
+ * owning the form element. The handler is read at its latest.
+ */
+export function useEnclosingFormEvent<K extends keyof HTMLElementEventMap>(
+  anchor: RefObject<Element | null>,
+  type: K,
+  handle: (event: HTMLElementEventMap[K], form: HTMLFormElement) => void,
+): void {
+  const onEvent = useEffectEvent(handle);
+  useEffect(() => {
+    const form = anchor.current?.closest('form');
+    if (!form) return;
+    const listener = (event: HTMLElementEventMap[K]) => onEvent(event, form);
+    form.addEventListener(type, listener);
+    return () => form.removeEventListener(type, listener);
+  }, [anchor, type]);
 }

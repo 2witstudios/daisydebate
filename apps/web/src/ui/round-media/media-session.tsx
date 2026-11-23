@@ -1,10 +1,13 @@
 'use client';
 import '../../lib/zod-jitless';
-import { useBrowserEffect } from '../edge/browser-sync';
-import { browserFetch } from '../edge/browser-request';
-import { scheduleDelay } from '../edge/browser-time';
+import { browserTransport } from '../edge/browser-request';
+import { browserScheduler } from '../edge/browser-time';
+import { mediaDeadlineAt } from '../edge/round-media-browser';
+import { useDeliver } from '../edge/use-answer';
+import { useResource } from '../edge/use-driver';
+import { useLeave } from '../edge/use-answer';
 import { StatusRegion } from '../components/status-region/status-region';
-import { useRef, useState, useSyncExternalStore } from 'react';
+import { useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { isRoundOver } from '@daisy/protocol/round';
 import { type RoundView } from '@daisy/protocol/round-view';
 import { postRoundCallChosen } from '../../features/post-round-call/offered';
@@ -61,10 +64,8 @@ const MEDIA_POLICY: MediaPolicy = {
 };
 
 const requestMedia = createMediaRequest({
-  fetch: (url, options) => browserFetch(url, options),
-  scheduleDeadline: (expire, ms) => {
-    return scheduleDelay(expire, ms);
-  },
+  fetch: browserTransport,
+  scheduleDeadline: browserScheduler.after,
 });
 
 /** Whether this tab may hold the Round's media; rooms owns the coordination. */
@@ -102,10 +103,12 @@ function RoundMediaSession({
   const { owns, onStepDown } = tab;
   const questioning = view.ladder === null && hasOpenQuestioning(view.rules);
   const muteOffered = questioning || postRoundCallChosen(view);
+  // The runtime and the deadline follower outlive a render: each refresh
+  // reaches the owner's latest handler.
   const refresh = useRef(onRefresh);
-  useBrowserEffect(() => {
-    refresh.current = onRefresh;
-  }, [onRefresh]);
+  useDeliver(onRefresh, (latest) => {
+    refresh.current = latest;
+  });
   const [runtime] = useState(() =>
     createMediaRuntime({
       roundId: view.id,
@@ -116,9 +119,7 @@ function RoundMediaSession({
       policy: MEDIA_POLICY,
       // Monotonic: elapsed time, and a clock step must not skew it.
       now: () => performance.now(),
-      at: (ms, fire) => {
-        return scheduleDelay(fire, ms);
-      },
+      at: mediaDeadlineAt,
       api: {
         admit: (id, signal) => requestMedia(id, 'session', signal),
         reconcile: (id, signal) => requestMedia(id, 'reconcile', signal),
@@ -152,35 +153,36 @@ function RoundMediaSession({
     runtime.handles,
   );
   const { dispatch } = runtime;
-  useBrowserEffect(
-    () => onStepDown(() => dispatch({ type: 'tab-changed', owns: false })),
-    [dispatch, onStepDown],
-  );
+  useResource(onStepDown, (register) => ({
+    dispose: register(() => dispatch({ type: 'tab-changed', owns: false })),
+  }));
   /** The restore must precede the first claim so one truth reaches the transport. */
-  useBrowserEffect(() => {
-    if (selectMediaAccount(actorId)) onAccountChanged();
-    // A post-round call offers mute to everyone, so it restores the choice too.
-    if (!muteOffered) return;
-    const prior = readMutePreference(actorId, view.id);
-    if (prior !== null) dispatch({ type: 'mute-restored', muted: prior });
-  }, [view.id, actorId, muteOffered, onAccountChanged, dispatch]);
-  useBrowserEffect(() => {
-    dispatch({ type: 'tab-changed', owns });
-    return () => dispatch({ type: 'tab-changed', owns: null });
-  }, [dispatch, owns]);
-  useBrowserEffect(
-    () =>
-      subscribeBrowserPageEvents({
-        online: window,
-        visibility: document,
-        isVisible: () => document.visibilityState === 'visible',
-        nudge: () => dispatch({ type: 'browser-nudged' }),
-        page: window,
-        leaving: () => dispatch({ type: 'page-left' }),
-        restored: () => dispatch({ type: 'frozen-page-restored' }),
-      }),
-    [dispatch],
+  const restoring = useMemo(
+    () => ({ roundId: view.id, actorId, muteOffered, onAccountChanged }),
+    [view.id, actorId, muteOffered, onAccountChanged],
   );
+  useDeliver(restoring, (asked) => {
+    if (selectMediaAccount(asked.actorId)) asked.onAccountChanged();
+    // A post-round call offers mute to everyone, so it restores the choice too.
+    if (!asked.muteOffered) return;
+    const prior = readMutePreference(asked.actorId, asked.roundId);
+    if (prior !== null) dispatch({ type: 'mute-restored', muted: prior });
+  });
+  useResource(owns, (claimed) => {
+    dispatch({ type: 'tab-changed', owns: claimed });
+    return { dispose: () => dispatch({ type: 'tab-changed', owns: null }) };
+  });
+  useResource(dispatch, (send) => ({
+    dispose: subscribeBrowserPageEvents({
+      online: window,
+      visibility: document,
+      isVisible: () => document.visibilityState === 'visible',
+      nudge: () => send({ type: 'browser-nudged' }),
+      page: window,
+      leaving: () => send({ type: 'page-left' }),
+      restored: () => send({ type: 'frozen-page-restored' }),
+    }),
+  }));
   const [clock] = useState(() =>
     roundTimeMediaClock({ roundTime, scheduler: systemScheduler }),
   );
@@ -188,36 +190,29 @@ function RoundMediaSession({
   const follower = useRef<ReturnType<typeof createRoundViewFollower> | null>(
     null,
   );
-  useBrowserEffect(() => {
+  // Each view holds its deadline watch until the next one replaces it.
+  useResource(view, (shown) => {
     // A post-round call outlives its Round: the server's own answer ends it.
-    if (isRoundOver(view.status) && !postRoundCallChosen(view)) {
+    if (isRoundOver(shown.status) && !postRoundCallChosen(shown)) {
       dispatch({ type: 'round-ended' });
-      return;
+      return null;
     }
     follower.current ??= createRoundViewFollower({
       clock,
       reconcile: (read) => dispatch({ type: 'read-requested', read }),
       refresh: () => refresh.current(),
     });
-    return follower.current(view);
-  }, [view, clock, dispatch]);
+    return { dispose: follower.current(shown) };
+  });
   /** Only the server knows a call ended early: everyone left, or it never opened. */
-  const callEnded = useRef(onCallEnded);
-  useBrowserEffect(() => {
-    callEnded.current = onCallEnded;
-  }, [onCallEnded]);
   const endedCall = postRoundCallChosen(view) && state.link.phase === 'ended';
-  useBrowserEffect(() => {
-    if (endedCall) callEnded.current?.();
-  }, [endedCall]);
+  useDeliver(endedCall, (ended) => {
+    if (ended) onCallEnded?.();
+  });
   /** The controls read this device's own capture truth as a named input. */
-  const report = useRef(onPublication);
-  useBrowserEffect(() => {
-    report.current = onPublication;
-  }, [onPublication]);
   const publication = publicationOf(state);
-  useBrowserEffect(() => report.current?.(publication), [publication]);
-  useBrowserEffect(() => () => report.current?.(null), []);
+  useDeliver(publication, (current) => onPublication?.(current));
+  useLeave(() => onPublication?.(null));
   const presence = tabOf(state);
   if (presence !== 'owned')
     return (

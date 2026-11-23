@@ -1,4 +1,4 @@
-import { useBrowserEffect } from '../edge/browser-sync';
+import { useDeliver } from '../edge/use-answer';
 import { StatusRegion } from '../components/status-region/status-region';
 
 import { MediaPageLink } from '../round-media/media-page-link';
@@ -29,10 +29,10 @@ export function RoundEndedNotice({
    * own terminal effect cannot: the records are done once this Round's life
    * ends (ISSUE-879). No personal data leaves this tab.
    */
-  useBrowserEffect(() => {
+  useDeliver(JSON.stringify([actorId, roundId, roomId ?? null]), () => {
     if (roomId) clearRoundMediaPreferences(actorId, roomId, roundId);
     else clearMutePreference(actorId, roundId);
-  }, [actorId, roundId, roomId]);
+  });
   return (
     <div className="mx-auto flex w-full max-w-dash-column flex-col gap-3 p-6">
       <StatusRegion

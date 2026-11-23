@@ -1,6 +1,6 @@
 'use client';
 
-import { useBrowserEffect } from '../../edge/browser-sync';
+import { useDeliver } from '../../edge/use-answer';
 import { Button } from '../../components/button/button';
 import { useRef, useState, useSyncExternalStore } from 'react';
 import { feedbackField } from '../../../features/judge/ballot';
@@ -88,13 +88,14 @@ export function BallotFields({
   const [winner, setWinner] = useState<string | null>(postedWinner);
   const [scores, setScores] = useState<SheetScores>(posted);
   const root = useRef<HTMLDivElement>(null);
-  useBrowserEffect(() => {
+  // The browser may have restored the controls: each plan reads them once rendered.
+  useDeliver(plan, (shown) => {
     const form = root.current?.closest('form');
     if (!form) return;
     const held = formValues(new FormData(form));
-    setWinner(readSide(plan, held['winner']));
-    setScores(postedSheet(plan, held));
-  }, [plan]);
+    setWinner(readSide(shown, held['winner']));
+    setScores(postedSheet(shown, held));
+  });
   const setScore = (subject: string, row: string, score: number) =>
     setScores((current) => ({
       ...current,

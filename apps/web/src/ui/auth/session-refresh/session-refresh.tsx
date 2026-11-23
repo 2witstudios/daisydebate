@@ -1,8 +1,6 @@
 'use client';
 
-import { useMount } from '../../edge/use-mount';
-
-import { authClient } from '../../../lib/auth-client';
+import { useSessionRefresh } from '../../edge/use-session-refresh';
 
 /**
  * Keeps a durable session sliding. Server components read sessions without
@@ -12,8 +10,6 @@ import { authClient } from '../../../lib/auth-client';
  * its cookie together. It shows nothing.
  */
 export function SessionRefresh() {
-  useMount(() => {
-    void authClient.getSession();
-  });
+  useSessionRefresh();
   return null;
 }

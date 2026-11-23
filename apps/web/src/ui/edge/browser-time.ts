@@ -2,8 +2,8 @@
  * The browser's timer queue as one port. Outside the edge it is injected
  * into the code that waits, never called: a component waits through
  * `useTick` or `useDelay`, a driver through the scheduler it was given.
- * Each wait answers its own cancellation. The window's own timers are read
- * at each call, so a realm a test installs is the one that runs.
+ * Each wait answers its own cancellation. The window's timers are read at
+ * each call, so the ones a test realm installs are the ones that run.
  */
 export type BrowserScheduler = {
   /** Runs once after `ms`. */

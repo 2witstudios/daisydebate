@@ -1,14 +1,13 @@
 'use client';
 
-import { useBrowserEffect } from '../edge/browser-sync';
-import { scheduleDelay } from '../edge/browser-time';
+import { useDelay } from '../edge/use-tick';
 import { Button } from '../components/button/button';
 import type {
   NotificationKind,
   NotificationShell,
 } from '@daisy/protocol/notifications';
 import Link from 'next/link';
-import { useRef, useState } from 'react';
+import { useState } from 'react';
 import {
   TOAST_INFORMATIONAL_MS,
   toastWaits,
@@ -188,14 +187,7 @@ export function NotificationToast({
   const look = looks[row.kind];
   const waits = toastWaits(row.kind);
   const [held, setHeld] = useState(false);
-  const dismissRef = useRef(dismiss);
-  useBrowserEffect(() => {
-    dismissRef.current = dismiss;
-  }, [dismiss]);
-  useBrowserEffect(() => {
-    if (waits || held) return;
-    return scheduleDelay(() => dismissRef.current(), TOAST_INFORMATIONAL_MS);
-  }, [waits, held]);
+  useDelay(dismiss, waits || held ? null : TOAST_INFORMATIONAL_MS);
   // What starts now sits on the stage colours.
   const stage =
     row.kind === 'challenge_accepted' || row.kind === 'round_started';

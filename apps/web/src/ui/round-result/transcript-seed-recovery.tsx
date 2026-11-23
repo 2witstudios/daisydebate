@@ -1,7 +1,7 @@
 'use client';
-import { useBrowserEffect } from '../edge/browser-sync';
-import { currentBrowserFetch } from '../edge/browser-request';
-import { scheduleDelay } from '../edge/browser-time';
+import { browserTransport } from '../edge/browser-request';
+import { retryAfter } from '../edge/browser-waits';
+import { useResource } from '../edge/use-driver';
 import { StatusRegion } from '../components/status-region/status-region';
 import { Button } from '../components/button/button';
 import { useState } from 'react';
@@ -30,17 +30,13 @@ export function TranscriptSeedRecovery({
   readonly placement: TranscriptPlacement;
 }) {
   const [state, setState] = useState<TranscriptSeed>({ kind: 'asking' });
-  useBrowserEffect(
-    () =>
-      askForTranscriptSeed({
-        read: () => readTranscript(currentBrowserFetch(), roundId),
-        schedule: (attempt, asked) => {
-          return scheduleDelay(attempt, nextAskMs(asked));
-        },
-        settled: setState,
-      }),
-    [roundId],
-  );
+  useResource(roundId, (round) => ({
+    dispose: askForTranscriptSeed({
+      read: () => readTranscript(browserTransport, round),
+      schedule: retryAfter(nextAskMs),
+      settled: setState,
+    }),
+  }));
   return (
     <TranscriptSeedAnswer
       state={state}

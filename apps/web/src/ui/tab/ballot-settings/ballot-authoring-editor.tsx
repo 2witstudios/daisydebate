@@ -1,10 +1,10 @@
 'use client';
-import { useBrowserEffect } from '../../edge/browser-sync';
+import { useAnswer } from '../../edge/use-answer';
 import { StatusRegion } from '../../components/status-region/status-region';
 import { authoringControlClass as control } from './ballot-authoring-fields';
 import { BallotDefinitionSummary } from './ballot-definition-summary';
 import { BallotDefinitionFields } from './ballot-definition-fields';
-import { useId, useRef, useState, type SyntheticEvent } from 'react';
+import { useId, useMemo, useRef, useState, type SyntheticEvent } from 'react';
 import { sampleBallotPreview } from '../../../features/tab/ballot-definition';
 import {
   previewDefinition,
@@ -110,12 +110,16 @@ export function BallotAuthoringEditor({
     edited.current = { which, form };
     setEdits((count) => count + 1);
   };
-  useBrowserEffect(() => {
+  // Each edit, and each new view after one, reads the form once rendered.
+  const reading = useMemo(() => ({ edits, view }), [edits, view]);
+  useAnswer(reading, (read) => {
     const mark = edited.current;
-    if (edits === 0 || !mark) return;
+    if (read.edits === 0 || !mark) return;
     const values = new FormData(mark.form);
-    setChoices((previous) => readChoice(view, previous, mark.which, values));
-  }, [edits, view]);
+    setChoices((previous) =>
+      readChoice(read.view, previous, mark.which, values),
+    );
+  });
   const source = shownSource(choices);
   return (
     <div className="flex flex-col gap-6">

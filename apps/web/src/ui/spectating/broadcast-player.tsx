@@ -1,6 +1,6 @@
 'use client';
-import { useBrowserEffect } from '../edge/browser-sync';
-import { cancelDelay, delay } from '../edge/browser-time';
+import { useElementEvent } from '../edge/use-dom-events';
+import { useDelay } from '../edge/use-tick';
 import { StatusRegion } from '../components/status-region/status-region';
 import { Button } from '../components/button/button';
 import type {
@@ -21,36 +21,36 @@ const JUMP_SLATE_MS = 4000;
  * Covers the video while it has nothing current to show. It reads the video alone, so
  * it works with the web tier gone: the feed is on object storage and this page is loaded.
  */
+/** A wait that, when it runs out, shows or hides the slate. */
+type SlateWait = {
+  readonly ms: number;
+  readonly shows: boolean;
+  /** Each arming is its own wait, so a new one restarts it. */
+  readonly armed: number;
+};
+
 const useInterruptionSlate = (video: RefObject<HTMLVideoElement | null>) => {
   const [shown, setShown] = useState(false);
-  const timer = useRef<ReturnType<typeof delay> | null>(null);
-  const clear = () => {
-    if (timer.current !== null) cancelDelay(timer.current);
-    timer.current = null;
-  };
-  useBrowserEffect(() => {
-    const element = video.current;
-    if (!element) return undefined;
-    const stalled = () => {
-      clear();
-      timer.current = delay(() => setShown(true), STALL_SLATE_MS);
-    };
-    const moving = () => {
-      clear();
-      setShown(false);
-    };
-    element.addEventListener('waiting', stalled);
-    element.addEventListener('playing', moving);
-    return () => {
-      clear();
-      element.removeEventListener('waiting', stalled);
-      element.removeEventListener('playing', moving);
-    };
-  }, [video]);
+  const [wait, setWait] = useState<SlateWait | null>(null);
+  const arm = (ms: number, shows: boolean) =>
+    setWait((current) => ({ ms, shows, armed: (current?.armed ?? 0) + 1 }));
+  useElementEvent(video, 'waiting', () => arm(STALL_SLATE_MS, true));
+  useElementEvent(video, 'playing', () => {
+    setWait(null);
+    setShown(false);
+  });
+  useDelay(
+    () => {
+      if (wait === null) return;
+      setShown(wait.shows);
+      setWait(null);
+    },
+    wait?.ms ?? null,
+    wait?.armed,
+  );
   const jumped = () => {
-    clear();
     setShown(true);
-    timer.current = delay(() => setShown(false), JUMP_SLATE_MS);
+    arm(JUMP_SLATE_MS, false);
   };
   return { shown, jumped };
 };

@@ -1,7 +1,7 @@
 'use client';
 
-import { useFormAnswer } from '../edge/use-form-answer';
-import { useBrowserEffect } from '../edge/browser-sync';
+import { useAnswer, useDeliver } from '../edge/use-answer';
+import { useDocumentEvent } from '../edge/use-dom-events';
 import { Button } from '../components/button/button';
 import { StatusRegion } from '../components/status-region/status-region';
 import { Dialog } from '../components/dialog/dialog';
@@ -121,7 +121,7 @@ function CancelChallengeItem({
     challengeFormUnavailable,
   );
   const { noteCancelled, forgetCancelled } = useChallenges();
-  useFormAnswer(answer, () => {
+  useAnswer(answer, () => {
     if (challengeFields(answer).refusal) forgetCancelled(challengeId);
     onDone();
   });
@@ -195,7 +195,7 @@ function BlockItem({
     initialPersonBlock,
     personBlockUnavailable,
   );
-  useFormAnswer(answer, () => {
+  useAnswer(answer, () => {
     if (answer.kind === 'blocked') onDone();
   });
   const notice =
@@ -260,7 +260,7 @@ function ChallengeView({
     initialChallengeForm,
     challengeFormUnavailable,
   );
-  useFormAnswer(answer, () => {
+  useAnswer(answer, () => {
     if (wasSent(answer)) onDone();
   });
   const { refusal } = challengeFields(answer);
@@ -336,7 +336,7 @@ function ReportView({
     reportFormUnavailable,
   );
   const { filed, refusal } = reportFields(answer);
-  useFormAnswer(answer, () => {
+  useAnswer(answer, () => {
     if (filed) onDone();
   });
   return (
@@ -424,16 +424,12 @@ export function PersonMenu({
   // it hands focus back to the row.
   const dialog = useRef<HTMLElement | null>(null);
   // Each view replaces the focused control, so focus moves in with every view.
-  useBrowserEffect(() => {
+  useDeliver(view, () => {
     dialog.current?.querySelector<HTMLElement>('button, a, select')?.focus();
-  }, [view]);
-  useBrowserEffect(() => {
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onClose();
-    };
-    document.addEventListener('keydown', onKey);
-    return () => document.removeEventListener('keydown', onKey);
-  }, [onClose]);
+  });
+  useDocumentEvent('keydown', (event) => {
+    if (event.key === 'Escape') onClose();
+  });
   return (
     <>
       <div

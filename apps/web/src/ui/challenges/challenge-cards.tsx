@@ -1,11 +1,11 @@
 'use client';
 
-import { useBrowserEffect } from '../edge/browser-sync';
+import { useDeliver } from '../edge/use-answer';
 import { navigateDocument } from '../edge/browser-navigation';
 import { StatusRegion } from '../components/status-region/status-region';
 import { Button } from '../components/button/button';
 import type { ChallengeList } from '@daisy/protocol/challenges';
-import { useRef } from 'react';
+import { useMemo } from 'react';
 import type { EndedOffer } from '../../features/challenges/challenges-held';
 import {
   challengeFields,
@@ -45,13 +45,10 @@ function IncomingCard({
     actions.endChallenge,
     initialChallengeForm,
     challengeFormUnavailable,
+    () => refresh(),
   );
   const next = destinationOf(accepted);
   useMovedOn(next, announceShellNavigation);
-  const initial = useRef(declined);
-  useBrowserEffect(() => {
-    if (declined !== initial.current) refresh();
-  }, [declined, refresh]);
   const notice =
     challengeFields(accepted).refusal ?? challengeFields(declined).refusal;
   return (
@@ -118,17 +115,15 @@ function OutgoingCard({
   readonly className?: string;
 }) {
   const { refresh, noteCancelled, forgetCancelled } = useChallenges();
-  const [answer, post, pending] = useFormAction(
+  const [, post, pending] = useFormAction(
     action,
     initialChallengeForm,
     challengeFormUnavailable,
+    (answered) => {
+      if (challengeFields(answered).refusal) forgetCancelled(offer.id);
+      refresh();
+    },
   );
-  const initial = useRef(answer);
-  useBrowserEffect(() => {
-    if (answer === initial.current) return;
-    if (challengeFields(answer).refusal) forgetCancelled(offer.id);
-    refresh();
-  }, [answer, forgetCancelled, offer.id, refresh]);
   return (
     <section
       aria-label={`Challenge sent to @${offer.username}`}
@@ -251,7 +246,11 @@ function useFollowAccepted(
   accepted: ChallengeList['accepted'],
   activeRoomId: string | null,
 ) {
-  useBrowserEffect(() => {
+  const following = useMemo(
+    () => ({ accepted, activeRoomId }),
+    [accepted, activeRoomId],
+  );
+  useDeliver(following, () => {
     if (activeRoomId !== null) return;
     // Newest first: every accept is marked followed, and only the newest is
     // taken, so several at once never bounce a challenger between rooms.
@@ -262,7 +261,7 @@ function useFollowAccepted(
     rememberFollowed([...followed, ...fresh.map((row) => row.roomId)]);
     if (!window.location.pathname.startsWith(`/rooms/${offer.roomId}`))
       navigateDocument(`/rooms/${offer.roomId}`);
-  }, [accepted, activeRoomId]);
+  });
 }
 
 /** Renders nothing: one follower for the tab, however many cards are mounted. */

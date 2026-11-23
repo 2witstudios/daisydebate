@@ -2,15 +2,13 @@
 
 // First: protocol schemas built after this load without Zod's eval probe.
 import '../../lib/zod-jitless';
-import { useBrowserEffect } from '../edge/browser-sync';
-import { browserFetch } from '../edge/browser-request';
 import {
-  cancelDelay,
-  delay,
-  scheduleDelay,
-  startTick,
-  stopTick,
-} from '../edge/browser-time';
+  browserTransport,
+  type BrowserTransport,
+} from '../edge/browser-request';
+import { useAnswer, useDeliver } from '../edge/use-answer';
+import { useResource } from '../edge/use-driver';
+import { useDelay, useTick } from '../edge/use-tick';
 import { ONLINE_TOPIC } from '@daisy/protocol/topics';
 import {
   peopleListSchema,
@@ -65,12 +63,13 @@ export const useOptionalPeople = () => useContext(PeopleContext);
 const readJson = async <T,>(
   url: string,
   parse: (value: unknown) => T | null,
+  transport: BrowserTransport = browserTransport,
 ): Promise<{
   readonly value: T | null;
   readonly response: Response | null;
 }> => {
   try {
-    const response = await browserFetch(url, {
+    const response = await transport(url, {
       credentials: 'same-origin',
       cache: 'no-store',
     });
@@ -116,12 +115,17 @@ export function PeopleProvider({
   const [query, setQuery] = useState('');
   const [socketUrl, setSocketUrl] = useState(initialSocketUrl);
   const lastRead = useRef(0);
-  const timer = useRef<ReturnType<typeof delay> | null>(null);
+  /** The one pending re-read a ring asked for, and how long it waits. */
+  const [ring, setRing] = useState<{ readonly waitMs: number } | null>(null);
   const count = peopleReadCount(list);
   const shown = useRef({ filter, query, count });
-  useBrowserEffect(() => {
-    shown.current = { filter, query, count };
-  }, [filter, query, count]);
+  const showing = useMemo(
+    () => ({ filter, query, count }),
+    [filter, query, count],
+  );
+  useDeliver(showing, (next) => {
+    shown.current = next;
+  });
 
   // A re-read walks as many pages as the viewer loaded, so a ring never
   // snatches the list out from under someone who scrolled.
@@ -169,68 +173,65 @@ export function PeopleProvider({
   }, []);
   const readListRef = useRef(readList);
   const schedule = useCallback(() => {
-    if (timer.current !== null) return;
-    timer.current = delay(
-      () => {
-        timer.current = null;
-        void readList();
-      },
-      nextReadDelayMs({
-        now: systemScheduler.now(),
-        lastReadAt: lastRead.current,
-        peopleCount: shown.current.count,
-        jitter: secureRandom(),
-      }),
-    );
-  }, [readList]);
+    const waitMs = nextReadDelayMs({
+      now: systemScheduler.now(),
+      lastReadAt: lastRead.current,
+      peopleCount: shown.current.count,
+      jitter: secureRandom(),
+    });
+    setRing((pending) => pending ?? { waitMs });
+  }, []);
+  useDelay(
+    () => {
+      setRing(null);
+      void readList();
+    },
+    ring?.waitMs ?? null,
+    ring,
+  );
 
   // A changed filter or search reads at once.
-  const first = useRef(true);
-  useBrowserEffect(() => {
-    if (first.current) {
-      first.current = false;
-      return;
-    }
+  const [searches, setSearches] = useState(0);
+  useAnswer(JSON.stringify([filter, query]), () => {
     pagesLoaded.current = 1;
     readSeq.current += 1;
-    return scheduleDelay(() => void readList(), 200);
-  }, [filter, query, readList]);
+    setSearches((count) => count + 1);
+  });
+  useDelay(() => void readList(), searches === 0 ? null : 200, searches);
 
   // The fallback when no ring arrives, and the first read that names the socket.
-  useBrowserEffect(() => {
-    if (socketUrl === null) void readList();
-    const poll = startTick(() => {
+  useDeliver(socketUrl, (url) => {
+    if (url === null) void readList();
+  });
+  useTick(
+    () => {
       const since = systemScheduler.now() - lastRead.current;
       if (since >= peopleReadFloorMs(shown.current.count)) void readList();
-    }, PEOPLE_READ_CEILING_MS);
-    return () => stopTick(poll);
-  }, [readList, socketUrl]);
+    },
+    PEOPLE_READ_CEILING_MS,
+    socketUrl,
+  );
 
-  useBrowserEffect(() => {
-    if (socketUrl === null) return;
-    const connection = tabConnection(socketUrl);
+  useResource(socketUrl, (url) => {
+    if (url === null) return null;
+    const connection = tabConnection(url);
     connection.connect();
     const stopRings = connection.subscribeTopic(ONLINE_TOPIC, (frame) => {
       if (frame.type === 'online_changed' || frame.type === 'subscribed')
         schedule();
     });
-    return () => {
-      stopRings();
-      connection.dispose();
+    return {
+      dispose: () => {
+        stopRings();
+        connection.dispose();
+      },
     };
-  }, [schedule, socketUrl]);
+  });
 
   // The server rendered this list a moment ago, so the first ring waits its turn.
-  useBrowserEffect(() => {
+  useDeliver(initialList, () => {
     lastRead.current = systemScheduler.now();
-  }, []);
-
-  useBrowserEffect(
-    () => () => {
-      if (timer.current !== null) cancelDelay(timer.current);
-    },
-    [],
-  );
+  });
 
   const loadingMore = useRef(false);
   const loadMore = useCallback(() => {

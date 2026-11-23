@@ -1,5 +1,5 @@
 'use client';
-import { useBrowserEffect } from '../../edge/browser-sync';
+import { useDeliver } from '../../edge/use-answer';
 import { StatusRegion } from '../../components/status-region/status-region';
 import { drawnTopicLabel } from '../../../features/debate-room/vocabulary';
 import Link from 'next/link';
@@ -61,9 +61,9 @@ export function BallotPage({
   if (rendered.answer !== answer)
     setRendered({ answer, revision: rendered.revision + 1 });
   useFocusAfterAnswer(answer, fields.error ? errorId : undefined, !pending);
-  useBrowserEffect(() => {
-    if (answer.kind === 'recorded') router.refresh();
-  }, [answer, router]);
+  useDeliver(answer, (shown) => {
+    if (shown.kind === 'recorded') router.refresh();
+  });
   useBallotRefresh(
     view,
     pending || answer.kind === 'unacknowledged',

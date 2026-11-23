@@ -1,10 +1,10 @@
 'use client';
 
-import { useBrowserLayoutEffect } from '../edge/browser-sync';
+import { useFocusOnChange } from '../edge/use-focus';
 import { StatusRegion } from '../components/status-region/status-region';
 import type { FloorChatProps } from '../round-floor/floor-chat';
 import type { LocalPublication } from '../../features/round-media/model/media-publication';
-import { useReducer, useState, useRef, type ReactNode } from 'react';
+import { useCallback, useReducer, useState, type ReactNode } from 'react';
 import { tileHeightFor } from '../../features/debate-room/layout';
 import type { PhonePanel } from '../../features/debate-room/workspace';
 import { cn } from '../cn';
@@ -44,13 +44,17 @@ import {
 import { usePaletteShortcut } from '../documents/use-palette-shortcut';
 import { useDocumentSync } from '../documents/use-document-sync';
 
-/** Writes the tile height as a custom property (CSSOM, so the CSP allows it). */
+/**
+ * Writes the tile height as a custom property (CSSOM, so the CSP allows it).
+ * A new height is a new ref callback, which React attaches during commit.
+ */
 function useTileHeight(height: number) {
-  const root = useRef<HTMLDivElement>(null);
-  useBrowserLayoutEffect(() => {
-    root.current?.style.setProperty('--room-tile-height', `${height}px`);
-  }, [height]);
-  return root;
+  return useCallback(
+    (root: HTMLDivElement | null) => {
+      root?.style.setProperty('--room-tile-height', `${height}px`);
+    },
+    [height],
+  );
 }
 
 const DOCUMENT_ID = 'open-document';
@@ -80,24 +84,21 @@ const focusTargets = () => [
  */
 function useFocusReturn(filesOpen: boolean, phone: PhonePanel) {
   const phoneLayout = usePhoneBreakpoint();
-  useBrowserLayoutEffect(() => {
+  useFocusOnChange(`${filesOpen}:${phone}`, () => {
     focusReturnTarget(
       document.activeElement,
       focusRegions(),
       focusTargets(),
     )?.focus();
-  }, [filesOpen, phone]);
-  const crossed = useRef(phoneLayout);
-  useBrowserLayoutEffect(() => {
-    if (crossed.current === phoneLayout) return;
-    crossed.current = phoneLayout;
+  });
+  useFocusOnChange(phoneLayout, () => {
     const active = document.activeElement;
     const targets = focusTargets();
     const target =
       focusReturnTarget(active, focusRegions(), targets) ??
       (active === document.body ? firstShown(targets) : null);
     target?.focus();
-  }, [phoneLayout]);
+  });
 }
 
 const noLeave: LeaveLinks = {

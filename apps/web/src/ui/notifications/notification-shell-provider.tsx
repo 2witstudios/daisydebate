@@ -2,9 +2,12 @@
 
 // First: protocol schemas built after this load without Zod's eval probe.
 import '../../lib/zod-jitless';
-import { useBrowserEffect } from '../edge/browser-sync';
-import { browserFetch } from '../edge/browser-request';
-import { delay } from '../edge/browser-time';
+import {
+  browserTransport,
+  type BrowserTransport,
+} from '../edge/browser-request';
+import { useDeliver } from '../edge/use-answer';
+import { useMutationObserver } from '../edge/use-dom-events';
 import {
   defaultNotificationPresentation,
   notificationShellSchema,
@@ -16,6 +19,7 @@ import {
   createContext,
   useCallback,
   useContext,
+  useMemo,
   useRef,
   useState,
   type ReactNode,
@@ -52,8 +56,10 @@ const emptyShell: NotificationShell = {
 export const useNotificationShell = (): NotificationShell | null =>
   useContext(ShellContext);
 
-const readShell = async (): Promise<ResourceRead<NotificationShell>> => {
-  const response = await browserFetch('/api/notifications/shell', {
+const readShell = async (
+  transport: BrowserTransport = browserTransport,
+): Promise<ResourceRead<NotificationShell>> => {
+  const response = await transport('/api/notifications/shell', {
     credentials: 'same-origin',
     cache: 'no-store',
   });
@@ -67,8 +73,11 @@ const readShell = async (): Promise<ResourceRead<NotificationShell>> => {
     : { kind: 'unavailable' };
 };
 
-const markRead = (ids: readonly string[]) =>
-  browserFetch('/api/notifications/read', {
+const markRead = (
+  ids: readonly string[],
+  transport: BrowserTransport = browserTransport,
+) =>
+  transport('/api/notifications/read', {
     method: 'POST',
     credentials: 'same-origin',
     headers: { 'content-type': 'application/json' },
@@ -82,15 +91,17 @@ const chime = () => {
     const gain = audio.createGain();
     gain.gain.value = 0.08;
     gain.connect(audio.destination);
-    [880, 1320].forEach((frequency, index) => {
+    const notes = [880, 1320];
+    notes.forEach((frequency, index) => {
       const tone = audio.createOscillator();
       tone.frequency.value = frequency;
       tone.connect(gain);
       const at = audio.currentTime + index * 0.12;
       tone.start(at);
       tone.stop(at + 0.1);
+      // The chime's context closes once its last note has sounded.
+      if (index === notes.length - 1) tone.onended = () => void audio.close();
     });
-    delay(() => void audio.close(), 600);
   } catch {
     // No audio here, or the browser refused it without a gesture yet.
   }
@@ -150,7 +161,7 @@ export function NotificationShellProvider({
     const { connection, ...edges } = browserSyncEdges(socketUrl);
     return createNotificationShellSyncDriver({
       seed,
-      read: readShell,
+      read: () => readShell(),
       inbox: connection ? { actorId, connection } : null,
       ...edges,
     });
@@ -167,7 +178,8 @@ export function NotificationShellProvider({
   const seen = useRef<Set<string> | null>(null);
   const marked = useRef(new Set<string>());
 
-  useBrowserEffect(() => {
+  const arrived = useMemo(() => ({ shell, path }), [shell, path]);
+  useDeliver(arrived, () => {
     // Without the server's read the seed says nothing about what was waiting:
     // the first real read only learns it, so old rows never burst in as news.
     if (initialShell === null && shell === seed) return;
@@ -185,10 +197,14 @@ export function NotificationShellProvider({
     alertUrgent(arrivals.urgent, shell.presentation, (href) =>
       router.push(href),
     );
-  }, [shell, path, router, initialShell, seed]);
+  });
 
   // The page the member is on shows these: they are read.
-  useBrowserEffect(() => {
+  const surfacing = useMemo(
+    () => ({ shell, path, driver }),
+    [shell, path, driver],
+  );
+  useDeliver(surfacing, () => {
     // Keyed by arrival: a row brought back unread is read again here.
     const shown = new Set(shownOn(shell.recent, path));
     const surfaced = shell.recent.filter(
@@ -199,26 +215,19 @@ export function NotificationShellProvider({
     const here = surfaced.map((row) => row.id);
     setToasts((shown) => shown.filter((row) => !here.includes(row.id)));
     void markRead(here).then(() => driver?.signal());
-  }, [shell, path, driver]);
+  });
 
   // Next sets the title on each navigation, after this renders: keep the
   // count on it. Writing only a changed title cannot loop.
-  useBrowserEffect(() => {
-    const counted = () => {
+  useMutationObserver(
+    shell.unread,
+    () => document.querySelector('title'),
+    { childList: true, characterData: true, subtree: true },
+    () => {
       const next = titleWith(document.title, shell.unread);
       if (next !== document.title) document.title = next;
-    };
-    counted();
-    const title = document.querySelector('title');
-    if (!title) return;
-    const observer = new MutationObserver(counted);
-    observer.observe(title, {
-      childList: true,
-      characterData: true,
-      subtree: true,
-    });
-    return () => observer.disconnect();
-  }, [shell.unread]);
+    },
+  );
 
   const dismiss = useCallback(
     (id: string) => setToasts((shown) => shown.filter((row) => row.id !== id)),

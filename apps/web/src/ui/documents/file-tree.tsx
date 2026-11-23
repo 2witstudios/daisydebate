@@ -1,6 +1,6 @@
 'use client';
 
-import { useBrowserLayoutEffect } from '../edge/browser-sync';
+import { useFocusOnChange, useFocusOnLeave } from '../edge/use-focus';
 import { Button } from '../components/button/button';
 import { useRef, useState, type Dispatch, type ReactNode } from 'react';
 import type { ManagerAction } from '../../features/documents/document-manager-state';
@@ -88,25 +88,17 @@ function NodeRow({
 }) {
   const rowElement = useRef<HTMLDivElement>(null);
   const rowButton = useRef<HTMLButtonElement>(null);
-  const wasRenaming = useRef(renaming);
   const returnAfterRename = useRef(false);
-  useBrowserLayoutEffect(() => {
-    if (wasRenaming.current && !renaming && returnAfterRename.current)
-      rowButton.current?.focus();
-    wasRenaming.current = renaming;
-  }, [renaming]);
-  useBrowserLayoutEffect(() => {
-    const element = rowElement.current;
-    return () => {
-      if (!element?.contains(document.activeElement)) return;
-      const next = [
-        ...(element
-          .closest('nav')
-          ?.querySelectorAll<HTMLButtonElement>('button') ?? []),
-      ].find((button) => !element.contains(button));
-      next?.focus();
-    };
-  }, []);
+  useFocusOnChange(renaming, () => {
+    if (!renaming && returnAfterRename.current) rowButton.current?.focus();
+  });
+  useFocusOnLeave(rowElement, (element) =>
+    [
+      ...(element
+        .closest('nav')
+        ?.querySelectorAll<HTMLButtonElement>('button') ?? []),
+    ].find((button) => !element.contains(button)),
+  );
   const done = (name: string | null, returnFocus: boolean) => {
     returnAfterRename.current = returnFocus;
     dispatch({ type: 'drive/renaming', id: null });

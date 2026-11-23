@@ -18,7 +18,7 @@ const effectHooks = new Set([
   'useInsertionEffect',
 ]);
 
-export type EffectSite = {
+type EffectSite = {
   readonly file: string;
   readonly line: number;
   readonly hook: string;
@@ -35,7 +35,7 @@ const declaredName = (declaration: ts.Declaration): string | undefined =>
     : undefined;
 
 /** Every effect call in `files` that resolves to one of React's effect hooks. */
-export function effectSites(
+function effectSites(
   program: ts.Program,
   files: readonly ts.SourceFile[],
   root: string,
@@ -74,7 +74,7 @@ const outsideEdge = (fileName: string) =>
   !/[\\/]src[\\/]ui[\\/]edge[\\/]/.test(fileName);
 
 /** The web app's program, read from its own tsconfig. */
-export function webProgram(root: string): ts.Program {
+function webProgram(root: string): ts.Program {
   const configPath = resolve(root, 'apps/web/tsconfig.json');
   const config = ts.readConfigFile(configPath, ts.sys.readFile);
   const parsed = ts.parseJsonConfigFileContent(

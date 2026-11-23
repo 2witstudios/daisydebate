@@ -1,6 +1,7 @@
 'use client';
-import { useBrowserEffect } from '../edge/browser-sync';
-import { scheduleTick } from '../edge/browser-time';
+import { useAnswer, useDeliver } from '../edge/use-answer';
+import { useResource, type Disposable } from '../edge/use-driver';
+import { browserScheduler } from '../edge/browser-time';
 import { contextChatPagedHistory } from './paged-history';
 import { createContextChatDriver } from './chat-driver';
 import type { ChatContext } from '../../features/messaging/context-chat/chat-context';
@@ -65,10 +66,14 @@ export type OpeningCheck = {
 };
 const pageOpeningCheck: OpeningCheck = {
   everyMs: 15_000,
-  every: (work, ms) => {
-    return scheduleTick(work, ms);
-  },
+  every: browserScheduler.every,
   visible: () => document.visibilityState === 'visible',
+};
+type ContextChatDriver = ReturnType<typeof createContextChatDriver>;
+/** A driver's lifetime on the page: answers that arrive after it ends change nothing. */
+const runDriver = (driver: ContextChatDriver): Disposable => {
+  driver.start();
+  return { dispose: driver.stop };
 };
 const NO_AUTHORS: readonly { actorId: string; label: string }[] = [];
 const DEFAULT_MESSAGE_UNITS = 4000;
@@ -95,10 +100,7 @@ export function useContextChat({
     driver.state,
   );
   const { send } = driver;
-  useBrowserEffect(() => {
-    driver.start();
-    return driver.stop;
-  }, [driver]);
+  useResource(driver, runDriver);
   const chat = state.kind === 'ready' ? state : null;
   const thread = chat?.thread ?? null;
   const kept =
@@ -131,14 +133,16 @@ export function useContextChat({
     (before: number) => send({ type: 'older-requested', before }),
     [send],
   );
-  useBrowserEffect(() => {
+  // Entry follows whether the chat is in use, its standing and the hint.
+  const entryKey = `${active}|${state.kind}|${mayOpen}`;
+  useDeliver(entryKey, () => {
     if (active && state.kind === 'idle') enter();
-  }, [active, state.kind, enter]);
+  });
   // The hint is not latched: when the page learns the reader may now post, or
   // may no longer, the thread enters again under it (finding or opening the
   // chat, or giving up its composer). An entry already on its way finishes
   // first.
-  useBrowserEffect(() => {
+  useDeliver(entryKey, () => {
     if (
       active &&
       state.kind !== 'idle' &&
@@ -147,54 +151,55 @@ export function useContextChat({
       enteredAs.current !== mayOpen
     )
       enter();
-  }, [active, state.kind, mayOpen, enter]);
-  const { ownerRevision } = props;
-  const readAt = useRef(ownerRevision);
-  useBrowserEffect(() => {
-    if (readAt.current === ownerRevision) return;
-    readAt.current = ownerRevision;
-    send({ type: 'refresh-requested' });
-  }, [ownerRevision, send]);
+  });
+  useAnswer(props.ownerRevision, () => send({ type: 'refresh-requested' }));
   // A reader who may not open the chat (a judge) still sees it once someone
   // else does: while it is empty and the page is in view, ask again now and
   // then. A found chat, a refusal or leaving the page ends the asking.
   const awaitingOpening =
     active && state.kind === 'empty' && context.awaitsOpening;
-  useBrowserEffect(() => {
-    if (!awaitingOpening) return;
-    return openingCheck.every(() => {
-      if (openingCheck.visible()) send({ type: 'opening-check-requested' });
-    }, openingCheck.everyMs);
-  }, [awaitingOpening, openingCheck, send]);
+  useResource(awaitingOpening ? openingCheck : null, (check) =>
+    check === null
+      ? null
+      : {
+          dispose: check.every(() => {
+            if (check.visible()) send({ type: 'opening-check-requested' });
+          }, check.everyMs),
+        },
+  );
   const held = chat?.hidden ?? null;
-  useBrowserEffect(() => {
+  useDeliver(`${held}|${withdrawn}`, () => {
     // A chat entered again starts shown, whatever the live channel still says.
     if (held !== null && held !== withdrawn)
       send({ type: withdrawn ? 'chat-hidden' : 'chat-shown' });
-  }, [held, withdrawn, send]);
+  });
   const history = hidden ? null : live.body;
   const { messages, before } = history
     ? contextChatPagedHistory(history, thread?.older ?? null)
     : { messages: [], before: null };
   const readSequence = chat?.readSequence ?? 0;
   const unread = contextChatUnread(messages, readSequence, props.actorId);
-  useBrowserEffect(() => {
-    onUnread?.(unread);
-  }, [onUnread, unread]);
+  useDeliver(unread, (count) => onUnread?.(count));
   const latestSequence = history?.messages[0]?.sequence ?? 0;
-  useBrowserEffect(() => {
-    if (active && !hidden && latestSequence > readSequence)
-      send({ type: 'messages-shown', sequence: latestSequence });
-  }, [active, hidden, channelId, latestSequence, readSequence, send]);
+  useDeliver(
+    `${active}|${hidden}|${channelId}|${latestSequence}|${readSequence}`,
+    () => {
+      if (active && !hidden && latestSequence > readSequence)
+        send({ type: 'messages-shown', sequence: latestSequence });
+    },
+  );
   const authors = thread?.authors ?? NO_AUTHORS;
   const unknownAuthor = history?.messages.some(
     (message) =>
       !('unavailable' in message) &&
       !authors.some((author) => author.actorId === message.authorActorId),
   );
-  useBrowserEffect(() => {
-    if (unknownAuthor && !hidden) send({ type: 'refresh-requested' });
-  }, [unknownAuthor, channelId, hidden, history?.changeVersion, send]);
+  useDeliver(
+    `${unknownAuthor}|${channelId}|${hidden}|${history?.changeVersion}`,
+    () => {
+      if (unknownAuthor && !hidden) send({ type: 'refresh-requested' });
+    },
+  );
   const expired = chat?.expired ?? false;
   const notice =
     chat?.notice === 'read-failed'

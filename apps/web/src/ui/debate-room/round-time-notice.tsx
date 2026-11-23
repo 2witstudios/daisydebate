@@ -1,6 +1,6 @@
 'use client';
-import { useBrowserEffect } from '../edge/browser-sync';
-import { startTick, stopTick } from '../edge/browser-time';
+import { useResource } from '../edge/use-driver';
+import { useTick } from '../edge/use-tick';
 import { StatusRegion } from '../components/status-region/status-region';
 import { useState } from 'react';
 import type {
@@ -19,16 +19,14 @@ export function RoundTimeNotice({
     kind: 'seed',
     uncertaintyMs: null,
   });
-  useBrowserEffect(() => {
-    const update = () => setStatus(roundTime.status());
-    update();
-    const unsubscribe = roundTime.subscribe(update);
-    const timer = startTick(update, 1000);
-    return () => {
-      unsubscribe();
-      stopTick(timer);
+  const update = () => setStatus(roundTime.status());
+  useResource(roundTime, (followed) => {
+    setStatus(followed.status());
+    return {
+      dispose: followed.subscribe(() => setStatus(followed.status())),
     };
-  }, [roundTime]);
+  });
+  useTick(update, 1000, roundTime);
   const { announcement, detail } = roundTimeNotice(status);
   return (
     <p

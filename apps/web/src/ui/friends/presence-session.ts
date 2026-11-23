@@ -2,8 +2,8 @@
 
 // First: protocol schemas built after this load without Zod's eval probe.
 import '../../lib/zod-jitless';
-import { browserFetch } from '../edge/browser-request';
-import { startTick, stopTick } from '../edge/browser-time';
+import { browserTransport } from '../edge/browser-request';
+import { browserScheduler } from '../edge/browser-time';
 import { onlineCountsSchema } from '@daisy/protocol/friends';
 import {
   browserTabPresence,
@@ -21,8 +21,8 @@ type SessionPorts = {
   readonly fetch: (url: string, init: RequestInit) => Promise<Response>;
   /** Keeps a presence socket at `endpoint` while the tab has none; returns its stop. */
   readonly startBeacon: (endpoint: string) => () => void;
-  readonly setInterval: (callback: () => void, ms: number) => unknown;
-  readonly clearInterval: (handle: unknown) => void;
+  /** Runs `callback` every `ms`; returns its stop. */
+  readonly every: (callback: () => void, ms: number) => () => void;
 };
 
 /**
@@ -60,10 +60,10 @@ export function createPresenceSessions(ports: SessionPorts) {
       }
     };
     void read();
-    const poll = ports.setInterval(() => void read(), ONLINE_COUNTS_POLL_MS);
+    const stopPoll = ports.every(() => void read(), ONLINE_COUNTS_POLL_MS);
     return () => {
       stopped = true;
-      ports.clearInterval(poll);
+      stopPoll();
       stopBeacon?.();
     };
   }
@@ -82,11 +82,10 @@ export function createPresenceSessions(ports: SessionPorts) {
 
 /** This tab's presence session over the browser's own fetch, timers and socket. */
 export const retainPresenceSession = createPresenceSessions({
-  fetch: (url, init) => browserFetch(url, init),
+  fetch: browserTransport,
   startBeacon: (endpoint) =>
     keepPresenceConnection(browserTabPresence(), () =>
       createBrowserConnectionStore(endpoint),
     ),
-  setInterval: (callback, ms) => startTick(callback, ms),
-  clearInterval: (handle) => stopTick(handle as ReturnType<typeof startTick>),
+  every: browserScheduler.every,
 });

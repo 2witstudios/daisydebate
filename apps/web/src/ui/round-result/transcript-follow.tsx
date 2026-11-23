@@ -1,7 +1,7 @@
 'use client';
 
-import { useResizeObserver } from '../edge/use-browser-bindings';
-import { useBrowserLayoutEffect } from '../edge/browser-sync';
+import { useDeliverBeforePaint } from '../edge/use-answer';
+import { useResizeObserver } from '../edge/use-dom-events';
 import { Button } from '../components/button/button';
 import { useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
 import {
@@ -60,9 +60,10 @@ export function TranscriptFollow({
     follow.following,
     () => true,
   );
-  useBrowserLayoutEffect(() => {
+  // Each render's lines are measured before they paint.
+  useDeliverBeforePaint(children, () => {
     if (scroller.current) follow.changed(scroller.current);
-  }, [children, follow]);
+  });
   // A resize moves the end, and a panel shown again has one to return to.
   useResizeObserver(scroller, (node) => follow.changed(node));
   return (

@@ -1,6 +1,6 @@
 'use client';
 
-import { cancelDelay, delay } from '../edge/browser-time';
+import { useDelay } from '../edge/use-tick';
 import { StatusRegion } from '../components/status-region/status-region';
 import { Button } from '../components/button/button';
 import type { Person } from '@daisy/protocol/people-list';
@@ -49,17 +49,18 @@ export function usePersonOverlay(
   const [menu, setMenu] = useState<OpenMenu | null>(null);
   const trigger = useRef<HTMLElement | null>(null);
   const [reported, setReported] = useState<ReadonlySet<string>>(new Set());
-  const press = useRef<ReturnType<typeof delay> | null>(null);
+  /** A touch held on a row: the menu opens once it has lasted LONG_PRESS_MS. */
+  const [press, setPress] = useState<{
+    readonly username: string;
+    readonly element: HTMLElement;
+  } | null>(null);
   const topOf = (element: Element, tallest: number) => {
     const box = container.current?.getBoundingClientRect();
     if (!box) return 0;
     const top = element.getBoundingClientRect().top - box.top;
     return Math.max(8, Math.min(top, box.height - tallest));
   };
-  const clearPress = useCallback(() => {
-    if (press.current !== null) cancelDelay(press.current);
-    press.current = null;
-  }, []);
+  const clearPress = useCallback(() => setPress(null), []);
   const memberOf = (name: string | undefined) =>
     list.people.find((member) => member.username === name);
   const openAt = (username: string, element: HTMLElement) => {
@@ -81,9 +82,7 @@ export function usePersonOverlay(
     },
     onPointerDown: (event: React.PointerEvent<HTMLElement>) => {
       if (event.pointerType !== 'touch') return;
-      const element = event.currentTarget;
-      clearPress();
-      press.current = delay(() => openAt(username, element), LONG_PRESS_MS);
+      setPress({ username, element: event.currentTarget });
     },
     onPointerUp: clearPress,
     onPointerLeave: clearPress,
@@ -95,6 +94,13 @@ export function usePersonOverlay(
       setHover({ username, top: topOf(event.currentTarget, 96) }),
     onBlur: () => setHover(null),
   });
+  useDelay(
+    () => {
+      if (press !== null) openAt(press.username, press.element);
+    },
+    press === null ? null : LONG_PRESS_MS,
+    press,
+  );
   const hovered = memberOf(hover?.username);
   const opened = menu ? (memberOf(menu.username) ?? menu.member) : undefined;
   const overlay = (

@@ -1,6 +1,6 @@
 'use client';
 
-import { useBrowserEffect } from '../../edge/browser-sync';
+import { useResource } from '../../edge/use-driver';
 import { navigateDocument } from '../../edge/browser-navigation';
 import { Dialog } from '../../components/dialog/dialog';
 import {
@@ -54,15 +54,17 @@ function useModalSheet(
   sheet: RefObject<HTMLElement | null>,
   heading: RefObject<HTMLHeadingElement | null>,
 ) {
-  useBrowserEffect(() => {
-    const element = sheet.current;
-    if (!element) return;
-    return modalSheet({
-      window,
-      sheet: element,
-      heading: () => heading.current,
-    });
-  }, [sheet, heading]);
+  useResource(sheet, (held) => {
+    const element = held.current;
+    if (!element) return null;
+    return {
+      dispose: modalSheet({
+        window,
+        sheet: element,
+        heading: () => heading.current,
+      }),
+    };
+  });
 }
 
 /** Escape, the close links and an accepted save leave the sheet; focus is managed while it is open. */

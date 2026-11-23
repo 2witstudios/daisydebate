@@ -1,7 +1,8 @@
 'use client';
 
-import { useBrowserEffect } from '../edge/browser-sync';
-import { cancelDelay, delay } from '../edge/browser-time';
+import { useAnswer } from '../edge/use-answer';
+import { browserHandleTimers } from '../edge/browser-time';
+import { useResource } from '../edge/use-driver';
 import { nowMs, systemClock, systemId } from '@daisy/clock';
 import { useMemo, useReducer, useRef } from 'react';
 import type { SaveState } from './document-pane';
@@ -84,10 +85,7 @@ export const initialSavePage: SavePage = {
 /** One browser page's shared keepalive body budget across every owner. */
 const browserKeepaliveBudget = createKeepaliveBudget();
 
-const browserTimers: Timers = {
-  set: (run, ms) => delay(run, ms),
-  clear: (handle) => cancelDelay(handle as ReturnType<typeof delay>),
-};
+const browserTimers: Timers = browserHandleTimers;
 
 const browserStorage = (): DraftStorage | null => {
   try {
@@ -286,6 +284,63 @@ export const reduceOwnedSave = (
     : held;
 };
 
+/** A socket closed by revocation or sign-out asks the drafts to check who owns them. */
+function askOnSessionEnd(socketUrl: string) {
+  const connection = tabConnection(socketUrl);
+  const stop = connection.subscribe((state) => {
+    // A socket can close this way on a transient failure, so it only asks.
+    const reason = terminalReason(state);
+    if (reason === 'revoked' || reason === 'signed-out')
+      window.dispatchEvent(new Event(DRAFTS_IDENTITY_CHECK_EVENT));
+  });
+  connection.connect();
+  return {
+    dispose: () => {
+      stop();
+      connection.dispose();
+    },
+  };
+}
+
+type DraftOwnerToken = {
+  readonly sync: DocumentSync;
+  readonly principalId: string;
+};
+
+/**
+ * Holds the drafts for one owner: another principal purges them, a fence
+ * fences them, and letting go releases them once Strict Mode has had its
+ * turn to reattach the same owner.
+ */
+function holdDraftOwner(
+  { sync, principalId }: DraftOwnerToken,
+  lifetime: { current: DraftOwnerToken },
+) {
+  // Each hold is its own token, so a reattached owner is told apart from it.
+  const token = { sync, principalId };
+  lifetime.current = token;
+  const changed = (event: Event) => {
+    if ((event as CustomEvent<unknown>).detail !== principalId)
+      sync.dispose({ purge: true });
+  };
+  const fenced = () => void sync.fence();
+  window.addEventListener(DRAFTS_PRINCIPAL_EVENT, changed);
+  window.addEventListener(DRAFTS_FENCE_EVENT, fenced);
+  return {
+    dispose: () => {
+      // Strict Mode reattaches the same owner in this turn. A real unmount
+      // drains normal saves while the identity listener still fences it.
+      queueMicrotask(() => {
+        const remove = () => {
+          window.removeEventListener(DRAFTS_PRINCIPAL_EVENT, changed);
+          window.removeEventListener(DRAFTS_FENCE_EVENT, fenced);
+        };
+        void releaseDraftOwner(token, lifetime.current).finally(remove);
+      });
+    },
+  };
+}
+
 /** A member's documents, wherever the manager opens. */
 export function useDocumentSaving(
   principalId: string,
@@ -299,9 +354,7 @@ export function useDocumentSaving(
   });
   // Until the page is theirs, a new owner has nothing saved or owed.
   const page = held.owner === principalId ? held.page : initialSavePage;
-  useBrowserEffect(() => {
-    dispatch({ owner: principalId, event: 'took-over' });
-  }, [principalId]);
+  useAnswer(principalId, (owner) => dispatch({ owner, event: 'took-over' }));
   const sync = useMemo(
     () =>
       documentSaving(
@@ -316,43 +369,12 @@ export function useDocumentSaving(
       ),
     [principalId],
   );
-  useBrowserEffect(() => {
-    if (socketUrl === null) return;
-    const connection = tabConnection(socketUrl);
-    const stop = connection.subscribe((state) => {
-      // A socket can close this way on a transient failure, so it only asks.
-      const reason = terminalReason(state);
-      if (reason === 'revoked' || reason === 'signed-out')
-        window.dispatchEvent(new Event(DRAFTS_IDENTITY_CHECK_EVENT));
-    });
-    connection.connect();
-    return () => {
-      stop();
-      connection.dispose();
-    };
-  }, [sync, socketUrl]);
+  const watched = useMemo(() => ({ sync, socketUrl }), [sync, socketUrl]);
+  useResource(watched, (next) =>
+    next.socketUrl === null ? null : askOnSessionEnd(next.socketUrl),
+  );
   const lifetime = useRef({ sync, principalId });
-  useBrowserEffect(() => {
-    const token = { sync, principalId };
-    lifetime.current = token;
-    const changed = (event: Event) => {
-      if ((event as CustomEvent<unknown>).detail !== principalId)
-        sync.dispose({ purge: true });
-    };
-    const fenced = () => void sync.fence();
-    window.addEventListener(DRAFTS_PRINCIPAL_EVENT, changed);
-    window.addEventListener(DRAFTS_FENCE_EVENT, fenced);
-    return () => {
-      // Strict Mode reattaches the same owner in this turn. A real unmount
-      // drains normal saves while the identity listener still fences it.
-      queueMicrotask(() => {
-        const remove = () => {
-          window.removeEventListener(DRAFTS_PRINCIPAL_EVENT, changed);
-          window.removeEventListener(DRAFTS_FENCE_EVENT, fenced);
-        };
-        void releaseDraftOwner(token, lifetime.current).finally(remove);
-      });
-    };
-  }, [sync, principalId]);
+  const owned = useMemo(() => ({ sync, principalId }), [sync, principalId]);
+  useResource(owned, (token) => holdDraftOwner(token, lifetime));
   return { sync, ...saveStatusOf(page) };
 }

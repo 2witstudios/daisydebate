@@ -1,6 +1,7 @@
 'use client';
 
-import { browserFetch } from '../edge/browser-request';
+import { browserTransport } from '../edge/browser-request';
+import { postConsent } from './consent-request';
 import { StatusRegion } from '../components/status-region/status-region';
 import { Button } from '../components/button/button';
 import { useState, type FormEvent } from 'react';
@@ -55,11 +56,7 @@ export function ConsentForm({
     for (const [name, value] of fields)
       if (typeof value === 'string') body.append(name, value);
     setState('saving');
-    browserFetch('/api/analytics/consent', {
-      method: 'POST',
-      headers: { 'content-type': 'application/x-www-form-urlencoded' },
-      body,
-    })
+    postConsent(browserTransport, body)
       .then((response) => {
         setState(response.ok ? 'saved' : 'failed');
         if (response.ok) router.refresh();

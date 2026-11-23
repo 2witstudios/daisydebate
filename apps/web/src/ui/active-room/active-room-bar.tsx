@@ -1,8 +1,8 @@
 'use client';
 
-import { useBrowserEffect } from '../edge/browser-sync';
-import { browserFetch } from '../edge/browser-request';
-import { useState } from 'react';
+import { browserTransport } from '../edge/browser-request';
+import { useResource } from '../edge/use-driver';
+import { useMemo, useState } from 'react';
 import { refreshActiveRoom } from './refresh-membership';
 import { usePathname } from 'next/navigation';
 import { matchesRoute } from '../components/nav-item/nav-item';
@@ -37,11 +37,13 @@ export function ActiveRoomBar({
 }) {
   const pathname = usePathname();
   const [room, setRoom] = useState(seed);
-  useBrowserEffect(() => {
+  // Each page the viewer reaches, and each new seed, reads the Room again.
+  const reading = useMemo(() => ({ pathname, seed }), [pathname, seed]);
+  useResource(reading, () => {
     const controller = new AbortController();
-    void refreshActiveRoom(browserFetch, controller.signal, setRoom);
-    return () => controller.abort();
-  }, [pathname, seed]);
+    void refreshActiveRoom(browserTransport, controller.signal, setRoom);
+    return { dispose: () => controller.abort() };
+  });
   if (!room || !showsActiveRoomBar(pathname, room)) return null;
   return (
     <MediaPageLink

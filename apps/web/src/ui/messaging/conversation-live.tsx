@@ -1,5 +1,6 @@
 'use client';
-import { useBrowserEffect } from '../edge/browser-sync';
+import { useResource } from '../edge/use-driver';
+import { browserTransport } from '../edge/browser-request';
 import { StatusRegion } from '../components/status-region/status-region';
 import { useMemo, useState } from 'react';
 import { createBrowserTypingReader } from './typing-browser';
@@ -48,21 +49,28 @@ export function ConversationLive({
   const descriptor = useMemo(() => channelMessages(channelId), [channelId]);
   const view = useRealtime(descriptor, history, socketUrl);
   const [typing, showTyping] = useState<boolean | null>(null);
-  useBrowserEffect(() => {
-    if (socketUrl === null) return;
-    const connection = tabConnection(socketUrl);
-    const reader = createBrowserTypingReader(
-      channelId,
-      connection,
-      showTyping,
-      typingRefetchMs,
-    );
-    connection.connect();
-    return () => {
-      reader.close();
-      connection.dispose();
-    };
-  }, [channelId, socketUrl, typingRefetchMs]);
+  // One reader per conversation, socket and cadence; showTyping is stable.
+  useResource(
+    socketUrl === null ? null : `${channelId} ${socketUrl} ${typingRefetchMs}`,
+    (key) => {
+      if (key === null || socketUrl === null) return null;
+      const connection = tabConnection(socketUrl);
+      const reader = createBrowserTypingReader(
+        channelId,
+        connection,
+        showTyping,
+        typingRefetchMs,
+        browserTransport,
+      );
+      connection.connect();
+      return {
+        dispose: () => {
+          reader.close();
+          connection.dispose();
+        },
+      };
+    },
+  );
   if (view.status === 'hidden')
     return (
       <StatusRegion as="p" role="status" className="flex-1 p-6 text-ink-muted">

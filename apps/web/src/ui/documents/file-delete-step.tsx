@@ -1,8 +1,7 @@
 'use client';
 
-import { useBrowserEffect } from '../edge/browser-sync';
+import { useSettled } from '../edge/use-settled';
 import { StatusRegion } from '../components/status-region/status-region';
-import { useState } from 'react';
 import type { DriveNode } from '../../features/documents/drive-tree';
 import { FileMenuItem } from './file-menu-item';
 import type { DriveActions } from './use-drive';
@@ -28,24 +27,18 @@ export function FileDeleteStep({
   readonly close: () => void;
   readonly run: (action: () => void) => void;
 }) {
-  const [preview, setPreview] = useState<DeletionPreview>(
-    node.kind === 'folder' ? { kind: 'loading' } : { kind: 'ready', count: 1 },
+  const counted = useSettled(
+    node.kind === 'folder' ? node.id : null,
+    folderCount,
   );
-  useBrowserEffect(() => {
-    if (node.kind !== 'folder') return;
-    let live = true;
-    folderCount(node.id).then(
-      (count) => {
-        if (live) setPreview({ kind: 'ready', count });
-      },
-      () => {
-        if (live) setPreview({ kind: 'failed' });
-      },
-    );
-    return () => {
-      live = false;
-    };
-  }, [node.id, node.kind, folderCount]);
+  const preview: DeletionPreview =
+    node.kind !== 'folder'
+      ? { kind: 'ready', count: 1 }
+      : counted === null
+        ? { kind: 'loading' }
+        : counted.kind === 'ready'
+          ? { kind: 'ready', count: counted.value }
+          : { kind: 'failed' };
   return (
     <>
       <StatusRegion

@@ -1,6 +1,8 @@
 'use client';
 
-import { useBrowserEffect } from '../../edge/browser-sync';
+import { useDeliver } from '../../edge/use-answer';
+import { useResource } from '../../edge/use-driver';
+import { useLatest } from '../../edge/use-latest';
 import { StatusRegion } from '../../components/status-region/status-region';
 import { Button } from '../../components/button/button';
 import type { RoomFormState } from '../../../features/rooms/command-answer';
@@ -10,7 +12,7 @@ import {
   useContext,
   useState,
   useSyncExternalStore,
-  useRef,
+  useMemo,
   type ReactNode,
 } from 'react';
 import { systemId } from '@daisy/clock';
@@ -123,9 +125,11 @@ function GatheringWithDevices({
     consent?.readSnapshot ?? noSnapshot,
     noSnapshot,
   );
-  useBrowserEffect(() => {
-    consent?.updateView(props.view);
-  }, [consent, props.view]);
+  const viewed = useMemo(
+    () => ({ consent, view: props.view }),
+    [consent, props.view],
+  );
+  useDeliver(viewed, (shown) => shown.consent?.updateView(shown.view));
   const [inputs, setInputs] = useState<readonly MediaDeviceInfo[]>([]);
   // Each check runs on its own stream, so both can start from one gesture;
   // the input list is read once after them.
@@ -218,51 +222,46 @@ function GatheringWithDevices({
 export function AssemblyDeviceReadiness(props: Props) {
   const own = ownSeat(props.view, props.actorId);
   const needsDevices = own?.kind === 'human' && !isJudgeSeat(own.seat);
-  const latest = useRef(props);
   const sync = useContext(RoomSyncContext);
-  const latestSync = useRef(sync);
-  useBrowserEffect(() => {
-    latest.current = props;
-    latestSync.current = sync;
-  }, [props, sync]);
+  const latest = useLatest({ props, sync });
   const roomId = props.view.id;
   const actorId = props.actorId;
-  const [resources, setResources] = useState<DeviceResources | null>(null);
-  useBrowserEffect(() => {
-    if (!needsDevices) return;
-    const devices = createBrowserDeviceChecks();
-    const consent = createLocalConsent({
-      view: latest.current.view,
-      actorId,
-      nextId: systemId.next,
-      read: () => latest.current.read(),
-      send: async (command) => {
-        const form = new FormData();
-        for (const [key, value] of Object.entries(command))
-          form.set(key, String(value));
-        const result = await latest.current.send(form);
-        // The consent answer is the room's canonical view: room sync adopts it.
-        if (result.kind === 'accepted')
-          latestSync.current?.accepted(result.view);
-        return result;
-      },
-    });
-    const unsubscribe = devices.subscribe((snapshot) => {
-      rememberCheckedDevices(roomId, snapshot, undefined, actorId);
-      void consent.devices(snapshot.devicesPassed);
-    });
-    let cancelled = false;
-    void Promise.resolve().then(() => {
-      if (!cancelled) setResources({ devices, consent });
-    });
-    return () => {
-      cancelled = true;
-      unsubscribe();
-      consent.dispose();
-      devices.dispose('departure');
-    };
-    // Authoritative updates flow through consent.updateView, not preview recreation.
-  }, [needsDevices, actorId, roomId]);
+  // Authoritative updates flow through consent.updateView, not preview recreation.
+  const resources = useResource(
+    needsDevices ? `${actorId} ${roomId}` : null,
+    (checking): (DeviceResources & { dispose: () => void }) | null => {
+      if (checking === null) return null;
+      const devices = createBrowserDeviceChecks();
+      const consent = createLocalConsent({
+        view: latest().props.view,
+        actorId,
+        nextId: systemId.next,
+        read: () => latest().props.read(),
+        send: async (command) => {
+          const form = new FormData();
+          for (const [key, value] of Object.entries(command))
+            form.set(key, String(value));
+          const result = await latest().props.send(form);
+          // The consent answer is the room's canonical view: room sync adopts it.
+          if (result.kind === 'accepted') latest().sync?.accepted(result.view);
+          return result;
+        },
+      });
+      const unsubscribe = devices.subscribe((snapshot) => {
+        rememberCheckedDevices(roomId, snapshot, undefined, actorId);
+        void consent.devices(snapshot.devicesPassed);
+      });
+      return {
+        devices,
+        consent,
+        dispose: () => {
+          unsubscribe();
+          consent.dispose();
+          devices.dispose('departure');
+        },
+      };
+    },
+  );
   // The gathering and its chat keep one React owner while device resources arrive.
   return (
     <GatheringWithDevices

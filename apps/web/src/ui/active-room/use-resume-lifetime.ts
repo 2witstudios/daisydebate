@@ -1,17 +1,22 @@
 'use client';
 
-import { useBrowserEffect } from '../edge/browser-sync';
-import { scheduleTick } from '../edge/browser-time';
+import { resumeHeartbeat } from '../edge/resume-browser';
+import { useDeliver } from '../edge/use-answer';
+import { useResource } from '../edge/use-driver';
 import { nowMs, systemClock } from '@daisy/clock';
-import { useCallback, useRef, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { documentTabId } from '../../features/rooms/document-tab';
 import { markDeparture } from '../../features/rooms/resume-departure';
 import { createResumeLifetime } from '../../features/rooms/resume-lifetime';
 import {
   resumeHeirKey,
-  resumeOwnershipHeartbeatMs,
   subscribeOwnership,
 } from '../../features/rooms/resume-ownership';
+
+type ResumeCallbacks = {
+  readonly holderLeft: () => void;
+  readonly steppedDown: (() => void) | undefined;
+};
 
 /** Blocked storage means no coordination, which must never mean no media. */
 const advisoryStorage = () => {
@@ -60,15 +65,15 @@ export function useResumeLifetime(
   } | null>(null);
   const owns =
     claim?.actorId === actorId && claim.roundId === roundId ? claim.owns : null;
-  const lifetime = useRef<ReturnType<typeof createResumeLifetime> | null>(null);
-  const onStepDown = useRef(steppedDown);
-  const onHolderLeft = useRef(holderLeft);
-  useBrowserEffect(() => {
-    onStepDown.current = steppedDown;
-    onHolderLeft.current = holderLeft;
-  }, [steppedDown, holderLeft]);
-  useBrowserEffect(() => {
-    if (actorId === null || roundId === null) return;
+  const claimed = useMemo(
+    () => (actorId === null || roundId === null ? null : { actorId, roundId }),
+    [actorId, roundId],
+  );
+  const lifetime = useResource(claimed, (key) => {
+    if (key === null) return null;
+    const { actorId, roundId } = key;
+    // The owner's latest callbacks, handed over on each render below.
+    let callbacks: ResumeCallbacks = { holderLeft, steppedDown };
     const current = createResumeLifetime({
       actorId,
       roundId,
@@ -78,30 +83,37 @@ export function useResumeLifetime(
       now: () => nowMs(systemClock),
       holderLeft: () => {
         markDeparture(actorId, roundId);
-        onHolderLeft.current();
+        callbacks.holderLeft();
       },
       subscribe: (listener) =>
         subscribeOwnership(window, actorId, roundId, listener),
-      schedule: (tick) => {
-        return scheduleTick(tick, resumeOwnershipHeartbeatMs);
-      },
+      schedule: resumeHeartbeat,
       changed: (value) => {
-        if (!value) onStepDown.current?.();
+        if (!value) callbacks.steppedDown?.();
         setClaim({ actorId, roundId, owns: value });
       },
     });
-    lifetime.current = current;
     // A frozen, restorable page stops heartbeating, so its claim expires by itself.
     const release = (event: PageTransitionEvent) => {
       if (!event.persisted) current.handOff();
     };
     window.addEventListener('pagehide', release);
-    return () => {
-      window.removeEventListener('pagehide', release);
-      current.stop();
-      lifetime.current = null;
+    return {
+      takeOver: () => current.takeOver(),
+      follow: (next: ResumeCallbacks) => {
+        callbacks = next;
+      },
+      dispose: () => {
+        window.removeEventListener('pagehide', release);
+        current.stop();
+      },
     };
-  }, [actorId, roundId]);
-  const takeOver = useCallback(() => lifetime.current?.takeOver(), []);
+  });
+  const followed = useMemo(
+    () => ({ lifetime, callbacks: { holderLeft, steppedDown } }),
+    [lifetime, holderLeft, steppedDown],
+  );
+  useDeliver(followed, (next) => next.lifetime?.follow(next.callbacks));
+  const takeOver = useMemo(() => () => lifetime?.takeOver(), [lifetime]);
   return { owns, takeOver };
 }

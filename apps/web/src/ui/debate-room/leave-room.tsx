@@ -1,6 +1,5 @@
 'use client';
 
-import { useBrowserEffect } from '../edge/browser-sync';
 import { useFocusWhen } from '../edge/use-focus';
 import { Button } from '../components/button/button';
 import { Dialog } from '../components/dialog/dialog';
@@ -80,23 +79,23 @@ function ForfeitLeave({
   readonly forfeit: NonNullable<LeaveLinks['forfeit']>;
   readonly left?: LeaveLinks['left'];
 }) {
-  const [answer, post, pending] = useFormAction(
-    forfeit.action,
-    unanswered,
-    roundCommandUnavailable,
-  );
   /**
    * Suppression records only an acknowledged forfeit (ISSUE-879), which
    * is the one answer that moves on: a refused, conflicted or unknown
    * outcome leaves the participant's recovery exactly as live as their
    * membership still is.
    */
-  useBrowserEffect(() => {
-    if (!pending && answer.kind === 'moved' && left) {
-      leaveRound(left.actorId, left.roundId);
-      clearRoundMediaPreferences(left.actorId, left.roomId, left.roundId);
-    }
-  }, [pending, answer, left]);
+  const [answer, post, pending] = useFormAction(
+    forfeit.action,
+    unanswered,
+    roundCommandUnavailable,
+    (answered) => {
+      if (answered.kind === 'moved' && left) {
+        leaveRound(left.actorId, left.roundId);
+        clearRoundMediaPreferences(left.actorId, left.roomId, left.roundId);
+      }
+    },
+  );
   useMovedOn(destinationOf(answer));
   return (
     <form action={post} aria-busy={pending} className="flex flex-col gap-1">

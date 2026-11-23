@@ -1,7 +1,8 @@
 'use client';
 
-import { useBrowserEffect } from '../../edge/browser-sync';
-import { useState } from 'react';
+import { useDeliver } from '../../edge/use-answer';
+import { useResource } from '../../edge/use-driver';
+import { useMemo, useState } from 'react';
 import type { SecurityOutcome } from '../../../features/account/security-client';
 import type { PasskeyEnrollment } from '../../auth/onboarding/passkey-enrollment';
 import {
@@ -105,13 +106,16 @@ export function useSecurityOverview({
   );
   const [driver] = useState(() => driveSecurityOverview(overview, show));
 
-  useBrowserEffect(() => {
-    driver.reach({ load, revokeOthers, enrol });
-  }, [driver, load, revokeOthers, enrol]);
-  useBrowserEffect(() => {
+  const world = useMemo(
+    () => ({ load, revokeOthers, enrol }),
+    [load, revokeOthers, enrol],
+  );
+  useDeliver(world, driver.reach);
+  // Each loader reads the lists afresh; leaving closes the overview.
+  useResource(load, () => {
     driver.send({ type: 'read-asked' });
-    return driver.close;
-  }, [driver, load]);
+    return { dispose: driver.close };
+  });
 
   return {
     overview,

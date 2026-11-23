@@ -1,8 +1,8 @@
 'use client';
 
-import { useBrowserEffect } from '../../edge/browser-sync';
+import { useResource } from '../../edge/use-driver';
 import { StatusRegion } from '../../components/status-region/status-region';
-import { useRef } from 'react';
+import { useMemo, useRef } from 'react';
 import type { createBrowserDeviceChecks } from '../../round-media/browser-device-checks';
 import type { DeviceKind } from '../../../features/video/device-check-controller';
 import { Icon } from '../../components/icon/icon';
@@ -75,13 +75,20 @@ export function CameraPreview({
 }) {
   const video = useRef<HTMLVideoElement>(null);
   const { generation, status } = snapshot.camera;
-  useBrowserEffect(() => {
+  // Each new camera generation or status is a new preview on the element.
+  const preview = useMemo(
+    () => ({ devices, generation, status }),
+    [devices, generation, status],
+  );
+  useResource(preview, (shown) => {
     const element = video.current;
-    if (element) element.srcObject = devices.preview('camera');
-    return () => {
-      if (element) element.srcObject = null;
+    if (element) element.srcObject = shown.devices.preview('camera');
+    return {
+      dispose: () => {
+        if (element) element.srcObject = null;
+      },
     };
-  }, [devices, generation, status]);
+  });
   const microphone =
     snapshot.microphone.status === 'passed'
       ? devices.preview('microphone')

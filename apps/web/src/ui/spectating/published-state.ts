@@ -1,14 +1,17 @@
 'use client';
 import '../../lib/zod-jitless';
-import { useBrowserEffect } from '../edge/browser-sync';
-import { browserFetch } from '../edge/browser-request';
+import {
+  browserTransport,
+  type BrowserTransport,
+} from '../edge/browser-request';
+import { useResource } from '../edge/use-driver';
 import {
   audienceStateSchema,
   type AudienceState,
 } from '@daisy/protocol/audience-state';
 import { createContext, useContext, useState } from 'react';
 import { answerOfResponse } from '../../features/spectating/poll-pace';
-import { startBrowserPoll } from './browser-poll';
+import { startBrowserPoll } from '../edge/poll-browser';
 import {
   firstPublishedReads,
   nextPublishedReads,
@@ -29,6 +32,14 @@ type Held = {
 
 /** What a page holds of one address: nothing read yet reads as no state. */
 export type PublishedState = Omit<Held, 'url'>;
+
+/** One read of the public object; no cookie goes with it. */
+const readPublished = (fetch: BrowserTransport, url: string) =>
+  fetch(url, {
+    cache: 'no-store',
+    credentials: 'omit',
+    signal: AbortSignal.timeout(READ_TIMEOUT_MS),
+  });
 
 const NOTHING_READ: PublishedState = {
   state: null,
@@ -53,8 +64,12 @@ export function usePublishedState(
   const [held, setHeld] = useState<Held | null>(null);
   const published = held !== null && held.url === url ? held : NOTHING_READ;
   const polling = keepReading(published);
-  useBrowserEffect(() => {
-    if (!url || !polling) return;
+  const reading =
+    url && polling
+      ? `${recheckBeforePublication ? 'recheck' : 'once'} ${url}`
+      : null;
+  useResource(reading, () => {
+    if (!url || !polling) return null;
     let stopped = false;
     let reads = firstPublishedReads(performance.now());
     const settle = (read: PublishedRead) => {
@@ -70,11 +85,7 @@ export function usePublishedState(
     };
     const stop = startBrowserPoll(async () => {
       try {
-        const response = await browserFetch(url, {
-          cache: 'no-store',
-          credentials: 'omit',
-          signal: AbortSignal.timeout(READ_TIMEOUT_MS),
-        });
+        const response = await readPublished(browserTransport, url);
         const parsed = audienceStateSchema.safeParse(
           response.ok ? await response.json() : null,
         );
@@ -91,11 +102,13 @@ export function usePublishedState(
         throw error;
       }
     });
-    return () => {
-      stopped = true;
-      stop();
+    return {
+      dispose: () => {
+        stopped = true;
+        stop();
+      },
     };
-  }, [url, polling, recheckBeforePublication]);
+  });
   return published;
 }
 

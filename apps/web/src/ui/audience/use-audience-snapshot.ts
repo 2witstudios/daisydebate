@@ -1,16 +1,25 @@
 'use client';
 import '../../lib/zod-jitless';
-import { useBrowserEffect } from '../edge/browser-sync';
-import { browserFetch } from '../edge/browser-request';
+import {
+  browserTransport,
+  type BrowserTransport,
+} from '../edge/browser-request';
+import { useResource } from '../edge/use-driver';
 import {
   audienceSnapshotSchema,
   type AudienceSnapshot,
 } from '@daisy/protocol/audience';
 import { useState } from 'react';
 import { answerOfResponse } from '../../features/spectating/poll-pace';
-import { startBrowserPoll } from '../spectating/browser-poll';
+import { startBrowserPoll } from '../edge/poll-browser';
 import { usePublishedAudience } from '../spectating/published-state';
 import { newerAudience } from './newer-audience';
+
+/** The live room's own audience read, signed in. */
+const readAudience = (fetch: BrowserTransport, roundId: string) =>
+  fetch(`/api/rounds/${encodeURIComponent(roundId)}/audience`, {
+    credentials: 'same-origin',
+  });
 
 /**
  * The audience's activity, and from a fresh render as soon as there is one, so a
@@ -36,14 +45,11 @@ export function useAudienceSnapshot(
     setSeen(published);
     setSnapshot(newerAudience(snapshot, published));
   }
-  useBrowserEffect(() => {
-    if (!polling || !liveRoom) return;
+  useResource(polling && liveRoom ? initial.roundId : null, (roundId) => {
+    if (roundId === null) return null;
     let stopped = false;
     const stop = startBrowserPoll(async () => {
-      const response = await browserFetch(
-        `/api/rounds/${encodeURIComponent(initial.roundId)}/audience`,
-        { credentials: 'same-origin' },
-      );
+      const response = await readAudience(browserTransport, roundId);
       const parsed = audienceSnapshotSchema.safeParse(
         response.ok ? await response.json() : null,
       );
@@ -51,10 +57,12 @@ export function useAudienceSnapshot(
         setSnapshot((shown) => newerAudience(shown, parsed.data));
       return answerOfResponse(response);
     });
-    return () => {
-      stopped = true;
-      stop();
+    return {
+      dispose: () => {
+        stopped = true;
+        stop();
+      },
     };
-  }, [initial.roundId, polling, liveRoom]);
+  });
   return snapshot;
 }

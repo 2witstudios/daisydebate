@@ -1,7 +1,10 @@
 'use client';
-import { useBrowserEffect } from '../edge/browser-sync';
-import { browserFetch } from '../edge/browser-request';
-import { delay, scheduleTick } from '../edge/browser-time';
+import {
+  browserTransport,
+  type BrowserTransport,
+} from '../edge/browser-request';
+import { pause, repeatEvery } from '../edge/browser-waits';
+import { useResource } from '../edge/use-driver';
 import { useRef, useState } from 'react';
 import { Room, RoomEvent, Track, type RemoteTrack } from 'livekit-client';
 import {
@@ -46,15 +49,29 @@ type StageRead = {
   readonly next: StageAnswer | null;
 };
 
+/** The stage's own read, under its credential; no answer reads as null. */
+const readStage = (
+  fetch: BrowserTransport,
+  {
+    captureId,
+    credential,
+  }: { readonly captureId: string; readonly credential: string },
+) =>
+  fetch(`/api/stage/${captureId}`, {
+    headers: { 'x-stage-credential': credential },
+    cache: 'no-store',
+    signal: AbortSignal.timeout(READ_TIMEOUT_MS),
+  }).catch(() => null);
+
 /** Fills its seat, so the 540p top layer reaches the frame close to one to one. */
 function StageTile({ track }: { readonly track: RemoteTrack | undefined }) {
   const video = useRef<HTMLVideoElement>(null);
-  useBrowserEffect(() => {
+  useResource(track, (shown) => {
     const element = video.current;
-    if (!track || !element) return undefined;
-    track.attach(element);
-    return () => void track.detach(element);
-  }, [track]);
+    if (!shown || !element) return null;
+    shown.attach(element);
+    return { dispose: () => void shown.detach(element) };
+  });
   return (
     <video
       ref={video}
@@ -85,7 +102,8 @@ export function StageRoom(props: {
   const started = useRef(false);
   const watch = useRef(stageWatchStart);
   const identities = useRef<readonly string[]>([]);
-  useBrowserEffect(() => {
+  const { captureId, credential } = props;
+  useResource(JSON.stringify([captureId, credential]), () => {
     const connection = createStageConnection<StageMediaRoom>({
       createRoom: () => {
         const room = new Room({ adaptiveStream: false, dynacast: false });
@@ -129,11 +147,10 @@ export function StageRoom(props: {
     /** One whole answer, body included, so the poll can order it; never rejects. */
     const read = async (): Promise<StageRead> => {
       // A web tier that is gone may never answer, so a read cannot wait for it.
-      const answer = await browserFetch(`/api/stage/${props.captureId}`, {
-        headers: { 'x-stage-credential': props.credential },
-        cache: 'no-store',
-        signal: AbortSignal.timeout(READ_TIMEOUT_MS),
-      }).catch(() => null);
+      const answer = await readStage(browserTransport, {
+        captureId,
+        credential,
+      });
       // A body cut off mid-read is no new answer; the next read tries again.
       const next = answer?.ok
         ? drawableStageAnswer(await answer.json().catch(() => null))
@@ -170,23 +187,23 @@ export function StageRoom(props: {
     const stop = startStagePoll({
       read,
       apply,
-      every: (tick) => {
-        return scheduleTick(tick, POLL_MS);
-      },
+      every: repeatEvery(POLL_MS),
     });
-    return () => {
-      stop();
-      connection.close();
+    return {
+      dispose: () => {
+        stop();
+        connection.close();
+      },
     };
-  }, [props.captureId, props.credential]);
+  });
   const shown = stage !== null;
-  useBrowserEffect(() => {
-    if (!shown || started.current) return undefined;
+  useResource(shown, (onStage) => {
+    if (!onStage || started.current) return null;
     started.current = true;
     let mounted = true;
     void whenFontsSettle({
       load: loadFrameFaces,
-      wait: (ms) => new Promise((done) => delay(done, ms)),
+      wait: pause,
       limitMs: FONT_WAIT_MS,
     }).then(() => {
       if (!mayStartRecording({ mounted, ended: watch.current.ended })) return;
@@ -194,10 +211,12 @@ export function StageRoom(props: {
       // eslint-disable-next-line no-console
       console.log('START_RECORDING');
     });
-    return () => {
-      mounted = false;
+    return {
+      dispose: () => {
+        mounted = false;
+      },
     };
-  }, [shown]);
+  });
   if (!stage) return null;
   return (
     <StageView

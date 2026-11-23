@@ -1,6 +1,7 @@
 'use client';
 
-import { useBrowserEffect } from '../edge/browser-sync';
+import { useDeliver } from '../edge/use-answer';
+import { useResource } from '../edge/use-driver';
 import { ShellLink as Link } from '../layout/app-shell/shell-link';
 import { useRouter } from 'next/navigation';
 import {
@@ -68,6 +69,10 @@ function createLifetime(requestId: string) {
     },
   };
 }
+/** The conversation's mounted lifetime: disposing it disposes its scope. */
+const mountLifetime = (holder: ReturnType<typeof createLifetime>) => ({
+  dispose: holder.mount(),
+});
 const Navigation = createContext<ReturnType<typeof createLifetime> | null>(
   null,
 );
@@ -81,10 +86,10 @@ export function ConversationNavigation({
   readonly requestId: string;
 }) {
   const [holder] = useState(() => createLifetime(requestId));
-  useBrowserEffect(() => holder.mount(), [holder]);
-  useBrowserEffect(() => {
-    holder.current().accept({ type: 'rendered', requestId });
-  }, [holder, requestId]);
+  useResource(holder, mountLifetime);
+  useDeliver(requestId, (rendered) => {
+    holder.current().accept({ type: 'rendered', requestId: rendered });
+  });
   return <Navigation value={holder}>{children}</Navigation>;
 }
 
@@ -148,14 +153,15 @@ export function useConversationAction(
 ): FormAction<CompletionAnswer> {
   const navigation = useNavigation();
   const latest = useRef<Origin | null>(null);
-  useBrowserEffect(() => {
-    return () => {
-      const captured = latest.current;
+  // Leaving the form abandons the command it dispatched last.
+  useResource(latest, (dispatched) => ({
+    dispose: () => {
+      const captured = dispatched.current;
       if (captured !== null)
         captured.scope.accept({ type: 'abandon', origin: captured.id });
-      latest.current = null;
-    };
-  }, []);
+      dispatched.current = null;
+    },
+  }));
   if (typeof window === 'undefined') return action;
   return async (state, form) => {
     const scope = navigation.current();
@@ -178,9 +184,11 @@ export function useConversationCompletion(
 ) {
   const router = useRouter();
   const seen = useRef(answer);
-  useBrowserEffect(() => {
-    if (pending || seen.current === answer) return;
-    seen.current = answer;
+  // Each settled answer is completed once; a pending one waits.
+  useDeliver(pending ? null : answer, (settled) => {
+    if (settled === null || seen.current === settled) return;
+    seen.current = settled;
+    const answer = settled;
     const captured = answer.completion;
     if (captured == null) return;
     const next = destinationOf(answer);
@@ -189,5 +197,5 @@ export function useConversationCompletion(
       origin: captured.id,
     });
     if (apply && next !== undefined) followAnswer(router, next);
-  }, [answer, pending, router]);
+  });
 }

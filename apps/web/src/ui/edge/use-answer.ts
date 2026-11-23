@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useEffectEvent, useRef } from 'react';
+import { useEffect, useEffectEvent, useLayoutEffect, useRef } from 'react';
 
 /**
  * Delivers each new value once it has rendered, never the value the page was
@@ -31,4 +31,28 @@ export function useDeliver<S>(value: S, deliver: (value: S) => void): void {
   useEffect(() => {
     send(value);
   }, [value]);
+}
+
+/**
+ * Hands every rendered value to a layout consumer before the browser paints,
+ * the first one included: a scroll position kept at the end of what just
+ * rendered. The consumer is read at its latest and holds nothing open.
+ */
+export function useDeliverBeforePaint<S>(
+  value: S,
+  deliver: (value: S) => void,
+): void {
+  const send = useEffectEvent(deliver);
+  useLayoutEffect(() => {
+    send(value);
+  }, [value]);
+}
+
+/**
+ * Calls `handle` once, when its owner leaves the page, reading the handler
+ * at its latest: a last word to a parent, never a resource to release.
+ */
+export function useLeave(handle: () => void): void {
+  const leave = useEffectEvent(handle);
+  useEffect(() => () => leave(), []);
 }

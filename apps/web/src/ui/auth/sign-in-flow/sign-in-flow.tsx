@@ -1,9 +1,10 @@
 'use client';
-import { useBrowserEffect } from '../../edge/browser-sync';
-import { cancelDelay, delay } from '../../edge/browser-time';
+import { useAnswer } from '../../edge/use-answer';
+import { browserHandleTimers } from '../../edge/browser-time';
+import { useResource } from '../../edge/use-driver';
 import { nowMs } from '@daisy/clock';
 
-import { useState, useSyncExternalStore } from 'react';
+import { useMemo, useState, useSyncExternalStore } from 'react';
 import type { Clock } from '@daisy/clock';
 import { useFocusAfterAnswer } from '../../form-action/form-action';
 import {
@@ -38,10 +39,7 @@ const usePageVisible = (): boolean =>
     () => false,
   );
 
-const browserTimers: AutofillTimers = {
-  set: (run, ms) => delay(run, ms),
-  clear: (handle) => cancelDelay(handle as ReturnType<typeof delay>),
-};
+const browserTimers: AutofillTimers = browserHandleTimers;
 
 export type { RequestLinkAction };
 
@@ -82,23 +80,31 @@ export function SignInFlow({
     !passkeyInFlight(state),
   );
 
-  useBrowserEffect(() => {
-    if (state.step === 'signed-in') onSignedIn();
-  }, [state.step, onSignedIn]);
+  useAnswer(state.step === 'signed-in', (signedIn) => {
+    if (signedIn) onSignedIn();
+  });
 
   // Armed whenever the email step goes idle on screen: the explicit passkey
   // button aborts the pending autofill request, so it is offered again after,
   // and a hidden tab pauses until it is shown.
   const autofillArmed = canOfferPasskeyAutofill(state, usePageVisible());
-  useBrowserEffect(() => {
-    if (!autofillArmed) return;
-    return startPasskeyAutofill({
-      offer: () => offerPasskeyAutofillSafely(port),
-      onSettled: (outcome) => dispatch({ type: 'passkey-autofilled', outcome }),
-      timers: browserTimers,
-      now: () => nowMs(clock),
-    });
-  }, [autofillArmed, port, clock, dispatch]);
+  const autofill = useMemo(
+    () => (autofillArmed ? { port, clock } : null),
+    [autofillArmed, port, clock],
+  );
+  useResource(autofill, (armed) =>
+    armed === null
+      ? null
+      : {
+          dispose: startPasskeyAutofill({
+            offer: () => offerPasskeyAutofillSafely(armed.port),
+            onSettled: (outcome) =>
+              dispatch({ type: 'passkey-autofilled', outcome }),
+            timers: browserTimers,
+            now: () => nowMs(armed.clock),
+          }),
+        },
+  );
 
   return renderSignInFlow(state, now, {
     typeEmail: (email) => dispatch({ type: 'email-typed', email }),

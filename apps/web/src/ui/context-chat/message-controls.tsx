@@ -1,5 +1,6 @@
 'use client';
-import { useBrowserEffect } from '../edge/browser-sync';
+import { useDeliver } from '../edge/use-answer';
+import { useFocusAfterLeave } from '../edge/use-focus';
 import { StatusRegion } from '../components/status-region/status-region';
 import { Button } from '../components/button/button';
 import { useRef, useState } from 'react';
@@ -73,21 +74,18 @@ export function ContextChatMessageControls({
     kind === 'report' ? reportAction : mutateAction,
     initial,
     contextChatFormUnavailable,
-  );
-  const seen = useRef(answer);
-  useBrowserEffect(() => {
-    const accepted = contextChatAcceptedMessage(answer);
-    if (accepted !== undefined && answer !== seen.current) {
-      seen.current = answer;
+    (answered) => {
+      const accepted = contextChatAcceptedMessage(answered);
+      if (accepted === undefined) return;
       if (kind === 'remove') releaseDraft?.();
       onSent(accepted);
-    }
-  }, [answer, onSent, kind, releaseDraft]);
+    },
+  );
   const fields = contextChatFields(answer);
   const removing = useRef(false);
   const form = useRef<HTMLFormElement>(null);
   const ownedFocus = useRef(false);
-  useBrowserEffect(() => {
+  useDeliver(`${locked}|${returnFocusId}`, () => {
     if (!locked || !ownedFocus.current) return;
     if (
       document.activeElement === document.body ||
@@ -95,15 +93,8 @@ export function ContextChatMessageControls({
     )
       document.getElementById(returnFocusId)?.focus();
     ownedFocus.current = false;
-  }, [locked, returnFocusId]);
-
-  useBrowserEffect(
-    () => () => {
-      if (removing.current && document.activeElement === document.body)
-        document.getElementById(returnFocusId)?.focus();
-    },
-    [returnFocusId],
-  );
+  });
+  useFocusAfterLeave(returnFocusId, removing);
   const noticeId = `${idPrefix}-notice-${messageId}`;
   const fieldId = `${idPrefix}-edit-${messageId}`;
   const submitId = `${idPrefix}-action-${messageId}`;

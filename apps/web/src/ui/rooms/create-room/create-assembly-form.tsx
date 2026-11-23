@@ -1,6 +1,6 @@
 'use client';
 
-import { browserFetch } from '../../edge/browser-request';
+import { browserTransport } from '../../edge/browser-request';
 import { StatusRegion } from '../../components/status-region/status-region';
 import { Button } from '../../components/button/button';
 import type { CreateLobbyChoice } from '../../../features/rooms/create-lobby-choice';
@@ -131,7 +131,7 @@ export function CreateAssemblyForm({
           event.nativeEvent.submitter,
         );
         startTransition(async () => {
-          setState(await postRoomDraft(browserFetch, form));
+          setState(await postRoomDraft(browserTransport, form));
         });
       }}
       aria-label="Create a room"

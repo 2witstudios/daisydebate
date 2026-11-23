@@ -1,6 +1,6 @@
 'use client';
-import { useBrowserEffect } from '../edge/browser-sync';
-import { currentBrowserFetch } from '../edge/browser-request';
+import { browserTransport } from '../edge/browser-request';
+import { useDeliver } from '../edge/use-answer';
 import { StatusRegion } from '../components/status-region/status-region';
 import { Button } from '../components/button/button';
 import { useCallback, useState, type ReactNode } from 'react';
@@ -40,7 +40,7 @@ export function LiveTranscript({
   const roundId = seed.round.id;
   const [holder] = useState(() =>
     createTranscriptHolder(seed, () =>
-      readTranscript(currentBrowserFetch(), roundId),
+      readTranscript(browserTransport, roundId),
     ),
   );
   const start = useCallback(
@@ -48,9 +48,9 @@ export function LiveTranscript({
     [holder, socketUrl],
   );
   const [synced, driver] = useDriver(holder.seed, start);
-  useBrowserEffect(() => holder.offer(seed), [holder, seed]);
+  useDeliver(seed, (rendered) => holder.offer(rendered));
   // Whatever rendered this page may be old: durable history decides.
-  useBrowserEffect(() => driver?.signal(), [driver]);
+  useDeliver(driver, (running) => running?.signal());
   if (synced.freshness === 'gone')
     return placement === 'sidebar' ? (
       <StatusRegion as="p" role="status" className="p-4 text-sm text-ink-muted">

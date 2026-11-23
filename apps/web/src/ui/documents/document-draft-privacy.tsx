@@ -1,7 +1,8 @@
 'use client';
 
-import { useBrowserEffect } from '../edge/browser-sync';
-import { browserFetch } from '../edge/browser-request';
+import { useDocumentEvent } from '../edge/use-dom-events';
+import { useResource } from '../edge/use-driver';
+import { readBrowserSession } from '../edge/session-browser';
 import { StatusRegion } from '../components/status-region/status-region';
 import { useState } from 'react';
 import { nowMs, systemClock } from '@daisy/clock';
@@ -71,6 +72,35 @@ const markSignOutIntent = (event: Event) => {
   }
 };
 
+type Published = Parameters<typeof cleanupFailedAfter>[1];
+
+/**
+ * This visitor's drafts, held to one principal: expired copies are pruned,
+ * and the identity watch publishes each principal change and whether its
+ * cleanup cleared the copies.
+ */
+function guardBrowserDrafts(
+  principalId: string | null | undefined,
+  published: (next: Published, cleared: boolean) => void,
+) {
+  pruneExpired();
+  const stop = watchDraftIdentity(principalId, {
+    events: window,
+    visibility: document,
+    storage: () => window.localStorage,
+    fetchSession: readBrowserSession,
+    hasSignOutIntent,
+    takeSignOutIntent,
+    takeAccountClosedProof: () => takeDraftsErasedCookie(document),
+    publish: (next) =>
+      published(
+        next,
+        publishDraftsPrincipal(next, window, () => window.localStorage),
+      ),
+  });
+  return { dispose: stop };
+}
+
 /**
  * Visitor-layout lifetime (ADR 0123): it remounts when a person moves between
  * the `(shell)` and `(bare)` groups and re-reads its principal on each mount;
@@ -85,40 +115,11 @@ export function DocumentDraftPrivacy({
   readonly principalId: string | null | undefined;
 }) {
   const [cleanupFailed, setCleanupFailed] = useState(false);
-  useBrowserEffect(() => {
-    pruneExpired();
-    document.addEventListener('submit', markSignOutIntent, { capture: true });
-    return () =>
-      document.removeEventListener('submit', markSignOutIntent, {
-        capture: true,
-      });
-  }, []);
-  useBrowserEffect(
-    () =>
-      watchDraftIdentity(principalId, {
-        events: window,
-        visibility: document,
-        storage: () => window.localStorage,
-        fetchSession: (signal) =>
-          browserFetch('/api/auth/get-session', {
-            cache: 'no-store',
-            signal: AbortSignal.any([signal, AbortSignal.timeout(15_000)]),
-          }),
-        hasSignOutIntent,
-        takeSignOutIntent,
-        takeAccountClosedProof: () => takeDraftsErasedCookie(document),
-        publish: (next) => {
-          const cleared = publishDraftsPrincipal(
-            next,
-            window,
-            () => window.localStorage,
-          );
-          setCleanupFailed((failed) =>
-            cleanupFailedAfter(failed, next, cleared),
-          );
-        },
-      }),
-    [principalId],
+  useDocumentEvent('submit', markSignOutIntent, { capture: true });
+  useResource(principalId, (principal) =>
+    guardBrowserDrafts(principal, (next, cleared) =>
+      setCleanupFailed((failed) => cleanupFailedAfter(failed, next, cleared)),
+    ),
   );
   return cleanupFailed ? (
     <StatusRegion as="p" role="alert" className="px-4 py-2 text-sm text-live">

@@ -1,7 +1,7 @@
 'use client';
 
-import { useBrowserEffect, useBrowserLayoutEffect } from '../edge/browser-sync';
-import { cancelDelay, delay } from '../edge/browser-time';
+import { useModal } from '../edge/use-modal';
+import { useSettled } from '../edge/use-settled';
 import { Dialog } from '../components/dialog/dialog';
 import { StatusRegion } from '../components/status-region/status-region';
 import { useMemo, useRef, useState, type KeyboardEvent } from 'react';
@@ -157,42 +157,17 @@ export function CommandPalette({
   const dialog = useRef<HTMLDialogElement>(null);
   const [query, setQuery] = useState('');
   const [selected, setSelected] = useState(0);
-  const [hits, setHits] = useState<
-    | {
-        readonly kind: 'ready';
-        readonly query: string;
-        readonly documents: readonly PaletteDocument[];
-      }
-    | { readonly kind: 'failed'; readonly query: string }
-    | null
-  >(null);
-  useBrowserEffect(() => {
-    if (!open || creating || !search || query.trim() === '') return;
-    let live = true;
-    const wait = delay(() => {
-      // Results and failures belong to the query that produced them.
-      search(query).then(
-        (found) => {
-          if (live) setHits({ kind: 'ready', query, documents: found });
-        },
-        () => {
-          if (live) setHits({ kind: 'failed', query });
-        },
-      );
-    }, SEARCH_DELAY_MS);
-    return () => {
-      live = false;
-      cancelDelay(wait);
-    };
-  }, [open, creating, query, search]);
+  // Results and failures belong to the query that produced them.
+  const hits = useSettled(
+    !open || creating || !search || query.trim() === '' ? null : query,
+    (text) => search?.(text) ?? Promise.resolve([]),
+    SEARCH_DELAY_MS,
+  );
   const shown =
-    creating ||
-    query.trim() === '' ||
-    hits?.query !== query ||
-    hits.kind !== 'ready'
+    creating || query.trim() === '' || hits?.kind !== 'ready'
       ? null
-      : hits.documents;
-  const searchFailed = hits?.kind === 'failed' && hits.query === query;
+      : hits.value;
+  const searchFailed = hits?.kind === 'failed';
   const commands = useMemo(
     () => (creating ? createCommands : paletteCommands(shown ?? documents)),
     [creating, shown, documents],
@@ -209,16 +184,10 @@ export function CommandPalette({
   const choiceOf = (id: string) => commands.find((c) => c.id === id)?.choice;
   const snippetOf = (id: string) => commands.find((c) => c.id === id)?.snippet;
 
-  useBrowserLayoutEffect(() => {
-    const node = dialog.current;
-    if (!node) return;
-    if (open && !node.open) node.showModal();
-    if (!open && node.open) node.close();
-  }, [open]);
+  useModal(dialog, open);
 
   const closed = () => {
     setQuery('');
-    setHits(null);
     setSelected(0);
     onClose();
   };
@@ -226,7 +195,6 @@ export function CommandPalette({
     const choice = ranked && choiceOf(ranked.command.id);
     if (!choice) return;
     setQuery('');
-    setHits(null);
     setSelected(0);
     onChoose(choice);
   };

@@ -1,8 +1,24 @@
 'use client';
-import { useBrowserEffect } from '../edge/browser-sync';
-import { browserFetch } from '../edge/browser-request';
+import { useDeliver } from '../edge/use-answer';
+import {
+  browserTransport,
+  type BrowserTransport,
+} from '../edge/browser-request';
 
 import { messagingMarkReadBody } from '../../features/messaging/mark-read';
+
+/** One read mark; a failed attempt leaves the conversation unread. */
+const markRead = (
+  transport: BrowserTransport,
+  channelId: string,
+  sequence: number,
+) =>
+  transport('/api/messaging/read', {
+    method: 'POST',
+    credentials: 'same-origin',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(messagingMarkReadBody(channelId, sequence)),
+  }).catch(() => undefined);
 
 /**
  * Marks a conversation read through `sequence` once it is on screen. The
@@ -16,13 +32,9 @@ export function MarkConversationRead({
   readonly channelId: string;
   readonly sequence: number;
 }) {
-  useBrowserEffect(() => {
-    void browserFetch('/api/messaging/read', {
-      method: 'POST',
-      credentials: 'same-origin',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify(messagingMarkReadBody(channelId, sequence)),
-    }).catch(() => undefined);
-  }, [channelId, sequence]);
+  // Each conversation and sequence shown is marked once.
+  useDeliver(`${sequence} ${channelId}`, () => {
+    void markRead(browserTransport, channelId, sequence);
+  });
   return null;
 }

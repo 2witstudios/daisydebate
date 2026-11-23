@@ -1,6 +1,5 @@
 'use client';
 
-import { useBrowserEffect } from '../edge/browser-sync';
 import { StatusRegion } from '../components/status-region/status-region';
 import { Button } from '../components/button/button';
 import { useRef } from 'react';
@@ -37,19 +36,19 @@ export function ContextChatComposer({
   readonly locked?: boolean;
   readonly onSent: (messageId: string) => void;
 }) {
+  const seen = useRef(contextChatAcceptedMessage(initial));
   const [answer, post, pending] = useFormAction(
     action,
     initial,
     contextChatFormUnavailable,
+    (answered) => {
+      const sent = contextChatAcceptedMessage(answered);
+      if (sent !== undefined && seen.current !== sent) {
+        seen.current = sent;
+        onSent(sent);
+      }
+    },
   );
-  const sent = contextChatAcceptedMessage(answer);
-  const seen = useRef(contextChatAcceptedMessage(initial));
-  useBrowserEffect(() => {
-    if (sent !== undefined && seen.current !== sent) {
-      seen.current = sent;
-      onSent(sent);
-    }
-  }, [sent, onSent]);
   const fields = contextChatFields(answer);
   const noticeId = `${id}-notice`;
   useFocusAfterAnswer(answer, fields.notice ? noticeId : id, !pending);

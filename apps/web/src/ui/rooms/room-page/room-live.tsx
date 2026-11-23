@@ -1,5 +1,5 @@
 'use client';
-import { useBrowserEffect } from '../../edge/browser-sync';
+import { useNavigation } from '../../edge/use-navigation';
 import { StatusRegion } from '../../components/status-region/status-region';
 import { roomWatchHref } from '../../../features/watch/routes';
 import { roundEntry } from '../../../features/rooms/round-entry';
@@ -114,9 +114,9 @@ export function RoomLive(props: Props) {
   );
   const { ids } = sync.value;
   const router = useRouter();
-  useBrowserEffect(() => {
-    if (entry.href) replaceRoute(router, browserDocument(), entry.href);
-  }, [entry.href, router]);
+  useNavigation(router, entry.href || undefined, (navigator, href) =>
+    replaceRoute(navigator, browserDocument(), href),
+  );
   return (
     <RoomSyncContext value={handle}>
       <AssemblyHeader

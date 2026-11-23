@@ -9,6 +9,10 @@ import { isGuardedPath, signInHref } from '../features/access/decision';
 import { roomLinkReachesWatch } from '../features/watch/routes';
 import { returnableDestination } from '../features/auth/redirect';
 import {
+  isRouteRead,
+  routeReadTiming,
+} from '../features/route-read/route-read';
+import {
   robotsHeaderOf,
   type SearchIndexing,
 } from '../features/search-indexing/search-indexing';
@@ -208,5 +212,7 @@ function routeRequest(request: NextRequest, settings: ProxySettings) {
   const response = NextResponse.next({ request: { headers } });
   response.headers.set('Content-Security-Policy', policy);
   response.headers.set('x-request-id', requestId);
+  if (isRouteRead(request.method, request.headers))
+    response.headers.append('Server-Timing', routeReadTiming);
   return response;
 }

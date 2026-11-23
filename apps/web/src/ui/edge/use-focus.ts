@@ -118,14 +118,21 @@ export function useFocusOnLeave<T extends HTMLElement>(
 }
 
 /**
- * When the owner leaves the page and focus fell to nothing usable, focus
- * goes to the element `targetId` names.
+ * When the owner leaves the page owing focus (`owed` holds true) and, once
+ * the page has updated, focus has fallen to `<body>`, focus goes to the
+ * element `targetId` names. Checked after the removal has painted, so a
+ * control disabled or removed with its owner counts as dropped focus; a
+ * change of `targetId` settles the debt owed to the previous target.
  */
-export function useFocusReturnOnLeave(targetId: string): void {
-  useLayoutEffect(
+export function useFocusAfterLeave(
+  targetId: string,
+  owed: RefObject<boolean>,
+): void {
+  useEffect(
     () => () => {
-      if (focusLost()) document.getElementById(targetId)?.focus();
+      if (owed.current && document.activeElement === document.body)
+        document.getElementById(targetId)?.focus();
     },
-    [targetId],
+    [targetId, owed],
   );
 }

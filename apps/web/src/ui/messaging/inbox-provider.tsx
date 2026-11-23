@@ -1,7 +1,11 @@
 'use client';
-import { useBrowserEffect } from '../edge/browser-sync';
-import { browserFetch } from '../edge/browser-request';
-import { scheduleDelay } from '../edge/browser-time';
+import { useAnswer } from '../edge/use-answer';
+import { useResource } from '../edge/use-driver';
+import {
+  browserTransport,
+  type BrowserTransport,
+} from '../edge/browser-request';
+import { browserScheduler } from '../edge/browser-time';
 import {
   createContext,
   useCallback,
@@ -44,24 +48,27 @@ export const useInbox = () => {
   return inbox;
 };
 
-const readPage = async ({
-  q,
-  after,
-}: {
-  readonly q: string | null;
-  readonly after: string | null;
-}) => {
-  const params = new URLSearchParams();
-  if (q !== null) params.set('q', q);
-  if (after !== null) params.set('after', after);
-  const query = params.size > 0 ? `?${params}` : '';
-  return readMessagingInboxResponse(
-    await browserFetch(`/api/messaging/inbox${query}`, {
-      credentials: 'same-origin',
-      cache: 'no-store',
-    }),
-  );
-};
+const readPageThrough =
+  (transport: BrowserTransport) =>
+  async ({
+    q,
+    after,
+  }: {
+    readonly q: string | null;
+    readonly after: string | null;
+  }) => {
+    const params = new URLSearchParams();
+    if (q !== null) params.set('q', q);
+    if (after !== null) params.set('after', after);
+    const query = params.size > 0 ? `?${params}` : '';
+    return readMessagingInboxResponse(
+      await transport(`/api/messaging/inbox${query}`, {
+        credentials: 'same-origin',
+        cache: 'no-store',
+      }),
+    );
+  };
+const readPage = readPageThrough(browserTransport);
 
 /**
  * The tab's one view of the conversation list. The layout seeds it, and a ring
@@ -93,14 +100,10 @@ export function InboxProvider({
   const doorbell = useRef<ReturnType<
     typeof attachMessagingInboxDoorbells
   > | null>(null);
-  useBrowserEffect(() => {
+  useResource(reader, (held) => {
     const reads = createInboxReads({
       readPage,
-      scheduler: {
-        after: (work, ms) => {
-          return scheduleDelay(work, ms);
-        },
-      },
+      scheduler: browserScheduler,
       onRefreshed: (page, { q }) => {
         setAvailable(true);
         setSearchedFor(q);
@@ -113,41 +116,43 @@ export function InboxProvider({
           now: current.now,
         })),
     });
-    reader.current = reads;
-    return () => {
-      reads.close();
-      reader.current = null;
+    held.current = reads;
+    return {
+      dispose: () => {
+        reads.close();
+        held.current = null;
+      },
     };
-  }, []);
+  });
   // A server render elsewhere (a native answer, a refresh) says something changed.
-  const seen = useRef(seed);
-  useBrowserEffect(() => {
-    if (seed === seen.current) return;
-    seen.current = seed;
-    reader.current?.ring();
-  }, [seed]);
-  useBrowserEffect(() => {
-    if (socketUrl === null) return;
-    const connection = tabConnection(socketUrl);
-    const attached = attachMessagingInboxDoorbells({
-      connection,
-      actorId,
-      catchUpOnSubscribe: true,
-      invalidate: () => undefined,
-      refetch: () => reader.current?.ring(),
-    });
-    doorbell.current = attached;
-    const unsubscribe = connection.subscribe((state) => {
-      if (terminalReason(state) !== null) reader.current?.ring();
-    });
-    connection.connect();
-    return () => {
-      attached.close();
-      unsubscribe();
-      connection.dispose();
-      doorbell.current = null;
-    };
-  }, [actorId, socketUrl]);
+  useAnswer(seed, () => reader.current?.ring());
+  useResource(
+    socketUrl === null ? null : JSON.stringify([actorId, socketUrl]),
+    (key) => {
+      if (key === null || socketUrl === null) return null;
+      const connection = tabConnection(socketUrl);
+      const attached = attachMessagingInboxDoorbells({
+        connection,
+        actorId,
+        catchUpOnSubscribe: true,
+        invalidate: () => undefined,
+        refetch: () => reader.current?.ring(),
+      });
+      doorbell.current = attached;
+      const unsubscribe = connection.subscribe((state) => {
+        if (terminalReason(state) !== null) reader.current?.ring();
+      });
+      connection.connect();
+      return {
+        dispose: () => {
+          attached.close();
+          unsubscribe();
+          connection.dispose();
+          doorbell.current = null;
+        },
+      };
+    },
+  );
   const setSearch = useCallback((value: string) => {
     setSearchValue(value);
     const line = value.trim();

@@ -1,6 +1,6 @@
 'use client';
-import { useBrowserEffect } from '../../edge/browser-sync';
-import { scheduleTick } from '../../edge/browser-time';
+import { useDeliver } from '../../edge/use-answer';
+import { useTick } from '../../edge/use-tick';
 import { StatusRegion } from '../../components/status-region/status-region';
 import type { RoundView } from '@daisy/protocol/round-view';
 import { nowMs, systemClock } from '@daisy/clock';
@@ -36,24 +36,27 @@ export function useServerAnchoredNow(
   const now = elapsed.base === renderedAtMs ? elapsed.nowMs : renderedAtMs;
   const running = runsAt(now);
   const mount = useRef<ReturnType<typeof countdownMount> | null>(null);
-  useBrowserEffect(() => {
-    if (!running) return;
-    mount.current = countdownMount(mount.current, renderedAtMs, deviceInstant);
-    const { mounted } = mount.current;
-    return scheduleTick(
-      () =>
-        setElapsed({
-          base: renderedAtMs,
-          nowMs: countdownNowMs({
-            renderedAtMs,
-            mounted,
-            current: deviceInstant(),
-          }),
+  // Each start of the count anchors it on this device before the first tick.
+  useDeliver(running ? renderedAtMs : null, (anchor) => {
+    if (anchor !== null)
+      mount.current = countdownMount(mount.current, anchor, deviceInstant);
+  });
+  useTick(
+    () => {
+      const anchored = mount.current;
+      if (anchored === null) return;
+      setElapsed({
+        base: renderedAtMs,
+        nowMs: countdownNowMs({
+          renderedAtMs,
+          mounted: anchored.mounted,
+          current: deviceInstant(),
         }),
-      1000,
-      window,
-    );
-  }, [running, renderedAtMs]);
+      });
+    },
+    running ? 1000 : null,
+    renderedAtMs,
+  );
   return now;
 }
 

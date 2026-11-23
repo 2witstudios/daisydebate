@@ -1,6 +1,9 @@
 'use client';
 
-import { useBrowserEffect, useBrowserLayoutEffect } from '../edge/browser-sync';
+import { useActivation } from '../edge/use-activation';
+import { useDeliver } from '../edge/use-answer';
+import { useWindowEvent } from '../edge/use-dom-events';
+import { useLatest } from '../edge/use-latest';
 import { useCallback, useMemo, useRef, useState, type Dispatch } from 'react';
 import { systemClock } from '@daisy/clock';
 import type { ManagerAction } from '../../features/documents/document-manager-state';
@@ -100,17 +103,11 @@ export function useDrive({
     initialRecent,
   );
   const scope = useMemo(() => createDriveOperations(sync), [sync]);
-  useBrowserLayoutEffect(() => {
-    scope.activate();
-    return scope.close;
-  }, [scope]);
+  useActivation(scope);
   const ownsOperation = scope.owns;
   const inOrder = scope.run;
   const generation = useRef(0);
-  const known = useRef(opened);
-  useBrowserEffect(() => {
-    known.current = opened;
-  }, [opened]);
+  const known = useLatest(opened);
 
   const missing = useCallback(
     (id: string) => {
@@ -120,10 +117,10 @@ export function useDrive({
       // A stale row may be an open document, or a folder with open descendants.
       // Recheck server truth without throwing away anyone's unsaved text.
       void sync
-        ?.recheck(loadedDocuments(known.current).map((document) => document.id))
+        ?.recheck(loadedDocuments(known()).map((document) => document.id))
         .catch(() => {});
     },
-    [dispatch, sync, readRecent],
+    [dispatch, sync, readRecent, known],
   );
   const readFailed = useCallback(
     (
@@ -207,31 +204,34 @@ export function useDrive({
     [dispatch, readSucceeded],
   );
 
-  useBrowserEffect(() => {
-    if (!sync) return;
-    const readRoot = () =>
-      void listFolder(null, null, true).catch((error) =>
-        readFailed(
-          error,
-          null,
-          'Your drive did not load. Reload the page.',
-          true,
-        ),
-      );
-    if (listRoot) readRoot();
-    // Automatic reads can recover their own read errors, but never consume
-    // the person's actionable missing-item or change message.
-    const refresh = () => {
+  const readRoot = () =>
+    void listFolder(null, null, true).catch((error) =>
+      readFailed(
+        error,
+        null,
+        'Your drive did not load. Reload the page.',
+        true,
+      ),
+    );
+  // Each owner reads the root once, unless the page rendered its first page.
+  const rooted = useMemo(() => ({ sync, listRoot }), [sync, listRoot]);
+  useDeliver(rooted, (next) => {
+    if (next.sync && next.listRoot) readRoot();
+  });
+  // Automatic reads can recover their own read errors, but never consume
+  // the person's actionable missing-item or change message.
+  useWindowEvent(
+    'focus',
+    () => {
       readRoot();
       readRecent();
-    };
-    window.addEventListener('focus', refresh);
-    return () => window.removeEventListener('focus', refresh);
-  }, [sync, listRoot, listFolder, readFailed, readRecent]);
+    },
+    sync !== undefined,
+  );
 
   const open = (id: string, title: string, origin?: 'link') => {
     if (sync && !sync.canOpen(id)) return;
-    const current = findOpen(known.current, id);
+    const current = findOpen(known(), id);
     if (!sync || current?.kind === 'loaded' || current?.kind === 'loading') {
       dispatch({ type: 'tabs/open', id });
       dispatch({ type: 'palette/close' });

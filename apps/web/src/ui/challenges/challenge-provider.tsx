@@ -2,7 +2,10 @@
 
 // First: protocol schemas built after this load without Zod's eval probe.
 import '../../lib/zod-jitless';
-import { browserFetch } from '../edge/browser-request';
+import {
+  browserTransport,
+  type BrowserTransport,
+} from '../edge/browser-request';
 import {
   challengeListSchema,
   type ChallengeList,
@@ -57,8 +60,10 @@ export const useChallenges = (): ChallengeView => {
 
 const challengeRead = challengeListSchema.loose();
 
-const readList = async (): Promise<ResourceRead<ChallengeList>> => {
-  const response = await browserFetch('/api/challenges', {
+const readList = async (
+  transport: BrowserTransport = browserTransport,
+): Promise<ResourceRead<ChallengeList>> => {
+  const response = await transport('/api/challenges', {
     credentials: 'same-origin',
     cache: 'no-store',
   });
@@ -98,7 +103,7 @@ export function ChallengeProvider({
     );
     return createChallengeSyncDriver({
       seed,
-      read: readList,
+      read: () => readList(),
       inbox: connection && actorId !== null ? { actorId, connection } : null,
       ...edges,
     });
