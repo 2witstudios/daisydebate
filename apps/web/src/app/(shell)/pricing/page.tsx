@@ -6,7 +6,7 @@ import { PricingPage } from '../../../ui/pricing/pricing-page';
 import { requestPlanReleases, requestPricingOpen } from './releases';
 
 const description =
-  'Debating people on Daisy Debate is free. Premium, Club, Host and League plans pay for AI practice, video and running events.';
+  'Debating people on Daisy Debate is free. Premium, Club, Host and League plans pay for Round analysis, the AI judge on casual Rounds, video and running events.';
 
 export const metadata: Metadata = {
   title: 'Plans and pricing',

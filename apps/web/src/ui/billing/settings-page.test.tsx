@@ -124,7 +124,8 @@ test('the checkout return confirms only from current Premium evidence', () => {
   const confirmed = confirmedView.textContent();
   const confirmation = [
     confirmedView.within('status').has('heading', 'You have Premium'),
-    confirmedView.attribute('link', 'Debate a bot', 'href'),
+    confirmedView.attribute('link', 'Play a debate', 'href'),
+    /\bbots?\b/i.test(confirmed),
   ];
   const pendingView = render(
     <BillingSettingsPage settings={settings} returned />,
@@ -134,14 +135,14 @@ test('the checkout return confirms only from current Premium evidence', () => {
   assert({
     given: 'a return with Premium evidence, and a return still unpaid',
     should:
-      'show You have Premium with the price and date, or the pending notice',
+      'show You have Premium with the price and date and no bot debates, or the pending notice',
     actual: [
       confirmation,
       confirmed.includes('Payment confirmed. $20/month, renewing 17 Dec 2026.'),
       pending.includes('You have Premium'),
       pendingStatus.includes('Your purchase is being checked.'),
     ],
-    expected: [[true, '/play'], true, false, true],
+    expected: [[true, '/play', false], true, false, true],
   });
 });
 

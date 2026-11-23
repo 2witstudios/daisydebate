@@ -178,9 +178,15 @@ test('what free includes and the questions', () => {
     actual: [
       'Debate other people, casual and ranked',
       'AI judging on every ranked Round',
-      'One bot Round with its AI judge, and one analysis, to try them',
+      'One Round analysis, to try it',
     ].filter((line) => !free.textContent().includes(line)),
     expected: [],
+  });
+  assert({
+    given: 'the whole pricing page',
+    should: 'promise no bot debates anywhere (BCS-7)',
+    actual: /\bbots?\b/i.test(view.textContent()),
+    expected: false,
   });
   const disclosures = (page: AccessibleView) =>
     page.all('group').map((disclosure) => disclosure.hasAttribute('open'));
