@@ -71,12 +71,12 @@ describe('bot line ledger', () => {
     const pending = nextLineLedger(emptyLineLedger(), {
       type: 'end',
       phraseId: 'line',
-      fraction: 0.4,
+      end: { kind: 'cut', spoken: 'some', playedMs: 400 },
     });
     const duplicate = nextLineLedger(pending.state, {
       type: 'end',
       phraseId: 'line',
-      fraction: 1,
+      end: { kind: 'whole' },
     });
     const failed = nextLineLedger(pending.state, {
       type: 'end-result',
@@ -104,7 +104,13 @@ describe('bot line ledger', () => {
       expected: {
         closed: true,
         duplicate: [],
-        retry: [{ type: 'end', phraseId: 'line', fraction: 0.4 }],
+        retry: [
+          {
+            type: 'end',
+            phraseId: 'line',
+            end: { kind: 'cut', spoken: 'some', playedMs: 400 },
+          },
+        ],
         overlapping: [],
         done: [],
       },
