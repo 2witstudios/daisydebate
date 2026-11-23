@@ -233,3 +233,22 @@ test('errorCodeOf reads only a minted code and otherwise takes the fallback', ()
     expected: ['CONFLICT', 'INFRASTRUCTURE', 'INFRASTRUCTURE'],
   });
 });
+
+test('a second copy of this module recognizes an error the first minted (ADR 0917)', async () => {
+  // Next bundles one copy into its route modules beside the process's own.
+  const copy = (await import(
+    `./index.ts?second-copy`
+  )) as typeof import('./index');
+  const minted = copy.createRefusal('CONFLICT', 'stale');
+  assert({
+    given: 'a refusal minted by another copy of the errors module',
+    should: 'read as an app error and a refusal, with its public code',
+    actual: [
+      copy.isAppError !== isAppError,
+      isAppError(minted),
+      isRefusal(minted),
+      toPublicError(minted, 'r').status,
+    ],
+    expected: [true, true, true, 409],
+  });
+});

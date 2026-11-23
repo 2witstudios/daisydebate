@@ -18,7 +18,7 @@ const STRAY_CLAIM_MS = 800;
 
 const MEDIA_NODE_PROBE_MS = 5_000;
 
-const stageMedia = new WeakMap<App, ReturnType<typeof composeStageMedia>>();
+const STAGE_MEDIA = 'stage-capture/media';
 
 /**
  * Capture's own view of the media nodes: which are up, and an Egress client for each
@@ -78,13 +78,8 @@ const composeStageMedia = (app: App, waits: Waits) => {
 };
 
 /** One stage media per app, its probe on the first caller's `waits`. */
-const stageMediaOf = (app: App, waits: Waits) => {
-  const known = stageMedia.get(app);
-  if (known !== undefined) return known;
-  const media = composeStageMedia(app, waits);
-  stageMedia.set(app, media);
-  return media;
-};
+const stageMediaOf = (app: App, waits: Waits) =>
+  app.held(STAGE_MEDIA, () => composeStageMedia(app, waits));
 
 /** The LiveKit and Egress adapter, or null on a deployment with no LiveKit. */
 export const stageEgressOf = (app: App, waits: Waits) =>
@@ -95,7 +90,9 @@ export const stageEgressOf = (app: App, waits: Waits) =>
  * shutdown awaits it. Later reads compose no new probe for this app.
  */
 export const stopStageMedia = async (app: App): Promise<void> => {
-  await stageMedia.get(app)?.stop();
+  await app
+    .heldIfAny<ReturnType<typeof composeStageMedia>>(STAGE_MEDIA)
+    ?.stop();
 };
 
 /**

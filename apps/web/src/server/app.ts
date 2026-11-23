@@ -269,7 +269,20 @@ export function createApp({
     view: roundViewReader(database, liveLinkedAdults({ database })),
     nowMs: () => nowMs(clock),
   });
+  // Per-app state every copy of a module must share: Next bundles route
+  // code beside the process's own, so a module-level map would hold one
+  // runtime per copy and the process's shutdown would stop only its own
+  // (ADR 0917).
+  const shared = new Map<string, unknown>();
   return {
+    /** The value `key` names for this app, created once by its first caller. */
+    held: <Value>(key: string, create: () => Value): Value => {
+      if (!shared.has(key)) shared.set(key, create());
+      return shared.get(key) as Value;
+    },
+    /** The value `key` names, if anything created it; never creates. */
+    heldIfAny: <Value>(key: string): Value | undefined =>
+      shared.get(key) as Value | undefined,
     billingNative(): NativeBillingRuntime | null {
       return billingNative?.() ?? null;
     },

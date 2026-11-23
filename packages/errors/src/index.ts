@@ -23,7 +23,15 @@ export type AppError = Error & {
   /** Why the operation was refused: what code branches on, never `message`. */
   readonly reason?: RefusalReason;
 };
-const knownErrors = new WeakSet<Error>();
+/**
+ * The mark of a factory-minted error. A registered symbol rather than a
+ * module-level set, so a second copy of this module recognizes it too: Next
+ * bundles one copy into its route modules beside the process's own, and a
+ * refusal minted by one is answered by the other (ADR 0917). Nothing outside
+ * this module sets it, so a vendor error that only carries a `code` is
+ * still no app error.
+ */
+const minted = Symbol.for('@daisy/errors/minted');
 /** Details and cause remain internal. Public messages are fixed by error code. */
 export function createAppError(
   code: ErrorCode,
@@ -31,7 +39,7 @@ export function createAppError(
   cause?: unknown,
 ): AppError {
   const error = Object.assign(new Error(message, { cause }), { code });
-  knownErrors.add(error);
+  Object.defineProperty(error, minted, { value: true });
   return error;
 }
 /** Create an invariant failure with an identity safe to expose to callers. */
@@ -67,7 +75,10 @@ export function rethrow(caught: unknown): never {
 }
 /** Only factory-minted errors carry a trustworthy public code. */
 export function isAppError(error: unknown): error is AppError {
-  return error instanceof Error && knownErrors.has(error);
+  return (
+    error instanceof Error &&
+    Object.getOwnPropertyDescriptor(error, minted)?.value === true
+  );
 }
 /**
  * The code an error carries, read only from a factory-minted error; any

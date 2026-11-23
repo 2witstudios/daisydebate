@@ -7,23 +7,14 @@ import { readPublicCheckInProbe } from '../availability/configuration';
 import { createRoundMediaRuntime, stopRoundMedia } from './composition';
 import { recoveryFailureFields } from './recovery-failure';
 
-const processRuntimes = new WeakMap<
-  App,
-  ReturnType<typeof createRoundMediaRuntime> | null
->();
-
 /**
  * This process's one round media runtime for its background work (media
  * recovery and the bot seats); null when media is not configured.
  */
-export const processRoundMedia = (app: App, waits: Waits) => {
-  if (!processRuntimes.has(app))
-    processRuntimes.set(
-      app,
-      mediaConfigured(app.config) ? createRoundMediaRuntime(app, waits) : null,
-    );
-  return processRuntimes.get(app) ?? null;
-};
+export const processRoundMedia = (app: App, waits: Waits) =>
+  app.held('round-media/process-runtime', () =>
+    mediaConfigured(app.config) ? createRoundMediaRuntime(app, waits) : null,
+  );
 
 /** Round media's background work: session recovery and the node probes. */
 export const startRoundMediaWork = ({ app, waits, wakes }: ProcessWork) => {
