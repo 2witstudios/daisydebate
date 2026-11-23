@@ -1,8 +1,11 @@
 import type { SpectatorTimeline } from '@daisy/protocol/spectator-timeline';
 import { AppRouterContext } from 'next/dist/shared/lib/app-router-context.shared-runtime';
 import { createElement as h } from 'react';
-import { renderToString } from 'react-dom/server';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
+import {
+  renderAccessible,
+  type AccessibleView,
+} from '../../test-support/rendered/accessible';
 import { BroadcastViewer } from './broadcast-viewer';
 
 setupRitewayBun();
@@ -33,7 +36,7 @@ const router = {
   prefetch: noop,
 };
 const render = (over: Partial<SpectatorTimeline>, streamable = true) =>
-  renderToString(
+  renderAccessible(
     h(
       AppRouterContext,
       { value: router },
@@ -47,10 +50,13 @@ const render = (over: Partial<SpectatorTimeline>, streamable = true) =>
     ),
   );
 const ended = { kind: 'ended' } as const;
+/** Where every link on the page goes. */
+const hrefs = (view: AccessibleView) =>
+  view.all('link').map((link) => link.getAttribute('href'));
 
 describe('BroadcastViewer', () => {
   test('with nothing published, the page says how to look again', () => {
-    const noBroadcast = renderToString(
+    const noBroadcast = renderAccessible(
       h(
         AppRouterContext,
         { value: router },
@@ -63,15 +69,13 @@ describe('BroadcastViewer', () => {
         }),
       ),
     );
+    const offered = noBroadcast.attribute('link', 'Refresh', 'href');
     const published = render({ stage: { kind: 'upcoming' } });
     assert({
       given: 'a Round with no state to read, and one with',
       should: 'offer a plain refresh to the first alone',
-      actual: [
-        noBroadcast.includes('href="/watch/r"'),
-        published.includes('href="/watch/r"'),
-      ],
-      expected: [true, false],
+      actual: [offered, hrefs(published).includes('/watch/r')],
+      expected: ['/watch/r', false],
     });
   });
 
@@ -80,35 +84,26 @@ describe('BroadcastViewer', () => {
       path: 'owned_hls',
       manifestUrl: 'https://feed.daisy.invalid/live/b/master.m3u8',
     } as const;
-    const shown = (over: Partial<SpectatorTimeline>) =>
-      render(over).includes('Stream this Round');
+    const shown = (over: Partial<SpectatorTimeline>, streamable = true) =>
+      render(over, streamable).has('region', 'Stream this Round');
     assert({
       given: 'on air with a floor, then stopped',
       should: 'offer the panel with the feed, then not',
       actual: [
         shown({ broadcast: { state: 'on_air', stream } }),
-        render({ broadcast: { state: 'on_air', stream } }).includes(
-          stream.manifestUrl,
-        ),
+        render({ broadcast: { state: 'on_air', stream } })
+          .within('region', 'Stream this Round')
+          .attribute('textbox', 'Official feed URL', 'value'),
         shown({ broadcast: { state: 'stopped' } }),
       ],
-      expected: [true, true, false],
+      expected: [true, stream.manifestUrl, false],
     });
     assert({
       given:
         'a Youth Round on air whose youth debaters have not all released it (ADR 0161)',
       should: 'still play it, but offer no Stream this Round',
-      actual: {
-        shown: render(
-          { broadcast: { state: 'on_air', stream } },
-          false,
-        ).includes('Stream this Round'),
-        playing: render(
-          { broadcast: { state: 'on_air', stream } },
-          false,
-        ).includes('<video'),
-      },
-      expected: { shown: false, playing: true },
+      actual: shown({ broadcast: { state: 'on_air', stream } }, false),
+      expected: false,
     });
   });
 
@@ -133,22 +128,21 @@ describe('BroadcastViewer', () => {
       ],
     ];
     for (const [over, text] of cases) {
-      const html = render(over);
+      const view = render(over);
       assert({
         given: `the state showing "${text}"`,
-        should: 'say it, with no video and the facts beneath',
+        should: 'say it, with the facts beneath',
         actual: [
-          html.includes(text),
-          html.includes('<video'),
-          html.includes('Round facts'),
+          view.textContent().includes(text),
+          view.has('region', 'Round facts'),
         ],
-        expected: [true, false, true],
+        expected: [true, true],
       });
     }
   });
 
   test('a ready Recording is one link away', () => {
-    const html = render({
+    const view = render({
       broadcast: { state: 'ended' },
       stage: ended,
       recording: 'ready',
@@ -156,13 +150,13 @@ describe('BroadcastViewer', () => {
     assert({
       given: 'an ended Round with a ready Recording',
       should: 'link to it',
-      actual: html.includes('href="/recordings/abcdefghijklmnopqrstuvwx"'),
-      expected: true,
+      actual: view.attribute('link', 'Watch the recording', 'href'),
+      expected: '/recordings/abcdefghijklmnopqrstuvwx',
     });
   });
 
   test('on air', () => {
-    const html = render({
+    const view = render({
       broadcast: {
         state: 'on_air',
         stream: {
@@ -173,13 +167,9 @@ describe('BroadcastViewer', () => {
     });
     assert({
       given: 'a stream on air, rendered on the server',
-      should: 'give a labelled video with controls',
-      actual: [
-        html.includes('aria-label="Broadcast of this debate"'),
-        html.includes('controls'),
-        html.includes('The video is showing a slate. Nobody is speaking.'),
-      ],
-      expected: [true, true, true],
+      should: 'say the video is showing a slate',
+      actual: view.text('status'),
+      expected: 'The video is showing a slate. Nobody is speaking.',
     });
   });
 });

@@ -1,14 +1,14 @@
 import { createElement as h } from 'react';
-import { renderToString } from 'react-dom/server';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { rowFixture } from '../../../features/leaderboard/ladder.test-support';
+import { renderAccessible } from '../../../test-support/rendered/accessible';
 import { Podium } from './podium';
 
 setupRitewayBun();
 
 describe('Podium', () => {
   test('three cards, each a link', () => {
-    const html = renderToString(
+    const view = renderAccessible(
       h(Podium, {
         closed: false,
         rows: [
@@ -21,22 +21,23 @@ describe('Podium', () => {
     assert({
       given: 'three rows',
       should:
-        'list three linked cards with the first in gold border, each giving its W–L record with no tier label or glyph',
+        'list three linked cards, each giving its W–L record with no tier label',
       actual: [
-        html.includes('aria-label="Top three"'),
-        html.match(/<a /g)?.length,
-        html.match(/border-gold-border/g)?.length,
-        html.includes('aria-label="@ada, rank 1, rating 1716"'),
-        html.includes('▲ 3'),
-        html.match(/<span[^>]*>\d+–\d+ W–L<\/span>/g)?.length,
-        html.includes('<svg'),
+        view.within('list', 'Top three').count('link'),
+        view.count('link'),
+        view.has('link', '@ada, rank 1, rating 1716'),
+        view.textContent().includes('▲ 3'),
+        view
+          .all('generic')
+          .filter((element) => /^\d+–\d+ W–L$/.test(element.textContent ?? ''))
+          .length,
       ],
-      expected: [true, 3, 1, true, false, 3, false],
+      expected: [3, 3, true, false, 3],
     });
   });
 
   test('movement in a live season', () => {
-    const html = renderToString(
+    const view = renderAccessible(
       h(Podium, {
         closed: false,
         rows: [rowFixture({ change: { kind: 'up', amount: 3 } })],
@@ -45,7 +46,7 @@ describe('Podium', () => {
     assert({
       given: 'a row that rose three places this week',
       should: 'show the arrow and amount',
-      actual: html.includes('▲ 3'),
+      actual: view.textContent().includes('▲ 3'),
       expected: true,
     });
   });

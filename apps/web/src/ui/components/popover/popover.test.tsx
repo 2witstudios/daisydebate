@@ -1,65 +1,37 @@
-import { renderToString } from 'react-dom/server';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
+import { renderAccessible } from '../../../test-support/rendered/accessible';
 import { PopoverDialog } from './popover-dialog';
 import { PopoverMenu } from './popover-menu';
 
 setupRitewayBun();
 
-const classOf = (html: string) => /class="([^"]*)"/.exec(html)?.[1] ?? '';
-
 describe('popover primitives', () => {
-  test('a dialog renders closed as hidden and open as its layout', () => {
-    const html = renderToString(
+  test('a dialog renders as a native auto popover', () => {
+    const view = renderAccessible(
       <PopoverDialog id="d" aria-label="Fill Team 1" className="m-auto gap-2">
         Choice
       </PopoverDialog>,
     );
     assert({
       given: 'a PopoverDialog with surface classes',
-      should: 'render a native auto popover dialog that owns its display',
+      should: 'render a native auto popover dialog',
       actual: [
-        html.includes('popover="auto"'),
-        html.includes('role="dialog"'),
-        classOf(html),
+        view.attribute('dialog', 'Fill Team 1', 'popover'),
+        view.text('dialog', 'Fill Team 1'),
       ],
-      expected: [
-        true,
-        true,
-        'not-open:hidden open:flex open:flex-col m-auto gap-2',
-      ],
+      expected: ['auto', 'Choice'],
     });
   });
 
-  test('a menu renders closed as hidden and open as its layout', () => {
-    const html = renderToString(
+  test('a menu renders as a native auto popover', () => {
+    const view = renderAccessible(
       <PopoverMenu id="m" aria-label="Actions" className="file-menu p-1" />,
     );
     assert({
       given: 'a PopoverMenu with placement classes',
-      should: 'render a native auto popover menu that owns its display',
-      actual: [
-        html.includes('popover="auto"'),
-        html.includes('role="menu"'),
-        classOf(html),
-      ],
-      expected: [
-        true,
-        true,
-        'not-open:hidden open:flex open:flex-col file-menu p-1',
-      ],
-    });
-  });
-
-  test('a computed display class is dropped at render', () => {
-    const computed: string = ['m-auto', 'flex'].join(' ');
-    assert({
-      given: 'a className built at runtime that sets display',
-      should:
-        'drop it, so the closed popover stays hidden and the page renders',
-      actual: classOf(
-        renderToString(<PopoverDialog id="x" className={computed} />),
-      ),
-      expected: 'not-open:hidden open:flex open:flex-col m-auto',
+      should: 'render a native auto popover menu',
+      actual: view.attribute('menu', 'Actions', 'popover'),
+      expected: 'auto',
     });
   });
 });

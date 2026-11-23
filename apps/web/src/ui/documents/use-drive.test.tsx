@@ -34,6 +34,7 @@ const mount = async (
     timer?: (run: () => void, ms: number) => unknown;
     sync?: Partial<DocumentSync>;
     opened?: readonly import('../../features/documents/open-documents').OpenDocument[];
+    rendered?: (drive: DriveActions) => void;
   } = {},
 ) => {
   const client = await mountBrowserClient<typeof Client>(
@@ -73,6 +74,7 @@ const mount = async (
       showRecent: options.showRecent ?? false,
       save,
     });
+    options.rendered?.(drive);
     return null;
   }
   const render = async (save: 'saved' | 'saving' = 'saved', owner = sync) => {
@@ -912,6 +914,37 @@ test('a canceled destructive count fails closed without fetching', async () => {
         'refuse confirmation instead of reporting an empty folder or fetching for a new account',
       actual: [await outcome, sent],
       expected: ['unavailable', 1],
+    });
+  } finally {
+    await fixture.close();
+  }
+});
+
+test('the drive is ready only once it has started, so a linked open waits for it', async () => {
+  const renders: DriveActions[] = [];
+  const opens: string[] = [];
+  const fixture = await mount(async () => Response.json({}), {
+    rendered: (drive) => renders.push(drive),
+    sync: {
+      open: async (id: string) => {
+        opens.push(id);
+        return null;
+      },
+    },
+  });
+  try {
+    const first = renders[0]!;
+    await fixture.act(async () => first.open('a', 'your document', 'link'));
+    const early = [...opens];
+    await fixture.act(async () =>
+      fixture.drive().open('a', 'your document', 'link'),
+    );
+    assert({
+      given: 'the first render, then the render after the drive starts',
+      should:
+        'report not ready and drop an open first, then report ready and open',
+      actual: [first.ready, early, fixture.drive().ready, opens],
+      expected: [false, [], true, ['a']],
     });
   } finally {
     await fixture.close();

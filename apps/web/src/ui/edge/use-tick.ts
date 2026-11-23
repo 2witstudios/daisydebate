@@ -35,40 +35,6 @@ export function useDelay(
   }, [waitMs, key]);
 }
 
-/** One wait an owner arms from its own events. */
-export type Wait = {
-  /** Runs `run` after `ms`, replacing any wait already armed. */
-  readonly arm: (run: () => void, ms: number) => void;
-  readonly cancel: () => void;
-  readonly armed: () => boolean;
-};
-
-function createWait(): Wait {
-  let cancelArmed: (() => void) | null = null;
-  const cancel = () => {
-    cancelArmed?.();
-    cancelArmed = null;
-  };
-  return {
-    arm(run, ms) {
-      cancel();
-      cancelArmed = browserScheduler.after(() => {
-        cancelArmed = null;
-        run();
-      }, ms);
-    },
-    cancel,
-    armed: () => cancelArmed !== null,
-  };
-}
-
-/** A wait the owner arms and cancels; leaving the page cancels it. */
-export function useWait(): Wait {
-  const [wait] = useState(createWait);
-  useEffect(() => wait.cancel, [wait]);
-  return wait;
-}
-
 /** One wait for the next paint, armed from the owner's own events. */
 export type FrameWait = {
   /** Runs `run` before the next paint, replacing any frame already armed. */

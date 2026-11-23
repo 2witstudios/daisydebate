@@ -1,4 +1,3 @@
-import { renderToString } from 'react-dom/server';
 import {
   Children,
   createElement as h,
@@ -6,6 +5,10 @@ import {
   type ReactNode,
 } from 'react';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
+import {
+  renderAccessible,
+  type AccessibleView,
+} from '../../../test-support/rendered/accessible';
 import { preferenceForKey, renderThemeSwitcher } from './theme-switcher.render';
 import { ThemeSwitcher } from './theme-switcher';
 import { ThemeProvider } from '../../theme/theme-provider';
@@ -27,21 +30,20 @@ const radiosOf = (node: ReactNode): readonly RadioProps[] => {
   return Children.toArray(node.props.children).flatMap(radiosOf);
 };
 
-/** Parses each rendered radio's label, checked state, and tab stop. */
-const radiosIn = (html: string) =>
-  [
-    ...html.matchAll(
-      /<button([^>]*)>(?:<svg[\s\S]*?<\/svg>)?([^<]*)<\/button>/g,
-    ),
-  ].map(([, attributes = '', label]) => ({
-    label,
-    checked: /aria-checked="true"/.test(attributes),
-    tabIndex: /tabindex="(-?\d)"/i.exec(attributes)?.[1],
+/** Each radio of the Theme group: its name, checked state, and tab stop. */
+const radiosIn = (view: AccessibleView) => {
+  const group = view.within('radiogroup', 'Theme');
+  const labels = group.names('radio');
+  return group.all('radio').map((radio, index) => ({
+    label: labels[index],
+    checked: radio.getAttribute('aria-checked') === 'true',
+    tabIndex: radio.getAttribute('tabindex') ?? undefined,
   }));
+};
 
 describe('renderThemeSwitcher', () => {
   test('renders a labelled radio group with the preference checked', () => {
-    const html = renderToString(
+    const view = renderAccessible(
       h(renderThemeSwitcher, {
         preference: 'light',
         selectPreference: () => {},
@@ -51,8 +53,8 @@ describe('renderThemeSwitcher', () => {
       given: 'the light preference',
       should: 'check Light, keep one tab stop, and name the group',
       actual: {
-        group: html.includes('role="radiogroup" aria-label="Theme"'),
-        radios: radiosIn(html),
+        group: view.has('radiogroup', 'Theme'),
+        radios: radiosIn(view),
       },
       expected: {
         group: true,
@@ -140,7 +142,7 @@ describe('preferenceForKey', () => {
 
 describe('ThemeSwitcher', () => {
   test('reflects the provider preference', () => {
-    const html = renderToString(
+    const view = renderAccessible(
       h(ThemeProvider, {
         initialPreference: 'system',
         children: h(ThemeSwitcher),
@@ -149,9 +151,7 @@ describe('ThemeSwitcher', () => {
     assert({
       given: 'a provider seeded with system',
       should: 'render System as the checked radio',
-      actual: radiosIn(html)
-        .filter((radio) => radio.checked)
-        .map((radio) => radio.label),
+      actual: view.names('radio', { checked: true }),
       expected: ['System'],
     });
   });

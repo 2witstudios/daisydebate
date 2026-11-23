@@ -1,5 +1,5 @@
 import { mock } from 'bun:test';
-import { renderToStaticMarkup } from 'react-dom/server';
+import { renderAccessible } from '../../test-support/rendered/accessible';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 setupRitewayBun();
 
@@ -11,7 +11,7 @@ const { RequestDecision } = await import('./request-decision');
 
 test('a group invitation offers only Decline while private groups are off (ISSUE-643)', () => {
   const render = (acceptable: boolean) =>
-    renderToStaticMarkup(
+    renderAccessible(
       <RequestDecision
         action={async (state) => state}
         requestId={'r'.repeat(24)}
@@ -26,10 +26,11 @@ test('a group invitation offers only Decline while private groups are off (ISSUE
     should:
       'keep a native Decline in both and offer Accept only when groups are on',
     actual: [
-      off.includes('value="decline"'),
-      off.includes('value="accept"'),
-      on.includes('value="accept"'),
+      off.attribute('button', 'Decline', 'value'),
+      off.has('button', 'Accept invitation'),
+      on.attribute('button', 'Accept invitation', 'value'),
+      on.attribute('button', 'Decline', 'value'),
     ],
-    expected: [true, false, true],
+    expected: ['decline', false, 'accept', 'decline'],
   });
 });

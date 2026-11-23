@@ -1,4 +1,3 @@
-import { renderToStaticMarkup } from 'react-dom/server';
 import { idle } from '../../../features/forms/form-state';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import {
@@ -6,13 +5,14 @@ import {
   unequalTemplate,
 } from '../../../features/rooms/assembly.test-support';
 import { WithAppRouter } from '../../test-support/app-router';
+import { renderAccessible } from '../../../test-support/rendered/accessible';
 import { savedAnswer } from './assembly-edit-form';
 import { RoomSetup, finishSetupSave } from './room-setup';
 import { sheetOpen } from './room-setup-modal';
 
 setupRitewayBun();
 const action = async () => idle();
-const html = renderToStaticMarkup(
+const view = renderAccessible(
   <WithAppRouter>
     <RoomSetup
       view={assemblySnapshot}
@@ -40,17 +40,22 @@ test('Edit settings is one modal dialog its fragment opens', () => {
     should:
       'render a labelled modal dialog with the room-setup id, closing by a link back to the room',
     actual: [
-      html.includes('id="room-setup"'),
-      html.includes('role="dialog"'),
-      html.includes('aria-modal="true"'),
-      html.includes('aria-labelledby="room-setup-title"'),
-      html.includes(
-        `href="/rooms/${assemblySnapshot.id}" aria-label="Close settings"`,
-      ),
+      view.get('dialog', 'Settings').id,
+      view.attribute('dialog', 'Settings', 'aria-modal'),
+      view
+        .within('dialog', 'Settings')
+        .attribute('link', 'Close settings', 'href'),
     ],
-    expected: [true, true, true, true, true],
+    expected: ['room-setup', 'true', `/rooms/${assemblySnapshot.id}`],
   });
 });
+
+/** A named form's hidden field value, which no role states. */
+const hidden = (form: string, name: string) =>
+  view
+    .get('form', form)
+    .querySelector(`input[type="hidden"][name="${name}"]`)
+    ?.getAttribute('value');
 
 test('both forms keep their native posts, basics first and the rules closed', () => {
   assert({
@@ -58,15 +63,21 @@ test('both forms keep their native posts, basics first and the rules closed', ()
     should:
       'hold the room details, format and round settings forms, with the rules disclosure closed',
     actual: [
-      html.includes('aria-label="Room details"'),
-      html.includes('aria-label="Round settings"'),
-      html.includes('value="details-id"'),
-      html.includes('value="settings-id"'),
-      /<details[^>]*\sopen/.test(html),
-      html.includes('value="choose-id"'),
-      html.includes('The format and rating are set when the room is created.'),
+      hidden('Room details', 'commandId'),
+      hidden('Round settings', 'commandId'),
+      view
+        .all('group')
+        .some(
+          (group) => group.tagName === 'DETAILS' && group.hasAttribute('open'),
+        ),
+      view
+        .get('dialog', 'Settings')
+        .querySelector('input[type="hidden"][value="choose-id"]') !== null,
+      view
+        .textContent()
+        .includes('The format and rating are set when the room is created.'),
     ],
-    expected: [true, true, true, true, false, true, false],
+    expected: ['details-id', 'settings-id', false, true, false],
   });
 });
 

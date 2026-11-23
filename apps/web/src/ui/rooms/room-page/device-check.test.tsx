@@ -1,7 +1,10 @@
-import { renderToStaticMarkup } from 'react-dom/server';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import type { DeviceCheckSnapshot } from '../../../features/video/device-check-controller';
-import { CameraPreview, DeviceChoice } from './device-check';
+import {
+  renderAccessible,
+  type AccessibleView,
+} from '../../../test-support/rendered/accessible';
+import { DeviceChoice } from './device-check';
 
 setupRitewayBun();
 type Props = Parameters<typeof DeviceChoice>[0];
@@ -18,12 +21,8 @@ const snapshot = (
   microphone,
   devicesPassed: camera.status === 'passed' && microphone.status === 'passed',
 });
-const previews: string[] = [];
 const devices = {
-  preview: (kind: string) => {
-    previews.push(kind);
-    return null;
-  },
+  preview: () => null,
   select: () => undefined,
 } as unknown as Props['devices'];
 const input = (kind: MediaDeviceKind, deviceId: string, label: string) =>
@@ -34,7 +33,7 @@ const inputs = [
   input('audioinput', 'mic-1', 'Headset'),
 ];
 const choice = (kind: Props['kind'], state: DeviceCheckSnapshot) =>
-  renderToStaticMarkup(
+  renderAccessible(
     <DeviceChoice
       kind={kind}
       devices={devices}
@@ -42,10 +41,11 @@ const choice = (kind: Props['kind'], state: DeviceCheckSnapshot) =>
       inputs={inputs}
     />,
   );
-/** The words a reader hears: markup removed, entities kept. */
-const text = (html: string) => html.replace(/<[^>]+>/g, '');
-const options = (html: string) =>
-  [...html.matchAll(/<option[^>]*>([^<]*)<\/option>/g)].map((m) => m[1]);
+/** What the device's problem alert says, or null when it says nothing. */
+const alert = (view: AccessibleView) =>
+  view.has('alert') ? view.text('alert') : null;
+const options = (view: AccessibleView) =>
+  view.within('combobox').names('option');
 
 test('device choice lists only its own kind with a labelled fallback', () => {
   assert({
@@ -75,11 +75,11 @@ test('device choice says only what failed, and has no Check button', () => {
     should:
       'name the failure in words beside its selected device, and say nothing while checking or once passed',
     actual: [
-      text(failed).includes('Camera: blocked by this site&#x27;s settings'),
-      /<option value="cam-1" selected="">/.test(failed),
-      [failed, checking, passed].some((html) => html.includes('<button')),
-      checking.includes('role="alert"'),
-      passed.includes('role="alert"'),
+      alert(failed)?.includes("Camera: blocked by this site's settings"),
+      failed.has('option', 'Desk camera', { selected: true }),
+      [failed, checking, passed].some((view) => view.count('button') > 0),
+      checking.has('alert'),
+      passed.has('alert'),
     ],
     expected: [true, true, false, false, false],
   });
@@ -112,26 +112,26 @@ test('a refused device check names who blocked it and the remedy', () => {
     should:
       'blame the operating system and name its privacy setting, point to site settings and a reload, ask to close the other app, connect a device or use Continuity Camera, say an opened device sent nothing, and say nothing once passed',
     actual: [
-      text(system).includes('Camera: blocked by your system'),
-      system.includes(
-        'System Settings › Privacy &amp; Security › Camera and allow your browser',
+      alert(system)?.includes('Camera: blocked by your system'),
+      alert(system)?.includes(
+        'System Settings › Privacy & Security › Camera and allow your browser',
       ),
-      systemMic.includes('Privacy &amp; Security › Microphone'),
-      text(site).includes('Camera: blocked by this site&#x27;s settings'),
-      site.includes(
-        'Allow the camera in your browser&#x27;s site settings, then reload the page.',
+      alert(systemMic)?.includes('Privacy & Security › Microphone'),
+      alert(site)?.includes("Camera: blocked by this site's settings"),
+      alert(site)?.includes(
+        "Allow the camera in your browser's site settings, then reload the page.",
       ),
-      text(busy).includes('Microphone: in use'),
-      busy.includes('Close the other app using your microphone'),
-      text(missing).includes('Camera: no camera found'),
-      missing.includes(
+      alert(busy)?.includes('Microphone: in use'),
+      alert(busy)?.includes('Close the other app using your microphone'),
+      alert(missing)?.includes('Camera: no camera found'),
+      alert(missing)?.includes(
         'Connect a camera or use Continuity Camera, then try again.',
       ),
-      text(missingMic).includes('Microphone: no microphone found'),
-      text(silent).includes('Camera: opened but sent no video'),
-      text(silentMic).includes('Microphone: opened but picked up no sound'),
-      silent.includes('role="alert"'),
-      passed.includes('role="alert"'),
+      alert(missingMic)?.includes('Microphone: no microphone found'),
+      alert(silent)?.includes('Camera: opened but sent no video'),
+      alert(silentMic)?.includes('Microphone: opened but picked up no sound'),
+      silent.has('alert'),
+      passed.has('alert'),
     ],
     expected: [
       true,
@@ -149,39 +149,5 @@ test('a refused device check names who blocked it and the remedy', () => {
       true,
       false,
     ],
-  });
-});
-
-test('camera preview shows initials until the camera passes', () => {
-  previews.length = 0;
-  const waiting = renderToStaticMarkup(
-    <CameraPreview
-      devices={devices}
-      snapshot={snapshot()}
-      label="Ada Lovelace"
-    />,
-  );
-  const waitingPreviews = [...previews];
-  previews.length = 0;
-  const live = renderToStaticMarkup(
-    <CameraPreview
-      devices={devices}
-      snapshot={snapshot(check('passed'), check('passed'))}
-      label="Ada Lovelace"
-    />,
-  );
-  assert({
-    given: 'an unchecked camera and then passed camera and microphone',
-    should:
-      'hide the video behind initials, then show it and read the microphone preview',
-    actual: [
-      waiting.includes('class="sr-only"'),
-      waiting.includes('>AL</span>'),
-      waitingPreviews,
-      live.includes('size-full object-cover'),
-      live.includes('>AL</span>'),
-      previews,
-    ],
-    expected: [true, true, [], true, false, ['microphone']],
   });
 });

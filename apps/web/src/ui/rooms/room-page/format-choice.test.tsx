@@ -1,4 +1,3 @@
-import { renderToStaticMarkup } from 'react-dom/server';
 import { idle } from '../../../features/forms/form-state';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import type {
@@ -9,6 +8,10 @@ import {
   assemblySnapshot,
   unequalTemplate,
 } from '../../../features/rooms/assembly.test-support';
+import {
+  renderAccessible,
+  type AccessibleView,
+} from '../../../test-support/rendered/accessible';
 import { FormatChoice } from './format-choice';
 
 setupRitewayBun();
@@ -61,7 +64,7 @@ const render = (
     readonly view?: Partial<RoomView>;
   } = {},
 ) =>
-  renderToStaticMarkup(
+  renderAccessible(
     <FormatChoice
       view={{ ...assemblySnapshot, format, ...options.view }}
       choices={options.catalog ?? choices}
@@ -70,17 +73,28 @@ const render = (
     />,
   );
 const tuple = (formatId: string, presetVersion: number, formatVersion = 1) =>
-  JSON.stringify({ formatId, formatVersion, presetVersion }).replaceAll(
-    '"',
-    '&quot;',
-  );
+  JSON.stringify({ formatId, formatVersion, presetVersion });
 
-/** Whether the radio with this rendered value is checked, whatever the attribute order. */
-const checked = (html: string, value: string) =>
-  (html.match(/<input [^>]*>/g) ?? []).some(
-    (input) =>
-      input.includes(`value="${value}"`) && input.includes('checked=""'),
+/** The radios of the Format group, by their posted value. */
+const radios = (view: AccessibleView) =>
+  view
+    .within('radiogroup', 'Format')
+    .all('radio')
+    .map((radio) => radio as HTMLInputElement);
+/** Whether the radio with this value is checked. */
+const checked = (view: AccessibleView, value: string) =>
+  radios(view).some((radio) => radio.value === value && radio.checked);
+
+/** The fields a submit button posts with its form. */
+const posted = (button: Element) => {
+  const form = (button as HTMLButtonElement).form;
+  return Object.fromEntries(
+    [...(form?.querySelectorAll('input[name]') ?? [])]
+      .map((input) => input as HTMLInputElement)
+      .filter((input) => input.type !== 'radio' || input.checked)
+      .map((input) => [input.name, input.value]),
   );
+};
 
 const freestyleStandard: RoomView['format'] = {
   name: 'Freestyle',
@@ -103,26 +117,26 @@ const drawView: Partial<RoomView> = {
 
 describe('FormatChoice', () => {
   test('a room on the standard', () => {
-    const html = render(freestyleStandard, { view: drawView });
+    const view = render(freestyleStandard, { view: drawView });
+    const fields = posted(view.get('button', 'Use this format'));
     assert({
       given: 'a casual room still running the Freestyle standard',
       should:
         'offer Freestyle plus Custom, check Freestyle, and post select-format before hydration',
       actual: {
-        order: [
-          ...html.matchAll(
-            /<span class="[^"]*font-strong[^"]*">(Freestyle|Custom)</g,
-          ),
-        ].map((match) => match[1]),
-        freestyleChecked: checked(html, tuple('freestyle', 1)),
-        command: html.includes('name="type" value="select-format"'),
-        intent: html.includes('name="intent" value="choose"'),
-        submit: html.includes('Use this format'),
+        order: view
+          .within('radiogroup', 'Format')
+          .names('radio')
+          .map((name) => name.split(' ')[0]),
+        freestyleChecked: checked(view, tuple('freestyle', 1)),
+        command: fields.type === 'select-format',
+        intent: fields.intent === 'choose',
+        submit: view.has('button', 'Use this format'),
         templateNotAStandard: checked(
-          html,
+          view,
           tuple(unequalTemplate.formatId, 5, unequalTemplate.formatVersion),
         ),
-        backOffered: html.includes('Back to'),
+        backOffered: view.count('button', /^Back to/) > 0,
       },
       expected: {
         order: ['Freestyle', 'Custom'],
@@ -137,7 +151,7 @@ describe('FormatChoice', () => {
   });
 
   test('a room edited away from its standard', () => {
-    const html = render(
+    const view = render(
       {
         ...freestyleStandard,
         standing: {
@@ -148,22 +162,26 @@ describe('FormatChoice', () => {
       },
       { view: drawView },
     );
+    const custom = view.within('region', 'Custom format');
+    const back = posted(custom.get('button', 'Back to Freestyle'));
     assert({
       given: 'a Freestyle room whose prep was edited',
       should:
         'check Custom, say what it is based on, list the change and offer Back to the pinned standard',
       actual: {
-        customChecked: checked(html, 'custom'),
+        customChecked: checked(view, 'custom'),
         // Disabled controls are never posted: Custom is a status, not a choice.
-        customNeverPosts: (html.match(/<input [^>]*>/g) ?? []).some(
-          (input) =>
-            input.includes('value="custom"') && input.includes('disabled=""'),
+        customNeverPosts: radios(view).some(
+          (radio) => radio.value === 'custom' && radio.disabled,
         ),
-        basedOn: html.includes('Custom, based on Freestyle'),
-        change: html.includes('Prep per side 4:00 → 5:00'),
-        back: html.includes('Back to Freestyle'),
-        reset: html.includes('name="intent" value="reset"'),
-        pinned: html.includes(`value="${tuple('freestyle', 1)}"`),
+        basedOn: custom.textContent().includes('Custom, based on Freestyle'),
+        change: custom
+          .all('listitem')
+          .map((item) => item.textContent)
+          .includes('Prep per side 4:00 → 5:00'),
+        back: custom.has('button', 'Back to Freestyle'),
+        reset: back.intent === 'reset',
+        pinned: back.format === tuple('freestyle', 1),
       },
       expected: {
         customChecked: true,
@@ -178,7 +196,7 @@ describe('FormatChoice', () => {
   });
 
   test('a room started from a league template', () => {
-    const html = render({
+    const view = render({
       name: unequalTemplate.label,
       role: 'template',
       leagues: unequalTemplate.leagues,
@@ -200,27 +218,37 @@ describe('FormatChoice', () => {
       should:
         'read Custom, based on it, with no changes, and never offer Back for a template',
       actual: {
-        basedOn: html.includes(`Custom, based on ${unequalTemplate.label}`),
-        noChanges: html.includes('No changes'),
-        back: html.includes('Back to'),
+        basedOn: view
+          .text('region', 'Custom format')
+          .includes(`Custom, based on ${unequalTemplate.label}`),
+        noChanges: view.text('region', 'Custom format').includes('No changes'),
+        back: view.count('button', /^Back to/) > 0,
       },
       expected: { basedOn: true, noChanges: true, back: false },
     });
   });
 
   test('the league browser', () => {
-    const html = render(freestyleStandard, { view: drawView });
+    const view = render(freestyleStandard, { view: drawView });
+    const select = view.within('combobox', 'Start from a league format');
     assert({
       given: 'a catalog with one league template',
       should:
         'offer it, grouped by family, as a native select that starts the room from it',
       actual: {
-        group: html.includes('<optgroup label="League rules · Other formats">'),
-        option: html.includes(
-          `value="${tuple(unequalTemplate.formatId, 5, unequalTemplate.formatVersion)}"`,
-        ),
-        submit: html.includes('Start from this format'),
-        standardsExcluded: !/<option value="[^"]*freestyle/.test(html),
+        group: select.has('group', 'League rules · Other formats'),
+        option: select
+          .all('option')
+          .map((option) => (option as HTMLOptionElement).value)
+          .includes(
+            tuple(unequalTemplate.formatId, 5, unequalTemplate.formatVersion),
+          ),
+        submit: view.has('button', 'Start from this format'),
+        standardsExcluded: !select
+          .all('option')
+          .some((option) =>
+            (option as HTMLOptionElement).value.includes('freestyle'),
+          ),
       },
       expected: {
         group: true,
@@ -232,17 +260,20 @@ describe('FormatChoice', () => {
   });
 
   test('a room that strikes its resolution', () => {
-    const html = render(freestyleStandard, { view: drawView });
+    const view = render(freestyleStandard, { view: drawView });
     assert({
       given: 'a room running a draw',
       should: 'ask for host text only in the league template form',
-      actual: html.match(/name="topic"/g)?.length,
-      expected: 1,
+      actual: [
+        view.count('textbox', 'Resolution'),
+        posted(view.get('button', 'Start from this format')).topic,
+      ],
+      expected: [1, ''],
     });
   });
 
   test('Back from a Custom draw to the standard', () => {
-    const html = render(
+    const view = render(
       {
         ...freestyleStandard,
         standing: {
@@ -256,8 +287,11 @@ describe('FormatChoice', () => {
     assert({
       given: 'a Custom room based on Freestyle, still running a draw',
       should: 'go back to the striking standard without asking for host text',
-      actual: html.match(/name="topic"/g)?.length,
-      expected: 1,
+      actual: [
+        view.count('textbox', 'Resolution'),
+        'topic' in posted(view.get('button', 'Back to Freestyle')),
+      ],
+      expected: [1, false],
     });
   });
 });

@@ -1,9 +1,12 @@
 import { createElement as h } from 'react';
-import { renderToString } from 'react-dom/server';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { NOW } from '../../../features/leaderboard/ladder.test-support';
 import { readLadder } from '../../../features/leaderboard/read-leaderboard.test-support';
 import { buildSeasonsView } from '../../../features/leaderboard/seasons';
+import {
+  renderAccessible,
+  type AccessibleView,
+} from '../../../test-support/rendered/accessible';
 import { SeasonsPage } from './seasons-page';
 
 setupRitewayBun();
@@ -17,83 +20,119 @@ const render = (season: string | null, entries?: 'none') => {
     open,
     NOW,
   );
-  return renderToString(h(SeasonsPage, { view })).replace(/<!-- -->/g, '');
+  return renderAccessible(h(SeasonsPage, { view }));
 };
+
+/** Whether a piece of the page reads exactly this, hidden pieces included. */
+const shows = (view: AccessibleView, text: string | RegExp) =>
+  view
+    .all('generic', undefined, { hidden: true })
+    .some((element) =>
+      typeof text === 'string'
+        ? element.textContent === text
+        : text.test(element.textContent ?? ''),
+    );
+
+const hrefs = (links: readonly Element[]) =>
+  links.map((link) => link.getAttribute('href'));
 
 describe('SeasonsPage', () => {
   test('the live season', () => {
-    const html = render(null);
+    const view = render(null);
+    const text = view.textContent();
     assert({
       given: 'the live season',
       should:
         'show one h1, season chips as links, the leader, ten rows and the explainer anchor',
       actual: [
-        html.match(/<h1/g)?.length,
-        html.includes('href="/leaderboard/seasons?division=open&amp;season=3"'),
-        html.includes('Leading now'),
-        html.includes('Standings now'),
-        html.match(/<li class="border-t/g)?.length,
-        html.includes('id="how-rating-works"'),
-        html.includes('Provisional while rating deviation is above 110.'),
-        html.includes('Current season'),
-        html.match(/href="\/leaderboard\?division=open&amp;season=4"/g)?.length,
-        html.includes('One ladder per season'),
+        view.count('heading', undefined, { level: 1 }),
+        hrefs(view.within('navigation', 'Season').all('link')).includes(
+          '/leaderboard/seasons?division=open&season=3',
+        ),
+        view.has('region', 'Leading now'),
+        view.has('region', 'Standings now'),
+        view.within('region', 'Standings now').count('listitem'),
+        view.get('heading', 'How rating works', { level: 2 }).parentElement?.id,
+        text.includes('Provisional while rating deviation is above 110.'),
+        text.includes('Current season'),
+        hrefs(view.all('link', 'Open the full ladder')),
+        text.includes('One ladder per season'),
       ],
-      expected: [1, true, true, true, 10, true, true, true, 2, true],
+      expected: [
+        1,
+        true,
+        true,
+        true,
+        10,
+        'how-rating-works',
+        true,
+        true,
+        [
+          '/leaderboard?division=open&season=4',
+          '/leaderboard?division=open&season=4',
+        ],
+        true,
+      ],
     });
   });
 
   test('a closed season', () => {
-    const html = render('3');
+    const view = render('3');
     assert({
       given: 'a closed season',
       should:
         'name the champion, label the standings final and show the season change column',
       actual: [
-        html.includes('Champion'),
-        html.includes('Final standings'),
-        html.includes('>Season<'),
-        html.includes('value="100"'),
-        html.includes('aria-current="page"'),
+        view.has('region', 'Champion'),
+        view.has('region', 'Final standings'),
+        shows(view, 'Season'),
+        view.attribute('progressbar', 'Season progress', 'value'),
+        view
+          .within('navigation', 'Season')
+          .count('link', undefined, { current: 'page' }),
       ],
-      expected: [true, true, true, true, true],
+      expected: [true, true, true, '100', 1],
     });
     assert({
       given: 'the closed season champion',
       should: 'give only the rating and the W–L record, with no tier',
-      actual: /<span[^>]*>\d+ · \d+–\d+ W–L<\/span>/.test(html),
+      actual: view
+        .within('region', 'Champion')
+        .all('generic')
+        .some((element) =>
+          /^\d+ · \d+–\d+ W–L$/.test(element.textContent ?? ''),
+        ),
       expected: true,
     });
   });
 
   test('the range picture', () => {
-    const html = render(null);
+    const view = render(null);
     assert({
       given: 'the explainer',
       should: 'draw a labelled picture of a wide and a narrow range',
       actual: [
-        html.includes('role="img"'),
-        html.includes('Provisional'),
-        html.includes('Hollow marker: provisional.'),
+        view.has(
+          'img',
+          'A provisional rating has a wide range; an established rating has a narrow one.',
+        ),
+        view.textContent().includes('Provisional'),
+        view.textContent().includes('Hollow marker: provisional.'),
       ],
       expected: [true, true, true],
     });
   });
 
   test('no active season', () => {
-    const html = renderToString(h(SeasonsPage, { view: null })).replace(
-      /<!-- -->/g,
-      '',
-    );
+    const view = renderAccessible(h(SeasonsPage, { view: null }));
     assert({
       given: 'no active season',
-      should: 'say so and keep the page frame',
+      should: 'say so under the page title',
       actual: [
-        html.includes('No season is active.'),
-        html.includes('max-w-dash-column'),
-        html.includes('font-display'),
+        view.textContent().includes('No season is active.'),
+        view.has('heading', 'Seasons', { level: 1 }),
       ],
-      expected: [true, true, true],
+      expected: [true, true],
     });
   });
 
@@ -104,26 +143,26 @@ describe('SeasonsPage', () => {
       open,
       NOW,
     );
-    const html = renderToString(h(SeasonsPage, { view })).replace(
-      /<!-- -->/g,
-      '',
-    );
+    const text = renderAccessible(h(SeasonsPage, { view })).textContent();
     assert({
       given: 'only closed seasons',
       should: 'say none is active before that season’s standings',
       actual:
-        html.indexOf('No season is active.') > -1 &&
-        html.indexOf('No season is active.') < html.indexOf('Final standings'),
+        text.indexOf('No season is active.') > -1 &&
+        text.indexOf('No season is active.') < text.indexOf('Final standings'),
       expected: true,
     });
   });
 
   test('no one established', () => {
-    const html = render(null, 'none');
+    const view = render(null, 'none');
     assert({
       given: 'a season with no one established',
       should: 'still render without a champion',
-      actual: [html.includes('Leading now'), html.includes('Standings now')],
+      actual: [
+        view.textContent().includes('Leading now'),
+        view.has('region', 'Standings now'),
+      ],
       expected: [false, true],
     });
   });

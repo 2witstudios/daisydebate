@@ -1,14 +1,15 @@
 import { idle } from '../../features/forms/form-state';
-import { renderToStaticMarkup } from 'react-dom/server';
+import { renderAccessible } from '../../test-support/rendered/accessible';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { roundCommandIds } from '../../features/round-runtime/command-ids';
 import { LiveRoundRoom } from './live-round-room';
 import { aff, view, origin } from './live-round.test-support';
+import { postedBy } from '../test-support/posted-fields.test-support';
 import { AppRouterContext } from 'next/dist/shared/lib/app-router-context.shared-runtime';
 setupRitewayBun();
 const noop = () => {};
 test('the canonical live Round mounts its media session and truthful native fallback', () => {
-  const html = renderToStaticMarkup(
+  const page = renderAccessible(
     <AppRouterContext
       value={{
         bfcacheId: 'test',
@@ -44,17 +45,18 @@ test('the canonical live Round mounts its media session and truthful native fall
       />
     </AppRouterContext>,
   );
+  // Leave's confirm is a closed dialog until opened: its form is there, hidden.
+  const forfeit = postedBy(page, 'Leave and forfeit', { hidden: true });
   assert({
     given: 'the fresh canonical debater view without an injected media slot',
     should:
       'render the actual media session without exposing a judge, and make Leave the confirmed forfeit',
     actual: [
-      html.includes('aria-label="Live camera and sound"'),
-      html.includes('Riley Judge'),
-      html.includes('Leave and forfeit'),
-      html.includes('name="type" value="forfeit"'),
-      html.includes(`name="participantId" value="${aff.id}"`),
+      page.has('region', 'Live camera and sound'),
+      page.textContent().includes('Riley Judge'),
+      forfeit.type,
+      forfeit.participantId,
     ],
-    expected: [true, false, true, true, true],
+    expected: [true, false, 'forfeit', aff.id],
   });
 });

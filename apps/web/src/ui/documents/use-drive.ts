@@ -3,46 +3,35 @@
 import { useActivation } from '../edge/use-activation';
 import { useDeliver } from '../edge/use-answer';
 import { useWindowEvent } from '../edge/use-dom-events';
+import { useDriver } from '../edge/use-driver';
 import { useLatest } from '../edge/use-latest';
-import { useCallback, useMemo, useRef, useState, type Dispatch } from 'react';
-import { systemClock } from '@daisy/clock';
+import { browserScheduler } from '../edge/browser-time';
+import { useCallback, useMemo, type Dispatch } from 'react';
+import { nowMs, systemClock } from '@daisy/clock';
 import type { ManagerAction } from '../../features/documents/document-manager-state';
-import {
-  findOpen,
-  loadedDocuments,
-  type OpenDocument,
-} from '../../features/documents/open-documents';
-import {
-  DRIVE_FULL_NOTICE,
-  driveNotices,
-} from '../../features/documents/drive-return';
-import type {
-  DriveCursor,
-  DriveEntryView,
-} from '../../features/documents/drive-tree';
-import type { DocumentSync, StoredDocument } from './document-sync';
+import type { OpenDocument } from '../../features/documents/open-documents';
+import type { DriveCursor } from '../../features/documents/drive-tree';
+import type { DocumentSync } from './document-sync';
 import type { SaveState } from './document-pane';
-
 import {
   driveApi,
   type DriveChange,
   type FolderRow,
   type RecentDocument,
 } from './drive-api';
-import { useRecentDocuments } from './use-recent-documents';
 import { createDriveOperations } from './drive-operations';
-
-type DriveProblem =
-  | {
-      readonly kind: 'read';
-      readonly resourceId: string | null;
-      readonly message: string;
-    }
-  | { readonly kind: 'change' | 'missing'; readonly message: string };
-const statusOf = (error: unknown) =>
-  (error as { readonly status?: unknown } | null)?.status;
+import {
+  createDriveDriver,
+  seedDrive,
+  type DriveSnapshot,
+} from './drive-driver';
 
 export type DriveActions = {
+  /**
+   * Whether the drive has started. It starts after the first commit, and an
+   * action before then does nothing, so a mount-time request waits for this.
+   */
+  readonly ready: boolean;
   readonly problem: string | null;
   readonly folderProblem: string | null;
   readonly folders: readonly FolderRow[];
@@ -67,11 +56,10 @@ export type DriveActions = {
   ) => void;
 };
 
-const orNull = (value: string | undefined) => (value ? value : null);
-
 /**
- * One manager's drive actions, wherever it opens. The tree changes only once
- * the authenticated document operation has agreed.
+ * One manager's drive actions, wherever it opens (`createDriveDriver`). The
+ * owner's operation sequence is activated as the render that built it
+ * commits; the driver runs every read and change in it.
  */
 export function useDrive({
   sync,
@@ -94,395 +82,68 @@ export function useDrive({
   readonly save?: SaveState;
   readonly initialRecent?: readonly RecentDocument[];
 }): DriveActions {
-  const [folders, setFolders] = useState(initialFolders);
-  const [problem, setProblem] = useState<DriveProblem | null>(null);
-  const [folderProblem, setFolderProblem] = useState<string | null>(null);
-  const { documents: recent, refresh: readRecent } = useRecentDocuments(
-    showRecent,
-    save,
-    initialRecent,
-  );
   const scope = useMemo(() => createDriveOperations(sync), [sync]);
   useActivation(scope);
-  const ownsOperation = scope.owns;
-  const inOrder = scope.run;
-  const generation = useRef(0);
+  const owner = useLatest(useMemo(() => ({ sync, scope }), [sync, scope]));
   const known = useLatest(opened);
-
-  const missing = useCallback(
-    (id: string) => {
-      generation.current++;
-      dispatch({ type: 'drive/unlist', id });
-      readRecent();
-      // A stale row may be an open document, or a folder with open descendants.
-      // Recheck server truth without throwing away anyone's unsaved text.
-      void sync
-        ?.recheck(loadedDocuments(known()).map((document) => document.id))
-        .catch(() => {});
-    },
-    [dispatch, sync, readRecent, known],
-  );
-  const readFailed = useCallback(
-    (
-      error: unknown,
-      resourceId: string | null,
-      message: string,
-      passive = false,
-    ) => {
-      if (statusOf(error) === 404 && resourceId !== null) missing(resourceId);
-      setProblem((current) =>
-        passive && (current?.kind === 'change' || current?.kind === 'missing')
-          ? current
-          : statusOf(error) === 404
-            ? { kind: 'missing', message: driveNotices.missing }
-            : { kind: 'read', resourceId, message },
-      );
-    },
-    [missing],
-  );
-  const mutate = async <T>(run: () => Promise<T>): Promise<T> => {
-    generation.current++;
-    const answer = await run();
-    if (ownsOperation()) {
-      generation.current++;
-      setProblem((current) =>
-        current?.kind === 'change' || current?.kind === 'missing'
-          ? null
-          : current,
-      );
-    }
-    return answer;
-  };
-
-  const readSucceeded = useCallback(
-    (folderId: string | null, explicit: boolean) => {
-      setProblem((current) =>
-        (current?.kind === 'missing' && explicit) ||
-        (current?.kind === 'read' && current.resourceId === folderId)
-          ? null
-          : current,
-      );
-    },
-    [],
-  );
-
-  // Expansion and New here share the first read, so an older response cannot
-  // arrive after the create and replace its newly inserted row.
-  const firstPages = useRef(new Map<string | null, Promise<void>>());
-  const listFolder = useCallback(
-    (
-      folderId: string | null,
-      after: DriveCursor | null,
-      passive = false,
-    ): Promise<void> => {
-      const pending =
-        after === null ? firstPages.current.get(folderId) : undefined;
-      if (pending)
-        return passive
-          ? pending
-          : pending.then(() => readSucceeded(folderId, true));
-      const request = async (): Promise<void> => {
-        const started = generation.current;
-        const page = await driveApi.list(folderId, after);
-        // A focus refresh may race a create, rename, move or deletion. Never
-        // replace an acknowledged change with a page read before it committed.
-        if (started !== generation.current) return request();
-        readSucceeded(folderId, !passive);
-        dispatch({
-          type: 'drive/page',
-          folderId,
-          first: after === null,
-          ...page,
-        });
-      };
-      const read = request();
-      if (after !== null) return read;
-      const tracked = read.finally(() => firstPages.current.delete(folderId));
-      firstPages.current.set(folderId, tracked);
-      return tracked;
-    },
-    [dispatch, readSucceeded],
-  );
-
-  const readRoot = () =>
-    void listFolder(null, null, true).catch((error) =>
-      readFailed(
-        error,
-        null,
-        'Your drive did not load. Reload the page.',
-        true,
-      ),
-    );
-  // Each owner reads the root once, unless the page rendered its first page.
-  const rooted = useMemo(() => ({ sync, listRoot }), [sync, listRoot]);
-  useDeliver(rooted, (next) => {
-    if (next.sync && next.listRoot) readRoot();
-  });
-  // Automatic reads can recover their own read errors, but never consume
-  // the person's actionable missing-item or change message.
-  useWindowEvent(
-    'focus',
-    () => {
-      readRoot();
-      readRecent();
-    },
-    sync !== undefined,
-  );
-
-  const open = (id: string, title: string, origin?: 'link') => {
-    if (sync && !sync.canOpen(id)) return;
-    const current = findOpen(known(), id);
-    if (!sync || current?.kind === 'loaded' || current?.kind === 'loading') {
-      dispatch({ type: 'tabs/open', id });
-      dispatch({ type: 'palette/close' });
-      return;
-    }
-    // A tab with no editor until the body arrives, so nothing can be typed early.
-    dispatch({ type: 'doc/opening', id, title, ...(origin ? { origin } : {}) });
-    sync.open(id).then(
-      (document) => {
-        if (!sync.canOpen(id)) return;
-        if (document) dispatch({ type: 'doc/add', document });
-        else {
-          missing(id);
-          dispatch({ type: 'doc/missing', id });
-          setProblem({ kind: 'missing', message: driveNotices.missing });
-        }
-      },
-      () => dispatch({ type: 'doc/failed', id }),
-    );
-  };
-
-  const createDocument = (folderId: string | null) => {
-    if (!sync || !scope.beginCreate()) return;
-    void inOrder(() =>
-      mutate(() => sync.create(folderId))
-        .then((document) => {
-          if (!ownsOperation()) return;
-          dispatch({ type: 'doc/add', document });
-          const entry: DriveEntryView = {
-            kind: 'document',
-            id: document.id,
-            title: document.title,
-          };
-          dispatch({
-            type: 'drive/add',
-            folderId,
-            entry,
-          });
-        })
-        .catch((error: unknown) => {
-          if (!ownsOperation()) return;
-          if (statusOf(error) === 404 && folderId !== null) missing(folderId);
-          setProblem({
-            kind: statusOf(error) === 404 ? 'missing' : 'change',
-            message:
-              statusOf(error) === 409
-                ? DRIVE_FULL_NOTICE
-                : statusOf(error) === 404
-                  ? driveNotices.missing
-                  : 'That document was not created. Try again.',
-          });
-        })
-        .finally(() => {
-          scope.endCreate();
-          if (ownsOperation()) readRecent();
-        }),
-    );
-  };
-
-  const change: DriveActions['change'] = (path, fields) => {
-    if (path === 'create') return createDocument(orNull(fields.folderId));
-    const id = fields.id ?? '';
-    const body =
-      path === 'move'
-        ? { id, folderId: orNull(fields.folderId) }
-        : path === 'folders/move'
-          ? { id, parentFolderId: orNull(fields.parentFolderId) }
-          : path === 'folders/create'
-            ? {
-                parentFolderId: orNull(fields.parentFolderId),
-                name: fields.name ?? '',
-              }
-            : fields;
-    void inOrder(() =>
-      mutate(() =>
-        driveApi.change<{
-          folder?: DriveEntryView;
-          deletedDocumentIds?: readonly string[];
-        }>(path, body),
-      )
-        .then((answer) => {
-          if (!ownsOperation()) return;
-          if (path === 'rename' || path === 'folders/rename')
-            dispatch({
-              type: 'drive/rename',
-              id,
-              label: (fields.title ?? fields.name ?? '').trim(),
-              now: systemClock.now(),
-            });
-          else if (path === 'move')
-            dispatch({
-              type: 'drive/move',
-              id,
-              folderId: orNull(fields.folderId),
-            });
-          else if (path === 'folders/move')
-            dispatch({
-              type: 'drive/move',
-              id,
-              folderId: orNull(fields.parentFolderId),
-            });
-          else if (path === 'delete') {
-            sync?.forget(id);
-            dispatch({ type: 'drive/remove', id });
-          } else if (path === 'folders/delete') {
-            const documentIds = answer.deletedDocumentIds ?? [];
-            sync?.forgetAll(documentIds);
-            dispatch({ type: 'drive/folder-deleted', id, documentIds });
-          } else if (answer.folder) {
-            // The one path left is folders/create, the only one answering a folder.
-            dispatch({
-              type: 'drive/add',
-              folderId: orNull(fields.parentFolderId),
-              entry: answer.folder,
-            });
-            dispatch({ type: 'drive/renaming', id: answer.folder.id });
-          }
-          readRecent();
-        })
-        .catch(async (error: unknown) => {
-          if (!ownsOperation()) return;
-          if (
-            statusOf(error) === 404 &&
-            (path === 'move' || path === 'folders/move')
-          ) {
-            try {
-              const found = await driveApi.folders();
-              if (!ownsOperation()) return;
-              setFolders(found);
-              setFolderProblem(null);
-              const sourceExists =
-                path === 'folders/move'
-                  ? found.some((folder) => folder.id === id)
-                  : await driveApi.hasDocument(id);
-              if (!ownsOperation()) return;
-              const targetId = orNull(
-                path === 'move' ? fields.folderId : fields.parentFolderId,
-              );
-              const targetExists =
-                targetId === null ||
-                found.some((folder) => folder.id === targetId);
-              if (!sourceExists) missing(id);
-              if (!targetExists) missing(targetId);
-              setProblem({
-                kind: !sourceExists || !targetExists ? 'missing' : 'change',
-                message: !sourceExists
-                  ? driveNotices.missing
-                  : !targetExists
-                    ? 'That destination is no longer in your drive. Choose another folder.'
-                    : 'That move could not be completed. Your file stays here. Try again.',
-              });
-            } catch {
-              if (!ownsOperation()) return;
-              setProblem({
-                kind: 'change',
-                message:
-                  'That move could not be checked. Your file stays here. Reload before trying again.',
-              });
-            }
-            return;
-          }
-          const staleId =
-            path === 'folders/create' ? orNull(fields.parentFolderId) : id;
-          if (statusOf(error) === 404 && staleId) missing(staleId);
-          setProblem({
-            kind: statusOf(error) === 404 ? 'missing' : 'change',
-            message:
-              statusOf(error) === 409
-                ? driveNotices.conflict
-                : statusOf(error) === 404
-                  ? driveNotices.missing
-                  : 'That change did not save. Try again.',
-          });
-        }),
-    );
-  };
-
-  return {
-    problem: problem?.message ?? null,
-    folderProblem,
-    folders,
-    recent,
-    loadFolders: () => {
-      driveApi.folders().then(
-        (found) => {
-          setFolders(found);
-          setFolderProblem(null);
-        },
-        () =>
-          setFolderProblem(
-            'Folder destinations did not load. Close this menu and try again.',
-          ),
-      );
-    },
-    open,
-    createDocument,
-    createFolder: (parentFolderId) =>
-      change('folders/create', {
-        parentFolderId: parentFolderId ?? '',
-        name: 'New folder',
+  const send = useLatest(dispatch);
+  const listsRecent = useLatest(showRecent);
+  const recentSeeded = initialRecent !== undefined;
+  const start = useCallback(
+    (seed: DriveSnapshot) =>
+      createDriveDriver({
+        seed,
+        recentSeeded,
+        api: driveApi,
+        owner,
+        opened: known,
+        dispatch: (action) => send()(action),
+        showRecent: listsRecent,
+        now: () => systemClock.now(),
+        clockMs: () => nowMs(systemClock),
+        after: browserScheduler.after,
       }),
-    saveRecovered: async (id) => {
-      if (!sync) return null;
-      let result: StoredDocument | null = null;
-      await inOrder(async () => {
-        const created = await mutate(() => sync.saveAsNew(id));
-        if (!ownsOperation()) return;
-        result = created;
-        if (created) {
-          dispatch({
-            type: 'drive/add',
-            folderId: null,
-            entry: { kind: 'document', id: created.id, title: created.title },
-          });
-          readRecent();
-        }
-      });
-      return result;
-    },
-    folderCount: async (id) => {
-      let count: number | undefined;
-      await inOrder(async () => {
-        const found = await driveApi.folderCount(id);
-        if (ownsOperation()) count = found;
-      });
-      if (count === undefined)
-        throw new Error('The document owner is no longer available');
-      return count;
-    },
-    toggle: async (folderId, expanded, read) => {
-      dispatch({ type: 'drive/expand', folderId, expanded });
-      if (expanded && !read) {
-        try {
-          await listFolder(folderId, null);
-        } catch (error: unknown) {
-          dispatch({ type: 'drive/expand', folderId, expanded: false });
-          readFailed(error, folderId, 'That folder did not open. Try again.');
-          return false;
-        }
-      }
-      return true;
-    },
-    more: (folderId, after) => {
-      listFolder(folderId, after).catch((error) =>
-        readFailed(
-          error,
-          folderId,
-          'More of your drive did not load. Try again.',
-        ),
-      );
-    },
-    change,
+    [recentSeeded, owner, known, send, listsRecent],
+  );
+  const [shown, drive] = useDriver(
+    () => seedDrive(initialFolders, initialRecent),
+    start,
+  );
+  // Each owner reads the root once, unless the page rendered its first page.
+  const rooted = useMemo(
+    () => ({ drive, sync, listRoot }),
+    [drive, sync, listRoot],
+  );
+  useDeliver(rooted, (next) => {
+    if (next.sync && next.listRoot) next.drive?.readRoot();
+  });
+  // The frame's save settling refreshes Recent, as does listing it at all.
+  const settled = useMemo(
+    () => ({ drive, save, showRecent }),
+    [drive, save, showRecent],
+  );
+  useDeliver(settled, (next) =>
+    next.drive?.saveSettled(next.save, next.showRecent),
+  );
+  useWindowEvent('focus', () => drive?.focused(), sync !== undefined);
+  return {
+    ready: drive !== null,
+    problem: shown.problem?.message ?? null,
+    folderProblem: shown.folderProblem,
+    folders: shown.folders,
+    recent: shown.recent,
+    loadFolders: () => drive?.loadFolders(),
+    open: (id, title, origin) => drive?.open(id, title, origin),
+    createDocument: (folderId) => drive?.createDocument(folderId),
+    createFolder: (parentFolderId) => drive?.createFolder(parentFolderId),
+    toggle: (folderId, expanded, read) =>
+      drive?.toggle(folderId, expanded, read) ?? Promise.resolve(false),
+    saveRecovered: (id) => drive?.saveRecovered(id) ?? Promise.resolve(null),
+    folderCount: (id) =>
+      drive?.folderCount(id) ??
+      Promise.reject(new Error('The document owner is no longer available')),
+    more: (folderId: string | null, after: DriveCursor) =>
+      drive?.more(folderId, after),
+    change: (path: DriveChange, fields) => drive?.change(path, fields),
   };
 }

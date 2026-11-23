@@ -1,8 +1,8 @@
 import { createElement as h } from 'react';
-import { renderToString } from 'react-dom/server';
 import { AppRouterContext } from 'next/dist/shared/lib/app-router-context.shared-runtime';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { initialFriendForm } from '../../features/friends/forms';
+import { renderAccessible } from '../../test-support/rendered/accessible';
 import { ProfileFriendActions } from './profile-friend-actions';
 
 setupRitewayBun();
@@ -19,7 +19,7 @@ const router = {
 };
 const action = async () => initialFriendForm();
 const render = (relation: 'none' | 'friends' | 'incoming' | 'outgoing') =>
-  renderToString(
+  renderAccessible(
     h(
       AppRouterContext,
       { value: router },
@@ -37,18 +37,18 @@ test('ProfileFriendActions', () => {
     should: 'offer the one native form that fits it',
     actual: (['none', 'friends', 'incoming', 'outgoing'] as const).map(
       (relation) => {
-        const html = render(relation);
-        return [
-          html.match(/aria-label="([^"]+)"/)?.[1],
-          html.match(/name="intent" value="([^"]+)"/)?.[1],
-        ];
+        const view = render(relation);
+        const form = view.all('button')[0]?.closest('form');
+        const intent = form?.elements.namedItem('intent') as
+          HTMLInputElement | null | undefined;
+        return [view.names('button'), intent?.value];
       },
     ),
     expected: [
-      ['Add friend @ada', 'request'],
-      [undefined, undefined],
-      ['Accept friend request @ada', 'accept'],
-      ['Cancel friend request @ada', 'cancel'],
+      [['Add friend @ada'], 'request'],
+      [[], undefined],
+      [['Accept friend request @ada'], 'accept'],
+      [['Cancel friend request @ada'], 'cancel'],
     ],
   });
 });

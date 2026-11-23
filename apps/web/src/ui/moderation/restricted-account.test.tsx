@@ -1,22 +1,29 @@
-import { renderToString } from 'react-dom/server';
 import { createElement as h } from 'react';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
+import { renderAccessible } from '../../test-support/rendered/accessible';
+import { postedBy } from '../test-support/posted-fields.test-support';
 import { RestrictedAccount } from './restricted-account';
 
 setupRitewayBun();
 
 test('a failed sign-out comes back to the restricted page (ADR 0103)', () => {
-  const html = renderToString(
+  const view = renderAccessible(
     h(RestrictedAccount, {
       username: 'ada',
       until: null,
       signOutFailed: false,
     }),
   );
+  const next = postedBy(view, 'Sign out').next;
   assert({
     given: 'the restricted page',
     should: 'send its sign-out form back here, not to the beta page',
-    actual: [html.includes('value="/restricted"'), html.includes('/beta')],
-    expected: [true, false],
+    actual: [
+      next,
+      view
+        .all('link')
+        .some((link) => link.getAttribute('href')?.includes('/beta')),
+    ],
+    expected: ['/restricted', false],
   });
 });

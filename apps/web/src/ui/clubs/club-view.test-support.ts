@@ -86,12 +86,4 @@ export const billingView: ClubBillingView = {
   purchaseAvailable: true,
 };
 
-/** Rendered markup as the words a person reads. */
-export const words = (html: string) =>
-  html
-    .replace(/<[^>]*>/g, ' ')
-    .replace(/&#x27;/g, "'")
-    .replace(/&amp;/g, '&')
-    .replace(/\s+/g, ' ');
-
 export const noAction = async () => ({ kind: 'done' }) as const;

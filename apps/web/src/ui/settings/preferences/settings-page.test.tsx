@@ -1,6 +1,9 @@
 import { createElement as h } from 'react';
-import { renderToString } from 'react-dom/server';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
+import {
+  renderAccessible,
+  type AccessibleView,
+} from '../../../test-support/rendered/accessible';
 import { mockNextRouter } from '../../../lib/testing/mock-router';
 import { ThemeProvider } from '../../theme/theme-provider';
 
@@ -9,6 +12,23 @@ setupRitewayBun();
 // The forms read the Next router, which only exists in a running app.
 await mockNextRouter();
 const { SettingsPage } = await import('./settings-page');
+
+const controlRoles = ['button', 'checkbox', 'radio', 'textbox', 'combobox'];
+const controls = (view: AccessibleView) =>
+  controlRoles.flatMap((role) => view.all(role));
+/** The `name` every control posts under. */
+const fieldNames = (view: AccessibleView) =>
+  controls(view).map((control) => control.getAttribute('name'));
+/** The forms a member can submit: every form that holds a control. */
+const forms = (view: AccessibleView) => [
+  ...new Set(
+    controls(view)
+      .map((control) => control.closest('form'))
+      .filter((form) => form !== null),
+  ),
+];
+const hrefs = (view: AccessibleView) =>
+  view.all('link').map((link) => link.getAttribute('href') ?? '');
 
 const render = (
   username: string | null,
@@ -22,7 +42,7 @@ const render = (
     replay: false,
   },
 ) =>
-  renderToString(
+  renderAccessible(
     h(ThemeProvider, {
       initialPreference: 'system',
       children: h(SettingsPage, {
@@ -52,33 +72,36 @@ describe('SettingsPage', () => {
       given: 'a deploy offering a choice, then one offering none',
       should: 'say what not answering means only beside a choice',
       actual: [
-        render('debater-a').includes(sentence),
+        render('debater-a').textContent().includes(sentence),
         render('debater-a', null, undefined, {
           analytics: false,
           replay: false,
-        }).includes(sentence),
+        })
+          .textContent()
+          .includes(sentence),
       ],
       expected: [true, false],
     });
   });
 
   test('a member', () => {
-    const html = render('debater-a');
+    const view = render('debater-a');
+    const actions = forms(view).map((form) => form.getAttribute('action'));
     assert({
       given: 'a signed-in member',
       should:
         'show one h1, the four sections, three real forms and a link to their profile',
       actual: [
-        html.match(/<h1 /g)?.length,
-        html.match(/<section id=/g)?.length,
-        html.match(/<form /g)?.length,
-        html.includes('href="/profile/debater-a"'),
-        html.includes('href="/settings/security"'),
+        view.count('heading', undefined, { level: 1 }),
+        view.all('region').filter((section) => section.id !== '').length,
+        forms(view).length,
+        hrefs(view).includes('/profile/debater-a'),
+        hrefs(view).includes('/settings/security'),
         // ISSUE-833: the data-rights forms post natively, before hydration.
         [
-          html.includes('action="/api/privacy/export"'),
-          html.includes('action="/api/privacy/erase"'),
-          html.includes('name="confirm"'),
+          actions.includes('/api/privacy/export'),
+          actions.includes('/api/privacy/erase'),
+          fieldNames(view).includes('confirm'),
         ],
       ],
       expected: [1, 4, 3, true, true, [true, true, true]],
@@ -86,55 +109,59 @@ describe('SettingsPage', () => {
   });
 
   test('the data-rights notices are fixed sentences', () => {
-    const html = render('debater-a', null, {
+    const view = render('debater-a', null, {
       exportData: 'rate-limited',
       erase: 'confirm',
     });
+    const text = view.textContent();
     assert({
       given: 'the export and erase handlers fixed notice keys in the URL',
       should: 'render their fixed sentences once each and never the URL values',
       actual: [
-        html.includes('Too many export requests. Try again later.'),
-        html.includes('Tick the box to confirm you want your account closed.'),
-        html.includes('rate-limited'),
+        text.split('Too many export requests. Try again later.').length - 1,
+        text.split('Tick the box to confirm you want your account closed.')
+          .length - 1,
+        text.includes('rate-limited') ||
+          hrefs(view).some((href) => href.includes('rate-limited')),
       ],
-      expected: [true, true, false],
+      expected: [1, 1, false],
     });
   });
 
   test('consent starts off', () => {
-    const html = render('debater-a');
+    const view = render('debater-a');
+    const analytics = view
+      .all('checkbox')
+      .filter((box) => box.getAttribute('name') === 'analytics');
     assert({
       given: 'a new account’s privacy settings',
       should:
         'leave analytics unticked, hide unavailable replay and explain necessary storage',
       actual: [
-        /name="analytics"[^>]*checked=""|checked=""[^>]*name="analytics"/.test(
-          html,
-        ),
-        html.includes('name="replay"'),
-        html.includes('Necessary storage always stays on.'),
+        analytics.map((box) => box.hasAttribute('checked')),
+        fieldNames(view).includes('replay'),
+        view.textContent().includes('Necessary storage always stays on.'),
       ],
-      expected: [false, false, true],
+      expected: [[false], false, true],
     });
   });
 
   test('nothing claims to be saved without a write', () => {
-    const html = render('debater-a');
+    const view = render('debater-a');
     assert({
       given: 'Settings with no stored profile or email preferences',
       should: 'offer no form that discards its post and no saved notice',
       actual: [
-        html.includes('name="bio"'),
-        html.includes('name="newsletter"'),
-        html.includes('saved.'),
+        fieldNames(view).includes('bio'),
+        fieldNames(view).includes('newsletter'),
+        view.textContent().includes('saved.'),
       ],
       expected: [false, false, false],
     });
   });
 
   test('the profile section', () => {
-    const html = renderToString(
+    const view = renderAccessible(
       h(ThemeProvider, {
         initialPreference: 'system',
         children: h(SettingsPage, {
@@ -150,47 +177,47 @@ describe('SettingsPage', () => {
         }),
       }),
     );
-    const profile = html.slice(
-      html.indexOf('id="profile"'),
-      html.indexOf('id="privacy"'),
-    );
+    const profile = view.within('region', 'Profile');
     assert({
       given: 'a member’s display name, bio, photo and status controls',
       should:
         'show them in the Profile section beside the username, which stays a link and not a field',
       actual: [
-        profile.includes('href="/profile/debater-a"'),
-        profile.includes('PUBLIC-PROFILE'),
-        profile.includes('>Status</h3>'),
-        profile.includes('STATUS-FORM'),
-        html.includes('name="username"'),
+        hrefs(profile).includes('/profile/debater-a'),
+        profile.textContent().includes('PUBLIC-PROFILE'),
+        profile.has('heading', 'Status', { level: 3 }),
+        profile.textContent().includes('STATUS-FORM'),
+        fieldNames(view).includes('username'),
       ],
       expected: [true, true, true, true, false],
     });
   });
 
   test('an account with no username yet', () => {
-    const html = render(null);
+    const view = render(null);
     assert({
       given: 'an account still choosing a username',
       should: 'offer to choose one instead of a profile link',
       actual: [
-        html.includes('href="/onboarding/username"'),
-        html.includes('href="/profile/'),
+        hrefs(view).includes('/onboarding/username'),
+        hrefs(view).some((href) => href.startsWith('/profile/')),
       ],
       expected: [true, false],
     });
   });
 
   test('no sample account actions', () => {
-    const html = render('debater-a');
+    const view = render('debater-a');
     assert({
       given: 'the settings page while export and deletion have no backend',
       should: 'offer neither Export my data nor Delete my account',
       actual: [
-        html.includes('Export my data'),
-        html.includes('Delete my account'),
-        html.includes('?did='),
+        view.textContent().includes('Export my data'),
+        view.textContent().includes('Delete my account'),
+        [
+          ...hrefs(view),
+          ...forms(view).map((form) => form.getAttribute('action') ?? ''),
+        ].some((target) => target.includes('?did=')),
       ],
       expected: [false, false, false],
     });
@@ -221,12 +248,12 @@ describe('onboarding answers in Settings (ISSUE-324)', () => {
       should:
         'list the answers with plain Edit links that return to Settings, and show no answers at all otherwise',
       actual: [
-        shown.includes('Your onboarding answers'),
-        shown.includes('href="/onboarding/about?next=%2Fsettings"'),
-        shown.includes('href="/onboarding/experience?next=%2Fsettings"'),
-        shown.includes('href="/onboarding/topics?next=%2Fsettings"'),
-        hidden.includes('Your onboarding answers'),
-        hidden.includes('/onboarding/about'),
+        shown.textContent().includes('Your onboarding answers'),
+        hrefs(shown).includes('/onboarding/about?next=%2Fsettings'),
+        hrefs(shown).includes('/onboarding/experience?next=%2Fsettings'),
+        hrefs(shown).includes('/onboarding/topics?next=%2Fsettings'),
+        hidden.textContent().includes('Your onboarding answers'),
+        hrefs(hidden).some((href) => href.includes('/onboarding/about')),
       ],
       expected: [true, true, true, true, false, false],
     });
@@ -234,11 +261,14 @@ describe('onboarding answers in Settings (ISSUE-324)', () => {
 });
 
 test('ranked standings have no unsupported privacy switch', () => {
-  const html = render('debater-a');
+  const view = render('debater-a');
   assert({
     given: 'Settings while ranked standings have no persisted opt-out',
     should: 'offer no ladder visibility toggle or private-debater promise',
-    actual: [html.includes('name="ladder"'), html.includes('private debater')],
+    actual: [
+      fieldNames(view).includes('ladder'),
+      view.textContent().includes('private debater'),
+    ],
     expected: [false, false],
   });
 });

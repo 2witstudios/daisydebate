@@ -1,24 +1,17 @@
-import { renderToString } from 'react-dom/server';
 import { createElement as h } from 'react';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
+import { renderAccessible } from '../../../test-support/rendered/accessible';
 import { ReadyStep } from './ready';
 
 setupRitewayBun();
 
 const render = (homeHref = '/lobby') =>
-  renderToString(h(ReadyStep, { homeHref })).replaceAll('<!-- -->', '');
-
-const text = (html: string) =>
-  html
-    .replace(/<[^>]+>/g, ' ')
-    .replace(/&#x27;/g, "'")
-    .replace(/&amp;/g, '&')
-    .replace(/\s+/g, ' ');
+  renderAccessible(h(ReadyStep, { homeHref }));
 
 describe('ReadyStep', () => {
   test('one simple send-off', () => {
-    const html = render();
-    const page = text(html);
+    const view = render();
+    const page = view.textContent();
     assert({
       given: 'the last step',
       should:
@@ -28,8 +21,7 @@ describe('ReadyStep', () => {
         page.includes(
           'Everything is set up. The lobby is where debates start. Jump in whenever you like.',
         ),
-        page.includes('Enter the lobby'),
-        html.includes('href="/lobby"'),
+        view.attribute('link', 'Enter the lobby', 'href'),
         page.includes(`You're one of the first inside`),
         [
           page.includes('Debate a bot'),
@@ -38,7 +30,7 @@ describe('ReadyStep', () => {
           page.includes('club'),
         ].some((leftover) => leftover),
       ],
-      expected: [true, true, true, true, true, false],
+      expected: [true, true, '/lobby', true, false],
     });
   });
 });

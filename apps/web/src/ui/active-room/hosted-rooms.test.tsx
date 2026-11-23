@@ -1,6 +1,6 @@
-import { renderToStaticMarkup } from 'react-dom/server';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import type { HostedRoom } from '@daisy/protocol/hosted-rooms';
+import { renderAccessible } from '../../test-support/rendered/accessible';
 import { HostedRooms } from './hosted-rooms';
 
 setupRitewayBun();
@@ -16,7 +16,7 @@ const room = (over: Partial<HostedRoom>): HostedRoom => ({
 
 describe('HostedRooms (TAB-6.16)', () => {
   test('the list links back to each Room the member hosts without a seat', () => {
-    const html = renderToStaticMarkup(
+    const view = renderAccessible(
       <HostedRooms
         rooms={[room({}), room({ id: id('b'), title: 'Seated', seated: true })]}
       />,
@@ -26,12 +26,12 @@ describe('HostedRooms (TAB-6.16)', () => {
       should:
         'title the list and link only to the first, with its state; the seated one is the active-Room bar’s',
       actual: [
-        html.includes('Rooms you host'),
-        html.includes(`href="/rooms/${id('a')}"`),
-        html.includes('Setting up'),
-        html.includes(`href="/rooms/${id('b')}"`),
+        view.has('heading', 'Rooms you host', { level: 2 }),
+        view.all('link').map((link) => link.getAttribute('href')),
+        view.has('link', 'Friday practice'),
+        view.text('listitem').includes('Setting up'),
       ],
-      expected: [true, true, true, false],
+      expected: [true, [`/rooms/${id('a')}`], true, true],
     });
   });
 
@@ -40,8 +40,10 @@ describe('HostedRooms (TAB-6.16)', () => {
       given: 'no hosted Room, then only a seated one',
       should: 'render no list',
       actual: [
-        renderToStaticMarkup(<HostedRooms rooms={[]} />),
-        renderToStaticMarkup(<HostedRooms rooms={[room({ seated: true })]} />),
+        renderAccessible(<HostedRooms rooms={[]} />).textContent(),
+        renderAccessible(
+          <HostedRooms rooms={[room({ seated: true })]} />,
+        ).textContent(),
       ],
       expected: ['', ''],
     });

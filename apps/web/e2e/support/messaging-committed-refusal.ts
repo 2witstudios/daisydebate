@@ -98,8 +98,22 @@ export function committedRefusalState(
     diagnostic.contextualRouter = true;
     const transition = hook?.next;
     const start = transition?.next;
-    const owner = start?.next?.memoizedState as
-      { current?: { stop?: unknown; refused?: unknown } } | undefined;
+    // The view's memoized driver start follows the transition, then
+    // useDriver's holder, which holds the recovery driver.
+    const callback = start?.next?.memoizedState as unknown;
+    const owner = start?.next?.next?.memoizedState as
+      | {
+          read?: () => {
+            driver?: { stop?: unknown; refused?: unknown } | null;
+          };
+        }
+      | undefined;
+    const recovery =
+      Array.isArray(callback) &&
+      typeof callback[0] === 'function' &&
+      typeof owner?.read === 'function'
+        ? owner.read().driver
+        : undefined;
     diagnostic.queuePresent = transition?.queue != null;
     diagnostic.queueDispatchNull = transition?.queue?.dispatch === null;
     diagnostic.queueReducer =
@@ -113,14 +127,14 @@ export function committedRefusalState(
     diagnostic.transitionStart = typeof start?.memoizedState === 'function';
     if (!diagnostic.transitionStart) return 'transition-start-unsupported';
     diagnostic.ownerRefMounted =
-      typeof owner?.current?.stop === 'function' &&
-      typeof owner.current.refused === 'function';
+      typeof recovery?.stop === 'function' &&
+      typeof recovery.refused === 'function';
     if (!diagnostic.ownerRefMounted) return 'owner-ref-unmounted';
     if (requireSettlement === 'private-owner') {
       privateOwner = {
         router,
         refresh: contextual.refresh,
-        recovery: owner!.current,
+        recovery,
         ownerRef: owner,
         startTransition: start!.memoizedState,
       };

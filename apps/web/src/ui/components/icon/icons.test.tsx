@@ -1,9 +1,9 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { renderToString } from 'react-dom/server';
 import { createElement as h } from 'react';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { iconPaths } from './icons';
+import { renderAccessible } from '../../../test-support/rendered/accessible';
+import { Icon } from './icon';
 import { extractIconNames } from '../../test-support/icon-references';
 
 setupRitewayBun();
@@ -32,8 +32,10 @@ const referencedIcons = (): readonly string[] => [
   ]),
 ];
 
+/** Whether the icon, labelled by its name, draws any shape at all. */
 const isDrawn = (name: string): boolean =>
-  renderToString(h('svg', null, iconPaths[name])) !== '<svg></svg>';
+  renderAccessible(h(Icon, { name, label: name })).get('img', name)
+    .childElementCount > 0;
 
 describe('icon set', () => {
   test('finds the icon references in consumer source', () => {

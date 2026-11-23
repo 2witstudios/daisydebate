@@ -1,13 +1,18 @@
 import { createElement as h } from 'react';
-import { renderToString } from 'react-dom/server';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { ReadingPage } from './reading-page';
+import { renderMarkup } from '../test-support/rendered/markup';
+import { ReadingPage } from '../ui/components/reading-page/reading-page';
 
 setupRitewayBun();
 
+/**
+ * The reading page is a layout primitive with no role of its own: its whole
+ * contract is the design-system column classes (centred, reading width, page
+ * padding), which no role, name or state expresses.
+ */
 describe('ReadingPage', () => {
   test('a centred reading column with page padding', () => {
-    const html = renderToString(h(ReadingPage, { children: 'text' }));
+    const html = renderMarkup(h(ReadingPage, { children: 'text' }));
     assert({
       given: 'content in a reading page',
       should: 'centre a reading-width column and pad it like other pages',
