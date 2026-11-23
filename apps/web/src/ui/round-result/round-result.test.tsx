@@ -2,7 +2,7 @@ import type { RoundBallotRead } from '@daisy/protocol/round-ballot-read';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { sampleJudgeBallot } from '../mock/judge.test-support';
 import { renderAccessible } from '../../test-support/rendered/accessible';
-import { postedBy } from '../debate-room/posted-fields.test-support';
+import { postedBy } from '../test-support/posted-fields.test-support';
 import { completed } from './result.test-support';
 import { RoundResult } from './round-result';
 

@@ -1,7 +1,7 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { mockNextRouter } from '../../lib/testing/mock-router';
 import { renderAccessible } from '../../test-support/rendered/accessible';
-import { postedBy } from './posted-fields.test-support';
+import { postedBy } from '../test-support/posted-fields.test-support';
 setupRitewayBun();
 mockNextRouter();
 const { answerFocusTarget, CommandForm, shownError } =

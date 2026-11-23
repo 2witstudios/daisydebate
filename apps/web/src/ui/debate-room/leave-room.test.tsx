@@ -3,7 +3,10 @@ import { AppRouterContext } from 'next/dist/shared/lib/app-router-context.shared
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { renderAccessible } from '../../test-support/rendered/accessible';
 import { LeaveRoom, type LeaveLinks } from './leave-room';
-import { postedBy, postsAnyForm } from './posted-fields.test-support';
+import {
+  postedBy,
+  postsAnyForm,
+} from '../test-support/posted-fields.test-support';
 
 setupRitewayBun();
 

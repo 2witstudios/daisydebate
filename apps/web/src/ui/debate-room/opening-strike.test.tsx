@@ -4,7 +4,7 @@ import { twoSides } from '@daisy/protocol/seats';
 import { type RoundView } from '@daisy/protocol/round-view';
 import { renderAccessible } from '../../test-support/rendered/accessible';
 import { OpeningChosen, OpeningStatus, OpeningStrike } from './opening-strike';
-import { postedBy } from './posted-fields.test-support';
+import { postedBy } from '../test-support/posted-fields.test-support';
 
 setupRitewayBun();
 

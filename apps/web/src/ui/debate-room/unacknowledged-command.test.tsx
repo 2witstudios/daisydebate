@@ -1,6 +1,6 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { renderAccessible } from '../../test-support/rendered/accessible';
-import { postedBy } from './posted-fields.test-support';
+import { postedBy } from '../test-support/posted-fields.test-support';
 import { UnacknowledgedCommand } from './unacknowledged-command';
 
 setupRitewayBun();

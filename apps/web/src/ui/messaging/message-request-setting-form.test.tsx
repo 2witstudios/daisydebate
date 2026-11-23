@@ -1,5 +1,5 @@
 import { renderAccessible } from '../../test-support/rendered/accessible';
-import { postsAnyForm } from '../debate-room/posted-fields.test-support';
+import { postsAnyForm } from '../test-support/posted-fields.test-support';
 import { createElement as h } from 'react';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { initialSaveForm } from '../../features/forms/save-form';

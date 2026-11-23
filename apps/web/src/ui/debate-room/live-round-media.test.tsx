@@ -4,7 +4,7 @@ import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { roundCommandIds } from '../../features/round-runtime/command-ids';
 import { LiveRoundRoom } from './live-round-room';
 import { aff, view, origin } from './live-round.test-support';
-import { postedBy } from './posted-fields.test-support';
+import { postedBy } from '../test-support/posted-fields.test-support';
 import { AppRouterContext } from 'next/dist/shared/lib/app-router-context.shared-runtime';
 setupRitewayBun();
 const noop = () => {};

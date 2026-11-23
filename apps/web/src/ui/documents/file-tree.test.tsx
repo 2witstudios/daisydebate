@@ -1,6 +1,6 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { renderAccessible } from '../../test-support/rendered/accessible';
-import { postsAnyForm } from '../debate-room/posted-fields.test-support';
+import { postsAnyForm } from '../test-support/posted-fields.test-support';
 import { emptyDrive, withPage } from '../../features/documents/drive-tree';
 import { menuPlace } from './file-menu';
 import { FileTree } from './file-tree';

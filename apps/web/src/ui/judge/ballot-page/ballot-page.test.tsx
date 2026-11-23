@@ -8,7 +8,7 @@ import {
   renderAccessible,
   type AccessibleView,
 } from '../../../test-support/rendered/accessible';
-import { postedBy } from '../../debate-room/posted-fields.test-support';
+import { postedBy } from '../../test-support/posted-fields.test-support';
 import {
   asActive,
   view,
