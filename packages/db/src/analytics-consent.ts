@@ -1,4 +1,4 @@
-import { privacyVendors } from './privacy/planner';
+import { privacyVendors } from './schema/privacy-jobs';
 import { retriedJobStatuses } from './schema/columns';
 import { listedWord } from './lifecycle-sql';
 import { tryInstantMs } from '@daisy/clock';
@@ -11,10 +11,9 @@ import { idSchema } from '@daisy/protocol/primitives';
 import { createAppError } from '@daisy/errors';
 import { consentRecord } from './schema/consent-record';
 import type { PrivacyAdopter } from './privacy/contracts';
-import { exportRows } from './privacy/export-rows';
+import { exportRows, run, query } from './raw-rows';
 import { lockOpenAccount } from './lock-open-account';
 import { inTransaction, type TxOpener } from './tx';
-import { run, query } from './raw-rows';
 import { z } from 'zod';
 
 export const analyticsConsentOperations = (database: TxOpener) => ({

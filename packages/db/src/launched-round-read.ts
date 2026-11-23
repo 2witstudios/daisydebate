@@ -13,9 +13,12 @@ import { roundParticipants } from './schema/round-participants';
 import { mediaSessions } from './schema/media-sessions';
 import { roundTranscriptFreezes } from './schema/round-transcript-freezes';
 import { roundCommands } from './schema/round-commands';
-import { recordedPanelRuling } from './round-panel-decisions';
+import { recordedPanelRuling } from './round-panel-completion';
 import { roundResolutionAudit } from './room-draw-persistence';
-import { readableCheckpoint } from './round-view-projection';
+import {
+  runtimeCheckpointSchema,
+  type RuntimeCheckpoint,
+} from '@daisy/protocol/round';
 import type { Tx } from './tx';
 
 /**
@@ -133,3 +136,14 @@ export async function launchedRoundRows(
   };
   return round;
 }
+
+/**
+ * The stored checkpoint, or null when it no longer reads as one: the Round
+ * and its receipt still read, and the room shows no live position.
+ */
+export const readableCheckpoint = (
+  value: unknown,
+): RuntimeCheckpoint | null => {
+  const parsed = runtimeCheckpointSchema.safeParse(value);
+  return parsed.success ? parsed.data : null;
+};

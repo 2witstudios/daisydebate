@@ -1,5 +1,5 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { planPrivacyErasure } from './planner';
+import { planPrivacyErasure } from './operations';
 
 setupRitewayBun();
 const subject = { userId: 'u'.repeat(24), actorId: 'a'.repeat(24) };

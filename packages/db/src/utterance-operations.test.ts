@@ -1,18 +1,17 @@
 import { virtualClock } from '@daisy/clock/testing';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { createDatabase } from './index';
+import { openDatabaseResources } from './resources';
+import { createRoundStore } from './stores/rounds';
 
 setupRitewayBun();
 
 describe('utteranceOperations', () => {
   test('exposes transcript reads without retired unscoped write or usage authority', async () => {
-    const database = createDatabase({
+    const resources = openDatabaseResources({
       url: 'postgresql://unused@127.0.0.1:1/unused',
       waits: virtualClock(),
-      nextActorId: () => {
-        throw new Error('Surface inspection requires no actor');
-      },
     });
+    const database = createRoundStore(resources);
     const retired = [
       'appendUtterance',
       'replaceUtterance',
@@ -28,8 +27,7 @@ describe('utteranceOperations', () => {
     ];
     try {
       assert({
-        given:
-          'the shared database root after signed capture/scoped bot cutover',
+        given: 'the Round store after signed capture/scoped bot cutover',
         should:
           'expose only the retained transcript readers and no retired authority',
         actual: {
@@ -42,7 +40,7 @@ describe('utteranceOperations', () => {
         expected: { retired: [], readers: ['function', 'function'] },
       });
     } finally {
-      await database.close();
+      await resources.close();
     }
   });
 });

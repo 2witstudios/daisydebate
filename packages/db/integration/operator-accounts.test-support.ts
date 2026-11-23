@@ -1,5 +1,5 @@
 import { createId } from '@paralleldrive/cuid2';
-import type { createDatabase } from '../src';
+import type { OperatorAccountsStore } from '../src/stores/operator-accounts';
 import { createAppError } from '@daisy/errors';
 import type { Fixture } from './constraint-helpers';
 
@@ -59,7 +59,7 @@ export const command = (
   desired: 'approved' | 'revoked',
   expectedRevision: number,
   overrides: Partial<
-    Parameters<ReturnType<typeof createDatabase>['betaAccessCommand']>[0] & {
+    Parameters<OperatorAccountsStore['betaAccessCommand']>[0] & {
       authorize: (account: unknown) => boolean;
       decide: ReturnType<typeof decide>;
     }
@@ -85,7 +85,7 @@ export const command = (
 
 /** Test composition preserves the existing DB outcome witnesses without a production fallback. */
 export const executeBetaAccessCommand = (
-  db: Pick<ReturnType<typeof createDatabase>, 'betaAccessCommand'>,
+  db: Pick<OperatorAccountsStore, 'betaAccessCommand'>,
   input: ReturnType<typeof command>,
 ) =>
   db.betaAccessCommand(input, async (session) => {

@@ -1,3 +1,6 @@
+import { createAgeStepStore } from '../src/stores/age-step';
+import { createAuthStore } from '../src/stores/auth';
+import { openDatabaseResources } from '../src/resources';
 import { hostWaits } from '@daisy/worker/host';
 import { emailDeliveryStatusRank } from '@daisy/protocol/email-delivery';
 import { createId } from '@paralleldrive/cuid2';
@@ -6,9 +9,17 @@ import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { expect } from 'bun:test';
 import { withFixture } from './constraint-helpers';
 import { explainProvisionalRetention } from './provisional-retention-plan.test-support';
-import { createDatabase } from '../src';
 import { provisionalRetentionOperations } from '../src/provisional-retention';
 import { drizzle } from 'drizzle-orm/bun-sql';
+/** This file's database: the area stores it reads, over one set of resources. */
+const openStores = (options: Parameters<typeof openDatabaseResources>[0]) => {
+  const resources = openDatabaseResources(options);
+  return {
+    ...createAgeStepStore(resources),
+    ...createAuthStore(resources),
+    close: resources.close,
+  };
+};
 
 const { databaseUrl: url } = requireTestServices(process.env);
 setupRitewayBun();
@@ -24,10 +35,9 @@ const options = {
 
 test('retention deletes only old unclaimed unanswered accounts and their owned mail/session state', async () => {
   await withFixture(url, async (f) => {
-    const database = createDatabase({
+    const database = openStores({
       waits: hostWaits,
       url,
-      nextActorId: createId,
     });
     const ids = Array.from({ length: 6 }, createId);
     const [expired, recent, member, aged, termed, actor] = ids as [
@@ -216,10 +226,9 @@ test('invalid retention bounds are refused before sending any SQL', async () => 
 
 test('busy provisional rows skip the batch and a cleanup failure inside an account transaction keeps it whole', async () => {
   await withFixture(url, async (f) => {
-    const database = createDatabase({
+    const database = openStores({
       waits: hostWaits,
       url,
-      nextActorId: createId,
     });
     const id = createId(),
       tag = createId(),
@@ -264,10 +273,9 @@ test('busy provisional rows skip the batch and a cleanup failure inside an accou
 
 test('retention drains the oldest eligible account in each bounded batch', async () => {
   await withFixture(url, async (f) => {
-    const database = createDatabase({
+    const database = openStores({
       waits: hostWaits,
       url,
-      nextActorId: createId,
     });
     const first = createId(),
       second = createId();
@@ -308,10 +316,9 @@ test('retention drains the oldest eligible account in each bounded batch', async
 
 test('age refusal uses the same owner-scoped email-change cleanup', async () => {
   await withFixture(url, async (f) => {
-    const database = createDatabase({
+    const database = openStores({
       waits: hostWaits,
       url,
-      nextActorId: createId,
     });
     const id = createId(),
       other = createId(),
@@ -346,10 +353,9 @@ test('age refusal uses the same owner-scoped email-change cleanup', async () => 
 
 test('a sign-up active since the cutoff is not abandoned (review on #474)', async () => {
   await withFixture(url, async (f) => {
-    const database = createDatabase({
+    const database = openStores({
       waits: hostWaits,
       url,
-      nextActorId: createId,
     });
     const [refreshed, linked] = [createId(), createId()];
     const tag = createId();

@@ -1,5 +1,5 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { createHoldLedger } from './lane-holds';
+import { createHoldLedger } from './workload';
 
 setupRitewayBun();
 

@@ -1,4 +1,4 @@
-import type { Database } from '@daisy/db';
+import type { NotificationsStore } from '@daisy/db/stores/notifications';
 import type { Logger } from '@daisy/logger';
 import { readBytes } from '../../../server/http';
 import { verifyUnsubscribe } from './unsubscribe-token';
@@ -28,7 +28,7 @@ const boundedForm = async (request: Request) => {
  * A wrong token changes nothing and says only that the link is not valid.
  */
 export function createUnsubscribeRoute(deps: {
-  readonly store: Pick<Database, 'stopNotificationEmail'>;
+  readonly store: Pick<NotificationsStore, 'stopNotificationEmail'>;
   readonly subkey: () => string;
   readonly logger: Logger;
 }) {

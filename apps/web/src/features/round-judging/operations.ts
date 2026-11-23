@@ -1,3 +1,4 @@
+import type { RoundWorkerStore } from '@daisy/db/stores/round-workers';
 import {
   caseMapAnswer,
   isDefiniteProviderFailure,
@@ -12,14 +13,13 @@ import type {
   JudgingAttemptDiagnostic,
   JudgingRecoveryReason,
 } from '@daisy/protocol/round-judging-attempt';
-import type { Database } from '@daisy/db';
 import { createAppError } from '@daisy/errors';
 import { prepareRoundBallotSubmission } from '../round-ballots/operations';
 import { frozenStageRequest } from './prompt';
 import type { ProviderCall } from '../../server/provider-budget';
 
 type Store = Pick<
-  Database,
+  RoundWorkerStore,
   | 'verifyRoundJudgingJob'
   | 'beginRoundJudgingModelCall'
   | 'recordRoundJudgingAttemptFailure'
@@ -28,7 +28,7 @@ type Store = Pick<
   | 'saveRoundJudgingStage'
   | 'submitRoundJudgingResult'
 >;
-type Claim = Awaited<ReturnType<Database['claimRoundJudgingJob']>>;
+type Claim = Awaited<ReturnType<RoundWorkerStore['claimRoundJudgingJob']>>;
 function requireNotCancelled(signal: AbortSignal) {
   if (signal.aborted) throw createAppError('CONFLICT', 'Judging cancelled');
 }

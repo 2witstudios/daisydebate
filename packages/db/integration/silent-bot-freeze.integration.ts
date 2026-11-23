@@ -2,7 +2,7 @@ import { instantMs } from '@daisy/clock';
 import { requireTestServices } from '@daisy/config';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { finalizationState } from '../src/transcript-finalization-state';
+import { finalizationState } from '@daisy/protocol/transcript-finalization';
 import {
   closeUnresolvedStreams,
   lockFinalizationStreams,

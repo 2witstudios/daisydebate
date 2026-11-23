@@ -1,7 +1,7 @@
 import type {
   ProvisionalLinkPurposes,
   ProvisionalMailCleanup,
-} from '@daisy/db';
+} from '@daisy/db/stores/auth';
 import {
   EMAILED_LINK_PURPOSES,
   SIGN_IN_STORED_PURPOSE,

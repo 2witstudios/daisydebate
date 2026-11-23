@@ -17,7 +17,7 @@ import { roundParticipants } from './schema/round-participants';
 import { roundSpeakingIntervals } from './schema/round-speaking-intervals';
 import { rooms } from './schema/rooms';
 import { rounds } from './schema/rounds';
-import { outcomeOfColumns } from './round-outcome-columns';
+import { outcomeOfColumns } from './round-hydration';
 import { isDebatingSeatSql, seatOfColumns, seatRowOrder } from './seat-columns';
 import { inTransaction, type TxSource } from './tx';
 

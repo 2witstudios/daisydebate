@@ -1,10 +1,19 @@
+import { createAuthStore } from '../src/stores/auth';
+import { openDatabaseResources } from '../src/resources';
 import { hostWaits } from '@daisy/worker/host';
 import { SQL } from 'bun';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { requireTestServices } from '@daisy/config';
-import { createDatabase } from '../src/index';
 import { finishedOrBlockedBehind } from '../src/testing';
+/** This file's database: the area stores it reads, over one set of resources. */
+const openStores = (options: Parameters<typeof openDatabaseResources>[0]) => {
+  const resources = openDatabaseResources(options);
+  return {
+    ...createAuthStore(resources),
+    close: resources.close,
+  };
+};
 
 setupRitewayBun();
 
@@ -24,10 +33,9 @@ test('ISSUE-22: a session inserted while a revoke-all is in flight never survive
   const setup = new SQL(url, { max: 1 });
   const inserter = new SQL(url, { max: 1 });
   const observer = new SQL(url, { max: 1 });
-  const database = createDatabase({
+  const database = openStores({
     waits: hostWaits,
     url,
-    nextActorId: createId,
   });
   try {
     await setup.unsafe('insert into users (id, email) values ($1, $2)', [

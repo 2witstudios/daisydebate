@@ -1,7 +1,7 @@
+import type { PublicProfileCard } from '@daisy/db/stores/profiles';
 import { createAppError } from '@daisy/errors';
 import { readSeasonHistory } from './season-history';
 import { headers } from 'next/headers';
-import { type PublicProfileCard } from '@daisy/db';
 import { type MatchHistoryQuery } from '@daisy/protocol/member-profile';
 import { CLIENT_ID_HASH_HEADER } from '../../server/client-ip';
 import { readProfile, type ProfileView } from './read-profile';

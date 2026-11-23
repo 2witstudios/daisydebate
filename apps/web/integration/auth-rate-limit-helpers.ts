@@ -1,9 +1,9 @@
+import { openWebDatabase } from '../src/server/database';
 import { hostWaits } from '@daisy/worker/host';
 import { sha3Hex } from '@daisy/digest';
 import { systemClock, systemId } from '@daisy/clock';
 import { noopErrorReporter } from '@daisy/observability';
 import { readAuthConfig, readMailConfig } from '@daisy/config';
-import { createDatabase } from '@daisy/db';
 import { createRedis, redisKey } from '@daisy/redis';
 import { openTestRedis } from '@daisy/redis/testing';
 import { testDatabaseUrl, testRedisUrl, type TestApp } from './fixtures';
@@ -95,7 +95,7 @@ export function createSecondInstances(testApp: TestApp) {
       ) => Parameters<typeof createAuthServer>[0]['limiter'];
     } = {},
   ) => {
-    const database = createDatabase({
+    const database = openWebDatabase({
       waits: hostWaits,
       url: testDatabaseUrl as string,
       nextActorId: () => systemId.next(),

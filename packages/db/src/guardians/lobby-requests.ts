@@ -1,3 +1,4 @@
+import { isMinorAgeBand } from '@daisy/protocol/lobby/eligibility';
 import { seasonStatuses } from '../schema/seasons';
 import { listedWord } from '../lifecycle-sql';
 import { and, asc, eq, isNull, sql } from 'drizzle-orm';
@@ -20,7 +21,6 @@ import {
 } from '../ladder-division-band';
 import { scopeTransaction } from '../tenant-scope';
 import { inTransaction, type Tx, type TxOpener } from '../tx';
-import { isMinorAgeBand } from './lobby-permissions';
 
 type Caller = { readonly userId: string; readonly actorId: string };
 type LobbyCommand = {

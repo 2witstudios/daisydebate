@@ -6,7 +6,7 @@ import { createAppError } from '@daisy/errors';
 import { evidenceEnvelopeSchema } from '@daisy/protocol/evidence-envelope';
 import { idSchema } from '@daisy/protocol/primitives';
 import { lockOriginalEvidenceBody } from './necessary-evidence-body';
-import { evidenceLeaseDigest } from './necessary-evidence-policy';
+import { leaseTokenDigest } from './lease';
 import { sampleRoundExecutionTime } from './round-execution-time';
 import { necessaryEvidence } from './schema/necessary-evidence';
 import type { Tx } from './tx';
@@ -57,7 +57,7 @@ export async function adoptCaptureEvidencePayload(tx: Tx, raw: unknown) {
   if (
     row.executionWorkerId !== claim.workerId ||
     row.executionEpoch !== claim.executionEpoch ||
-    row.leaseDigest !== evidenceLeaseDigest(claim.token)
+    row.leaseDigest !== leaseTokenDigest(claim.token)
   )
     throw createAppError('CONFLICT', 'Evidence execution is stale');
   if (row.state === 'retained') {

@@ -1,6 +1,6 @@
 import { nowMs, type Waits } from '@daisy/clock';
 import { repeatEvery } from '@daisy/worker';
-import { refuseSchemaAlteringRole } from '@daisy/db';
+import { refuseSchemaAlteringRole } from '@daisy/db/startup';
 import type { RealtimeApp } from './app';
 import { createRealtimeServer } from './server';
 import { createRealtimeDelivery } from './delivery';

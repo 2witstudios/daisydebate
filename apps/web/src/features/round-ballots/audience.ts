@@ -1,5 +1,6 @@
+import { type RoundBallotAccess } from '@daisy/protocol/ballot-audience';
+import type { RoundRoomAuthority } from '@daisy/db/stores/rounds';
 import { authorize } from '@daisy/auth/authorization';
-import type { RoundBallotAccess, RoundRoomAuthority } from '@daisy/db';
 import { eventRoomOwner } from '../tab/event-room-direction';
 
 /** Each part is evaluated on current scoped grants and recorded openings, never Round completion. */

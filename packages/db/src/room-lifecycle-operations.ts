@@ -1,19 +1,19 @@
 import { and, asc, desc, eq, sql } from 'drizzle-orm';
 import { parsedColumn } from './raw-rows';
-import { openRoomStatuses } from '@daisy/protocol/room-contract';
-import { z } from 'zod';
-import { maxHostedRooms, type HostedRoom } from '@daisy/protocol/hosted-rooms';
-import { type ActiveRoomFacts } from '@daisy/protocol/active-room';
 import {
+  openRoomStatuses,
   type RoomAssemblyState,
   type RoomMutationOutcome,
 } from '@daisy/protocol/room-contract';
+import { z } from 'zod';
+import { maxHostedRooms, type HostedRoom } from '@daisy/protocol/hosted-rooms';
+import { type ActiveRoomFacts } from '@daisy/protocol/active-room';
 import { createAppError } from '@daisy/errors';
 import { instrumented, type DatabaseEventSink } from './instrumented';
 import { roomParticipants, rooms } from './schema/rooms';
 import { activeRoomFacts } from './room-membership-persistence';
 import { persistRoomMutation } from './room-mutation-persistence';
-import type { roomCommandTransaction } from './room-command-transaction';
+import type { TransactionRunner } from './tx';
 import {
   type Account,
   type Caller,
@@ -41,7 +41,7 @@ export const roomLifecycleOperations = ({
 }: {
   readonly database: TxSource;
   readonly eventSink?: DatabaseEventSink | undefined;
-  readonly commandTransaction: ReturnType<typeof roomCommandTransaction>;
+  readonly commandTransaction: TransactionRunner;
 }) => ({
   /** The caller's own active Room facts, or null when no Room holds them. */
   readActiveRoomFacts(

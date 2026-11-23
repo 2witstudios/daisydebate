@@ -1,5 +1,5 @@
+import type { LiveBroadcastPage } from '@daisy/db/stores/spectating';
 import { instantMs } from '@daisy/clock';
-import type { LiveBroadcastPage } from '@daisy/db';
 import { SPECTATOR_MARGIN_MS } from '@daisy/protocol/broadcast';
 import { twoSides } from '@daisy/protocol/seats';
 import { liveCardOf, type LiveCard } from './live-card';

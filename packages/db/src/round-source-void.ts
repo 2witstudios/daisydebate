@@ -7,10 +7,8 @@ import { type RoundProjection } from '@daisy/protocol/runtime';
 import { type RoundCommandReceipt } from '@daisy/protocol/round-command';
 import { eq, sql } from 'drizzle-orm';
 import { hydrateRoundRows, type RoundHydration } from './round-hydration';
-import {
-  requireFencedParticipants,
-  requireSameCommand,
-} from './round-command-replay';
+import { storedCommand } from './command-log';
+import { requireFencedParticipants } from './round-command-record';
 import {
   lockedRoundVersion,
   insertCommandRow,
@@ -62,20 +60,16 @@ export async function voidLockedRoundSource(
     throw createAppError('CONFLICT');
   const now = (await readDatabaseTime(tx)).toISOString();
   input.authorize({ round, now });
-  const [previous] = await tx
-    .select()
-    .from(roundCommands)
-    .where(eq(roundCommands.commandId, input.commandId));
+  // The replayed type is read from the row: either of the two source commands.
+  const previous = await storedCommand(tx, roundCommands, input.commandId, {
+    roundId: input.roundId,
+    actorId: input.actorId,
+    serviceId: null,
+    payloadDigest: input.payloadDigest,
+  });
   if (previous) {
     if (previous.type !== 'stop' && previous.type !== 'void_source')
       throw createRefusal('CONFLICT', 'command-conflict');
-    requireSameCommand(previous, {
-      roundId: input.roundId,
-      actorId: input.actorId,
-      serviceId: null,
-      payloadDigest: input.payloadDigest,
-      type: previous.type,
-    });
     await run(
       tx,
       sql`select public.daisy_mark_round_source_void(${input.roundId},${input.commandId})`,

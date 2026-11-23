@@ -8,7 +8,7 @@ import {
 } from '@daisy/protocol/billing';
 import type { BoundedTransaction } from './bounded-transaction';
 import { readDatabaseTime } from './database-clock';
-import { checkBillingPage, type BillingPage } from './billing-pagination';
+import { checkBillingPage, type BillingPage } from './billing-discovery';
 import {
   lockRefundAccount,
   lockRefundAction,

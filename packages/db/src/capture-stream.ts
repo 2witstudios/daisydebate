@@ -4,7 +4,7 @@ import { updateCaptureStream } from './capture-stream-update';
 import { createAppError } from '@daisy/errors';
 import { and, eq, isNotNull, sql } from 'drizzle-orm';
 import { z } from 'zod';
-import { captureObservationSchema, captureSealSchema } from './capture-input';
+import { captureObservationSchema, captureSealSchema } from './media-capture';
 import {
   captureHistory,
   advanceTranscriptRevision,
@@ -15,10 +15,10 @@ import {
   freshCaptureMutation,
   validCaptureIds,
   type CaptureDependencies,
+  sealIntegrity,
 } from './media-capture-context';
 import { transcriptObservations } from './schema/transcript-segments';
 import { utterances } from './schema/utterances';
-import { sealIntegrity } from './capture-rules';
 import { parsedColumn } from './raw-rows';
 import type { Tx } from './tx';
 

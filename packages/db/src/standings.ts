@@ -24,7 +24,7 @@ import { seasons } from './schema/seasons';
 import { users } from './schema/users';
 import { listSeasonRecords, type SeasonRecord } from './season-record';
 import { factReleasedSql, type SpectatorClock } from './spectator-release-sql';
-import { releasedStandings } from './standings-release';
+import { releasedStandings } from '@daisy/protocol/standings-release';
 import { scopeTransaction } from './tenant-scope';
 import {
   certifiedRatingActors,
@@ -41,7 +41,7 @@ import { inTransaction, type Tx, type TxSource } from './tx';
  */
 
 /** A debater's current state on the ladder in one season. */
-export type StandingRating = {
+type StandingRating = {
   readonly seasonId: string;
   readonly actorId: string;
   /** Null for an actor with no account. */

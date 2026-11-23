@@ -1,3 +1,5 @@
+import { createStandingsStore } from '../src/stores/standings';
+import { openDatabaseResources } from '../src/resources';
 import { hostWaits } from '@daisy/worker/host';
 import { publicLobbyId } from '../src/daisy-reference';
 import { createId } from '@paralleldrive/cuid2';
@@ -6,10 +8,17 @@ import { assertRejects } from '@daisy/errors/testing';
 import { drizzle } from 'drizzle-orm/bun-sql';
 import { sql } from 'drizzle-orm';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { createDatabase } from '../src';
 import { standingsOperations } from '../src/standings';
 import { withFixture } from './constraint-helpers';
 import { at, change, completed, rating, season } from './standings-fixtures';
+/** This file's database: the area stores it reads, over one set of resources. */
+const openStores = (options: Parameters<typeof openDatabaseResources>[0]) => {
+  const resources = openDatabaseResources(options);
+  return {
+    ...createStandingsStore(resources),
+    close: resources.close,
+  };
+};
 
 const affirmativeWin = { kind: 'winner', side: 'affirmative' } as const;
 
@@ -99,10 +108,9 @@ test('standings refuses a posting with an invalid two-sided outcome', async () =
 describe('standings reads (RATE-1.4.1)', () => {
   test('lists active and closed seasons newest first, and ranked formats by name', async () => {
     await withFixture(url, async (fixture) => {
-      const database = createDatabase({
+      const database = openStores({
         waits: hostWaits,
         url,
-        nextActorId: createId,
       });
       try {
         const older = await season(fixture, 'closed', at(1));
@@ -135,10 +143,9 @@ describe('standings reads (RATE-1.4.1)', () => {
 
   test('reads exactly the asked format, ladder and seasons, with tombstoned names', async () => {
     await withFixture(url, async (fixture) => {
-      const database = createDatabase({
+      const database = openStores({
         waits: hostWaits,
         url,
-        nextActorId: createId,
       });
       try {
         const formatId = 'freestyle';

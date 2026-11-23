@@ -1,8 +1,8 @@
+import { openWebDatabase } from '../src/server/database';
 import { hostWaits } from '@daisy/worker/host';
 import Stripe from 'stripe';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { requireTestServices } from '@daisy/config';
-import { createDatabase } from '@daisy/db';
 import {
   subscriptionGrants,
   clubSeatGrants,
@@ -34,7 +34,7 @@ test('signed HTTP receipts and scheduled vendor observations share durable synch
       instanceId = createId(),
       eventId = `evt_${createId()}`;
     let customerId: string;
-    const database = createDatabase({
+    const database = openWebDatabase({
       waits: hostWaits,
       url: testDatabaseUrl,
       client: sql,

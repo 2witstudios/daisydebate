@@ -1,4 +1,4 @@
-import type { MinorReleaseRead } from '@daisy/db';
+import type { MinorReleaseRead } from '@daisy/db/stores/media-releases';
 import type {
   MediaReleaseRecord,
   ReleaseRequest,

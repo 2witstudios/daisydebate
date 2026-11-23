@@ -4,7 +4,8 @@ import { tmpdir } from 'node:os';
 import { basename, join, resolve } from 'node:path';
 import { systemClock, systemId } from '@daisy/clock';
 import { SQL } from 'bun';
-import { createRealtimeDatabase, WORKLOAD_PROFILES } from '@daisy/db';
+import { WORKLOAD_PROFILES } from '@daisy/db/resources';
+import { openRealtimeDatabase } from '../src/database';
 import {
   messagingTestReading,
   messagingTestGroupReading,
@@ -88,7 +89,7 @@ try {
   throw new Error('Realtime browser runtime role unavailable');
 }
 // An eligible observation owner, so conversations get snapshots (ADR 0089).
-const runtimeDatabase = createRealtimeDatabase({
+const runtimeDatabase = openRealtimeDatabase({
   url: runtimeUrl,
   waits: hostWaits,
   client: runtimeClient,

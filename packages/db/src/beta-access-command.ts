@@ -11,7 +11,7 @@ import {
 } from '@daisy/protocol/beta-access';
 import { sql } from 'drizzle-orm';
 import { lockAuthorizationActors } from './authorization';
-import type { authorizationAccountFact } from './authorization-account';
+import type { authorizationAccountFact } from './authorization';
 import type { DatabaseEventSink } from './instrumented';
 import { appendSessionRevokedFor } from './session-revoked';
 import { writeBetaAccessChange } from './beta-access-change';

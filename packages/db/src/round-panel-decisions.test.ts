@@ -9,7 +9,7 @@ import {
   panelDigest,
   panelReceipt,
   validatePanelReceipt,
-} from './round-panel-decisions';
+} from './round-panel-completion';
 
 setupRitewayBun();
 

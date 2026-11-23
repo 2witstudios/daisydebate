@@ -1,6 +1,6 @@
-import type { Database } from '@daisy/db';
+import type { ContentModerationStore } from '@daisy/db/stores/content-moderation';
 
-type Store = Pick<Database, 'chatRemovalCommand'>;
+type Store = Pick<ContentModerationStore, 'chatRemovalCommand'>;
 type Input = Parameters<Store['chatRemovalCommand']>[0];
 
 /** Only a missing message permits trying the next conversation owner. */

@@ -3,10 +3,9 @@ import { listedWords } from './lifecycle-sql';
 import { sql } from 'drizzle-orm';
 import { normalizedEmailSql } from './email-identity';
 import type { PrivacyAdopter } from './privacy/contracts';
-import { exportRows } from './privacy/export-rows';
+import { exportRows, run, query } from './raw-rows';
 import { scopeTransaction } from './tenant-scope';
 import type { Tx } from './tx';
-import { run, query } from './raw-rows';
 import { z } from 'zod';
 
 const page = 100;

@@ -1,3 +1,12 @@
+import type { RoomStore } from '@daisy/db/stores/rooms';
+import type { RoundBotAdmissionStore } from '@daisy/db/stores/round-bot-admission';
+import type { RoundStore } from '@daisy/db/stores/rounds';
+import type { FormatsStore } from '@daisy/db/stores/formats';
+import type { AgreementsStore } from '@daisy/db/stores/agreements';
+import type { GuardiansStore } from '@daisy/db/stores/guardians';
+import type { SpectatingStore } from '@daisy/db/stores/spectating';
+import type { ProfileStore } from '@daisy/db/stores/profiles';
+import type { StandingsStore } from '@daisy/db/stores/standings';
 import { addMs } from '@daisy/clock';
 import { createAppError, createRefusal } from '@daisy/errors';
 import { canOfferFreshRoom } from './fresh-room';
@@ -21,7 +30,6 @@ import {
   requiredContentWaiver,
   roomCaptureNotice,
 } from './ready-agreements';
-import type { Database } from '@daisy/db';
 import { standardFormatIds } from '@daisy/db/catalog-formats';
 import { isTemporaryRefusal } from '@daisy/db/capacity';
 import {
@@ -66,16 +74,12 @@ export type Caller = { readonly userId: string; readonly actorId: string };
 const isStandardFormat = (formatId: string) =>
   (standardFormatIds as readonly string[]).includes(formatId);
 export type Store = Pick<
-  Database,
+  RoomStore,
   | 'readRoomInvitations'
-  | 'readRoundBotAdmissionStatus'
   | 'readOwnEntitlementGrants'
   | 'readOwnCasualJudgeAllowance'
-  | 'databaseNow'
   | 'listRoomCatalogSources'
   | 'listRoomBots'
-  | 'getFormatRevision'
-  | 'getFormatSelectionFacts'
   | 'readRoomCreateReceipt'
   | 'createRoomCommand'
   | 'readRoomAssembly'
@@ -84,12 +88,15 @@ export type Store = Pick<
   | 'executeRoomCommand'
   | 'readActiveRoomFacts'
   | 'listHostedRooms'
-  | 'readContentWaiverStanding'
-  | 'hasGuardianLobbyWaiver'
-  | 'readWatchableRoundOfRoom'
-  | 'readMemberCardRatings'
-  | 'readRatingBlindings'
->;
+> &
+  Pick<RoundBotAdmissionStore, 'readRoundBotAdmissionStatus'> &
+  Pick<RoundStore, 'databaseNow'> &
+  Pick<FormatsStore, 'getFormatRevision' | 'getFormatSelectionFacts'> &
+  Pick<AgreementsStore, 'readContentWaiverStanding'> &
+  Pick<GuardiansStore, 'hasGuardianLobbyWaiver'> &
+  Pick<SpectatingStore, 'readWatchableRoundOfRoom'> &
+  Pick<ProfileStore, 'readMemberCardRatings'> &
+  Pick<StandingsStore, 'readRatingBlindings'>;
 type Redis = Pick<
   ReturnType<typeof createRedis>,
   'setRoomConsent' | 'readRoomConsent'

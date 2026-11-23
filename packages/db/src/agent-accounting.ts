@@ -1,6 +1,6 @@
 import { and, eq } from 'drizzle-orm';
 import { createAppError } from '@daisy/errors';
-import { requireAgentLeaseToken } from './round-agent-lease';
+import { requireLeaseToken } from './lease';
 import { agentRuns } from './schema/agent-runs';
 import type { Tx } from './tx';
 
@@ -36,7 +36,7 @@ export async function lockAgentAccounting(
     )
   )
     throw createAppError('AUTHORIZATION');
-  requireAgentLeaseToken(input.token, configuration.executionTokenDigest);
+  requireLeaseToken(input.token, configuration.executionTokenDigest);
   if (run.requests !== 1)
     throw createAppError('CONFLICT', 'Execution not dispatched');
   return run;

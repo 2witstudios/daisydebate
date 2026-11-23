@@ -1,7 +1,8 @@
+import type { SpectatingStore } from '@daisy/db/stores/spectating';
+import type { RecordingStore } from '@daisy/db/stores/recordings';
 import { instantMs, nowMs as clockNowMs } from '@daisy/clock';
 import type { Clock } from '@daisy/clock';
 import { spectatorTimelineHorizon } from '@daisy/debate-engine';
-import type { Database } from '@daisy/db';
 import { isTemporaryRefusal } from '@daisy/db/capacity';
 import { idSchema } from '@daisy/protocol/primitives';
 import { type SpectatorTimeline } from '@daisy/protocol/spectator-timeline';
@@ -14,9 +15,10 @@ import {
 } from '@daisy/debate-engine';
 
 type Store = Pick<
-  Database,
-  'readSpectatorTimeline' | 'readRoundAudienceLink' | 'readRoundReuseFenced'
->;
+  SpectatingStore,
+  'readSpectatorTimeline' | 'readRoundAudienceLink'
+> &
+  Pick<RecordingStore, 'readRoundReuseFenced'>;
 
 const SNAPSHOT_TTL_MS = 1000;
 const SNAPSHOT_ROUNDS = 5000;

@@ -1,9 +1,9 @@
+import type { MessagingStore } from '@daisy/db/stores/messaging';
 import type {
   AuthorizationPrincipal,
   AccountAuthorizationFact,
   MessagingPreferenceAuthorizationFact,
 } from '@daisy/auth/authorization';
-import type { Database } from '@daisy/db';
 import type { MessagingRuntimePolicy } from './composition';
 import type { Clock } from '@daisy/clock';
 import { createAppError } from '@daisy/errors';
@@ -16,7 +16,7 @@ export function composeMessagingPreferences({
   policy,
   clock,
 }: {
-  readonly database: Pick<Database, 'messagingPreferenceStore'>;
+  readonly database: Pick<MessagingStore, 'messagingPreferenceStore'>;
   readonly principal: AuthorizationPrincipal;
   readonly policy: MessagingRuntimePolicy;
   readonly clock: Clock;

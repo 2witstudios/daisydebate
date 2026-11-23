@@ -3,14 +3,15 @@ import { addMs } from '@daisy/clock';
 import { eq, sql } from 'drizzle-orm';
 import { createAppError } from '@daisy/errors';
 import { sampleRoundExecutionTime } from '../round-execution-time';
-import { nextEpoch } from '../lease-policy';
+import { nextEpoch } from '../lease';
 import {
   transcriptionRecoveryContexts as contexts,
   transcriptionRecoveryStatuses,
 } from '../schema/transcription-recovery';
 import { due } from './discover';
 import { lock } from './lock';
-import { claimDigest, type Policy } from './policy';
+import { leaseTokenDigest } from '../lease';
+import type { Policy } from './policy';
 import type { Tx } from '../tx';
 import { query } from '../raw-rows';
 import { z } from 'zod';
@@ -67,7 +68,7 @@ export async function claim(
         status: 'leased',
         workerId: input.workerId,
         claimEpoch: epoch,
-        leaseDigest: claimDigest(token),
+        leaseDigest: leaseTokenDigest(token),
         leaseExpiresAt: expiresAt,
         lastClaimedAt: now,
         blockedReason: null,

@@ -1,5 +1,5 @@
 import { loadAuthorizationSessions } from '@daisy/db/authorization';
-import type { RealtimeAuthorityReads } from '@daisy/db';
+import type { RealtimeAuthorityReads } from '@daisy/db/stores/realtime-authority';
 import { isAppError } from '@daisy/errors';
 import type { SocketPrincipal } from '../registry';
 import type { PermitDecision } from './permits';

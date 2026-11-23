@@ -1,7 +1,8 @@
 import { SQL } from 'bun';
 import { systemId } from '@daisy/clock';
 import type { Waits } from '@daisy/clock';
-import { createRealtimeDatabase, WORKLOAD_PROFILES } from '@daisy/db';
+import { WORKLOAD_PROFILES } from '@daisy/db/resources';
+import { openRealtimeDatabase } from '../src/database';
 import { hostWaits } from '@daisy/worker/host';
 import { requireTestServices } from '@daisy/config';
 import { ENVELOPE_VERSION, PROTOCOL_VERSION } from '@daisy/protocol/realtime';
@@ -81,7 +82,7 @@ export async function productionLanes(
   const waiters = new Set<LaneWaiter>();
   const waits = realWaiters ? hostWaits : heldLaneWaits(waiters);
   const resources = createRealtimeApp({
-    database: createRealtimeDatabase({ url: services.databaseUrl, waits }),
+    database: openRealtimeDatabase({ url: services.databaseUrl, waits }),
     env: {
       NODE_ENV: 'test',
       DATABASE_URL: services.databaseUrl,

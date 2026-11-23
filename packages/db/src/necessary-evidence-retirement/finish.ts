@@ -3,7 +3,7 @@ import { eq } from 'drizzle-orm';
 import type { z } from 'zod';
 import { necessaryEvidence } from '../schema/necessary-evidence';
 import { sampleRoundExecutionTime } from '../round-execution-time';
-import { evidenceLeaseDigest } from '../necessary-evidence-policy';
+import { leaseTokenDigest } from '../lease';
 import type { receipt } from './receipt';
 import { lock } from './lock';
 import type { Tx } from '../tx';
@@ -24,7 +24,7 @@ export async function finish(
     row.bindingDigest !== input.identity.bindingDigest ||
     row.executionWorkerId !== input.claim.workerId ||
     row.executionEpoch !== input.claim.executionEpoch ||
-    row.leaseDigest !== evidenceLeaseDigest(input.claim.token) ||
+    row.leaseDigest !== leaseTokenDigest(input.claim.token) ||
     (retryMs === null &&
       (!row.authorityId || !row.leaseExpiresAt || row.leaseExpiresAt <= now))
   )

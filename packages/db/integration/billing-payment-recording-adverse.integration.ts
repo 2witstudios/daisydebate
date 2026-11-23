@@ -1,9 +1,11 @@
+import { createAvailabilityStore } from '../src/stores/availability';
+import { createBillingStore } from '../src/stores/billing';
+import { openDatabaseResources } from '../src/resources';
 import { hostWaits } from '@daisy/worker/host';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { requireTestServices } from '@daisy/config';
 import { createId } from '@paralleldrive/cuid2';
 import { assertRejects } from '@daisy/errors/testing';
-import { createDatabase } from '../src/index';
 import {
   completeControlledStripeCleanup,
   finishedOrBlockedBehind,
@@ -11,6 +13,20 @@ import {
 import { withBillingRefunds } from './billing-refunds.test-support';
 import { withClosedPurchase } from './billing-cleanup-purchases.test-support';
 import { loseTransactionCommitReply } from './bounded-transaction.test-support';
+/** This file's database: the area stores it reads, over one set of resources. */
+const openStores = (
+  options: Parameters<typeof openDatabaseResources>[0] & {
+    readonly nextActorId: () => string;
+  },
+) => {
+  const resources = openDatabaseResources(options);
+  return {
+    ...createAvailabilityStore(resources),
+    ...createBillingStore(resources, { nextId: options.nextActorId }),
+    close: resources.close,
+  };
+};
+
 requireTestServices(process.env);
 setupRitewayBun();
 const read = (customerId: string) => ({
@@ -42,7 +58,7 @@ test(
         await connection`set role daisy_web`;
         return connection;
       };
-      const database = createDatabase({
+      const database = openStores({
         waits: hostWaits,
         url: process.env.TEST_DATABASE_URL!,
         client: pool,
