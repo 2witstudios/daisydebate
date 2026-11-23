@@ -2,7 +2,8 @@
  * A real process for `process-shutdown.test.ts`: a listening HTTP server,
  * three background workers and the production shutdown, installed on the
  * real SIGTERM. Each step prints one line, so the test reads the order.
- * `stall` keeps Next's close from settling, so only the deadline ends it.
+ * `stall` keeps Next's close from settling and `stall-stop` keeps one worker's
+ * stop from settling, so only the deadline ends it.
  */
 import { createServer } from 'node:http';
 import { installShutdownSignals } from '@daisy/observability';
@@ -10,6 +11,7 @@ import { hostWaits } from '@daisy/worker/host';
 import { createProcessShutdown } from './process-shutdown';
 
 const stall = process.argv.includes('stall');
+const stallStop = process.argv.includes('stall-stop');
 const say = (line: string) => process.stdout.write(`${line}\n`);
 let draining = false;
 const server = createServer((_request, response) => response.end('ok'));
@@ -20,7 +22,11 @@ const worker = (name: string, settleMs: number) => ({
     say(`stop settled ${name}`);
   },
 });
-const work = [worker('quick', 0), worker('slow', 150), worker('mid', 50)];
+const work = [
+  worker('quick', 0),
+  worker('slow', stallStop ? 60_000 : 150),
+  worker('mid', 50),
+];
 installShutdownSignals(
   createProcessShutdown({
     app: {

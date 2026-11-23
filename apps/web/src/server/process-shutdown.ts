@@ -65,7 +65,9 @@ export function createProcessShutdown(input: {
           server.close((error) => (error ? reject(error) : resolve())),
         );
         await input.nextApp.close();
-        await stopped;
+        // A stop still running at the deadline keeps the pools open: the
+        // drain's own deadline, just after, reports and exits instead.
+        if ((await stopped) === 'overdue') await new Promise<never>(() => {});
         await input.closeApp();
       },
     });

@@ -1,4 +1,5 @@
-import { featureWork, type ProcessWork } from '../../server/feature-work';
+import { featureWork } from '../../server/feature-work';
+import type { ProcessWork } from '../../server/process-work';
 import { startBroadcastSweep } from './composition';
 
 /** The broadcast control plane, inert unless BROADCAST_CAPTURE is on. */

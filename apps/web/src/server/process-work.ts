@@ -5,6 +5,7 @@ import { startDataRightsWork } from '../features/account/data-rights/work';
 import { provisionalLinkPurposes } from '../features/auth/mail/provisional-mail';
 import { startBetaAccessWork } from '../features/beta-access/work';
 import { startBillingWork } from '../features/billing/work';
+import { startRoundAvailability } from '../features/availability/worker';
 import { startBroadcastWork } from '../features/broadcast/work';
 import { startLeagueRequestWork } from '../features/league-requests/work';
 import { startMediaReleaseWork } from '../features/media-releases/work';
@@ -15,20 +16,49 @@ import { startProfileWork } from '../features/profile/work';
 import { startRecordingWork } from '../features/recording/work';
 import { startRoomWork } from '../features/room-runtime/work';
 import { startRoundFinalizationWork } from '../features/round-finalization/work';
+import { createRoundMediaRuntime } from '../features/round-media/composition';
 import { startRoundMediaWork } from '../features/round-media/work';
+import { startCompetitiveRoundWork } from '../features/round-runtime/ai-work';
+import { mediaConfigured } from '../features/round-runtime/worker-policy';
 import { startSpectatingWork } from '../features/spectating/work';
 import { startStageCaptureWork } from '../features/stage-capture/work';
 import type { App } from './app';
-import type { FeatureWork, StartWork, Stoppable } from './feature-work';
+import type { FeatureWork, Stoppable } from './feature-work';
 import { startLaneGauges } from './lane-gauges';
 import { createRetentionSweep } from './retention-sweep';
 import { retentionTargets } from './retention-targets';
-import { startRoundAvailability } from '../features/availability/worker';
-import { startCompetitiveRoundWork } from '../features/round-runtime/ai-work';
 import { waitForHealthy } from './wait-for-healthy';
-import { createWorkWakes, keepWorkWakesListening } from './work-wakes';
+import {
+  createWorkWakes,
+  keepWorkWakesListening,
+  type WorkWakes,
+} from './work-wakes';
 
 const HOUR_MS = 3_600_000;
+
+/**
+ * What a feature's background work receives: the app, and what the process
+ * owns and every feature shares (injected time, the work wakes, this
+ * instance's service identity, the vendor transport, the one round media
+ * runtime).
+ */
+export type ProcessWork = {
+  readonly app: App;
+  readonly waits: Waits;
+  /** Each loop's wake for the work it looks for (ADR 0154). */
+  readonly wakes: WorkWakes;
+  /** This instance's service identity, held by the availability lease. */
+  readonly instanceId: string;
+  /** Process-owned vendor transport (Stripe). */
+  readonly vendorFetch: typeof globalThis.fetch;
+  /** This process's round media runtime (recovery, bot seats); null without media. */
+  readonly media: ReturnType<typeof createRoundMediaRuntime> | null;
+};
+
+/** One feature's start: its work, or null when nothing of it is configured. */
+type StartWork = (
+  process: ProcessWork,
+) => FeatureWork | null | Promise<FeatureWork | null>;
 
 /**
  * The one feature list: each feature with background work, one line each,
@@ -58,8 +88,9 @@ const featureWork: readonly StartWork[] = [
 /**
  * Every piece of background work the production server runs: first what
  * the process itself owns and shares (the work wakes, the availability
- * lease that gives this instance its identity, the database lane gauges and
- * the retention sweep across every feature's stores), then each feature's
+ * lease that gives this instance its identity, the database lane gauges,
+ * the retention sweep across every feature's stores and the one round media
+ * runtime), then each feature's
  * work. `running` names every loop that started; shutdown stops `workers`.
  */
 export async function startProcessWork(input: {
@@ -150,23 +181,36 @@ export async function startProcessWork(input: {
     // Each run reports its own failure.
     failed: () => undefined,
   });
-  const process = {
+  const mediaRuntime = mediaConfigured(app.config)
+    ? createRoundMediaRuntime(app, waits)
+    : null;
+  const process: ProcessWork = {
     app,
     waits,
     wakes,
     instanceId: availability.instanceId,
     vendorFetch,
+    media: mediaRuntime,
   };
   const features: FeatureWork[] = [];
   for (const start of featureWork) {
     const started = await start(process);
     if (started) features.push(started);
   }
-  const own = { workWakes, availability, laneGauges, retention };
-  const workers: readonly Stoppable[] = [...Object.values(own), ...features];
+  const own = { workWakes, availability, laneGauges, retention, mediaRuntime };
+  const owned = Object.entries(own).flatMap(([name, worker]) =>
+    worker ? [{ name, worker }] : [],
+  );
+  const workers: readonly Stoppable[] = [
+    ...owned.map(({ worker }) => worker),
+    ...features,
+  ];
   return {
     workers,
-    running: [...Object.keys(own), ...features.flatMap((f) => f.running)],
+    running: [
+      ...owned.map(({ name }) => name),
+      ...features.flatMap((f) => f.running),
+    ],
     probeChecked: availability.probeChecked,
     /** This instance's service identity. */
     instanceId: availability.instanceId,

@@ -1,4 +1,5 @@
-import { featureWork, type ProcessWork } from '../../server/feature-work';
+import { featureWork } from '../../server/feature-work';
+import type { ProcessWork } from '../../server/process-work';
 import { startBetaMail } from './mail-worker';
 
 /** The durable beta mail (ADR 0075). */

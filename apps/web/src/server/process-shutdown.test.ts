@@ -76,4 +76,27 @@ describe('the production shutdown in a real process', () => {
       },
     });
   });
+
+  test('a worker stop that outlasts the deadline never closes the app under it', async () => {
+    const { lines, code } = await shutDown('stall-stop');
+    assert({
+      given: 'a worker whose stop is still running at the drain deadline',
+      should:
+        'leave the app open, report the unfinished work and exit 1 at the deadline',
+      actual: {
+        code,
+        reported: lines.includes('unfinished work reported'),
+        appClosed: lines.includes('app closed'),
+        slowSettled: lines.includes('stop settled slow'),
+        last: lines.at(-1),
+      },
+      expected: {
+        code: 1,
+        reported: true,
+        appClosed: false,
+        slowSettled: false,
+        last: 'exit 1',
+      },
+    });
+  });
 });

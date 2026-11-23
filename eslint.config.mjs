@@ -283,13 +283,13 @@ const appImportRestrictions = [{ group: ['@adobe/*', '@daisy/*/src/*'] }];
 
 /**
  * ISSUE-7: the web process edge (`server/process-app.ts`) holds the
- * process's app, so importing it is reaching a process-wide locator. Three
- * kinds of module may, each by path: route bindings (`app/**` route and
- * server action modules) bind `processRoute` only; page-read modules (a
- * `page-reads.ts`, or anything under a `page-reads/` folder) read
- * `processApp` only; and the process entries Next and the production start
- * load (proxy, instrumentation, `server/start.ts`) use the rest. Everything
- * else receives the app, or part of it, as an argument.
+ * process's app, so importing it is reaching a process-wide locator. Route
+ * bindings (`app/**` route and server action modules) bind `processRoute`
+ * only; the request scope every page read is built on (`lib/page-reads.ts`)
+ * reads `processApp` only, and each feature's page reads reach the app
+ * through it (`requestApp`); the process entries Next and the production
+ * start load (proxy, instrumentation, `server/start.ts`) use the rest.
+ * Everything else receives the app, or part of it, as an argument.
  */
 const processEdgeMessage =
   'Receive the app as an argument; only route bindings and the process entries import the process edge.';
@@ -346,11 +346,8 @@ const sharedSourceTests = [
   'apps/web/src/{server,lib}/**/*.test.{ts,tsx}',
   'apps/web/src/{server,lib}/**/*.test-support.{ts,tsx}',
 ];
-/** Every page read, beside its feature, and the request scope they share. */
-const pageReadModules = [
-  'apps/web/src/**/page-reads.ts',
-  'apps/web/src/**/page-reads/**/*.ts',
-];
+/** The request scope every feature's page reads are built on. */
+const requestScope = 'apps/web/src/lib/page-reads.ts';
 
 /**
  * ISSUE-9: the domain and contract packages are pure, so they read no host
@@ -1554,7 +1551,7 @@ export default [
     ignores: [
       'apps/web/src/server/process-app.ts',
       ...processEntries,
-      ...pageReadModules,
+      requestScope,
     ],
     rules: {
       'no-restricted-imports': [
@@ -1691,7 +1688,7 @@ export default [
       ...featureComposers,
       ...sharedSourceTests,
       ...processEntries,
-      ...pageReadModules,
+      requestScope,
     ],
     rules: {
       'no-restricted-imports': [
@@ -1735,33 +1732,9 @@ export default [
       ],
     },
   },
-  {
-    files: pageReadModules,
-    rules: {
-      'no-restricted-imports': [
-        'error',
-        {
-          patterns: [
-            ...appImportRestrictions,
-            {
-              group: ['@sentry/*'],
-              message:
-                'Import Sentry only inside src/features/telemetry/ or next.config.ts (ADR 0037).',
-            },
-            { ...processEdgeImport, allowImportNames: ['processApp'] },
-          ],
-        },
-      ],
-      'no-restricted-syntax': [
-        'error',
-        ...repoSyntaxRestrictions,
-        ...processEdgeLoads,
-      ],
-    },
-  },
   // The shared request scope reads the app, and no feature.
   {
-    files: ['apps/web/src/lib/**/page-reads.ts'],
+    files: [requestScope],
     rules: {
       'no-restricted-imports': [
         'error',

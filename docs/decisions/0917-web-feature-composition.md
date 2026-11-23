@@ -38,10 +38,11 @@ shared folder.
    `lib/page-reads.ts` is the scope: the process app (`requestApp`), this
    request's session and identity (React `cache`), the clock and the
    render-read deadline. Each read is in `features/<feature>/page-reads.ts`.
-   The ISSUE-7 lint block admits the process edge by path pattern only:
+   Feature page reads reach the app only through the scope (`requestApp`).
+   The ISSUE-7 lint block admits the process edge by path pattern:
    route bindings (`app/**/route.ts`, `app/**/actions.ts`: `processRoute`),
-   page-read modules (`**/page-reads.ts`, `**/page-reads/**`: `processApp`),
-   and the process entries Next and the production start load.
+   the request scope (`processApp`), and the process entries Next and the
+   production start load.
 3. **A feature with background work exports one start function.**
    `start<Feature>Work(process)` takes the process's shared parts (app,
    waits, work wakes, instance identity, vendor fetch) and returns its
@@ -54,8 +55,9 @@ shared folder.
    server and Next close and before the app closes; the drain deadline still
    exits 1. The Round AI work (judging, bot seats, analysis) is one start in
    `features/round-runtime/ai-work.ts`, because the three share one provider
-   budget. Round media owns the process's one media runtime, which the bot
-   seats reuse.
+   budget. The process builds and stops the one round media runtime and
+   passes it on `ProcessWork` to media recovery and the bot seats. A stop
+   still running at the deadline keeps the pools open until the forced exit.
 4. **`server/` and `lib/` import no feature.** What stays there is the
    process edge, HTTP plumbing and what two or more features share
    (operation names, client addresses and subkey derivation moved in for
@@ -79,6 +81,16 @@ shared folder.
      this list is still central; see Consequences.
 
    Tests are not covered: a server test composes feature fixtures.
+
+5. **Code in Next's bundle and the process's own graph share identity.**
+   Before, every handler was composed in the process entry's module graph.
+   A composition now composes inside Next's route bundle, which carries its
+   own copy of each module beside the process's. Two things relied on one
+   copy. `@daisy/errors` marks a minted error with a registered symbol on
+   the error itself instead of a module-level set, so a refusal minted by
+   the app's rate limiter or `@daisy/db` still reads as a refusal in the
+   bundle. Per-app runtimes that shutdown must stop (round media, stage
+   capture) live in `App.held` instead of module-level maps.
 
 ## Consequences
 

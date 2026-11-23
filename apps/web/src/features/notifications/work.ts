@@ -1,4 +1,5 @@
-import { featureWork, type ProcessWork } from '../../server/feature-work';
+import { featureWork } from '../../server/feature-work';
+import type { ProcessWork } from '../../server/process-work';
 import { startNotificationMail } from './mail-worker';
 
 /** Notification email (ADR 0124, ADR 0144). */

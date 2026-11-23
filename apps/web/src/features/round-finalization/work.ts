@@ -1,4 +1,5 @@
-import { featureWork, type ProcessWork } from '../../server/feature-work';
+import { featureWork } from '../../server/feature-work';
+import type { ProcessWork } from '../../server/process-work';
 import { startRoundCompetitiveMaintenance } from './maintenance-worker';
 
 /** A Round's competitive maintenance: finalization, attendance and ratings. */

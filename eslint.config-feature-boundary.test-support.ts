@@ -30,13 +30,18 @@ export function registerFeatureBoundaryTests() {
         ),
         messagesOf(featureImport('./'), web('server/start.ts')),
         messagesOf(featureImport('../'), web('lib/page-reads.ts')),
+        messagesOf(
+          featureImport('../../'),
+          web('server/billing/page-reads.ts'),
+        ),
+        messagesOf(featureImport('../../'), web('lib/page-reads/billing.ts')),
       ]);
       assert({
         given:
-          'a server module, a lib module, a nested server module, a dynamic import, a type re-export, the production start and the request scope reaching a feature',
+          'a server module, a lib module, a nested server module, a dynamic import, a type re-export, the production start, the request scope and two modules named like page reads under server/ and lib/, each reaching a feature',
         should: 'refuse each with the boundary message',
         actual: refused.map((found) => found.length),
-        expected: [1, 1, 1, 1, 1, 1, 1],
+        expected: [1, 1, 1, 1, 1, 1, 1, 1, 1],
       });
     });
 

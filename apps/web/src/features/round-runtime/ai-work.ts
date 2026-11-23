@@ -1,5 +1,5 @@
-import { processRoundMedia } from '../round-media/work';
-import { featureWork, type ProcessWork } from '../../server/feature-work';
+import { featureWork } from '../../server/feature-work';
+import type { ProcessWork } from '../../server/process-work';
 import type { Waits } from '@daisy/clock';
 import type { ErrorReporter } from '@daisy/observability';
 import type { App } from '../../server/app';
@@ -88,9 +88,9 @@ export const startCompetitiveRoundWork = ({
   instanceId,
   waits,
   wakes,
-}: ProcessWork) => {
-  const media = processRoundMedia(app, waits);
-  return featureWork({
+  media,
+}: ProcessWork) =>
+  featureWork({
     roundWorkers: startRoundWorkers({
       app,
       instanceId,
@@ -108,4 +108,3 @@ export const startCompetitiveRoundWork = ({
       reporter: app.reporter,
     }),
   });
-};

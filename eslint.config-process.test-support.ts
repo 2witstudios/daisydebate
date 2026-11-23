@@ -61,7 +61,23 @@ export function registerProcessEdgeTests() {
           web('features/tab/reads/league.ts'),
           imports,
         ],
-        // A page read reads the app, never binds a route.
+        // A feature's page reads reach the app through the request scope.
+        [
+          edgeImport('../../server/'),
+          web('features/tab/page-reads.ts'),
+          imports,
+        ],
+        [
+          edgeImport('../../../server/'),
+          web('features/watch/page-reads/live.ts'),
+          imports,
+        ],
+        [
+          edgeImport('../../server/'),
+          web('server/billing/page-reads.ts'),
+          imports,
+        ],
+        // A page read never binds a route.
         [
           edgeImport('../../server/', 'processRoute'),
           web('features/tab/page-reads.ts'),
@@ -88,12 +104,7 @@ export function registerProcessEdgeTests() {
         [edgeImport('./server/'), web('instrumentation.ts'), []],
         [edgeImport('./'), web('server/start.ts'), []],
         [edgeImport('../server/'), web('lib/page-reads.ts'), []],
-        [edgeImport('../../server/'), web('features/tab/page-reads.ts'), []],
-        [
-          edgeImport('../../../server/'),
-          web('features/watch/page-reads/live.ts'),
-          [],
-        ],
+
         [lazyEdge('./server/process-app'), web('instrumentation.ts'), []],
         [edgeImport('../../src/server/', 'adoptProcessApp'), e2eServer, []],
         [

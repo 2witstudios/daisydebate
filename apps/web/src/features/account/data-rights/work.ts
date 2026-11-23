@@ -1,4 +1,5 @@
-import { featureWork, type ProcessWork } from '../../../server/feature-work';
+import { featureWork } from '../../../server/feature-work';
+import type { ProcessWork } from '../../../server/process-work';
 import { startObservationPurges } from './observation-purges';
 import { privacyJobsQueue, startPrivacyJobs } from './privacy-jobs';
 

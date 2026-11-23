@@ -1,24 +1,17 @@
-import { featureWork, type ProcessWork } from '../../server/feature-work';
-import type { Waits } from '@daisy/clock';
-import type { App } from '../../server/app';
+import { featureWork } from '../../server/feature-work';
+import type { ProcessWork } from '../../server/process-work';
 import { startRoundMediaRecovery } from './recovery-worker';
-import { mediaConfigured } from '../round-runtime/worker-policy';
 import { readPublicCheckInProbe } from '../availability/configuration';
-import { createRoundMediaRuntime, stopRoundMedia } from './composition';
+import { stopRoundMedia } from './composition';
 import { recoveryFailureFields } from './recovery-failure';
 
-/**
- * This process's one round media runtime for its background work (media
- * recovery and the bot seats); null when media is not configured.
- */
-export const processRoundMedia = (app: App, waits: Waits) =>
-  app.held('round-media/process-runtime', () =>
-    mediaConfigured(app.config) ? createRoundMediaRuntime(app, waits) : null,
-  );
-
 /** Round media's background work: session recovery and the node probes. */
-export const startRoundMediaWork = ({ app, waits, wakes }: ProcessWork) => {
-  const mediaRuntime = processRoundMedia(app, waits);
+export const startRoundMediaWork = ({
+  app,
+  waits,
+  wakes,
+  media: mediaRuntime,
+}: ProcessWork) => {
   return featureWork({
     mediaRecovery: mediaRuntime
       ? startRoundMediaRecovery({
@@ -43,8 +36,7 @@ export const startRoundMediaWork = ({ app, waits, wakes }: ProcessWork) => {
             )?.roundId ?? null,
         })
       : null,
-    mediaRuntime,
-    // The node probes: this process's media runtime and the routes'.
+    // The node probes of every round media runtime the routes composed.
     roundMedia: { stop: () => stopRoundMedia(app) },
   });
 };
