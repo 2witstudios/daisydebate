@@ -4,7 +4,7 @@
     "https://github.com/2witstudios/daisydebate/actions/runs/45146095940",
     "https://github.com/2witstudios/daisydebate/actions/runs/45141870948"
   ],
-  "measurement": "Median across the source runs of the sum of passing test durations per suite in milliseconds; scheduling estimates only. Unknown suites use 1000 ms. Refresh with bun scripts/refresh-integration-timings.ts <run-id>... The baseline-adoption, baseline-catalog and reference-rows entries, and the suites RECON-5.1 rewrote, are taken from the branch (RECON-5.1, RECON-5.2) until the next refresh from CI.",
+  "measurement": "Median across the source runs of the sum of passing test durations per suite in milliseconds; scheduling estimates only. Unknown suites use 1000 ms. Refresh with bun scripts/refresh-integration-timings.ts <run-id>... The baseline-adoption, baseline-catalog and reference-rows entries are local measurements (RECON-5.1, RECON-5.2); the suites RECON-5.1 rewrote use the default until the next refresh from CI.",
   "durationsMs": {
     "apps/admin/integration/audit-grants.integration.ts": 85,
     "apps/admin/integration/commands-reconcile.integration.ts": 278,

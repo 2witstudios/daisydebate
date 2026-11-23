@@ -87,9 +87,10 @@ fails on any catalog entry or reference row that differs. Never edit the
 baseline by hand.
 
 **A new folder sits after the baseline.** Its timestamp is later than
-`20261121235720`, so the baseline stays the first folder (while the
-sanction is live, `bun migrations:check` refuses a branch whose first folder
-is not the baseline), and its snapshot's
+`20261121235720`, so the baseline stays the first folder (`bun
+migrations:check` refuses a folder before it: as a branch that does not start
+from the baseline while the sanction is live, and as `REWRITTEN_HISTORY` once
+the baseline is on main), and its snapshot's
 `prevIds` names the newest folder's snapshot. The baseline's snapshot keeps
 the cut-off snapshot's id (`011a01df-…`), so a folder generated on a branch
 cut before the baseline already chains to it and needs no regeneration. A
