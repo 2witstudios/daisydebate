@@ -4,6 +4,7 @@ import type { AssignedDebate } from '../../../features/judge/get-assigned';
 import { PageHeader } from '../../components/page-header/page-header';
 import { buttonClass } from '../../components/button/button-class';
 import { cn } from '../../cn';
+import { guideEntryLinks } from '../../../features/guides/entry-links';
 import { AssignedDebates } from '../assigned-debates/assigned-debates';
 export type JudgeHubProps = { readonly assigned: readonly AssignedDebate[] };
 const linkButton = 'no-underline hover:no-underline';
@@ -42,7 +43,7 @@ export function JudgeHub({ assigned }: JudgeHubProps) {
           Refresh assignments
         </Link>
         <Link
-          href="/guides/judging"
+          href={guideEntryLinks.judging}
           className={cn(buttonClass('ghost'), linkButton)}
         >
           Judging guides

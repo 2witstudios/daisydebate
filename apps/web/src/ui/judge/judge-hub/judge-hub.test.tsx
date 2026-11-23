@@ -36,3 +36,18 @@ test('real Judge hub projects own stored states and empty waiting without synthe
     expected: [1, true, true, true, false, false, true, false],
   });
 });
+
+test('Judge links to the judging guides', () => {
+  const empty = renderToString(
+    h(JudgeHub, { assigned: getAssignedDebates([]) }),
+  );
+  assert({
+    given: 'the Judge hub with no assignments',
+    should: 'link to the judging guides beside Find a Room',
+    actual: [
+      empty.includes('href="/guides/judging"'),
+      empty.includes('Find a Room'),
+    ],
+    expected: [true, true],
+  });
+});

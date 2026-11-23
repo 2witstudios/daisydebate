@@ -19,11 +19,17 @@ describe('proseRuns', () => {
 
   test('only local paths link', () => {
     assert({
-      given: 'a link to another site and plain brackets',
-      should: 'leave both as text',
-      actual: proseRuns('See [x](https://example.com) or [y].'),
+      given:
+        'a link to another site, a protocol-relative link and plain brackets',
+      should: 'leave all three as text',
+      actual: proseRuns(
+        'See [x](https://example.com), [z](//example.com) or [y].',
+      ),
       expected: [
-        { kind: 'text', text: 'See [x](https://example.com) or [y].' },
+        {
+          kind: 'text',
+          text: 'See [x](https://example.com), [z](//example.com) or [y].',
+        },
       ],
     });
   });

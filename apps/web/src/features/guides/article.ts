@@ -56,6 +56,8 @@ export type Article = {
   readonly summary: string;
   /** The day its facts were last checked against the code (YYYY-MM-DD). */
   readonly updated: string;
+  /** A story's publication day (YYYY-MM-DD); the Stories feed sorts on it. */
+  readonly published?: string;
   readonly blocks: readonly Block[];
   readonly related: readonly ArticleRef[];
   /**

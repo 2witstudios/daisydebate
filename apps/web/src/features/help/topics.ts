@@ -1,4 +1,5 @@
 import { destinationHref } from '../destinations/destinations';
+import { guideEntryLinks } from '../guides/entry-links';
 import { leaderboardDestinations } from '../leaderboard/actions';
 
 type Link = { readonly label: string; readonly href: string };
@@ -62,7 +63,7 @@ export const helpTopics: readonly HelpTopic[] = [
       'Every round has a judge, who scores each side and gives a decision with a written reason. Both debaters can read it once the ballot is submitted. A room’s host can invite a person to judge, or seat an AI judge so the round never waits for one. An AI judge is free on ranked rounds and premium on casual rounds.',
     links: [
       { label: 'Judge', href: '/judge' },
-      { label: 'Judging guides', href: '/guides/judging' },
+      { label: 'Judging guides', href: guideEntryLinks.judging },
     ],
   },
   {

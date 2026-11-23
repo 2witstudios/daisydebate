@@ -36,7 +36,7 @@ export const judgingArticles: readonly Article[] = [
     blocks: [
       {
         kind: 'paragraph',
-        text: 'Every judged round on Daisy ends with a ballot: who won, why, and how each debater did. You watch the round live, then fill in the ballot once the speeches are over. Both debaters read your decision and your reason, so a good ballot is one they can learn from.',
+        text: 'A judged round that runs to the end is decided by its ballots: who won, why, and how each side did. You watch the round live, then fill in the ballot once the speeches are over. Every debater reads your decision and your reason, so a good ballot is one they can learn from.',
       },
       { kind: 'heading', id: 'the-journey', text: 'The journey' },
       {
@@ -45,7 +45,7 @@ export const judgingArticles: readonly Article[] = [
           'Take a judge seat in a room, or accept a host’s invitation to judge. See [Getting a judge seat](/guides/judging/getting-assigned).',
           'Check the room before it starts: the format, the resolution and the ballot. See [Before the round](/guides/judging/before-the-round).',
           'Follow every speech from your judge view. See [During the round](/guides/judging/during-the-round).',
-          'Fill in and submit your ballot within 30 minutes of the last speech. See [Submitting your ballot](/guides/judging/submitting-your-ballot).',
+          'Fill in and submit your ballot within 30 minutes of it opening, shortly after the last speech. See [Submitting your ballot](/guides/judging/submitting-your-ballot).',
         ],
       },
       { kind: 'heading', id: 'who-can-judge', text: 'Who can judge' },
@@ -95,9 +95,9 @@ export const judgingArticles: readonly Article[] = [
               'A host can invite you to judge by your username. You are told in the app, and by email unless you turned that off. The seat is held for you for 24 hours, or until the room starts. Take the seat to accept, or decline the invitation.',
           },
           {
-            term: 'Be seated by the host',
+            term: 'Be moved by the host',
             detail:
-              'A host can put you straight into the judge seat of their room.',
+              'If you are already in the room, its host can move you into the judge seat.',
           },
         ],
       },
@@ -115,7 +115,10 @@ export const judgingArticles: readonly Article[] = [
       'guides/judging/before-the-round',
       'guides/judging/judging-on-daisy',
     ],
-    sources: roomSources,
+    sources: [
+      ...roomSources,
+      'packages/debate-engine/src/room-edit-transitions.ts',
+    ],
   },
   {
     ...base,
@@ -127,13 +130,13 @@ export const judgingArticles: readonly Article[] = [
     blocks: [
       {
         kind: 'paragraph',
-        text: 'A round starts when every seat is filled and every person in it, judges included, has pressed Ready. Use the time before then to check what you are about to judge.',
+        text: 'Once every seat is filled and every person in the room, judges included, has pressed Ready, the host starts the round. Use the time before then to check what you are about to judge.',
       },
       {
         kind: 'list',
         items: [
-          'The format: its speeches, their times and each side’s prep. The room’s setup lists them.',
-          'Who is debating, and which side each debater argues.',
+          'The format: its speeches, their times and each side’s prep. The room’s Settings panel lists them.',
+          'Who is debating. Sides are not always settled yet: ranked rooms flip for them, and any side left open is drawn when the round starts.',
           'The resolution. If the room strikes its resolution, the debaters choose it once the round starts, and you see it when they finish.',
         ],
       },
@@ -223,7 +226,7 @@ export const judgingArticles: readonly Article[] = [
     blocks: [
       {
         kind: 'paragraph',
-        text: 'Every ballot has a decision, scores and a written reason. The ballot page lists the rules for the ballot in front of you; this is Daisy’s standard ballot.',
+        text: 'This is Daisy’s standard ballot: a decision, scores and a written reason. Some rooms use a different ballot, such as one that places the sides or the speakers in order with no scores; the ballot page always lists the rules for the ballot in front of you.',
       },
       { kind: 'heading', id: 'decision', text: 'The decision' },
       {
@@ -233,7 +236,7 @@ export const judgingArticles: readonly Article[] = [
       { kind: 'heading', id: 'scores', text: 'The scores' },
       {
         kind: 'paragraph',
-        text: 'Score each debater from 1 to 5 in ten categories, for a total out of 50. Every score starts at 3. Under each category, its anchors say what a 1, a 3 and a 5 look like; 2 and 4 sit between them.',
+        text: 'Score each side from 1 to 5 in ten categories, for a total out of 50. In a one-on-one round each side is one debater; in a team format, partners share one score sheet. Every score starts at 3. Under each category, its anchors say what a 1, a 3 and a 5 look like; 2 and 4 sit between them.',
       },
       {
         kind: 'terms',
@@ -267,7 +270,7 @@ export const judgingArticles: readonly Article[] = [
       },
       {
         kind: 'paragraph',
-        text: 'The decision is who won the round; the scores are how well each debater debated. They usually agree, but they need not: a debater can win the round on fewer points. When your winner has the lower total, the ballot asks you to confirm that before you submit, so it is a choice and never a slip.',
+        text: 'The decision is who won the round; the scores are how well each side debated. They usually agree, but they need not: a side can win the round on fewer points. When your winner has the lower total, the ballot asks you to confirm that before you submit, so it is a choice and never a slip.',
       },
       { kind: 'heading', id: 'written', text: 'The written parts' },
       {
@@ -276,12 +279,12 @@ export const judgingArticles: readonly Article[] = [
           {
             term: 'Reason for decision',
             detail:
-              'Required, up to 600 characters. Both debaters read it. See [Writing a clear reason for decision](/learn/judging-and-feedback/writing-a-reason-for-decision).',
+              'Required, up to 600 characters. Every debater reads it. See [Writing a clear reason for decision](/learn/judging-and-feedback/writing-a-reason-for-decision).',
           },
           {
             term: 'Feedback',
             detail:
-              'Optional, up to 280 characters for each debater. Each debater reads only their own. See [Writing useful feedback](/learn/judging-and-feedback/writing-useful-feedback).',
+              'Optional, up to 280 characters for each side. Each side reads only its own; in a team format both partners read it. See [Writing useful feedback](/learn/judging-and-feedback/writing-useful-feedback).',
           },
         ],
       },
@@ -289,11 +292,11 @@ export const judgingArticles: readonly Article[] = [
       {
         kind: 'list',
         items: [
-          'Both debaters read your decision, your scores and your reason. Each reads only the feedback written to them.',
+          'Every debater reads your decision, your scores and your reason. Each side reads only the feedback written to it.',
           'Your name is never shown. A ballot says only whether a person or an AI judged.',
-          'A host who is not debating reads it, and so does every judge of the round once it is over.',
+          'Once the round is over, a host who is not debating and every judge of the round read the decision, the scores and the reason, but not the feedback.',
           'On a ranked round, the audience sees the winner, the scores and the reason on the round’s timeline, after the broadcast delay. Feedback is never shown to an audience. A casual round’s audience sees no ballot.',
-          'A debater can report feedback written to them as abusive.',
+          'A debater can report feedback written to their side as abusive.',
         ],
       },
     ],
@@ -302,7 +305,11 @@ export const judgingArticles: readonly Article[] = [
       'learn/judging-and-feedback/writing-a-reason-for-decision',
       'learn/judging-and-feedback/writing-useful-feedback',
     ],
-    sources: [...ballotSources, 'docs/domains/rooms.md'],
+    sources: [
+      ...ballotSources,
+      'docs/domains/rooms.md',
+      'packages/db/src/round-ballot-view.ts',
+    ],
   },
   {
     ...base,
@@ -320,11 +327,11 @@ export const judgingArticles: readonly Article[] = [
       { kind: 'heading', id: 'deadline', text: 'The deadline' },
       {
         kind: 'paragraph',
-        text: 'You have 30 minutes from when the ballot opens. The page shows the time left to submit. When time runs out, the ballots already submitted decide the round. If none were submitted, the round ends with no result.',
+        text: 'You have 30 minutes from when the ballot opens. The page shows the time left to submit. When time runs out, the ballots already submitted decide the round, as long as enough judges submitted; otherwise the round ends with no result.',
       },
       {
         kind: 'paragraph',
-        text: 'When a round has several judges, the side most judges picked wins. If the judges are split evenly, there is no result.',
+        text: 'When a round has several judges, at least half of them must submit for the round to have a result. Then the side most judges picked wins, and an even split gives no result.',
       },
       { kind: 'heading', id: 'checking', text: 'Before you submit' },
       {
@@ -342,7 +349,7 @@ export const judgingArticles: readonly Article[] = [
       },
       {
         kind: 'paragraph',
-        text: 'If the host turned on post-round feedback, the ballot page offers Join the post-round call: a live call with the debaters, where they see and hear you, shown as “Judge” and never by name. It is not recorded, and it closes 30 minutes after the round ends.',
+        text: 'If the host turned on post-round feedback, the ballot page offers Join the post-round call: a live call with the debaters, where they see and hear you, shown as “Judge” and never by name. It is not recorded, and it closes 30 minutes after the round ends, or a minute after everyone has left.',
       },
       { kind: 'heading', id: 'corrections', text: 'Corrections' },
       {
@@ -356,6 +363,8 @@ export const judgingArticles: readonly Article[] = [
     ],
     sources: [
       'packages/protocol/src/judging-policy.ts',
+      'packages/debate-engine/src/round-panel-completion.ts',
+      'packages/protocol/src/post-round-call.ts',
       'apps/web/src/features/round-ballots/form.ts',
       'apps/web/src/features/judge/ballot-draft.ts',
       'apps/web/src/ui/judge/ballot-page/ballot-entry.tsx',

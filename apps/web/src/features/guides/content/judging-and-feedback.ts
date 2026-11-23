@@ -92,7 +92,7 @@ export const judgingAndFeedbackArticles: readonly Article[] = [
       },
       {
         kind: 'paragraph',
-        text: 'On Daisy a reason can be up to 600 characters, which is about four sentences. That is enough for those three steps, and it is a good discipline: if you cannot say why a side won in four sentences, go back to your notes.',
+        text: 'On Daisy a reason can be up to 600 characters: a short paragraph. That is enough for those three steps, and it is a good discipline: if you cannot say in a short paragraph why a side won, go back to your notes.',
       },
       { kind: 'heading', id: 'examples', text: 'Weak and clear' },
       {

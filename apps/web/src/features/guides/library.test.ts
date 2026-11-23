@@ -2,19 +2,22 @@ import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { routeExists } from '../../ui/test-support/route-exists';
-import type { Article, Block } from './article';
+import { homes, type Article, type Block } from './article';
 import {
   articleByRef,
   articleHref,
   articleRef,
   articles,
+  collectionHref,
   collectionOf,
   collections,
   findArticle,
+  findCollection,
   homeShelf,
   relatedArticles,
   visibleArticle,
 } from './library';
+import { guideEntryLinks } from './entry-links';
 import { proseLinks } from './prose';
 
 setupRitewayBun();
@@ -42,10 +45,22 @@ const blockProse = (block: Block): readonly string[] => {
 const linksOf = (article: Article): readonly string[] =>
   article.blocks.flatMap(blockProse).flatMap(proseLinks);
 
-const hrefs = new Set(articles.map(articleHref));
+/**
+ * Reading paths resolve only to what exists: every `[param]` route under
+ * them matches any segment, so they are checked against the library itself.
+ */
+const readingPaths = new Set([
+  ...articles.map(articleHref),
+  ...collections.map(collectionHref),
+  ...homes.map((home) => `/${home}`),
+]);
+const isReadingPath = (path: string) =>
+  homes.some((home) => path === `/${home}` || path.startsWith(`/${home}/`));
 const resolves = (href: string): boolean => {
   const path = href.split('#')[0]?.split('?')[0] ?? '';
-  return hrefs.has(path) || routeExists(appDirectory, path);
+  return isReadingPath(path)
+    ? readingPaths.has(path)
+    : routeExists(appDirectory, path);
 };
 
 describe('the article graph', () => {
@@ -88,6 +103,41 @@ describe('the article graph', () => {
           .filter((href) => !resolves(href))
           .map((href) => `${articleRef(article)} → ${href}`),
       ),
+      expected: [],
+    });
+  });
+
+  test('a reading path must name a real article', () => {
+    assert({
+      given:
+        'a missing guide, a missing Learn article, a real guide and an app route',
+      should: 'resolve only the real guide and the app route',
+      actual: [
+        resolves('/guides/judging/no-such-guide'),
+        resolves('/learn/anything/at-all'),
+        resolves('/guides/judging/understanding-a-ballot#who-reads'),
+        resolves('/judge'),
+      ],
+      expected: [false, false, true, true],
+    });
+  });
+
+  test('the product links into real guides', () => {
+    assert({
+      given: 'every link the product makes into the guides',
+      should: 'name a collection or article that exists',
+      actual: Object.values(guideEntryLinks).filter((href) => !resolves(href)),
+      expected: [],
+    });
+  });
+
+  test('every story has a publication day', () => {
+    assert({
+      given: 'every story',
+      should: 'carry the day it was published, which the feed sorts on',
+      actual: articles
+        .filter((article) => article.home === 'stories' && !article.published)
+        .map(articleRef),
       expected: [],
     });
   });
@@ -207,6 +257,15 @@ describe('visibility', () => {
         'Understanding a Daisy ballot',
         undefined,
       ],
+    });
+  });
+
+  test('a collection with nothing to read is not found', () => {
+    assert({
+      given: 'the Stories collection, which has no stories yet',
+      should: 'not be found, as it is not listed on its home',
+      actual: findCollection('stories', 'updates', none),
+      expected: undefined,
     });
   });
 

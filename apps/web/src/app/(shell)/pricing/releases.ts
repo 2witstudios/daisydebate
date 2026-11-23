@@ -1,5 +1,5 @@
 import type { PlanReleases } from '../../../features/pricing/plan-actions';
-import { releaseAccountOf } from '../../../features/pricing/release-account';
+import { releaseAccountOf } from '../../../features/flags/release-account';
 import {
   requestIdentity,
   requestReleaseEnabled,

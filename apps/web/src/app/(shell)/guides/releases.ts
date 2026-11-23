@@ -1,4 +1,4 @@
-import { releaseAccountOf } from '../../../features/pricing/release-account';
+import { releaseAccountOf } from '../../../features/flags/release-account';
 import {
   releaseKeys,
   type OpenReleases,

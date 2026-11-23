@@ -133,7 +133,10 @@ export const articlesIn = (
       visibleArticle(article, releases),
   );
 
-/** One collection, if this viewer may read it. */
+/**
+ * One collection, if this viewer may read it and at least one of its
+ * articles: a collection with nothing visible is not found, as on its home.
+ */
 export const findCollection = (
   home: Home,
   slug: string,
@@ -143,7 +146,8 @@ export const findCollection = (
     (collection) =>
       collection.home === home &&
       collection.slug === slug &&
-      visibleCollection(collection, releases),
+      visibleCollection(collection, releases) &&
+      articlesIn(collection, releases).length > 0,
   );
 
 /** One article, if this viewer may read it. */
@@ -161,14 +165,14 @@ export const findArticle = (
       visibleArticle(article, releases),
   );
 
-/** The stories this viewer can read, newest first. */
+/** The stories this viewer can read, most recently published first. */
 export const visibleStories = (releases: OpenReleases): readonly Article[] =>
   [
     ...articles.filter(
       (article) =>
         article.home === 'stories' && visibleArticle(article, releases),
     ),
-  ].sort((a, b) => b.updated.localeCompare(a.updated));
+  ].sort((a, b) => (b.published ?? '').localeCompare(a.published ?? ''));
 
 /** An article's related reading this viewer can open. */
 export const relatedArticles = (

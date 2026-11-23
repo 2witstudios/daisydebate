@@ -5,7 +5,8 @@ export type ProseRun =
   | { readonly kind: 'text'; readonly text: string }
   | { readonly kind: 'link'; readonly text: string; readonly href: string };
 
-const link = /\[([^\]]+)\]\((\/[^)\s]*)\)/g;
+// A path on this site: one leading slash, never `//`, which leaves it.
+const link = /\[([^\]]+)\]\((\/(?!\/)[^)\s]*)\)/g;
 
 /** Splits copy into text and `[label](/path)` links; only local paths link. */
 export const proseRuns = (prose: Prose): readonly ProseRun[] => {

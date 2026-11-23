@@ -33,6 +33,7 @@ import { BallotRules } from './ballot-rules';
 import { useBallotDraft } from './use-ballot-draft';
 import { useBallotRefresh } from './use-ballot-refresh';
 import { postRoundCallOffered } from '../../../features/post-round-call/offered';
+import { guideEntryLinks } from '../../../features/guides/entry-links';
 const unanswered: RoundBallotFormState = idle();
 /** Mounted above every canonical state, so an unknown acknowledgement always keeps its original retry. */
 export function BallotPage({
@@ -160,7 +161,7 @@ export function BallotPage({
         View Round
       </MediaPageLink>
       <Link
-        href="/guides/judging/understanding-a-ballot"
+        href={guideEntryLinks.understandingABallot}
         className="inline-flex min-h-10 items-center text-base font-strong"
       >
         Understanding a Daisy ballot
