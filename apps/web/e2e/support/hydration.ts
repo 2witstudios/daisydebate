@@ -5,9 +5,13 @@ import { expect, type Locator, type Page } from '@playwright/test';
  * timer and no network-idle wait. The root layout's ThemeProvider starts
  * following the theme cookie in an effect, and React runs a parent's effects
  * after its children's, so once the page applies a cookie change every
- * effect of that render has run, SessionRefresh's included. The probe is a
- * `visibilitychange`, which the provider answers by re-reading the cookie;
- * it is repeated because a probe sent before the effect is not heard.
+ * effect of that render has run, SessionRefresh's included. The probe is an
+ * announcement on the provider's own `daisy-theme` channel, which it answers
+ * by re-reading the cookie; it is repeated because a probe sent before the
+ * effect is not heard. Nothing else listens there. A `visibilitychange` probe
+ * also made every shell resource re-read, so the caller's next request raced
+ * a burst the probe had started: on CI that burst held the whole social lane
+ * and a message sent next was refused 503 (run 45309653610).
  */
 export async function effectsRan(page: Page) {
   const html = page.locator('html');
@@ -21,7 +25,9 @@ export async function effectsRan(page: Page) {
   await expect
     .poll(async () =>
       page.evaluate(() => {
-        document.dispatchEvent(new Event('visibilitychange'));
+        const announce = new BroadcastChannel('daisy-theme');
+        announce.postMessage(null);
+        announce.close();
         return document.documentElement.dataset['theme'];
       }),
     )
