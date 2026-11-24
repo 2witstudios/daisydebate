@@ -158,11 +158,12 @@ jobs:
       # Also installs zip/unzip: scripts/e2e-artifact-sanitizer.ts shells
       # out to them to redact retained trace archives, a path exercised only
       # when a test fails, so the job must not rely on the base image.
-      # The step bound sits inside the 25-minute job budget (ci-browsers.sh
-      # stops after three apt attempts).
+      # The step bound covers ci-browsers.sh's stated worst case (650 s of
+      # apt, then the browser download) and sits inside the 25-minute job
+      # budget.
       - name: Install Playwright browsers
         id: browsers
-        timeout-minutes: 8
+        timeout-minutes: 12
         env:
           BROWSERS: ${{ (github.event_name == 'push' || github.event_name == 'pull_request' || inputs.review_spec) && 'chromium' || 'chromium firefox webkit' }}
         # Word splitting is the point: one argument per browser.
@@ -362,7 +363,7 @@ jobs:
 
       - name: Install Playwright Chromium
         id: browsers
-        timeout-minutes: 8
+        timeout-minutes: 12
         run: sh scripts/ci-browsers.sh chromium
 
       - name: Save Playwright Chromium
@@ -512,7 +513,7 @@ jobs:
           restore-keys: playwright-debs-${{ runner.os }}-${{ runner.arch }}-${{ steps.playwright.outputs.version }}-chromium${{ matrix.speech && format('-{0}', matrix.speech) || '' }}_
       - name: Install controlled Chromium and artifact tools
         id: chromium
-        timeout-minutes: 8
+        timeout-minutes: 12
         env:
           EXTRA_PACKAGES: ${{ matrix.speech }}
         run: sh scripts/ci-browsers.sh chromium

@@ -179,7 +179,7 @@ jobs:
           restore-keys: playwright-debs-${{ runner.os }}-${{ runner.arch }}-${{ steps.playwright.outputs.version }}-chromium_
 
       - name: Install Playwright Chromium
-        timeout-minutes: 8
+        timeout-minutes: 12
         run: sh scripts/ci-browsers.sh chromium
 
       # Playwright rewrites only the baselines that no longer match.

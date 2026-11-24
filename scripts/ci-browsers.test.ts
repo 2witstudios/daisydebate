@@ -64,7 +64,7 @@ const installShape = (steps: readonly Step[]) => {
       (step) => step.uses === saveAction && step.with?.path === path,
     ) ?? {};
   return {
-    bounded: (install?.['timeout-minutes'] ?? Infinity) <= 8,
+    bounded: (install?.['timeout-minutes'] ?? Infinity) <= 12,
     ...cacheShape(restore, save('~/.cache/ms-playwright')),
     ...debShape(
       debs,
@@ -238,12 +238,14 @@ test('a retry waits for the killed attempt to release the package lock', async (
   const script = await read('scripts/ci-browsers.sh');
   const lock = script.slice(
     script.indexOf('await_package_lock() {'),
-    script.indexOf('mkdir -p "$deb_cache"'),
+    script.indexOf('# install-deps chains'),
   );
   const retry = script.slice(
     script.indexOf('echo "Retrying browser OS dependencies'),
     script.indexOf('# ubuntu-24.04 runners resolve'),
   );
+  const repair =
+    'timeout -k 10 75 sh -c dpkg --configure -a; apt-get -f install -y --no-install-recommends';
   // `holds` is how many polls still find the earlier dpkg alive.
   const run = (holds: number) => {
     const root = mkdtempSync(join(tmpdir(), 'daisy-browser-lock-'));
@@ -263,7 +265,7 @@ test('a retry waits for the killed attempt to release the package lock', async (
       stub('sleep', `echo sleep >> ${calls}`);
       stub('sudo', `echo "$@" >> ${calls}`);
       const result = Bun.spawnSync(
-        ['sh', '-euc', `${lock}\nattempt=2\n${retry}`],
+        ['sh', '-euc', `install_seconds=75\n${lock}\nattempt=2\n${retry}`],
         {
           env: {
             ...process.env,
@@ -284,7 +286,7 @@ test('a retry waits for the killed attempt to release the package lock', async (
     given: "a retry while the killed attempt's dpkg lives for two more polls",
     should: 'wait for it to exit and only then repair the package database',
     actual: run(2),
-    expected: { exit: 0, calls: ['sleep', 'sleep', 'dpkg --configure -a'] },
+    expected: { exit: 0, calls: ['sleep', 'sleep', repair] },
   });
   assert({
     given: 'a retry while that dpkg outlives the wait',
@@ -292,15 +294,100 @@ test('a retry waits for the killed attempt to release the package lock', async (
     actual: run(99),
     expected: {
       exit: 0,
-      calls: [
-        'sleep',
-        'sleep',
-        'sleep',
-        'pkill -KILL -x dpkg|apt-get',
-        'dpkg --configure -a',
-      ],
+      calls: ['sleep', 'sleep', 'sleep', 'pkill -KILL -x dpkg|apt-get', repair],
     },
   });
+});
+
+// main at 690ed5ffb: the first attempt was killed while unpacking mesa, so
+// libgbm1 was at the new version and mesa-libgallium at the old one, and the
+// retry's `dpkg --configure -a` exited 1 and ended the job under set -e.
+test('an attempt killed mid-install that breaks dpkg still lets the next attempt succeed', async () => {
+  const { mkdtempSync, writeFileSync, chmodSync, readFileSync, rmSync } =
+    await import('node:fs');
+  const { join } = await import('node:path');
+  const { tmpdir } = await import('node:os');
+  const root = mkdtempSync(join(tmpdir(), 'daisy-browser-retry-'));
+  try {
+    const bin = join(root, 'bin');
+    const calls = join(root, 'calls');
+    const broken = join(root, 'broken');
+    Bun.spawnSync(['mkdir', '-p', bin, join(root, 'debs')]);
+    writeFileSync(calls, '');
+    const stub = (name: string, body: string) => {
+      writeFileSync(join(bin, name), `#!/bin/sh\n${body}\n`);
+      chmodSync(join(bin, name), 0o755);
+    };
+    // sudo runs a bounded command and logs its budget; the rest only logs.
+    stub(
+      'sudo',
+      `case "$1" in
+timeout) echo "budget $4: $5" >> ${calls}; shift 4; exec "$@";;
+tee) cat >/dev/null;;
+*) echo "sudo $1" >> ${calls};;
+esac`,
+    );
+    stub('pgrep', 'exit 1');
+    // dpkg cannot configure while the killed unpack is half done.
+    stub('dpkg', `echo "dpkg $*" >> ${calls}; [ ! -e ${broken} ] || exit 1`);
+    // apt-get -f install also fails here: the next install is the judge.
+    stub(
+      'apt-get',
+      `echo "apt-get $*" >> ${calls}; case "$1" in -f) exit 100;; esac`,
+    );
+    // The first install-deps is killed mid-unpack (timeout's 124) and leaves
+    // dpkg broken; the second succeeds. Like Playwright, it runs its own
+    // `apt-get update && apt-get install`.
+    stub(
+      'bun',
+      `echo "bun $2 $3" >> ${calls}
+[ "$2" = install-deps ] || exit 0
+apt-get update && apt-get install -y libgbm1 || exit 1
+if [ ! -e ${root}/killed ]; then touch ${root}/killed ${broken}; exit 124; fi`,
+    );
+    const run = Bun.spawnSync(['sh', 'scripts/ci-browsers.sh', 'chromium'], {
+      env: {
+        ...process.env,
+        PATH: `${bin}:${process.env.PATH}`,
+        DEB_CACHE: join(root, 'debs'),
+        GITHUB_OUTPUT: '',
+      },
+      stderr: 'pipe',
+    });
+    assert({
+      given:
+        'a first attempt killed mid-install that leaves dpkg --configure -a and apt-get -f install failing',
+      should:
+        'repair without ending the script, refresh the index and install under separate budgets, and succeed on attempt 2',
+      actual: {
+        exit: run.exitCode,
+        calls: readFileSync(calls, 'utf8').trim().split('\n'),
+      },
+      expected: {
+        exit: 0,
+        calls: [
+          'budget 45: apt-get',
+          'apt-get update',
+          'budget 75: env',
+          'bun install-deps chromium',
+          'apt-get install -y libgbm1',
+          'budget 75: sh',
+          'dpkg --configure -a',
+          'apt-get -f install -y --no-install-recommends',
+          'sudo sed',
+          'budget 45: apt-get',
+          'apt-get update',
+          'budget 75: env',
+          'bun install-deps chromium',
+          'apt-get install -y libgbm1',
+          'apt-get install -y --no-install-recommends openssl zip unzip',
+          'bun install chromium',
+        ],
+      },
+    });
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
 });
 
 test('apt is bounded per request and per attempt, with at most three attempts', async () => {
@@ -313,7 +400,14 @@ test('apt is bounded per request and per attempt, with at most three attempts', 
       retries: script.includes('Acquire::Retries "3";'),
       httpTimeout: script.includes('Acquire::http::Timeout "20";'),
       httpsTimeout: script.includes('Acquire::https::Timeout "20";'),
-      attemptKill: /sudo timeout -k \S+ "\$attempt_seconds"/.test(script),
+      // The index refresh and the install each have their own budget.
+      updateKill: /sudo timeout -k \S+ "\$update_seconds" apt-get update/.test(
+        script,
+      ),
+      installKill:
+        /sudo timeout -k \S+ "\$install_seconds" \\\n\s+env PATH="\$shim:\$PATH"/.test(
+          script,
+        ),
       maxAttempts: script.includes('[ "$attempt" -ge 3 ]'),
       // ubuntu-24.04 runners read mirrors from mirror+file, not the URL in
       // the .sources file, so the retry must rewrite that list.
@@ -323,7 +417,8 @@ test('apt is bounded per request and per attempt, with at most three attempts', 
       retries: true,
       httpTimeout: true,
       httpsTimeout: true,
-      attemptKill: true,
+      updateKill: true,
+      installKill: true,
       maxAttempts: true,
       switchesMirror: true,
     },

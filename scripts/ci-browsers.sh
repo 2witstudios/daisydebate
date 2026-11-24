@@ -6,9 +6,16 @@
 #
 # The runner's Ubuntu mirror sometimes trickles .debs at a few KB/s, and an
 # unbounded `install --with-deps` then ate the whole job timeout. Here apt
-# gets per-request retries and timeouts, each attempt is killed after
-# APT_ATTEMPT_SECONDS, a retry switches to the primary Ubuntu archive, and
-# the third failure fails the step. The workflow restores the browsers
+# gets per-request retries and timeouts, and each attempt has two budgets:
+# APT_UPDATE_SECONDS for the index refresh and APT_INSTALL_SECONDS for the
+# install, so a slow `apt-get update` cannot spend the time the install needs
+# (main at 690ed5ffb: a 50 s refresh left 25 s, and the install was killed
+# mid-unpack). A retry repairs the package database, switches to the primary
+# Ubuntu archive, and the third failure fails the step. Worst case, with the
+# defaults and timeout's 10 s kill grace: three attempts of (45+10)+(75+10)
+# and two repairs of 30 (lock wait) + (75+10), 650 s, then the browser
+# download; the workflow's 12-minute step bound covers that and sits inside
+# each browser job's limit. The workflow restores the browsers
 # (~/.cache/ms-playwright) from a cache keyed on the exact @playwright/test
 # version, and the .debs (DEB_CACHE) from the newest of a rolling cache, so a
 # warm run only refreshes apt's index and unpacks. DEB_CACHE keeps only the
@@ -21,7 +28,8 @@ set -eu
 cli=apps/web/node_modules/@playwright/test/cli.js
 bun=$(command -v bun)
 deb_cache=${DEB_CACHE:-$HOME/.cache/daisy-apt-archives}
-attempt_seconds=${APT_ATTEMPT_SECONDS:-75}
+update_seconds=${APT_UPDATE_SECONDS:-45}
+install_seconds=${APT_INSTALL_SECONDS:-75}
 extra_packages=${EXTRA_PACKAGES:-}
 case " $extra_packages" in
 *[!a-z0-9.+\ -]* | *" -"*)
@@ -54,24 +62,52 @@ await_package_lock() {
   done
 }
 
+# A killed install can leave a package unpacked against an older dependency
+# (libgbm1 at the new mesa, mesa-libgallium at the old), and then
+# `dpkg --configure -a` exits 1; under set -e that ended the job on attempt 2.
+# The repair is best effort, bounded like an install, and never ends the
+# script: the next attempt's install is the real judge.
+repair_packages() {
+  await_package_lock
+  sudo timeout -k 10 "$install_seconds" sh -c \
+    'dpkg --configure -a; apt-get -f install -y --no-install-recommends' ||
+    echo "Package repair failed; the next attempt's install decides" >&2
+}
+
+# install-deps chains `apt-get update && apt-get install`. The index was just
+# refreshed under its own budget, so a PATH shim skips that second refresh
+# and the install budget is the install's alone. If Playwright stops calling
+# apt-get through PATH, the refresh merely runs twice.
+shim=$(mktemp -d)
+trap 'rm -rf "$shim"' EXIT
+apt_get=$(command -v apt-get)
+cat >"$shim/apt-get" <<EOF
+#!/bin/sh
+[ "\${1:-}" = update ] && exit 0
+exec "$apt_get" "\$@"
+EOF
+cat >"$shim/install" <<EOF
+"$bun" "$cli" install-deps "\$@" &&
+  apt-get install -y --no-install-recommends openssl zip unzip $extra_packages
+EOF
+chmod 755 "$shim/apt-get"
+
 mkdir -p "$deb_cache"
 debs_before=$(ls "$deb_cache" | sort | cksum)
 find "$deb_cache" -name '*.deb' -exec sudo cp {} /var/cache/apt/archives/ \;
 
 # Run as root under timeout so the kill reaches apt-get, not just the CLI.
 attempt=1
-until sudo timeout -k 10 "$attempt_seconds" \
-  "$bun" "$cli" install-deps "$@" &&
-  sudo timeout -k 10 "$attempt_seconds" \
-    apt-get install -y --no-install-recommends openssl zip unzip $extra_packages; do
+until sudo timeout -k 10 "$update_seconds" apt-get update &&
+  sudo timeout -k 10 "$install_seconds" \
+    env PATH="$shim:$PATH" sh -e "$shim/install" "$@"; do
   if [ "$attempt" -ge 3 ]; then
     echo "Browser OS dependencies failed after $attempt attempts" >&2
     exit 1
   fi
   attempt=$((attempt + 1))
   echo "Retrying browser OS dependencies on archive.ubuntu.com (attempt $attempt)" >&2
-  await_package_lock
-  sudo dpkg --configure -a
+  repair_packages
   # ubuntu-24.04 runners resolve the archive through mirror+file, which only
   # fails over on errors, never on a slow mirror. The list leads with a
   # regional host (azure., then us-east-2.ec2. from 2026-11); any of them
