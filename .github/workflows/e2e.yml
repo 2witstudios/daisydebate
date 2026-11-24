@@ -586,12 +586,14 @@ jobs:
           # splits a file unless it runs in parallel mode, as round-journeys
           # does (five whole Rounds, about 11 test minutes). These shares are
           # the test counts of each shard's cut, 149 tests in all: attendance
-          # to debate-room; document-draft-recovery to post-round-call;
-          # resolution-strike to round-journeys' first journey; its other
-          # four; round-media-lifecycle on. Mean test minutes over main runs
-          # 45248111105, 45262325239, 45264455752 and 45277614907: 9.2, 8.2,
-          # 8.0, 9.1, 8.2. Re-measure when a Launch file or test is added.
-          PWTEST_SHARD_WEIGHTS: '40:56:20:4:29'
+          # and ballot; debate-room and document-draft-recovery;
+          # document-file-actions to round-journeys' first journey; its other
+          # four; round-media-lifecycle on. Shard minutes include hooks:
+          # ballot's beforeAll holds about two minutes no test reports.
+          # Modeled from main runs 45248111105, 45262325239, 45264455752 and
+          # 45277614907 and PR run 45289341431: 8.8, 9.2, 9.5, 9.1, 8.2.
+          # Re-measure when a Launch file or test is added.
+          PWTEST_SHARD_WEIGHTS: '29:44:43:4:29'
           # Above a shard's measured run and below the job's own timeout.
           DAISY_HEAVY_TIMEOUT_MINUTES: '35'
       - name: Run authenticated generic realtime browser proof
