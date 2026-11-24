@@ -1,6 +1,7 @@
 import { CAPTURE_COVERAGE_TOLERANCE } from '@daisy/protocol/capture-timing';
 import { z } from 'zod';
 import { incidentRate, percentile } from './measure';
+import type { DrillMoment } from './target';
 
 const seatSchema = z.strictObject({
   seat: z.enum(['first-speaker', 'second-speaker']),
@@ -102,15 +103,30 @@ const isHonest = (stream: DrillSample['streams'][number]) =>
   (stream.missingMs <= HONEST_GAP_TOLERANCE_MS ||
     (stream.state === 'partial' && stream.gapCount > 0));
 
+/** Each planned kill that did not run, with why; a kill that left no sample says so. */
+const notRunOf = (
+  plan: readonly DrillMoment[],
+  samples: readonly DrillSample[],
+) =>
+  plan.flatMap((moment, index) => {
+    const sample = samples.find((entry) => entry.index === index);
+    if (sample?.killed) return [];
+    const errors = sample ? sample.errors : ['no sample was written'];
+    return [
+      { index, moment, errors: errors.length ? errors : ['no error recorded'] },
+    ];
+  });
+
 /** The JSON report: summaries with their sample sizes, every bar, and what did not run. */
 export function buildDrillReport(input: {
   readonly label: string;
   readonly commit: string;
   readonly nodes: readonly string[];
-  readonly planned: number;
+  readonly plan: readonly DrillMoment[];
   readonly samples: readonly DrillSample[];
 }) {
   const killed = input.samples.filter((sample) => sample.killed);
+  const notRun = notRunOf(input.plan, input.samples);
   const seats = killed.flatMap((sample) => sample.seats);
   const seatBack = seats.map((seat) => seat.backMs);
   const captureBack = killed.map((sample) => sample.captureBackMs);
@@ -134,7 +150,7 @@ export function buildDrillReport(input: {
     label: input.label,
     commit: input.commit,
     nodes: input.nodes,
-    killsPlanned: input.planned,
+    killsPlanned: input.plan.length,
     killsRun: killed.length,
     measuredFrom:
       'the moment the kill command was sent; each sample also states how long that command took',
@@ -173,6 +189,11 @@ export function buildDrillReport(input: {
     nodeBackMs: summaryOf(killed.map((sample) => sample.nodeBackMs)),
     nodeStartedBy: killed.map((sample) => sample.nodeStartedBy),
     bars: {
+      // A kill that did not run proves nothing, so the others cannot stand in for it.
+      everyPlannedKillRan:
+        input.plan.length > 0 && notRun.length === 0
+          ? ('pass' as const)
+          : ('fail' as const),
       seatsBackWithin15sP95: verdict(
         ran,
         seatP95 !== null && seatP95 <= SEAT_BACK_BAR_MS,
@@ -208,13 +229,7 @@ export function buildDrillReport(input: {
           seatBack.every((back) => back !== null && back <= UNRECOVERED_BAR_MS),
       ),
     },
-    notRun: input.samples
-      .filter((sample) => !sample.killed)
-      .map((sample) => ({
-        index: sample.index,
-        moment: sample.moment,
-        errors: sample.errors,
-      })),
+    notRun,
     samples: input.samples,
   };
 }
@@ -225,14 +240,36 @@ const seconds = (ms: number | null) =>
 const percent = (value: number | null) =>
   value === null ? 'none' : `${(value * 100).toFixed(1)}%`;
 
-/** The short table for a person: one row per kill, then the summary and the bars. */
+type NotRun = DrillReport['notRun'][number];
+const notRunLine = (entry: NotRun) =>
+  `not run: kill ${entry.index + 1} (${entry.moment}): ${entry.errors.join('; ')}`;
+
+/** What failed the drill, naming each bar and each kill that did not run with its error. */
+export const drillFailures = (report: DrillReport): readonly string[] => [
+  ...Object.entries(report.bars)
+    .filter(([, result]) => result !== 'pass')
+    .map(([bar, result]) => `${bar}: ${result}`),
+  ...report.notRun.map(notRunLine),
+];
+
+/** The short table for a person: one row per planned kill, then the summary and the bars. */
 export function drillReportTable(report: DrillReport) {
-  const rows = report.samples.map((sample) => {
-    if (!sample.killed)
-      return `| ${sample.index + 1} | ${sample.moment} | not run | | | | | | |`;
-    const seats = sample.seats.map((seat) => seats_(seat.backMs)).join(', ');
-    return `| ${sample.index + 1} | ${sample.moment} | ${sample.node} | ${seats} | ${seconds(sample.captureBackMs)} | ${percent(sample.coverage?.coverage ?? null)} | ${sample.roundStatus ?? 'none'} | ${sample.penalties ?? 'none'} | ${seconds(sample.nodeBackMs)} (${sample.nodeStartedBy ?? 'none'}) |`;
-  });
+  const ran = report.samples
+    .filter((sample) => sample.killed)
+    .map((sample) => {
+      const seats = sample.seats.map((seat) => seats_(seat.backMs)).join(', ');
+      return {
+        index: sample.index,
+        row: `| ${sample.index + 1} | ${sample.moment} | ${sample.node} | ${seats} | ${seconds(sample.captureBackMs)} | ${percent(sample.coverage?.coverage ?? null)} | ${sample.roundStatus ?? 'none'} | ${sample.penalties ?? 'none'} | ${seconds(sample.nodeBackMs)} (${sample.nodeStartedBy ?? 'none'}) |`,
+      };
+    });
+  const notRun = report.notRun.map((entry) => ({
+    index: entry.index,
+    row: `| ${entry.index + 1} | ${entry.moment} | not run: ${entry.errors.join('; ').replaceAll('|', '\\|')} | | | | | | |`,
+  }));
+  const rows = [...ran, ...notRun]
+    .sort((a, b) => a.index - b.index)
+    .map((entry) => entry.row);
   return [
     `Node kill drill "${report.label}" at ${report.commit}: ${report.killsRun} of ${report.killsPlanned} kills ran.`,
     '',
@@ -250,10 +287,7 @@ export function drillReportTable(report: DrillReport) {
     ...Object.entries(report.bars).map(
       ([bar, result]) => `- ${bar}: ${result}`,
     ),
-    ...report.notRun.map(
-      (entry) =>
-        `- not run: kill ${entry.index + 1} (${entry.moment}): ${entry.errors.join('; ')}`,
-    ),
+    ...report.notRun.map((entry) => `- ${notRunLine(entry)}`),
   ].join('\n');
 }
 const seats_ = (ms: number | null) => (ms === null ? 'never' : seconds(ms));

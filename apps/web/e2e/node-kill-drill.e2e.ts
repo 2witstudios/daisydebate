@@ -21,6 +21,7 @@ import {
 } from '../scripts/node-kill-drill/measure';
 import {
   buildDrillReport,
+  drillFailures,
   drillReportTable,
   drillSampleSchema,
   type DrillSample,
@@ -49,6 +50,7 @@ import {
   nowMs,
   watchNodeReturn,
 } from './support/node-kill-drill-nodes';
+import { untilHostNetworkSettled } from './support/node-kill-drill-host-network';
 import {
   probeSeat,
   watchPeerConnections,
@@ -68,7 +70,8 @@ import {
  * On demand and nightly against scratch nodes: kill the node holding a live Round,
  * through a real browser per seat, and measure from the kill. Each kill is its
  * own Round. A sample records what happened and passes; the last test writes
- * the report and fails if a bar did. See node-kill-drill-runner.ts.
+ * the report and fails if a bar did, or if a planned kill did not run. See
+ * node-kill-drill-runner.ts.
  */
 const target = readDrillTarget(process.env);
 const plan = drillKillPlan(process.env.DRILL_KILLS);
@@ -356,6 +359,11 @@ async function drillOneKill(
   sample: DrillSample,
 ) {
   await ensureNodesServing(target);
+  // The last kill's restarted node may still be changing the host network.
+  const settled = await untilHostNetworkSettled();
+  process.stdout.write(
+    `kill ${sample.index + 1}: host network held still after ${(settled.waitedMs / 1000).toFixed(1)} s, ${settled.changes} changes seen\n`,
+  );
   const accounts = await createRoomLaunchAccounts(browser, 2);
   const single = target.nodes.length === 1;
   let draft = sample;
@@ -633,7 +641,7 @@ test('the report, and every bar held', async () => {
     label: target.label,
     commit: process.env.DRILL_COMMIT ?? 'unknown',
     nodes: target.nodes.map((node) => node.app),
-    planned: plan.length,
+    plan,
     samples,
   });
   const table = drillReportTable(report);
@@ -643,7 +651,7 @@ test('the report, and every bar held', async () => {
   );
   await writeFile(resolve(runDir, 'report.md'), `${table}\n`);
   process.stdout.write(`${table}\n`);
-  expect(Object.values(report.bars)).toEqual(
-    Array(Object.keys(report.bars).length).fill('pass'),
+  expect(drillFailures(report), 'every bar held and every kill ran').toEqual(
+    [],
   );
 });
