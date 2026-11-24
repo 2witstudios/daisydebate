@@ -950,7 +950,13 @@ test('phone stale links honor both initial read orders and a later real Files ch
         await expect(
           page.getByRole('textbox', { name: saved.title, exact: true }),
         ).toBeVisible();
-      await page.unroute('**/api/documents/read');
+      // In the initial-first order the page reads the saved document a third
+      // time after the asserted response. A plain unroute falls that read back
+      // to the network while its handler is still in route.fetch, so the
+      // handler's fulfill finds it handled (run 45313867341). Waiting removes
+      // the handler first, then lets every running invocation fulfill before
+      // interception ends. This route is the page's only one.
+      await page.unrouteAll({ behavior: 'wait' });
     }
   } finally {
     await settledLaunchAuth();
