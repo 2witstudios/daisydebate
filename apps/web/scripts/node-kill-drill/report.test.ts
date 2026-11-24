@@ -1,5 +1,10 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { buildDrillReport, drillReportTable, type DrillSample } from './report';
+import {
+  buildDrillReport,
+  drillFailures,
+  drillReportTable,
+  type DrillSample,
+} from './report';
 
 setupRitewayBun();
 
@@ -68,12 +73,15 @@ const sample = (overrides: Partial<DrillSample> = {}): DrillSample => ({
   errors: [],
   ...overrides,
 });
-const report = (samples: readonly DrillSample[], planned = samples.length) =>
+const report = (
+  samples: readonly DrillSample[],
+  plan: readonly DrillSample['moment'][] = samples.map((entry) => entry.moment),
+) =>
   buildDrillReport({
     label: 'baseline',
     commit: 'abc',
     nodes: ['daisy-mr-lk-a'],
-    planned,
+    plan,
     samples,
   });
 const barsOf = (samples: readonly DrillSample[]) => report(samples).bars;
@@ -83,7 +91,13 @@ test('a clean drill passes every bar', () => {
     given: 'recovery inside each bar, a partial seal with its gap, no penalty',
     should: 'pass all of them',
     actual: Object.values(barsOf([sample()])),
-    expected: Array(8).fill('pass'),
+    expected: Array(9).fill('pass'),
+  });
+  assert({
+    given: 'a clean drill',
+    should: 'name no failure',
+    actual: drillFailures(report([sample()])),
+    expected: [],
   });
 });
 
@@ -221,28 +235,79 @@ test('a session unsafe for a moment', () => {
   });
 });
 
-test('a kill that did not run', () => {
-  const skipped = sample({
+const notKilled = (overrides: Partial<DrillSample> = {}) =>
+  sample({
     killed: false,
-    index: 1,
     seats: [],
     streams: [],
     coverage: null,
     captureBackMs: null,
-    errors: ['no node carried the seats'],
+    ...overrides,
   });
-  const result = report([sample(), skipped], 2);
+
+test('a kill that did not run', () => {
+  const skipped = notKilled({
+    index: 1,
+    moment: 'floor-change',
+    errors: ['page.goto: net::ERR_NETWORK_CHANGED'],
+  });
+  const result = report([sample(), skipped]);
   assert({
     given: 'one kill run and one refused',
     should: 'leave it out of the numbers and name it',
     actual: [result.killsRun, result.seatBackMs.n, result.notRun[0]?.errors],
-    expected: [1, 2, ['no node carried the seats']],
+    expected: [1, 2, ['page.goto: net::ERR_NETWORK_CHANGED']],
+  });
+  assert({
+    given: 'one planned kill of two that did not run',
+    should: 'fail the drill while the kill that ran passes its bars',
+    actual: [result.bars.everyPlannedKillRan, result.bars.roundCompletes],
+    expected: ['fail', 'pass'],
+  });
+  assert({
+    given: 'one planned kill of two that did not run',
+    should: 'name the kill and its error as the failure',
+    actual: drillFailures(result),
+    expected: [
+      'everyPlannedKillRan: fail',
+      'not run: kill 2 (floor-change): page.goto: net::ERR_NETWORK_CHANGED',
+    ],
   });
   assert({
     given: 'no kill run at all',
-    should: 'report every bar as not run, never as a pass',
-    actual: [...new Set(Object.values(barsOf([skipped])))],
+    should: 'fail the run bar and report every measured bar as not run',
+    actual: Object.entries(barsOf([notKilled({ errors: ['refused'] })])).map(
+      ([bar, result]) => (bar === 'everyPlannedKillRan' ? result : 'measured'),
+    ),
+    expected: ['fail', ...Array(8).fill('measured')],
+  });
+  assert({
+    given: 'no kill run at all',
+    should: 'never pass a measured bar',
+    actual: [
+      ...new Set(
+        Object.entries(barsOf([notKilled({ errors: ['refused'] })]))
+          .filter(([bar]) => bar !== 'everyPlannedKillRan')
+          .map(([, result]) => result),
+      ),
+    ],
     expected: ['not-run'],
+  });
+});
+
+test('a planned kill that left no sample', () => {
+  const result = report([sample()], ['mid-speech', 'floor-change']);
+  assert({
+    given: 'a plan of two and one sample written',
+    should: 'fail the drill and name the missing kill',
+    actual: [result.bars.everyPlannedKillRan, drillFailures(result)],
+    expected: [
+      'fail',
+      [
+        'everyPlannedKillRan: fail',
+        'not run: kill 2 (floor-change): no sample was written',
+      ],
+    ],
   });
 });
 
@@ -255,9 +320,35 @@ test('drillReportTable', () => {
     'no table to read',
     'Direct UDP: 2 of 2 seats before the kill, 1 of 2 recovered seats after',
     'seatsBackWithin15sP95: pass',
+    'everyPlannedKillRan: pass',
   ])
     assert({
       given: 'a report',
+      should: `read "${line}"`,
+      actual: table.includes(line),
+      expected: true,
+    });
+});
+
+test('drillReportTable with a kill that did not run', () => {
+  const table = drillReportTable(
+    report([
+      sample(),
+      notKilled({
+        index: 1,
+        moment: 'floor-change',
+        errors: ['page.goto: net::ERR_NETWORK_CHANGED'],
+      }),
+    ]),
+  );
+  for (const line of [
+    '1 of 2 kills ran',
+    '| 2 | floor-change | not run: page.goto: net::ERR_NETWORK_CHANGED |',
+    'everyPlannedKillRan: fail',
+    '- not run: kill 2 (floor-change): page.goto: net::ERR_NETWORK_CHANGED',
+  ])
+    assert({
+      given: 'a report with a kill not run',
       should: `read "${line}"`,
       actual: table.includes(line),
       expected: true,
