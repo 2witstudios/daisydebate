@@ -26,7 +26,8 @@ confirmation and merging within it; planning-only requests stay planning-only.
 5. **Merge.** The flow sweep merges a PR when its builder has emitted `PR_READY`
    and the required checks (CI gate and both browser gates) are green at the
    exact head, at most two per cycle. While main's latest Browser E2E run on a
-   push is red, merge only the PR that fixes it or reverts what broke it.
+   push is red, merge only the PR that fixes it or reverts what broke it
+   (`bun merge:pr` refuses otherwise; the fix passes `--fixes-main-run <run-id>`).
    Only main receives
    merged PRs, except slices of a feature with a parent branch, which that
    feature's point guard merges into the parent one at a time (ADR 0128).

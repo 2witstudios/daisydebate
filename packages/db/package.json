@@ -9,6 +9,7 @@
     "./catalog-formats": "./src/catalog-formats.ts",
     "./reference-formats": "./src/reference-formats.ts",
     "./slots": "./src/slots.ts",
+    "./locks": "./src/locks.ts",
     "./tenant-isolation": "./src/tenant-isolation.ts",
     "./test-runs": "./src/test-runs.ts",
     "./testing": "./src/testing.ts",

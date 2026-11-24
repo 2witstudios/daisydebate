@@ -2,8 +2,9 @@ import { resolve } from 'node:path';
 import { browserDriverOptions, finishBrowserDriver } from './browser-driver';
 
 /**
- * Runs the bot Freestyle drill through the Launch harness in the heavy queue.
- * On demand on macOS: it needs macOS `say` and a real OpenRouter API key.
+ * Runs the bot Freestyle drill through the Launch harness in the heavy queue:
+ * nightly in e2e.yml (cohort bot-freestyle) once the repository secret
+ * E2E_OPENROUTER_API_KEY is set, and on demand. It needs espeak-ng.
  */
 const checkout = resolve(import.meta.dir, '../../../..');
 const queued = Bun.spawn(

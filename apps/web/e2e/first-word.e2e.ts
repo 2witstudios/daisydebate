@@ -1,7 +1,5 @@
 import { instantMs } from '@daisy/clock';
-import { execFileSync } from 'node:child_process';
-import { mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import { mkdir, writeFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { oneOnOneSettings } from '@daisy/db/reference-formats';
 import { roundTranscriptReadSchema } from '@daisy/protocol/round-transcript';
@@ -20,12 +18,15 @@ import { nowMs } from './support/node-kill-drill-nodes';
 import { createRoomLaunchAccounts } from './support/room-launch-accounts';
 import { closeSettledLaunchContexts } from './support/room-launch-settled';
 import { expectConnected, grantedDebaters } from './support/round-media';
+import { spokenWav } from './support/spoken-wav';
 
 /**
  * Whether a person loses a word at a floor change (ISSUE-1301). A real browser seat starts
  * real speech the moment that speaker's own page shows the clock running, on the catalog
- * format, and the stored transcript is read for the first word. It needs a real
- * OPENROUTER_API_KEY and macOS `say`: bun drill:first-word.
+ * format, and the stored transcript is read for the first word. The speech is espeak-ng's
+ * (spoken-wav.ts). It runs nightly on the local OpenRouter stub, whose fixed transcript
+ * leaves the capture timings (`captureAfterOnsetMs`) as the measure; with a real
+ * E2E_OPENROUTER_API_KEY the first word read is the real one: bun drill:first-word.
  */
 const OPENING_WORDS: Readonly<Record<string, string>> = {
   AC: 'Apple',
@@ -76,17 +77,10 @@ const pause = (ms: number) =>
   new Promise((done) => {
     setTimeout(done, ms);
   });
-const spoken = async (word: string) => {
-  const dir = await mkdtemp(join(tmpdir(), 'daisy-first-word-'));
-  const path = join(dir, 'speech.wav');
-  execFileSync('say', [
-    '-o',
-    path,
-    '--data-format=LEI16@24000',
+const spoken = (word: string) =>
+  spokenWav(
     `${word} is the first word of this speech, and after it I go on talking in plain sentences about public transit funding in our cities.`,
-  ]);
-  return (await readFile(path)).toString('base64');
-};
+  );
 
 type Line = {
   readonly key: string;

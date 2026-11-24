@@ -685,7 +685,17 @@ cascades into browser reds.
   (chromium, chromium-mobile, firefox, webkit, webkit-mobile and visual) and
   posts a failure to the drive's Incidents channel.
 - **Isolated Room Launch.** Every run executes it in full, as five shards
-  (`launch-1` to `launch-5`), each on its own machine, slot and stack.
+  (`launch-1` to `launch-5`), each on its own machine, slot and stack. The
+  shards are cut by `PWTEST_SHARD_WEIGHTS` in `e2e.yml`, test counts chosen
+  from measured test minutes; re-measure them when a Launch file or test is
+  added.
+- **Drills.** The nightly run adds three cohorts on the Launch harness: node
+  kill (`bun drill:node-kill`, disposable local nodes), first word
+  (`bun drill:first-word`, on the local OpenRouter stub) and bot Freestyle
+  (`bun drill:bot-freestyle`, real OpenRouter). The two speech drills voice
+  their human speakers with espeak-ng (`brew install espeak-ng` on macOS).
+  Bot Freestyle runs only when the repository secret `E2E_OPENROUTER_API_KEY`
+  is set; without it the job passes and reports "not run: no key".
 - **Spec selection.** A native spec runs only in the Isolated Room Launch job:
   name it in both `testMatch` in `apps/web/e2e/support/room-launch-config.ts`
   and the chromium `testIgnore` in `apps/web/playwright.config.ts`. That

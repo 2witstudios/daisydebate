@@ -406,7 +406,9 @@ jobs:
     # series (run 44458727755). It runs as five shards, each on its own
     # machine, slot and stack, so no case or execution count is reduced and
     # every shard retains its own sanitized evidence.
-    timeout-minutes: ${{ matrix.cohort == 'node-kill' && 100 || 45 }}
+    # The nightly drills play whole Rounds in series: node kill, the eight
+    # first-word Rounds, and one Freestyle bot Round at default lengths.
+    timeout-minutes: ${{ (matrix.cohort == 'node-kill' || matrix.speech) && 100 || 45 }}
     strategy:
       fail-fast: false
       matrix:
@@ -418,7 +420,9 @@ jobs:
           - launch-5
           - realtime
           - messaging
-        include: ${{ fromJSON(github.event_name == 'schedule' && '[{"cohort":"node-kill"}]' || '[]') }}
+        # Nightly only. The first-word and bot Freestyle drills voice their
+        # human speakers with espeak-ng, which `speech` installs.
+        include: ${{ fromJSON(github.event_name == 'schedule' && '[{"cohort":"node-kill"},{"cohort":"first-word","speech":"espeak-ng"},{"cohort":"bot-freestyle","speech":"espeak-ng"}]' || '[]') }}
     env:
       CLAMD_TEST_PORT: '3310'
     defaults:
@@ -496,7 +500,7 @@ jobs:
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.cache/ms-playwright
-          key: playwright-${{ runner.os }}-${{ runner.arch }}-${{ steps.playwright.outputs.version }}-chromium
+          key: playwright-${{ runner.os }}-${{ runner.arch }}-${{ steps.playwright.outputs.version }}-chromium${{ matrix.speech && format('-{0}', matrix.speech) || '' }}
       # The newest .deb set for this version: Ubuntu's updates land in a new
       # entry (ci-browsers.sh reports debs=changed), never in a stale one.
       - name: Restore the browsers' OS packages
@@ -504,11 +508,13 @@ jobs:
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.cache/daisy-apt-archives
-          key: playwright-debs-${{ runner.os }}-${{ runner.arch }}-${{ steps.playwright.outputs.version }}-chromium_${{ github.run_id }}-${{ github.run_attempt }}
-          restore-keys: playwright-debs-${{ runner.os }}-${{ runner.arch }}-${{ steps.playwright.outputs.version }}-chromium_
+          key: playwright-debs-${{ runner.os }}-${{ runner.arch }}-${{ steps.playwright.outputs.version }}-chromium${{ matrix.speech && format('-{0}', matrix.speech) || '' }}_${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: playwright-debs-${{ runner.os }}-${{ runner.arch }}-${{ steps.playwright.outputs.version }}-chromium${{ matrix.speech && format('-{0}', matrix.speech) || '' }}_
       - name: Install controlled Chromium and artifact tools
         id: chromium
         timeout-minutes: 8
+        env:
+          EXTRA_PACKAGES: ${{ matrix.speech }}
         run: sh scripts/ci-browsers.sh chromium
       # Saved straight after the install, so a later test failure still
       # keeps the warm cache.
@@ -577,11 +583,17 @@ jobs:
           ROOM_LAUNCH_NODE: node
           LAUNCH_COHORT: ${{ matrix.cohort }}
           # Playwright cuts shards by test count, in file order, and never
-          # splits a file. Even shares put round-journeys (5 tests, 14 minutes)
-          # with six other files in one 28-minute job. These shares give it a
-          # shard of its own: measured test minutes 7.7, 9.1, 7.5, 13.8, 9.3
-          # (run 44574038202). Re-measure when a Launch file is added.
-          PWTEST_SHARD_WEIGHTS: '31:66:24:5:29'
+          # splits a file unless it runs in parallel mode, as round-journeys
+          # does (five whole Rounds, about 11 test minutes). These shares are
+          # the test counts of each shard's cut, 149 tests in all: attendance
+          # and ballot; debate-room and document-draft-recovery;
+          # document-file-actions to round-journeys' first journey; its other
+          # four; round-media-lifecycle on. Shard minutes include hooks:
+          # ballot's beforeAll holds about two minutes no test reports.
+          # Modeled from main runs 45248111105, 45262325239, 45264455752 and
+          # 45277614907 and PR run 45289341431: 8.8, 9.2, 9.5, 9.1, 8.2.
+          # Re-measure when a Launch file or test is added.
+          PWTEST_SHARD_WEIGHTS: '29:44:43:4:29'
           # Above a shard's measured run and below the job's own timeout.
           DAISY_HEAVY_TIMEOUT_MINUTES: '35'
       - name: Run authenticated generic realtime browser proof
@@ -633,6 +645,33 @@ jobs:
           sh "$nodes" up "$port" "$drill_dir/settings"
           . "$drill_dir/settings"
           bun drill:node-kill
+      # Against the local OpenRouter stub: no secret. Its fixed transcript
+      # leaves capture timing as the record; the Rounds must still complete.
+      - name: Run the nightly first-word drill
+        id: first_word
+        if: ${{ matrix.cohort == 'first-word' }}
+        env:
+          CI: true
+          DAISY_HEAVY_TIMEOUT_MINUTES: '85'
+        run: bun drill:first-word
+      # Real OpenRouter, only under the repository secret. Without it the
+      # drill is not run, says so, and passes.
+      - name: Run the nightly bot Freestyle drill
+        id: bot_freestyle
+        if: ${{ matrix.cohort == 'bot-freestyle' }}
+        env:
+          CI: true
+          DAISY_HEAVY_TIMEOUT_MINUTES: '85'
+          E2E_OPENROUTER_API_KEY: ${{ secrets.E2E_OPENROUTER_API_KEY }}
+        run: |
+          if [ -z "$E2E_OPENROUTER_API_KEY" ]; then
+            echo 'ran=false' >> "$GITHUB_OUTPUT"
+            echo 'Bot Freestyle drill: not run: no key. Add the repository secret E2E_OPENROUTER_API_KEY to run it.' | tee -a "$GITHUB_STEP_SUMMARY"
+            echo '::notice title=Bot Freestyle drill::not run: no key (repository secret E2E_OPENROUTER_API_KEY is not set)'
+            exit 0
+          fi
+          echo 'ran=true' >> "$GITHUB_OUTPUT"
+          bun drill:bot-freestyle
       - name: Sanitize retained proof artifacts
         id: sanitize_launch
         if: ${{ always() && !cancelled() }}
@@ -644,7 +683,7 @@ jobs:
           name: room-launch-${{ matrix.cohort }}-${{ github.run_id }}
           path: .pu/worktrees/wt-roomlaunchci/apps/web/test-results/
           # Silence only when the suite never ran; a run with no evidence fails.
-          if-no-files-found: ${{ steps.launch.outcome == 'skipped' && steps.realtime_room.outcome == 'skipped' && steps.realtime_messaging.outcome == 'skipped' && steps.node_kill.outcome == 'skipped' && 'ignore' || 'error' }}
+          if-no-files-found: ${{ steps.launch.outcome == 'skipped' && steps.realtime_room.outcome == 'skipped' && steps.realtime_messaging.outcome == 'skipped' && steps.node_kill.outcome == 'skipped' && steps.first_word.outcome == 'skipped' && steps.bot_freestyle.outputs.ran != 'true' && 'ignore' || 'error' }}
           retention-days: 7
       # No reviewer attaches to this ephemeral job's live slot. Evidence is
       # retained first; release checks its own derived scope and main sentinel.

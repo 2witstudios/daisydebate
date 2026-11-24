@@ -1,7 +1,5 @@
 import { instantMs } from '@daisy/clock';
-import { execFileSync } from 'node:child_process';
-import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import { mkdir, writeFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import {
   affirmativeSide,
@@ -33,6 +31,7 @@ import {
 import { createRoomLaunchAccounts } from './support/room-launch-accounts';
 import { closeSettledLaunchContexts } from './support/room-launch-settled';
 import { expectConnected } from './support/round-media';
+import { spokenWav } from './support/spoken-wav';
 import { leadSideOf } from './support/segment-lead';
 import { nowMs } from './support/node-kill-drill-nodes';
 import { launchWorkerEnv } from './support/room-launch-worker-policy';
@@ -43,11 +42,12 @@ import {
 
 /**
  * A full Freestyle-schedule bot Round on real providers (PYL-18, ISSUE-1460):
- * one human Affirmative, whose browser plays macOS `say` speech, against a
+ * one human Affirmative, whose browser plays espeak-ng speech, against a
  * stored bot Negative, at the format's own default lengths, cross-examination
  * included. It proves the configured bot model speaks every speech and both
  * cross-examinations, and records what the Round bought. It needs a real
- * OPENROUTER_API_KEY and macOS `say`: bun drill:bot-freestyle.
+ * E2E_OPENROUTER_API_KEY and espeak-ng: bun drill:bot-freestyle, nightly when
+ * the repository secret of that name is set.
  */
 const LINES: Readonly<Record<string, string>> = {
   AC: 'I affirm that cities should make public transit free at the point of use. First, access: fares fall hardest on low-wage workers, students and older residents, who skip trips to clinics and jobs. Second, efficiency: fare collection costs money and slows boarding. Third, the climate: every rider who leaves a car frees road space and cuts emissions.',
@@ -73,20 +73,12 @@ const pause = (ms: number) =>
   new Promise((done) => {
     setTimeout(done, ms);
   });
-/** Every line voiced by macOS `say`, in one temporary directory removed after. */
+/** Every line voiced by espeak-ng. */
 const spokenLines = async (lines: Readonly<Record<string, string>>) => {
-  const dir = await mkdtemp(join(tmpdir(), 'daisy-bot-freestyle-'));
-  try {
-    const wavs: Record<string, string> = {};
-    for (const [key, text] of Object.entries(lines)) {
-      const path = join(dir, `${key}.wav`);
-      execFileSync('say', ['-o', path, '--data-format=LEI16@24000', text]);
-      wavs[key] = (await readFile(path)).toString('base64');
-    }
-    return wavs;
-  } finally {
-    await rm(dir, { recursive: true, force: true });
-  }
+  const wavs: Record<string, string> = {};
+  for (const [key, text] of Object.entries(lines))
+    wavs[key] = await spokenWav(text);
+  return wavs;
 };
 
 /** The human's own clock label for a segment it leads or answers in. */
@@ -153,7 +145,9 @@ test('a full Freestyle bot Round speaks every bot turn on the configured model',
   // A stubbed provider would pass every check below: refuse to run without a real key.
   const key = process.env.E2E_OPENROUTER_API_KEY;
   if (!key || key === OPENROUTER_E2E_PLACEHOLDER)
-    throw new Error('bun drill:bot-freestyle needs a real OPENROUTER_API_KEY');
+    throw new Error(
+      'bun drill:bot-freestyle needs a real E2E_OPENROUTER_API_KEY',
+    );
   test.setTimeout(PLAY_OUT_LIMIT_MS + 300_000);
   const { segments } = freestyleChoice.definition;
   const wavs = await spokenLines(LINES);

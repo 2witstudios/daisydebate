@@ -2,9 +2,8 @@ import { resolve } from 'node:path';
 import { browserDriverOptions, finishBrowserDriver } from './browser-driver';
 
 /**
- * Runs the first-word proof through the Launch harness in the heavy queue.
- * On demand on macOS: the proof synthesizes speech with macOS `say`, which
- * the Linux nightly runner does not have.
+ * Runs the first-word proof through the Launch harness in the heavy queue:
+ * nightly in e2e.yml (cohort first-word) and on demand. It needs espeak-ng.
  */
 const checkout = resolve(import.meta.dir, '../../../..');
 const queued = Bun.spawn(

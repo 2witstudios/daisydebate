@@ -13,6 +13,7 @@ import {
 import { tmpdir } from 'node:os';
 import { SQL } from 'bun';
 import { requireTestSlotServices } from '@daisy/config';
+import { sessionLocks } from '@daisy/db/locks';
 import { dropAllTestRunDatabases } from '@daisy/db/test-runs';
 
 export const root = `${import.meta.dir}/..`;
@@ -149,14 +150,10 @@ export { sessionsOn };
 
 /** Waits until the dead runner's liveness lock is free (its sessions may remain). */
 export async function awaitLockFree(database: string): Promise<void> {
-  const key = `hashtextextended('${database}', 0)`;
   const deadline = Date.now() + 120_000;
   for (;;) {
-    const [{ free }] = (await admin.unsafe(
-      `select pg_try_advisory_lock(${key}) as free`,
-    )) as [{ free: boolean }];
-    if (free) {
-      await admin.unsafe(`select pg_advisory_unlock(${key})`);
+    if (await sessionLocks.testRun.tryTake(admin, database)) {
+      await sessionLocks.testRun.release(admin, database);
       return;
     }
     if (Date.now() > deadline) throw new Error(`${database} is still locked`);
@@ -172,14 +169,11 @@ export async function awaitLockFree(database: string): Promise<void> {
  * still looks live (ISSUE-261). Fails, never proceeds, if it does not happen.
  */
 export async function awaitRunEnded(database: string): Promise<void> {
-  const key = `hashtextextended('${database}', 0)`;
   const deadline = Date.now() + 120_000;
   for (;;) {
     const sessions = await sessionsOn(database);
-    const [{ free }] = (await admin.unsafe(
-      `select pg_try_advisory_lock(${key}) as free`,
-    )) as [{ free: boolean }];
-    if (free) await admin.unsafe(`select pg_advisory_unlock(${key})`);
+    const free = await sessionLocks.testRun.tryTake(admin, database);
+    if (free) await sessionLocks.testRun.release(admin, database);
     if (sessions === 0 && free) return;
     if (Date.now() > deadline)
       throw new Error(`${database} still has sessions or a held lock`);

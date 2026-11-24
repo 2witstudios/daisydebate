@@ -2,6 +2,11 @@ import { spawnSync } from 'node:child_process';
 import { realpathSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { z } from 'zod';
+import {
+  mainBrowserGate,
+  mainBrowserRunsPath,
+  mainBrowserRunsSchema,
+} from './main-browser-gate';
 import { removeMergedWorktree } from './merged-worktree';
 import { committedPreparationProblems } from './prepare-pr';
 
@@ -30,6 +35,7 @@ const statusSchema = z.object({ worktrees: z.array(worktreeSchema) });
 async function localMergeFollowup(
   number: number,
   mergeHead?: string,
+  fixesMainRun?: number,
   cwd = process.cwd(),
 ) {
   const run = (command: string, args: readonly string[]) => {
@@ -69,6 +75,13 @@ async function localMergeFollowup(
       throw new Error(
         `Prepare and requalify the candidate before merging: ${preparation.join('; ')}`,
       );
+    const gate = mainBrowserGate(
+      mainBrowserRunsSchema.parse(
+        JSON.parse(run('gh', ['api', mainBrowserRunsPath(repository)])),
+      ).workflow_runs[0],
+      fixesMainRun,
+    );
+    if (!gate.merge) throw new Error(gate.reason);
     run('gh', [
       'pr',
       'merge',
@@ -149,13 +162,29 @@ async function localMergeFollowup(
   return { cleanup };
 }
 
+const usage =
+  'Usage: bun merge:followup <merged-pr-number> | bun merge:pr <pr-number> <exact-head> [--fixes-main-run <failing-run-id>]';
+
 if (import.meta.main) {
-  const number = Number(process.argv[2]);
-  if (!Number.isSafeInteger(number) || number <= 0)
-    throw new Error(
-      'Usage: bun merge:followup <merged-pr-number> | bun merge:pr <pr-number> <exact-head>',
-    );
+  const [rawNumber, mergeHead, flag, rawRun, ...rest] = process.argv.slice(2);
+  const number = Number(rawNumber);
+  const fixesMainRun = flag === undefined ? undefined : Number(rawRun);
+  if (
+    !Number.isSafeInteger(number) ||
+    number <= 0 ||
+    rest.length ||
+    (flag !== undefined &&
+      (flag !== '--fixes-main-run' ||
+        !mergeHead ||
+        !Number.isSafeInteger(fixesMainRun) ||
+        (fixesMainRun ?? 0) <= 0))
+  )
+    throw new Error(usage);
   console.log(
-    JSON.stringify(await localMergeFollowup(number, process.argv[3]), null, 2),
+    JSON.stringify(
+      await localMergeFollowup(number, mergeHead, fixesMainRun),
+      null,
+      2,
+    ),
   );
 }
