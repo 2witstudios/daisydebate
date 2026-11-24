@@ -636,6 +636,40 @@ const dbAdvisoryLockRestrictions = [
     message: 'Take the named advisory lock from the database lock registry.',
   },
 ];
+/**
+ * The same ban as a rule of its own, for every script directory (RECON-3.3):
+ * those trees take differing `no-restricted-syntax` lists, which a flat
+ * config block would replace rather than extend.
+ */
+const advisoryLockPattern = /pg_(try_)?advisory/i;
+const scriptLocksPlugin = {
+  rules: {
+    'registry-only': {
+      meta: {
+        messages: {
+          literal:
+            'Take the named advisory lock from the database lock registry (@daisy/db/locks).',
+        },
+      },
+      create(context) {
+        const report = (node) => context.report({ node, messageId: 'literal' });
+        return {
+          Literal(node) {
+            if (
+              (typeof node.value === 'string' &&
+                advisoryLockPattern.test(node.value)) ||
+              (node.regex && advisoryLockPattern.test(node.regex.pattern))
+            )
+              report(node);
+          },
+          TemplateElement(node) {
+            if (advisoryLockPattern.test(node.value.raw)) report(node);
+          },
+        };
+      },
+    },
+  },
+};
 // A selected SQL fragment is parsed by `parsedColumn`; a type argument on
 // `sql` or a typed `SQL<T>` asserts a column type nobody read.
 dbRawStatementRestrictions.push(
@@ -1498,6 +1532,7 @@ export default [
       'packages/clock/**/*.ts',
       'packages/observability/**/*.ts',
       'scripts/**/*.ts',
+      'apps/web/scripts/**/*.ts',
       '**/integration/**/*.ts',
     ],
     rules: {
@@ -1510,21 +1545,19 @@ export default [
       ],
     },
   },
-  // An app's scripts are the same CLI glue, and reach the app's own
-  // database: an advisory lock comes from the registry in
-  // `@daisy/db/locks`, never a literal key (RECON-3.3).
+  // Every script directory: an advisory lock comes from the registry in
+  // `@daisy/db/locks`, never a literal key (RECON-3.3). The admin app's
+  // `src/` tree already has the database boundary's own ban.
   {
-    files: ['apps/*/scripts/**/*.{ts,tsx}'],
-    rules: {
-      'no-restricted-syntax': [
-        'error',
-        ...refusalMintRestrictions,
-        exportStarRestriction,
-        bareToThrowRestriction,
-        ...unboundServerRestrictions,
-        ...dbAdvisoryLockRestrictions,
-      ],
-    },
+    files: [
+      'scripts/**/*.{ts,tsx}',
+      'apps/*/scripts/**/*.{ts,tsx}',
+      'apps/*/src/scripts/**/*.{ts,tsx}',
+      'packages/*/scripts/**/*.{ts,tsx}',
+    ],
+    ignores: ['apps/admin/src/**'],
+    plugins: { 'script-locks': scriptLocksPlugin },
+    rules: { 'script-locks/registry-only': 'error' },
   },
   {
     files: ['**/integration/**/*.ts'],

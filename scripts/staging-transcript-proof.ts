@@ -1,4 +1,5 @@
 import { SQL } from 'bun';
+import { sessionLocks } from '@daisy/db/locks';
 import {
   stagingTranscriptConfiguration,
   transcriptProofProblems,
@@ -21,8 +22,7 @@ async function main() {
     if (database?.name !== 'daisy_debate_staging')
       throw new Error('Actual staging database mismatch');
     // Serialize manual and ad hoc proofs across processes, never merely per runner.
-    const [lock] = await sql`select pg_try_advisory_lock(478,1) as held`;
-    if (!lock?.held)
+    if (!(await sessionLocks.stagingTranscriptProof.tryTake(sql)))
       throw new Error('Another staging transcript proof is running');
     stage = 'capacity';
     const [capacity] =

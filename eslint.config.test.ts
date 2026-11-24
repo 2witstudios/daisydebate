@@ -14,6 +14,9 @@ import {
   serverGlobCases,
   sharedFixtureCases,
   type Problems,
+  type Case,
+  outcomes,
+  expectedOf,
   throwSuitePaths,
 } from './eslint.config.test-support';
 
@@ -795,31 +798,51 @@ describe('database statement and lock boundaries', () => {
     });
   });
 
-  test('an app script takes its advisory lock from the registry (RECON-3.3)', async () => {
-    const literal =
+  test('every script takes its advisory lock from the registry (RECON-3.3)', async () => {
+    const rule = 'script-locks/registry-only';
+    const template =
       'export const held = sql`select pg_try_advisory_lock(906,3) as held`;';
-    const { actual, expected } = table([
-      [literal, 'apps/web/scripts/staging-probe.ts', 1],
-      [literal, 'apps/web/scripts/auth-load/probe.ts', 1],
-      [literal, 'apps/web/scripts/probe.test.ts', 1],
-      [literal, 'apps/admin/scripts/probe.ts', 1],
+    const scriptDirs = [
+      'scripts/probe.ts',
+      'scripts/nested/probe.test.ts',
+      'apps/web/scripts/probe.ts',
+      'apps/web/scripts/auth-load/probe.ts',
+      'apps/realtime/scripts/probe.ts',
+      'apps/web/src/scripts/probe.ts',
+      'packages/db/scripts/probe.ts',
+      'packages/tab-engine/scripts/probe.ts',
+    ];
+    const cases: Case[] = [
+      ...scriptDirs.map((path): Case => [template, path, [rule]]),
       [
         "export const statement = 'SELECT PG_ADVISORY_LOCK(1)';",
-        'apps/web/scripts/probe.ts',
-        1,
+        'scripts/probe.ts',
+        [rule],
       ],
       [
-        "import { sessionLocks } from '@daisy/db/locks';\nexport const take = sessionLocks.stagingAttendanceRepair.tryTake;",
-        'apps/web/scripts/probe.ts',
-        0,
+        "export const free = admin.unsafe('select pg_advisory_unlock(1)');",
+        'packages/db/scripts/probe.ts',
+        [rule],
       ],
-    ]);
+      [
+        'export const probe = /pg_advisory_xact_lock/;',
+        'scripts/probe.ts',
+        [rule],
+      ],
+      // The admin app's src tree keeps the database boundary's own ban.
+      [template, 'apps/admin/src/scripts/probe.ts', ['no-restricted-syntax']],
+      [
+        "import { sessionLocks } from '@daisy/db/locks';\nexport const take = sessionLocks.stagingTranscriptProof.tryTake;",
+        'scripts/probe.ts',
+        [],
+      ],
+    ];
     assert({
       given:
-        'a literal advisory lock, in any spelling, in an app script, and a registry lock',
-      should: 'fail the literal and pass the registry lock',
-      actual: await actual,
-      expected,
+        'a literal advisory lock, in any spelling, in every script directory, and a registry lock',
+      should: 'fail each literal once and pass the registry lock',
+      actual: await outcomes(cases),
+      expected: expectedOf(cases),
     });
   });
 

@@ -171,6 +171,20 @@ export const sessionLocks = {
       return row?.held === true;
     },
   },
+  /**
+   * The staging transcript proof: manual and ad hoc runs serialized across
+   * processes, held by its single-connection client until it closes. The
+   * key is the `(478, 1)` pair the proof took before the registry.
+   */
+  stagingTranscriptProof: {
+    tryTake: async (session: SQL): Promise<boolean> => {
+      const [row] = await query(
+        session`select pg_try_advisory_lock(478, 1) as held`,
+        z.object({ held: z.boolean() }),
+      );
+      return row?.held === true;
+    },
+  },
   /** The availability sampler: one elected producer session. */
   availabilitySampler: {
     key: samplerLockKey,
