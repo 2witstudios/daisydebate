@@ -242,8 +242,9 @@ test('a retry waits for the killed attempt to release the package lock', async (
   );
   const retry = script.slice(
     script.indexOf('echo "Retrying browser OS dependencies'),
-    script.indexOf('# ubuntu-24.04 runners resolve'),
+    script.indexOf('  repair_packages\ndone') + '  repair_packages'.length,
   );
+  const mirror = String.raw`-E -i s#://[A-Za-z0-9.-]+\.archive\.ubuntu\.com/#://archive.ubuntu.com/#g /etc/apt/apt-mirrors.txt`;
   const repair =
     'timeout -k 10 75 sh -c dpkg --configure -a; apt-get -f install -y --no-install-recommends';
   // `holds` is how many polls still find the earlier dpkg alive.
@@ -286,7 +287,7 @@ test('a retry waits for the killed attempt to release the package lock', async (
     given: "a retry while the killed attempt's dpkg lives for two more polls",
     should: 'wait for it to exit and only then repair the package database',
     actual: run(2),
-    expected: { exit: 0, calls: ['sleep', 'sleep', repair] },
+    expected: { exit: 0, calls: [`sed ${mirror}`, 'sleep', 'sleep', repair] },
   });
   assert({
     given: 'a retry while that dpkg outlives the wait',
@@ -294,7 +295,14 @@ test('a retry waits for the killed attempt to release the package lock', async (
     actual: run(99),
     expected: {
       exit: 0,
-      calls: ['sleep', 'sleep', 'sleep', 'pkill -KILL -x dpkg|apt-get', repair],
+      calls: [
+        `sed ${mirror}`,
+        'sleep',
+        'sleep',
+        'sleep',
+        'pkill -KILL -x dpkg|apt-get',
+        repair,
+      ],
     },
   });
 });
@@ -371,10 +379,10 @@ if [ ! -e ${root}/killed ]; then touch ${root}/killed ${broken}; exit 124; fi`,
           'budget 75: env',
           'bun install-deps chromium',
           'apt-get install -y libgbm1',
+          'sudo sed',
           'budget 75: sh',
           'dpkg --configure -a',
           'apt-get -f install -y --no-install-recommends',
-          'sudo sed',
           'budget 45: apt-get',
           'apt-get update',
           'budget 75: env',

@@ -13,9 +13,10 @@
 # mid-unpack). A retry repairs the package database, switches to the primary
 # Ubuntu archive, and the third failure fails the step. Worst case, with the
 # defaults and timeout's 10 s kill grace: three attempts of (45+10)+(75+10)
-# and two repairs of 30 (lock wait) + (75+10), 650 s, then the browser
-# download; the workflow's 12-minute step bound covers that and sits inside
-# each browser job's limit. The workflow restores the browsers
+# and two repairs of 30 (lock wait) + (75+10), 650 s. The workflow's
+# 12-minute step bound then leaves about 70 s for the browser download
+# (restored from cache on a warm run), and sits inside each browser job's
+# limit (the admin job's 15 minutes is the tightest). The workflow restores the browsers
 # (~/.cache/ms-playwright) from a cache keyed on the exact @playwright/test
 # version, and the .debs (DEB_CACHE) from the newest of a rolling cache, so a
 # warm run only refreshes apt's index and unpacks. DEB_CACHE keeps only the
@@ -107,13 +108,13 @@ until sudo timeout -k 10 "$update_seconds" apt-get update &&
   fi
   attempt=$((attempt + 1))
   echo "Retrying browser OS dependencies on archive.ubuntu.com (attempt $attempt)" >&2
-  repair_packages
   # ubuntu-24.04 runners resolve the archive through mirror+file, which only
   # fails over on errors, never on a slow mirror. The list leads with a
   # regional host (azure., then us-east-2.ec2. from 2026-11); any of them
-  # becomes the primary archive.
+  # becomes the primary archive, before the repair can download anything.
   sudo sed -E -i 's#://[A-Za-z0-9.-]+\.archive\.ubuntu\.com/#://archive.ubuntu.com/#g' \
     /etc/apt/apt-mirrors.txt
+  repair_packages
 done
 
 cp /var/cache/apt/archives/*.deb "$deb_cache"/ 2>/dev/null || true
