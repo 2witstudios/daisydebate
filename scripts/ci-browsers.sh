@@ -23,8 +23,8 @@ bun=$(command -v bun)
 deb_cache=${DEB_CACHE:-$HOME/.cache/daisy-apt-archives}
 attempt_seconds=${APT_ATTEMPT_SECONDS:-75}
 extra_packages=${EXTRA_PACKAGES:-}
-case "$extra_packages" in
-*[!a-z0-9.+\ -]*)
+case " $extra_packages" in
+*[!a-z0-9.+\ -]* | *" -"*)
   echo "EXTRA_PACKAGES may name apt packages only" >&2
   exit 2
   ;;

@@ -27,15 +27,22 @@ describe('mainBrowserGate()', () => {
   });
 
   test('a red main', () => {
-    for (const conclusion of ['failure', 'timed_out']) {
+    for (const conclusion of [
+      'failure',
+      'timed_out',
+      'startup_failure',
+      'cancelled',
+      'action_required',
+      'skipped',
+      'neutral',
+    ]) {
       assert({
         given: `main's latest Browser E2E push run concluded ${conclusion}`,
-        should: 'refuse, naming the run and the way through',
+        should: 'refuse as unproven, naming the run and the way through',
         actual: mainBrowserGate(run(7, conclusion), undefined),
         expected: {
           merge: false,
-          reason:
-            "Main's latest Browser E2E run is red (https://github.test/runs/7). Merge only the PR that fixes or reverts it, with --fixes-main-run 7",
+          reason: `Main's latest Browser E2E run is ${conclusion}, not green (https://github.test/runs/7). Merge only the PR that fixes or reverts it, with --fixes-main-run 7`,
         },
       });
     }

@@ -82,8 +82,8 @@ pu kill --agent <agent> && pu clean
   - While main's latest Browser E2E run on a push is red, only the PR that
     fixes it or reverts what broke it merges. That run belongs to the point
     guard whose merge turned it red. `bun merge:pr` enforces this: it reads
-    the latest completed run before merging and refuses while it concluded
-    `failure` or `timed_out`; the fixing PR merges with
+    the latest completed run before merging and refuses unless it concluded
+    `success`; the fixing PR merges with
     `--fixes-main-run <failing-run-id>`, which must name that exact run.
   - The sweep merges at most two PRs per cycle into main. A feature parent
     takes one PR at a time (ADR 0128).

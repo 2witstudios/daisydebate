@@ -342,11 +342,18 @@ test('extra apt packages are package names, never shell', async () => {
       stderr: 'pipe',
     }).exitCode;
   assert({
-    given: 'EXTRA_PACKAGES as a package list, empty, or carrying shell syntax',
+    given:
+      'EXTRA_PACKAGES as a package list, empty, or carrying shell syntax or an apt option',
     should: 'accept package names only',
-    actual: ['espeak-ng', 'espeak-ng libsonic0', '', 'a;id', 'x$(id)'].map(
-      status,
-    ),
-    expected: [0, 0, 0, 2, 2],
+    actual: [
+      'espeak-ng',
+      'espeak-ng libsonic0',
+      '',
+      'a;id',
+      'x$(id)',
+      '--allow-unauthenticated espeak-ng',
+      'espeak-ng -o=x',
+    ].map(status),
+    expected: [0, 0, 0, 2, 2, 2, 2],
   });
 });

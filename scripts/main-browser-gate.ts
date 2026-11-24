@@ -20,11 +20,11 @@ type MainBrowserRun = z.infer<
 export const mainBrowserRunsPath = (repository: string) =>
   `repos/${repository}/actions/workflows/e2e.yml/runs?branch=main&event=push&status=completed&per_page=1`;
 
-const red = new Set(['failure', 'timed_out']);
-
 /**
  * ADR 0159 §3: nothing merges while main's latest Browser E2E push run is
- * red, except the PR that fixes it, which names that exact run.
+ * red, except the PR that fixes it, which names that exact run. Only
+ * `success` is green: `failure`, `timed_out`, `startup_failure` or a
+ * cancelled run leaves main unproven, and holds merging the same way.
  */
 export function mainBrowserGate(
   latest: MainBrowserRun | undefined,
@@ -37,16 +37,16 @@ export function mainBrowserGate(
       merge: false,
       reason: 'No completed Browser E2E run for a push to main was found',
     };
-  const isRed = red.has(latest.conclusion ?? '');
-  if (!isRed && fixesRun === undefined) return { merge: true };
-  if (!isRed)
+  const green = latest.conclusion === 'success';
+  if (green && fixesRun === undefined) return { merge: true };
+  if (green)
     return {
       merge: false,
-      reason: `Main's latest Browser E2E run ${String(latest.id)} is ${latest.conclusion ?? 'unknown'}; drop --fixes-main-run`,
+      reason: `Main's latest Browser E2E run ${String(latest.id)} succeeded; drop --fixes-main-run`,
     };
   if (fixesRun === latest.id) return { merge: true };
   return {
     merge: false,
-    reason: `Main's latest Browser E2E run is red (${latest.html_url}). Merge only the PR that fixes or reverts it, with --fixes-main-run ${String(latest.id)}`,
+    reason: `Main's latest Browser E2E run is ${latest.conclusion ?? 'unknown'}, not green (${latest.html_url}). Merge only the PR that fixes or reverts it, with --fixes-main-run ${String(latest.id)}`,
   };
 }
