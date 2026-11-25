@@ -3,10 +3,7 @@ import type { SearchParams } from '../../../features/access/decision';
 import { archiveEntries } from '../../../features/recording/archive';
 import { parseRecordingsQuery } from '../../../features/recording/archive-query';
 import { recordingViewerOf } from '../../../features/recording/viewer';
-import {
-  readRecordOffer,
-  readRecordingArchive,
-} from '../../../features/recording/page-reads';
+import { readRecordingArchive } from '../../../features/recording/page-reads';
 import { requestHubCounts } from '../../../features/watch/page-reads';
 import { requestIdentity } from '../../../lib/page-reads';
 import { RecordingsTab } from '../../../ui/watch/recordings-tab/recordings-tab';
@@ -26,13 +23,14 @@ export default async function RecordingsPage({
     readRecordingArchive(query, viewer),
     requestHubCounts(),
   ]);
-  const rows = archiveEntries(page, viewer, nowMs);
   return (
     <WatchHub active="recordings" counts={counts}>
       <RecordingsTab
         query={query}
-        listing={{ rows, nextBefore: page.nextBefore }}
-        recordOffer={await readRecordOffer(query, viewer, rows)}
+        listing={{
+          rows: archiveEntries(page, viewer, nowMs),
+          nextBefore: page.nextBefore,
+        }}
       />
     </WatchHub>
   );

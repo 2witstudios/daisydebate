@@ -84,7 +84,7 @@ that would otherwise be all green ([ADR 0051](../decisions/0051-area-hues.md)):
 clay (competition), sky (practice), teal (rooms) and plum (bots and judging), each with a
 `-soft` tint. Use them for an icon chip, a tinted surface or a hover border,
 never for body text, status or a primary button, and always beside a label.
-Gold stays for honours and events, and the live red for "live".
+Gold stays for honours, events and the Premium mark (ADR 0933), and the live red for "live".
 
 ## Contrast
 

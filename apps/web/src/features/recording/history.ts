@@ -376,13 +376,14 @@ const reportTargetOf = (record: RecordingRecord | null, roundId: string) =>
 export type RecordingPremiumOffer = 'record' | 'download' | null;
 
 /**
- * The page's one Premium offer (ADR 0933). `record`: a debater
- * or the host opened their own casual Round and it was never recorded. `download`: an
- * account may watch a ready video and lacks only the download entitlement.
- * A Youth Round offers neither, and a failed entitlement read offers none.
+ * The page's one Premium offer (ADR 0933). `record`: a debater or the host
+ * opened their own casual Round and it was never recorded. `download`: an
+ * account lacks only the download entitlement, so everything else
+ * `mayDownload` asks holds, the reuse fence included. A Youth Round offers
+ * neither, and a read that fails offers none.
  */
 const premiumOfferOf = async (
-  inputs: Pick<HistoryInputs, 'holdsCasualCapture'>,
+  inputs: Pick<HistoryInputs, 'holdsCasualCapture' | 'readReuseFenced'>,
   input: {
     readonly round: HistoryRound;
     readonly viewer: RecordingViewer;
@@ -402,7 +403,10 @@ const premiumOfferOf = async (
     return (await inputs.holdsCasualCapture(viewer.userId).catch(() => true))
       ? null
       : 'record';
-  return input.watchable && !input.subscribed ? 'download' : null;
+  if (!input.watchable || input.subscribed) return null;
+  return (await inputs.readReuseFenced(round.id).catch(() => true))
+    ? null
+    : 'download';
 };
 
 const permittedReads = (

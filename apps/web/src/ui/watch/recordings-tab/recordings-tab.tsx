@@ -15,7 +15,6 @@ import {
 } from '../recording-row/recording-row';
 import { ScopeToggle } from '../scope-toggle/scope-toggle';
 import { StateCard } from '../state-card/state-card';
-import { PremiumMark } from '../../components/premium-mark/premium-mark';
 
 export type RecordingsTabProps = {
   readonly query: RecordingsQuery;
@@ -24,8 +23,6 @@ export type RecordingsTabProps = {
     /** The Round the next page continues after, or null on the last. */
     readonly nextBefore: string | null;
   };
-  /** One row under the list offering Premium recording; never one per Round. */
-  readonly recordOffer?: boolean;
 };
 
 const sortOptions = [
@@ -95,11 +92,7 @@ function Empty({ query }: { query: RecordingsQuery }) {
 }
 
 /** The archive: scope, filters and one row per recording, or an empty state. */
-export function RecordingsTab({
-  query,
-  listing,
-  recordOffer = false,
-}: RecordingsTabProps) {
+export function RecordingsTab({ query, listing }: RecordingsTabProps) {
   return (
     <div className="flex flex-col gap-4">
       <Filters query={query} />
@@ -126,24 +119,6 @@ export function RecordingsTab({
               <RecordingRow key={row.roundId} row={row} />
             ))}
           </ul>
-          {recordOffer ? (
-            <a
-              href="/premium"
-              className="flex items-center gap-3 border-t border-border bg-gold-soft px-5 py-3"
-            >
-              <PremiumMark size={20} />
-              <span className="flex min-w-0 flex-1 flex-col">
-                <strong className="font-strong text-ink">
-                  Record your casual Rounds
-                </strong>
-                <span className="text-sm text-ink-muted">
-                  Host with Premium, then watch them back and see where a Round
-                  turned.
-                </span>
-              </span>
-              <span className="text-sm font-strong text-ink">Get Premium</span>
-            </a>
-          ) : null}
         </section>
       )}
       {listing.nextBefore ? (

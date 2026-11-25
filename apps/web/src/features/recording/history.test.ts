@@ -640,8 +640,9 @@ describe('the page’s one Premium offer', () => {
     });
     assert({
       given:
-        'a ready public video opened by a free account, by a subscriber, by a visitor, as a Youth Round, and while still processing',
-      should: 'offer the download only to the free account that could watch it',
+        'a ready public video opened by a free account, by a subscriber, by a visitor, as a Youth Round, while still processing, behind the reuse fence, and when the fence cannot be read',
+      should:
+        'offer the download only to the free account a subscription would let download it',
       actual: [
         await offer({ viewer: account('stranger') }),
         [paid.premiumOffer, paid.downloadHref !== null],
@@ -651,8 +652,13 @@ describe('the page’s one Premium offer', () => {
           viewer: account('stranger'),
           lifecycle: { status: 'requested' } as never,
         }),
+        await offer({ viewer: account('stranger'), reuseFenced: true }),
+        await offer({
+          viewer: account('stranger'),
+          readReuseFenced: async () => Promise.reject(new Error('unavailable')),
+        }),
       ],
-      expected: ['download', [null, true], null, null, null],
+      expected: ['download', [null, true], null, null, null, null, null],
     });
   });
 });

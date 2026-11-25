@@ -29,25 +29,27 @@ the moment a debater looks for a replay that does not exist.
    mark and one Get Premium button. A second Premium limit on the same
    screen is an `UpgradeLine`: the fact as a sentence with a link to
    `/premium`. On the Room page the roster's AI judge panel is the panel,
-   and a capture reach beside it answers with the line.
-4. **Three more moments**, each where the account reaches for the thing, each
+   and a capture reach beside it answers with the line. The Edit settings
+   sheet is modal, so it is its own screen and keeps its panel.
+4. **Two more moments**, each where the account reaches for the thing, each
    with a way on, none with a count:
    - **An unrecorded casual Round.** On the Recording page of a casual Round
      that was never recorded, its debater or host who lacks the capture
      entitlement sees "Watch your next one back" under the empty video.
-   - **My debates.** When that list holds such a Round, one row under the
-     list offers recording. It is never one row per Round.
-   - **Download.** An account that may watch a ready video and lacks only
-     the download entitlement sees the Download control; pressing it shows
-     the panel in place and requests nothing.
+   - **Download.** An account that lacks only the download entitlement sees
+     the Download control: it may watch the ready video and the reuse fence
+     (ADR 0161) does not hold it. Pressing it shows the panel in place and
+     requests nothing.
 5. **Never on a Youth Round, and never on a guess.** A Youth Round's page
-   makes no offer. An entitlement read that fails makes no offer.
+   makes no offer. An entitlement read that fails makes no offer. The
+   Recordings list makes no offer at all: its rows carry no Youth fact
+   (ADR 0161), so it cannot keep this rule. A row says "Not recorded" and
+   opens the Round's page, which can.
 
 ## Consequences
 
 - The Recording page reads one more entitlement, and only when a casual
-  Round's own debater or host opens it unrecorded. My debates reads it only
-  when the page lists such a Round.
+  Round's own debater or host opens it unrecorded.
 - A free account now learns that downloading exists. The API still answers
   a free account's download as not found.
 - The mark beside names needs each name's read to say whether its member

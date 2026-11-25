@@ -193,20 +193,5 @@ export const archiveEntries = (
     ];
   });
 
-/**
- * Whether "My debates" may offer recording (ADR 0933): the page
- * lists one of the viewer's own casual Rounds that was never recorded. The
- * caller still reads the entitlement; this only says the read is worth making.
- */
-export const recordOfferDue = (
-  scope: RecordingsQuery['scope'],
-  rows: readonly Pick<ArchiveEntry, 'ranked' | 'media' | 'ownVisibility'>[],
-): boolean =>
-  scope === 'mine' &&
-  rows.some(
-    (row) =>
-      row.ownVisibility !== null && !row.ranked && row.media === 'not_recorded',
-  );
-
 /** How many Rounds one archive page lists. */
 export const ARCHIVE_PAGE_SIZE = 25;
