@@ -15,7 +15,7 @@ export type SelfCards = {
 };
 
 const panel =
-  'absolute z-30 w-flyout rounded-md border border-border bg-surface-raised p-1 shadow-3';
+  'absolute z-30 rounded-md border border-border bg-surface-raised p-1 shadow-3';
 
 /**
  * Your own card: one row with your avatar, your name and @username with your
@@ -46,7 +46,9 @@ export function SelfCard({
   );
   const status = statusControl ? (
     <DismissibleDetails
-      className="relative shrink-0"
+      // The open choices hang from the card, its own width, so they never
+      // reach past the rail's edge; the mini rail anchors them to the avatar.
+      className={cn('shrink-0', compact && 'relative')}
       summaryClassName="flex size-nav-target cursor-pointer list-none items-center justify-center rounded-full hover:bg-surface-overlay"
       summaryAriaLabel="Your status"
       summaryTitle="Your status"
@@ -55,7 +57,9 @@ export function SelfCard({
       <div
         className={cn(
           panel,
-          compact ? 'top-0 right-full mr-2' : 'top-full left-0 mt-1',
+          compact
+            ? 'top-0 right-full mr-2 w-flyout'
+            : 'inset-x-0 top-full mt-1',
         )}
       >
         {/* The mini rail has no room for the name, so it opens with it. */}
@@ -84,7 +88,7 @@ export function SelfCard({
   return (
     <section
       aria-label="You"
-      className="flex items-center gap-2 rounded-lg border border-border bg-surface-raised p-1"
+      className="relative flex items-center gap-2 rounded-lg border border-border bg-surface-raised p-1"
     >
       {status}
       <Identity shown={shown} username={username} ratings={ratings} />

@@ -136,7 +136,10 @@ export function testPeopleList() {
         .filter({ visible: true })
         .getByRole('button', { name: 'Busy' })
         .click();
-      await expect(rail.getByText('Busy').first()).toBeVisible({
+      // Their row, not the viewer's own (closed) status choices on their card.
+      await expect(
+        rail.getByText('Busy').filter({ visible: true }).first(),
+      ).toBeVisible({
         timeout: 45_000,
       });
       const refused = await first.request.post('/api/challenges', {
