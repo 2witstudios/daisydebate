@@ -101,6 +101,26 @@ test('verified Checkout completion identifies a subscription without claiming th
   });
 });
 
+test('an open session redirects under either hosted path Stripe has served', () => {
+  const urls = ['c', 'g'].map(
+    (prefix) =>
+      `https://checkout.stripe.com/${prefix}/pay/${checkoutSession.id}#opaque-test-value`,
+  );
+  assert({
+    given: 'the owned open session at the /c/pay/ path and at the /g/pay/ path',
+    should: 'expose the URL Stripe returned, unchanged, for each',
+    actual: urls.map((url) => {
+      const observed = normalizeCheckoutSession(
+        purchase,
+        { ...checkoutSession, url },
+        'current',
+      );
+      return observed.kind === 'observed' ? observed.url : observed.kind;
+    }),
+    expected: urls,
+  });
+});
+
 test('forged session authority, altered offers and unsafe redirects are refused', () => {
   const price = checkoutSession.line_items.data[0]!.price;
   const withPrice = (delta: Record<string, unknown>) => ({
@@ -159,6 +179,26 @@ test('forged session authority, altered offers and unsafe redirects are refused'
     {
       ...checkoutSession,
       url: 'https://user:password@checkout.stripe.com/c/pay/cs_test_owned',
+    },
+    {
+      ...checkoutSession,
+      url: 'https://checkout.stripe.com/g/pay/cs_test_other',
+    },
+    {
+      ...checkoutSession,
+      url: 'https://checkout.stripe.com/pay/cs_test_owned',
+    },
+    {
+      ...checkoutSession,
+      url: 'https://checkout.stripe.com/go/pay/cs_test_owned',
+    },
+    {
+      ...checkoutSession,
+      url: 'https://checkout.stripe.com/g/pay/cs_test_owned/extra',
+    },
+    {
+      ...checkoutSession,
+      url: 'https://checkout.stripe.com/g/setup/cs_test_owned',
     },
     {
       ...checkoutSession,
