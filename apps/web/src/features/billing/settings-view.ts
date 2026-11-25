@@ -84,3 +84,11 @@ export function billingSettingsView(input: {
     manageAvailable: input.configured && source.hasCustomer,
   });
 }
+
+/**
+ * Whether the viewer already has Premium, however it is paid for: their own
+ * subscription (renewing, cancelled until its paid end, or payment due), beta
+ * access or a club seat. Display only: it words an offer and grants nothing.
+ */
+export const holdsPremium = (settings: BillingSettings | null): boolean =>
+  settings !== null && settings.plan !== 'free';

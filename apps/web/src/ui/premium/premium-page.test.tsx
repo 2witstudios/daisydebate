@@ -19,6 +19,8 @@ test('public Premium terms say unlimited at $20 a month, with no counter', () =>
     actual: [
       'Premium · $20/month',
       'Get Premium · $20/month',
+      'Record your casual Rounds.',
+      'study them and improve',
       'Unlimited casual AI judging.',
       'Round analysis whenever you ask.',
       'No counters to watch.',
@@ -41,6 +43,39 @@ test('public Premium terms say unlimited at $20 a month, with no counter', () =>
       /USD 10|Five bot debates|remaining|\bbots?\b/i.test(text),
     ],
     expected: [true, true, true, false, false],
+  });
+});
+
+test('recording casual Rounds leads the offer, ahead of everything else it includes', () => {
+  const text = renderAccessible(<PremiumPage />).textContent();
+  const at = (line: string) => text.indexOf(line);
+  assert({
+    given: 'the Premium offer',
+    should: 'state recording first, then analysis, AI judging and downloads',
+    actual: [
+      at('Record your casual Rounds.') >= 0,
+      at('Record your casual Rounds.') < at('Round analysis whenever you ask.'),
+      at('Record your casual Rounds.') < at('Unlimited casual AI judging.'),
+      at('Record your casual Rounds.') < at('Download Recordings'),
+    ],
+    expected: [true, true, true, true],
+  });
+});
+
+test('a viewer who already has Premium is told so and is not offered it', () => {
+  const view = renderAccessible(<PremiumPage holdsPremium />);
+  const text = view.textContent();
+  assert({
+    given: 'a viewer whose current plan is Premium',
+    should:
+      'say they have Premium, send them to billing to manage it, keep the terms, and show no Get Premium',
+    actual: [
+      text.includes('You have Premium.'),
+      text.includes('Get Premium'),
+      view.attribute('link', 'Manage billing', 'href'),
+      text.includes('Record your casual Rounds.'),
+    ],
+    expected: [true, false, '/settings/billing', true],
   });
 });
 

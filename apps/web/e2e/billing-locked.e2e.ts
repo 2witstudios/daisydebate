@@ -116,6 +116,12 @@ test('locked features show the upgrade panel in place, keep native withdrawal an
   await judgeLink.focus();
   await judgeLink.press('Enter');
   await expect(page).toHaveURL('/premium');
+  // A beta member holds Premium by grant (ADR 0146): told so, not offered it.
+  await expect(page.getByText('You have Premium.')).toBeVisible();
+  await expect(page.getByRole('link', { name: /Get Premium/ })).toHaveCount(0);
+  await expect(
+    page.getByRole('link', { name: 'Manage billing', exact: true }),
+  ).toHaveAttribute('href', '/settings/billing');
   await page.getByRole('link', { name: 'Billing', exact: true }).click();
   await expect(
     page.getByRole('heading', { name: 'Billing', exact: true }),
