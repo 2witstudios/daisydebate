@@ -17,6 +17,7 @@ import { run, query as queryRows } from './raw-rows';
 import type { Tx, TxSource } from './tx';
 import { takeLock, transactionLocks } from './locks';
 import { z } from 'zod';
+import { readEntitlementGrants } from './entitlement-grants';
 
 /**
  * The public profile's storage (ADR 0143): a member's display name and bio,
@@ -418,6 +419,22 @@ export const publicProfileOperations = ({
         bio: row?.bio ?? null,
         photoId: row?.photo_id ?? null,
       };
+    }),
+
+  /**
+   * A member's entitlement grants by their actor, for the Premium mark on
+   * their profile (ADR 0933). The caller applies the validity rule; an actor
+   * with no account holds none.
+   */
+  readMemberEntitlementGrants: (actorId: string) =>
+    instrumented(eventSink, 'readMemberEntitlementGrants', async () => {
+      idSchema.parse(actorId);
+      const [row] = await queryRows(
+        database,
+        z.object({ user_id: z.string().nullable() }),
+        sql`select a.user_id from actors a where a.id = ${actorId}`,
+      );
+      return row?.user_id ? readEntitlementGrants(database, row.user_id) : [];
     }),
 
   /** Terminal photos whose image deletion is due, oldest first, bounded. */

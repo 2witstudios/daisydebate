@@ -10,6 +10,7 @@ import { twoSides } from '@daisy/protocol/seats';
 import { sideName } from '../../../features/debate-room/seat-names';
 import type { ProfileView } from '../../../features/profile/read-profile';
 import { Avatar } from '../../components/avatar/avatar';
+import { PremiumMark } from '../../components/premium-mark/premium-mark';
 import { Badge } from '../../components/badge/badge';
 import type { BadgeTone } from '../../components/badge/badge-class';
 import { buttonClass } from '../../components/button/button-class';
@@ -170,6 +171,7 @@ function ProfileName({ profile }: { readonly profile: ProfileView }) {
         <h1 className="font-display text-3xl leading-tight font-bold tracking-tight max-compact:text-2xl">
           {displayName ?? handle}
         </h1>
+        {profile.premium ? <PremiumMark size={20} label="Premium" /> : null}
         {profile.me ? <Badge tone="accent">You</Badge> : null}
         {profile.closed ? <Badge tone="neutral">Closed</Badge> : null}
       </div>

@@ -219,6 +219,39 @@ describe('readProfile', () => {
     });
   });
 
+  test('the Premium mark', async () => {
+    const at = (
+      closed: boolean,
+      wearsPremiumMark?: (actorId: string) => Promise<boolean>,
+    ) =>
+      readProfile(
+        {
+          store: storeFor(true, null, closed).store,
+          limiter,
+          ...(wearsPremiumMark ? { wearsPremiumMark } : {}),
+        },
+        {
+          identity: visitor,
+          username: 'debater-a',
+          query: {},
+          now: '2026-11-02T00:00:00.000Z',
+        },
+      ).then((profile) => profile?.premium);
+    assert({
+      given:
+        'a holder, a member who is not, a holder whose account closed, a read that fails, and no read wired',
+      should: 'mark only the live holder',
+      actual: [
+        await at(false, async () => true),
+        await at(false, async () => false),
+        await at(true, async () => true),
+        await at(false, async () => Promise.reject(new Error('unavailable'))),
+        await at(false),
+      ],
+      expected: [true, false, false, false, false],
+    });
+  });
+
   test('a failed public read still shows the record', async () => {
     const { store } = storeFor(true);
     const failing: ProfileStore = {

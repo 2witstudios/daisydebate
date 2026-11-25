@@ -41,6 +41,8 @@ export type ShownPublicProfile = {
 /** The profile page's read: the record and history, and the public profile. */
 export type ProfileView = MemberProfile & {
   readonly shown: ShownPublicProfile;
+  /** Whether they wear the Premium mark (ADR 0933); never for a closed account. */
+  readonly premium: boolean;
 };
 
 const nothingShown: ShownPublicProfile = {
@@ -138,7 +140,13 @@ export async function readProfile(
   {
     store,
     limiter,
-  }: { readonly store: ProfileStore; readonly limiter: RateLimiter },
+    wearsPremiumMark = async () => false,
+  }: {
+    readonly store: ProfileStore;
+    readonly limiter: RateLimiter;
+    /** The mark decorates the page: a failed read shows none. */
+    readonly wearsPremiumMark?: (actorId: string) => Promise<boolean>;
+  },
   input: {
     readonly identity: Identity;
     readonly username: string;
@@ -188,6 +196,9 @@ export async function readProfile(
       await store
         .readPublicProfile(read.member.actorId)
         .catch(() => nothingShown);
+  const premium =
+    !read.member.closed &&
+    (await wearsPremiumMark(read.member.actorId).catch(() => false));
   return {
     version: 1,
     username: read.member.username,
@@ -198,5 +209,6 @@ export async function readProfile(
     history: read.rows.flatMap(toEntry),
     nextBefore: read.nextBefore,
     shown,
+    premium,
   };
 }

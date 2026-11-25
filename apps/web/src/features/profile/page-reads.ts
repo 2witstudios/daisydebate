@@ -4,6 +4,7 @@ import { readSeasonHistory } from './season-history';
 import { headers } from 'next/headers';
 import { type MatchHistoryQuery } from '@daisy/protocol/member-profile';
 import { CLIENT_ID_HASH_HEADER } from '../../server/client-ip';
+import { wearsPremiumMark } from './premium-holder';
 import { readProfile, type ProfileView } from './read-profile';
 import { requestApp, requestIdentity } from '../../lib/page-reads';
 
@@ -19,7 +20,18 @@ export const requestMemberProfile = async (
   query: MatchHistoryQuery,
 ): Promise<ProfileView | null> =>
   readProfile(
-    { store: requestApp().database, limiter: requestApp().limiter },
+    {
+      store: requestApp().database,
+      limiter: requestApp().limiter,
+      wearsPremiumMark: async (actorId) =>
+        wearsPremiumMark(
+          await requestApp().database.readMemberEntitlementGrants(actorId),
+          {
+            now: requestApp().clock.now(),
+            betaGrantsPremium: requestApp().config.PREMIUM_BETA_GRANT,
+          },
+        ),
+    },
     {
       clientId: (await headers()).get(CLIENT_ID_HASH_HEADER),
       identity: await requestIdentity(),
