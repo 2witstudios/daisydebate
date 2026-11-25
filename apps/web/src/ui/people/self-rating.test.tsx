@@ -1,16 +1,14 @@
-import { ladderCopyInView } from '../../../../test-support/ladder-copy.test-support';
+import { ladderCopyInView } from '../test-support/ladder-copy.test-support';
 import { createElement as h } from 'react';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { renderAccessible } from '../../../../../test-support/rendered/accessible';
-import { noLadderReason } from '../../../../../features/play/ladder-division-words';
-import type { MemberStanding } from '../../../../../features/ratings/read-member';
+import { renderAccessible } from '../../test-support/rendered/accessible';
+import type { MemberStanding } from '../../features/ratings/read-member';
 import {
-  AccountRatings,
+  HeadlineRating,
+  headlineRating,
   railLadderRows,
-  railSeason,
-  RatingsSkeleton,
   ratingText,
-} from './account-ratings';
+} from './self-rating';
 
 setupRitewayBun();
 
@@ -33,8 +31,8 @@ const openStanding = (overrides: Partial<MemberStanding> = {}) =>
   });
 
 const render = async (
-  ratings: Parameters<typeof AccountRatings>[0]['ratings'],
-) => renderAccessible(await AccountRatings({ ratings }));
+  ratings: Parameters<typeof HeadlineRating>[0]['ratings'],
+) => renderAccessible(h('p', null, await HeadlineRating({ ratings })));
 
 describe('ratingText', () => {
   test('shows the rating, its provisional state, unrated and hidden', () => {
@@ -86,25 +84,33 @@ describe('railLadderRows', () => {
   });
 });
 
-describe('railSeason', () => {
-  test('the season of the member’s own current ladder', () => {
+describe('headlineRating', () => {
+  test('your own ladder’s row, and none without a source', () => {
     assert({
-      given: 'their own ladder kept from last season, beside a current one',
-      should: 'name the current season',
-      actual: railSeason(
-        [
-          standing({ current: false, season: 'Spring 2026' }),
-          openStanding({ season: 'Fall 2026' }),
-        ],
-        'youth',
-      ),
-      expected: 'Fall 2026',
+      given:
+        'a youth member on both ladders, no season, no ladder, and a failed read',
+      should: 'give their own ladder’s rating, and nothing for the rest',
+      actual: [
+        headlineRating({
+          state: 'ready',
+          division: 'youth',
+          standings: [openStanding(), standing({})],
+        })?.text,
+        headlineRating({ state: 'ready', division: 'open', standings: [] }),
+        headlineRating({
+          state: 'ready',
+          division: null,
+          standings: [standing({})],
+        }),
+        headlineRating({ state: 'unavailable' }),
+      ],
+      expected: ['1526', null, null, null],
     });
   });
 });
 
-describe('AccountRatings', () => {
-  test('one Rating, naming no ladder, style or division (YHomeActive)', async () => {
+describe('HeadlineRating', () => {
+  test('one rating, naming no ladder, style or division (YHomeActive)', async () => {
     const view = await render(
       Promise.resolve({
         state: 'ready',
@@ -119,60 +125,26 @@ describe('AccountRatings', () => {
     assert({
       given: 'a youth member rated provisionally on their own ladder',
       should:
-        'title the section with the season, show the Rating starred, and name no ladder, style or division',
+        'show the rating starred, named as a rating to screen readers, and name no ladder, style or division',
       actual: [
-        view.within('region', 'Ratings').has('heading', 'Ranked · Fall 2026'),
-        view.text('term'),
-        view.text('definition', 'Provisional rating'),
+        text.includes('1530*'),
+        text.includes('rating'),
         ladderCopyInView(view) ??
           ['Youth', 'Open', 'Freestyle'].some((word) => text.includes(word)),
       ],
-      expected: [true, 'Rating', '1530*', false],
+      expected: [true, true, false],
     });
   });
 
-  test('says no season is active, that ranked needs an age, and that ratings are unavailable when the read failed', async () => {
-    const none = (
-      await render(
-        Promise.resolve({ state: 'ready', division: 'open', standings: [] }),
-      )
-    ).textContent();
-    const noAge = (
-      await render(
-        Promise.resolve({
-          state: 'ready',
-          division: null,
-          standings: [openStanding(), standing({})],
-        }),
-      )
-    ).textContent();
-    const failed = (
-      await render(Promise.resolve({ state: 'unavailable' }))
-    ).textContent();
-    assert({
-      given:
-        'a read with no standings, a member with no ladder, and a failed read',
-      should: 'say each plainly, without a blank section',
-      actual: [
-        none.includes('No season is active.'),
-        noAge.includes(noLadderReason),
-        failed.includes('Ratings are unavailable right now.'),
-      ],
-      expected: [true, true, true],
+  test('shows nothing when there is no rating to show', async () => {
+    const failed = await HeadlineRating({
+      ratings: Promise.resolve({ state: 'unavailable' }),
     });
-  });
-
-  test('the skeleton names the section and says it is loading, with no ratings in it', () => {
-    const view = renderAccessible(h(RatingsSkeleton));
     assert({
-      given: 'a rating still being read',
-      should: 'mark the section busy and tell screen readers it is loading',
-      actual: [
-        view.attribute('region', 'Ratings', 'aria-busy'),
-        view.textContent().includes('Loading your ratings'),
-        view.textContent().includes('Unrated'),
-      ],
-      expected: ['true', true, false],
+      given: 'a failed ratings read',
+      should: 'render nothing rather than a guess',
+      actual: failed,
+      expected: null,
     });
   });
 });

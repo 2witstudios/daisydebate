@@ -247,8 +247,9 @@ other seven share one. CSS alone decides it, so the first HTML is right.
 
 Home ends with one About strip (owner, 2026-11-18) for visitors and members:
 a line on what Daisy is and links to About Daisy, Help, Terms and Privacy. A
-visitor's hero also links Learn about Daisy under the join. The account menu and the
-More sheet list About Daisy beside Help, so a phone reaches it too.
+visitor's hero also links Learn about Daisy under the join. More, in the rail
+and in the phone's sheet, lists About Daisy beside Help, so a phone reaches it
+too.
 
 A phone has no Home hero and no opening tournament, Live now or About strip. A member
 sees the menu, and the hero returns only while they hold a Room, because it
@@ -264,16 +265,24 @@ its icon. Top to bottom: the logo (home) with the "Daisy Debate" wordmark
 beside it; the destinations (Home, Play, Tournaments, Leaderboard,
 Watch, Judge, Train, Prep); a divider; then a member's Notifications,
 Messages and Friends (with the online count), with
-Minimize as the group's last row (Expand when mini). The foot is the
-account: a member's avatar and username open an account menu to the right.
-The menu lists their ratings on each ladder under the season's name, each
-as the rating, "Provisional", "Unrated" or "Hidden while judging", then
-Profile, Settings, Help, Contact support, About Daisy, Terms, Privacy, Analytics preferences and Sign out.
-It is a native disclosure, so it opens on a tap without script. The shell
-reads the ratings once per request and does not wait for them: the menu
-streams them in, and a failed read says so in the menu. A visitor's Sign in
-or Finish sign-up takes the foot instead. Mini shows the same order as icons
-only, with every name kept as screen-reader text.
+Minimize as the group's last row (Expand when mini). The foot is More
+(owner, 2026-11-24), a native disclosure that opens to the right on a tap
+without script. It holds the pages that are not destinations: Settings (for
+anyone who is not a member, Analytics preferences in its place, since they
+have no settings), Help & support, About Daisy, then a member's Sign out and
+one small Terms · Privacy line. Contact support lives on Help, and the
+analytics choice for members lives in Settings. A visitor's Sign in or Finish
+sign-up sits above More. Mini shows the same order as icons only, with every
+name kept as screen-reader text.
+
+A member's own card heads the people rail (owner, 2026-11-24): one row with
+their avatar, their name (linking to their profile) and @username with one
+headline rating, the rating of their own ladder this season, or none when
+there is none. The avatar opens their status choices as a native
+disclosure. The shell reads the ratings once per request and does not wait
+for them: the card streams the rating in. The mini people rail shows the
+avatar alone above everyone, and the phone's More sheet opens with the same
+card.
 
 The full accessible name is unchanged in both modes: counts stay in it
 ("Friends, 5 online"), hover flyouts (Watch: Watch live, Recordings)

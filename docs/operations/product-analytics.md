@@ -34,9 +34,9 @@ and privacy proof; setting a remote project toggle cannot enable it.
 Unanswered means denied. `/analytics` exposes native form POSTs for acceptance,
 refusal and withdrawal. A choice never moves the viewer: with scripts the
 form saves in place and the banner closes, and without them the POST returns
-to the page it was sent from. Every viewer reaches it from the phone's More
-sheet or the privacy policy, a member also from their account menu; the
-banner offers equally styled acceptance and refusal. A later enabled
+to the page it was sent from. Anyone who is not a member reaches it from More
+(the rail's and the phone's), a member from Settings, and every viewer from
+the privacy policy; the banner offers equally styled acceptance and refusal. A later enabled
 category asks only if unanswered, preserving earlier choices. Cookie consent
 lasts 180 days. Account choices live in
 `consent_record` until erasure and are included in subject export. The SDK

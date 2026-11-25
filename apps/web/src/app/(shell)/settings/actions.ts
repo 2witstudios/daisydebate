@@ -64,7 +64,7 @@ export async function savePublicProfileAction(
   } catch {
     return profileTextUnavailable(form);
   }
-  // The shell's account menu shows the display name too.
+  // Your card in the shell shows the display name too.
   revalidatePath('/settings');
   return done();
 }

@@ -52,21 +52,35 @@ export const primaryDestinations: readonly Destination[] = [
   { href: '/prep', icon: 'book', label: 'Prep' },
 ];
 
-/** More: settings, help, support, About Daisy and the legal pages. */
-export const moreDestination: Destination = {
-  href: '/settings',
+/** More: the pages that are not destinations, at the rail foot and in the phone's sheet. */
+export const moreDestination = {
   icon: 'dots',
   label: 'More',
-  subItems: [
-    { href: '/settings', label: 'Settings' },
-    { href: '/help', label: 'Help' },
-    { href: '/support', label: 'Contact support' },
-    { href: '/about', label: 'About Daisy' },
-    { href: '/terms', label: 'Terms' },
-    { href: '/privacy', label: 'Privacy' },
-    { href: '/analytics', label: 'Analytics preferences' },
-  ],
+} as const satisfies {
+  readonly icon: IconName;
+  readonly label: string;
 };
+
+type Place = { readonly href: string; readonly label: string };
+
+/**
+ * More's pages: Settings for a member, who finds analytics consent there; anyone
+ * else, who has no settings, gets their analytics choice in its place. Contact
+ * support lives on Help.
+ */
+export const morePagesFor = (account: ShellAccount): readonly Place[] => [
+  account.state === 'member'
+    ? { href: '/settings', label: 'Settings' }
+    : { href: '/analytics', label: 'Analytics preferences' },
+  { href: '/help', label: 'Help & support' },
+  { href: '/about', label: 'About Daisy' },
+];
+
+/** The legal pages, one small line at the bottom of More. */
+export const legalLinks: readonly Place[] = [
+  { href: '/terms', label: 'Terms' },
+  { href: '/privacy', label: 'Privacy' },
+];
 
 /** A member's own places: their notifications, inbox and friends. */
 export const memberDestinations = {

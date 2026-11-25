@@ -98,19 +98,43 @@ export const onPhone = (page: Page): boolean =>
   (page.viewportSize()?.width ?? narrowBreakpoint) < narrowBreakpoint;
 
 /**
- * A member's link to their own profile: Profile in the rail's account menu,
- * which this opens, or in the phone's More sheet.
+ * A member's link to their own profile: the name on their card, at the top
+ * of the open people rail; in the mini rail, behind their avatar, which this
+ * opens; on a phone, at the head of the More sheet, which this opens.
  */
 export async function profileLink(page: Page, username: string) {
-  const nav = page.getByRole('navigation', { name: 'Primary' });
+  const name = new RegExp(username);
   if (!onPhone(page)) {
-    await nav
-      .locator(`summary[aria-label="Your account, ${username}"]`)
-      .click();
-    return nav.getByRole('link', { name: 'Profile', exact: true });
+    const people = page.getByRole('complementary', { name: 'People' });
+    const card = people.getByRole('region', { name: 'You' });
+    if (await card.isVisible()) return card.getByRole('link', { name });
+    // The mini avatar opens your name and status; with no status read, it
+    // is itself the link to your profile.
+    const status = people
+      .locator('summary[title="Your status"]')
+      .filter({ visible: true });
+    if ((await status.count()) === 0)
+      return people
+        .getByRole('link', { name: /^Your profile, / })
+        .filter({ visible: true });
+    await status.click();
+    return people.getByRole('link', { name }).filter({ visible: true });
   }
-  await nav.locator('summary').click();
+  const nav = page.getByRole('navigation', { name: 'Primary' });
+  await nav.locator('summary').filter({ hasText: 'More' }).click();
   return nav
-    .getByRole('list', { name: 'More' })
-    .getByRole('link', { name: 'Profile', exact: true });
+    .getByRole('region', { name: 'You' })
+    .getByRole('link', { name: new RegExp(username) });
+}
+
+/**
+ * Opens More at the rail's foot (on a phone, the More sheet) and returns the
+ * navigation that holds it.
+ */
+export async function openMore(page: Page) {
+  const nav = page
+    .getByRole('navigation', { name: 'Primary', exact: true })
+    .filter({ visible: true });
+  await nav.locator('summary').filter({ hasText: 'More' }).click();
+  return nav;
 }

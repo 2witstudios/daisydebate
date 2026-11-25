@@ -1,14 +1,13 @@
 import { Button } from '../../../../components/button/button';
-import type { ReactNode } from 'react';
 import { ShellLink as Link } from '../../shell-link';
 import { DaisyLogo } from '../../../../components/daisy-mark/daisy-mark';
 import { Icon } from '../../../../components/icon/icon';
 import { NavItem } from '../../../../components/nav-item/nav-item';
 import { cn } from '../../../../cn';
 import type { RailPreference } from '../../rail-preference';
-import type { ShellAccount, ShellRatings } from '../../account';
+import type { ShellAccount } from '../../account';
 import { primaryDestinations } from '../destinations';
-import { AccountMenu } from './account-menu';
+import { MoreMenu } from './more-menu';
 import { FriendsLink } from './friends-link';
 import { MessagesLink } from './messages-link';
 import { NotificationsLink } from './notifications-link';
@@ -73,10 +72,6 @@ export type RailProps = {
   readonly account: ShellAccount;
   /** The viewer's saved rail width, resolved per request (ADR 0091). */
   readonly rail: RailPreference;
-  /** The member's own status control, for the account menu. */
-  readonly statusControl?: ReactNode;
-  /** A member's ratings for the account menu; null for anyone else. */
-  readonly ratings: Promise<ShellRatings> | null;
   /** The server action the toggle form posts; it flips the saved choice. */
   readonly toggleRail: () => Promise<void>;
 };
@@ -85,23 +80,17 @@ export type RailProps = {
  * The one navigation rail on every shell page, beside the page. Top to
  * bottom: the logo (with the Daisy Debate wordmark when extended), the
  * destinations, a divider, a member's notifications, messages and friends
- * with Minimize as the last row of that group, then the account at the foot. The account opens a menu with the member's
- * ratings and the account pages; More is that menu now. Extended (the
+ * with Minimize as the last row of that group, then More at the foot (with a
+ * visitor's way in above it). Your own card is in the people rail. Extended (the
  * default) each name shows beside its icon; mini is icons only, with names
  * as screen-reader text and tooltips. Below the rail breakpoint CSS alone
- * keeps every name intact and hides the wordmark, the username and Minimize
- * (ADR 0091). Badges and the flyout on Watch are the same in both modes; the
- * account menu opens sideways, so it never needs the foot's space. The rail
+ * keeps every name intact and hides the wordmark and Minimize
+ * (ADR 0091). Badges and the flyout on Watch are the same in both modes; More
+ * opens sideways, so it never needs the foot's space. The rail
  * sticks to the viewport at every height, so it never scrolls with the page.
  * Gives way to the tab bar on a phone.
  */
-export function Rail({
-  account,
-  rail,
-  ratings,
-  toggleRail,
-  statusControl,
-}: RailProps) {
+export function Rail({ account, rail, toggleRail }: RailProps) {
   const extended = rail === 'extended';
   const group = cn(
     'flex list-none flex-col gap-1',
@@ -154,12 +143,7 @@ export function Rail({
           <ToggleItem extended={extended} toggleRail={toggleRail} />
         </ul>
         <div className={cn('mt-auto', extended && 'w-full')}>
-          <AccountMenu
-            account={account}
-            extended={extended}
-            ratings={ratings}
-            statusControl={statusControl}
-          />
+          <MoreMenu account={account} extended={extended} />
         </div>
       </nav>
     </div>

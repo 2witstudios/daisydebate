@@ -49,6 +49,28 @@ test('an incoming challenge names its style and mode, and offers Accept (YChalle
   });
 });
 
+test('your card heads the open rail, and your avatar heads the mini rail', () => {
+  const view = renderAccessible(
+    rail([person()], 'youth', {
+      card: h('section', { 'aria-label': 'Your card' }),
+      mini: h('section', { 'aria-label': 'Your avatar' }),
+    }),
+  );
+  assert({
+    given: 'the rail with your card and its mini avatar',
+    should:
+      'put the card before the People heading, and the avatar before the expand control',
+    actual: [
+      before(view.get('region', 'Your card'), view.get('heading', /People/)),
+      before(
+        view.get('region', 'Your avatar'),
+        view.get('button', 'Expand people list'),
+      ),
+    ],
+    expected: [true, true],
+  });
+});
+
 describe('the people rail', () => {
   const view = renderAccessible(
     rail([
@@ -67,7 +89,7 @@ describe('the people rail', () => {
       actual: [
         view.within('group', 'Show').names('button'),
         view.within('group', 'Show').names('button', { pressed: true }),
-        view.has('heading', 'People 3 online', { level: 2 }),
+        view.has('heading', 'People · 3 online', { level: 2 }),
       ],
       expected: [['All 10', 'Friends 3'], ['All 10'], true],
     });
@@ -222,7 +244,7 @@ describe('row words', () => {
   test('ratings read as figures or the shared words', () => {
     assert({
       given: 'established, provisional, unplayed and blinded',
-      should: 'read as the account menu does',
+      should: 'read as your card does',
       actual: [
         ratingText({
           ladder: { style: 'freestyle', division: 'open' },

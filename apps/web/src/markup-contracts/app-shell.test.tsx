@@ -27,7 +27,6 @@ const render = (
         account,
         activeRoom: null,
         rail,
-        ratings: null,
         toggleRail: async () => {},
         children: h('p', null, 'page'),
       }),
@@ -46,13 +45,11 @@ const railOf = (html: string): string => html.split('<nav')[1] ?? '';
  *   alone: which words show at rail widths (`icon-rail:sr-only`) or only to
  *   screen readers (`sr-only`), the wordmark that hides below the rail
  *   breakpoint (`icon-rail:hidden`), the rail pinned to the viewport
- *   (`sticky top-0 h-dvh`) and the account menu opening beside it
+ *   (`sticky top-0 h-dvh`) and More opening beside it
  *   (`absolute left-full`). Every one is in the accessibility tree at every
  *   width.
- * - The account disclosure's `<summary>`: the role mapping the role helper
- *   uses gives `<summary>` no role, so its accessible name (the aria-label
- *   naming the account) and its decorative visible username can only be
- *   read from the markup.
+ * - More's `<summary>`: the role mapping the role helper uses gives
+ *   `<summary>` no role, so its word can only be read from the markup.
  */
 describe('AppShell rail markup', () => {
   test('the rail shows words at rail widths in extended and as screen-reader text in mini (ADR 0091)', () => {
@@ -133,38 +130,21 @@ describe('AppShell rail markup', () => {
   });
 });
 
-describe('AppShell account menu markup', () => {
-  test('the foot is the account menu: the avatar and username open a menu beside the rail', () => {
+describe('AppShell More markup', () => {
+  test('the foot is More: a summary with the word at rail widths, opening beside the rail', () => {
     const rail = railOf(render(member));
     const foot = rail.slice(rail.indexOf('<details'));
     assert({
       given: "a member's extended rail",
       should:
-        'put the avatar and username in a summary named for the account, the visible username decorative, with the menu opening beside the rail',
+        'put More in a summary, its word shown at rail widths, with the menu opening beside the rail and no account name in it',
       actual: [
         foot.includes('<summary'),
-        foot.includes('aria-label="Your account, ada-byron"'),
-        /<span aria-hidden="true" class="[^"]*">ada-byron<\/span>/.test(foot),
+        foot.includes('<span class="icon-rail:sr-only">More</span>'),
         /class="[^"]*\babsolute\b[^"]*\bleft-full\b/.test(foot),
+        foot.includes('ada-byron'),
       ],
-      expected: [true, true, true, true],
-    });
-  });
-
-  test('a member who chose a display name names the account menu by it', () => {
-    const rail = railOf(
-      render({ ...member, displayName: 'Ada Byron', photoId: 'f'.repeat(24) }),
-    );
-    const foot = rail.slice(rail.indexOf('<details'));
-    assert({
-      given: 'a member with a display name and published photo',
-      should:
-        'name the account summary by the display name and @username, the visible display name decorative',
-      actual: [
-        foot.includes('aria-label="Your account, Ada Byron (@ada-byron)"'),
-        /<span aria-hidden="true" class="[^"]*">Ada Byron<\/span>/.test(foot),
-      ],
-      expected: [true, true],
+      expected: [true, true, true, false],
     });
   });
 });

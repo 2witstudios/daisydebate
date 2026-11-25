@@ -128,15 +128,18 @@ export function testPeopleList() {
 
       // Status changes reach the other member live.
       await other
-        .getByLabel(/^Your account/)
-        .first()
+        .locator('summary[title="Your status"]')
+        .filter({ visible: true })
         .click();
       await other
         .getByRole('form', { name: 'Status' })
-        .first()
+        .filter({ visible: true })
         .getByRole('button', { name: 'Busy' })
         .click();
-      await expect(rail.getByText('Busy').first()).toBeVisible({
+      // Their row, not the viewer's own (closed) status choices on their card.
+      await expect(
+        rail.getByText('Busy').filter({ visible: true }).first(),
+      ).toBeVisible({
         timeout: 45_000,
       });
       const refused = await first.request.post('/api/challenges', {
@@ -217,12 +220,12 @@ export function testPeopleList() {
 
       // Appear offline shows them as offline, like anyone who has left.
       await challenged
-        .getByLabel(/^Your account/)
-        .first()
+        .locator('summary[title="Your status"]')
+        .filter({ visible: true })
         .click();
       await challenged
         .getByRole('form', { name: 'Status' })
-        .first()
+        .filter({ visible: true })
         .getByRole('button', { name: 'Appear offline' })
         .click();
       // Offline sorts last, so a long list would page them out of view.

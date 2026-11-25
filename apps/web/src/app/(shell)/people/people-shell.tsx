@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import type { SelfCards } from '../../../ui/people/self-card';
 import type { PeopleRailPreference } from '../../../ui/layout/app-shell/rail-preference';
 import { ChallengeProvider } from '../../../ui/challenges/challenge-provider';
 import { PeopleProvider } from '../../../ui/people/people-provider';
@@ -58,19 +59,24 @@ export async function PeopleShell({
   socketUrl,
   preference,
   activeRoomId,
+  self,
 }: {
   readonly actorId: string;
+  /** Your own card, heading the rail; null when there is none to show. */
+  readonly self: Promise<SelfCards | null>;
   readonly socketUrl: string | null;
   readonly preference: PeopleRailPreference;
   readonly activeRoomId: string | null;
 }) {
-  const [list, challenges, notifications, memberDivision] = await Promise.all([
-    readPeople(),
-    readChallenges().catch(() => null),
-    readNotificationShell().catch(() => null),
-    // Unread is no ladder: ranked stays off until the next render.
-    requestMemberDivision().catch(() => null),
-  ]);
+  const [list, challenges, notifications, memberDivision, cards] =
+    await Promise.all([
+      readPeople(),
+      readChallenges().catch(() => null),
+      readNotificationShell().catch(() => null),
+      // Unread is no ladder: ranked stays off until the next render.
+      requestMemberDivision().catch(() => null),
+      self,
+    ]);
   return {
     preference,
     rail: (
@@ -80,6 +86,8 @@ export async function PeopleShell({
           actions={personActions}
           setRail={setPeopleRail}
           activeRoomId={activeRoomId}
+          selfCard={cards?.card}
+          selfMini={cards?.mini}
         />
         <PhoneChallengeCards
           actions={personActions}

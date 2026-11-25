@@ -26,15 +26,25 @@ describe('HelpPage', () => {
     });
   });
 
-  test('a question Help does not answer goes to support', () => {
+  test('support lives on Help: in its header, and after the questions', () => {
     const view = renderAccessible(
       h(HelpPage, { homes: [], topics: helpTopics }),
     );
+    const links = view.all('link', 'Contact support');
+    const [header] = links;
+    const [question] = view.all('group');
     assert({
       given: 'the help topics',
-      should: 'link to /support',
-      actual: view.attribute('link', 'Contact support', 'href'),
-      expected: '/support',
+      should:
+        'offer Contact support before the first question and again after the last, both to /support',
+      actual: [
+        links.map((link) => link.getAttribute('href')),
+        header !== undefined &&
+          question !== undefined &&
+          // 4 is Node.DOCUMENT_POSITION_FOLLOWING: the question follows the header's link.
+          (header.compareDocumentPosition(question) & 4) !== 0,
+      ],
+      expected: [['/support', '/support'], true],
     });
   });
 

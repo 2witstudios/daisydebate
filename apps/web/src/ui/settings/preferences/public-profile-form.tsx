@@ -23,7 +23,7 @@ export const counterText = (text: string, max: number): string =>
 
 /**
  * The member's display name and bio (ADR 0143): what others see beside the
- * username on their profile, the account menu and People and Friends. Either
+ * username on their profile, their card and People and Friends. Either
  * may be left empty, which clears it. A refusal keeps what was typed.
  */
 export function PublicProfileForm({

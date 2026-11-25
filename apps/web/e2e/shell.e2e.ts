@@ -1,6 +1,7 @@
 import type { Locator, Page } from '@playwright/test';
 import { expect, test } from './support/fixtures';
 import { resetRateLimits, signUpMember } from './support/accounts';
+import { openMore } from './support/shell-links';
 import { art } from '../src/ui/assets';
 
 const desktopRail = async (page: Page) => {
@@ -239,18 +240,19 @@ test.describe('dashboard shell chrome', () => {
     ).toBe(true);
   });
 
-  test('a visitor’s rail has no More control, only the way in', async ({
+  test('a visitor’s rail has the way in, then More with the analytics choice', async ({
     page,
   }) => {
     await page.goto('/');
     // The rail is the first Primary nav; the phone tab bar, hidden here, keeps
-    // its own More sheet. More now lives in the member account menu.
+    // its own More sheet.
     const rail = page.locator('nav[aria-label="Primary"]').first();
-    await expect(
-      rail.getByRole('link', { name: 'More', exact: true }),
-    ).toHaveCount(0);
-    await expect(rail.locator('details')).toHaveCount(0);
     await expect(rail.getByRole('link', { name: 'Sign in' })).toBeVisible();
+    const more = await openMore(page);
+    await expect(
+      more.getByRole('list', { name: 'More' }).getByRole('link'),
+    ).toHaveText(['Analytics preferences', 'Help & support', 'About Daisy']);
+    await expect(more.getByRole('button', { name: 'Sign out' })).toHaveCount(0);
   });
 
   test('interactive controls carry accessible names', async ({ page }) => {
@@ -318,28 +320,25 @@ test.describe('dashboard shell chrome', () => {
   });
 });
 
-test.describe('rail account menu', () => {
+test.describe('rail More', () => {
   test.beforeEach(async ({ page }) => {
     await resetRateLimits(page.request);
   });
 
-  test('opens on the avatar, closes on an outside click or Escape, and stays open on inside clicks', async ({
+  test('opens on More, closes on an outside click or Escape, and stays open on inside clicks', async ({
     page,
   }) => {
-    const { username } = await signUpMember(page.request);
+    await signUpMember(page.request);
     await page.goto('/');
-    const rail = page.getByRole('navigation', { name: 'Primary' });
+    const rail = page.getByRole('navigation', { name: 'Primary' }).first();
     const details = rail.locator('details');
-    const summary = rail.locator(
-      `summary[aria-label="Your account, ${username}"]`,
-    );
+    const summary = rail.locator('summary').filter({ hasText: 'More' });
 
     await summary.click();
     await expect(details).toHaveAttribute('open', '');
 
     // A click inside the menu keeps it open.
-    const inside = details.locator('span').filter({ hasText: username }).last();
-    await inside.click();
+    await details.locator('hr').click();
     await expect(details).toHaveAttribute('open', '');
 
     // A click elsewhere closes it.

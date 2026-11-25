@@ -126,18 +126,18 @@ test('a member asks from a profile', async ({ browser }) => {
   });
 });
 
-test('a member sets their status from the account menu', async ({
-  browser,
-}) => {
+test('a member sets their status from their card', async ({ browser }) => {
   await withContext(browser, async (context) => {
     await signUpMember(context.request);
     const page = await openPage(context, 'a member choosing their status');
     await page.goto('/friends');
     await page
-      .getByLabel(/^Your account/)
-      .first()
+      .locator('summary[title="Your status"]')
+      .filter({ visible: true })
       .click();
-    const status = page.getByRole('form', { name: 'Status' }).first();
+    const status = page
+      .getByRole('form', { name: 'Status' })
+      .filter({ visible: true });
     await status.getByRole('button', { name: 'Busy' }).click();
     await expect(status.getByRole('button', { name: 'Busy' })).toHaveAttribute(
       'aria-pressed',
@@ -145,13 +145,13 @@ test('a member sets their status from the account menu', async ({
     );
     await page.goto('/friends');
     await page
-      .getByLabel(/^Your account/)
-      .first()
+      .locator('summary[title="Your status"]')
+      .filter({ visible: true })
       .click();
     await expect(
       page
         .getByRole('form', { name: 'Status' })
-        .first()
+        .filter({ visible: true })
         .getByRole('button', { name: 'Busy' }),
     ).toHaveAttribute('aria-pressed', 'true');
   });

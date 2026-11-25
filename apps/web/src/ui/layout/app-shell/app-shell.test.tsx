@@ -1,7 +1,8 @@
-import { createElement as h } from 'react';
+import { createElement as h, type ReactNode } from 'react';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { AppShell } from './app-shell';
-import type { ShellAccount, ShellRatings } from './account';
+import { moreIsCurrent } from './components/tab-bar/tab-bar';
+import type { ShellAccount } from './account';
 import type { RailPreference } from './rail-preference';
 import type { ActiveRoomSummary } from '../../active-room/your-room';
 import { renderInStore } from '../../test-support/render-in-store';
@@ -26,14 +27,14 @@ const render = (
   account: ShellAccount = { state: 'anonymous' },
   activeRoom: ActiveRoomSummary | null = null,
   rail: RailPreference = 'extended',
-  ratings: Promise<ShellRatings> | null = null,
+  selfCard?: ReactNode,
 ): AccessibleView =>
   renderInStore(
     h(AppShell, {
       account,
       activeRoom,
       rail,
-      ratings,
+      ...(selfCard === undefined ? {} : { selfCard }),
       toggleRail: async () => {},
       children: h('p', null, 'page'),
     }),
@@ -77,7 +78,7 @@ describe('AppShell', () => {
     });
   });
 
-  test('the rail shows words by default, with Minimize as a labeled row and More in the account menu (ADR 0091)', () => {
+  test('the rail shows words by default, with Minimize as a labeled row and More at the foot (ADR 0091)', () => {
     const [extendedRail] = navs(render(member));
     const extended = [
       extendedRail.has('link', 'Home'),
@@ -88,13 +89,13 @@ describe('AppShell', () => {
     assert({
       given: "a member's rail served extended and served mini",
       should:
-        'name every destination in both, with Minimize as a form row in extended and Expand with its tooltip in mini, and no More control in the rail',
+        'name every destination in both, with Minimize as a form row in extended and Expand with its tooltip in mini, and More in the rail',
       actual: [
         ...extended,
         mini.has('link', 'Messages'),
         mini.attribute('button', 'Expand', 'title'),
       ],
-      expected: [true, true, false, true, 'Expand'],
+      expected: [true, true, true, true, 'Expand'],
     });
   });
 
@@ -108,19 +109,16 @@ describe('AppShell', () => {
     });
   });
 
-  test('the rail: logo, destinations, then member places, with the account at the foot', () => {
+  test('the rail: logo, destinations, then member places, with More at the foot', () => {
     const [rail] = navs(render(member));
     assert({
       given: 'a member',
       should:
-        'link home from the logo, then the destinations, then Notifications, Messages and Friends, then the account menu with the profile and account pages',
+        'link home from the logo, then the destinations, then Notifications, Messages and Friends, then More with Settings',
       actual: [
         rail.attribute('link', 'Daisy Debate home', 'href'),
         hrefsOf(rail.all('link')).filter(
-          (href) =>
-            !['/help', '/support', '/about', '/terms', '/privacy'].includes(
-              href,
-            ),
+          (href) => !['/help', '/about', '/terms', '/privacy'].includes(href),
         ),
       ],
       expected: [
@@ -140,52 +138,51 @@ describe('AppShell', () => {
           '/notifications',
           '/messages',
           '/friends',
-          '/profile/ada-byron',
           '/settings',
-          '/analytics',
         ],
       ],
     });
   });
 
-  test('the foot is the account menu: the avatar and username open a menu with the ratings and account pages', () => {
+  test('the foot is More: Settings, Help & support, About Daisy, Sign out and the legal line', () => {
     const [rail] = navs(render(member));
     const foot = rail.within('group');
     assert({
       given: "a member's extended rail",
       should:
-        'end the rail with the account menu, holding the account pages, analytics preferences and sign-out',
+        'end the rail with More, holding the pages that are not destinations, sign-out and the legal pages, and nothing of the account itself',
       actual: [
-        foot.textContent().includes('ada-byron'),
-        foot.attribute('link', 'Settings', 'href'),
-        foot.attribute('link', 'Analytics preferences', 'href'),
+        hrefsOf(foot.within('list', 'More').all('link')),
+        hrefsOf(foot.within('list', 'Legal').all('link')),
         foot.get('button', 'Sign out').closest('form')?.getAttribute('action'),
+        foot.textContent().includes('ada-byron'),
+        foot.has('link', 'Contact support'),
+        foot.has('link', 'Analytics preferences'),
       ],
-      expected: [true, '/settings', '/analytics', '/auth/sign-out'],
+      expected: [
+        ['/settings', '/help', '/about'],
+        ['/terms', '/privacy'],
+        '/auth/sign-out',
+        false,
+        false,
+        false,
+      ],
     });
   });
 
-  test('a member who chose a display name and photo', () => {
-    const photoId = 'f'.repeat(24);
-    const [rail, bar] = navs(
-      render({ ...member, displayName: 'Ada Byron', photoId }),
+  test('the phone sheet opens with the card it is handed', () => {
+    const [, bar] = navs(
+      render(member, null, 'extended', h('p', null, 'your card')),
     );
-    const foot = rail.within('group');
+    const sheet = bar.within('group');
     assert({
-      given: 'a member with a display name and published photo',
-      should:
-        'name the account menu and phone sheet by it, keep @username visible beside it, and show the photo',
+      given: "a member's More sheet with their card",
+      should: 'show the card before the links, then Sign out',
       actual: [
-        foot.textContent().includes('Ada Byron'),
-        foot.textContent().includes('@ada-byron'),
-        foot
-          .all('presentation')
-          .map((photo) => photo.getAttribute('src'))
-          .includes(`/api/profile-photos/${photoId}/128`),
-        bar.textContent().includes('Ada Byron') &&
-          bar.textContent().includes('ada-byron'),
+        precedes(sheet.get('paragraph'), sheet.get('list', 'More')),
+        sheet.has('button', 'Sign out'),
       ],
-      expected: [true, true, true, true],
+      expected: [true, true],
     });
   });
 
@@ -194,15 +191,16 @@ describe('AppShell', () => {
     assert({
       given: "a member's extended rail",
       should:
-        'name every link, the full name when the word is shorter, and reach the help, support and legal pages',
+        'name every link, the full name when the word is shorter, and reach Help and the legal pages, with support on Help',
       actual: [
         rail.has('link', 'Messages'),
         rail.has('link', /^Friends, \d+ online$/),
-        ['/help', '/support', '/about', '/terms', '/privacy'].every((href) =>
+        ['/help', '/about', '/terms', '/privacy'].every((href) =>
           hrefsOf(rail.all('link')).includes(href),
         ),
+        hrefsOf(rail.all('link')).includes('/support'),
       ],
-      expected: [true, true, true],
+      expected: [true, true, true, false],
     });
   });
 
@@ -228,19 +226,21 @@ describe('AppShell', () => {
     });
   });
 
-  test('a visitor’s way in takes the foot, with no account menu', () => {
+  test('a visitor’s way in sits above More, which offers analytics in place of Settings', () => {
     const [visitor] = navs(render());
     const lastRule = visitor.all('separator').at(-1);
+    const more = visitor.within('group');
     assert({
       given: 'an anonymous visitor on the extended rail',
       should:
-        'put the Sign in link at the foot, and no account menu or ratings',
+        'put the Sign in link at the foot above More, whose pages give the analytics choice instead of Settings, with no sign-out',
       actual: [
         lastRule !== undefined &&
           precedes(lastRule, visitor.get('link', 'Sign in')),
-        visitor.count('group'),
+        hrefsOf(more.within('list', 'More').all('link')),
+        more.has('button', 'Sign out'),
       ],
-      expected: [true, 0],
+      expected: [true, ['/analytics', '/help', '/about'], false],
     });
   });
 
@@ -272,8 +272,12 @@ describe('AppShell', () => {
     const [, bar] = navs(render(member));
     assert({
       given: "a member's More sheet",
-      should: 'list their places, Settings and the help and legal pages',
-      actual: hrefsOf(bar.within('list', 'More').all('link')),
+      should:
+        'list their places, Settings, Help and About, then the legal pages',
+      actual: [
+        ...hrefsOf(bar.within('list', 'More').all('link')),
+        ...hrefsOf(bar.within('list', 'Legal').all('link')),
+      ],
       expected: [
         '/tournaments',
         '/leaderboard',
@@ -283,14 +287,11 @@ describe('AppShell', () => {
         '/prep',
         '/notifications',
         '/friends',
-        '/profile/ada-byron',
         '/settings',
         '/help',
-        '/support',
         '/about',
         '/terms',
         '/privacy',
-        '/analytics',
       ],
     });
   });
@@ -332,6 +333,24 @@ describe('Notifications', () => {
         hrefsOf(tabBar.all('link')).includes('/notifications'),
       ],
       expected: [true, true],
+    });
+  });
+});
+
+describe('moreIsCurrent', () => {
+  test('More is the current tab on your own profile, not on someone else’s', () => {
+    assert({
+      given:
+        'a member on their own profile, on a similar name’s, on Help, and a visitor on that profile',
+      should:
+        'light More for their own profile and Help, and not for another profile or a visitor',
+      actual: [
+        moreIsCurrent(member, '/profile/ada-byron'),
+        moreIsCurrent(member, '/profile/ada-byronic'),
+        moreIsCurrent(member, '/help'),
+        moreIsCurrent({ state: 'anonymous' }, '/profile/ada-byron'),
+      ],
+      expected: [true, false, true, false],
     });
   });
 });
