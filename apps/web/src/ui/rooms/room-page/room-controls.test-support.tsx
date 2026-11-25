@@ -10,12 +10,17 @@ export { createRoot } from 'react-dom/client';
 export const posted: unknown[] = [];
 
 /** A free casual host's Room controls: capture offered only with Premium. */
-export function FreeHostControls() {
+export function FreeHostControls({
+  aiJudgeSeating = assemblySnapshot.aiJudgeSeating,
+}: {
+  readonly aiJudgeSeating?: RoomView['aiJudgeSeating'];
+}) {
   const view: RoomView = {
     ...assemblySnapshot,
     capabilities: { ...assemblySnapshot.capabilities, canEdit: true },
     captureOffer: 'premium',
     capture: null,
+    aiJudgeSeating,
   };
   return (
     <RoomControls

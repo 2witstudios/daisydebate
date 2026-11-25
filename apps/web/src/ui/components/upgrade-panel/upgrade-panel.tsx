@@ -5,7 +5,7 @@ import { requestDialog } from '../dialog/dialog';
 import { buttonClass } from '../button/button-class';
 import { Announcement } from '../announcement/announcement';
 import { useState, type ReactNode } from 'react';
-import { Icon } from '../icon/icon';
+import { PremiumMark } from '../premium-mark/premium-mark';
 
 /**
  * The panel's second action: somewhere else to go, a dialog on this page to
@@ -25,7 +25,8 @@ const quiet = buttonClass('ghost', 'room');
 
 /**
  * A free account's upgrade moment (PYL-11): small, in place, and shown only
- * when the account reaches for the thing. It never shows a count.
+ * when the account reaches for the thing. It never shows a count. A screen
+ * shows one panel; a second Premium limit on it is an `UpgradeLine`.
  */
 export function UpgradePanel({
   title,
@@ -47,7 +48,7 @@ export function UpgradePanel({
       className="flex flex-col gap-3 rounded-xl border border-border-strong bg-surface-raised px-4 py-4"
     >
       <div className="flex items-start gap-3">
-        <Icon name="sparkle" size={20} className="shrink-0 text-gold" />
+        <PremiumMark size={20} />
         <div className="flex min-w-0 flex-col gap-1">
           <strong className="font-strong text-ink">{title}</strong>
           <span className="text-sm text-ink-muted">{children}</span>
@@ -76,6 +77,27 @@ export function UpgradePanel({
           </Button>
         )}
       </div>
+    </Announcement>
+  );
+}
+
+/**
+ * A second Premium limit on a screen that already shows a panel: the same
+ * fact as a plain sentence and a link, with no mark and no second button.
+ */
+export function UpgradeLine({
+  children,
+  premiumHref = '/premium',
+}: {
+  readonly children: ReactNode;
+  readonly premiumHref?: string;
+}) {
+  return (
+    <Announcement as="p" kind="progress" className="text-sm text-ink-muted">
+      {children}{' '}
+      <a href={premiumHref} className="font-strong text-ink underline">
+        See Premium
+      </a>
     </Announcement>
   );
 }

@@ -27,8 +27,11 @@ const render = (
   query: RecordingsQuery,
   rows: readonly ArchiveEntry[] = [],
   nextBefore: string | null = null,
+  recordOffer = false,
 ) =>
-  renderAccessible(h(RecordingsTab, { query, listing: { rows, nextBefore } }));
+  renderAccessible(
+    h(RecordingsTab, { query, listing: { rows, nextBefore }, recordOffer }),
+  );
 
 describe('RecordingsTab', () => {
   test('the public archive', () => {
@@ -75,6 +78,26 @@ describe('RecordingsTab', () => {
         'No recorded debates yet',
       ),
       expected: true,
+    });
+  });
+});
+
+describe('the record offer under My debates', () => {
+  const mine = { ...defaultRecordingsQuery, scope: 'mine' } as const;
+  test('one row under the list, only when offered', () => {
+    const offered = render(mine, [row, { ...row, roundId: 'b' }], null, true);
+    const plain = render(mine, [row]);
+    assert({
+      given: 'two listed Rounds with the offer, and a list without it',
+      should: 'show one link to Premium under the rows, or none',
+      actual: [
+        offered
+          .within('region', 'Recordings')
+          .attribute('link', /Record your casual Rounds/, 'href'),
+        offered.textContent().split('Get Premium').length - 1,
+        plain.textContent().includes('Get Premium'),
+      ],
+      expected: ['/premium', 1, false],
     });
   });
 });

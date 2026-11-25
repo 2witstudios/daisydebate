@@ -15,11 +15,21 @@ import type { FormAction } from '../../form-action/form-action';
 import { controlClass } from '../../components/form-field/form-field-class';
 import { AssemblyCommandFields } from './assembly-command-fields';
 import { AssemblyCommandForm } from './assembly-command-form';
-import { UpgradePanel } from '../../components/upgrade-panel/upgrade-panel';
+import {
+  UpgradeLine,
+  UpgradePanel,
+} from '../../components/upgrade-panel/upgrade-panel';
+import { aiJudgeUpgradeShown } from './ai-judge-notice';
 
 type View = Pick<
   RoomView,
-  'version' | 'visibility' | 'capture' | 'captureOffer' | 'capabilities'
+  | 'version'
+  | 'visibility'
+  | 'capture'
+  | 'captureOffer'
+  | 'capabilities'
+  | 'aiJudgeSeating'
+  | 'definition'
 >;
 
 /** A choice posts as soon as it changes: the page needs script (ADR 0114). */
@@ -264,14 +274,21 @@ export function RoomControls({
           />
           {reaches > 0 && view.captureOffer === 'premium' ? (
             <div className="py-3">
-              <UpgradePanel
-                key={reaches}
-                title="Recording and broadcast are Premium"
-                alternative={{ kind: 'dismiss', label: 'Not now' }}
-              >
-                Record your casual Rounds, stream them to an audience and
-                download them with Premium.
-              </UpgradePanel>
+              {aiJudgeUpgradeShown(view) ? (
+                // The roster already shows this page's panel.
+                <UpgradeLine key={reaches}>
+                  Recording and broadcast are Premium.
+                </UpgradeLine>
+              ) : (
+                <UpgradePanel
+                  key={reaches}
+                  title="Recording and broadcast are Premium"
+                  alternative={{ kind: 'dismiss', label: 'Not now' }}
+                >
+                  Record your casual Rounds, stream them to an audience and
+                  download them with Premium.
+                </UpgradePanel>
+              )}
             </div>
           ) : null}
         </>

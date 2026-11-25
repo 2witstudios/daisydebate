@@ -17,7 +17,10 @@ import type { App } from '../../server/app';
 import { stageEgressOf } from '../stage-capture/composition';
 import { newStageCredential } from '../stage-capture/stage-access';
 import { createRecordingCapturePort } from './capture-port';
-import { holdsRecordingDownload } from './download-entitlement';
+import {
+  accountHoldsCasualCapture,
+  holdsRecordingDownload,
+} from './download-entitlement';
 import { createRecordingCaptureSweep } from './capture-sweep';
 import type { RecordingRound } from './audience';
 import { createRecordingHandlers } from './handlers';
@@ -83,6 +86,11 @@ const recordingInputs = (app: App): RecordingInputs & HistoryInputs => {
     };
   const readHistoryRound = readRoundWith(youthPeople(app));
   const store = recordingPersistence(app);
+  const grants = {
+    readGrants: app.database.recordingCaptures.readAccountGrants,
+    betaGrantsPremium: app.config.PREMIUM_BETA_GRANT,
+    now: () => app.clock.now(),
+  };
   return {
     readRound: readHistoryRound,
     readRoundFresh: readRoundWith(app.database.readYouthRoundPeople),
@@ -99,11 +107,8 @@ const recordingInputs = (app: App): RecordingInputs & HistoryInputs => {
     readBallots: app.database.readRecordingBallots,
     readJobState: app.database.recordingCaptures.readJobState,
     nowMs: () => nowMs(app.clock),
-    holdsRecordingDownload: holdsRecordingDownload({
-      readGrants: app.database.recordingCaptures.readAccountGrants,
-      betaGrantsPremium: app.config.PREMIUM_BETA_GRANT,
-      now: () => app.clock.now(),
-    }),
+    holdsRecordingDownload: holdsRecordingDownload(grants),
+    holdsCasualCapture: accountHoldsCasualCapture(grants),
     findRecordingByRound: store.findByRound,
     // The reuse fence in one statement, as Watch reads it (ADR 0161).
     readReuseFenced: app.database.readRoundReuseFenced,

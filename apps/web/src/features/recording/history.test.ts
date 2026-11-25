@@ -90,6 +90,7 @@ const open = (
     nowMs?: number;
     recordingClass?: 'ranked' | 'casual';
     subscribed?: boolean;
+    capture?: HistoryInputs['holdsCasualCapture'];
     transcript?: HistoryInputs['readTranscript'];
     viewer?: RecordingViewer;
     q?: string;
@@ -116,6 +117,7 @@ const open = (
       return ballots;
     },
     holdsRecordingDownload: async () => over.subscribed ?? false,
+    holdsCasualCapture: over.capture ?? (async () => false),
     readReuseFenced:
       over.readReuseFenced ?? (async () => over.reuseFenced ?? false),
     readJobState: async () => over.job ?? null,
@@ -577,6 +579,80 @@ describe('a Youth Round’s history (ADR 0161)', () => {
         (await open({ round: hidden, viewer: member('coach') })).screen.kind,
       ],
       expected: ['unavailable', 'history'],
+    });
+  });
+});
+
+describe('the page’s one Premium offer', () => {
+  const casual = { competitionType: 'casual', ladder: null } as const;
+  const youth = { debaters: [] } as never;
+  const offer = async (over: Parameters<typeof open>[0]) => {
+    const { screen } = await open(over);
+    return screen.kind === 'history' ? screen.premiumOffer : 'no page';
+  };
+
+  test('an unrecorded casual Round offers recording to its own debater alone', async () => {
+    const unrecorded = { round: casual, lifecycle: null } as const;
+    assert({
+      given:
+        'a casual Round nobody recorded, opened by its debater, by a stranger, by a visitor, by a debater who holds the capture entitlement, by a debater whose entitlement read fails, as a Youth Round, the same Round ranked, and by its host',
+      should:
+        'offer recording only to a debater or host known to lack it; a stranger has no page at all',
+      actual: [
+        await offer({ ...unrecorded, viewer: account('aff') }),
+        await offer({ ...unrecorded, viewer: account('stranger') }),
+        await offer(unrecorded),
+        await offer({
+          ...unrecorded,
+          viewer: account('aff'),
+          capture: async () => true,
+        }),
+        await offer({
+          ...unrecorded,
+          viewer: account('aff'),
+          capture: async () => Promise.reject(new Error('unavailable')),
+        }),
+        await offer({
+          round: { ...casual, youth },
+          lifecycle: null,
+          viewer: account('aff'),
+        }),
+        await offer({ lifecycle: null, viewer: account('aff') }),
+        await offer({ ...unrecorded, viewer: account('host') }),
+      ],
+      expected: [
+        'record',
+        'no page',
+        'no page',
+        null,
+        null,
+        null,
+        null,
+        'record',
+      ],
+    });
+  });
+
+  test('a video an account may watch offers its download, never beside the download itself', async () => {
+    const paid = await history({
+      viewer: account('stranger'),
+      subscribed: true,
+    });
+    assert({
+      given:
+        'a ready public video opened by a free account, by a subscriber, by a visitor, as a Youth Round, and while still processing',
+      should: 'offer the download only to the free account that could watch it',
+      actual: [
+        await offer({ viewer: account('stranger') }),
+        [paid.premiumOffer, paid.downloadHref !== null],
+        await offer({}),
+        await offer({ round: { youth }, viewer: account('stranger') }),
+        await offer({
+          viewer: account('stranger'),
+          lifecycle: { status: 'requested' } as never,
+        }),
+      ],
+      expected: ['download', [null, true], null, null, null],
     });
   });
 });

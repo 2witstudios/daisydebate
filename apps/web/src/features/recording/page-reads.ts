@@ -1,6 +1,10 @@
 import { nowMs } from '@daisy/clock';
 import { spectatorClockAt } from '../spectating/spectator-clock';
-import { ARCHIVE_PAGE_SIZE } from './archive';
+import {
+  ARCHIVE_PAGE_SIZE,
+  recordOfferDue,
+  type ArchiveEntry,
+} from './archive';
 import { type RecordingsQuery } from './archive-query';
 import { type RecordingViewer } from './audience';
 import { recordingReads } from './composition';
@@ -31,3 +35,19 @@ export const readRecordingArchive = async (
 export const readRecordingHistory = (
   input: Parameters<typeof openRecordingHistory>[1],
 ) => openRecordingHistory(recordingReads(requestApp()).inputs, input);
+
+/**
+ * Whether this page of "My debates" offers recording: an own casual Round
+ * went unrecorded and the account lacks the capture entitlement. A failed
+ * entitlement read offers nothing.
+ */
+export const readRecordOffer = async (
+  query: RecordingsQuery,
+  viewer: RecordingViewer,
+  rows: readonly ArchiveEntry[],
+): Promise<boolean> =>
+  viewer.kind === 'account' &&
+  recordOfferDue(query.scope, rows) &&
+  !(await recordingReads(requestApp())
+    .inputs.holdsCasualCapture(viewer.userId)
+    .catch(() => true));

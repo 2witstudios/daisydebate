@@ -158,6 +158,7 @@ mock.module(join(import.meta.dir, '../recording/page-reads.ts'), () => ({
     publicCount: 0,
   }),
   readRecordingHistory: async () => ({ kind: 'not-found' }),
+  readRecordOffer: async () => false,
 }));
 mock.module(join(import.meta.dir, '../messaging/page-reads.ts'), () => ({
   privateGroupsOffered: () => false,

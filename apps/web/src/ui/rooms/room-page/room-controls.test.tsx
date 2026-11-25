@@ -199,3 +199,46 @@ test('a free host reaching for a capture switch sees the upgrade panel, and noth
     await client.act(async () => client.root.unmount());
   }
 });
+
+test('a Room already showing the AI judge panel answers a capture reach with one plain line', async () => {
+  const { mountBrowserClient } =
+    await import('../../test-support/browser-client.test-support');
+  const client = await mountBrowserClient<typeof Client>(
+    Bun.resolveSync('./room-controls.test-support', import.meta.dir),
+    {
+      URL,
+      URLSearchParams,
+      performance,
+      process: { env: { NODE_ENV: 'test' } },
+    },
+  );
+  try {
+    await client.act(async () =>
+      client.root.render(
+        client.createElement(client.FreeHostControls, {
+          aiJudgeSeating: 'premium',
+        }),
+      ),
+    );
+    const shown = () =>
+      accessibleWithin(client.container as unknown as Element);
+    const record = shown().get('switch', 'Record') as HTMLInputElement;
+    await client.act(async () => record.click());
+    const text = shown().textContent();
+    assert({
+      given:
+        'a free casual host whose roster shows the AI judge panel, clicking the Record switch',
+      should:
+        'say recording is Premium with a link, and add no second Get Premium button',
+      actual: {
+        line: text.includes('Recording and broadcast are Premium.'),
+        link: shown().get('link', 'See Premium').getAttribute('href'),
+        button: text.includes('Get Premium'),
+        posted: client.posted.length,
+      },
+      expected: { line: true, link: '/premium', button: false, posted: 0 },
+    });
+  } finally {
+    await client.act(async () => client.root.unmount());
+  }
+});

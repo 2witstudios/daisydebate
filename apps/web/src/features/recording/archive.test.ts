@@ -1,6 +1,6 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { twoSides } from '@daisy/protocol/seats';
-import { archiveEntries, type ArchiveRound } from './archive';
+import { archiveEntries, recordOfferDue, type ArchiveRound } from './archive';
 import { account, nowMs, visitor } from './fixture.test-support';
 
 setupRitewayBun();
@@ -128,6 +128,30 @@ describe('archiveEntries', () => {
         'list it as failed with no length, and no winner rather than a draw',
       actual: [own?.media, own?.length, own?.ownVisibility, own?.result],
       expected: ['failed', null, 'private', 'No winner'],
+    });
+  });
+});
+
+describe('recordOfferDue', () => {
+  test('only an own unrecorded casual Round under My debates', () => {
+    const own = {
+      ranked: false,
+      media: 'not_recorded',
+      ownVisibility: 'private',
+    } as const;
+    assert({
+      given:
+        'such a Round under My debates, under All, and My debates holding only a ranked, a recorded or another member’s Round',
+      should: 'be due only for the first',
+      actual: [
+        recordOfferDue('mine', [own]),
+        recordOfferDue('all', [own]),
+        recordOfferDue('mine', [{ ...own, ranked: true }]),
+        recordOfferDue('mine', [{ ...own, media: 'watch' }]),
+        recordOfferDue('mine', [{ ...own, ownVisibility: null }]),
+        recordOfferDue('mine', []),
+      ],
+      expected: [true, false, false, false, false, false],
     });
   });
 });

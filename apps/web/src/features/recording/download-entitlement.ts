@@ -18,3 +18,15 @@ export const holdsRecordingDownload =
       betaGrantsPremium: deps.betaGrantsPremium,
       now: deps.now(),
     }).recordingDownload;
+
+/**
+ * Whether the account holds the casual host's recording and broadcast
+ * opt-ins (WATCH-8), read where a finished casual Round offers Premium.
+ */
+export const accountHoldsCasualCapture =
+  (deps: Parameters<typeof holdsRecordingDownload>[0]) =>
+  async (userId: string): Promise<boolean> =>
+    accountEntitlements(await deps.readGrants(userId), {
+      betaGrantsPremium: deps.betaGrantsPremium,
+      now: deps.now(),
+    }).casualCapture;
