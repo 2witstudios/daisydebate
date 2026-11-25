@@ -29,6 +29,7 @@ change, open the brand sheet on `/foundation` with
 | Browser tab, app icon, 16–32px               | `DaisyTile`                                                  |
 | Anything about the two sides of a debate     | `OpposingPetals`                                             |
 | Below 24px                                   | `mono` or `DaisyTile`; the primary colours blur at that size |
+| Premium: beside a holder's name, or an offer | `PremiumMark`, the one-colour bloom in gold (ADR 0933)       |
 
 - Do not recolour a variant with classes, and do not rotate, stretch or
   outline a mark.

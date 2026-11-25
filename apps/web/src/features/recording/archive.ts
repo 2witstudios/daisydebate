@@ -194,7 +194,7 @@ export const archiveEntries = (
   });
 
 /**
- * Whether "My debates" may offer recording (ADR 0146 as amended): the page
+ * Whether "My debates" may offer recording (ADR 0933): the page
  * lists one of the viewer's own casual Rounds that was never recorded. The
  * caller still reads the entitlement; this only says the read is worth making.
  */

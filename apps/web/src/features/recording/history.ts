@@ -376,7 +376,7 @@ const reportTargetOf = (record: RecordingRecord | null, roundId: string) =>
 export type RecordingPremiumOffer = 'record' | 'download' | null;
 
 /**
- * The page's one Premium offer (ADR 0146 as amended). `record`: a debater
+ * The page's one Premium offer (ADR 0933). `record`: a debater
  * or the host opened their own casual Round and it was never recorded. `download`: an
  * account may watch a ready video and lacks only the download entitlement.
  * A Youth Round offers neither, and a failed entitlement read offers none.
