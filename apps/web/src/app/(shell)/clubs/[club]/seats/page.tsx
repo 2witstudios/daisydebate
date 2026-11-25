@@ -8,7 +8,7 @@ import {
   seatFilters,
   type SeatFilter,
 } from '../../../../../ui/clubs/seats-page';
-import { readOwnRoute } from '../../../friends/read-route';
+import { readOwnRoute } from '../../../../../server/render-read';
 import { GET } from '../../../../api/clubs/[club]/seats/route';
 import { requireClubRelease } from '../../release';
 import { clubSeatAction } from '../../actions';

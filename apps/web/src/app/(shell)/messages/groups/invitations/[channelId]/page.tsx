@@ -1,3 +1,4 @@
+import { renderReadHeaders } from '../../../../../../server/render-read';
 import { Announcement } from '../../../../../../ui/components/announcement/announcement';
 import { ConversationPane } from '../../../../../../ui/messaging/conversation-pane';
 import { headers } from 'next/headers';
@@ -21,7 +22,7 @@ export default async function GroupInvitationPage({
   const response = await GET(
     new Request(
       `http://in-process.invalid/api/messaging/groups/${channel}/invitation`,
-      { headers: new Headers(await headers()) },
+      { headers: renderReadHeaders(await headers()) },
     ),
     { params },
   );

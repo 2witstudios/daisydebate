@@ -1,3 +1,4 @@
+import { renderReadHeaders } from '../../../../../server/render-read';
 import { ConversationPane } from '../../../../../ui/messaging/conversation-pane';
 import { headers } from 'next/headers';
 import { notFound } from 'next/navigation';
@@ -27,7 +28,7 @@ export default async function RetainedConversationPage({
   if (!id.success) notFound();
   const url = `http://in-process.invalid/api/messaging/retained/${id.data}`;
   const response = await GET(
-    new Request(url, { headers: new Headers(await headers()) }),
+    new Request(url, { headers: renderReadHeaders(await headers()) }),
     { params },
   );
   const conversation = response.ok

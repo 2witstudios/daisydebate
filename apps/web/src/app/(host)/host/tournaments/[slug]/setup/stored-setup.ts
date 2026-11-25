@@ -11,7 +11,7 @@ import { requestNow } from '../../../../../../lib/page-reads';
 import { GET as setupGET } from '../../../../../api/tab/tournament-setup/route';
 import { GET as settingsGET } from '../../../../../api/tab/tournament-event-settings/route';
 import { GET as hostingGET } from '../../../../../api/tab/hosting/route';
-import { readOwnRoute } from '../../../../../(shell)/friends/read-route';
+import { readOwnRoute } from '../../../../../../server/render-read';
 import { readStoredHostNavigation } from '../../../read-navigation';
 import { hostNavigationRail } from '../../../../../../features/tab/host-navigation';
 

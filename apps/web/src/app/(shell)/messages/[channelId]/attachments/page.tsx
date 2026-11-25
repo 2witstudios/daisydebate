@@ -1,3 +1,4 @@
+import { renderReadHeaders } from '../../../../../server/render-read';
 import { ConversationPane } from '../../../../../ui/messaging/conversation-pane';
 import { messagePageContext } from '../message-page-context';
 import Link from 'next/link';
@@ -21,7 +22,7 @@ export default async function MessageAttachmentsPage({
   const response = await GET(
     new Request(
       `http://in-process.invalid/api/messaging/channels/${channelId}/files?messageId=${messageId}`,
-      { headers: incoming },
+      { headers: renderReadHeaders(incoming) },
     ),
     { params },
   );

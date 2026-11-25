@@ -1,3 +1,4 @@
+import { renderReadHeaders } from '../../../server/render-read';
 import type { ReactNode } from 'react';
 import { headers } from 'next/headers';
 import { systemClock } from '@daisy/clock';
@@ -24,7 +25,7 @@ const readSeed = async (incoming: Headers) => {
     return await readMessagingInboxResponse(
       await inboxRoute(
         new Request('http://in-process.invalid/api/messaging/inbox', {
-          headers: new Headers(incoming),
+          headers: renderReadHeaders(incoming),
         }),
       ),
     );
@@ -50,7 +51,7 @@ export default async function MessagesLayout({
     readSeed(incoming),
     retainedRoute(
       new Request('http://in-process.invalid/api/messaging/retained', {
-        headers: new Headers(incoming),
+        headers: renderReadHeaders(incoming),
       }),
     )
       .then(readRetainedConversations)

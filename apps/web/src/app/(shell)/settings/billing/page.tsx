@@ -3,7 +3,7 @@ import { requireAccess } from '../../../../features/access/page-access';
 import type { SearchParams } from '../../../../features/access/decision';
 import { billingSettingsSchema } from '../../../../features/billing/settings-view';
 import { BillingSettingsPage } from '../../../../ui/billing/settings-page';
-import { readOwnRoute } from '../../friends/read-route';
+import { readOwnRoute } from '../../../../server/render-read';
 import { GET } from '../../../api/billing/settings/route';
 export const metadata: Metadata = { title: 'Billing' };
 

@@ -1,3 +1,4 @@
+import { renderReadHeaders } from '../../../../server/render-read';
 import { Announcement } from '../../../../ui/components/announcement/announcement';
 import { headers } from 'next/headers';
 import {
@@ -176,7 +177,7 @@ async function readChannelEntry(channelId: string) {
   const response = await ENTRY(
     new Request(
       `http://in-process.invalid/api/messaging/channels/${channelId}/entry`,
-      { headers: new Headers(await headers()) },
+      { headers: renderReadHeaders(await headers()) },
     ),
     { params: Promise.resolve({ channelId }) },
   );
@@ -194,7 +195,7 @@ async function readPageConversation(channelId: string, query: SearchParams) {
   const response = await (searchQuery === undefined ? GET : SEARCH)(
     new Request(
       `http://in-process.invalid/api/messaging/channels/${channelId}/messages${searchQuery === undefined ? '' : '/search'}?${input}`,
-      { headers: new Headers(await headers()) },
+      { headers: renderReadHeaders(await headers()) },
     ),
     { params: Promise.resolve({ channelId }) },
   );

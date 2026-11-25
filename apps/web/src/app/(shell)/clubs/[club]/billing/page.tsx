@@ -12,7 +12,7 @@ import {
   clubBillingNotices,
   type ClubBillingNotice,
 } from '../../../../../ui/clubs/billing-page';
-import { readOwnRoute } from '../../../friends/read-route';
+import { readOwnRoute } from '../../../../../server/render-read';
 import { GET as billingRoute } from '../../../../api/clubs/[club]/billing/route';
 import { GET as seatsRoute } from '../../../../api/clubs/[club]/seats/route';
 import { requireClubRelease } from '../../release';

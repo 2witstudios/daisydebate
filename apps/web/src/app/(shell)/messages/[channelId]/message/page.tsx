@@ -1,3 +1,4 @@
+import { renderReadHeaders } from '../../../../../server/render-read';
 import { ConversationPane } from '../../../../../ui/messaging/conversation-pane';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
@@ -21,7 +22,7 @@ export default async function OwnMessagePage(props: MessagingChannelPageProps) {
     await GET(
       new Request(
         `http://in-process.invalid/api/messaging/channels/${channelId}/messages?${query}`,
-        { headers: incoming },
+        { headers: renderReadHeaders(incoming) },
       ),
       { params: props.params },
     ),

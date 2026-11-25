@@ -10,7 +10,7 @@ import {
 } from '@daisy/protocol/lobby/draw-read';
 import { notFound } from 'next/navigation';
 import { randomBytes } from 'node:crypto';
-import { readOwnRoute } from '../../../../../../../../(shell)/friends/read-route';
+import { readOwnRoute } from '../../../../../../../../../server/render-read';
 import {
   commandAction,
   linkTo,

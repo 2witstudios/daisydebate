@@ -31,7 +31,7 @@ import {
 import { NotificationPreferencesForm } from '../../../ui/notifications/notification-preferences-form';
 import { NotificationPresentationForm } from '../../../ui/notifications/notification-presentation-form';
 import { WatchHistoryList } from '../../../ui/watch-history/watch-history-list';
-import { readOwnRoute } from '../friends/read-route';
+import { readOwnRoute } from '../../../server/render-read';
 import { ownPublicProfileSchema } from '@daisy/protocol/public-profile';
 import { GET as readPublicProfileRoute } from '../../api/profile/route';
 import { PublicProfileForm } from '../../../ui/settings/preferences/public-profile-form';

@@ -2,7 +2,7 @@ import { notFound } from 'next/navigation';
 import { hostRoundViewSchema } from '@daisy/protocol/lobby/draw-read';
 import { hostRoundPath } from '../../../../../../../features/tab/host-draw-route';
 import { attentionHeading } from '../../../../../../../ui/tab/running-round/attention-list';
-import { readOwnRoute } from '../../../../../../(shell)/friends/read-route';
+import { readOwnRoute } from '../../../../../../../server/render-read';
 import { GET } from '../../../../../../api/tab/host-round/route';
 import { hostTimeSlot } from '../../../../../../../features/tab/host-time-slot';
 import { requireTabRelease } from '../../../../../../../features/tab/release';

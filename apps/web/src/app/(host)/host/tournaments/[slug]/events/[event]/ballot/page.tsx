@@ -2,7 +2,7 @@ import { eventBallotAuthoringViewSchema } from '@daisy/protocol/lobby/ballot-rea
 import { createId } from '@paralleldrive/cuid2';
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
-import { readOwnRoute } from '../../../../../../../(shell)/friends/read-route';
+import { readOwnRoute } from '../../../../../../../../server/render-read';
 import { eventBallotPath } from '../../../../../../../../features/tab/event-ballot-route';
 import { requireTabRelease } from '../../../../../../../../features/tab/release';
 import { hostRoutes } from '../../../../../../../../features/tab/routes';

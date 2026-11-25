@@ -2,7 +2,7 @@ import { systemId } from '@daisy/clock';
 import { hostResultsViewSchema } from '@daisy/protocol/lobby/results-read';
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
-import { readOwnRoute } from '../../../../../(shell)/friends/read-route';
+import { readOwnRoute } from '../../../../../../server/render-read';
 import { hostResultsPath } from '../../../../../../features/tab/host-results-route';
 import { requireTabRelease } from '../../../../../../features/tab/release';
 import { hostResultsScreenOf } from '../../../../../../features/tab/results';

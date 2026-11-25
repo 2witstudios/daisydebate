@@ -6,7 +6,7 @@ import {
   tournamentPageSchema,
 } from '../../../features/tab/participant-page-read';
 import { requireTabRelease } from '../../../features/tab/release';
-import { readOwnRoute } from '../../(shell)/friends/read-route';
+import { readOwnRoute } from '../../../server/render-read';
 import { GET } from '../../api/tab/participant/route';
 
 export async function storedTournament(handle: string) {

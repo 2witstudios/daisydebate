@@ -20,7 +20,7 @@ import { Notice } from '../../../../../../ui/components/notice/notice';
 import { UpgradeForm } from '../../../../../../ui/hosting/upgrade-form';
 import { HostShell } from '../../../../../../ui/tab/host-shell/host-shell';
 import { GET } from '../../../../../api/tab/hosting/route';
-import { readOwnRoute } from '../../../../../(shell)/friends/read-route';
+import { readOwnRoute } from '../../../../../../server/render-read';
 import { readStoredHostNavigation } from '../../../read-navigation';
 
 export const metadata: Metadata = { title: 'Upgrade this event' };
