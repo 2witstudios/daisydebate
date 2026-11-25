@@ -60,13 +60,38 @@ describe('SelfCard', () => {
     });
   });
 
-  test('compact is the status avatar alone, for the mini rail', () => {
+  test('compact is the avatar alone, opening with your name and status', () => {
     const view = card({ compact: true });
     assert({
       given: 'the mini people rail',
-      should: 'show the status disclosure without the name row',
-      actual: [view.has('region', 'You'), view.has('group'), view.has('link')],
-      expected: [false, true, false],
+      should:
+        'show only the disclosure, which opens with the link to your profile above the status choices',
+      actual: [
+        view.has('region', 'You'),
+        view.within('group').attribute('link', /ada-byron/, 'href', {
+          hidden: true,
+        }),
+        view.within('group').has('form', 'Status', { hidden: true }),
+      ],
+      expected: [false, '/profile/ada-byron', true],
+    });
+  });
+
+  test('compact with no status read links the avatar to your profile', () => {
+    const view = renderAccessible(
+      h(SelfCard, {
+        compact: true,
+        username: 'ada-byron',
+        displayName: null,
+        photoId: null,
+        ratings: reading,
+      }),
+    );
+    assert({
+      given: 'the mini rail when the status could not be read',
+      should: 'still reach your profile from the avatar',
+      actual: view.attribute('link', 'Your profile, ada-byron', 'href'),
+      expected: '/profile/ada-byron',
     });
   });
 

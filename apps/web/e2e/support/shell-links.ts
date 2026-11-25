@@ -99,15 +99,21 @@ export const onPhone = (page: Page): boolean =>
 
 /**
  * A member's link to their own profile: the name on their card, at the top
- * of the people rail, or at the head of the phone's More sheet, which this
- * opens.
+ * of the open people rail; in the mini rail, behind their avatar, which this
+ * opens; on a phone, at the head of the More sheet, which this opens.
  */
 export async function profileLink(page: Page, username: string) {
-  if (!onPhone(page))
-    return page
-      .getByRole('complementary', { name: 'People' })
-      .getByRole('region', { name: 'You' })
-      .getByRole('link', { name: new RegExp(username) });
+  const name = new RegExp(username);
+  if (!onPhone(page)) {
+    const people = page.getByRole('complementary', { name: 'People' });
+    const card = people.getByRole('region', { name: 'You' });
+    if (await card.isVisible()) return card.getByRole('link', { name });
+    await people
+      .getByLabel('Your status', { exact: true })
+      .filter({ visible: true })
+      .click();
+    return people.getByRole('link', { name }).filter({ visible: true });
+  }
   const nav = page.getByRole('navigation', { name: 'Primary' });
   await nav.locator('summary').filter({ hasText: 'More' }).click();
   return nav

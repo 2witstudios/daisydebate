@@ -127,10 +127,13 @@ export function testPeopleList() {
       });
 
       // Status changes reach the other member live.
-      await other.getByLabel('Your status', { exact: true }).first().click();
+      await other
+        .getByLabel('Your status', { exact: true })
+        .filter({ visible: true })
+        .click();
       await other
         .getByRole('form', { name: 'Status' })
-        .first()
+        .filter({ visible: true })
         .getByRole('button', { name: 'Busy' })
         .click();
       await expect(rail.getByText('Busy').first()).toBeVisible({
@@ -215,11 +218,11 @@ export function testPeopleList() {
       // Appear offline shows them as offline, like anyone who has left.
       await challenged
         .getByLabel('Your status', { exact: true })
-        .first()
+        .filter({ visible: true })
         .click();
       await challenged
         .getByRole('form', { name: 'Status' })
-        .first()
+        .filter({ visible: true })
         .getByRole('button', { name: 'Appear offline' })
         .click();
       // Offline sorts last, so a long list would page them out of view.

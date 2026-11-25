@@ -21,7 +21,8 @@ const panel =
  * Your own card: one row with your avatar, your name and @username with your
  * one headline rating. The avatar opens your status choices as a native
  * disclosure, so it opens before hydration; the name goes to your profile.
- * Compact, for the mini people rail, is the avatar alone, opening leftward.
+ * Compact, for the mini people rail, is the avatar alone: it opens leftward
+ * with your name (to your profile) above your status choices.
  */
 export function SelfCard({
   compact = false,
@@ -57,9 +58,23 @@ export function SelfCard({
           compact ? 'top-0 right-full mr-2' : 'top-full left-0 mt-1',
         )}
       >
+        {/* The mini rail has no room for the name, so it opens with it. */}
+        {compact ? (
+          <div className="flex border-b border-border pb-1">
+            <Identity shown={shown} username={username} ratings={ratings} />
+          </div>
+        ) : null}
         {statusControl}
       </div>
     </DismissibleDetails>
+  ) : compact ? (
+    <Link
+      href={profileHref(username)}
+      aria-label={`Your profile, ${shown}`}
+      className="flex size-nav-target shrink-0 items-center justify-center rounded-full hover:bg-surface-overlay"
+    >
+      {avatar}
+    </Link>
   ) : (
     <span className="flex size-nav-target shrink-0 items-center justify-center">
       {avatar}
@@ -89,7 +104,7 @@ function Identity({
   return (
     <Link
       href={profileHref(username)}
-      className="flex min-w-0 flex-1 flex-col rounded-md px-1 no-underline hover:bg-surface-overlay hover:no-underline"
+      className="flex w-0 min-w-0 flex-1 flex-col rounded-md px-1 no-underline hover:bg-surface-overlay hover:no-underline"
     >
       <span className="truncate text-sm font-semibold text-ink">{shown}</span>
       <span className="truncate text-xs text-ink-muted">
