@@ -50,5 +50,6 @@ test('reaching for a Premium download shows the panel in place and again after N
     });
   } finally {
     await client.act(async () => client.root.unmount());
+    await client.browser.happyDOM.close();
   }
 });

@@ -240,5 +240,6 @@ test('a Room already showing the AI judge panel answers a capture reach with one
     });
   } finally {
     await client.act(async () => client.root.unmount());
+    await client.browser.happyDOM.close();
   }
 });
