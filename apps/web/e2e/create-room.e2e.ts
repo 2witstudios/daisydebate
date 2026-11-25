@@ -160,22 +160,26 @@ test('create-room layout fits narrow screens and exposes the full editor', async
     await expect(
       formOf(page).getByRole('button', { name: 'Create room', exact: true }),
     ).toBeVisible();
-    // Name what reaches past the viewport, so a failure says where.
+    // Name what reaches past the viewport, so a failure says where; overflow
+    // no element accounts for (a pseudo-element) still fails, by its width.
     expect(
-      await page.evaluate(() =>
-        document.documentElement.scrollWidth <= window.innerWidth
-          ? []
-          : [...document.querySelectorAll('body *')]
-              .filter(
-                (element) =>
-                  element.getBoundingClientRect().right > window.innerWidth,
-              )
-              .map(
-                (element) =>
-                  `${element.tagName.toLowerCase()}.${element.getAttribute('class') ?? ''}`,
-              )
-              .slice(0, 12),
-      ),
+      await page.evaluate(() => {
+        const { scrollWidth } = document.documentElement;
+        if (scrollWidth <= window.innerWidth) return [];
+        const past = [...document.querySelectorAll('body *')]
+          .filter(
+            (element) =>
+              element.getBoundingClientRect().right > window.innerWidth,
+          )
+          .map(
+            (element) =>
+              `${element.tagName.toLowerCase()}.${element.getAttribute('class') ?? ''}`,
+          )
+          .slice(0, 12);
+        return past.length > 0
+          ? past
+          : [`scrollWidth ${scrollWidth} > ${window.innerWidth}`];
+      }),
     ).toEqual([]);
     await page.screenshot({
       path: testInfo.outputPath(`create-room-${width}.png`),
