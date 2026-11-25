@@ -10,20 +10,26 @@ const secondary = `${buttonClass('secondary')} min-h-nav-target self-start white
 
 /**
  * Premium pays for AI and capture while human play and official results stay
- * open. Premium is unlimited: no counters, only an unseen fair-use ceiling
- * (ADR 0146). Buying happens on the billing page, which holds checkout.
+ * open. Recording a casual Round leads: watching a Round back is how a
+ * debater studies it and improves. Premium is unlimited: no counters, only an
+ * unseen fair-use ceiling (ADR 0146). Buying happens on the billing page,
+ * which holds checkout; a viewer who already has Premium is told so instead
+ * of being offered it.
  */
 export function PremiumPage({
   comparePlans = false,
+  holdsPremium = false,
 }: {
   /** Whether /pricing is open, so "Compare plans" has somewhere to go. */
   readonly comparePlans?: boolean;
+  /** The viewer's current plan is Premium, however it is paid for. */
+  readonly holdsPremium?: boolean;
 } = {}) {
   return (
     <ReadingPage>
       <PageHeader
         title="Daisy Premium"
-        lede="More ways to review and share your debates."
+        lede="Record your casual Rounds, watch them back and improve."
         actions={
           comparePlans ? (
             <Link href="/pricing" className={secondary}>
@@ -41,21 +47,37 @@ export function PremiumPage({
         }
       >
         <div className="flex flex-col gap-4">
+          <div className="flex flex-col gap-2">
+            <p className="text-lg">
+              <strong>Record your casual Rounds.</strong>
+            </p>
+            <p>
+              Watching a Round back is how you study it and improve. As host,
+              turn on a Recording for any casual Round, and a Broadcast if you
+              want an audience.
+            </p>
+          </div>
+          <p>Premium also includes:</p>
           <ul className="flex list-disc flex-col gap-3 pl-5">
-            <li>Unlimited casual AI judging.</li>
             <li>Round analysis whenever you ask.</li>
-            <li>Host casual recording and broadcast.</li>
+            <li>Unlimited casual AI judging.</li>
             <li>Download Recordings you are authorized to watch.</li>
           </ul>
           <p className="text-sm text-ink-muted">
             No counters to watch. A fair-use ceiling stops scripts and abuse;
             nobody debating for real will reach it.
           </p>
-          <div className="flex flex-wrap gap-3">
-            <Link href="/settings/billing" className={primary}>
-              Get Premium · {premiumOfferPrice}
-            </Link>
-          </div>
+          {holdsPremium ? (
+            <p>
+              <strong>You have Premium.</strong>
+            </p>
+          ) : (
+            <div className="flex flex-wrap gap-3">
+              <Link href="/settings/billing" className={primary}>
+                Get Premium · {premiumOfferPrice}
+              </Link>
+            </div>
+          )}
         </div>
       </Panel>
       <Panel title="Human debate stays free">

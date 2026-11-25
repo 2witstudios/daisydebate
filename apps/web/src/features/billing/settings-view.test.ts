@@ -1,6 +1,7 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import {
   billingSettingsView,
+  holdsPremium,
   type BillingSettingsSource,
 } from './settings-view';
 setupRitewayBun();
@@ -193,5 +194,34 @@ test('a current Club seat shows Premium through the club; paying for Premium you
     should: 'show their own Premium, which stays until they cancel it',
     actual: [own.plan, own.club],
     expected: ['premium', null],
+  });
+});
+
+test('a viewer holds Premium on every plan but free, and never when the plan is unread', () => {
+  const plans = [
+    'free',
+    'granted',
+    'premium',
+    'cancelled',
+    'payment-due',
+    'club-seat',
+  ] as const;
+  assert({
+    given: 'each plan the billing page can show, then no settings at all',
+    should: 'hold Premium on all but free, and not when nothing was read',
+    actual: [
+      ...plans.map((plan) =>
+        holdsPremium({
+          plan,
+          accessEndsAt: null,
+          priceMinor: null,
+          club: null,
+          checkoutAvailable: false,
+          manageAvailable: false,
+        }),
+      ),
+      holdsPremium(null),
+    ],
+    expected: [false, true, true, true, true, true, false],
   });
 });
