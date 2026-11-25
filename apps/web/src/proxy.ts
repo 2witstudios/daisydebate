@@ -20,6 +20,7 @@ export function proxy(request: NextRequest) {
     sentryEndpoint: app.config.NEXT_PUBLIC_SENTRY_DSN
       ? new URL(app.config.NEXT_PUBLIC_SENTRY_DSN).origin
       : null,
+    hostedBilling: app.config.billing.kind === 'stripe',
     development: app.config.NODE_ENV === 'development',
     ids: app.ids,
     searchIndexing: app.config.SEARCH_INDEXING,
