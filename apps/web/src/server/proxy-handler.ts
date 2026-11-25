@@ -42,6 +42,12 @@ export type ProxySettings = {
    * an unconfigured deployment's CSP names no vendor host at all.
    */
   readonly sentryEndpoint?: string | null;
+  /**
+   * Stripe billing is configured. Its native forms answer with a redirect to
+   * Stripe's hosted pages, so only then does the CSP name those two origins;
+   * an unconfigured deployment's CSP names no vendor host.
+   */
+  readonly hostedBilling?: boolean;
   /** `NODE_ENV === 'development'`: the permissive dev-server policy. */
   readonly development: boolean;
   readonly ids: IdGenerator;
@@ -152,10 +158,14 @@ function contentSecurityPolicy(
     "font-src 'self'",
     "object-src 'none'",
     "base-uri 'self'",
-    // Chromium checks the native Billing form's hosted redirect against the policy
-    // of the document it holds, which after a client navigation is whichever page
-    // loaded first. So every document names the two fixed hosted destinations.
-    "form-action 'self' https://checkout.stripe.com https://billing.stripe.com",
+    // Member Billing, Club billing and the host event upgrade each post a native
+    // form whose answer redirects to Stripe. Chromium checks that redirect against
+    // the policy of the document it holds, which after a client navigation is
+    // whichever page loaded first. So with billing configured every document
+    // names the two fixed hosted destinations.
+    settings.hostedBilling
+      ? "form-action 'self' https://checkout.stripe.com https://billing.stripe.com"
+      : "form-action 'self'",
     "frame-ancestors 'none'",
     // Only the Round page and the replay page play a stream: hls.js reads it, hands
     // the video a blob of Media Source, and transmuxes in its own same-origin worker

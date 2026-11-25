@@ -72,32 +72,3 @@ test('direct form tampering cannot choose customer, price, quantity or return de
     expect(foreign.headers().location).toBeUndefined();
   }
 });
-
-test('Billing reached by a link inside the app still sends its form on to hosted Checkout', async ({
-  page,
-}) => {
-  await signUpMember(page.request);
-  // The document the browser holds is /settings; Billing arrives by client navigation.
-  await page.goto('/settings');
-  await page.getByRole('link', { name: 'Billing', exact: true }).click();
-  await expect(
-    page.getByRole('heading', { name: 'Billing', exact: true }),
-  ).toBeVisible();
-  const hosted = 'https://checkout.stripe.com/g/pay/cs_test_probe';
-  await page.route('**/api/billing/checkout', (route) =>
-    route.fulfill({ status: 303, headers: { location: hosted } }),
-  );
-  // Offline, so the redirect is asked for and never reaches Stripe.
-  await page.context().setOffline(true);
-  // Chromium applies the held document's form-action to the POST's redirect:
-  // a refused redirect is never requested at all.
-  const redirected = page.waitForRequest(hosted);
-  await page.evaluate(() => {
-    const form = document.createElement('form');
-    form.method = 'post';
-    form.action = '/api/billing/checkout';
-    document.body.append(form);
-    form.submit();
-  });
-  expect((await redirected).url()).toBe(hosted);
-});

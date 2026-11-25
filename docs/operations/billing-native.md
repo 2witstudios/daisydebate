@@ -36,14 +36,17 @@ from `requireFlagAdmission` inside its canonical account-fenced transaction.
   obtains current Flags authority. Killing purchases does not disable Portal,
   reconciliation or erasure.
 
-Every document's CSP permits form redirects to `https://checkout.stripe.com`
-and `https://billing.stripe.com`, and to nowhere else off this origin.
-Chromium applies `form-action` to the native POST's redirect as well as its
-initial same-origin destination, and it applies the policy of the document
-the browser holds. A member who reaches `/settings/billing` by a link inside
-the app still holds the document that loaded first, so a policy served only
-on `/settings/billing` blocked Checkout for them (2026-11-25, staging). The
-native handlers still validate ownership, origin and the fixed vendor URL.
+With Stripe billing configured, every document's CSP permits form redirects
+to `https://checkout.stripe.com` and `https://billing.stripe.com`, and to
+nowhere else off this origin. Without it the CSP names neither. Chromium
+applies `form-action` to a native POST's redirect as well as its initial
+same-origin destination, and it applies the policy of the document the
+browser holds: after a link inside the app, that is whichever document loaded
+first, not the page on screen. Member Billing (`/settings/billing`), Club
+billing (`/clubs/<id>/billing`) and the host event upgrade
+(`/host/tournaments/<slug>/upgrade`) each post such a form, so the directive
+cannot be scoped to a path. The native handlers still validate ownership,
+origin and the fixed vendor URL.
 
 The configured hosted Checkout Session collects payment in Stripe. Portal
 configuration and actual period-end cancellation must be qualified in test

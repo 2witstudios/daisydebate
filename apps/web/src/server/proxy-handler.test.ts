@@ -95,16 +95,18 @@ const directives = (
 };
 
 describe('proxy content security policy', () => {
-  test('every document permits the fixed hosted Billing form redirects and nothing else', () => {
-    const formSources = (path: string) => {
+  test('with billing configured every document permits the fixed hosted form redirects', () => {
+    const formSources = (hostedBilling: boolean) => (path: string) => {
       const policy =
-        proxy(new NextRequest(`https://daisy.invalid${path}`)).headers.get(
-          'Content-Security-Policy',
-        ) ?? '';
+        proxy(new NextRequest(`https://daisy.invalid${path}`), {
+          hostedBilling,
+        }).headers.get('Content-Security-Policy') ?? '';
       return policy.split('; ').find((part) => part.startsWith('form-action '));
     };
     const paths = [
       '/settings/billing',
+      '/clubs/club_1/billing',
+      '/host/tournaments/open/upgrade',
       '/settings',
       '/pricing',
       '/premium',
@@ -112,14 +114,20 @@ describe('proxy content security policy', () => {
     ];
     assert({
       given:
-        'the Billing document and documents a client navigation reaches it from',
+        'Stripe billing configured; the member Billing, Club billing and host upgrade documents, and documents a client navigation reaches them from',
       should:
         'allow forms only this origin and the two exact hosted destinations',
-      actual: paths.map(formSources),
+      actual: paths.map(formSources(true)),
       expected: paths.map(
         () =>
           "form-action 'self' https://checkout.stripe.com https://billing.stripe.com",
       ),
+    });
+    assert({
+      given: 'no Stripe billing configured, on the same documents',
+      should: 'name no vendor host',
+      actual: paths.map(formSources(false)),
+      expected: paths.map(() => "form-action 'self'"),
     });
   });
 
