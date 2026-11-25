@@ -29,7 +29,8 @@ export async function setPeopleRail(form: FormData): Promise<void> {
 /**
  * The member's own status, from their card. The card, the mini rail and the
  * phone's sheet each hold a status form, so a saved choice re-renders the
- * shell and every one of them shows it.
+ * shell and every one of them shows it. Deliberately the whole layout: the
+ * forms are seeded from the shell's one status read.
  */
 export async function setStatusAction(
   _previous: PresenceFormState,

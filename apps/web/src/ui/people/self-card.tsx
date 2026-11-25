@@ -53,9 +53,14 @@ export function SelfCard({
       summaryTitle="Your status"
       summary={
         <>
-          {/* The name computes from the contents, so it ends with the live status. */}
+          {/* The name computes from the contents: "Your status, <live status>". */}
           <span className="sr-only">Your status, </span>
-          {avatar}
+          <SelfAvatar
+            name={shown}
+            photoId={photoId}
+            size={compact ? 'sm' : 'md'}
+            nameVisible
+          />
         </>
       }
     >

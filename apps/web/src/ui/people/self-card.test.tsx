@@ -21,6 +21,15 @@ const card = (overrides: Partial<Parameters<typeof SelfCard>[0]> = {}) =>
     }),
   );
 
+/** What a screen reader hears from an element's text: aria-hidden parts left out. */
+const spoken = (element: Element | null | undefined) => {
+  const copy = element?.cloneNode(true) as Element | undefined;
+  copy?.querySelectorAll('[aria-hidden="true"]').forEach((node) => {
+    node.remove();
+  });
+  return copy?.textContent?.replace(/\s+/g, ' ').trim();
+};
+
 describe('SelfCard', () => {
   test('one row: your status behind the avatar, your name to your profile', () => {
     const view = card();
@@ -36,6 +45,19 @@ describe('SelfCard', () => {
         you.has('form', 'Status', { hidden: true }),
       ],
       expected: ['/profile/ada-byron', true, true, true],
+    });
+  });
+
+  test('the avatar control is named for your status, not your name again', () => {
+    const summary = card({ displayName: 'Ada Lovelace' })
+      .get('group')
+      .querySelector('summary');
+    assert({
+      given: 'the card, whose name is already shown beside the avatar',
+      should:
+        'say "Your status, " then the live status dot, with no second reading of the name',
+      actual: [summary?.getAttribute('aria-label') ?? null, spoken(summary)],
+      expected: [null, 'Your status,'],
     });
   });
 

@@ -1,6 +1,7 @@
 import { createElement as h, type ReactNode } from 'react';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { AppShell } from './app-shell';
+import { moreIsCurrent } from './components/tab-bar/tab-bar';
 import type { ShellAccount } from './account';
 import type { RailPreference } from './rail-preference';
 import type { ActiveRoomSummary } from '../../active-room/your-room';
@@ -332,6 +333,24 @@ describe('Notifications', () => {
         hrefsOf(tabBar.all('link')).includes('/notifications'),
       ],
       expected: [true, true],
+    });
+  });
+});
+
+describe('moreIsCurrent', () => {
+  test('More is the current tab on your own profile, not on someone else’s', () => {
+    assert({
+      given:
+        'a member on their own profile, on a similar name’s, on Help, and a visitor on that profile',
+      should:
+        'light More for their own profile and Help, and not for another profile or a visitor',
+      actual: [
+        moreIsCurrent(member, '/profile/ada-byron'),
+        moreIsCurrent(member, '/profile/ada-byronic'),
+        moreIsCurrent(member, '/help'),
+        moreIsCurrent({ state: 'anonymous' }, '/profile/ada-byron'),
+      ],
+      expected: [true, false, true, false],
     });
   });
 });

@@ -34,11 +34,14 @@ export function SelfAvatar({
   name,
   photoId,
   size = 'sm',
+  nameVisible = false,
 }: {
   /** The display name if they chose one, else the username: the initials' source. */
   readonly name: string;
   readonly photoId: string | null;
   readonly size?: 'sm' | 'md';
+  /** True where the name is already said beside it, so it is not said twice. */
+  readonly nameVisible?: boolean;
 }) {
   const people = useOptionalPeople();
   return (
@@ -46,6 +49,7 @@ export function SelfAvatar({
       name={name}
       src={profilePhotoSrc(photoId, 128)}
       size={size}
+      nameVisible={nameVisible}
       {...(people ? { presence: people.list.self } : {})}
     />
   );

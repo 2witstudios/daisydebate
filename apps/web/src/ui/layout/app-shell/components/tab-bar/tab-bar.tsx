@@ -87,6 +87,22 @@ const moreLinksFor = (
 ];
 
 /**
+ * Whether More is the current tab: any page its sheet lists, the legal pages,
+ * or a member's own profile, which opens from the card at the sheet's head.
+ */
+export const moreIsCurrent = (
+  account: ShellAccount,
+  pathname: string,
+): boolean =>
+  [
+    ...moreLinksFor(account, 0, 0),
+    ...legalLinks,
+    ...(account.state === 'member'
+      ? [{ href: profileHref(account.username) }]
+      : []),
+  ].some((link) => itemActive(pathname, link.href));
+
+/**
  * The phone's navigation, fixed along the bottom in place of the rail: Home,
  * Play, Judge, a member's Inbox (a visitor's way in), and More, a sheet with
  * every other destination, headed by a member's own card, then Sign out and
@@ -138,18 +154,7 @@ export function TabBar({
       })}
       {/* Keyed by the path, so arriving at a page closes the sheet. */}
       <details key={pathname}>
-        <summary
-          className={tabClass(
-            // Your profile opens from the card at the sheet's head.
-            [
-              ...moreLinks,
-              ...legalLinks,
-              ...(account.state === 'member'
-                ? [{ href: profileHref(account.username) }]
-                : []),
-            ].some((link) => itemActive(pathname, link.href)),
-          )}
-        >
+        <summary className={tabClass(moreIsCurrent(account, pathname))}>
           {/* Notifications live in More on a phone, so More carries their count. */}
           <span className="relative px-2">
             <Icon name={moreDestination.icon} size={20} />
