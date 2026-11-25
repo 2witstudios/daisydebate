@@ -131,7 +131,7 @@ describe('FriendsPage', () => {
     assert({
       given: 'an empty list',
       should:
-        'invite adding a friend by username with a native form, and no status control: that lives in the account menu',
+        'invite adding a friend by username with a native form, and no status control: that lives on your card',
       actual: [
         view.textContent().includes('Add a friend by username'),
         view.attribute('textbox', 'Username', 'name'),

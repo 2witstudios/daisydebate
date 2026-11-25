@@ -2,7 +2,7 @@ import type { ReactNode } from 'react';
 import { ActiveRoomBar } from '../../active-room/active-room-bar';
 import type { ActiveRoomSummary } from '../../active-room/your-room';
 import { cn } from '../../cn';
-import type { ShellAccount, ShellRatings } from './account';
+import type { ShellAccount } from './account';
 import type { PeopleRailPreference, RailPreference } from './rail-preference';
 import { Rail } from './components/rail/rail';
 import { TabBar } from './components/tab-bar/tab-bar';
@@ -16,12 +16,10 @@ export type AppShellProps = {
   readonly activeRoom: ActiveRoomSummary | null;
   /** The viewer's saved rail width, resolved per request (ADR 0091). */
   readonly rail: RailPreference;
-  /** A member's ratings for the account menu, still reading; null for anyone else. */
-  readonly ratings: Promise<ShellRatings> | null;
   /** The server action the rail's toggle form posts to flip that choice. */
   readonly toggleRail: () => Promise<void>;
-  /** The member's own status control, already wired to its action. */
-  readonly statusControl?: ReactNode;
+  /** A member's own card, at the head of the phone's More sheet. */
+  readonly selfCard?: ReactNode;
   /** The people rail and its provider's other parts; absent for a visitor. */
   readonly people?: {
     readonly preference: PeopleRailPreference;
@@ -51,9 +49,8 @@ export function AppShell({
   account,
   activeRoom,
   rail,
-  ratings,
   toggleRail,
-  statusControl,
+  selfCard,
   people,
 }: AppShellProps) {
   const shell = (
@@ -64,13 +61,7 @@ export function AppShell({
         people && peopleColumn[people.preference],
       )}
     >
-      <Rail
-        account={account}
-        rail={rail}
-        ratings={ratings}
-        toggleRail={toggleRail}
-        statusControl={statusControl}
-      />
+      <Rail account={account} rail={rail} toggleRail={toggleRail} />
       <main className="area-main min-w-0">
         {account.state === 'member' ? (
           <ActiveRoomBar room={activeRoom} />
@@ -78,7 +69,7 @@ export function AppShell({
         {children}
       </main>
       {people?.rail}
-      <TabBar account={account} statusControl={statusControl} />
+      <TabBar account={account} selfCard={selfCard} />
     </div>
   );
   return people ? people.wrap(shell) : shell;

@@ -30,8 +30,9 @@ be able to see who is online."
    chooses `online`, `busy` or `offline` (appear offline), replacing `hidden`.
    Away follows activity. Being in a room or a Round follows
    `room_active_memberships` and shows over a choice, except appearing offline.
-   Status is set from the account menu at the foot of the left rail, or at the
-   top of More on a phone, from any page.
+   Status is set from the avatar on the member's card at the top of the
+   people rail, or at the top of More on a phone, from any page (the account
+   menu at the rail's foot held it until 2026-11-24).
 3. **Live updates are a doorbell over an authorized read, not observed
    content.** Lease writes that change what anyone sees move one Redis revision.
    Each realtime node reads it once a second, also notes `room.changed`,

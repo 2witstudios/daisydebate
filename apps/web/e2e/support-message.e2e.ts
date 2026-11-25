@@ -39,7 +39,8 @@ test('a signed-out visitor sends a support message from Help', async ({
   page,
 }) => {
   await page.goto('/help');
-  await page.getByRole('link', { name: 'Contact support' }).click();
+  // Help offers it in its header and again after the questions.
+  await page.getByRole('link', { name: 'Contact support' }).first().click();
   await expect(page).toHaveURL(/\/support$/);
   await expect(page.getByRole('heading', { level: 1 })).toHaveText(
     'Contact support',

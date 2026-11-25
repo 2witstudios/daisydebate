@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import type { HelpTopic } from '../../../features/help/topics';
+import { buttonClass } from '../../components/button/button-class';
 import { PageHeader } from '../../components/page-header/page-header';
 import { ReadingPage } from '../../components/reading-page/reading-page';
 import {
@@ -9,8 +10,8 @@ import {
 import { OpenTopicFromHash } from './open-topic-from-hash';
 
 /**
- * Help's front door: the reading homes with something to read, then the
- * common questions. Native disclosure, so it works before hydration; a link
+ * Help's front door, and where support lives: Contact support in its header,
+ * the reading homes with something to read, then the common questions. Native disclosure, so it works before hydration; a link
  * to /help#topic opens its answer.
  */
 export function HelpPage({
@@ -25,6 +26,11 @@ export function HelpPage({
       <PageHeader
         title="Help"
         lede="Guides to using Daisy, lessons in debate, and answers to common questions."
+        actions={
+          <Link href="/support" className={buttonClass('secondary')}>
+            Contact support
+          </Link>
+        }
       />
       {homes.length > 0 ? (
         <ArticleList label="Guides and learning" items={homes} />

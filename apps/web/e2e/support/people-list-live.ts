@@ -127,10 +127,7 @@ export function testPeopleList() {
       });
 
       // Status changes reach the other member live.
-      await other
-        .getByLabel(/^Your account/)
-        .first()
-        .click();
+      await other.getByLabel('Your status', { exact: true }).first().click();
       await other
         .getByRole('form', { name: 'Status' })
         .first()
@@ -217,7 +214,7 @@ export function testPeopleList() {
 
       // Appear offline shows them as offline, like anyone who has left.
       await challenged
-        .getByLabel(/^Your account/)
+        .getByLabel('Your status', { exact: true })
         .first()
         .click();
       await challenged

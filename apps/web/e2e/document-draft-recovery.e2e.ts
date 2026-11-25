@@ -643,7 +643,12 @@ test('native logout erases recovery and a stale tab cannot recreate it', async (
     'native sign-out for document drafts',
   );
   await shell.goto(`${origin}/settings`);
-  await shell.getByLabel(/^Your account,/).click();
+  await shell
+    .getByRole('navigation', { name: 'Primary', exact: true })
+    .first()
+    .locator('summary')
+    .filter({ hasText: 'More' })
+    .click();
   await shell.getByRole('button', { name: 'Sign out', exact: true }).click();
   await expect(shell).toHaveURL(/\/sign-in/);
   await expect.poll(() => draftFor(page, documentId)).toBeNull();
@@ -1468,7 +1473,7 @@ test('controlled router-lifecycle proof, not end-user navigation: Round replacem
   });
 });
 
-test('end-user navigation: leaving a Round through the account menu saves pending drafts and browser Back returns through both Rounds via the profile page, the other Round seeded by a lost exit save', async ({
+test('end-user navigation: leaving a Round through your card saves pending drafts and browser Back returns through both Rounds via the profile page, the other Round seeded by a lost exit save', async ({
   liveRoom,
 }) => {
   const { page, roundId, documentId } = liveRoom;

@@ -98,19 +98,31 @@ export const onPhone = (page: Page): boolean =>
   (page.viewportSize()?.width ?? narrowBreakpoint) < narrowBreakpoint;
 
 /**
- * A member's link to their own profile: Profile in the rail's account menu,
- * which this opens, or in the phone's More sheet.
+ * A member's link to their own profile: the name on their card, at the top
+ * of the people rail, or at the head of the phone's More sheet, which this
+ * opens.
  */
 export async function profileLink(page: Page, username: string) {
+  if (!onPhone(page))
+    return page
+      .getByRole('complementary', { name: 'People' })
+      .getByRole('region', { name: 'You' })
+      .getByRole('link', { name: new RegExp(username) });
   const nav = page.getByRole('navigation', { name: 'Primary' });
-  if (!onPhone(page)) {
-    await nav
-      .locator(`summary[aria-label="Your account, ${username}"]`)
-      .click();
-    return nav.getByRole('link', { name: 'Profile', exact: true });
-  }
-  await nav.locator('summary').click();
+  await nav.locator('summary').filter({ hasText: 'More' }).click();
   return nav
-    .getByRole('list', { name: 'More' })
-    .getByRole('link', { name: 'Profile', exact: true });
+    .getByRole('region', { name: 'You' })
+    .getByRole('link', { name: new RegExp(username) });
+}
+
+/**
+ * Opens More at the rail's foot (on a phone, the More sheet) and returns the
+ * navigation that holds it.
+ */
+export async function openMore(page: Page) {
+  const nav = page
+    .getByRole('navigation', { name: 'Primary', exact: true })
+    .filter({ visible: true });
+  await nav.locator('summary').filter({ hasText: 'More' }).click();
+  return nav;
 }

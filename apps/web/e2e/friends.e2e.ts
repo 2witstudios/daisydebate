@@ -126,17 +126,12 @@ test('a member asks from a profile', async ({ browser }) => {
   });
 });
 
-test('a member sets their status from the account menu', async ({
-  browser,
-}) => {
+test('a member sets their status from their card', async ({ browser }) => {
   await withContext(browser, async (context) => {
     await signUpMember(context.request);
     const page = await openPage(context, 'a member choosing their status');
     await page.goto('/friends');
-    await page
-      .getByLabel(/^Your account/)
-      .first()
-      .click();
+    await page.getByLabel('Your status', { exact: true }).first().click();
     const status = page.getByRole('form', { name: 'Status' }).first();
     await status.getByRole('button', { name: 'Busy' }).click();
     await expect(status.getByRole('button', { name: 'Busy' })).toHaveAttribute(
@@ -144,10 +139,7 @@ test('a member sets their status from the account menu', async ({
       'true',
     );
     await page.goto('/friends');
-    await page
-      .getByLabel(/^Your account/)
-      .first()
-      .click();
+    await page.getByLabel('Your status', { exact: true }).first().click();
     await expect(
       page
         .getByRole('form', { name: 'Status' })

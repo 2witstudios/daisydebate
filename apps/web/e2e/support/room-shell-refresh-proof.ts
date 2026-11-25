@@ -18,7 +18,7 @@ export async function proveClosedRoomNavigation(page: Page) {
     (response) => new URL(response.url()).pathname === '/api/rooms/active',
   );
   const rail = page.getByRole('navigation', { name: 'Primary', exact: true });
-  await rail.locator('summary[aria-label^="Your account, "]').click();
+  await rail.locator('summary').filter({ hasText: 'More' }).click();
   await rail.getByRole('link', { name: 'Settings', exact: true }).click();
   await expect(page).toHaveURL(/\/settings$/);
   await expect(

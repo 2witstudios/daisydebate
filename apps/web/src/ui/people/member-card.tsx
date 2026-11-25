@@ -6,7 +6,7 @@ import { statusLabels } from '../components/presence-dot/status-labels';
 
 type ShownRating = Person['ratings'][number];
 
-/** The account menu's words: a figure, or why there is none (ui-conventions). */
+/** A rating's words: a figure, or why there is none (ui-conventions). */
 export const ratingText = (rating: ShownRating): string => {
   if (rating.hidden) return 'Hidden while judging';
   if (rating.rating === null) return 'Unrated';

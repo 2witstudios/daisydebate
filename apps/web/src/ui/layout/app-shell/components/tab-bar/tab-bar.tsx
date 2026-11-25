@@ -7,7 +7,8 @@ import { cn } from '../../../../cn';
 import { Icon, type IconName } from '../../../../components/icon/icon';
 import { itemActive } from '../../../../components/nav-item/nav-item';
 import { useFriendsOnline } from '../../../../friends/use-friends-online';
-import { SelfAvatar } from '../../../../people/status-form';
+import { LegalLine } from '../rail/more-menu';
+import { SignOutForm } from '../../../../components/sign-out-form/sign-out-form';
 import type { ShellAccount } from '../../account';
 import { useMessagesUnread } from '../../../../messaging/messages-unread-provider';
 import {
@@ -18,10 +19,11 @@ import {
   friendsLabel,
   memberDestinations,
   messagesLabel,
+  legalLinks,
   notificationsLabel,
   moreDestination,
+  morePagesFor,
   primaryDestinations,
-  profileHref,
   wayIn,
 } from '../destinations';
 
@@ -78,25 +80,25 @@ const moreLinksFor = (
           href: memberDestinations.friends.href,
           label: friendsLabel(online),
         },
-        { href: profileHref(account.username), label: 'Profile' },
       ]
     : []),
-  ...(moreDestination.subItems ?? []),
+  ...morePagesFor(account),
 ];
 
 /**
  * The phone's navigation, fixed along the bottom in place of the rail: Home,
  * Play, Judge, a member's Inbox (a visitor's way in), and More, a sheet with
- * every other destination. More is a native disclosure, so it opens before
+ * every other destination, headed by a member's own card, then Sign out and
+ * the legal pages. More is a native disclosure, so it opens before
  * any script; it closes on arriving at another page.
  */
 export function TabBar({
   account,
-  statusControl,
+  selfCard,
 }: {
   readonly account: ShellAccount;
-  /** The member's own status, at the top of More. */
-  readonly statusControl?: ReactNode;
+  /** The member's own card, at the top of More. */
+  readonly selfCard?: ReactNode;
 }) {
   const pathname = usePathname();
   const online = useFriendsOnline(account.state === 'member') ?? 0;
@@ -137,7 +139,9 @@ export function TabBar({
       <details key={pathname}>
         <summary
           className={tabClass(
-            moreLinks.some((link) => itemActive(pathname, link.href)),
+            [...moreLinks, ...legalLinks].some((link) =>
+              itemActive(pathname, link.href),
+            ),
           )}
         >
           {/* Notifications live in More on a phone, so More carries their count. */}
@@ -148,25 +152,7 @@ export function TabBar({
           {moreDestination.label}
         </summary>
         <div className="fixed inset-x-0 more-sheet flex flex-col overflow-y-auto border-t border-border bg-surface-raised shadow-3">
-          {account.state === 'member' ? (
-            <p className="flex items-center gap-2 px-4 pt-3 text-sm font-semibold text-ink">
-              <SelfAvatar
-                name={account.displayName ?? account.username}
-                photoId={account.photoId}
-              />
-              <span className="flex min-w-0 flex-col">
-                <span className="truncate">
-                  {account.displayName ?? account.username}
-                </span>
-                {account.displayName === null ? null : (
-                  <span className="truncate text-xs text-ink-muted">
-                    @{account.username}
-                  </span>
-                )}
-              </span>
-            </p>
-          ) : null}
-          {statusControl}
+          {selfCard ? <div className="px-2 pt-2">{selfCard}</div> : null}
           <ul aria-label="More" className="flex list-none flex-col p-2">
             {moreLinks.map((link) => (
               <li key={link.href}>
@@ -182,6 +168,16 @@ export function TabBar({
               </li>
             ))}
           </ul>
+          {account.state === 'member' ? (
+            <div className="px-2">
+              <SignOutForm
+                next="/"
+                look={{ variant: 'row' }}
+                className="w-full"
+              />
+            </div>
+          ) : null}
+          <LegalLine sheet />
         </div>
       </details>
     </nav>

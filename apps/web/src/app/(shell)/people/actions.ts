@@ -25,7 +25,7 @@ export async function setPeopleRail(form: FormData): Promise<void> {
   (await cookies()).set(PEOPLE_RAIL_COOKIE, choice, RAIL_COOKIE_OPTIONS);
 }
 
-/** The member's own status, from the account menu. */
+/** The member's own status, from their card. */
 export async function setStatusAction(
   _previous: PresenceFormState,
   form: FormData,

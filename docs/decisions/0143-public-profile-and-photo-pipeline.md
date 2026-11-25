@@ -23,7 +23,7 @@ pipeline, and no username change for now.
    `users.image` stays only because Better Auth's adapter reads it, and a
    CHECK keeps it null.
 2. **The username stays the competitive identity.** A display name shows on
-   the profile header, the account menu and People and Friends rows. Ballots,
+   the profile header, the member's own card and People and Friends rows. Ballots,
    standings, Rooms, chat and every judge surface keep `@username`, so hidden
    judges stay hidden and nothing competitive is renamed. Display names are
    normalized at the boundary (NFC, invisible and bidirectional controls

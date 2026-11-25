@@ -1,7 +1,7 @@
 'use client';
 
 import { Button } from '../components/button/button';
-import { useRef } from 'react';
+import { useRef, type ReactNode } from 'react';
 import { Avatar } from '../components/avatar/avatar';
 import { profilePhotoSrc } from '../profile/photo-src';
 import { publicNameLabel } from '../profile/public-name';
@@ -95,8 +95,8 @@ function RailToggle({
 }
 
 /**
- * Everyone, on every page (ADR 0105): open beside the page, or collapsed to
- * avatars with friends first. Below 1101px it stays collapsed and on a phone it
+ * Your card, then everyone, on every page (ADR 0105): open beside the page,
+ * or collapsed to avatars with yours first, then friends. Below 1101px it stays collapsed and on a phone it
  * gives way to the Lobby's People view. Filling the whole column keeps it flush
  * to the right edge, mirroring the left rail.
  */
@@ -105,11 +105,16 @@ export function PeopleRail({
   actions,
   setRail,
   activeRoomId,
+  selfCard,
+  selfMini,
 }: {
   readonly preference: PeopleRailPreference;
   readonly actions: PersonActions;
   readonly setRail: (form: FormData) => Promise<void>;
   readonly activeRoomId: string | null;
+  /** Your own card, above everyone; its avatar alone in the mini rail. */
+  readonly selfCard?: ReactNode;
+  readonly selfMini?: ReactNode;
 }) {
   const { list } = usePeople();
   const aside = useRef<HTMLElement>(null);
@@ -123,17 +128,18 @@ export function PeopleRail({
       className="sticky top-0 z-10 h-dvh self-start border-l border-border bg-surface area-people max-narrow:hidden"
     >
       <div className={cn('h-full flex-col', fullClass[preference])}>
+        {selfCard ? <div className="mx-2 mt-2">{selfCard}</div> : null}
         <ChallengeCards
           actions={actions}
           activeRoomId={activeRoomId}
           className="mx-2 mt-2"
         />
-        <div className="flex flex-col gap-2 border-b border-border px-3 pt-3 pb-2">
+        <div className="flex flex-col gap-2 border-b border-border px-3 pt-2 pb-2">
           <div className="flex items-center justify-between gap-2">
-            <h2 className="flex items-baseline gap-2 font-display text-xl leading-tight font-semibold">
+            <h2 className="flex items-baseline gap-1 text-sm font-semibold text-ink-muted">
               People
-              <span className="text-sm font-semibold text-ink-muted tabular-nums">
-                {list.counts.online} online
+              <span className="font-book tabular-nums">
+                · {list.counts.online} online
               </span>
             </h2>
             <RailToggle
@@ -152,6 +158,7 @@ export function PeopleRail({
           miniClass[preference],
         )}
       >
+        {selfMini}
         <RailToggle to="open" action={setRail} label="Expand people list" />
         <p className="text-xs font-bold text-online">
           <span className="sr-only">Online </span>

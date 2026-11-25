@@ -67,7 +67,7 @@ describe('the people rail', () => {
       actual: [
         view.within('group', 'Show').names('button'),
         view.within('group', 'Show').names('button', { pressed: true }),
-        view.has('heading', 'People 3 online', { level: 2 }),
+        view.has('heading', 'People · 3 online', { level: 2 }),
       ],
       expected: [['All 10', 'Friends 3'], ['All 10'], true],
     });
@@ -222,7 +222,7 @@ describe('row words', () => {
   test('ratings read as figures or the shared words', () => {
     assert({
       given: 'established, provisional, unplayed and blinded',
-      should: 'read as the account menu does',
+      should: 'read as your card does',
       actual: [
         ratingText({
           ladder: { style: 'freestyle', division: 'open' },
