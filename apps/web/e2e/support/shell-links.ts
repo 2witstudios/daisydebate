@@ -108,10 +108,16 @@ export async function profileLink(page: Page, username: string) {
     const people = page.getByRole('complementary', { name: 'People' });
     const card = people.getByRole('region', { name: 'You' });
     if (await card.isVisible()) return card.getByRole('link', { name });
-    await people
-      .getByLabel('Your status', { exact: true })
-      .filter({ visible: true })
-      .click();
+    // The mini avatar opens your name and status; with no status read, it
+    // is itself the link to your profile.
+    const status = people
+      .locator('summary[title="Your status"]')
+      .filter({ visible: true });
+    if ((await status.count()) === 0)
+      return people
+        .getByRole('link', { name: /^Your profile, / })
+        .filter({ visible: true });
+    await status.click();
     return people.getByRole('link', { name }).filter({ visible: true });
   }
   const nav = page.getByRole('navigation', { name: 'Primary' });

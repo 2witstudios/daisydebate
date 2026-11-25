@@ -1,8 +1,8 @@
 # Support messages
 
 Anyone, signed in or not, can ask for help or send feedback at `/support`
-(SUPP-1). It is linked from Help, the account menu, the phone's More sheet
-and the error and not-found pages. It has no release flag. This page is the
+(SUPP-1). It is linked from Help (its header and its closing line) and the
+error and not-found pages; More links Help & support. It has no release flag. This page is the
 owner's procedure for the messages that arrive. It authorizes no production
 data action by itself: every write below is an owner-approved data action.
 

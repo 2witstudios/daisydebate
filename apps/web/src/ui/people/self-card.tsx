@@ -50,9 +50,14 @@ export function SelfCard({
       // reach past the rail's edge; the mini rail anchors them to the avatar.
       className={cn('shrink-0', compact && 'relative')}
       summaryClassName="flex size-nav-target cursor-pointer list-none items-center justify-center rounded-full hover:bg-surface-overlay"
-      summaryAriaLabel="Your status"
       summaryTitle="Your status"
-      summary={avatar}
+      summary={
+        <>
+          {/* The name computes from the contents, so it ends with the live status. */}
+          <span className="sr-only">Your status, </span>
+          {avatar}
+        </>
+      }
     >
       <div
         className={cn(
@@ -111,7 +116,8 @@ function Identity({
       className="flex w-0 min-w-0 flex-1 flex-col rounded-md px-1 no-underline hover:bg-surface-overlay hover:no-underline"
     >
       <span className="truncate text-sm font-semibold text-ink">{shown}</span>
-      <span className="truncate text-xs text-ink-muted">
+      {/* Relative, so the rating's screen-reader words are clipped with the line. */}
+      <span className="relative truncate text-xs text-ink-muted">
         @{username}
         <Suspense fallback={null}>
           <HeadlineRating ratings={ratings} />

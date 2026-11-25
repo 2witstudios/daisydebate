@@ -84,7 +84,7 @@ export type RailProps = {
  * visitor's way in above it). Your own card is in the people rail. Extended (the
  * default) each name shows beside its icon; mini is icons only, with names
  * as screen-reader text and tooltips. Below the rail breakpoint CSS alone
- * keeps every name intact and hides the wordmark, the username and Minimize
+ * keeps every name intact and hides the wordmark and Minimize
  * (ADR 0091). Badges and the flyout on Watch are the same in both modes; More
  * opens sideways, so it never needs the foot's space. The rail
  * sticks to the viewport at every height, so it never scrolls with the page.

@@ -49,6 +49,28 @@ test('an incoming challenge names its style and mode, and offers Accept (YChalle
   });
 });
 
+test('your card heads the open rail, and your avatar heads the mini rail', () => {
+  const view = renderAccessible(
+    rail([person()], 'youth', {
+      card: h('section', { 'aria-label': 'Your card' }),
+      mini: h('section', { 'aria-label': 'Your avatar' }),
+    }),
+  );
+  assert({
+    given: 'the rail with your card and its mini avatar',
+    should:
+      'put the card before the People heading, and the avatar before the expand control',
+    actual: [
+      before(view.get('region', 'Your card'), view.get('heading', /People/)),
+      before(
+        view.get('region', 'Your avatar'),
+        view.get('button', 'Expand people list'),
+      ),
+    ],
+    expected: [true, true],
+  });
+});
+
 describe('the people rail', () => {
   const view = renderAccessible(
     rail([

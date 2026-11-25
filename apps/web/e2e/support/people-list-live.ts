@@ -128,7 +128,7 @@ export function testPeopleList() {
 
       // Status changes reach the other member live.
       await other
-        .getByLabel('Your status', { exact: true })
+        .locator('summary[title="Your status"]')
         .filter({ visible: true })
         .click();
       await other
@@ -220,7 +220,7 @@ export function testPeopleList() {
 
       // Appear offline shows them as offline, like anyone who has left.
       await challenged
-        .getByLabel('Your status', { exact: true })
+        .locator('summary[title="Your status"]')
         .filter({ visible: true })
         .click();
       await challenged

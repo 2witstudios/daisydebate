@@ -132,7 +132,7 @@ test('a member sets their status from their card', async ({ browser }) => {
     const page = await openPage(context, 'a member choosing their status');
     await page.goto('/friends');
     await page
-      .getByLabel('Your status', { exact: true })
+      .locator('summary[title="Your status"]')
       .filter({ visible: true })
       .click();
     const status = page
@@ -145,7 +145,7 @@ test('a member sets their status from their card', async ({ browser }) => {
     );
     await page.goto('/friends');
     await page
-      .getByLabel('Your status', { exact: true })
+      .locator('summary[title="Your status"]')
       .filter({ visible: true })
       .click();
     await expect(

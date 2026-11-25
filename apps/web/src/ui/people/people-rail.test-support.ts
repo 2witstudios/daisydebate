@@ -1,4 +1,4 @@
-import { createElement as h } from 'react';
+import { createElement as h, type ReactNode } from 'react';
 import { AppRouterContext } from 'next/dist/shared/lib/app-router-context.shared-runtime';
 import type { Person, PeopleList } from '@daisy/protocol/people-list';
 import type { RatingDivision } from '@daisy/protocol/ladder';
@@ -105,10 +105,11 @@ const inProviders = (
     }),
   );
 
-/** The rail as the app shell places it, in its providers. */
+/** The rail as the app shell places it, in its providers, with your card when given. */
 export const rail = (
   people: readonly Person[],
   memberDivision: RatingDivision | null = 'youth',
+  self: { readonly card: ReactNode; readonly mini: ReactNode } | null = null,
 ) =>
   inProviders(
     h(PeopleRail, {
@@ -116,6 +117,7 @@ export const rail = (
       actions,
       setRail: async () => {},
       activeRoomId: null,
+      ...(self ? { selfCard: self.card, selfMini: self.mini } : {}),
     }),
     people,
     memberDivision,
