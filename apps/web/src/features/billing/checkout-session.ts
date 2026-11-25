@@ -156,9 +156,11 @@ function soldAt(
   );
 }
 /**
- * Stripe does not document the hosted path: it served `/c/pay/<id>` until
- * November 2026 and `/g/pay/<id>` since. The redirect is bound to Stripe's
- * origin and to this session's id; the one-letter prefix is Stripe's to change.
+ * Stripe does not document the hosted path. Sessions were observed under
+ * `/c/pay/<id>` and, from November 2026 in test mode, under `/g/pay/<id>`.
+ * The redirect is bound to Stripe's origin and to this session's id; the
+ * one-letter prefix is Stripe's to change. The parsed form is what is
+ * checked, so the parsed form is what is returned.
  */
 const hostedPrefixes = [...'abcdefghijklmnopqrstuvwxyz'];
 function hostedUrl(session: Session): string | null {
@@ -170,7 +172,7 @@ function hostedUrl(session: Session): string | null {
     hostedPrefixes.some(
       (prefix) => url.pathname === `/${prefix}/pay/${session.id}`,
     )
-    ? session.url
+    ? url.href
     : null;
 }
 function completedSession(session: Session): CheckoutObservation {

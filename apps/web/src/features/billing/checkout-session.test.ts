@@ -102,12 +102,13 @@ test('verified Checkout completion identifies a subscription without claiming th
 });
 
 test('an open session redirects under either hosted path Stripe has served', () => {
-  const urls = ['c', 'g'].map(
+  const urls = ['c', 'g', 'z'].map(
     (prefix) =>
       `https://checkout.stripe.com/${prefix}/pay/${checkoutSession.id}#opaque-test-value`,
   );
   assert({
-    given: 'the owned open session at the /c/pay/ path and at the /g/pay/ path',
+    given:
+      'the owned open session at /c/pay/, at /g/pay/ and at another one-letter prefix',
     should: 'expose the URL Stripe returned, unchanged, for each',
     actual: urls.map((url) => {
       const observed = normalizeCheckoutSession(
@@ -118,6 +119,24 @@ test('an open session redirects under either hosted path Stripe has served', () 
       return observed.kind === 'observed' ? observed.url : observed.kind;
     }),
     expected: urls,
+  });
+});
+
+test('the redirect is the parsed URL that was checked, never the raw string', () => {
+  const observed = normalizeCheckoutSession(
+    purchase,
+    {
+      ...checkoutSession,
+      url: 'https://checkout.stripe.com/x/../g/pay/cs_test_owned',
+    },
+    'current',
+  );
+  assert({
+    given:
+      'a Stripe-origin URL whose dot segments resolve to the owned session',
+    should: 'redirect to the resolved URL',
+    actual: observed.kind === 'observed' ? observed.url : observed.kind,
+    expected: 'https://checkout.stripe.com/g/pay/cs_test_owned',
   });
 });
 
@@ -191,6 +210,18 @@ test('forged session authority, altered offers and unsafe redirects are refused'
     {
       ...checkoutSession,
       url: 'https://checkout.stripe.com/go/pay/cs_test_owned',
+    },
+    {
+      ...checkoutSession,
+      url: 'https://checkout.stripe.com/G/pay/cs_test_owned',
+    },
+    {
+      ...checkoutSession,
+      url: 'https://checkout.stripe.com/1/pay/cs_test_owned',
+    },
+    {
+      ...checkoutSession,
+      url: 'https://checkout.stripe.com/%67/pay/cs_test_owned',
     },
     {
       ...checkoutSession,
