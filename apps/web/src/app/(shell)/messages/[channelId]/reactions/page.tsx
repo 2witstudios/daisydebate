@@ -1,3 +1,4 @@
+import { renderReadHeaders } from '../../../../../server/render-read';
 import { Announcement } from '../../../../../ui/components/announcement/announcement';
 import { ConversationPane } from '../../../../../ui/messaging/conversation-pane';
 import { messagePageContext } from '../message-page-context';
@@ -22,7 +23,7 @@ export default async function MessageReactionsPage({
   const response = await GET(
     new Request(
       `http://in-process.invalid/api/messaging/channels/${channelId}/reactions?messageId=${messageId}`,
-      { headers: incoming },
+      { headers: renderReadHeaders(incoming) },
     ),
     { params: Promise.resolve({ channelId: channelId }) },
   );

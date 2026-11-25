@@ -6,9 +6,8 @@ import {
   tournamentPageSchema,
 } from '../../../features/tab/participant-page-read';
 import { requireTabRelease } from '../../../features/tab/release';
-import { readOwnRoute } from '../../(shell)/friends/read-route';
+import { readOwnRoute } from '../../../server/render-read';
 import { GET } from '../../api/tab/participant/route';
-import { headers } from 'next/headers';
 
 export async function storedTournament(handle: string) {
   await requireTabRelease();
@@ -46,15 +45,9 @@ export async function storedTournamentPosting(
   round: { readonly eventId: string; readonly roundId: string },
 ) {
   await requireTabRelease();
-  // The browser is navigating to HTML. This new in-process GET originates
-  // here, with the visitor's session but without browser navigation metadata.
-  const requestHeaders = new Headers(await headers());
-  requestHeaders.delete('origin');
-  requestHeaders.delete('sec-fetch-site');
   return readOwnRoute(
     GET,
     participantPagePath({ view: 'posting', handle, ...round }),
     postingPageSchema,
-    requestHeaders,
   );
 }

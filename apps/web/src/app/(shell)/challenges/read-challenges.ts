@@ -1,3 +1,4 @@
+import { renderReadHeaders } from '../../../server/render-read';
 import { challengeListSchema } from '@daisy/protocol/challenges';
 import { headers } from 'next/headers';
 import { GET as readChallengesRoute } from '../../api/challenges/route';
@@ -6,7 +7,7 @@ import { GET as readChallengesRoute } from '../../api/challenges/route';
 export async function readChallenges() {
   const response = await readChallengesRoute(
     new Request('http://in-process.invalid/api/challenges', {
-      headers: new Headers(await headers()),
+      headers: renderReadHeaders(await headers()),
     }),
   );
   if (!response.ok) return null;

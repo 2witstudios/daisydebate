@@ -1,3 +1,4 @@
+import { renderReadHeaders } from '../../../server/render-read';
 import { notificationShellSchema } from '@daisy/protocol/notifications';
 import { headers } from 'next/headers';
 import { GET as readShellRoute } from '../../api/notifications/shell/route';
@@ -6,7 +7,7 @@ import { GET as readShellRoute } from '../../api/notifications/shell/route';
 export async function readNotificationShell() {
   const response = await readShellRoute(
     new Request('http://in-process.invalid/api/notifications/shell', {
-      headers: new Headers(await headers()),
+      headers: renderReadHeaders(await headers()),
     }),
   );
   if (!response.ok) return null;

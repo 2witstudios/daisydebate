@@ -7,7 +7,7 @@ import { needsRelease } from '../../../../../features/media-releases/club-releas
 import { requireAccess } from '../../../../../features/access/page-access';
 import { GET as releasesRoute } from '../../../../api/clubs/[club]/releases/route';
 import { GET as seatsRoute } from '../../../../api/clubs/[club]/seats/route';
-import { readOwnRoute } from '../../../friends/read-route';
+import { readOwnRoute } from '../../../../../server/render-read';
 
 /** The route's own answer, read in process: its shape is the database read's. */
 const releasesReadSchema = z.object({

@@ -1,3 +1,4 @@
+import { renderReadHeaders } from '../../../server/render-read';
 import { Announcement } from '../../../ui/components/announcement/announcement';
 import { systemClock } from '@daisy/clock';
 import { headers } from 'next/headers';
@@ -27,7 +28,7 @@ async function InboxResults({
   const inbox = await readMessagingInboxResponse(
     await GET(
       new Request(`http://in-process.invalid/api/messaging/inbox?${params}`, {
-        headers: new Headers(await headers()),
+        headers: renderReadHeaders(await headers()),
       }),
     ),
   ).catch(() => null);

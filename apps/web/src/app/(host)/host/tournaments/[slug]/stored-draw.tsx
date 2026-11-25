@@ -1,6 +1,6 @@
 import { hostDrawOverviewSchema } from '@daisy/protocol/lobby/draw-read';
 import { notFound } from 'next/navigation';
-import { readOwnRoute } from '../../../../(shell)/friends/read-route';
+import { readOwnRoute } from '../../../../../server/render-read';
 import { linkTo } from '../../../../../features/tab/action';
 import { hostDrawOverviewPath } from '../../../../../features/tab/host-draw-route';
 import { hostNavigationRail } from '../../../../../features/tab/host-navigation';

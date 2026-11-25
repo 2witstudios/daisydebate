@@ -4,7 +4,7 @@ import { organizationPeoplePage } from '../../../../../../features/tab/organizat
 import { organizationPeoplePath } from '../../../../../../features/tab/organization-people-route';
 import { requestIdentity, requestNow } from '../../../../../../lib/page-reads';
 import { GET as readOrganizationPeopleRoute } from '../../../../../api/tab/organization-people/route';
-import { readOwnRoute } from '../../../../../(shell)/friends/read-route';
+import { readOwnRoute } from '../../../../../../server/render-read';
 import { readStoredHostNavigation } from '../../../read-navigation';
 import { hostNavigationRail } from '../../../../../../features/tab/host-navigation';
 

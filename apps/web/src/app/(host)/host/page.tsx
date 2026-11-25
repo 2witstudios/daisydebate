@@ -14,7 +14,7 @@ import { requestIdentity } from '../../../lib/page-reads';
 import { CreateTournamentForm } from '../../../ui/hosting/create-tournament-form';
 import { HostingHome } from '../../../ui/hosting/hosting-home';
 import { GET } from '../../api/tab/hosted-tournaments/route';
-import { readOwnRoute } from '../../(shell)/friends/read-route';
+import { readOwnRoute } from '../../../server/render-read';
 import { createTournamentAction } from './actions';
 
 export const metadata: Metadata = { title: 'Host' };

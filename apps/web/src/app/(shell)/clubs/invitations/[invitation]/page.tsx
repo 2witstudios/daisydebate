@@ -5,7 +5,7 @@ import { requireAccess } from '../../../../../features/access/page-access';
 import type { SearchParams } from '../../../../../features/access/decision';
 import { clubInvitationViewSchema } from '../../../../../features/clubs/views';
 import { ClubInvitationPage } from '../../../../../ui/clubs/invitation-page';
-import { readOwnRoute } from '../../../friends/read-route';
+import { readOwnRoute } from '../../../../../server/render-read';
 import { GET } from '../../../../api/clubs/invitations/[invitation]/route';
 import { requireClubRelease } from '../../release';
 import { clubInvitationAction } from '../../actions';

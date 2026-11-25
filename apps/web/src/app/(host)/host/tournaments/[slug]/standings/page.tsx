@@ -3,7 +3,7 @@ import { tournamentEventSettingsViewSchema } from '@daisy/protocol/lobby/resolve
 import { standingsViewSchema } from '@daisy/protocol/lobby/standings-read';
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
-import { readOwnRoute } from '../../../../../(shell)/friends/read-route';
+import { readOwnRoute } from '../../../../../../server/render-read';
 import { commandAction, linkTo } from '../../../../../../features/tab/action';
 import { hostNavigationRail } from '../../../../../../features/tab/host-navigation';
 import { hostStandingsPath } from '../../../../../../features/tab/host-standings-route';

@@ -8,7 +8,7 @@ import { GET as settingsGET } from '../../../../../api/tab/tournament-event-sett
 import { judgeObligationAction } from './actions';
 import { notFound } from 'next/navigation';
 import { hostRosterViewSchema } from '@daisy/protocol/lobby/entry-read';
-import { readOwnRoute } from '../../../../../(shell)/friends/read-route';
+import { readOwnRoute } from '../../../../../../server/render-read';
 import { linkTo } from '../../../../../../features/tab/action';
 import {
   hostEntriesOf,

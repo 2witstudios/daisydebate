@@ -4,7 +4,7 @@ import { roundBallotReadSchema } from '@daisy/protocol/round-ballot-read';
 import { hostBallotsViewSchema } from '@daisy/protocol/lobby/host-ballots-read';
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
-import { readOwnRoute } from '../../../../../(shell)/friends/read-route';
+import { readOwnRoute } from '../../../../../../server/render-read';
 import { linkTo } from '../../../../../../features/tab/action';
 import { hostBallotsPath } from '../../../../../../features/tab/host-ballots-route';
 import { hostNavigationRail } from '../../../../../../features/tab/host-navigation';

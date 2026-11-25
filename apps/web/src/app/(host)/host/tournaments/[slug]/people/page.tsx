@@ -9,7 +9,7 @@ import { hostRoutes } from '../../../../../../features/tab/routes';
 import { requestIdentity } from '../../../../../../lib/page-reads';
 import { People } from '../../../../../../ui/tab/people/people';
 import { readStoredHostNavigation } from '../../../read-navigation';
-import { readOwnRoute } from '../../../../../(shell)/friends/read-route';
+import { readOwnRoute } from '../../../../../../server/render-read';
 import { GET } from '../../../../../api/tab/lobby-people/route';
 import { systemId } from '@daisy/clock';
 import { LobbyPeopleCommandForm } from '../../../../../../ui/tab/people/lobby-people-command-form';

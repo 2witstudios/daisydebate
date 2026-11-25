@@ -1,7 +1,7 @@
 import { tournamentEventSettingsViewSchema } from '@daisy/protocol/lobby/resolved-settings-read';
 import { settingValueSchemas } from '@daisy/protocol/setting-values';
 import { tournamentEventSettingsPath } from '../../../../../../../../features/tab/tournament-event-settings-route';
-import { readOwnRoute } from '../../../../../../../(shell)/friends/read-route';
+import { readOwnRoute } from '../../../../../../../../server/render-read';
 import { GET } from '../../../../../../../api/tab/tournament-event-settings/route';
 import { releaseRoundContent } from './actions';
 import { systemId } from '@daisy/clock';

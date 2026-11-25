@@ -1,7 +1,7 @@
 import { hostTiersReleased } from '../../../features/tab/release';
 import { hostNavigationViewSchema } from '@daisy/protocol/lobby/host-navigation-read';
 import { hostNavigationPath } from '../../../features/tab/host-navigation-route';
-import { readOwnRoute } from '../../(shell)/friends/read-route';
+import { readOwnRoute } from '../../../server/render-read';
 import { GET } from '../../api/tab/host-navigation/route';
 
 /**

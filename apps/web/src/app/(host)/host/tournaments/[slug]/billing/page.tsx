@@ -10,7 +10,7 @@ import { PageHeader } from '../../../../../../ui/components/page-header/page-hea
 import { HostingBilling } from '../../../../../../ui/hosting/hosting-panels';
 import { HostShell } from '../../../../../../ui/tab/host-shell/host-shell';
 import { GET } from '../../../../../api/tab/hosting/route';
-import { readOwnRoute } from '../../../../../(shell)/friends/read-route';
+import { readOwnRoute } from '../../../../../../server/render-read';
 import { readStoredHostNavigation } from '../../../read-navigation';
 
 export const metadata: Metadata = { title: 'Billing' };
