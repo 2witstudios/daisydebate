@@ -373,7 +373,7 @@ const reportTargetOf = (record: RecordingRecord | null, roundId: string) =>
         label: 'Report this round',
       } as const);
 
-export type RecordingPremiumOffer = 'record' | 'download' | null;
+type RecordingPremiumOffer = 'record' | 'download' | null;
 
 /**
  * The page's one Premium offer (ADR 0933). `record`: a debater or the host
