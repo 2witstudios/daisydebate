@@ -20,7 +20,7 @@ test('public Premium terms say unlimited at $20 a month, with no counter', () =>
       'Premium · $20/month',
       'Get Premium · $20/month',
       'Record your casual Rounds.',
-      'how you study it and improve',
+      'study them and improve',
       'Unlimited casual AI judging.',
       'Round analysis whenever you ask.',
       'No counters to watch.',
@@ -68,14 +68,14 @@ test('a viewer who already has Premium is told so and is not offered it', () => 
   assert({
     given: 'a viewer whose current plan is Premium',
     should:
-      'say they have Premium, keep the Billing link and the terms, and show no Get Premium',
+      'say they have Premium, send them to billing to manage it, keep the terms, and show no Get Premium',
     actual: [
       text.includes('You have Premium.'),
       text.includes('Get Premium'),
-      hrefs(view).includes('/settings/billing'),
+      view.attribute('link', 'Manage billing', 'href'),
       text.includes('Record your casual Rounds.'),
     ],
-    expected: [true, false, true, true],
+    expected: [true, false, '/settings/billing', true],
   });
 });
 

@@ -13,8 +13,8 @@ const secondary = `${buttonClass('secondary')} min-h-nav-target self-start white
  * open. Recording a casual Round leads: watching a Round back is how a
  * debater studies it and improves. Premium is unlimited: no counters, only an
  * unseen fair-use ceiling (ADR 0146). Buying happens on the billing page,
- * which holds checkout; a viewer who already has Premium is told so instead
- * of being offered it.
+ * which holds checkout; a viewer who already has Premium is told so and sent
+ * to the same page to manage it, instead of being offered it.
  */
 export function PremiumPage({
   comparePlans = false,
@@ -29,7 +29,7 @@ export function PremiumPage({
     <ReadingPage>
       <PageHeader
         title="Daisy Premium"
-        lede="Record your casual Rounds, watch them back and improve."
+        lede="Watch your debates back, study them and improve."
         actions={
           comparePlans ? (
             <Link href="/pricing" className={secondary}>
@@ -51,11 +51,7 @@ export function PremiumPage({
             <p className="text-lg">
               <strong>Record your casual Rounds.</strong>
             </p>
-            <p>
-              Watching a Round back is how you study it and improve. As host,
-              turn on a Recording for any casual Round, and a Broadcast if you
-              want an audience.
-            </p>
+            <p>A public Room can be broadcast too.</p>
           </div>
           <p>Premium also includes:</p>
           <ul className="flex list-disc flex-col gap-3 pl-5">
@@ -67,17 +63,22 @@ export function PremiumPage({
             No counters to watch. A fair-use ceiling stops scripts and abuse;
             nobody debating for real will reach it.
           </p>
-          {holdsPremium ? (
-            <p>
-              <strong>You have Premium.</strong>
-            </p>
-          ) : (
-            <div className="flex flex-wrap gap-3">
+          <div className="flex flex-wrap items-center gap-3">
+            {holdsPremium ? (
+              <>
+                <p>
+                  <strong>You have Premium.</strong>
+                </p>
+                <Link href="/settings/billing" className={primary}>
+                  Manage billing
+                </Link>
+              </>
+            ) : (
               <Link href="/settings/billing" className={primary}>
                 Get Premium · {premiumOfferPrice}
               </Link>
-            </div>
-          )}
+            )}
+          </div>
         </div>
       </Panel>
       <Panel title="Human debate stays free">
