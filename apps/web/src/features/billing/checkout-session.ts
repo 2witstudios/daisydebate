@@ -155,14 +155,24 @@ function soldAt(
     (offer === 'subscribed' || premiumPriceSchema.safeParse(price).success)
   );
 }
+/**
+ * Stripe does not document the hosted path. Sessions were observed under
+ * `/c/pay/<id>` and, from November 2026 in test mode, under `/g/pay/<id>`.
+ * The redirect is bound to Stripe's origin and to this session's id; the
+ * one-letter prefix is Stripe's to change. The parsed form is what is
+ * checked, so the parsed form is what is returned.
+ */
+const hostedPrefixes = [...'abcdefghijklmnopqrstuvwxyz'];
 function hostedUrl(session: Session): string | null {
   if (session.url === null || !URL.canParse(session.url)) return null;
   const url = new URL(session.url);
   return url.origin === 'https://checkout.stripe.com' &&
     url.username === '' &&
     url.password === '' &&
-    url.pathname === `/c/pay/${session.id}`
-    ? session.url
+    hostedPrefixes.some(
+      (prefix) => url.pathname === `/${prefix}/pay/${session.id}`,
+    )
+    ? url.href
     : null;
 }
 function completedSession(session: Session): CheckoutObservation {

@@ -41,7 +41,7 @@ export const checkoutSession = {
   total_details: { amount_discount: 0 },
   success_url: `${purchase.returnOrigin}/settings/billing?purchase=${purchase.id}`,
   cancel_url: `${purchase.returnOrigin}/settings/billing`,
-  url: 'https://checkout.stripe.com/c/pay/cs_test_owned#opaque-test-value',
+  url: 'https://checkout.stripe.com/g/pay/cs_test_owned#opaque-test-value',
   line_items: {
     object: 'list',
     has_more: false,
