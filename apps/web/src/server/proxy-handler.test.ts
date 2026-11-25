@@ -95,7 +95,7 @@ const directives = (
 };
 
 describe('proxy content security policy', () => {
-  test('only the native Billing document permits fixed hosted form redirects', () => {
+  test('every document permits the fixed hosted Billing form redirects and nothing else', () => {
     const formSources = (path: string) => {
       const policy =
         proxy(new NextRequest(`https://daisy.invalid${path}`)).headers.get(
@@ -103,25 +103,23 @@ describe('proxy content security policy', () => {
         ) ?? '';
       return policy.split('; ').find((part) => part.startsWith('form-action '));
     };
+    const paths = [
+      '/settings/billing',
+      '/settings',
+      '/pricing',
+      '/premium',
+      '/',
+    ];
     assert({
       given:
-        'native Checkout and Portal forms on Billing and unrelated documents',
+        'the Billing document and documents a client navigation reaches it from',
       should:
-        'allow only their exact hosted destinations on the Billing document',
-      actual: [
-        '/settings/billing',
-        '/settings',
-        '/settings/billing/foreign',
-        '/premium',
-        '/api/billing/checkout',
-      ].map(formSources),
-      expected: [
-        "form-action 'self' https://checkout.stripe.com https://billing.stripe.com",
-        "form-action 'self'",
-        "form-action 'self'",
-        "form-action 'self'",
-        "form-action 'self'",
-      ],
+        'allow forms only this origin and the two exact hosted destinations',
+      actual: paths.map(formSources),
+      expected: paths.map(
+        () =>
+          "form-action 'self' https://checkout.stripe.com https://billing.stripe.com",
+      ),
     });
   });
 
