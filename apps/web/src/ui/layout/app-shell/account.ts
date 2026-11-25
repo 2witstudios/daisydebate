@@ -19,9 +19,9 @@ export type ShellAccount =
     };
 
 /**
- * A member's standing on each Daisy ladder, read once per request for the account
- * menu. `unavailable` when the read fails, so the menu says so instead of
- * blocking the page.
+ * A member's standing on each Daisy ladder, read once per request for their
+ * card's headline rating. `unavailable` when the read fails, so the card shows
+ * no rating instead of blocking the page.
  */
 export type ShellRatings =
   | {

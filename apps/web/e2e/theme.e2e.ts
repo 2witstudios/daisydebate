@@ -64,7 +64,7 @@ const themeColors = (page: Page) =>
       ),
     );
 
-/** Settings sits in the phone tab bar's More sheet; the rail has no More. */
+/** On a phone, Settings sits in the tab bar's More sheet (the rail, hidden there, has its own More). */
 const openSettingsFromMore = async (page: Page) => {
   const tabs = page.getByRole('navigation', { name: 'Primary' });
   await tabs.getByText('More', { exact: true }).click();

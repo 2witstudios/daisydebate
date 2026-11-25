@@ -27,8 +27,8 @@ const labels: Readonly<Record<ChosenStatus, string>> = {
 };
 
 /**
- * The avatar at the foot of the left rail, showing the member's real status
- * and the photo they published (ADR 0143).
+ * The member's own avatar, on their card, showing their real status and the
+ * photo they published (ADR 0143).
  */
 export function SelfAvatar({
   name,

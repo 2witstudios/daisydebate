@@ -24,6 +24,7 @@ import {
   moreDestination,
   morePagesFor,
   primaryDestinations,
+  profileHref,
   wayIn,
 } from '../destinations';
 
@@ -139,9 +140,14 @@ export function TabBar({
       <details key={pathname}>
         <summary
           className={tabClass(
-            [...moreLinks, ...legalLinks].some((link) =>
-              itemActive(pathname, link.href),
-            ),
+            // Your profile opens from the card at the sheet's head.
+            [
+              ...moreLinks,
+              ...legalLinks,
+              ...(account.state === 'member'
+                ? [{ href: profileHref(account.username) }]
+                : []),
+            ].some((link) => itemActive(pathname, link.href)),
           )}
         >
           {/* Notifications live in More on a phone, so More carries their count. */}
