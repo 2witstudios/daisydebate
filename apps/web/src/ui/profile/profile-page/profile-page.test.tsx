@@ -41,6 +41,7 @@ const profile = (overrides: Partial<ProfileView> = {}): ProfileView => ({
   history: [entry({})],
   nextBefore: null,
   shown: nothingShown,
+  premium: false,
   ...overrides,
 });
 

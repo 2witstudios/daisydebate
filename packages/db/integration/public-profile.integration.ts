@@ -7,6 +7,7 @@ import { SQL } from 'bun';
 import { drizzle } from 'drizzle-orm/bun-sql';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { contentModerationOperations } from '../src/content-moderation-operations';
+import { applyBetaEntitlementGrants } from '../src/entitlement-grants';
 import { publicProfileOperations } from '../src/public-profile-operations';
 import { publicProfilePrivacyAdopter } from '../src/public-profile-privacy';
 import { createAuthorizationSubject } from './authorization.test-support';
@@ -422,6 +423,42 @@ test('cards: one statement for many members, published photo only', async () => 
       expected: [
         { displayName: 'Ada', photoId: null },
         { displayName: null, photoId: null },
+      ],
+    });
+  });
+});
+
+test('grants by actor: a member’s own grants, and none for another member', async () => {
+  await withProfiles(async (context) => {
+    await applyBetaEntitlementGrants(
+      context.database,
+      context.member.userId,
+      'approved',
+    );
+    const other = await createAuthorizationSubject(context.f);
+    const kinds = async (actorId: string) =>
+      (await context.profiles.readMemberEntitlementGrants(actorId))
+        .map((grant) => `${grant.source}:${grant.entitlement}`)
+        .sort();
+    assert({
+      given:
+        'a member approved for the beta, another member, and no such actor',
+      should: 'read the first member’s five beta grants and nothing else',
+      actual: [
+        await kinds(context.member.actorId),
+        await kinds(other.actorId),
+        await kinds(createId()),
+      ],
+      expected: [
+        [
+          'beta:ai_rounds',
+          'beta:casual_ai_judge',
+          'beta:casual_capture',
+          'beta:recording_download',
+          'beta:round_analysis',
+        ],
+        [],
+        [],
       ],
     });
   });
