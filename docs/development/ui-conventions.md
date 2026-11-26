@@ -230,6 +230,9 @@ the gaps it cannot.
   ballot links Understanding a Daisy ballot) rather than explaining in place.
   Guide copy is the reading surface this section's rules are written for, so
   it may explain; the onboarding steps stay the introduction.
+- The audience pages (`/ncfca`, `/parents`, `/coach`, `/leagues`, `/tab`,
+  [ADR 0935](../decisions/0935-audience-pages.md)) are reading surfaces too:
+  each makes Daisy's case to one reader, so it explains in place.
 
 ## Home notes
 

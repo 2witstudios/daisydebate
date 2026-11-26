@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { requestAudienceLinks } from '../audience-links';
 import { AboutPage } from '../../../ui/about/about-page/about-page';
 
 export const metadata: Metadata = {
@@ -7,6 +8,6 @@ export const metadata: Metadata = {
 };
 
 /** Public: Daisy's vision, and where its common questions are answered. */
-export default function About() {
-  return <AboutPage />;
+export default async function About() {
+  return <AboutPage audience={await requestAudienceLinks()} />;
 }

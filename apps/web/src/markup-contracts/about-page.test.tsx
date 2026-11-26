@@ -2,6 +2,7 @@ import { createElement as h } from 'react';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { renderMarkup } from '../test-support/rendered/markup';
 import { pageColourClasses } from '../ui/test-support/stage-palette';
+import { openLinks } from '../features/marketing/links.test-support';
 import { AboutPage } from '../ui/about/about-page/about-page';
 
 setupRitewayBun();
@@ -14,7 +15,7 @@ setupRitewayBun();
  */
 describe('AboutPage markup', () => {
   test('the seasons band keeps to stage colours', () => {
-    const html = renderMarkup(h(AboutPage, {}));
+    const html = renderMarkup(h(AboutPage, { audience: openLinks }));
     const band = html.slice(
       html.indexOf('bg-surface-stage'),
       html.indexOf('</section>', html.indexOf('bg-surface-stage')),

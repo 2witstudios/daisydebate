@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { destinationHref } from '../../../features/destinations/destinations';
 import { helpTopicHref, helpTopics } from '../../../features/help/topics';
+import type { AudienceLinks } from '../../../features/marketing/links';
 
 /** The owner's case for Daisy, once published; the card stays hidden until then. */
 const caseForDaisyHref: string | null = null;
@@ -43,9 +44,23 @@ const button =
 /** Daisy's vision, for visitors and members alike. */
 export function AboutPage({
   caseHref = caseForDaisyHref,
+  audience,
 }: {
   readonly caseHref?: string | null;
+  /** The audience pages open to this viewer, each with its own reader. */
+  readonly audience: AudienceLinks;
 }) {
+  const readers = [
+    ['NCFCA families', audience.ncfca],
+    ['Parents', audience.parents],
+    ['Coaches and clubs', audience.coach],
+    ['Leagues', audience.leagues],
+    ['Tournament directors', audience.tab],
+  ].flatMap(([label, href]) =>
+    typeof href === 'string' && typeof label === 'string'
+      ? [[label, href] as const]
+      : [],
+  );
   return (
     <div className="mx-auto flex w-full max-w-dash-column flex-col gap-10 px-6 pt-5 pb-12 max-narrow:px-4">
       <header className="flex max-w-reading flex-col gap-4">
@@ -61,6 +76,18 @@ export function AboutPage({
           find an opponent and play, in whatever league or format they debate.
         </p>
       </header>
+
+      <nav
+        aria-label="Daisy for"
+        className="flex flex-wrap items-center gap-x-5 gap-y-2 text-base"
+      >
+        <span className="font-strong text-ink-muted">Daisy for</span>
+        {readers.map(([label, href]) => (
+          <Link key={href} href={href} className="font-strong">
+            {label}
+          </Link>
+        ))}
+      </nav>
 
       <ol className="grid grid-cols-3 gap-8 border-t border-border pt-8 max-compact:grid-cols-1">
         {points.map(({ title, body }, index) => (

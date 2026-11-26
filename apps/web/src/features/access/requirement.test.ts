@@ -54,7 +54,7 @@ describe('guarded areas under a public root', () => {
       given:
         'the public /host root, its guarded /host/leagues area, descendants and lookalikes',
       should:
-        'guard only /leagues and /host/leagues and their descendants, leaving tournament host routes public',
+        'guard /host/leagues and its descendants and every league page under /leagues, leaving the /leagues root and tournament host routes public',
       actual: [
         '/host',
         '/host/x',
@@ -64,6 +64,9 @@ describe('guarded areas under a public root', () => {
         '/host/leagues//x',
         '/host/leagues/x/people',
         '/leagues',
+        '/leagues/',
+        '/leagues/x',
+        '/leagues//x',
         '/leagues/x/rooms/new',
         '/host/leaguesx',
         '/hostile',
@@ -77,6 +80,9 @@ describe('guarded areas under a public root', () => {
         'participant',
         'participant',
         'participant',
+        'participant',
+        null,
+        null,
         'participant',
         'participant',
         'participant',
