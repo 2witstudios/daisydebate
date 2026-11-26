@@ -214,7 +214,7 @@ test('every public and member read holds a ranked outcome until release', async 
           now,
         });
         const profile = await readProfile(
-          { store: f.store, limiter },
+          { store: f.store, limiter, wearsPremiumMark: async () => false },
           { identity: visitor, username: hostName, query: {}, now },
         );
         return {

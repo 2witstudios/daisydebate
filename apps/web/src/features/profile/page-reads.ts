@@ -23,9 +23,9 @@ export const requestMemberProfile = async (
     {
       store: requestApp().database,
       limiter: requestApp().limiter,
-      wearsPremiumMark: async (actorId) =>
+      wearsPremiumMark: async (userId) =>
         wearsPremiumMark(
-          await requestApp().database.readMemberEntitlementGrants(actorId),
+          await requestApp().database.readMemberEntitlementGrants(userId),
           {
             now: requestApp().clock.now(),
             betaGrantsPremium: requestApp().config.PREMIUM_BETA_GRANT,

@@ -30,7 +30,10 @@ test('server-render profile reads consume a real shared Redis budget before Post
   assert({
     given: 'an anonymous in-process profile read with capacity',
     should: 'reach the real profile query and report no matching account',
-    actual: await readProfile({ store, limiter }, input),
+    actual: await readProfile(
+      { store, limiter, wearsPremiumMark: async () => false },
+      input,
+    ),
     expected: null,
   });
   for (let used = 1; used < 60; used += 1)
@@ -42,7 +45,10 @@ test('server-render profile reads consume a real shared Redis budget before Post
     given: 'the same render after its shared Redis budget is exhausted',
     should: 'refuse before another PostgreSQL profile query',
     actual: () =>
-      readProfile({ store, limiter }, { ...input, username: 'another-name' }),
+      readProfile(
+        { store, limiter, wearsPremiumMark: async () => false },
+        { ...input, username: 'another-name' },
+      ),
     code: 'RATE_LIMIT',
   });
   assert({

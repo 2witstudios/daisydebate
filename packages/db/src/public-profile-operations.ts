@@ -422,20 +422,14 @@ export const publicProfileOperations = ({
     }),
 
   /**
-   * A member's entitlement grants by their actor, for the Premium mark on
-   * their profile (ADR 0933). The caller applies the validity rule; an actor
-   * with no account holds none.
+   * A member's entitlement grants, for the Premium mark on their profile
+   * (ADR 0933). The caller applies the validity rule and keeps only the
+   * answer.
    */
-  readMemberEntitlementGrants: (actorId: string) =>
-    instrumented(eventSink, 'readMemberEntitlementGrants', async () => {
-      idSchema.parse(actorId);
-      const [row] = await queryRows(
-        database,
-        z.object({ user_id: z.string().nullable() }),
-        sql`select a.user_id from actors a where a.id = ${actorId}`,
-      );
-      return row?.user_id ? readEntitlementGrants(database, row.user_id) : [];
-    }),
+  readMemberEntitlementGrants: (userId: string) =>
+    instrumented(eventSink, 'readMemberEntitlementGrants', () =>
+      readEntitlementGrants(database, idSchema.parse(userId)),
+    ),
 
   /** Terminal photos whose image deletion is due, oldest first, bounded. */
   duePhotoDeletions: (input: {

@@ -140,12 +140,12 @@ export async function readProfile(
   {
     store,
     limiter,
-    wearsPremiumMark = async () => false,
+    wearsPremiumMark,
   }: {
     readonly store: ProfileStore;
     readonly limiter: RateLimiter;
-    /** The mark decorates the page: a failed read shows none. */
-    readonly wearsPremiumMark?: (actorId: string) => Promise<boolean>;
+    /** By user id. The mark decorates the page: a failed read shows none. */
+    readonly wearsPremiumMark: (userId: string) => Promise<boolean>;
   },
   input: {
     readonly identity: Identity;
@@ -189,16 +189,14 @@ export async function readProfile(
     clock: spectatorClockAt(input.now),
   });
   if (read === null) return null;
-  const shown = read.member.closed
-    ? nothingShown
-    : // The public text and photo decorate the page; without them it shows
-      // the username and record, never an error (the store logs the failure).
-      await store
-        .readPublicProfile(read.member.actorId)
-        .catch(() => nothingShown);
-  const premium =
-    !read.member.closed &&
-    (await wearsPremiumMark(read.member.actorId).catch(() => false));
+  // The public text, photo and mark decorate the page; without them it shows
+  // the username and record, never an error (the store logs the failure).
+  const [shown, premium] = read.member.closed
+    ? [nothingShown, false]
+    : await Promise.all([
+        store.readPublicProfile(read.member.actorId).catch(() => nothingShown),
+        wearsPremiumMark(read.member.userId).catch(() => false),
+      ]);
   return {
     version: 1,
     username: read.member.username,
