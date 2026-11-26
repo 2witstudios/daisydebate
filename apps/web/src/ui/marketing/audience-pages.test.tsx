@@ -103,9 +103,8 @@ describe('the audience pages', () => {
           shown('tab').has('heading', 'Tab your tournament on Daisy', {
             level: 1,
           }),
-          shown('tab')
-            .all('link', 'Host a tournament')[0]
-            ?.getAttribute('href'),
+          shown('tab').all('link', 'Talk to us')[0]?.getAttribute('href'),
+          shown('tab').attribute('link', 'Open the host area', 'href'),
         ],
       ],
       expected: [
@@ -113,7 +112,7 @@ describe('the audience pages', () => {
         [true, '/settings/parental-controls'],
         [true, '/clubs/new'],
         [true, '/contact/league'],
-        [true, '/host'],
+        [true, '/support', '/host'],
       ],
     });
   });
@@ -139,14 +138,14 @@ describe('the audience pages', () => {
     assert({
       given: 'each page with every release closed',
       should:
-        'link only to sign-in and Help, and never say something is coming soon',
+        'link only to sign-in, Help and support, and never say something is coming soon',
       actual: closed,
       expected: [
         ['ncfca', ['/sign-in', '/sign-in'], false],
         ['parents', [], false],
         ['coach', [], false],
         ['leagues', ['/help#ratings'], false],
-        ['tab', [], false],
+        ['tab', ['/support', '/support'], false],
       ],
     });
   });
@@ -194,6 +193,38 @@ describe('the audience pages', () => {
         ),
       ],
       expected: [true, false, false, '/sign-in'],
+    });
+  });
+
+  test('Premium is named and priced only while it is on sale', () => {
+    const words = (name: string, links: AudienceLinks) =>
+      renderAccessible(pages[name]!(links)).textContent();
+    assert({
+      given: 'the NCFCA and parents pages with Premium closed, then open',
+      should: 'state no Premium and no price while closed, and both while open',
+      actual: [
+        /Premium|\$/.test(words('ncfca', closedLinks)),
+        /Premium|\$/.test(words('parents', closedLinks)),
+        words('ncfca', openLinks).includes('With Premium'),
+        words('parents', openLinks).includes('With Premium'),
+      ],
+      expected: [false, false, true, true],
+    });
+  });
+
+  test('the Tab page says what a host cannot yet do alone, and claims no venue', () => {
+    const words = renderAccessible(pages.tab!(openLinks)).textContent();
+    assert({
+      given: 'the Tab page',
+      should:
+        'name the host steps that are not in the host area, and make no in-person claim',
+      actual: [
+        words.includes(
+          'Opening registration, accepting entries and adding judges are not in the host area yet',
+        ),
+        /in person|venue check|from their phones|one building/i.test(words),
+      ],
+      expected: [true, false],
     });
   });
 

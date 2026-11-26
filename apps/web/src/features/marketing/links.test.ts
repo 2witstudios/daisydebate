@@ -11,6 +11,8 @@ test('an audience page links only where a release is open', () => {
     actual: openLinks,
     expected: {
       signIn: '/sign-in',
+      premiumOpen: true,
+      support: '/support',
       pricing: '/pricing',
       addChild: '/settings/parental-controls',
       startClub: '/clubs/new',
@@ -25,10 +27,13 @@ test('an audience page links only where a release is open', () => {
   });
   assert({
     given: 'every release closed',
-    should: 'keep only sign-in and the NCFCA page, which need none',
+    should:
+      'keep only sign-in, support and the NCFCA page, which need none, and sell no Premium',
     actual: Object.entries(closedLinks).filter(([, href]) => href !== null),
     expected: [
       ['signIn', '/sign-in'],
+      ['premiumOpen', false],
+      ['support', '/support'],
       ['ncfca', '/ncfca'],
     ],
   });
@@ -47,6 +52,13 @@ test('an audience page links only where a release is open', () => {
     )
       .filter(([, href]) => href !== null)
       .map(([key]) => key),
-    expected: ['signIn', 'startClub', 'ncfca', 'coach'],
+    expected: [
+      'signIn',
+      'premiumOpen',
+      'support',
+      'startClub',
+      'ncfca',
+      'coach',
+    ],
   });
 });

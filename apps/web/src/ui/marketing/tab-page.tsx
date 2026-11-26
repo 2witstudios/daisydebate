@@ -13,7 +13,7 @@ import {
 const steps = [
   ['Pair', 'Power-matched, random or round robin, then publish the round.'],
   ['Debate', 'Each debate gets its own room on Daisy: video, clock and judge.'],
-  ['Ballots', 'Judges submit on Daisy, from a laptop or a phone.'],
+  ['Ballots', 'Judges submit their ballots on Daisy when the debate ends.'],
   ['Standings', 'Results update the standings and seed the break.'],
 ] as const;
 
@@ -42,9 +42,9 @@ function RoundFlow() {
 }
 
 /**
- * /tab: for a tournament director. What Daisy Tab does in one round, where
- * a tournament can happen, and the hosting tiers, each amount read from
- * `prices` (ADR 0149).
+ * /tab: for a tournament director. What Daisy Tab does in one round, what a
+ * host cannot yet do without Daisy, and the hosting tiers, each amount read
+ * from `prices` (ADR 0149).
  */
 export function TabPage({
   prices,
@@ -59,33 +59,41 @@ export function TabPage({
     <AudiencePage
       title="Tab your tournament on Daisy"
       lede={`Daisy Tab pairs each round, collects every ballot and keeps the standings. Free up to ${prices.host.freeEntryLimit} entries.`}
-      actions={<Action href={links.host}>Host a tournament</Action>}
+      actions={
+        <>
+          <Action href={links.support}>Talk to us</Action>
+          <Action href={links.host} variant="secondary">
+            Open the host area
+          </Action>
+        </>
+      }
     >
       <Story id="what" title="What Daisy Tab is">
         <p>
           Tournament software built into Daisy. Create your tournament and its
-          events, pair each round, and let judges submit their ballots on Daisy.
-          Standings come from the results, and an elimination stage can follow
-          the preliminary rounds.
+          events, pair each round, and judges submit their ballots on Daisy.
+          Standings come from the results, an elimination stage can follow the
+          preliminary rounds, and you certify the event when the results are
+          final.
         </p>
       </Story>
 
       <RoundFlow />
 
-      <Story id="where" title="Online, or in one building">
+      <Story id="where" title="Every debate in its own room">
         <p>
-          Online, every debate has its own room on Daisy, so there is no venue
-          to book and nobody has to travel. If your debaters are in one
-          building, post each round’s pairings from Daisy and let judges ballot
-          from their phones.
+          Each debate runs in a room on Daisy, with every debater and judge on
+          their own device, so there is no venue to book and nobody has to
+          travel.
         </p>
       </Story>
 
-      <Story id="release" title="You decide what is released, and when">
+      <Story id="today" title="Where Daisy Tab is today">
         <p>
-          Open each round’s pairings, decisions, scores and reasons to debaters
-          and to the audience when you are ready. Certify the event when the
-          results are final.
+          Daisy Tab is new. Creating a tournament, adding its events and pairing
+          each round are in the host area now. Opening registration, accepting
+          entries and adding judges are not in the host area yet, so talk to us
+          before you set a date.
         </p>
       </Story>
 
@@ -118,10 +126,10 @@ export function TabPage({
           {first && last && first !== last
             ? ` Moving from ${formatUsd(first.cents)} to ${formatUsd(last.cents)} costs the ${formatUsd(last.cents - first.cents)} difference.`
             : null}{' '}
-          A league plan covers all of its league’s tournaments.
+          Tournaments a league runs are covered.
         </p>
         <div className="flex flex-wrap items-center gap-4">
-          <Action href={links.host}>Host a tournament</Action>
+          <Action href={links.support}>Talk to us</Action>
           <TextLink href={links.pricing}>Plans and pricing</TextLink>
         </div>
       </Closing>

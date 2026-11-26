@@ -97,10 +97,10 @@ export function ParentsPage({
       <Story id="feedback" title="Feedback they can use">
         <p>
           A judged round comes back with a ballot: who won, why, and a score for
-          each part of the case. Ranked rounds are judged free. With Premium, an
-          AI judge can score a practice round the moment it ends, so they never
-          wait for a judge, and the rounds they host can be recorded, so you can
-          watch one back together and see what to work on next.
+          each part of the case. Ranked rounds are judged free.
+          {links.premiumOpen
+            ? ' With Premium, an AI judge can score the practice rounds they host the moment each one ends, and those rounds can be recorded, so you can watch one back together and see what to work on next.'
+            : null}
         </p>
       </Story>
 
@@ -133,8 +133,10 @@ export function ParentsPage({
         <div className="flex flex-wrap items-center gap-3">
           <Action href={links.addChild}>Sign up your child</Action>
           <span className="text-sm text-ink-muted">
-            Debating is free. Premium is {formatUsd(prices.premiumMonthlyCents)}{' '}
-            {monthlyPeriodText}.{' '}
+            Debating is free.
+            {links.premiumOpen
+              ? ` Premium is ${formatUsd(prices.premiumMonthlyCents)} ${monthlyPeriodText}.`
+              : null}{' '}
             <TextLink href={links.pricing}>Plans and pricing</TextLink>
           </span>
         </div>

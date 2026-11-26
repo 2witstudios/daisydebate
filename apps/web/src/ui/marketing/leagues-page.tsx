@@ -61,7 +61,7 @@ function Trees() {
 /**
  * /leagues: for a league director. Daisy is itself a league with standing
  * lobbies (ADR 0162); another league gets the same shape. The page says who
- * sets a league up: Daisy does, with the league, and its managers run it
+ * sets a league up: Daisy does, with the league, and the people it names run it
  * from there.
  */
 export function LeaguesPage({ links }: { readonly links: AudienceLinks }) {
@@ -92,14 +92,15 @@ export function LeaguesPage({ links }: { readonly links: AudienceLinks }) {
         <p>
           Each lobby runs one season at a time. League ladders run on Freestyle,
           Daisy’s rated format, and ratings use Glicko-2, the system chess sites
-          use. <a href={helpTopicHref('ratings')}>How rating works</a>
+          use.{' '}
+          <TextLink href={helpTopicHref('ratings')}>How rating works</TextLink>
         </p>
       </Story>
 
       <Story id="tab" title="Tournaments built in">
         <p>
           Daisy Tab pairs each round, collects the ballots and keeps the
-          standings, and a league plan covers every tournament your league runs.{' '}
+          standings, and the tournaments your league runs are covered.{' '}
           <TextLink href={links.tab}>Daisy Tab</TextLink>
         </p>
       </Story>
@@ -108,8 +109,8 @@ export function LeaguesPage({ links }: { readonly links: AudienceLinks }) {
         <p>
           Tell us your league’s name, how many schools, how many seasons a year
           and what you need. We reply within two working days and set your
-          league up with you. From there your managers run its lobbies, ladders,
-          seasons and tournaments from the league’s host area.
+          league up with you. From there the people you name run its lobbies,
+          ladders, seasons and tournaments from the league’s host area.
         </p>
       </Story>
 

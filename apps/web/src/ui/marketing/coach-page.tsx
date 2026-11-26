@@ -89,23 +89,24 @@ export function CoachPage({
       <Story id="between" title="Practice between meetings and tournaments">
         <p>
           Your students don’t have to wait for the next club meeting or
-          tournament weekend to get a round in. Pair them with each other, or
-          let them take on students from other clubs in the lobby, in the format
-          they compete in.
+          tournament weekend to get a round in. They can debate each other, or
+          take on students from other clubs in the lobby, in the format they
+          compete in.
         </p>
       </Story>
 
       <Story id="review" title="A ballot and a recording to review">
         <p>
-          Every club seat comes with Premium. An AI judge can score a practice
-          round the moment it ends, and the rounds a student hosts can be
-          recorded: open one with them, ballot beside it, and go through it
-          speech by speech. You, parents and alumni can judge from home too.
+          Every club seat comes with Premium. An AI judge can score the practice
+          rounds a student hosts the moment each one ends, and those rounds can
+          be recorded: a student can open theirs with you, ballot beside it, and
+          go through it speech by speech. You, parents and alumni can judge from
+          home too.
         </p>
         <p>
-          In a school Club, coaches can follow their under-18 students’ rounds
-          as they happen, with the clock, speaking order and transcript, and
-          open the recordings afterwards.
+          In a school Club, coaches can also follow their under-18 students’
+          Youth rounds as they happen, with the clock, speaking order and
+          transcript, and open the recordings afterwards.
         </p>
       </Story>
 

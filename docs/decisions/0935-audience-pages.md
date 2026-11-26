@@ -26,20 +26,26 @@ for everyone.
    does, the page says less: practice bots are not offered while
    `bot-debates` is unreleased; a linked parent or coach follows a Youth
    Round live by its clock, speaking order and transcript, and sees video in
-   the Recording; a recording of a casual Round needs its host to hold
-   Premium; `/tab` names the three pairing methods a host can choose and
-   makes no claim of venue check-in; `/leagues` says Daisy sets a league up
-   with it, because a league cannot yet create itself.
+   the Recording; recording and the AI judge on a casual Round need its host
+   to hold Premium, so the copy says "the rounds they host"; `/leagues` says
+   Daisy sets a league up with it, because a league cannot yet create
+   itself. `/tab` claims no in-person mode, because every debate runs in its
+   Daisy Room, and it says outright which host steps are not in the host
+   area yet (opening registration, accepting entries, adding judges). Its
+   main action is "Talk to us", to `/support`, with the host area second.
+   Saying what is missing is a fact about today, not a promise.
 3. **Every number comes from its owner.** Prices from `planPrices`, the seat
    bound from `clubSeatBounds`, NCFCA speaking order and times from the
    format catalog, the ballot's groups and categories from the current
    rubric. Copy spells no amount.
 4. **A closed release leaves no trace.** Each destination follows its own
    release flag, read as `/pricing` reads them. A link whose release is
-   closed is left out, never shown as "coming soon". A page whose own main
-   action is closed does not exist: `/parents` with `parental-controls`,
-   `/coach` with `club-seats`, `/leagues` with `league-requests`, `/tab`
-   with `host-tiers`. `/ncfca` needs none.
+   closed is left out, never shown as "coming soon". Premium's sentences and
+   its price show only while `premium-checkout` sells it, and the account
+   linking a parent does only while `parental-controls` is open. A page
+   whose own main action is closed does not exist: `/parents` with
+   `parental-controls`, `/coach` with `club-seats`, `/leagues` with
+   `league-requests`, `/tab` with `host-tiers`. `/ncfca` needs none.
 5. **NCFCA is named nominatively.** The name says whose published rules the
    practice rounds follow, and the page carries one line saying Daisy is not
    affiliated with, endorsed by or sponsored by NCFCA.
@@ -52,6 +58,11 @@ for everyone.
 8. **"Coach" stays a human.** The reserved-word rule admits the audience
    pages and About's row, where the word names a human coach.
 
+9. **These pages may explain, and may name a lobby.** They are reading
+   surfaces, like the guides: the rule that copy says only what the
+   interface cannot does not bind them. They name the Youth lobby and its
+   ladder because the reader is choosing whether a child belongs there.
+
 ## Consequences
 
 - A page can fall behind the product in both directions. When bot debates,
@@ -61,5 +72,5 @@ for everyone.
   forbidden wording, not the prose.
 - On a deployment with no stored release state, only `/ncfca` exists, and
   it links only to sign-in.
-- Help and About still describe leagues as "early access"; that copy is not
-  changed here.
+- Help and About still describe leagues as "early access". That agrees with
+  `/leagues`, where Daisy sets a league up with it, and is not changed here.

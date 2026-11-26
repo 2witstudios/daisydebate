@@ -16,6 +16,10 @@ export type AudienceReleases = PlanReleases & {
  */
 export type AudienceLinks = {
   readonly signIn: string;
+  /** Whether Premium is sold: its sentences and price show only while it is. */
+  readonly premiumOpen: boolean;
+  /** Public and always open: where a reader writes to Daisy. */
+  readonly support: string;
   readonly pricing: string | null;
   /** A parent adds or links a child here; the settings guard signs them in first. */
   readonly addChild: string | null;
@@ -34,6 +38,8 @@ const when = (open: boolean, href: string): string | null =>
 
 export const audienceLinks = (releases: AudienceReleases): AudienceLinks => ({
   signIn: '/sign-in',
+  premiumOpen: releases.premiumCheckout,
+  support: '/support',
   pricing: when(releases.pricingPage, '/pricing'),
   addChild: when(releases.parentalControls, '/settings/parental-controls'),
   startClub: when(releases.clubSeats, '/clubs/new'),

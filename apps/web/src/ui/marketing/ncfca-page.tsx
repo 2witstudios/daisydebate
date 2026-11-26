@@ -105,20 +105,24 @@ export function NcfcaPage({
 
       <Story id="ballot" title="A ballot they can use">
         <p>
-          You, another parent or an alumnus can judge from wherever you are.
-          With Premium, an AI judge can score a practice round the moment it
-          ends: a decision, the reason for it, and scores in {categoryCount}{' '}
-          categories for each side.
+          You, another parent or an alumnus can judge from wherever you are, and
+          the ballot comes back with a decision, the reason for it, and scores
+          in {categoryCount} categories for each side.
+          {links.premiumOpen
+            ? ' With Premium, an AI judge can score the practice rounds your student hosts, the moment each one ends.'
+            : null}
         </p>
       </Story>
 
-      <Story id="watch-back" title="Watch it back together">
-        <p>
-          With Premium, the practice rounds your student hosts can be recorded.
-          Watch one back with the ballot beside it and see what to work on
-          before the next tournament.
-        </p>
-      </Story>
+      {links.premiumOpen ? (
+        <Story id="watch-back" title="Watch it back together">
+          <p>
+            With Premium, the practice rounds your student hosts can be
+            recorded. Watch one back with the ballot beside it and see what to
+            work on before the next tournament.
+          </p>
+        </Story>
+      ) : null}
 
       <Story id="guardrails" title="A lobby for students under 18">
         <p>
@@ -141,11 +145,13 @@ export function NcfcaPage({
 
       <Closing id="cost" title="What it costs">
         <p className="max-w-reading text-base leading-normal text-ink-muted">
-          Debating other people is free. Premium is {premium}: recorded practice
-          rounds, AI ballots on practice rounds, and Round analysis.
-          {links.startClub === null
-            ? null
-            : ` For several children, a family Club is ${seat}, and every seat is Premium.`}{' '}
+          Debating other people is free.
+          {links.premiumOpen
+            ? ` Premium is ${premium}: recording and AI ballots on the practice rounds your student hosts, and Round analysis.`
+            : null}
+          {links.premiumOpen && links.startClub !== null
+            ? ` For several children, a family Club is ${seat}, and every seat is Premium.`
+            : null}{' '}
           <TextLink href={links.pricing}>Plans and pricing</TextLink>
         </p>
         <div className="flex flex-wrap items-center gap-3">
