@@ -37,12 +37,16 @@ for everyone.
 3. **Every number comes from its owner.** Prices from `planPrices`, the seat
    bound from `clubSeatBounds`, NCFCA speaking order and times from the
    format catalog, the ballot's groups and categories from the current
-   rubric. Copy spells no amount.
+   rubric. Copy spells no price, time or count; the ballot's 1 to 5 scale and a
+   Club's first seat are written out.
 4. **A closed release leaves no trace.** Each destination follows its own
    release flag, read as `/pricing` reads them. A link whose release is
-   closed is left out, never shown as "coming soon". Premium's sentences and
-   its price show only while `premium-checkout` sells it, and the account
-   linking a parent does only while `parental-controls` is open. A page
+   closed is left out, never shown as "coming soon". On `/ncfca` and
+   `/parents`, Premium's sentences and price show only while
+   `premium-checkout` sells it, and the account linking a parent does only
+   while `parental-controls` is open. `/coach` names Premium as what a seat
+   carries. Each price follows the release that sells it: `club-seats` for
+   the seat, `host-tiers` for hosting. A page
    whose own main action is closed does not exist: `/parents` with
    `parental-controls`, `/coach` with `club-seats`, `/leagues` with
    `league-requests`, `/tab` with `host-tiers`. `/ncfca` needs none.
@@ -57,11 +61,11 @@ for everyone.
    nothing.
 8. **"Coach" stays a human.** The reserved-word rule admits the audience
    pages and About's row, where the word names a human coach.
-
 9. **These pages may explain, and may name a lobby.** They are reading
    surfaces, like the guides: the rule that copy says only what the
-   interface cannot does not bind them. They name the Youth lobby and its
-   ladder because the reader is choosing whether a child belongs there.
+   interface cannot does not bind them. They name Daisy's lobbies and its
+   ranked format, Freestyle, because the reader is deciding where a debater
+   belongs.
 
 ## Consequences
 

@@ -90,10 +90,11 @@ export function TabPage({
 
       <Story id="today" title="Where Daisy Tab is today">
         <p>
-          Daisy Tab is new. Creating a tournament, adding its events and pairing
-          each round are in the host area now. Opening registration, accepting
-          entries and adding judges are not in the host area yet, so talk to us
-          before you set a date.
+          Daisy Tab is new. You can create a tournament and add its events in
+          the host area now, and the controls to pair and publish a round are
+          there too. Opening registration, accepting entries and adding judges
+          are not in the host area yet, and a round cannot be paired without
+          them, so talk to us before you set a date.
         </p>
       </Story>
 

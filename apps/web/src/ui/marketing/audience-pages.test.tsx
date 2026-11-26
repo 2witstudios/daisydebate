@@ -212,6 +212,18 @@ describe('the audience pages', () => {
     });
   });
 
+  test('a family Club is priced on the NCFCA page only while Premium is sold too', () => {
+    const words = renderAccessible(
+      pages.ncfca!({ ...closedLinks, startClub: '/clubs/new' }),
+    ).textContent();
+    assert({
+      given: 'Club seats open while Premium is closed',
+      should: 'name no Club price and no Premium',
+      actual: /Premium|\$|family Club/.test(words),
+      expected: false,
+    });
+  });
+
   test('the Tab page says what a host cannot yet do alone, and claims no venue', () => {
     const words = renderAccessible(pages.tab!(openLinks)).textContent();
     assert({
