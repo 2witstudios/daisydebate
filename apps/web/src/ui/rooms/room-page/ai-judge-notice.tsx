@@ -7,6 +7,15 @@ import { invitePeopleTitleId } from './invite-people-title';
 export const aiJudgeSeatable = (seating: RoomView['aiJudgeSeating']) =>
   seating === 'free' || seating === 'included';
 
+/** Whether this view shows the AI judge upgrade panel, the screen's one panel when it does. */
+export const aiJudgeUpgradeShown = (
+  view: Pick<RoomView, 'aiJudgeSeating' | 'definition'>,
+) =>
+  view.definition.seats.judges > 0 &&
+  (view.aiJudgeSeating === 'premium' ||
+    view.aiJudgeSeating === 'with-bot' ||
+    view.aiJudgeSeating === 'not-included');
+
 const usedCopy = {
   premium: 'You’ve used your free AI-judged Round. ',
   // The free AI judge comes bundled with a free bot debate, which is no

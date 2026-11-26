@@ -5,6 +5,8 @@ Builds on [ADR 0027](0027-theme-preference.md) (theme) and
 [ADR 0028](0028-tailwind-v4.md) (token lock), which stays the authority for
 how tokens are written and used. The usage guide is
 [docs/development/brand.md](../development/brand.md).
+Amended by [ADR 0933](0933-premium-mark-and-upgrade-moments.md): gold also
+carries the Premium mark.
 
 ## Context
 

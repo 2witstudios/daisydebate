@@ -9,6 +9,9 @@ import { buttonClass } from '../../components/button/button-class';
 import { SearchForm } from '../../components/search-form/search-form';
 import { CopyLink } from '../../watch/copy-link/copy-link';
 import { StateCard } from '../../watch/state-card/state-card';
+import { UpgradePanel } from '../../components/upgrade-panel/upgrade-panel';
+import { card, label } from './card-class';
+import { DownloadOffer } from './download-offer';
 import { RecordingPlayer } from '../recording-player/recording-player';
 import { RecordingPreparationStatus } from '../recording-preparation/recording-preparation';
 import { RefreshWhilePreparing } from '../recording-preparation/refresh-while-preparing';
@@ -29,10 +32,6 @@ export const removalNotices = {
   changed: 'This recording changed. Check it and try again.',
   refused: 'This recording cannot be removed.',
 } as const;
-
-const card =
-  'flex flex-col gap-3 rounded-lg border border-border bg-surface p-4 shadow-1';
-const label = 'text-xs font-bold tracking-widest text-ink-muted uppercase';
 
 const VISIBILITY: Readonly<Record<History['visibility'], string>> = {
   public: 'Anyone can replay it.',
@@ -251,6 +250,15 @@ export function RecordingHistory({
       <div className="flex items-start gap-6 max-compact:flex-col">
         <div className="flex min-w-0 flex-1 flex-col gap-4 max-compact:w-full">
           <Media media={screen.media} />
+          {screen.premiumOffer === 'record' ? (
+            <UpgradePanel
+              title="Watch your next one back"
+              alternative={{ kind: 'dismiss', label: 'Not now' }}
+            >
+              Host your casual Rounds with Premium to record them, then study
+              what you said and what you missed.
+            </UpgradePanel>
+          ) : null}
           {screen.transcript ? (
             <Transcript
               roundId={screen.roundId}
@@ -262,6 +270,7 @@ export function RecordingHistory({
           {screen.result ? <Result result={screen.result} /> : null}
           <Sharing screen={screen} />
           {screen.downloadHref ? <Download href={screen.downloadHref} /> : null}
+          {screen.premiumOffer === 'download' ? <DownloadOffer /> : null}
           {screen.removal ? (
             <Removal
               roundId={screen.roundId}

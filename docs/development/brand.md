@@ -29,6 +29,7 @@ change, open the brand sheet on `/foundation` with
 | Browser tab, app icon, 16–32px               | `DaisyTile`                                                  |
 | Anything about the two sides of a debate     | `OpposingPetals`                                             |
 | Below 24px                                   | `mono` or `DaisyTile`; the primary colours blur at that size |
+| Premium: beside a holder's name, or an offer | `PremiumMark`, the one-colour bloom in gold (ADR 0933)       |
 
 - Do not recolour a variant with classes, and do not rotate, stretch or
   outline a mark.
@@ -83,7 +84,7 @@ that would otherwise be all green ([ADR 0051](../decisions/0051-area-hues.md)):
 clay (competition), sky (practice), teal (rooms) and plum (bots and judging), each with a
 `-soft` tint. Use them for an icon chip, a tinted surface or a hover border,
 never for body text, status or a primary button, and always beside a label.
-Gold stays for honours and events, and the live red for "live".
+Gold stays for honours, events and the Premium mark (ADR 0933), and the live red for "live".
 
 ## Contrast
 

@@ -91,6 +91,8 @@ export type HistoryInputs = {
   ) => Promise<HistoryTranscript | null>;
   readonly readBallots: (roundId: string) => Promise<readonly HistoryBallot[]>;
   readonly holdsRecordingDownload: (userId: string) => Promise<boolean>;
+  /** Read only when an unrecorded casual Round could offer Premium. */
+  readonly holdsCasualCapture: (userId: string) => Promise<boolean>;
   /** The reuse fence (ADR 0161), read only when a download could be offered. */
   readonly readReuseFenced: (roundId: string) => Promise<boolean>;
   readonly findRecordingByRound: (
@@ -169,6 +171,8 @@ export type RecordingHistoryScreen =
       readonly transcript: TranscriptPanel | null;
       readonly result: ResultPanel | null;
       readonly downloadHref: string | null;
+      /** What Premium would add here for an account without it; one at most. */
+      readonly premiumOffer: RecordingPremiumOffer;
       readonly removal: {
         readonly recordingId: string;
         readonly version: number;
@@ -369,6 +373,42 @@ const reportTargetOf = (record: RecordingRecord | null, roundId: string) =>
         label: 'Report this round',
       } as const);
 
+type RecordingPremiumOffer = 'record' | 'download' | null;
+
+/**
+ * The page's one Premium offer (ADR 0933). `record`: a debater or the host
+ * opened their own casual Round and it was never recorded. `download`: an
+ * account lacks only the download entitlement, so everything else
+ * `mayDownload` asks holds, the reuse fence included. A Youth Round offers
+ * neither, and a read that fails offers none.
+ */
+const premiumOfferOf = async (
+  inputs: Pick<HistoryInputs, 'holdsCasualCapture' | 'readReuseFenced'>,
+  input: {
+    readonly round: HistoryRound;
+    readonly viewer: RecordingViewer;
+    readonly state: RecordingMediaState;
+    readonly watchable: boolean;
+    readonly subscribed: boolean;
+  },
+): Promise<RecordingPremiumOffer> => {
+  const { round, viewer, state } = input;
+  if (viewer.kind !== 'account' || round.youth !== null) return null;
+  if (
+    state === 'not_recorded' &&
+    round.competitionType !== 'ranked' &&
+    (round.hostActorId === viewer.actorId ||
+      round.debaters.some((seat) => seat.actorId === viewer.actorId))
+  )
+    return (await inputs.holdsCasualCapture(viewer.userId).catch(() => true))
+      ? null
+      : 'record';
+  if (!input.watchable || input.subscribed) return null;
+  return (await inputs.readReuseFenced(round.id).catch(() => true))
+    ? null
+    : 'download';
+};
+
 const permittedReads = (
   inputs: HistoryInputs,
   roundId: string,
@@ -452,6 +492,13 @@ export const openRecordingHistory = async (
     reportTarget: reportTargetOf(record, round.id),
     transcript: transcript && transcriptPanel(round, transcript, input.q),
     result: ballots && resultPanel(round, ballots),
+    premiumOffer: await premiumOfferOf(inputs, {
+      round,
+      viewer: input.viewer,
+      state,
+      watchable: permissions.media && record?.lifecycle.status === 'ready',
+      subscribed,
+    }),
     ...recordingActions({
       record,
       round,

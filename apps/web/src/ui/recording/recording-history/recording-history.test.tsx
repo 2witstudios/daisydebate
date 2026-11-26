@@ -33,6 +33,7 @@ const screen: Extract<RecordingHistoryScreen, { kind: 'history' }> = {
   transcript: null,
   result: null,
   downloadHref: null,
+  premiumOffer: null,
   removal: null,
   reportTarget: {
     targetKind: 'recording',
@@ -230,6 +231,54 @@ describe('RecordingHistory, a Youth Round (ADR 0161)', () => {
         youth().has('button', 'Remove recording'),
       ],
       expected: [true, true, false],
+    });
+  });
+});
+
+describe('the Recording page’s Premium offer', () => {
+  test('an unrecorded casual Round offers recording under the empty video', () => {
+    const view = render({
+      media: { state: 'not_recorded' },
+      premiumOffer: 'record',
+    });
+    const text = view.textContent();
+    assert({
+      given: 'a debater on their own casual Round that was not recorded',
+      should:
+        'say it was not recorded, offer Premium to record the next one, and leave a way on',
+      actual: [
+        text.includes('This debate was not recorded'),
+        text.includes('Watch your next one back'),
+        view.attribute('link', 'Get Premium', 'href'),
+        view.has('button', 'Not now'),
+        view.has('region', 'Download'),
+      ],
+      expected: [true, true, '/premium', true, false],
+    });
+  });
+
+  test('a free account sees the download control, and no panel until it reaches', () => {
+    const view = render({ premiumOffer: 'download' });
+    assert({
+      given: 'a free account that may watch a ready video',
+      should:
+        'show a Download video button that is not a download link, with no panel yet',
+      actual: [
+        view.within('region', 'Download').has('button', 'Download video'),
+        view.has('link', 'Download video'),
+        view.has('link', 'Get Premium'),
+      ],
+      expected: [true, false, false],
+    });
+  });
+
+  test('a page with no offer shows no Premium prompt', () => {
+    const view = render({ media: { state: 'not_recorded' } });
+    assert({
+      given: 'an unrecorded Round with no offer for this viewer',
+      should: 'show neither a panel nor a download control',
+      actual: [view.has('link', 'Get Premium'), view.has('region', 'Download')],
+      expected: [false, false],
     });
   });
 });

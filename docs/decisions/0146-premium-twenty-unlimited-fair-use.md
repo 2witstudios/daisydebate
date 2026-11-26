@@ -9,6 +9,8 @@ quota and the member usage display) and
 `AI_ROUND_MONTHLY_CAP`, is retired).
 Amended by [ADR 0148](0148-club-seats.md): Club seats grant the same
 Premium, from source `organization_seat`, under the same renewal grace.
+Amended by [ADR 0933](0933-premium-mark-and-upgrade-moments.md): the
+Premium mark, one panel a screen, and two more upgrade moments.
 
 ## Context
 
