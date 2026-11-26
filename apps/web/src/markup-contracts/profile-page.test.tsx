@@ -34,6 +34,7 @@ describe('ProfilePage markup', () => {
           username: 'debater-a',
           memberSince: '2026-09-14T00:00:00.000Z',
           closed: false,
+          premium: false,
           me: false,
           record: { wins: 3, losses: 1 },
           history: [

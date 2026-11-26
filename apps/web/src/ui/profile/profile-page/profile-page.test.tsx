@@ -41,6 +41,7 @@ const profile = (overrides: Partial<ProfileView> = {}): ProfileView => ({
   history: [entry({})],
   nextBefore: null,
   shown: nothingShown,
+  premium: false,
   ...overrides,
 });
 
@@ -348,6 +349,32 @@ describe('ProfilePage', () => {
       should: 'lead to it',
       actual: live.attribute('link', 'Watch live: Friday night', 'href'),
       expected: '/watch/their-round',
+    });
+  });
+});
+
+describe('the Premium mark on a profile', () => {
+  test('beside the name of a member who holds Premium, and nobody else', () => {
+    const render = (premium: boolean) =>
+      renderAccessible(
+        h(ProfilePage, {
+          paged: false,
+          profile: profile({
+            premium,
+            history: [],
+            nextBefore: null,
+            shown: nothingShown,
+          }),
+        } as never),
+      );
+    assert({
+      given: 'a profile whose member holds Premium, and one who does not',
+      should: 'show an image named Premium only on the first',
+      actual: [
+        render(true).has('img', 'Premium'),
+        render(false).has('img', 'Premium'),
+      ],
+      expected: [true, false],
     });
   });
 });

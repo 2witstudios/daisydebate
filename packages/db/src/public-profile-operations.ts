@@ -17,6 +17,7 @@ import { run, query as queryRows } from './raw-rows';
 import type { Tx, TxSource } from './tx';
 import { takeLock, transactionLocks } from './locks';
 import { z } from 'zod';
+import { readEntitlementGrants } from './entitlement-grants';
 
 /**
  * The public profile's storage (ADR 0143): a member's display name and bio,
@@ -419,6 +420,16 @@ export const publicProfileOperations = ({
         photoId: row?.photo_id ?? null,
       };
     }),
+
+  /**
+   * A member's entitlement grants, for the Premium mark on their profile
+   * (ADR 0933). The caller applies the validity rule and keeps only the
+   * answer.
+   */
+  readMemberEntitlementGrants: (userId: string) =>
+    instrumented(eventSink, 'readMemberEntitlementGrants', () =>
+      readEntitlementGrants(database, idSchema.parse(userId)),
+    ),
 
   /** Terminal photos whose image deletion is due, oldest first, bounded. */
   duePhotoDeletions: (input: {

@@ -41,6 +41,8 @@ export type ShownPublicProfile = {
 /** The profile page's read: the record and history, and the public profile. */
 export type ProfileView = MemberProfile & {
   readonly shown: ShownPublicProfile;
+  /** Whether they wear the Premium mark (ADR 0933); never for a closed account. */
+  readonly premium: boolean;
 };
 
 const nothingShown: ShownPublicProfile = {
@@ -138,7 +140,13 @@ export async function readProfile(
   {
     store,
     limiter,
-  }: { readonly store: ProfileStore; readonly limiter: RateLimiter },
+    wearsPremiumMark,
+  }: {
+    readonly store: ProfileStore;
+    readonly limiter: RateLimiter;
+    /** By user id. The mark decorates the page: a failed read shows none. */
+    readonly wearsPremiumMark: (userId: string) => Promise<boolean>;
+  },
   input: {
     readonly identity: Identity;
     readonly username: string;
@@ -181,13 +189,14 @@ export async function readProfile(
     clock: spectatorClockAt(input.now),
   });
   if (read === null) return null;
-  const shown = read.member.closed
-    ? nothingShown
-    : // The public text and photo decorate the page; without them it shows
-      // the username and record, never an error (the store logs the failure).
-      await store
-        .readPublicProfile(read.member.actorId)
-        .catch(() => nothingShown);
+  // The public text, photo and mark decorate the page; without them it shows
+  // the username and record, never an error (the store logs the failure).
+  const [shown, premium] = read.member.closed
+    ? [nothingShown, false]
+    : await Promise.all([
+        store.readPublicProfile(read.member.actorId).catch(() => nothingShown),
+        wearsPremiumMark(read.member.userId).catch(() => false),
+      ]);
   return {
     version: 1,
     username: read.member.username,
@@ -198,5 +207,6 @@ export async function readProfile(
     history: read.rows.flatMap(toEntry),
     nextBefore: read.nextBefore,
     shown,
+    premium,
   };
 }

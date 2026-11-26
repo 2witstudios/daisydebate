@@ -427,6 +427,37 @@ test('cards: one statement for many members, published photo only', async () => 
   });
 });
 
+test('a member’s grants: their own, and none for another member', async () => {
+  await withProfiles(async (context) => {
+    const other = await createAuthorizationSubject(context.f, 'pending');
+    const kinds = async (userId: string) =>
+      (await context.profiles.readMemberEntitlementGrants(userId))
+        .map((grant) => `${grant.source}:${grant.entitlement}`)
+        .sort();
+    assert({
+      given:
+        'a member approved for the beta, one still pending, and no such account',
+      should: 'read the first member’s five beta grants and nothing else',
+      actual: [
+        await kinds(context.member.userId),
+        await kinds(other.userId),
+        await kinds(createId()),
+      ],
+      expected: [
+        [
+          'beta:ai_rounds',
+          'beta:casual_ai_judge',
+          'beta:casual_capture',
+          'beta:recording_download',
+          'beta:round_analysis',
+        ],
+        [],
+        [],
+      ],
+    });
+  });
+});
+
 test('a repeat report of profile text reopens a resolved one once the text changed', async () => {
   await withProfiles(async (context) => {
     const written = await context.profiles.writePublicProfileText(

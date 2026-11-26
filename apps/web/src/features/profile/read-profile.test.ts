@@ -150,7 +150,7 @@ const profileFor = (
 ) => {
   const { store, reads } = storeFor(true, account);
   return readProfile(
-    { store, limiter },
+    { store, limiter, wearsPremiumMark: async () => false },
     { identity, username: 'debater-a', query, now: '2026-11-02T00:00:00.000Z' },
   ).then((profile) => ({ profile, reads }));
 };
@@ -197,7 +197,7 @@ describe('readProfile', () => {
     const live = await profileFor(visitor);
     const closed = storeFor(true, null, true);
     const gone = await readProfile(
-      { store: closed.store, limiter },
+      { store: closed.store, limiter, wearsPremiumMark: async () => false },
       {
         identity: visitor,
         username: 'debater-a',
@@ -219,6 +219,38 @@ describe('readProfile', () => {
     });
   });
 
+  test('the Premium mark', async () => {
+    const at = (
+      closed: boolean,
+      wearsPremiumMark: (userId: string) => Promise<boolean>,
+    ) =>
+      readProfile(
+        {
+          store: storeFor(true, null, closed).store,
+          limiter,
+          wearsPremiumMark,
+        },
+        {
+          identity: visitor,
+          username: 'debater-a',
+          query: {},
+          now: '2026-11-02T00:00:00.000Z',
+        },
+      ).then((profile) => profile?.premium);
+    assert({
+      given:
+        'a holder, a member who is not, a holder whose account closed, and a read that fails',
+      should: 'mark only the live holder, asking by the member’s user id',
+      actual: [
+        await at(false, async (userId) => userId === owner.userId),
+        await at(false, async () => false),
+        await at(true, async () => true),
+        await at(false, async () => Promise.reject(new Error('unavailable'))),
+      ],
+      expected: [true, false, false, false],
+    });
+  });
+
   test('a failed public read still shows the record', async () => {
     const { store } = storeFor(true);
     const failing: ProfileStore = {
@@ -228,7 +260,7 @@ describe('readProfile', () => {
       },
     };
     const profile = await readProfile(
-      { store: failing, limiter },
+      { store: failing, limiter, wearsPremiumMark: async () => false },
       {
         identity: visitor,
         username: 'debater-a',
@@ -285,7 +317,7 @@ describe('readProfile', () => {
       should: 'refuse as an outage before any read',
       actual: () =>
         readProfile(
-          { store, limiter },
+          { store, limiter, wearsPremiumMark: async () => false },
           {
             now: '2026-11-02T00:00:00.000Z',
             identity: {
@@ -305,7 +337,11 @@ describe('readProfile', () => {
       actual: [
         reads.length,
         await readProfile(
-          { store: missing.store, limiter },
+          {
+            store: missing.store,
+            limiter,
+            wearsPremiumMark: async () => false,
+          },
           {
             now: '2026-11-02T00:00:00.000Z',
             identity: visitor,
@@ -357,6 +393,7 @@ test('profile budget refusals precede every durable profile read', async () => {
           {
             store,
             limiter: { consume: async () => decision! },
+            wearsPremiumMark: async () => false,
           },
           {
             identity: visitor,
@@ -390,7 +427,7 @@ test('profile read budgets cannot be split by username or history cursor', async
   };
   for (const username of ['debater-a', 'different-member'])
     await readProfile(
-      { store, limiter: budget },
+      { store, limiter: budget, wearsPremiumMark: async () => false },
       {
         now: '2026-11-02T00:00:00.000Z',
         identity: visitor,
