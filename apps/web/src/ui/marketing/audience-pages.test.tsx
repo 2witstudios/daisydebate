@@ -29,7 +29,12 @@ const appDirectory = join(import.meta.dir, '../../app');
 const pages: Readonly<Record<string, (links: AudienceLinks) => ReactElement>> =
   {
     ncfca: (links) => (
-      <NcfcaPage times={ncfcaTimes()} prices={planPrices} links={links} />
+      <NcfcaPage
+        times={ncfcaTimes()}
+        categoryCount={ballotCategoryCount()}
+        prices={planPrices}
+        links={links}
+      />
     ),
     parents: (links) => <ParentsPage prices={planPrices} links={links} />,
     coach: (links) => (
@@ -137,7 +142,7 @@ describe('the audience pages', () => {
         'link only to sign-in and Help, and never say something is coming soon',
       actual: closed,
       expected: [
-        ['ncfca', ['/sign-in'], false],
+        ['ncfca', ['/sign-in', '/sign-in'], false],
         ['parents', [], false],
         ['coach', [], false],
         ['leagues', ['/help#ratings'], false],
@@ -160,13 +165,35 @@ describe('the audience pages', () => {
         text('coach').includes('$10 per seat, a month, from 1 to 200 seats'),
         text('coach').includes('A club of 12 is $120 a month'),
         text('coach').includes('in 10 categories'),
+        text('ncfca').includes('scores in 10 categories for each side'),
         text('tab').includes('Free up to 16 entries'),
         text('tab').includes(
           'Moving from $99 to $199 costs the $100 difference',
         ),
         text('parents').includes('Premium is $20 a month'),
       ],
-      expected: Array(10).fill(true),
+      expected: Array(11).fill(true),
+    });
+  });
+
+  test('the NCFCA page promises no parental control while that release is closed', () => {
+    const words = (links: AudienceLinks) =>
+      renderAccessible(pages.ncfca!(links)).textContent();
+    assert({
+      given: 'the NCFCA page with parental controls open, then closed',
+      should:
+        'describe linking accounts only while a parent can, and lead a student to sign up either way',
+      actual: [
+        words(openLinks).includes('Link your account to theirs'),
+        words(closedLinks).includes('Link your account to theirs'),
+        words(closedLinks).includes('Sign up your student'),
+        renderAccessible(pages.ncfca!(closedLinks)).attribute(
+          'link',
+          'Sign up',
+          'href',
+        ),
+      ],
+      expected: [true, false, false, '/sign-in'],
     });
   });
 

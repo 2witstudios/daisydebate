@@ -13,13 +13,20 @@ import { requestPlanReleases, requestPricingOpen } from './pricing/releases';
  * the way /pricing reads them.
  */
 export const requestAudienceLinks = async (): Promise<AudienceLinks> => {
-  const [plans, pricingPage, parentalControls] = await Promise.all([
-    requestPlanReleases(),
-    requestPricingOpen(),
-    requestReleaseEnabled(
-      'parental-controls',
-      releaseAccountOf(await requestIdentity()),
-    ),
-  ]);
-  return audienceLinks({ ...plans, pricingPage, parentalControls });
+  const account = releaseAccountOf(await requestIdentity());
+  const [plans, pricingPage, parentalControls, leagueRequests] =
+    await Promise.all([
+      requestPlanReleases(),
+      requestPricingOpen(),
+      requestReleaseEnabled('parental-controls', account),
+      // /contact/league opens for everyone or no one: it reads no account, so
+      // neither does the page that exists to send people there.
+      requestReleaseEnabled('league-requests', null),
+    ]);
+  return audienceLinks({
+    ...plans,
+    leagueRequests,
+    pricingPage,
+    parentalControls,
+  });
 };

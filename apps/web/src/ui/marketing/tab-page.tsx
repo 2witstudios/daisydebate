@@ -53,7 +53,8 @@ export function TabPage({
   readonly prices: PlanPrices;
   readonly links: AudienceLinks;
 }) {
-  const [first, last] = prices.host.eventUpgrades;
+  const first = prices.host.eventUpgrades.at(0);
+  const last = prices.host.eventUpgrades.at(-1);
   return (
     <AudiencePage
       title="Tab your tournament on Daisy"
@@ -98,7 +99,10 @@ export function TabPage({
             </dd>
           </div>
           {prices.host.eventUpgrades.map((upgrade) => (
-            <div key={upgrade.cents} className="flex flex-col gap-1">
+            <div
+              key={entryLimitText(upgrade.entryLimit)}
+              className="flex flex-col gap-1"
+            >
               <dt className="font-display text-xl font-semibold">
                 {formatUsd(upgrade.cents)}
               </dt>

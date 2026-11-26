@@ -402,6 +402,8 @@ const humanCoaching = [
   'apps/web/src/features/marketing/',
   'apps/web/src/ui/marketing/',
   'apps/web/src/ui/about/about-page/about-page.tsx',
+  // The generated route list carries the page's own path.
+  'packages/logger/src/app-routes.generated.ts',
 ];
 export const reservedWordIssue = (file: string, word: string): string | null =>
   /coach/i.test(word) &&

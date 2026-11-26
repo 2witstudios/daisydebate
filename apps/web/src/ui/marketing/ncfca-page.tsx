@@ -49,10 +49,13 @@ function Season() {
  */
 export function NcfcaPage({
   times,
+  categoryCount,
   prices,
   links,
 }: {
   readonly times: readonly FormatTimes[];
+  /** How many categories the current ballot scores. */
+  readonly categoryCount: number;
   readonly prices: PlanPrices;
   readonly links: AudienceLinks;
 }) {
@@ -65,7 +68,10 @@ export function NcfcaPage({
       actions={
         <>
           <Action href={links.addChild}>Sign up your student</Action>
-          <Action href={links.signIn} variant="secondary">
+          <Action
+            href={links.signIn}
+            variant={links.addChild === null ? 'primary' : 'secondary'}
+          >
             I’m a student, 13 or older
           </Action>
         </>
@@ -101,8 +107,8 @@ export function NcfcaPage({
         <p>
           You, another parent or an alumnus can judge from wherever you are.
           With Premium, an AI judge can score a practice round the moment it
-          ends: a decision, the reason for it, and scores in 10 categories for
-          each side.
+          ends: a decision, the reason for it, and scores in {categoryCount}{' '}
+          categories for each side.
         </p>
       </Story>
 
@@ -114,12 +120,13 @@ export function NcfcaPage({
         </p>
       </Story>
 
-      <Story id="guardrails" title="You set the guardrails">
+      <Story id="guardrails" title="A lobby for students under 18">
         <p>
           Members are 13 or older. Students under 18 debate in the Youth lobby,
-          with other students under 18. Link your account to theirs to approve
-          new friends, limit who can message them, and follow their rounds as
-          they happen.{' '}
+          with other students under 18.
+          {links.addChild === null
+            ? null
+            : ' Link your account to theirs to approve new friends, limit who can message them, and follow their rounds as they happen.'}{' '}
           <TextLink href={links.parents}>Daisy for parents</TextLink>
         </p>
       </Story>
@@ -142,7 +149,9 @@ export function NcfcaPage({
           <TextLink href={links.pricing}>Plans and pricing</TextLink>
         </p>
         <div className="flex flex-wrap items-center gap-3">
-          <Action href={links.addChild}>Sign up your student</Action>
+          <Action href={links.addChild ?? links.signIn}>
+            {links.addChild === null ? 'Sign up' : 'Sign up your student'}
+          </Action>
           <TextLink href={links.coach}>Daisy for coaches and clubs</TextLink>
         </div>
         <BetaLine />

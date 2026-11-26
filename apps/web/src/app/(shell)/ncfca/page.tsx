@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { ballotCategoryCount } from '../../../features/marketing/ballot-card';
 import { ncfcaTimes } from '../../../features/marketing/ncfca-times';
 import { planPrices } from '../../../features/pricing/plan-prices';
 import { NcfcaPage } from '../../../ui/marketing/ncfca-page';
@@ -18,6 +19,7 @@ export default async function Ncfca() {
   return (
     <NcfcaPage
       times={ncfcaTimes()}
+      categoryCount={ballotCategoryCount()}
       prices={planPrices}
       links={await requestAudienceLinks()}
     />
