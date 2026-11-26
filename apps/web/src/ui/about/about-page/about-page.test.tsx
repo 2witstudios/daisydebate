@@ -4,6 +4,7 @@ import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { helpTopics } from '../../../features/help/topics';
 import { routeExists } from '../../test-support/route-exists';
 import { renderAccessible } from '../../../test-support/rendered/accessible';
+import { openLinks } from '../../../features/marketing/links.test-support';
 import { AboutPage } from './about-page';
 
 setupRitewayBun();
@@ -15,7 +16,7 @@ const hrefs = (view: ReturnType<typeof renderAccessible>) =>
 
 describe('AboutPage', () => {
   test('the vision and the founder’s note', () => {
-    const view = renderAccessible(h(AboutPage, {}));
+    const view = renderAccessible(h(AboutPage, { audience: openLinks }));
     const note = view.within('region', 'A note from the founder').textContent();
     assert({
       given: 'the About page',
@@ -41,21 +42,19 @@ describe('AboutPage', () => {
       given: 'no published case, then one',
       should: 'leave the 1AC card out, then link it',
       actual: [
-        renderAccessible(h(AboutPage, { caseHref: null }))
+        renderAccessible(h(AboutPage, { audience: openLinks, caseHref: null }))
           .textContent()
           .includes('1AC'),
-        renderAccessible(h(AboutPage, { caseHref: '/the-case' })).attribute(
-          'link',
-          '1AC The case for Daisy Debate',
-          'href',
-        ),
+        renderAccessible(
+          h(AboutPage, { audience: openLinks, caseHref: '/the-case' }),
+        ).attribute('link', '1AC The case for Daisy Debate', 'href'),
       ],
       expected: [false, '/the-case'],
     });
   });
 
   test('the common questions are Help’s own', () => {
-    const asked = renderAccessible(h(AboutPage, {}))
+    const asked = renderAccessible(h(AboutPage, { audience: openLinks }))
       .within('region', 'Common questions')
       .all('link')
       .flatMap((link) => {
@@ -79,7 +78,9 @@ describe('AboutPage', () => {
   });
 
   test('every common question is answered on Help', () => {
-    const links = hrefs(renderAccessible(h(AboutPage, {})));
+    const links = hrefs(
+      renderAccessible(h(AboutPage, { audience: openLinks })),
+    );
     const ids = new Set(helpTopics.map((topic) => topic.id));
     assert({
       given: 'the common questions and every other link',

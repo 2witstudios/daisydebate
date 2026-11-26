@@ -67,14 +67,26 @@ const areaPatterns = Object.keys(GUARDED_AREAS)
   );
 
 /**
+ * Guarded areas whose bare root is a public page (ADR 0935): `/leagues`
+ * introduces leagues to a visitor, while a league's own pages beneath it
+ * stay guarded. Only the root itself, with or without trailing slashes.
+ */
+const publicRoots: ReadonlyMap<string, RegExp> = new Map(
+  ['/leagues'].map((area) => [area, new RegExp(`^${area}/*$`)] as const),
+);
+
+/**
  * The guarded area a path belongs to: the longest entry the path is, or
  * begins as a whole segment, or null. A path that does not begin with one
  * non-empty segment is public (so `//lobby` and `/lobbyist` stay public);
  * later runs of slashes count as one, so a doubled slash cannot step out of
  * an area.
  */
-export const guardedAreaFor = (pathname: string): string | null =>
-  areaPatterns.find(([, pattern]) => pattern.test(pathname))?.[0] ?? null;
+export const guardedAreaFor = (pathname: string): string | null => {
+  const area =
+    areaPatterns.find(([, pattern]) => pattern.test(pathname))?.[0] ?? null;
+  return area !== null && publicRoots.get(area)?.test(pathname) ? null : area;
+};
 
 /** The requirement for a guarded area or descendant, or null when public. */
 export const requirementFor = (pathname: string): Requirement | null => {

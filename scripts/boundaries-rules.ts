@@ -396,6 +396,12 @@ const humanCoaching = [
   'apps/web/src/ui/recording/recording-history/recording-history.tsx',
   // A minor's media release, which their school coach may hold (ADR 0151).
   'apps/web/src/ui/settings/media-release/media-release-section.tsx',
+  // The audience pages (ADR 0935): /coach is written for a human coach, and
+  // the pages that link to it name that reader.
+  'apps/web/src/app/(shell)/coach/',
+  'apps/web/src/features/marketing/',
+  'apps/web/src/ui/marketing/',
+  'apps/web/src/ui/about/about-page/about-page.tsx',
 ];
 export const reservedWordIssue = (file: string, word: string): string | null =>
   /coach/i.test(word) &&
