@@ -22,7 +22,13 @@ describe('room config', () => {
       countdownMs: 10_000,
       segmentDurationOverrides: { NC: 360_000 },
     },
-    interruptions: { mode: 'disabled', minRemainingMs: 30_000 },
+    pointsOfInformation: {
+      enabled: true,
+      protectedStartMs: 60_000,
+      protectedEndMs: 60_000,
+      maxDurationMs: 15_000,
+      offerLapseMs: 10_000,
+    },
     yielding: { allowed: true, returnsTime: true },
   };
 
@@ -61,13 +67,13 @@ describe('room config', () => {
 
   test('rejects a non-member of a permitted set', () => {
     assert({
-      given: 'the retired cross-examination-only interruption policy',
+      given: 'the retired interruption policy',
       should: 'reject it at the boundary',
       actual: parseOutcome(roomConfigSchema, {
         ...config,
-        interruptions: { mode: 'cross_ex_only', minRemainingMs: 30_000 },
+        interruptions: { mode: 'enabled', minRemainingMs: 30_000 },
       }),
-      expected: { issues: ['interruptions.mode'] },
+      expected: { issues: ['(root)'] },
     });
   });
 });
@@ -109,7 +115,7 @@ describe('round rules', () => {
     countdownMs: 0,
     interaction: {
       yield: null,
-      interruptions: { allowed: 'disabled' as const },
+      pointsOfInformation: { allowed: false as const },
     },
   };
 
@@ -159,12 +165,11 @@ describe('runtime checkpoint', () => {
       ),
       expected: {
         data: {
-          version: 1,
+          version: 2,
           prep_consumed_ms: { affirmative: 0, negative: 0 },
-          active_prep: null,
-          floor: null,
+          prep: { phase: 'idle' },
+          point_of_information: { phase: 'none' },
           incident: { phase: 'none' },
-          prep_ended_at: null,
           start_gate: null,
           clock_stops: [],
         },
@@ -172,19 +177,20 @@ describe('runtime checkpoint', () => {
     });
   });
 
-  test('accepts a live prep anchor and an interruption floor', () => {
+  test('accepts a live prep anchor and an accepted point of information', () => {
     const live = {
-      version: 1,
+      version: 2,
       prep_consumed_ms: { affirmative: 30_000, negative: 0 },
-      active_prep: {
+      prep: {
+        phase: 'running',
         side: 'affirmative',
         started_at: '2026-01-01T00:04:00.000Z',
       },
-      floor: {
+      point_of_information: {
+        phase: 'speaking',
         holder_participant_id: id,
-        granted_at: '2026-01-01T00:04:30.000Z',
+        accepted_at: '2026-01-01T00:04:30.000Z',
       },
-      prep_ended_at: null,
       start_gate: null,
       incident: {
         phase: 'resuming',
@@ -198,7 +204,7 @@ describe('runtime checkpoint', () => {
       ],
     };
     assert({
-      given: 'a checkpoint taken mid-prep after an accepted interruption',
+      given: 'a checkpoint holding running prep and an accepted point',
       should: 'parse to an equal value',
       actual: parseOutcome(runtimeCheckpointSchema, live),
       expected: { data: live },

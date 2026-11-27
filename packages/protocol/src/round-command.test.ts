@@ -5,7 +5,7 @@ const envelope = {
   version: 1,
   commandId: 'c'.repeat(24),
   expectedVersion: 1,
-  command: { type: 'yield', participantId: 'p'.repeat(24) },
+  command: { type: 'yield', participantId: 'p'.repeat(24), sequence: 0 },
 };
 test('shared Round commands validate their complete trust boundary', () => {
   const cases = [
@@ -13,9 +13,54 @@ test('shared Round commands validate their complete trust boundary', () => {
     [
       {
         ...envelope,
-        command: { type: 'start_speech', participantId: 'p'.repeat(24) },
+        command: {
+          type: 'start_speech',
+          participantId: 'p'.repeat(24),
+          sequence: 4,
+        },
       },
       true,
+    ],
+    [
+      {
+        ...envelope,
+        command: {
+          type: 'accept_poi',
+          participantId: 'p'.repeat(24),
+          sequence: 0,
+          offererParticipantId: 'o'.repeat(24),
+        },
+      },
+      true,
+    ],
+    [
+      {
+        ...envelope,
+        command: { type: 'yield', participantId: 'p'.repeat(24) },
+      },
+      false,
+    ],
+    [
+      {
+        ...envelope,
+        command: {
+          type: 'accept_poi',
+          participantId: 'p'.repeat(24),
+          sequence: 0,
+        },
+      },
+      false,
+    ],
+    [
+      {
+        ...envelope,
+        command: {
+          type: 'interrupt',
+          participantId: 'p'.repeat(24),
+          sequence: 0,
+        },
+      },
+      false,
     ],
     [
       {
@@ -26,7 +71,10 @@ test('shared Round commands validate their complete trust boundary', () => {
     ],
     [{ ...envelope, actorId: 'a'.repeat(24) }, false],
     [
-      { ...envelope, command: { type: 'yield', actorId: 'a'.repeat(24) } },
+      {
+        ...envelope,
+        command: { type: 'yield', actorId: 'a'.repeat(24), sequence: 0 },
+      },
       false,
     ],
     [{ ...envelope, commandId: 'invalid' }, false],

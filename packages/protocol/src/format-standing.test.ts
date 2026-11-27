@@ -25,9 +25,15 @@ describe('formatStandingSchema', () => {
             { kind: 'seats', of: { kind: 'judge' }, from: 1, to: 3 },
             { kind: 'segments', added: ['X'], removed: [], changed: [] },
             {
-              kind: 'interruptions',
-              from: { allowed: 'enabled', minRemainingMs: 30_000 },
-              to: { allowed: 'disabled' },
+              kind: 'points-of-information',
+              from: {
+                allowed: true,
+                protectedStartMs: 60_000,
+                protectedEndMs: 60_000,
+                maxDurationMs: 15_000,
+                offerLapseMs: 10_000,
+              },
+              to: { allowed: false },
             },
             {
               kind: 'yield',

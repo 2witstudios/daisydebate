@@ -271,34 +271,28 @@ describe('stageTimeline', () => {
 });
 
 describe('privateSpanChanges', () => {
-  const idle = { stage: 'live', activePrep: null };
-  const active = (startedAtMs: number) => ({
-    stage: 'live',
-    activePrep: { startedAtMs, consumedMs: 5000 },
+  type Facts = {
+    readonly stage: string | null;
+    readonly prepStartedAtMs: number | null;
+  };
+  const idle: Facts = { stage: 'live', prepStartedAtMs: null };
+  const prepping = (startedAtMs: number): Facts => ({
+    stage: 'prep',
+    prepStartedAtMs: startedAtMs,
   });
-  test('prep opens at its start, and closes at the time it used', () => {
+  const after = (
+    facts: Facts,
+    prepUsedMs = 0,
+    clockStops: readonly { from: string; to: string | null }[] = [],
+  ) => ({ ...facts, prepUsedMs, clockStops });
+  test('prep opens at its start, and closes where the time it used ends', () => {
     assert({
       given: 'prep starting; ending on time; ending where a late tick found it',
       should: 'open at the start, close at the time used, never past now',
       actual: [
-        privateSpanChanges(
-          idle,
-          { ...active(100), consumedNowMs: 5000 },
-          200,
-          null,
-        ),
-        privateSpanChanges(
-          active(100),
-          { ...idle, consumedNowMs: 5050 },
-          200,
-          null,
-        ),
-        privateSpanChanges(
-          active(100),
-          { ...idle, consumedNowMs: 95_000 },
-          70_000,
-          null,
-        ),
+        privateSpanChanges(idle, after(prepping(100)), 200, null),
+        privateSpanChanges(prepping(100), after(idle, 50), 200, null),
+        privateSpanChanges(prepping(100), after(idle, 90_000), 70_000, null),
       ],
       expected: [
         [{ type: 'open', kind: 'prep', atMs: 100 }],
@@ -307,17 +301,31 @@ describe('privateSpanChanges', () => {
       ],
     });
   });
+  test('an incident during prep moves its end by the stop (INTX-5)', () => {
+    const at = (ms: number) => new Date(ms).toISOString();
+    assert({
+      given: 'prep from 1 s that used 30 s around a 20 s stop from 11 s',
+      should: 'close at 51 s, not 31 s',
+      actual: privateSpanChanges(
+        prepping(1_000),
+        after(idle, 30_000, [{ from: at(11_000), to: at(31_000) }]),
+        60_000,
+        null,
+      ),
+      expected: [{ type: 'close', kind: 'prep', atMs: 51_000 }],
+    });
+  });
   test('judging opens when the final segment ended, and closes with its stage', () => {
-    const judging = { stage: 'awaiting_ballot', activePrep: null };
+    const judging: Facts = { stage: 'awaiting_ballot', prepStartedAtMs: null };
     assert({
       given:
         'the final segment ended at 500 and committed at 900, then the ballot',
       should: 'open at 500, and close at the commit',
       actual: [
-        privateSpanChanges(idle, { ...judging, consumedNowMs: 0 }, 900, 500),
+        privateSpanChanges(idle, after(judging), 900, 500),
         privateSpanChanges(
           judging,
-          { ...idle, stage: null, consumedNowMs: 0 },
+          after({ ...idle, stage: null }),
           2000,
           null,
         ),
@@ -332,7 +340,7 @@ describe('privateSpanChanges', () => {
     assert({
       given: 'a tick with no change of prep or stage',
       should: 'commit nothing',
-      actual: privateSpanChanges(idle, { ...idle, consumedNowMs: 0 }, 1, null),
+      actual: privateSpanChanges(idle, after(idle), 1, null),
       expected: [],
     });
   });

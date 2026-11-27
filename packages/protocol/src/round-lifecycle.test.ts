@@ -70,31 +70,55 @@ describe('the Round lifecycle contract', () => {
 });
 
 describe('the runtime checkpoint', () => {
-  const prep = { side: 'affirmative', started_at: started } as const;
   const parses = (value: unknown) =>
     runtimeCheckpointSchema.safeParse(value).success;
+  const empty = emptyRuntimeCheckpointFor({ sides: twoSides });
 
-  test('the lead after prep never runs while prep does', () => {
+  test('prep is one state, so prep and its lead never hold at once (INTX-1)', () => {
     assert({
       given:
         'a checkpoint in prep, one in the lead after prep, and one claiming both',
       should: 'accept each alone and refuse both at once',
       actual: [
         parses({
-          ...emptyRuntimeCheckpointFor({ sides: twoSides }),
-          active_prep: prep,
+          ...empty,
+          prep: { phase: 'running', side: 'affirmative', started_at: started },
         }),
+        parses({ ...empty, prep: { phase: 'lead', ended_at: ended } }),
         parses({
-          ...emptyRuntimeCheckpointFor({ sides: twoSides }),
-          prep_ended_at: ended,
-        }),
-        parses({
-          ...emptyRuntimeCheckpointFor({ sides: twoSides }),
-          active_prep: prep,
-          prep_ended_at: ended,
+          ...empty,
+          prep: {
+            phase: 'running',
+            side: 'affirmative',
+            started_at: started,
+            ended_at: ended,
+          },
         }),
       ],
       expected: [true, true, false],
+    });
+  });
+
+  test('a seat stands to offer once at a time', () => {
+    const offer = { participant_id: 'a'.repeat(24), offered_at: started };
+    assert({
+      given: 'one offer, then the same seat offering twice, then none listed',
+      should: 'accept only the first',
+      actual: [
+        parses({
+          ...empty,
+          point_of_information: { phase: 'offered', offers: [offer] },
+        }),
+        parses({
+          ...empty,
+          point_of_information: { phase: 'offered', offers: [offer, offer] },
+        }),
+        parses({
+          ...empty,
+          point_of_information: { phase: 'offered', offers: [] },
+        }),
+      ],
+      expected: [true, false, false],
     });
   });
 });
