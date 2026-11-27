@@ -7,10 +7,8 @@ import {
   yieldChoiceOf,
   yieldChoices,
 } from '../../../features/rooms/yield-choice';
-import {
-  interruptionLabel,
-  yieldLabel,
-} from '../../../features/debate-room/vocabulary';
+import { yieldLabel } from '../../../features/debate-room/vocabulary';
+import { parliamentaryPointsOfInformation } from '@daisy/protocol/format-settings';
 
 /** One m:ss field; the bounds come from the format and the server checks them again. */
 export function DurationField({
@@ -217,7 +215,7 @@ export function PreparationFields({
   );
 }
 
-/** Interruptions and ending early: the advanced rules. */
+/** Points of information and ending early: the advanced rules. */
 export function InteractionFields({
   view,
   state,
@@ -228,32 +226,62 @@ export function InteractionFields({
   readonly disabled: boolean;
 }) {
   const capability = view.definition.configurable.interaction;
+  const poi = capability.pointsOfInformation;
+  const saved = view.config.pointsOfInformation;
+  // Off, the fields show what turning them on would start from.
+  const timing = saved?.enabled ? saved : parliamentaryPointsOfInformation;
   return (
     <>
-      {capability.interruptions ? (
-        <div className="flex flex-col gap-2">
-          <ChoiceField
-            name="interruptionsMode"
-            legend="Interruptions"
-            choices={capability.interruptions.modes.map((mode) => ({
-              value: mode,
-              label: interruptionLabel[mode],
-            }))}
-            saved={view.config.interruptions?.mode ?? ''}
+      {poi ? (
+        <PrepToggle
+          name="pointsOfInformation"
+          label="Points of information"
+          hint="During a speech the other side may offer a short question; the speaker accepts or declines."
+          checked={saved?.enabled === true}
+          state={state}
+          disabled={disabled}
+        >
+          <DurationField
+            name="poi.start"
+            label="Protected start"
+            hint="No offers this early in a speech."
+            ms={timing.protectedStartMs}
+            min={poi.protectedStartMs.min}
+            max={poi.protectedStartMs.max}
             state={state}
             disabled={disabled}
           />
           <DurationField
-            name="minRemaining"
-            label="Protect the end of each speech"
-            hint="No interruptions once this little time is left."
-            ms={view.config.interruptions?.minRemainingMs ?? null}
-            min={capability.interruptions.minRemainingMs.min}
-            max={capability.interruptions.minRemainingMs.max}
+            name="poi.end"
+            label="Protected end"
+            hint="No offers once this little time is left."
+            ms={timing.protectedEndMs}
+            min={poi.protectedEndMs.min}
+            max={poi.protectedEndMs.max}
             state={state}
             disabled={disabled}
           />
-        </div>
+          <DurationField
+            name="poi.length"
+            label="Longest point"
+            hint="The floor returns to the speaker after this."
+            ms={timing.maxDurationMs}
+            min={poi.maxDurationMs.min}
+            max={poi.maxDurationMs.max}
+            state={state}
+            disabled={disabled}
+          />
+          <DurationField
+            name="poi.lapse"
+            label="An offer stands for"
+            hint="An offer the speaker does not answer sits down after this."
+            ms={timing.offerLapseMs}
+            min={poi.offerLapseMs.min}
+            max={poi.offerLapseMs.max}
+            state={state}
+            disabled={disabled}
+          />
+        </PrepToggle>
       ) : null}
       {capability.yield ? (
         <ChoiceField

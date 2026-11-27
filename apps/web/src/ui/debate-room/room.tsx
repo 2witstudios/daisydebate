@@ -15,6 +15,7 @@ import {
   type PaletteChoice,
 } from '../documents/command-palette';
 import { PhoneActions, RoundControls } from './controls';
+import { RoundFloorNotice } from './round-floor-notice';
 import type { DocumentSync } from '../documents/document-sync';
 import { openId, openTitle } from '../../features/documents/open-documents';
 import { driveApi } from '../documents/drive-api';
@@ -166,6 +167,7 @@ export function DebateRoom({ round, sync, ...props }: RoomProps) {
     <div ref={root} className="flex room-frame flex-col bg-background text-ink">
       <RoundBar round={round} leave={props.leave ?? noLeave} />
       {props.notices}
+      <RoundFloorNotice round={round} />
       <section
         aria-label="Round"
         className="room-stage flex shrink-0 items-center gap-6 border-b border-border px-4 py-3 max-compact:flex-col max-compact:items-stretch max-compact:gap-2 max-compact:py-2"

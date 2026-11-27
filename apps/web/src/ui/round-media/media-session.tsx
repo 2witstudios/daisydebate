@@ -11,7 +11,6 @@ import { useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { isRoundOver } from '@daisy/protocol/round';
 import { type RoundView } from '@daisy/protocol/round-view';
 import { postRoundCallChosen } from '../../features/post-round-call/offered';
-import { hasOpenQuestioning } from '@daisy/debate-engine';
 import { selectMediaAccount } from '../../features/round-media/account-signout-cleanup';
 import { subscribeBrowserPageEvents } from '../../features/round-media/adapters/browser-page-events';
 import {
@@ -101,8 +100,9 @@ function RoundMediaSession({
   onCallEnded,
 }: SessionInput & { readonly view: RoundView }) {
   const { owns, onStepDown } = tab;
-  const questioning = view.ladder === null && hasOpenQuestioning(view.rules);
-  const muteOffered = questioning || postRoundCallChosen(view);
+  // The server grants each microphone (a point of information's included), so
+  // only a post-round call, where everyone may talk, offers a mute.
+  const muteOffered = postRoundCallChosen(view);
   // The runtime and the deadline follower outlive a render: each refresh
   // reaches the owner's latest handler.
   const refresh = useRef(onRefresh);
@@ -114,7 +114,7 @@ function RoundMediaSession({
       roundId: view.id,
       initial: initialMediaState({
         roundViewVersion: view.version,
-        microphoneMuted: questioning,
+        microphoneMuted: false,
       }),
       policy: MEDIA_POLICY,
       // Monotonic: elapsed time, and a clock step must not skew it.

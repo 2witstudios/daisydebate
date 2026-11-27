@@ -2,42 +2,124 @@ import {
   roundControlsAt,
   type RoundCommandOption,
 } from '@daisy/debate-engine/position';
-import { startSpeechLabel } from '../debate-room/vocabulary';
+import { instantMs } from '@daisy/clock';
 import { isDebatingSeat } from '@daisy/protocol/seats';
 import { isNamedSeat, type RoundView } from '@daisy/protocol/round-view';
 import { isRoundRunning } from '@daisy/protocol/round';
-import { type RoundPosition } from '@daisy/protocol/runtime';
+import { type RoundCommand, type RoundPosition } from '@daisy/protocol/runtime';
 import { type RoundCommandEnvelope } from '@daisy/protocol/round-command';
+import { formatCountdown } from '../../lib/clock-display';
+
 export type RoundControlIntent = {
+  /** Unique among one seat's controls: the type, and the offer an accept takes. */
+  readonly key: string;
   readonly type: RoundCommandEnvelope['command']['type'];
+  /** The command exactly as it posts, with the segment it names (INTX-7). */
+  readonly command: RoundCommand;
   readonly label: string;
   readonly participantId?: string;
   readonly enabled: boolean;
   readonly confirm?: boolean;
+  /** One line under the button: what it will do, or why it cannot yet. */
+  readonly hint?: string;
+  /** How the control stands out: the move that answers a point of information. */
+  readonly emphasis?: 'primary' | 'point';
 };
-/** "Start negative constructive": the speech by name, never its code. */
-const startLabel = (next: RoundPosition['nextSegment']) =>
-  next ? startSpeechLabel(next.label) : 'Start speech';
+
+/** A segment by its code, the room's word for it. */
+const codeOf = (view: RoundView, sequence: number) =>
+  view.rules.segments[sequence]?.key ?? 'the next segment';
+
+const nameOf = (view: RoundView, participantId: string) =>
+  view.participants.filter(isNamedSeat).find((p) => p.id === participantId)
+    ?.label ?? 'their offer';
+
+/** Why an offer cannot be made now, from the speech's own window. */
+const offerHint = (
+  position: RoundPosition,
+  legal: boolean,
+  nowMs: number,
+): string | undefined => {
+  const window = position.pointOfInformation;
+  if (legal || window === null) return undefined;
+  if (window.holder !== null) return 'A point is being given';
+  const opensInMs = instantMs(window.offersOpenAt) - nowMs;
+  if (opensInMs > 0) return `Opens in ${formatCountdown(opensInMs)}`;
+  return 'Closed for the rest of this speech';
+};
+
 /** The words on each command; what is offered and legal is the engine's. */
 const wording = (
-  type: RoundCommandOption['type'],
+  view: RoundView,
+  option: RoundCommandOption,
   position: RoundPosition,
-): Pick<RoundControlIntent, 'label' | 'confirm'> => {
-  switch (type) {
-    case 'start_prep':
-      return { label: 'Take prep time', confirm: false };
+  nowMs: number,
+  selfId: string,
+): Pick<RoundControlIntent, 'label' | 'confirm' | 'hint' | 'emphasis'> => {
+  const { command, legal } = option;
+  switch (command.type) {
+    case 'start_prep': {
+      const code = codeOf(view, command.sequence);
+      if (!legal)
+        return {
+          label: position.prepExpired ? 'Prep has ended' : 'Prep spent',
+          hint: `No prep before ${code}`,
+        };
+      return position.openSegment
+        ? {
+            label: `Call prep before ${code}`,
+            hint: `Starts the moment the ${position.openSegment.key} ends`,
+          }
+        : { label: `Take prep before ${code}` };
+    }
+    case 'cancel_prep':
+      return {
+        label: 'Cancel prep',
+        hint: `Prep is called before ${codeOf(view, command.sequence)}`,
+      };
     case 'start_speech':
-      return { label: startLabel(position.nextSegment), confirm: false };
+      return {
+        label: `End prep · start ${codeOf(view, command.sequence)}`,
+        hint: 'Unused prep stays your side’s',
+        emphasis: 'primary',
+      };
     case 'yield':
-      return { label: 'End speech', confirm: true };
-    case 'interrupt':
-      return { label: 'Interrupt', confirm: false };
+      return position.openSegment?.type === 'cross_ex'
+        ? {
+            label: 'End cross-examination',
+            confirm: true,
+            hint: 'Unused time is not added to prep',
+          }
+        : { label: 'End speech', confirm: true };
+    case 'offer_poi': {
+      const hint = offerHint(position, legal, nowMs);
+      return {
+        label: 'Offer POI',
+        emphasis: 'point',
+        ...(hint === undefined ? {} : { hint }),
+      };
+    }
+    case 'withdraw_poi':
+      return { label: 'Withdraw POI' };
+    case 'accept_poi':
+      return {
+        label: `Accept ${nameOf(view, command.offererParticipantId)}`,
+        emphasis: 'point',
+      };
+    case 'decline_poi':
+      return { label: 'Decline POI' };
+    case 'end_poi':
+      // The holder concludes their point; the speaker takes the speech back.
+      return position.pointOfInformation?.holder?.participantId === selfId
+        ? { label: 'End POI', emphasis: 'primary' }
+        : { label: 'Resume speech', emphasis: 'primary' };
     case 'forfeit':
       return { label: 'Forfeit round', confirm: true };
     case 'leave':
       return { label: 'Leave round', confirm: true };
   }
 };
+
 /**
  * What the engine offers this actor's debater seat now, or null: no such seat,
  * a Round that is over, or a checkpoint this view could not read (no live
@@ -79,7 +161,7 @@ export function withdrawalLegalNow(
   const controls = seatControls(view, actorId, nowMs);
   if (!controls) return false;
   const legal = controls.options.some(
-    (option) => option.type === type && option.legal,
+    (option) => option.command.type === type && option.legal,
   );
   // The opening has no segment to persist; the debate posts against one.
   return view.status === 'opening'
@@ -100,10 +182,15 @@ export function roundControlIntents(
   const { self, position, options } = controls;
   const current = persistedPhase(view, position);
   return options.map((option) => ({
-    type: option.type,
+    key:
+      option.command.type === 'accept_poi'
+        ? `accept_poi-${option.command.offererParticipantId}`
+        : option.command.type,
+    type: option.command.type,
+    command: option.command,
     participantId: self.id,
     enabled: current && option.legal,
-    ...wording(option.type, position),
+    ...wording(view, option, position, nowMs, self.id),
   }));
 }
 

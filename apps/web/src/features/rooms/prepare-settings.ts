@@ -30,8 +30,14 @@ function allowedFields(view: RoomView) {
     ...(capability.inRoundPrep
       ? ['inRoundPrep', ...durationFields('budget')]
       : []),
-    ...(capability.interaction.interruptions
-      ? ['interruptionsMode', ...durationFields('minRemaining')]
+    ...(capability.interaction.pointsOfInformation
+      ? [
+          'pointsOfInformation',
+          ...durationFields('poi.start'),
+          ...durationFields('poi.end'),
+          ...durationFields('poi.length'),
+          ...durationFields('poi.lapse'),
+        ]
       : []),
     ...(capability.interaction.yield ? ['yield'] : []),
     ...(capability.resolutionDraw ? drawFieldNames : []),
@@ -58,11 +64,16 @@ function configFields(view: RoomView, form: FormData) {
         ]),
       ),
     },
-    interruptions: capability.interaction.interruptions
-      ? {
-          mode: form.get('interruptionsMode'),
-          minRemainingMs: readDuration(form, 'minRemaining'),
-        }
+    pointsOfInformation: capability.interaction.pointsOfInformation
+      ? form.get('pointsOfInformation') === 'on'
+        ? {
+            enabled: true,
+            protectedStartMs: readDuration(form, 'poi.start'),
+            protectedEndMs: readDuration(form, 'poi.end'),
+            maxDurationMs: readDuration(form, 'poi.length'),
+            offerLapseMs: readDuration(form, 'poi.lapse'),
+          }
+        : { enabled: false }
       : null,
     yielding: capability.interaction.yield
       ? (yieldChoices(capability.interaction.yield, view.config.yielding).find(

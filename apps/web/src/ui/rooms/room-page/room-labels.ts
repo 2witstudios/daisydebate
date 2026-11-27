@@ -12,6 +12,7 @@ import {
   type TwoSideKey,
 } from '@daisy/protocol/seats';
 import { seatTotalOf } from '@daisy/protocol/format-seating';
+import { pointsOfInformationRuleOf } from '@daisy/protocol/format-settings';
 import {
   seatsTwoTeams,
   sideOfTeam,
@@ -21,7 +22,6 @@ import {
   strikeSummary,
   roundLength,
   ruleRows,
-  type RuleRowInterruptions,
 } from '../../../features/debate-room/vocabulary';
 import { seatName, shapeLabel } from '../../../features/debate-room/seat-names';
 import { roomStatusLabels } from '../../../features/rooms/status-labels';
@@ -243,14 +243,6 @@ function strikeRows(
 }
 
 /** The saved configuration as label/value rows, in the room's vocabulary. */
-const interruptionRow = (
-  settings: RoomView['config']['interruptions'],
-): RuleRowInterruptions => {
-  if (settings === null) return { mode: 'disabled' };
-  const { mode, minRemainingMs } = settings;
-  return mode === 'enabled' ? { mode, minRemainingMs } : { mode };
-};
-
 export function settingRows(
   view: Pick<RoomView, 'config'> & {
     readonly rules: { readonly sides: readonly Side[] };
@@ -267,7 +259,7 @@ export function settingRows(
         ? config.inRoundPrep.budgetMsPerSide
         : null,
       countdownMs: config.speechTiming.countdownMs,
-      interruptions: interruptionRow(config.interruptions),
+      pointsOfInformation: pointsOfInformationRuleOf(config.pointsOfInformation),
       yielding: config.yielding,
     }),
   ];

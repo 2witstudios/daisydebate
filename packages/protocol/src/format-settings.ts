@@ -2,6 +2,7 @@ import { z } from 'zod';
 import {
   MAX_PRE_ROUND_PREP_MS,
   pointsOfInformationTimingSchema,
+  type PointsOfInformationRule,
 } from './format';
 import { formatResolutionDrawSchema } from './resolution-draw';
 
@@ -39,6 +40,28 @@ const pointsOfInformationSettingSchema = z.discriminatedUnion('enabled', [
 export type PointsOfInformationSetting = z.infer<
   typeof pointsOfInformationSettingSchema
 >;
+
+/**
+ * Parliamentary practice (INTX-16): a protected first and last minute, points
+ * of up to 15 seconds, and an offer that sits down after 10. A Room that
+ * takes points of information starts from these.
+ */
+export const parliamentaryPointsOfInformation = {
+  enabled: true,
+  protectedStartMs: 60_000,
+  protectedEndMs: 60_000,
+  maxDurationMs: 15_000,
+  offerLapseMs: 10_000,
+} as const satisfies PointsOfInformationSetting;
+
+/** The rule a setting freezes into: forbidden and declined are both `allowed: false`. */
+export const pointsOfInformationRuleOf = (
+  setting: PointsOfInformationSetting | null,
+): PointsOfInformationRule => {
+  if (setting === null || !setting.enabled) return { allowed: false };
+  const { enabled: _enabled, ...timing } = setting;
+  return { allowed: true, ...timing };
+};
 
 /**
  * The values a format sanctions within its definition: timing,

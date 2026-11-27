@@ -40,20 +40,6 @@ export const isLiveRound = (view: Pick<RoundView, 'status'>): boolean =>
   isRoundRunning(view.status);
 
 /**
- * Who holds the floor: an accepted interruption's seat, else the seat the
- * segment is scheduled to; null for an open floor nobody leads.
- */
-export const floorSeatOf = (
-  view: Pick<RoundView, 'participants'>,
-  open: Pick<
-    NonNullable<RoundPosition['openSegment']>,
-    'lead' | 'floorParticipantId'
-  >,
-): SeatRef | null =>
-  view.participants.filter(isSeat).find((p) => p.id === open.floorParticipantId)
-    ?.seat ?? open.lead;
-
-/**
  * Whether two competitor seats stand together: the same side, or, unsided,
  * the same seat. A teammate's speech is the side's speech.
  */

@@ -371,8 +371,8 @@ const floorFits = (
   value: FormatSettingDefaults['room.floor'],
   format: FormatSettingDefaults,
 ): boolean =>
-  (value.interruptions === null) ===
-    (format['room.floor'].interruptions === null) &&
+  (value.pointsOfInformation === null) ===
+    (format['room.floor'].pointsOfInformation === null) &&
   (value.yielding === null) === (format['room.floor'].yielding === null);
 
 /** The values a template's chain enforces. */

@@ -92,10 +92,13 @@ function PrepClocks({ round }: { readonly round: RoundSnapshot }) {
         (side, index) => (
           <Fragment key={side.side}>
             {index > 0 ? ' · ' : null}
-            {side.label} prep{' '}
-            <strong className={toneInk[side.tone]}>
-              {formatCountdown(side.remainingMs)}
-            </strong>
+            <span className={cn(side.ended && 'line-through')}>
+              {side.label} prep{' '}
+              <strong className={toneInk[side.tone]}>
+                {formatCountdown(side.remainingMs)}
+              </strong>
+            </span>
+            {side.ended ? ' (ended)' : null}
           </Fragment>
         ),
       )}

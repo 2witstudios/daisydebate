@@ -37,14 +37,6 @@ export const pointsOfInformationBounds = {
   offerLapseMs: { min: 5_000, max: 30_000 },
 } as const;
 
-/** Parliamentary practice: a protected first and last minute, 15 s points, 10 s offers. */
-export const pointsOfInformationDefaults = {
-  protectedStartMs: 60_000,
-  protectedEndMs: 60_000,
-  maxDurationMs: 15_000,
-  offerLapseMs: 10_000,
-} as const;
-
 /** Each side's one seat speaks a speech; in cross-ex every debater speaks and the asker leads. */
 const speech = (side: string) => ({
   rights: 'one' as const,

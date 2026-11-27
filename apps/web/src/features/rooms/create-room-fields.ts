@@ -4,6 +4,7 @@ import {
   type FormatDefinition,
 } from '@daisy/protocol/format';
 import { roomConfigSchema, type RoomConfig } from '@daisy/protocol/room';
+import { parliamentaryPointsOfInformation } from '@daisy/protocol/format-settings';
 import { twoSideKeys } from '@daisy/protocol/seats';
 import { type RoomCatalogChoice } from '@daisy/protocol/room-contract';
 import {
@@ -44,8 +45,9 @@ export function draftFormValues(
       config.inRoundPrep.enabled ? config.inRoundPrep.budgetMsPerSide : 0,
     ),
     'duration.countdown': clockDuration(config.speechTiming.countdownMs),
-    questionStyle:
-      config.interruptions?.mode === 'open' ? 'poi' : 'cross-examination',
+    questionStyle: config.pointsOfInformation?.enabled
+      ? 'poi'
+      : 'cross-examination',
     yielding: config.yielding?.allowed ? 'on' : 'off',
     returnsTime: config.yielding?.returnsTime ? 'on' : 'off',
     ...seatFieldValues(definition),
@@ -224,9 +226,11 @@ export function readRoomDraft(
       segmentDurationOverrides: overrides,
     },
     resolutionDraw: method === 'strike' && strike ? strike : { enabled: false },
-    interruptions: poi
-      ? { mode: 'open', minRemainingMs: 0 }
-      : source.preset.config.interruptions,
+    pointsOfInformation: poi
+      ? parliamentaryPointsOfInformation
+      : source.preset.config.pointsOfInformation === null
+        ? null
+        : { enabled: false },
     yielding:
       source.preset.config.yielding === null &&
       decoded.yielding !== 'on' &&

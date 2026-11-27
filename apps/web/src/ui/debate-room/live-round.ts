@@ -11,11 +11,15 @@ import {
 import { microphoneOpensForClock } from '@daisy/debate-engine/media-grants';
 import { isAbsentSeat } from '@daisy/protocol/round';
 import { leadSeatOf, speakingSeatsOf } from '@daisy/protocol/format-seating';
-import { sideOfSeat, type SeatRef, type SideKey } from '@daisy/protocol/seats';
+import {
+  sameSeat,
+  sideOfSeat,
+  type SeatRef,
+  type SideKey,
+} from '@daisy/protocol/seats';
 import { type RoundView } from '@daisy/protocol/round-view';
 import { type SegmentType } from '@daisy/protocol/format';
 import {
-  floorSeatOf,
   isLiveRound,
   isSeat,
   judgeKindOf,
@@ -88,15 +92,37 @@ const positionOf = (view: RoundView, nowMs: number): RoundPosition =>
     nowMs,
   });
 
-/** Whether this seat may speak in the open segment: a speech's floor, or one of several. */
+/** Whether this seat's team has the open segment: its speech, or one it shares. */
 const speaksIn = (
   view: RoundView,
   open: NonNullable<RoundPosition['openSegment']>,
   seat: SeatRef,
 ): boolean =>
   open.speak.rights === 'one'
-    ? sameTeam(floorSeatOf(view, open), seat)
+    ? sameTeam(open.lead, seat)
     : speakingSeatsOf(view.rules, open.speak).some((s) => sameTeam(s, seat));
+
+/**
+ * Whether this exact seat's microphone is granted now, by the rule the server
+ * grants it (INTX-12): a speech's own seat or an accepted point's holder, or a
+ * seat a shared segment names. A partner's speech is not their microphone.
+ */
+const micGranted = (
+  view: RoundView,
+  position: RoundPosition,
+  seat: Seat,
+): boolean => {
+  const open = position.openSegment;
+  if (position.stage !== 'live' || !open) return false;
+  if (open.speak.rights !== 'one')
+    return speakingSeatsOf(view.rules, open.speak).some((s) =>
+      sameSeat(s, seat.seat),
+    );
+  return (
+    (open.lead !== null && sameSeat(open.lead, seat.seat)) ||
+    position.pointOfInformation?.holder?.participantId === seat.id
+  );
+};
 
 /** The phase of a live segment: your own floor, a floor you share, or someone else's. */
 const livePhaseOf = (
@@ -117,7 +143,10 @@ function phaseOf(
   if (position.status !== 'active') return 'waiting';
   if (position.stage === 'awaiting_ballot') return 'judging';
   if (position.stage === 'prep')
-    return position.prep?.side === sideOfSeat(seat) ? 'prep' : 'waiting';
+    return position.prep?.phase === 'running' &&
+      position.prep.side === sideOfSeat(seat)
+      ? 'prep'
+      : 'waiting';
   const open = position.openSegment;
   if (position.stage !== 'live' || !open) return 'waiting';
   return livePhaseOf(view, open, seat);
@@ -126,7 +155,7 @@ function phaseOf(
 const segmentClock = (
   open: NonNullable<RoundPosition['openSegment']>,
   seat: SeatRef,
-) => ({
+): NonNullable<RoundSnapshot['clock']> => ({
   label:
     open.type === 'cross_ex'
       ? `Cross-examination · ${sameTeam(open.lead, seat) ? 'You ask' : 'You answer'}`
@@ -136,7 +165,7 @@ const segmentClock = (
 
 const prepClock = (
   view: RoundView,
-  prep: NonNullable<RoundPosition['prep']>,
+  prep: Extract<NonNullable<RoundPosition['prep']>, { phase: 'running' }>,
   side: SideKey | null,
   micOpens: boolean,
 ) => ({
@@ -157,8 +186,13 @@ function clockOf(
   position: RoundPosition,
   seat: Seat,
 ): RoundSnapshot['clock'] {
-  if (position.openSegment)
-    return segmentClock(position.openSegment, seat.seat);
+  if (position.openSegment) {
+    const clock = segmentClock(position.openSegment, seat.seat);
+    // A point of information runs on the speech's clock; say so beside it.
+    return position.pointOfInformation?.holder
+      ? { ...clock, note: 'The speech clock keeps running during the POI' }
+      : clock;
+  }
   // Told before it opens, because the other side can hear it from then. The same decision
   // that opens it, so a cross-examination's two seats are both told.
   const micOpens =
@@ -169,7 +203,7 @@ function clockOf(
       participantId: seat.id,
       nextSequence: position.nextSegment.sequence,
     });
-  if (position.prep)
+  if (position.prep?.phase === 'running')
     return prepClock(view, position.prep, sideOfSeat(seat.seat), micOpens);
   if (position.countdownRemainingMs !== null)
     return {
@@ -206,6 +240,7 @@ const prepOf = (
         label: side.label,
         tone: sideToneOf(view.rules.sides, side.key),
         remainingMs: budget[side.key] ?? 0,
+        ended: position.prepExpired,
       }))
     : null;
 };
@@ -221,9 +256,25 @@ function liveParts(
   view: RoundView,
   seat: Seat,
   nowMs: number,
-): Pick<RoundSnapshot, 'phase' | 'liveIndex' | 'clock' | 'prep'> {
+): Pick<
+  RoundSnapshot,
+  | 'phase'
+  | 'liveIndex'
+  | 'clock'
+  | 'prep'
+  | 'micLive'
+  | 'point'
+  | 'prepCalled'
+> {
+  const quiet = { micLive: false, point: null, prepCalled: null } as const;
   if (view.status === 'active' && view.checkpoint === null)
-    return { phase: 'waiting', liveIndex: -1, clock: null, prep: null };
+    return {
+      phase: 'waiting',
+      liveIndex: -1,
+      clock: null,
+      prep: null,
+      ...quiet,
+    };
   const step = view.opening?.step;
   if (step?.step === 'prep')
     return {
@@ -234,6 +285,7 @@ function liveParts(
         remainingMs: Math.max(0, instantMs(step.endsAt) - nowMs),
       },
       prep: null,
+      ...quiet,
     };
   const position = positionOf(view, nowMs);
   const phase = phaseOf(view, position, seat.seat);
@@ -245,6 +297,74 @@ function liveParts(
         ? clockOf(view, position, seat)
         : judgingClockOf(view.waitingOn, nowMs),
     prep: prepOf(view, position),
+    micLive: micGranted(view, position, seat),
+    point: pointOf(view, position, seat, nowMs),
+    prepCalled: prepCalledOf(view, position, seat),
+  };
+}
+
+const labelOf = (view: RoundView, participantId: string) =>
+  view.participants.filter(isSeat).find((p) => p.id === participantId)
+    ?.label ?? 'A debater';
+
+/** The open speech's points of information as this seat sees them (INTX-18). */
+function pointOf(
+  view: RoundView,
+  position: RoundPosition,
+  seat: Seat,
+  nowMs: number,
+): RoundSnapshot['point'] {
+  const point = position.pointOfInformation;
+  const open = position.openSegment;
+  if (point === null || open === null) return null;
+  const opensInMs = Math.max(0, instantMs(point.offersOpenAt) - nowMs);
+  const closed = nowMs >= instantMs(point.offersCloseAt);
+  const holder = point.holder;
+  const role: NonNullable<RoundSnapshot['point']>['role'] =
+    open.lead !== null && sameSeat(open.lead, seat.seat)
+      ? 'speaker'
+      : holder?.participantId === seat.id
+        ? 'holder'
+        : point.offers.some((offer) => offer.participantId === seat.id)
+          ? 'offering'
+          : 'audience';
+  return {
+    role,
+    window: opensInMs > 0 ? 'protected-start' : closed ? 'protected-end' : 'open',
+    opensInMs,
+    offers: point.offers.map((offer) => ({
+      participantId: offer.participantId,
+      name: labelOf(view, offer.participantId),
+      lapsesInMs: Math.max(0, instantMs(offer.lapsesAt) - nowMs),
+    })),
+    ownOfferLapsesInMs: (() => {
+      const own = point.offers.find((offer) => offer.participantId === seat.id);
+      return own ? Math.max(0, instantMs(own.lapsesAt) - nowMs) : null;
+    })(),
+    holder: holder
+      ? {
+          participantId: holder.participantId,
+          name: labelOf(view, holder.participantId),
+          remainingMs: holder.remainingMs,
+        }
+      : null,
+  };
+}
+
+/** Prep called during the live segment, for the segment after it (INTX-2). */
+function prepCalledOf(
+  view: RoundView,
+  position: RoundPosition,
+  seat: Seat,
+): RoundSnapshot['prepCalled'] {
+  const prep = position.prep;
+  const open = position.openSegment;
+  if (prep?.phase !== 'called' || open === null) return null;
+  return {
+    side: sideName(view.rules.sides, prep.side),
+    own: prep.side === sideOfSeat(seat.seat),
+    before: view.rules.segments[open.sequence + 1]?.key ?? '',
+    after: open.key,
   };
 }
 
@@ -293,6 +413,8 @@ export function postRoundCallRoundOf(
     },
     prep: null,
     micLive: true,
+    point: null,
+    prepCalled: null,
     channels: [],
     messages: [],
     agents: [{ id: 'assistant', title: 'Assistant' }],
@@ -328,7 +450,6 @@ export function liveRoundOf(
     stakes: null,
     speeches: speechesOf(view),
     ...clocks,
-    micLive: phase === 'own-speech' || phase === 'cross-ex',
     channels: [],
     messages: [],
     agents: [{ id: 'assistant', title: 'Assistant' }],

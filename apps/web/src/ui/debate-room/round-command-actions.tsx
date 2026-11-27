@@ -52,6 +52,7 @@ export function CommandForm({
   const confirming = answer.kind === 'confirming';
   const asked =
     values.type === intent.type && (!confirming || values.segment === segment);
+  const { command } = intent;
   const preserved = asked ? values : {};
   const confirmation = confirming && asked;
   return (
@@ -71,6 +72,16 @@ export function CommandForm({
       />
       <input type="hidden" name="type" value={intent.type} />
       <input type="hidden" name="segment" value={segment} />
+      {'sequence' in command ? (
+        <input type="hidden" name="sequence" value={command.sequence} />
+      ) : null}
+      {command.type === 'accept_poi' ? (
+        <input
+          type="hidden"
+          name="offererParticipantId"
+          value={command.offererParticipantId}
+        />
+      ) : null}
       {intent.participantId ? (
         <input
           type="hidden"
@@ -82,14 +93,29 @@ export function CommandForm({
         <input type="hidden" name="confirmed" value="true" />
       ) : null}
       <Button
-        variant="secondary"
+        variant={
+          intent.emphasis === 'point'
+            ? 'point'
+            : intent.emphasis === 'primary' || confirmation
+              ? 'primary'
+              : 'secondary'
+        }
         size="room"
-        id={`${control}-${intent.type}`}
+        id={`${control}-${intent.key}`}
         type="submit"
         disabled={pending || !intent.enabled}
+        aria-describedby={intent.hint ? `${control}-${intent.key}-hint` : undefined}
       >
         {confirmation ? `Confirm ${intent.label.toLowerCase()}` : intent.label}
       </Button>
+      {intent.hint ? (
+        <span
+          id={`${control}-${intent.key}-hint`}
+          className="text-xs text-ink-muted tabular-nums"
+        >
+          {intent.hint}
+        </span>
+      ) : null}
     </form>
   );
 }
@@ -183,7 +209,7 @@ export function RoundCommandActions({
     <>
       {roundControlIntents(view, actorId, nowMs).map((intent) => (
         <CommandForm
-          key={intent.type}
+          key={intent.key}
           intent={intent}
           commandId={ids[intent.type]}
           version={view.version}
