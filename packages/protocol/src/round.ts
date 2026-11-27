@@ -139,77 +139,101 @@ const startGateSchema = z
 export type RoundStartGate = z.infer<typeof startGateSchema>;
 
 /**
- * The runtime checkpoint (ADR 0058 §4), version 1 — only what has no
- * durable row. The open `round_segments` row is the live interval; the
- * checkpoint holds the three facts a restart could not otherwise
- * reconstruct. Keys are the stored jsonb shape, matching the column's
- * database default verbatim. The equivalence: `current_stage = 'prep'` iff
- * `active_prep` is not null; effective prep consumption while prep is live
- * is `prep_consumed_ms[side] + (now - active_prep.started_at)`. The lead after
- * prep and prep itself never hold at once; what relates the checkpoint to the
- * segment rows is the clock's to hold (`normalizeRoundClock`).
+ * In-round prep, as one state (INTX-1). The side that speaks next may call it
+ * while the previous segment still runs (`called`); it runs from the instant
+ * that segment ends, or from the press in the gap (`running`); it ends at its
+ * press or its budget, and the microphone opens one lead later (`lead`).
+ * Effective consumption while it runs is
+ * `prep_consumed_ms[side] + running time since started_at`.
  */
-export const runtimeCheckpointSchema = z
-  .strictObject({
-    version: z.literal(1),
-    /** Prep each side has spent, keyed by side key (TAB-6.2). */
-    prep_consumed_ms: z.record(sideKeySchema, z.int().min(0)),
-    active_prep: z
-      .strictObject({ side: sideKeySchema, started_at: z.iso.datetime() })
-      .nullable(),
-    /**
-     * Who holds the floor. Null whenever the answer is derivable from the
-     * open segment plus the rules — i.e. the segment's own scheduled side
-     * holds it. Set only by an accepted interruption; deliberately not the
-     * legal-next participant, which would duplicate the rules and go stale.
-     */
-    floor: z
-      .strictObject({
-        holder_participant_id: idSchema,
-        granted_at: z.iso.datetime(),
-      })
-      .nullable(),
-    incident: incidentSchema,
-    /**
-     * When in-round prep ended. The next clock starts the microphone lead after this, so no
-     * microphone opens during prep. Null outside that lead; never set while prep runs.
-     */
-    prep_ended_at: z.iso.datetime().nullable(),
-    /** Whether capture is ready for the coming speech, which it may briefly hold. */
-    start_gate: startGateSchema,
-    /** Finished incidents' spans, so a countdown, a strike window or prep owes them back. */
-    clock_stops: z
-      .array(z.strictObject({ from: z.iso.datetime(), to: z.iso.datetime() }))
-      .readonly(),
-    /**
-     * The competitor seats that left a Round no forfeit ends (TAB-6.8): each
-     * is absent from then on, and the Round goes on without it. Omitted
-     * while no seat has left, so every other checkpoint keeps its shape.
-     */
-    absent_participant_ids: z.array(idSchema).min(1).readonly().optional(),
-  })
-  .refine(
-    (checkpoint) =>
-      checkpoint.prep_ended_at === null || checkpoint.active_prep === null,
-    {
-      message: 'The lead after prep never runs while prep does',
-      path: ['prep_ended_at'],
-    },
-  );
+export const roundPrepSchema = z.discriminatedUnion('phase', [
+  z.strictObject({ phase: z.literal('idle') }),
+  z.strictObject({ phase: z.literal('called'), side: sideKeySchema }),
+  z.strictObject({
+    phase: z.literal('running'),
+    side: sideKeySchema,
+    started_at: z.iso.datetime(),
+  }),
+  z.strictObject({ phase: z.literal('lead'), ended_at: z.iso.datetime() }),
+]);
+export type RoundPrep = z.infer<typeof roundPrepSchema>;
+
+/** One opposing seat standing to offer a point of information. */
+const pointOfInformationOfferSchema = z.strictObject({
+  participant_id: idSchema,
+  offered_at: z.iso.datetime(),
+});
+
+/**
+ * A speech's point of information (INTX-13..15): nobody standing, opposing
+ * seats offering, or one accepted offer being given. It lives only inside one
+ * open speech; closing the segment returns it to `none`.
+ */
+export const pointOfInformationSchema = z.discriminatedUnion('phase', [
+  z.strictObject({ phase: z.literal('none') }),
+  z.strictObject({
+    phase: z.literal('offered'),
+    offers: z
+      .array(pointOfInformationOfferSchema)
+      .min(1)
+      .readonly()
+      .refine(
+        (offers) =>
+          new Set(offers.map((offer) => offer.participant_id)).size ===
+          offers.length,
+        'A seat offers once at a time',
+      ),
+  }),
+  z.strictObject({
+    phase: z.literal('speaking'),
+    holder_participant_id: idSchema,
+    accepted_at: z.iso.datetime(),
+  }),
+]);
+export type PointOfInformation = z.infer<typeof pointOfInformationSchema>;
+
+/**
+ * The runtime checkpoint (ADR 0058 §4), version 2 — only what has no
+ * durable row. The open `round_segments` row is the live interval; the
+ * checkpoint holds the facts a restart could not otherwise reconstruct.
+ * Keys are the stored jsonb shape, matching the column's database default
+ * verbatim. `current_stage = 'prep'` iff prep is running; what relates the
+ * checkpoint to the segment rows is the clock's to hold
+ * (`normalizeRoundClock`).
+ */
+export const runtimeCheckpointSchema = z.strictObject({
+  version: z.literal(2),
+  /** Prep each side has spent, keyed by side key (TAB-6.2). */
+  prep_consumed_ms: z.record(sideKeySchema, z.int().min(0)),
+  prep: roundPrepSchema,
+  point_of_information: pointOfInformationSchema,
+  incident: incidentSchema,
+  /** Whether capture is ready for the coming speech, which it may briefly hold. */
+  start_gate: startGateSchema,
+  /** Finished incidents' spans, so a countdown, a strike window or prep owes them back. */
+  clock_stops: z
+    .array(z.strictObject({ from: z.iso.datetime(), to: z.iso.datetime() }))
+    .readonly(),
+  /**
+   * The competitor seats that left a Round no forfeit ends (TAB-6.8): each
+   * is absent from then on, and the Round goes on without it. Omitted
+   * while no seat has left, so every other checkpoint keeps its shape.
+   */
+  absent_participant_ids: z.array(idSchema).min(1).readonly().optional(),
+});
 export type RuntimeCheckpoint = z.infer<typeof runtimeCheckpointSchema>;
 
 /** The checkpoint a fresh round over these sides hydrates with: no prep spent by any. */
 export const emptyRuntimeCheckpointFor = (rules: {
   readonly sides: readonly { readonly key: SideKey }[];
 }): RuntimeCheckpoint => ({
-  version: 1,
+  version: 2,
   prep_consumed_ms: Object.fromEntries(
     rules.sides.map((side) => [side.key, 0]),
   ),
-  active_prep: null,
-  floor: null,
+  prep: { phase: 'idle' },
+  point_of_information: { phase: 'none' },
   incident: { phase: 'none' },
-  prep_ended_at: null,
   start_gate: null,
   clock_stops: [],
 });

@@ -156,9 +156,9 @@ function changesBetween(from: Compiled, to: Compiled): FormatChange[] {
       toMs: preRoundMs(to.plan),
     },
     {
-      kind: 'interruptions',
-      from: from.rules.interaction.interruptions,
-      to: to.rules.interaction.interruptions,
+      kind: 'points-of-information',
+      from: from.rules.interaction.pointsOfInformation,
+      to: to.rules.interaction.pointsOfInformation,
     },
     {
       kind: 'yield',

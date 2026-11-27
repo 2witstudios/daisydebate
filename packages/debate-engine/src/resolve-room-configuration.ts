@@ -127,38 +127,48 @@ function resolveInRoundPrep(
   };
 }
 
-/** Resolves the interruption policy, or refuses when the choice is not permitted. */
-function resolveInterruptions(
+const pointsOfInformationTimings = [
+  ['protectedStartMs', 'protected start'],
+  ['protectedEndMs', 'protected end'],
+  ['maxDurationMs', 'maximum length'],
+  ['offerLapseMs', 'offer lapse'],
+] as const;
+
+/** Resolves the points-of-information rule, or refuses a choice the format does not permit. */
+function resolvePointsOfInformation(
   definition: FormatDefinition,
   config: RoomConfig,
-): Step<Interaction['interruptions']> {
-  const capability = definition.configurable.interaction.interruptions;
-  if (config.interruptions === null)
+): Step<Interaction['pointsOfInformation']> {
+  const capability = definition.configurable.interaction.pointsOfInformation;
+  const chosen = config.pointsOfInformation;
+  if (chosen === null)
     return capability === null
-      ? { ok: true, value: { allowed: 'disabled' } }
-      : stepRefused('invalid-choice', 'An interruption choice is required');
+      ? { ok: true, value: { allowed: false } }
+      : stepRefused(
+          'invalid-choice',
+          'A points-of-information choice is required',
+        );
   if (capability === null)
     return stepRefused(
       'capability-forbidden',
-      'The format forbids interruptions',
+      'The format takes no points of information',
     );
-  if (!capability.modes.includes(config.interruptions.mode))
-    return stepRefused(
-      'invalid-choice',
-      `Interruption mode ${config.interruptions.mode} is not permitted`,
-    );
-  if (!within(config.interruptions.minRemainingMs, capability.minRemainingMs))
-    return stepRefused(
-      'out-of-range',
-      `Interruption minimum remaining ${config.interruptions.minRemainingMs}ms is outside ${capability.minRemainingMs.min}-${capability.minRemainingMs.max}ms`,
-    );
-  const { mode, minRemainingMs } = config.interruptions;
+  if (!chosen.enabled) return { ok: true, value: { allowed: false } };
+  for (const [key, name] of pointsOfInformationTimings)
+    if (!within(chosen[key], capability[key]))
+      return stepRefused(
+        'out-of-range',
+        `Points of information ${name} ${chosen[key]}ms is outside ${capability[key].min}-${capability[key].max}ms`,
+      );
   return {
     ok: true,
-    value:
-      mode === 'enabled'
-        ? { allowed: mode, minRemainingMs }
-        : { allowed: mode },
+    value: {
+      allowed: true,
+      protectedStartMs: chosen.protectedStartMs,
+      protectedEndMs: chosen.protectedEndMs,
+      maxDurationMs: chosen.maxDurationMs,
+      offerLapseMs: chosen.offerLapseMs,
+    },
   };
 }
 
@@ -193,20 +203,20 @@ function resolveYieldRule(
   };
 }
 
-/** Resolves the interaction rules: yield and interruptions. */
+/** Resolves the interaction rules: yield and points of information. */
 function resolveInteraction(
   definition: FormatDefinition,
   config: RoomConfig,
 ): Step<Interaction> {
-  const interruptions = resolveInterruptions(definition, config);
-  if (!interruptions.ok) return interruptions;
+  const pointsOfInformation = resolvePointsOfInformation(definition, config);
+  if (!pointsOfInformation.ok) return pointsOfInformation;
   const yieldRule = resolveYieldRule(definition, config);
   if (!yieldRule.ok) return yieldRule;
   return {
     ok: true,
     value: {
       yield: yieldRule.value,
-      interruptions: interruptions.value,
+      pointsOfInformation: pointsOfInformation.value,
     },
   };
 }

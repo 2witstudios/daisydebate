@@ -89,7 +89,7 @@ test('both absent abandons without inventing a winner', () => {
     expected: ['abandoned', null, roundAt(55_000)],
   });
 });
-test('historical speech absence remains tied to its speaker after another seat holds a later floor', () => {
+test('historical speech absence remains tied to its speaker while a later segment runs', () => {
   const rules = oneOnOneRules();
   const holderId = 'n'.repeat(24);
   const world = runtimeWorld({
@@ -98,13 +98,7 @@ test('historical speech absence remains tied to its speaker after another seat h
     participants: oneOnOneSeats.map((seat, index) =>
       index === 1 ? { ...seat, id: holderId } : seat,
     ),
-    checkpoint: {
-      ...emptyCheckpoint,
-      floor: {
-        holder_participant_id: holderId,
-        granted_at: roundAt(330_000),
-      },
-    },
+    checkpoint: emptyCheckpoint,
     segments: rules.segments.slice(0, 2).map((s, index) => ({
       id: index === 0 ? 'actual-speech' : 'later-cx',
       sequence: index,
@@ -123,7 +117,7 @@ test('historical speech absence remains tied to its speaker after another seat h
   });
   assert({
     given:
-      'an earlier affirmative attendance failure while negative holds a later CX floor',
+      'an earlier affirmative attendance failure while the negative leads a later CX',
     should:
       'forfeit the historical affirmative speaker and close the actual later interval',
     actual: [

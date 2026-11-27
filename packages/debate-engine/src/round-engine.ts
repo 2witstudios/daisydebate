@@ -86,7 +86,10 @@ const incidentStep = (
     incidentTransition(clockOf(caughtUp), rules, event),
   );
   if (clockOf(moved).lifecycle.status === before) return moved;
-  const ended = withCheckpoint(moved, { active_prep: null });
+  const ended = withCheckpoint(moved, {
+    prep: { phase: 'idle' },
+    point_of_information: { phase: 'none' },
+  });
   const lastPlayed = clockOf(ended).rows.at(-1)?.endedAtMs;
   return lastPlayed === undefined || lastPlayed === null
     ? ended

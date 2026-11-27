@@ -8,7 +8,7 @@ export const presetSettingDefaults = (
     | 'preRoundPrep'
     | 'inRoundPrep'
     | 'speechTiming'
-    | 'interruptions'
+    | 'pointsOfInformation'
     | 'yielding'
   >,
 ): FormatSettingDefaults => {
@@ -23,7 +23,7 @@ export const presetSettingDefaults = (
       countdownMs: config.speechTiming.countdownMs,
     },
     'room.floor': {
-      interruptions: config.interruptions,
+      pointsOfInformation: config.pointsOfInformation,
       yielding: config.yielding,
     },
   };

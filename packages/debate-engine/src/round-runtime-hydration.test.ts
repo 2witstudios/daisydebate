@@ -15,12 +15,11 @@ describe('round runtime hydration', () => {
     const midPrep = runtime({
       status: 'active',
       checkpoint: {
-        version: 1,
+        version: 2,
         prep_consumed_ms: { affirmative: 30_000, negative: 0 },
-        active_prep: { side: 'affirmative', started_at: at(945_000) },
-        floor: null,
+        prep: { phase: 'running', side: 'affirmative', started_at: at(945_000) },
+        point_of_information: { phase: 'none' },
         incident: { phase: 'none' },
-        prep_ended_at: null,
         start_gate: null,
         clock_stops: [],
       },
@@ -79,7 +78,7 @@ describe('round runtime hydration', () => {
       },
       expected: {
         stage: 'prep',
-        prep: { side: 'affirmative', remainingMs: 195_000 },
+        prep: { phase: 'running', side: 'affirmative', remainingMs: 195_000 },
         next: '1AR',
         budget: { affirmative: 195_000, negative: 240_000 },
       },

@@ -89,7 +89,7 @@ const rankedAdmits = (facts: FormatSelectionFacts) =>
   isCurrent(facts) &&
   canonicalRatingStyle(facts.format.id) !== null &&
   facts.preset.rankedEligible &&
-  facts.preset.config.interruptions?.mode !== 'open' &&
+  facts.preset.config.pointsOfInformation?.enabled !== true &&
   oneOnOneSeats(facts.definition);
 
 /** A reset names the room's own pinned basis exactly. */

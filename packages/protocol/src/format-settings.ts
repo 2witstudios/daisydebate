@@ -1,5 +1,8 @@
 import { z } from 'zod';
-import { interruptionModeSchema, MAX_PRE_ROUND_PREP_MS } from './format';
+import {
+  MAX_PRE_ROUND_PREP_MS,
+  pointsOfInformationTimingSchema,
+} from './format';
 import { formatResolutionDrawSchema } from './resolution-draw';
 
 /**
@@ -28,9 +31,18 @@ const inRoundPrepSchema = z.discriminatedUnion('enabled', [
   }),
 ]);
 
+/** Points of information: declined, or taken with these timings. */
+const pointsOfInformationSettingSchema = z.discriminatedUnion('enabled', [
+  declinedSchema,
+  pointsOfInformationTimingSchema.extend({ enabled: z.literal(true) }),
+]);
+export type PointsOfInformationSetting = z.infer<
+  typeof pointsOfInformationSettingSchema
+>;
+
 /**
  * The values a format sanctions within its definition: timing,
- * interruptions, yielding and prep. A Room embeds them
+ * points of information, yielding and prep. A Room embeds them
  * and adds its own inputs (`roomConfigSchema`).
  */
 export const formatSettingsFields = {
@@ -41,13 +53,8 @@ export const formatSettingsFields = {
     /** Partial: unspecified segments take the format's defaultDurationMs. */
     segmentDurationOverrides: z.record(z.string(), z.int().positive()),
   }),
-  /** Null only when the format forbids interruptions; otherwise an explicit legal choice. */
-  interruptions: z
-    .strictObject({
-      mode: interruptionModeSchema,
-      minRemainingMs: z.int().min(0),
-    })
-    .nullable(),
+  /** Null only when the format takes no points of information; otherwise an explicit legal choice. */
+  pointsOfInformation: pointsOfInformationSettingSchema.nullable(),
   /** Null only when the format forbids yielding; otherwise an explicit legal choice. */
   yielding: z
     .strictObject({ allowed: z.boolean(), returnsTime: z.boolean() })

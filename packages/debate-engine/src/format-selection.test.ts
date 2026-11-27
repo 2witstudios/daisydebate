@@ -10,13 +10,19 @@ import {
 
 setupRitewayBun();
 
-test('open POI speaking is never admitted to Ranked even on an eligible published preset', () => {
+test('points of information are never admitted to Ranked even on an eligible published preset', () => {
   const source = facts({
     preset: {
       rankedEligible: true,
       config: {
         ...oneOnOneSettings,
-        interruptions: { mode: 'open', minRemainingMs: 0 },
+        pointsOfInformation: {
+          enabled: true,
+          protectedStartMs: 60_000,
+          protectedEndMs: 60_000,
+          maxDurationMs: 15_000,
+          offerLapseMs: 10_000,
+        },
       },
     },
   });
@@ -28,9 +34,11 @@ test('open POI speaking is never admitted to Ranked even on an eligible publishe
         ...source.definition.configurable,
         interaction: {
           ...source.definition.configurable.interaction,
-          interruptions: {
-            modes: ['open'],
-            minRemainingMs: { min: 0, max: 0 },
+          pointsOfInformation: {
+            protectedStartMs: { min: 60_000, max: 60_000 },
+            protectedEndMs: { min: 60_000, max: 60_000 },
+            maxDurationMs: { min: 15_000, max: 15_000 },
+            offerLapseMs: { min: 10_000, max: 10_000 },
           },
         },
       },

@@ -1,6 +1,9 @@
 import { instantMs } from '@daisy/clock';
 import { assertRejects } from '@daisy/errors/testing';
-import { emptyRuntimeCheckpointFor } from '@daisy/protocol/round';
+import {
+  emptyRuntimeCheckpointFor,
+  type RuntimeCheckpoint,
+} from '@daisy/protocol/round';
 import { sideSeat } from '@daisy/protocol/seats';
 import {
   winnerOutcome,
@@ -20,19 +23,18 @@ import {
   oneOnOneSeats,
   runtimeWorld,
 } from './runtime.test-support';
+import {
+  teamActors,
+  teamRules,
+  teamSeatIds,
+  teamSeats,
+} from './team-round.test-support';
 
 setupRitewayBun();
 
 const { at, opponent } = oneOnOneCast();
 const [speaker, respondent, judge] = oneOnOneSeats;
 const emptyRuntimeCheckpoint = emptyRuntimeCheckpointFor(oneOnOneRules());
-
-const withInterruptions = (
-  interruptions: RoundRules['interaction']['interruptions'],
-): RoundRules => {
-  const rules = oneOnOneRules();
-  return { ...rules, interaction: { ...rules.interaction, interruptions } };
-};
 
 const speechFacts = (
   rules: RoundRules,
@@ -67,80 +69,153 @@ const speechFacts = (
   ...overrides,
 });
 
-test('open questioning keeps the scheduled floor (ISSUE-1012)', async () => {
-  const world = runtimeWorld({ rules: withInterruptions({ allowed: 'open' }) });
+/** The team Round's first speech, read by `name` at `ms` into it, with `checkpoint`. */
+const teamFacts = (
+  name: keyof typeof teamActors,
+  ms: number,
+  checkpoint: RuntimeCheckpoint = emptyRuntimeCheckpointFor(teamRules()),
+): RoundCommandFacts => {
+  const rules = teamRules();
+  const participants = teamSeats();
+  return {
+    ...speechFacts(rules, {
+      participants,
+      seat: participants.find((seat) => seat.actorId === teamActors[name])!,
+      nowMs: instantMs(at(ms)),
+    }),
+    state: normalizeRoundClock({
+      round: {
+        status: 'active',
+        startedAt: at(0),
+        completedAt: null,
+        outcome: null,
+      },
+      rules,
+      checkpoint,
+      segments: [
+        {
+          id: 'segment-0',
+          sequence: 0,
+          type: 'speech',
+          rulesSegmentKey: '1A',
+          startedAt: at(0),
+          endedAt: null,
+          durationMs: 420_000,
+          returnedMs: 0,
+        },
+      ],
+    }),
+  };
+};
+
+const pressed = (facts: RoundCommandFacts) =>
+  roundCommandOptions(facts).map((option) => [
+    option.command.type,
+    option.legal,
+  ]);
+
+test('a speech without points of information offers no POI command', async () => {
+  const world = runtimeWorld();
   world.activate({ at: at(0), now: at(0) });
   world.tick(at(20_000));
   const before = world.checkpoint();
   await assertRejects({
-    given: 'an opponent posting interrupt under open questioning',
-    should: 'refuse with the interrupt-policy invariant',
+    given: 'an opponent offering under rules that take no POIs',
+    should: 'refuse with the POI-rule invariant',
     actual: () =>
       world.execute({
-        command: { type: 'interrupt' },
+        command: { type: 'offer_poi', sequence: 0 },
         actorId: opponent,
         now: at(21_000),
       }),
     code: 'INVARIANT',
-    invariantId: 'round.interrupt.requires-policy',
+    invariantId: 'round.poi.requires-rule',
   });
   assert({
-    given: 'the refused interrupt',
-    should: 'leave the floor unchanged',
+    given: 'the refused offer',
+    should: 'leave the Round unchanged',
     actual: world.checkpoint(),
     expected: before,
   });
+  assert({
+    given: 'the respondent reading its options',
+    should: 'offer only forfeit',
+    actual: pressed(speechFacts(oneOnOneRules())),
+    expected: [['forfeit', true]],
+  });
 });
 
-test('every seat gets its options from one derivation (ISSUE-1013)', () => {
-  const types = (facts: RoundCommandFacts) =>
-    roundCommandOptions(facts).map((option) => [option.type, option.legal]);
-  const enabled = withInterruptions({
-    allowed: 'enabled',
-    minRemainingMs: 1_000,
-  });
+test('every seat gets its options from one derivation (ISSUE-1013, INTX-13)', () => {
   assert({
-    given: 'a speech under an enabled policy, read by the respondent',
-    should: 'offer a legal interrupt and forfeit',
-    actual: types(speechFacts(enabled)),
+    given: 'an opponent in unprotected time',
+    should: 'offer calling prep for its own next speech and a legal POI',
+    actual: pressed(teamFacts('neg1', 100_000)),
     expected: [
-      ['interrupt', true],
+      ['start_prep', true],
+      ['offer_poi', true],
       ['forfeit', true],
     ],
   });
   assert({
-    given: 'the respondent inside the protected end of the speech',
-    should: 'keep interrupt offered and mark it illegal',
-    actual: types(
-      speechFacts(enabled, {
-        nowMs: instantMs(at(enabled.segments[0]!.durationMs - 500)),
-      }),
-    )[0],
-    expected: ['interrupt', false],
+    given: 'the same opponent inside the protected start',
+    should: 'keep the POI offered and mark it illegal',
+    actual: pressed(teamFacts('neg1', 30_000))[1],
+    expected: ['offer_poi', false],
   });
   assert({
-    given: 'open questioning, read by the respondent',
-    should: 'offer only forfeit',
-    actual: types(speechFacts(withInterruptions({ allowed: 'open' }))),
+    given: 'the speaker’s partner',
+    should: 'offer no POI',
+    actual: pressed(teamFacts('aff2', 100_000)),
     expected: [['forfeit', true]],
   });
   assert({
     given: 'a judge',
     should: 'offer nothing',
-    actual: types(speechFacts(enabled, { seat: judge })),
+    actual: pressed(teamFacts('judge', 100_000)),
     expected: [],
   });
   assert({
-    given: 'the speaker',
-    should: 'offer their own yield and never an interrupt that is legal',
-    actual: types(speechFacts(enabled, { seat: speaker })).map(
-      ([type, legal]) => (type === 'interrupt' ? legal : type),
-    ),
-    expected: ['yield', false, 'forfeit'],
+    given: 'the speaker with no offer standing',
+    should: 'offer their own yield',
+    actual: pressed(teamFacts('aff1', 100_000)),
+    expected: [
+      ['yield', true],
+      ['forfeit', true],
+    ],
+  });
+  const offered: RuntimeCheckpoint = {
+    ...emptyRuntimeCheckpointFor(teamRules()),
+    point_of_information: {
+      phase: 'offered',
+      offers: [{ participant_id: teamSeatIds.neg1, offered_at: at(99_000) }],
+    },
+  };
+  assert({
+    given: 'one offer standing, read by the speaker and by the offerer',
+    should: 'offer accept and decline to one, withdraw to the other',
+    actual: [
+      roundCommandOptions(teamFacts('aff1', 100_000, offered)).map(
+        (option) => option.command,
+      ),
+      pressed(teamFacts('neg1', 100_000, offered))[1],
+    ],
+    expected: [
+      [
+        { type: 'yield', sequence: 0 },
+        {
+          type: 'accept_poi',
+          sequence: 0,
+          offererParticipantId: teamSeatIds.neg1,
+        },
+        { type: 'decline_poi', sequence: 0 },
+        { type: 'forfeit' },
+      ],
+      ['withdraw_poi', true],
+    ],
   });
 });
 
-test('prep takes the seat whose segment is next (ISSUE-1013)', () => {
+test('either partner of the side that speaks next takes its prep (INTX-2, amends ISSUE-1013)', () => {
   const rules = oneOnOneRules();
   const seats = [
     speaker,
@@ -179,13 +254,17 @@ test('prep takes the seat whose segment is next (ISSUE-1013)', () => {
       },
     );
   assert({
-    given: 'the scheduled speaker and their teammate before the speech',
-    should: 'allow prep only for the scheduled seat',
+    given: 'the scheduled speaker, their teammate and the opponent before the speech',
+    should: 'allow prep for either affirmative and refuse the negative',
     actual: [
-      roundCommandRefusal(facts(speaker), 'start_prep'),
-      roundCommandRefusal(facts(seats[1]!), 'start_prep')?.kind,
+      roundCommandRefusal(facts(speaker), { type: 'start_prep', sequence: 0 }),
+      roundCommandRefusal(facts(seats[1]!), { type: 'start_prep', sequence: 0 }),
+      roundCommandRefusal(facts(respondent), {
+        type: 'start_prep',
+        sequence: 0,
+      })?.kind,
     ],
-    expected: [null, 'invariant'],
+    expected: [null, null, 'invariant'],
   });
   const prepping = (seat: (typeof seats)[number]): RoundCommandFacts => ({
     ...facts(seat),
@@ -193,18 +272,23 @@ test('prep takes the seat whose segment is next (ISSUE-1013)', () => {
       ...facts(seat).state,
       checkpoint: {
         ...emptyRuntimeCheckpoint,
-        active_prep: { side: 'affirmative', started_at: at(0) },
+        prep: { phase: 'running', side: 'affirmative', started_at: at(0) },
       },
     },
   });
   assert({
-    given: 'the scheduled speaker prepping, read by them and by their teammate',
-    should: 'let only the prepping seat open the speech',
+    given: 'the affirmative prepping, read by both affirmatives and the negative',
+    should: 'let either affirmative open the speech',
     actual: [
-      roundCommandOptions(prepping(speaker)).map((option) => option.type),
-      roundCommandOptions(prepping(seats[1]!)).map((option) => option.type),
+      roundCommandOptions(prepping(speaker)).map((o) => o.command.type),
+      roundCommandOptions(prepping(seats[1]!)).map((o) => o.command.type),
+      roundCommandOptions(prepping(respondent)).map((o) => o.command.type),
     ],
-    expected: [['start_speech', 'forfeit'], ['forfeit']],
+    expected: [
+      ['start_speech', 'forfeit'],
+      ['start_speech', 'forfeit'],
+      ['forfeit'],
+    ],
   });
 });
 

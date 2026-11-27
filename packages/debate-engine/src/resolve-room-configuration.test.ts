@@ -101,7 +101,7 @@ describe('resolveRoomConfiguration', () => {
         inRoundPrep: null,
         preRoundPrep: null,
         interaction: {
-          interruptions: null,
+          pointsOfInformation: null,
           yield: null,
         },
       },
@@ -111,7 +111,7 @@ describe('resolveRoomConfiguration', () => {
       resolveRoomConfiguration(forbidding, {
         ...oneOnOneSettings,
         inRoundPrep: { enabled: false },
-        interruptions: null,
+        pointsOfInformation: null,
         yielding: null,
         preRoundPrep: { enabled: true, durationMs: 60_000 },
       }),
@@ -130,7 +130,7 @@ describe('resolveRoomConfiguration', () => {
       actual: resolveRoomConfiguration(forbidding, {
         ...oneOnOneSettings,
         inRoundPrep: { enabled: false },
-        interruptions: null,
+        pointsOfInformation: null,
         yielding: null,
       }).ok,
       expected: true,
@@ -158,33 +158,14 @@ describe('resolveRoomConfiguration', () => {
           yielding: { allowed: false, returnsTime: true },
         },
       ),
-      resolveRoomConfiguration(
-        {
-          ...oneOnOneDefinition,
-          configurable: {
-            ...oneOnOneDefinition.configurable,
-            interaction: {
-              ...oneOnOneDefinition.configurable.interaction,
-              interruptions: {
-                modes: ['disabled'],
-                minRemainingMs: { min: 0, max: 300_000 },
-              },
-            },
-          },
-        },
-        {
-          ...oneOnOneSettings,
-          interruptions: { mode: 'enabled', minRemainingMs: 30_000 },
-        },
-      ),
     ];
     assert({
       given: 'a permitted-set member the definition did not list',
-      should: 'refuse as invalid-choice in both interactions',
+      should: 'refuse as invalid-choice',
       actual: outcomes.map((outcome) =>
         outcome.ok ? 'resolved' : outcome.refusal.kind,
       ),
-      expected: ['invalid-choice', 'invalid-choice'],
+      expected: ['invalid-choice'],
     });
   });
 
@@ -266,6 +247,41 @@ describe('resolveRoomConfiguration', () => {
   });
 });
 
+test('refuses point-of-information timings outside the format’s bounds', () => {
+  const poi = {
+    enabled: true as const,
+    protectedStartMs: 60_000,
+    protectedEndMs: 60_000,
+    maxDurationMs: 15_000,
+    offerLapseMs: 10_000,
+  };
+  const outcome = (pointsOfInformation: typeof poi) =>
+    resolveRoomConfiguration(oneOnOneDefinition, {
+      ...oneOnOneSettings,
+      pointsOfInformation,
+    });
+  const within = outcome(poi);
+  const long = outcome({ ...poi, maxDurationMs: 45_000 });
+  assert({
+    given: 'timings within the bounds, then a 45 s maximum length',
+    should: 'freeze them into the rules, then refuse as out-of-range',
+    actual: [
+      within.ok ? within.rules.interaction.pointsOfInformation : null,
+      long.ok ? 'resolved' : long.refusal.kind,
+    ],
+    expected: [
+      {
+        allowed: true,
+        protectedStartMs: 60_000,
+        protectedEndMs: 60_000,
+        maxDurationMs: 15_000,
+        offerLapseMs: 10_000,
+      },
+      'out-of-range',
+    ],
+  });
+});
+
 test('null controls cannot omit declared interaction choices', () => {
   for (const restricted of [true, false]) {
     const definition: FormatDefinition = {
@@ -273,20 +289,14 @@ test('null controls cannot omit declared interaction choices', () => {
       configurable: {
         ...oneOnOneDefinition.configurable,
         interaction: {
-          interruptions: {
-            modes: restricted ? ['enabled'] : ['disabled'],
-            minRemainingMs: { min: 0, max: 1000 },
-          },
+          ...oneOnOneDefinition.configurable.interaction,
           yield: { enabledChoices: [!restricted], returnsTimeChoices: [true] },
         },
       },
     };
     const config = {
       ...oneOnOneSettings,
-      interruptions: {
-        mode: restricted ? ('enabled' as const) : ('disabled' as const),
-        minRemainingMs: 0,
-      },
+      pointsOfInformation: { enabled: false as const },
       yielding: { allowed: !restricted, returnsTime: true },
     };
     assert({
@@ -295,7 +305,7 @@ test('null controls cannot omit declared interaction choices', () => {
       actual: resolveRoomConfiguration(definition, config).ok,
       expected: true,
     });
-    for (const field of ['interruptions', 'yielding'] as const) {
+    for (const field of ['pointsOfInformation', 'yielding'] as const) {
       const result = resolveRoomConfiguration(definition, {
         ...config,
         [field]: null,

@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { dueAfterStops, type ClockStop } from './clock-stops';
 
 /** Capture time in which the stage is known to have shown public speech. */
 const publicIntervalSchema = z.strictObject({
@@ -233,10 +234,8 @@ export const stageTimeline = (history: {
 
 type RoundFacts = {
   readonly stage: string | null;
-  readonly activePrep: {
-    readonly startedAtMs: number;
-    readonly consumedMs: number;
-  } | null;
+  /** When the running prep started; null when no prep runs. */
+  readonly prepStartedAtMs: number | null;
 };
 
 export type PrivateSpanChange =
@@ -252,35 +251,51 @@ export type PrivateSpanChange =
     };
 
 /**
- * What one Round transition commits to the record of its private spans. Prep ends
- * at the time it actually used, which a late tick can only learn afterwards. Judging
- * starts when the final segment ended, for the same reason.
+ * What one Round transition commits to the record of its private spans. Prep
+ * closes where the time it actually used ends, counted over the clock's
+ * stops, so an incident during prep or a late tick never moves its end
+ * (INTX-5). Judging starts when the final segment ended, for the same reason.
  */
 export const privateSpanChanges = (
   before: RoundFacts,
-  after: RoundFacts & { readonly consumedNowMs: number },
+  after: RoundFacts & {
+    /** Running time the prep that was running used, by the Round's state. */
+    readonly prepUsedMs: number;
+    /** Every stop the clock has had, so a prep's end counts over them. */
+    readonly clockStops: readonly ClockStop[];
+  },
   nowMs: number,
   finalSegmentEndedAtMs: number | null,
 ): readonly PrivateSpanChange[] => {
-  const was = before.activePrep;
-  const is = after.activePrep;
-  const prepClosed = was !== null && was.startedAtMs !== is?.startedAtMs;
-  const prepOpened = is !== null && is.startedAtMs !== was?.startedAtMs;
+  const was = before.prepStartedAtMs;
+  const is = after.prepStartedAtMs;
+  const prepClosed = was !== null && was !== is;
+  const prepOpened = is !== null && is !== was;
   const judgingWas = before.stage === 'awaiting_ballot';
   const judgingIs = after.stage === 'awaiting_ballot';
-  const used = was ? after.consumedNowMs - was.consumedMs : 0;
   return [
     ...(prepClosed
       ? [
           {
             type: 'close' as const,
             kind: 'prep' as const,
-            atMs: used > 0 ? Math.min(nowMs, was.startedAtMs + used) : nowMs,
+            atMs:
+              after.prepUsedMs > 0
+                ? Math.min(
+                    nowMs,
+                    dueAfterStops(
+                      was,
+                      after.prepUsedMs,
+                      after.clockStops,
+                      nowMs,
+                    ),
+                  )
+                : nowMs,
           },
         ]
       : []),
     ...(prepOpened
-      ? [{ type: 'open' as const, kind: 'prep' as const, atMs: is.startedAtMs }]
+      ? [{ type: 'open' as const, kind: 'prep' as const, atMs: is }]
       : []),
     ...(judgingIs && !judgingWas
       ? [

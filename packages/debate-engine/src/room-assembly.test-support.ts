@@ -35,7 +35,7 @@ const rules = {
   countdownMs: 0,
   interaction: {
     yield: null,
-    interruptions: { allowed: 'disabled' as const },
+    pointsOfInformation: { allowed: false as const },
   },
 };
 /** A Room still gathering its players: it has launched no Round. */
@@ -93,7 +93,7 @@ export const state = (): OpenRoom => ({
         },
       },
       interaction: {
-        interruptions: null,
+        pointsOfInformation: null,
         yield: null,
       },
     },

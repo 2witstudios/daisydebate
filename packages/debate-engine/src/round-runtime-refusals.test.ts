@@ -10,6 +10,7 @@ import {
   oneOnOneSeats,
   runtimeWorld as runtime,
 } from './runtime.test-support';
+import { teamActors, teamWorld } from './team-round.test-support';
 
 setupRitewayBun();
 
@@ -105,7 +106,7 @@ describe('round runtime command refusals and seat order', () => {
       should: 'refuse with a conflict',
       actual: () =>
         world.execute({
-          command: { type: 'start_prep' },
+          command: { type: 'start_prep', sequence: 0 },
           actorId: person,
           now: at(0),
         }),
@@ -119,7 +120,7 @@ describe('round runtime command refusals and seat order', () => {
     });
   });
 
-  test('refuses the app-error paths: a started round and a seatless interrupt', async () => {
+  test('refuses the app-error paths: a started round and a seatless offer', async () => {
     const started = runtime({ status: 'active' });
     await assertRejects({
       given: 'a start command against an already active round',
@@ -127,37 +128,29 @@ describe('round runtime command refusals and seat order', () => {
       actual: () => started.activate({ at: at(0), now: at(0) }),
       code: 'CONFLICT',
     });
-    // AC is live at 20_000 under a policy that permits interrupting it.
-    const world = runtime({
-      rules: {
-        ...rules,
-        interaction: {
-          ...rules.interaction,
-          interruptions: { allowed: 'enabled', minRemainingMs: 0 },
-        },
-      },
-    });
+    // 1A is live and past its protected start at 100_000 under POI rules.
+    const world = teamWorld();
     world.activate({ at: at(0), now: at(0) });
-    world.tick(at(20_000));
+    world.tick(at(100_000));
     await assertRejects({
-      given: 'an interrupt from no seat at all',
+      given: 'a point of information offered from no seat at all',
       should: 'refuse with a conflict',
       actual: () =>
         world.execute({
-          command: { type: 'interrupt' },
+          command: { type: 'offer_poi', sequence: 0 },
           actorId: null,
-          now: at(20_000),
+          now: at(100_000),
         }),
       code: 'CONFLICT',
     });
     await assertRejects({
-      given: 'the judge asking to take the debaters’ floor',
+      given: 'the judge offering a point of information',
       should: 'refuse even though the judge holds a seat',
       actual: () =>
         world.execute({
-          command: { type: 'interrupt' },
-          actorId: oneOnOneSeats[2].actorId,
-          now: at(20_000),
+          command: { type: 'offer_poi', sequence: 0 },
+          actorId: teamActors.judge,
+          now: at(100_000),
         }),
       code: 'CONFLICT',
     });
@@ -184,7 +177,7 @@ describe('round runtime command refusals and seat order', () => {
       should: 'refuse with the spendable-segment invariant',
       actual: () =>
         spent.execute({
-          command: { type: 'start_prep' },
+          command: { type: 'start_prep', sequence: 7 },
           actorId: person,
           now: at(1_000),
         }),
@@ -237,7 +230,7 @@ describe('round runtime command refusals and seat order', () => {
       should: 'refuse with the spendable-segment invariant',
       actual: () =>
         world.execute({
-          command: { type: 'start_prep' },
+          command: { type: 'start_prep', sequence: 1 },
           actorId: person,
           now: at(315_000),
         }),
@@ -253,7 +246,7 @@ describe('round runtime command refusals and seat order', () => {
       should: 'refuse with the yield-requires-floor invariant',
       actual: () =>
         idle.execute({
-          command: { type: 'yield' },
+          command: { type: 'yield', sequence: 0 },
           actorId: person,
           now: at(1_000),
         }),
@@ -272,7 +265,7 @@ describe('round runtime command refusals and seat order', () => {
       should: 'refuse with the yield-requires-floor invariant',
       actual: () =>
         forbidden.execute({
-          command: { type: 'yield' },
+          command: { type: 'yield', sequence: 0 },
           actorId: person,
           now: at(1_000),
         }),
@@ -286,6 +279,7 @@ describe('round runtime command refusals and seat order', () => {
       id: 'n9q4w8e2r6t0y3u7i5o1p9a3s7d',
       actorId: opponent,
       seat: sideSeat('negative', 1),
+      kind: 'human',
     } as const;
     // The second negative seat arrives before the first: the completeness
     // check sorts the held slots before comparing them.

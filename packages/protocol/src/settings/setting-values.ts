@@ -233,10 +233,10 @@ export const settingValueSchemas = {
   }),
   /**
    * The format's own two schemas: null exactly where the format forbids
-   * interruptions or yielding, so no value is invented for it.
+   * points of information or yielding, so no value is invented for it.
    */
   'room.floor': z.strictObject({
-    interruptions: formatSettingsFields.interruptions,
+    pointsOfInformation: formatSettingsFields.pointsOfInformation,
     yielding: formatSettingsFields.yielding,
   }),
   'staff.minimum_band': choice(['adult', '16-17']),

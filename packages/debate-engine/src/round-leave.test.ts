@@ -44,7 +44,12 @@ const reshaped = (
 const id = (n: number) => `s${String(n).padStart(23, '0')}`;
 const actor = (n: number) => `a${String(n).padStart(23, '0')}`;
 const seated = (seats: readonly SeatRef[]): RoundParticipantSeat[] =>
-  seats.map((seat, n) => ({ id: id(n), actorId: actor(n), seat }));
+  seats.map((seat, n) => ({
+    id: id(n),
+    actorId: actor(n),
+    seat,
+    kind: 'human',
+  }));
 const speaker = (slot: number): SeatRef => ({ kind: 'speaker', slot });
 const judge: SeatRef = { kind: 'judge', slot: 0 };
 
@@ -156,7 +161,8 @@ for (const shape of shapes)
       };
     };
     const offeredBefore = roundCommandOptions(facts(leaver, [])).filter(
-      (option) => option.type === 'leave' || option.type === 'forfeit',
+      (option) =>
+        option.command.type === 'leave' || option.command.type === 'forfeit',
     );
     await assertRejects({
       given: `a competitor forfeiting ${shape.name}`,
@@ -197,11 +203,11 @@ for (const shape of shapes)
         releasesEveryone: left.releasesRoomMembers ?? false,
         leaverOptions: roundCommandOptions(facts(leaver, [leaver.id])),
         stayerLeaves: roundCommandOptions(facts(stayer, [leaver.id])).some(
-          (option) => option.type === 'leave' && option.legal,
+          (option) => option.command.type === 'leave' && option.legal,
         ),
       },
       expected: {
-        offeredBefore: [{ type: 'leave', legal: true }],
+        offeredBefore: [{ command: { type: 'leave' }, legal: true }],
         status: 'active',
         absent: [leaver.id],
         released: [leaver.actorId],

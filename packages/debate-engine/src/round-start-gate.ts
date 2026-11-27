@@ -38,10 +38,10 @@ export const countdownDue = (
   countdownMs: number,
   nowMs: number,
 ) => {
-  const prepEnded = state.checkpoint.prep_ended_at;
+  const { prep } = state.checkpoint;
   return dueAfterStops(
-    prepEnded === null ? countdownAnchor(state) : instantMs(prepEnded),
-    prepEnded === null ? countdownMs : roundStartPolicy.microphoneLeadMs,
+    prep.phase === 'lead' ? instantMs(prep.ended_at) : countdownAnchor(state),
+    prep.phase === 'lead' ? roundStartPolicy.microphoneLeadMs : countdownMs,
     clockStopsOf(state.checkpoint),
     nowMs,
   );
@@ -72,7 +72,7 @@ const awaitCapture = (
     open ||
     event.seats.length === 0 ||
     state.checkpoint.incident.phase !== 'none' ||
-    state.checkpoint.active_prep !== null ||
+    state.checkpoint.prep.phase === 'running' ||
     gate?.sequence === sequence
   )
     return stay(state);

@@ -280,7 +280,10 @@ export function applyPanelCompletion(
       'Panel completion follows the actual final end',
     );
   return completeWith(
-    withCheckpoint(step, { active_prep: null }),
+    withCheckpoint(step, {
+      prep: { phase: 'idle' },
+      point_of_information: { phase: 'none' },
+    }),
     f,
     decision.outcome,
   );
