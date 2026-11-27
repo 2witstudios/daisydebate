@@ -27,6 +27,7 @@ test('segment-only projection commits the same revision as event and command rec
           {
             type: 'start_speech',
             participantId: participant.id,
+            sequence: 0,
           },
           commandId,
         ),

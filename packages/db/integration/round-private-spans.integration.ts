@@ -17,7 +17,7 @@ const live = { status: 'active', currentStage: 'live' };
 const idle = emptyRuntimeCheckpointFor({ sides: twoSides });
 const prepping = {
   ...idle,
-  active_prep: { side: 'affirmative' as const, started_at: at(10) },
+  prep: { phase: 'running', side: 'affirmative' as const, started_at: at(10) },
 };
 const used = {
   ...idle,

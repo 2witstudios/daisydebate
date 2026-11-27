@@ -118,7 +118,7 @@ describe('agent seed', () => {
       await database`
         update rounds
         set status = 'active', current_stage = 'countdown', started_at = now(),
-            runtime_state = runtime_state || '{"active_prep":{"side":"affirmative","started_at":"2026-01-01T00:00:00.000Z"}}'::jsonb
+            runtime_state = runtime_state || '{"prep":{"phase":"running","side":"affirmative","started_at":"2026-01-01T00:00:00.000Z"}}'::jsonb
         where id = ${seedIds[2]}
       `;
       await database`
@@ -141,7 +141,7 @@ describe('agent seed', () => {
       await runSeed();
       const [reset] = await database`
         select status, current_stage, started_at, completed_at, winning_side, ranking,
-               runtime_state->'active_prep' as active_prep,
+               runtime_state->'prep' as prep,
                jsonb_typeof(rules_snapshot) as rules_type,
                jsonb_typeof(runtime_state) as runtime_type,
                (select count(*)::int from round_segments where round_id = ${seedIds[2]}) as segments,
@@ -160,7 +160,7 @@ describe('agent seed', () => {
           completed_at: null,
           winning_side: null,
           ranking: null,
-          active_prep: null,
+          prep: { phase: 'idle' },
           // Not a double-encoded JSON string: the runtime must read it back.
           rules_type: 'object',
           runtime_type: 'object',

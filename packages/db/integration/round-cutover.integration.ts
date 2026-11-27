@@ -35,12 +35,11 @@ const { databaseUrl: url } = requireTestServices(process.env);
 const instant = '2026-10-07T12:00:00.000Z';
 
 const checkpoint = {
-  version: 1 as const,
+  version: 2 as const,
   prep_consumed_ms: { affirmative: 0, negative: 0 },
-  active_prep: null,
-  floor: null,
+  prep: { phase: 'idle' as const },
+  point_of_information: { phase: 'none' as const },
   incident: { phase: 'none' as const },
-  prep_ended_at: null,
   start_gate: null,
   clock_stops: [],
 };

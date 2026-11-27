@@ -11,7 +11,7 @@ import { audienceTranscript } from './round-ballot-reads';
 import { readTranscriptFreeze } from './frozen-transcript';
 import { ballots } from './schema/ballots';
 import { mediaRoomRotations } from './schema/media-sessions';
-import { roundCommands } from './schema/round-commands';
+import { roundPrivateSpans } from './schema/round-private-spans';
 import { roundSegments } from './schema/round-segments';
 import { roundParticipants } from './schema/round-participants';
 import { roundSpeakingIntervals } from './schema/round-speaking-intervals';
@@ -171,16 +171,18 @@ export const recordingRoundReadOperations = ({
         .from(roundSegments)
         .where(eq(roundSegments.roundId, roundId))
         .orderBy(asc(roundSegments.sequence)),
+      // Prep's own record: it starts at the press, or at the close of the
+      // segment it was called during (INTX-2, INTX-5), never at a command.
       database
-        .select({ appliedAt: roundCommands.appliedAt })
-        .from(roundCommands)
+        .select({ startedAt: roundPrivateSpans.startedAt })
+        .from(roundPrivateSpans)
         .where(
           and(
-            eq(roundCommands.roundId, roundId),
-            eq(roundCommands.type, 'start_prep'),
+            eq(roundPrivateSpans.roundId, roundId),
+            eq(roundPrivateSpans.kind, 'prep'),
           ),
         )
-        .orderBy(asc(roundCommands.appliedAt)),
+        .orderBy(asc(roundPrivateSpans.startedAt)),
       database
         .select({ rotatedAt: mediaRoomRotations.rotatedAt })
         .from(mediaRoomRotations)
@@ -192,7 +194,7 @@ export const recordingRoundReadOperations = ({
         startedAtMs: row.startedAt.getTime(),
         endedAtMs: row.endedAt?.getTime() ?? null,
       })),
-      prepStartsAtMs: preps.map((row) => row.appliedAt.getTime()),
+      prepStartsAtMs: preps.map((row) => row.startedAt.getTime()),
       rotationsAtMs: rotations.map((row) => row.rotatedAt.getTime()),
     };
   },

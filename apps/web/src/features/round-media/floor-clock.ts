@@ -6,7 +6,7 @@ import {
   startGateInstant,
 } from '@daisy/protocol/round-start-policy';
 import { segmentDueAtMs } from '@daisy/protocol/segment-end';
-import { type RoundIncident, type RoundStartGate } from '@daisy/protocol/round';
+import { type RuntimeCheckpoint } from '@daisy/protocol/round';
 
 /** What a Round's clock boundaries are read from, in the browser's view or a server row. */
 export type FloorClock = {
@@ -22,6 +22,8 @@ export type FloorClock = {
   readonly stops: readonly ClockStop[];
   /** When prep ended: the next clock is one microphone lead after it. */
   readonly prepEndedAt: string | null;
+  /** When an accepted point of information gives the speech back by itself (INTX-15). */
+  readonly pointEndsAt: number | null;
   /** A start gate's own instant for the coming segment; null when none holds it. */
   readonly startGateAt: string | null;
   /** A platform incident holds the clock: only its countdown's end moves anything. */
@@ -49,36 +51,53 @@ type ClockedRound = {
     readonly countdownMs: number;
     readonly segments: readonly unknown[];
     readonly inRoundPrep?: { readonly budgetMsPerSide: number } | null;
+    readonly interaction?: {
+      readonly pointsOfInformation:
+        | { readonly allowed: false }
+        | { readonly allowed: true; readonly maxDurationMs: number };
+    };
   };
-  readonly checkpoint: {
-    readonly active_prep: {
-      readonly started_at: string;
-      readonly side: string;
-    } | null;
-    readonly prep_consumed_ms: Readonly<Record<string, number>>;
-    readonly clock_stops: readonly ClockStop[];
-    readonly incident: RoundIncident;
-    readonly prep_ended_at: string | null;
-    readonly start_gate: RoundStartGate;
-  } | null;
+  readonly checkpoint: Pick<
+    RuntimeCheckpoint,
+    | 'prep'
+    | 'prep_consumed_ms'
+    | 'clock_stops'
+    | 'incident'
+    | 'start_gate'
+    | 'point_of_information'
+  > | null;
   readonly segments: readonly NonNullable<FloorClock['lastSegment']>[];
 };
+/** The instant an accepted point gives the speech back, by the frozen rule. */
+export const pointEndsAtOf = (
+  point: RuntimeCheckpoint['point_of_information'] | undefined,
+  maxDurationMs: number | null,
+): number | null =>
+  point?.phase === 'speaking' && maxDurationMs !== null
+    ? instantMs(point.accepted_at) + maxDurationMs
+    : null;
 export const floorClockOf = (round: ClockedRound): FloorClock => {
-  const prep = round.checkpoint?.active_prep;
+  const prep = round.checkpoint?.prep;
   const incident = round.checkpoint?.incident ?? { phase: 'none' as const };
+  const poi = round.rules.interaction?.pointsOfInformation;
   return {
     startedAt: round.startedAt,
     countdownMs: round.rules.countdownMs,
     segmentTotal: round.rules.segments.length,
     prepBudgetMs: round.rules.inRoundPrep?.budgetMsPerSide ?? null,
-    activePrep: prep
-      ? {
-          startedAt: prep.started_at,
-          consumedMs: round.checkpoint.prep_consumed_ms[prep.side] ?? 0,
-        }
-      : null,
+    activePrep:
+      prep?.phase === 'running'
+        ? {
+            startedAt: prep.started_at,
+            consumedMs: round.checkpoint?.prep_consumed_ms[prep.side] ?? 0,
+          }
+        : null,
     stops: round.checkpoint?.clock_stops ?? [],
-    prepEndedAt: round.checkpoint?.prep_ended_at ?? null,
+    prepEndedAt: prep?.phase === 'lead' ? prep.ended_at : null,
+    pointEndsAt: pointEndsAtOf(
+      round.checkpoint?.point_of_information,
+      poi?.allowed ? poi.maxDurationMs : null,
+    ),
     startGateAt: round.checkpoint?.start_gate
       ? startGateInstant(round.checkpoint.start_gate)
       : null,
@@ -137,6 +156,10 @@ export function floorBoundaries(clock: FloorClock): number[] {
   return [
     ...gapBoundaries(clock),
     ...(last?.endedAt === null ? [dueAt(last)] : []),
+    // The holder's microphone closes when the point gives the speech back.
+    ...(last?.endedAt === null && clock.pointEndsAt !== null
+      ? [clock.pointEndsAt]
+      : []),
     ...(prep && clock.prepBudgetMs !== null
       ? [
           dueThroughStops(

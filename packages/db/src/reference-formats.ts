@@ -25,6 +25,26 @@ const referenceInRoundPrepCapability: FormatDefinition['configurable']['inRoundP
     expiresAtSegment: null,
   };
 
+/**
+ * Where a format lets a Room set its points of information (INTX-16): up to
+ * two minutes protected at either end, a point of 5 to 30 seconds, and an
+ * offer that sits down after 5 to 30 seconds.
+ */
+export const pointsOfInformationBounds = {
+  protectedStartMs: { min: 0, max: 120_000 },
+  protectedEndMs: { min: 0, max: 120_000 },
+  maxDurationMs: { min: 5_000, max: 30_000 },
+  offerLapseMs: { min: 5_000, max: 30_000 },
+} as const;
+
+/** Parliamentary practice: a protected first and last minute, 15 s points, 10 s offers. */
+export const pointsOfInformationDefaults = {
+  protectedStartMs: 60_000,
+  protectedEndMs: 60_000,
+  maxDurationMs: 15_000,
+  offerLapseMs: 10_000,
+} as const;
+
 /** Each side's one seat speaks a speech; in cross-ex every debater speaks and the asker leads. */
 const speech = (side: string) => ({
   rights: 'one' as const,
@@ -119,10 +139,7 @@ const oneOnOneRevision1: FormatDefinition = {
     preRoundPrep: { durationMs: { min: 0, max: 1_200_000 } },
     resolutionDraw: null,
     interaction: {
-      interruptions: {
-        modes: ['disabled', 'enabled'],
-        minRemainingMs: { min: 0, max: 300_000 },
-      },
+      pointsOfInformation: pointsOfInformationBounds,
       yield: {
         enabledChoices: [true, false],
         returnsTimeChoices: [true, false],
@@ -130,6 +147,7 @@ const oneOnOneRevision1: FormatDefinition = {
     },
   },
 };
+
 
 /**
  * The current one-on-one format, revision 2: the schedule, defaults and
@@ -176,7 +194,7 @@ export const foundationDefinition: FormatDefinition = {
     preRoundPrep: null,
     resolutionDraw: null,
     interaction: {
-      interruptions: null,
+      pointsOfInformation: null,
       yield: null,
     },
   },
@@ -188,7 +206,7 @@ export const foundationSettings: FormatSettings = {
   resolutionDraw: { enabled: false },
   inRoundPrep: { enabled: true, budgetMsPerSide: 120_000 },
   speechTiming: { countdownMs: 10_000, segmentDurationOverrides: {} },
-  interruptions: null,
+  pointsOfInformation: null,
   yielding: null,
 };
 
@@ -225,7 +243,7 @@ export const oneOnOneSettings: FormatSettings = {
     countdownMs: 10_000,
     segmentDurationOverrides: {},
   },
-  interruptions: { mode: 'disabled', minRemainingMs: 30_000 },
+  pointsOfInformation: { enabled: false },
   yielding: { allowed: true, returnsTime: true },
 };
 
@@ -235,7 +253,7 @@ export const oneOnOneRankedSettings: FormatSettings = {
   resolutionDraw: { enabled: false },
   inRoundPrep: { enabled: true, budgetMsPerSide: 240_000 },
   speechTiming: { countdownMs: 10_000, segmentDurationOverrides: {} },
-  interruptions: { mode: 'disabled', minRemainingMs: 30_000 },
+  pointsOfInformation: { enabled: false },
   yielding: { allowed: true, returnsTime: true },
 };
 
@@ -304,3 +322,4 @@ export const referenceAiJudge = {
   actorId: 'a1i2j3u4d5g6e7a8i9j0u1d2',
   name: 'The Panel',
 };
+

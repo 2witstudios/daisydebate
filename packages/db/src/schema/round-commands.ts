@@ -12,9 +12,18 @@ export const roundCommandTypes = [
   'start',
   'strike_resolution',
   'start_prep',
+  /** Taking back prep called during the previous segment (INTX-2). */
+  'cancel_prep',
   'start_speech',
   'yield',
+  /** Issued only before points of information replaced it (INTX-16): its rows stay as history. */
   'interrupt',
+  /** A speech's points of information (INTX-13..15). */
+  'offer_poi',
+  'withdraw_poi',
+  'accept_poi',
+  'decline_poi',
+  'end_poi',
   'forfeit',
   /** A competitor leaving a Round no forfeit ends (TAB-6.8). */
   'leave',
@@ -33,9 +42,8 @@ export const roundCommandTypes = [
  * protocol `commandId` keys the row, the payload digest detects a retry
  * with a different body, and `result` is replayed to the caller. A dedupe
  * record, not event sourcing. Exactly one principal is set: an actor or a
- * service. `interrupt` is present because a rule the engine cannot receive a
- * command for is a rule it can never exercise; the log records the legal
- * action, not the mechanism that triggered it.
+ * service. The log records the legal action, not the mechanism that
+ * triggered it.
  */
 export type RoundCommandType = (typeof roundCommandTypes)[number];
 
