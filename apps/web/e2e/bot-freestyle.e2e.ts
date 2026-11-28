@@ -22,7 +22,6 @@ import {
   readBallotRound,
   readyOwnSeat,
   startAdmittedRound,
-  openSequence,
 } from './support/human-ballot-round';
 import { checkIn } from './support/human-judged-journey';
 import {

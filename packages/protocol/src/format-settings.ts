@@ -59,8 +59,13 @@ export const pointsOfInformationRuleOf = (
   setting: PointsOfInformationSetting | null,
 ): PointsOfInformationRule => {
   if (setting === null || !setting.enabled) return { allowed: false };
-  const { enabled: _enabled, ...timing } = setting;
-  return { allowed: true, ...timing };
+  return {
+    allowed: true,
+    protectedStartMs: setting.protectedStartMs,
+    protectedEndMs: setting.protectedEndMs,
+    maxDurationMs: setting.maxDurationMs,
+    offerLapseMs: setting.offerLapseMs,
+  };
 };
 
 /**

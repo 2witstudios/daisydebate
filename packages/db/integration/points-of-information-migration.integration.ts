@@ -35,10 +35,10 @@ const bounds = {
 };
 
 /** The stored shapes before the migration: interruptions, and a version-1 checkpoint. */
-const withoutPoints = <T extends Record<string, unknown>>(value: T) => {
-  const { pointsOfInformation: _, ...rest } = value;
-  return rest;
-};
+const withoutPoints = (value: Readonly<Record<string, unknown>>) =>
+  Object.fromEntries(
+    Object.entries(value).filter(([key]) => key !== 'pointsOfInformation'),
+  );
 const oldDefinition = (interruptions: unknown) => ({
   ...foundationDefinition,
   configurable: {

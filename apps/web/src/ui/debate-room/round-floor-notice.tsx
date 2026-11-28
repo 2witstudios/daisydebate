@@ -103,7 +103,7 @@ export function RoundFloorNotice({
             tones[notice.tone],
           )}
         >
-          <p className="gap-0.5 flex min-w-0 flex-1 flex-col">
+          <p className="flex min-w-0 flex-1 flex-col gap-1">
             <Announcement as="span" kind="progress" className="font-strong">
               {notice.title}
             </Announcement>

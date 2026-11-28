@@ -12,12 +12,11 @@ import {
   type RoundView,
 } from '@daisy/protocol/round-view';
 import { isRoundRunning } from '@daisy/protocol/round';
-import type { RoundPosition } from '@daisy/debate-engine/position';
 
 /**
  * The one reading of a Round's people and floor (ISSUE-672) that the
  * debater room and the spectator view share, so a rule change, such as who
- * holds the floor after an accepted interruption, reaches everyone who
+ * holds a point of information, reaches everyone who
  * watches it the same way.
  */
 

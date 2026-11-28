@@ -176,7 +176,9 @@ const speakersChanged = (
 ): RoundStep => record(step, { kind: 'speakers', sequence, atMs, poiHolder });
 
 const offerPointOfInformation = (step: RoundStep, f: StepFacts) => {
-  const seat = seatOf(step, f.actorId)!;
+  const seat = seatOf(step, f.actorId);
+  // Legality admits only a seated offerer; anything else changes nothing.
+  if (seat === null) return step;
   const point = clockOf(step).checkpoint.point_of_information;
   return withCheckpoint(step, {
     point_of_information: offerPoint(point, seat.id, f.now),
@@ -184,7 +186,8 @@ const offerPointOfInformation = (step: RoundStep, f: StepFacts) => {
 };
 
 const withdrawPointOfInformation = (step: RoundStep, f: StepFacts) => {
-  const seat = seatOf(step, f.actorId)!;
+  const seat = seatOf(step, f.actorId);
+  if (seat === null) return step;
   const point = clockOf(step).checkpoint.point_of_information;
   return withCheckpoint(step, {
     point_of_information: withdrawOffer(point, seat.id),

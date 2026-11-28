@@ -130,6 +130,24 @@ function engineCommandOf(
     { readonly type: 'strike_resolution' }
   >,
 ): RoundCommand {
-  const { participantId: _participantId, ...named } = command;
-  return named;
+  switch (command.type) {
+    case 'forfeit':
+    case 'leave':
+      return { type: command.type };
+    case 'accept_poi':
+      return {
+        type: command.type,
+        sequence: command.sequence,
+        offererParticipantId: command.offererParticipantId,
+      };
+    case 'start_prep':
+    case 'cancel_prep':
+    case 'start_speech':
+    case 'yield':
+    case 'offer_poi':
+    case 'withdraw_poi':
+    case 'decline_poi':
+    case 'end_poi':
+      return { type: command.type, sequence: command.sequence };
+  }
 }
