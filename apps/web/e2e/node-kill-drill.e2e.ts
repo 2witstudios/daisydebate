@@ -38,6 +38,7 @@ import { leadSideOf } from './support/segment-lead';
 import {
   ballotRoundCommand,
   readBallotRound,
+  openSequence,
 } from './support/human-ballot-round';
 import { expect, openPage, test } from './support/fixtures';
 import {
@@ -214,11 +215,12 @@ async function endOpenSpeech(members: readonly Member[], roundId: string) {
   );
   if (!speaker || !('id' in speaker)) throw new Error('Speaker seat missing');
   const member = members[side === affirmativeSide ? 0 : 1]!;
-  await ballotRoundCommand(
-    member.context.request,
-    await readBallotRound(member.context.request, roundId),
-    { type: 'yield', participantId: speaker.id },
-  );
+  const current = await readBallotRound(member.context.request, roundId);
+  await ballotRoundCommand(member.context.request, current, {
+    type: 'yield',
+    participantId: speaker.id,
+    sequence: openSequence(current),
+  });
   return true;
 }
 

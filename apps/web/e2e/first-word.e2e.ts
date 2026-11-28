@@ -242,8 +242,12 @@ for (const [index, { name, reactionMs, prep }] of CASES.entries())
           view.status === 'active' &&
           !view.segments.some((segment) => segment.endedAt === null)
         ) {
-          const command = { participantId: nextSeat.id };
-          const running = view.checkpoint?.active_prep != null;
+          // Prep and its speech name the segment they are for (INTX-7).
+          const command = {
+            participantId: nextSeat.id,
+            sequence: view.segments.length,
+          };
+          const running = view.checkpoint?.prep.phase === 'running';
           if (!running && !prepared.has(next.key)) {
             if (PREPARED[prep].includes(next.key)) {
               // Maintenance moves the Round on, so a held view can go stale: the next read retries.
@@ -275,11 +279,15 @@ for (const [index, { name, reactionMs, prep }] of CASES.entries())
           const seat = seats.find(
             (entry) => rule && entry.side === leadSideOf(rule.speak),
           )!;
-          await ballotRoundCommand(
+          const current = await readBallotRound(
             seat.member.context.request,
-            await readBallotRound(seat.member.context.request, round.id),
-            { type: 'yield', participantId: seat.id },
-          ).catch(() => undefined);
+            round.id,
+          );
+          await ballotRoundCommand(seat.member.context.request, current, {
+            type: 'yield',
+            participantId: seat.id,
+            sequence: open.sequence,
+          }).catch(() => undefined);
         }
         await pause(1000);
       }

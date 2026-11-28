@@ -25,6 +25,7 @@ import {
   createHumanBallotRound,
   readBallotRound,
   ballotRoundCommand,
+  openSequence,
 } from './human-ballot-round';
 
 const readBallot = async (request: APIRequestContext, roundId: string) => {
@@ -82,6 +83,7 @@ export function yieldSpeech(
   return ballotRoundCommand(member.context.request, view, {
     type: 'yield',
     participantId: seat.id,
+    sequence: openSequence(view),
   });
 }
 

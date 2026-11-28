@@ -52,6 +52,12 @@ export const postRoundCommand = (
     headers: { origin },
     data: { version: 1, commandId: createId(), expectedVersion, command },
   });
+/** The open segment a floor command names (INTX-7); a yield or point names it. */
+export function openSequence(view: RoundView): number {
+  const open = view.segments.find((segment) => segment.endedAt === null);
+  if (!open) throw new Error('No open segment to name');
+  return open.sequence;
+}
 export async function ballotRoundCommand(
   request: APIRequestContext,
   view: RoundView,
@@ -238,6 +244,7 @@ export async function playHumanBallotRound(
     view = await ballotRoundCommand(request, view, {
       type: 'yield',
       participantId: participant.id,
+      sequence: openSequence(view),
     });
   }
   return view;

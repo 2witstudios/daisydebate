@@ -8,6 +8,7 @@ import {
   createHumanBallotRound,
   readBallotRound,
   ballotRoundCommand,
+  openSequence,
 } from './support/human-ballot-round';
 import {
   receiptResponse,
@@ -78,6 +79,7 @@ test('actual speech check-in survives refresh and a real browser network disconn
     await ballotRoundCommand(accounts.members[0]!.context.request, current, {
       type: 'yield',
       participantId: speaker!.receipt.participantId,
+      sequence: openSequence(current),
     });
     let target: string | undefined;
     await expect

@@ -1,4 +1,13 @@
-import { controlLaunch } from './support/room-launch-settled';
+import {
+  closeSettledLaunchContexts,
+  controlLaunch,
+} from './support/room-launch-settled';
+import { pointsOfInformationChoice } from './support/human-round-selection';
+import {
+  expectConnected,
+  grantedDebaters,
+  readMediaState,
+} from './support/round-media';
 import { createRoomLaunchAccounts } from './support/room-launch-accounts';
 import {
   createHumanBallotRound,
@@ -18,10 +27,10 @@ import { expect, test } from './support/live-room-documents';
 import { openPage } from './support/fixtures';
 test.use({ roundCommands: true });
 
-test('Start affirmative constructive and round controls on a second page retain canonical state on reload', async ({
+test('prep, a speech and a bot’s cross-examination run from a second page and keep canonical state on reload (INTX-2, INTX-8, INTX-9)', async ({
   liveRoom,
 }) => {
-  // The clock plays a 30s cross-examination and countdown before the speech.
+  // The clock plays a 30s countdown and cross-examination before the negative speaks.
   test.setTimeout(240_000);
   const { page, roundId } = liveRoom;
   const formPage = await openPage(page.context(), 'Round commands');
@@ -30,6 +39,7 @@ test('Start affirmative constructive and round controls on a second page retain 
     const read = () => readBallotRound(page.request, roundId);
     await formPage.goto(path);
     expect((await read()).status).toBe('active');
+    // In the countdown before the constructive, prep is taken now, not called ahead.
     await formPage
       .getByRole('button', { name: 'Take prep time', exact: true })
       .click();
@@ -39,7 +49,10 @@ test('Start affirmative constructive and round controls on a second page retain 
         exact: true,
       }),
     ).toBeVisible();
-    expect((await read()).checkpoint?.active_prep?.side).toBe(affirmativeSide);
+    expect((await read()).checkpoint?.prep).toMatchObject({
+      phase: 'running',
+      side: affirmativeSide,
+    });
     await formPage
       .getByRole('button', {
         name: 'Start affirmative constructive',
@@ -48,81 +61,19 @@ test('Start affirmative constructive and round controls on a second page retain 
       .click();
     // The clock starts one microphone lead after prep ends.
     await expect(
-      formPage.getByRole('button', { name: 'End speech', exact: true }),
+      page.getByRole('button', { name: 'End speech', exact: true }),
     ).toBeEnabled({ timeout: 15_000 });
     const speaking = await read();
-    expect(speaking.checkpoint?.active_prep).toBeNull();
-    await formPage
-      .getByRole('button', { name: 'End speech', exact: true })
-      .click();
+    expect(speaking.checkpoint?.prep.phase).not.toBe('running');
+    // No bot offers a point of information, and the speaker never offers one.
     await expect(
-      formPage.getByRole('button', {
-        name: 'Confirm end speech',
-        exact: true,
-      }),
-    ).toBeVisible();
-    expect((await read()).version).toBe(speaking.version);
-    await formPage
-      .getByRole('button', { name: 'Confirm end speech', exact: true })
-      .click();
-    await expect
-      .poll(async () => (await read()).segments[0]?.endedAt)
-      .not.toBeNull();
-    // Cross-examination has no Interrupt whatever the policy. The negative's
-    // speech that follows does, under this Round's enabled policy. It opens on
-    // a maintenance tick that advances the version: a page rendered before it
-    // posts a stale expected version and is refused. Render it after the opening, and post it only once its form carries
-    // the canonical version.
-    const interrupt = formPage.getByRole('button', {
-      name: 'Interrupt',
-      exact: true,
-    });
-    await expect(async () => {
-      const opened = await read();
-      const crossEx = opened.segments.find(
-        (segment) => segment.rulesSegmentKey === 'CX1',
-      );
-      expect(crossEx?.startedAt).toEqual(expect.any(String));
-      await formPage.reload();
-      await expect(interrupt).toHaveCount(0);
-      // Read after rendering, so that page really showed the open segment.
-      const after = (await read()).segments.find(
-        (segment) => segment.rulesSegmentKey === 'CX1',
-      );
-      expect(after?.endedAt).toBeNull();
-    }).toPass({ timeout: 45000 });
-    await expect(async () => {
-      const opened = await read();
-      const speech = opened.segments.find(
-        (segment) => segment.rulesSegmentKey === 'NC',
-      );
-      expect(speech?.startedAt).toEqual(expect.any(String));
-      await formPage.reload();
-      await expect(interrupt).toBeEnabled();
-      await expect(
-        formPage
-          .locator('form', { has: interrupt })
-          .locator('input[name="expectedVersion"]'),
-      ).toHaveValue(String(opened.version));
-    }).toPass({ timeout: 120000 });
-    await interrupt.click();
-    await expect
-      .poll(async () => (await read()).checkpoint?.floor ?? null)
-      .not.toBeNull();
-    const interrupted = await read();
-    const human = interrupted.participants
-      .filter(isNamedSeat)
-      .find(
-        (p) => p.kind === 'human' && sideOfSeat(p.seat) === affirmativeSide,
-      )!;
-    expect(interrupted.checkpoint?.floor?.holder_participant_id).toBe(human.id);
-    await expect(
-      page.getByRole('button', { name: 'End speech', exact: true }),
-    ).toBeEnabled();
+      page.getByRole('button', { name: 'Offer POI', exact: true }),
+    ).toHaveCount(0);
     await page.getByRole('button', { name: 'End speech', exact: true }).click();
     await expect(
       page.getByRole('button', { name: 'Confirm end speech', exact: true }),
     ).toBeVisible();
+    expect((await read()).version).toBe(speaking.version);
     // The media session must outlive the phase change: the same nodes stay.
     await page
       .locator('[data-room-media="grid"]')
@@ -152,11 +103,66 @@ test('Start affirmative constructive and round controls on a second page retain 
       await controlLaunch('allow-round-reads');
     }
     const yielded = await read();
-    expect(yielded.version).toBeGreaterThan(interrupted.version);
-    expect(yielded.checkpoint?.floor).toBeNull();
+    expect(yielded.version).toBeGreaterThan(speaking.version);
+    expect(
+      yielded.segments.find((s) => s.rulesSegmentKey === 'AC')?.endedAt,
+    ).toEqual(expect.any(String));
+    const prepAfterSpeech = yielded.checkpoint?.prep_consumed_ms;
+    // The bot negative asks in CX1, and a bot cannot end it, so the person
+    // answering may. It opens on a maintenance tick that advances the version:
+    // post only once the form carries the canonical version.
+    const endCrossEx = formPage.getByRole('button', {
+      name: 'End cross-examination',
+      exact: true,
+    });
+    await expect(async () => {
+      const opened = await read();
+      const crossEx = opened.segments.find(
+        (segment) => segment.rulesSegmentKey === 'CX1',
+      );
+      expect(crossEx?.startedAt).toEqual(expect.any(String));
+      expect(crossEx?.endedAt).toBeNull();
+      await formPage.reload();
+      await expect(endCrossEx).toBeEnabled();
+      await expect(
+        formPage
+          .locator('form', { has: endCrossEx })
+          .locator('input[name="expectedVersion"]'),
+      ).toHaveValue(String(opened.version));
+    }).toPass({ timeout: 45_000 });
+    await endCrossEx.click();
+    await formPage
+      .getByRole('button', {
+        name: 'Confirm end cross-examination',
+        exact: true,
+      })
+      .click();
+    await expect
+      .poll(
+        async () =>
+          (await read()).segments.find((s) => s.rulesSegmentKey === 'CX1')
+            ?.endedAt ?? null,
+      )
+      .not.toBeNull();
+    // Ending cross-examination early returns no time to prep (INTX-8).
+    expect((await read()).checkpoint?.prep_consumed_ms).toEqual(
+      prepAfterSpeech,
+    );
+    // The negative is a bot, so its speech takes no point of information.
+    await expect(async () => {
+      const opened = await read();
+      expect(
+        opened.segments.find((s) => s.rulesSegmentKey === 'NC')?.startedAt,
+      ).toEqual(expect.any(String));
+      await formPage.reload();
+      await expect(
+        formPage.getByRole('button', { name: 'Forfeit round', exact: true }),
+      ).toBeEnabled();
+      await expect(
+        formPage.getByRole('button', { name: 'Offer POI', exact: true }),
+      ).toHaveCount(0);
+    }).toPass({ timeout: 60_000 });
     await page.reload();
-    expect((await read()).version).toBe(yielded.version);
-    await formPage.reload();
     await formPage
       .getByRole('button', { name: 'Forfeit round', exact: true })
       .click();
@@ -269,5 +275,104 @@ test('a fresh Room creates a new cast after an actual result', async ({
   } finally {
     await context?.close();
     await accounts.closeContexts();
+  }
+});
+
+test('a point of information is offered and declined, lapses, then is accepted and returns the floor by itself (INTX-14, INTX-18)', async ({
+  browser,
+}) => {
+  test.setTimeout(240_000);
+  const accounts = await createRoomLaunchAccounts(browser, 2);
+  try {
+    const { round, speaker, listener } = await grantedDebaters(
+      accounts.members,
+      pointsOfInformationChoice,
+    );
+    const read = () => readBallotRound(speaker.context.request, round.id);
+    const phase = async () =>
+      (await read()).checkpoint?.point_of_information.phase;
+    const [affirmative, negative] = await Promise.all(
+      [
+        [speaker, 'POI speaker'],
+        [listener, 'POI offerer'],
+      ].map(async ([member, label]) => {
+        const page = await openPage(
+          (member as typeof speaker).context,
+          label as string,
+        );
+        await page.goto(`/rounds/${round.id}/room`);
+        await expectConnected(page);
+        return page;
+      }),
+    );
+    const offer = negative!.getByRole('button', {
+      name: 'Offer POI',
+      exact: true,
+    });
+    const accept = affirmative!.getByRole('button', { name: /^Accept / });
+    // Offers open 10 s into the constructive; the speaker is never offered one.
+    await expect(offer).toBeEnabled({ timeout: 30_000 });
+    await expect(
+      affirmative!.getByRole('button', { name: 'Offer POI', exact: true }),
+    ).toHaveCount(0);
+    await offer.click();
+    await expect(accept).toBeVisible();
+    await expect(
+      affirmative!.getByText('offers a point of information'),
+    ).toBeVisible();
+    await affirmative!
+      .getByRole('button', { name: 'Decline POI', exact: true })
+      .click();
+    await expect.poll(phase).toBe('none');
+    // An offer the speaker leaves unanswered sits down by itself after 5 s.
+    await expect(offer).toBeEnabled();
+    await offer.click();
+    await expect.poll(phase).toBe('offered');
+    await expect.poll(phase, { timeout: 20_000 }).toBe('none');
+    await expect(accept).toHaveCount(0);
+    // Accepted, both microphones are live; after 5 s the floor returns unasked.
+    await expect(offer).toBeEnabled();
+    await offer.click();
+    await expect(accept).toBeVisible();
+    await accept.click();
+    await expect.poll(phase).toBe('speaking');
+    const holder = (await read()).participants
+      .filter(isNamedSeat)
+      .find((p) => sideOfSeat(p.seat) === negativeSide)!;
+    const accepted = await read();
+    expect(accepted.checkpoint?.point_of_information).toMatchObject({
+      phase: 'speaking',
+      holder_participant_id: holder.id,
+    });
+    await expect(
+      negative!.getByText('Your point of information', { exact: true }),
+    ).toBeVisible();
+    await expect(
+      affirmative!.getByRole('button', { name: 'Resume speech', exact: true }),
+    ).toBeVisible();
+    await expect
+      .poll(
+        async () => (await readMediaState(listener, round.id)).grants.publish,
+      )
+      .toContain('microphone');
+    await expect.poll(phase, { timeout: 20_000 }).toBe('none');
+    await expect
+      .poll(
+        async () => (await readMediaState(listener, round.id)).grants.publish,
+      )
+      .toEqual([]);
+    expect((await readMediaState(speaker, round.id)).grants.publish).toContain(
+      'microphone',
+    );
+    // The speech clock ran through every point: the constructive is still open.
+    expect(
+      (await read()).segments.find((s) => s.rulesSegmentKey === 'AC')?.endedAt,
+    ).toBeNull();
+    const own = accepted.participants
+      .filter(isNamedSeat)
+      .find((p) => sideOfSeat(p.seat) === affirmativeSide)!;
+    await currentRoundForfeit(speaker.context.request, round.id, own.id);
+  } finally {
+    await closeSettledLaunchContexts(accounts);
   }
 });
