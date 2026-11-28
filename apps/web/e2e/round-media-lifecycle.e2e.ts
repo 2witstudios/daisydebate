@@ -1,6 +1,14 @@
 import { execFile } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { affirmativeSide, negativeSide, sideSeat } from '@daisy/protocol/seats';
+import {
+  affirmativeSide,
+  judgeSeat,
+  negativeSide,
+  sideOfSeat,
+  sideSeat,
+} from '@daisy/protocol/seats';
+import { roomViewSchema } from '@daisy/protocol/room-read';
+import { createId } from '@paralleldrive/cuid2';
 import { roundMediaStateSchema } from '@daisy/protocol/round-media';
 import { test, expect, openPage } from './support/fixtures';
 import { createRoomLaunchAccounts } from './support/room-launch-accounts';
@@ -16,11 +24,15 @@ import { closeSettledLaunchContexts } from './support/room-launch-settled';
 import {
   createFoundationRoom,
   createHumanBallotRound,
+  currentRoundForfeit,
   readBallotRound,
   seatAndReady,
   startAdmittedRound,
 } from './support/human-ballot-round';
-import { humanRoundSelection } from './support/human-round-selection';
+import {
+  foundationChoice,
+  humanRoundSelection,
+} from './support/human-round-selection';
 import { settleLeftRounds } from './support/settle-left-round';
 import {
   MEDIA_POLL,
@@ -221,68 +233,68 @@ test('actual sign-out and emailed sign-in return to the authorized live Round', 
 test('a mute choice survives this tab’s reload and never reaches a fresh tab', async ({
   browser,
 }) => {
-  const accounts = await createRoomLaunchAccounts(browser, 2);
+  test.setTimeout(240_000);
+  // Mute is offered on a post-round call, where every seat may speak: a
+  // speech grants its speaker's microphone, so nobody mutes in one.
+  const accounts = await createRoomLaunchAccounts(browser, 4);
   try {
-    const [host, opponent] = accounts.members;
-    if (!host || !opponent) throw new Error('Two actual members required');
-    let room = await createFoundationRoom(host, (choice) => {
-      const selection = humanRoundSelection(choice, 0);
-      return {
-        ...selection,
-        definition: {
-          ...selection.definition,
-          configurable: {
-            ...selection.definition.configurable,
-            interaction: {
-              ...selection.definition.configurable.interaction,
-              pointsOfInformation: {
-                protectedStartMs: { min: 0, max: 120_000 },
-                protectedEndMs: { min: 0, max: 120_000 },
-                maxDurationMs: { min: 5_000, max: 30_000 },
-                offerLapseMs: { min: 5_000, max: 30_000 },
-              },
-            },
-          },
-        },
-        config: {
-          ...selection.config,
-          pointsOfInformation: {
-            enabled: true,
-            protectedStartMs: 60_000,
-            protectedEndMs: 60_000,
-            maxDurationMs: 15_000,
-            offerLapseMs: 10_000,
-          },
-        },
-      } as typeof selection;
+    const [host, opponent, judge, otherJudge] = accounts.members;
+    if (!host || !opponent || !judge || !otherJudge)
+      throw new Error('Four actual members required');
+    const created = await host.context.request.post('/api/rooms', {
+      headers: { origin },
+      data: {
+        commandId: createId(),
+        title: 'Mute choice round',
+        resolution: { kind: 'custom', text: 'Cities should fund transit' },
+        visibility: 'public',
+        selection: humanRoundSelection(foundationChoice, 2, 0),
+        postRoundCall: true,
+        sides: 'fixed',
+      },
     });
-    room = await seatAndReady(room, [
-      { member: host, seat: sideSeat(affirmativeSide) },
-      { member: opponent, seat: sideSeat(negativeSide) },
-    ]);
+    expect(created.status()).toBe(201);
+    const room = await seatAndReady(
+      roomViewSchema.parse((await created.json()).view),
+      [
+        { member: host, seat: sideSeat(affirmativeSide) },
+        { member: opponent, seat: sideSeat(negativeSide) },
+        { member: judge, seat: judgeSeat() },
+        { member: otherJudge, seat: judgeSeat(1) },
+      ],
+    );
     const round = await startAdmittedRound(host, room);
     await grantMedia(accounts.members);
     const page = await openPage(host.context, 'mute owner');
     const href = `/rounds/${round.id}/room`;
     await page.goto(href);
     await expectConnected(page);
+    const seat = round.participants.find(
+      (p) => 'actorId' in p && sideOfSeat(p.seat) === negativeSide,
+    );
+    if (!seat || !('id' in seat)) throw new Error('Negative seat missing');
+    await currentRoundForfeit(opponent.context.request, round.id, seat.id);
+    await expect(page.getByText('Call ends', { exact: true })).toBeVisible(
+      MEDIA_POLL,
+    );
+    await expectConnected(page);
     await page
-      .getByRole('button', { name: 'Unmute microphone', exact: true })
+      .getByRole('button', { name: 'Mute microphone', exact: true })
       .click();
-    const mute = page.getByRole('button', {
-      name: 'Mute microphone',
+    const unmute = page.getByRole('button', {
+      name: 'Unmute microphone',
       exact: true,
     });
-    await expect(mute).toBeVisible(MEDIA_POLL);
+    await expect(unmute).toBeVisible(MEDIA_POLL);
     await page.reload();
     await expectConnected(page);
-    await expect(mute).toBeVisible(MEDIA_POLL);
+    await expect(unmute).toBeVisible(MEDIA_POLL);
     await page.close();
     const fresh = await openPage(host.context, 'fresh tab default');
     await fresh.goto(href);
     await expectConnected(fresh);
     await expect(
-      fresh.getByRole('button', { name: 'Unmute microphone', exact: true }),
+      fresh.getByRole('button', { name: 'Mute microphone', exact: true }),
     ).toBeVisible(MEDIA_POLL);
   } finally {
     await closeSettledLaunchContexts(accounts);

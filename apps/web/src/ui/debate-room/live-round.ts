@@ -5,6 +5,7 @@ import {
 } from '../../features/debate-room/vocabulary';
 import {
   roundPositionAt,
+  speakingParticipants,
   type RoundPosition,
 } from '@daisy/debate-engine/position';
 import {
@@ -20,7 +21,7 @@ import {
   type SeatRef,
   type SideKey,
 } from '@daisy/protocol/seats';
-import { type RoundView } from '@daisy/protocol/round-view';
+import { isNamedSeat, type RoundView } from '@daisy/protocol/round-view';
 import { type SegmentType } from '@daisy/protocol/format';
 import {
   isLiveRound,
@@ -106,9 +107,10 @@ const speaksIn = (
     : speakingSeatsOf(view.rules, open.speak).some((s) => sameTeam(s, seat));
 
 /**
- * Whether this exact seat's microphone is granted now, by the rule the server
- * grants it (INTX-12): a speech's own seat or an accepted point's holder, or a
- * seat a shared segment names. A partner's speech is not their microphone.
+ * Whether this exact seat's microphone is granted now, by the server's own
+ * rule (INTX-12): a speech's seat or an accepted point's holder, or a seat a
+ * shared segment names, and never a seat that has left. A partner's speech is
+ * not their microphone.
  */
 const micGranted = (
   view: RoundView,
@@ -117,14 +119,13 @@ const micGranted = (
 ): boolean => {
   const open = position.openSegment;
   if (position.stage !== 'live' || !open) return false;
-  if (open.speak.rights !== 'one')
-    return speakingSeatsOf(view.rules, open.speak).some((s) =>
-      sameSeat(s, seat.seat),
-    );
-  return (
-    (open.lead !== null && sameSeat(open.lead, seat.seat)) ||
-    position.pointOfInformation?.holder?.participantId === seat.id
-  );
+  return speakingParticipants(
+    view.rules,
+    view.participants.filter(isNamedSeat),
+    open.sequence,
+    position.pointOfInformation?.holder?.participantId ?? null,
+    view.checkpoint?.absent_participant_ids ?? [],
+  ).includes(seat.id);
 };
 
 /** The phase of a live segment: your own floor, a floor you share, or someone else's. */

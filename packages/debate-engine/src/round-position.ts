@@ -15,6 +15,8 @@ import { positionAtState, roundPositionOf } from './round-position-projection';
 export type { RoundPosition, RoundCommandOption };
 /** Whether leaving forfeits to the other side, or is absence (TAB-6.8). */
 export { forfeitsToOpponent } from './round-outcome';
+/** Who speaks in a segment now: the one rule the server grants microphones by (INTX-12). */
+export { speakingParticipants } from './round-speaking';
 
 /** One authorized durable snapshot and explicit time; safe in the browser CSP. */
 export const roundPositionAt = (input: {

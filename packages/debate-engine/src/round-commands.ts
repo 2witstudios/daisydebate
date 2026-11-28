@@ -317,9 +317,11 @@ const leave = (step: RoundStep, f: StepFacts): RoundStep => {
   }
   const { prep } = checkpoint;
   const side = debateSideOf(seat);
+  // Only a present person can end prep; a bot partner never does (INTX-4).
   const sideRemains = step.state.cast.some(
     (other) =>
       other.id !== seat.id &&
+      other.kind === 'human' &&
       debateSideOf(other) === side &&
       !isAbsentSeat({ absent_participant_ids: absent }, other.id),
   );

@@ -377,6 +377,30 @@ describe('round runtime prep', () => {
     });
   });
 
+  test('a side whose only other debater is a bot loses its prep when its person leaves (INTX-4)', () => {
+    const rules = teamRules({ outcome: { kind: 'ranking', of: 'sides' } });
+    const world = teamWorld({ rules, bots: ['aff2'] });
+    world.activate({ at: at(0), now: at(0) });
+    world.tick(at(1_000_000));
+    world.execute({
+      command: { type: 'start_prep', sequence: 3 },
+      actorId: teamActors.aff1,
+      now: at(1_000_000),
+    });
+    const left = world.execute({
+      command: { type: 'leave' },
+      actorId: teamActors.aff1,
+      now: at(1_001_000),
+    });
+    assert({
+      given:
+        'the affirmative person calling prep and leaving, with a bot partner still seated',
+      should: 'drop the call, since a bot never ends prep',
+      actual: left.round?.checkpoint.prep,
+      expected: { phase: 'idle' },
+    });
+  });
+
   test('no microphone opens during prep, and it opens for the lead after', () => {
     const world = started();
     world.tick(at(940_000));

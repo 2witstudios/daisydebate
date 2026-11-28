@@ -356,11 +356,12 @@ test('a point of information is offered and declined, lapses, then is accepted a
       )
       .toContain('microphone');
     await expect.poll(phase, { timeout: 20_000 }).toBe('none');
+    // The holder's microphone goes; the camera every debater keeps stays.
     await expect
       .poll(
         async () => (await readMediaState(listener, round.id)).grants.publish,
       )
-      .toEqual([]);
+      .not.toContain('microphone');
     expect((await readMediaState(speaker, round.id)).grants.publish).toContain(
       'microphone',
     );

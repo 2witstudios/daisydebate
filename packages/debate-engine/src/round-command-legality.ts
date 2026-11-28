@@ -112,10 +112,18 @@ const prepTargetOf = (state: ClockState): number => {
 };
 
 /** A press names the segment it meant; any other is stale, never applied (INTX-7). */
+const staleRefusal = conflict(
+  'That segment has already changed; the press is stale',
+);
 const stale = (expected: number, named: number): Refusal =>
-  expected === named
-    ? null
-    : conflict('That segment has already changed; the press is stale');
+  expected === named ? null : staleRefusal;
+
+/**
+ * Between segments, a press naming one that has already closed lost a race
+ * to the clock: it is stale, a conflict, not an illegal move (INTX-7).
+ */
+const staleInGap = (state: ClockState, named: number): Refusal =>
+  named < closedCount(state) ? staleRefusal : null;
 
 /**
  * Prep may be spent before this segment by this side: the format has prep, the
@@ -240,7 +248,10 @@ const yieldRefusal = (
   const id = debateInvariantIds.yieldRequiresFloor;
   const open = openRowOf(state);
   if (open === undefined)
-    return violates(id, 'Yielding requires a live segment');
+    return (
+      staleInGap(state, command.sequence) ??
+      violates(id, 'Yielding requires a live segment')
+    );
   const staleness = stale(open.sequence, command.sequence);
   if (staleness !== null) return staleness;
   const segment = rules.segments[open.sequence];
@@ -279,7 +290,9 @@ const pointContext = (
   const id = debateInvariantIds.pointOfInformationRequiresRule;
   if (open === undefined)
     return {
-      refusal: violates(id, 'Points of information need a live speech'),
+      refusal:
+        staleInGap(facts.state, sequence) ??
+        violates(id, 'Points of information need a live speech'),
     };
   const staleness = stale(open.sequence, sequence);
   if (staleness !== null) return { refusal: staleness };

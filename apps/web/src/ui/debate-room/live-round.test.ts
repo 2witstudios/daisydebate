@@ -247,6 +247,30 @@ describe('liveRoundOf during the round', () => {
     });
   });
 
+  test('a seat that left never reads its microphone as live (INTX-12)', () => {
+    const now = origin + startOf(1) + 10_000;
+    const crossEx = ran(2);
+    const leftBy = (participantId: string) => ({
+      ...crossEx,
+      checkpoint: {
+        ...crossEx.checkpoint!,
+        absent_participant_ids: [participantId],
+      },
+    });
+    assert({
+      given:
+        'cross-examination, with every debater present, then with the negative gone, then with the affirmative gone',
+      should:
+        'grant the affirmative its microphone while it is present, whoever else left, and never once it left',
+      actual: [
+        liveRoundOf(crossEx, aff.actorId, now)?.micLive,
+        liveRoundOf(leftBy(neg.id), aff.actorId, now)?.micLive,
+        liveRoundOf(leftBy(aff.id), aff.actorId, now)?.micLive === true,
+      ],
+      expected: [true, true, false],
+    });
+  });
+
   test('a speech, from both sides', () => {
     const now = origin + startOf(0) + 60_000;
     const mine = liveRoundOf(ran(1), aff.actorId, now);

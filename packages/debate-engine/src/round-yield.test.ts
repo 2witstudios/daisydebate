@@ -210,4 +210,44 @@ describe('yield', () => {
       expected: 'NC',
     });
   });
+
+  test('a press in the gap naming a segment that already closed is stale, not illegal (INTX-7)', async () => {
+    const world = started();
+    // A 10 s countdown: AC 10s–310s, CX1 320s–440s, then the gap before NC.
+    world.tick(at(440_500));
+    await assertRejects({
+      given: 'the asker’s End for CX1 arriving in the gap after CX1 ran out',
+      should: 'refuse it as a conflict the clock moved past',
+      actual: () =>
+        world.execute({
+          command: { type: 'yield', sequence: 1 },
+          actorId: opponent,
+          now: at(440_500),
+        }),
+      code: 'CONFLICT',
+    });
+    await assertRejects({
+      given: 'a point of information naming the closed AC, pressed in the gap',
+      should: 'refuse it as a conflict too',
+      actual: () =>
+        world.execute({
+          command: { type: 'offer_poi', sequence: 0 },
+          actorId: opponent,
+          now: at(440_500),
+        }),
+      code: 'CONFLICT',
+    });
+    await assertRejects({
+      given: 'an End naming NC, a segment not yet opened',
+      should: 'still refuse it as an illegal move',
+      actual: () =>
+        world.execute({
+          command: { type: 'yield', sequence: 2 },
+          actorId: opponent,
+          now: at(440_500),
+        }),
+      code: 'INVARIANT',
+      invariantId: 'round.yield.requires-floor',
+    });
+  });
 });

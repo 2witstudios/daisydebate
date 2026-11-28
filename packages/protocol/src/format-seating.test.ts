@@ -207,6 +207,31 @@ describe('format definition v2 seating', () => {
     });
   });
 
+  test('refuses a cross-examination asked by an unsided speaker (INTX-10)', () => {
+    assert({
+      given:
+        'the unsided format with its open floor made a cross-examination led by its first speaker',
+      should:
+        'refuse its lead: cross-examination is asked and answered across sides',
+      actual: paths({
+        ...unsidedDefinition,
+        segments: unsidedDefinition.segments.map((segment) =>
+          segment.key === 'OPEN'
+            ? {
+                ...segment,
+                type: 'cross_ex' as const,
+                speak: {
+                  rights: 'all' as const,
+                  lead: { kind: 'speaker' as const, slot: 0 },
+                },
+              }
+            : segment,
+        ),
+      }),
+      expected: ['segments.3.speak.lead'],
+    });
+  });
+
   test('refuses a speech shared by several seats', () => {
     assert({
       given: 'a speech with every seat speaking',
