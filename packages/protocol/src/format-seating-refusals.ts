@@ -132,6 +132,17 @@ function segmentRefusals(
     !speak.seats.some((seat) => sameSeat(seat, lead))
   )
     issue("A segment's lead is one of its speakers", [...at, 'lead']);
+  // Cross-examination is asked by a named seat of one side of another (INTX-10).
+  if (segment.type === 'cross_ex') {
+    const asker = speak.rights === 'one' ? speak.seat : speak.lead;
+    if (asker === null)
+      issue('Cross-examination names the seat that asks', [...at, 'lead']);
+    else if (!isJudgeSeat(asker) && sideOfSeat(asker) === null)
+      issue('Cross-examination is asked by a side, never an unsided speaker', [
+        ...at,
+        'lead',
+      ]);
+  }
 }
 
 /** Every side, or every unsided speaker, may hold the floor somewhere. */

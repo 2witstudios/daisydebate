@@ -191,6 +191,22 @@ describe('format definition v2 seating', () => {
     });
   });
 
+  test('refuses a cross-examination that names no asking seat (INTX-10)', () => {
+    assert({
+      given: 'cross-examination open to every debater with no lead',
+      should: 'refuse its lead, so no one is the asker and no bot asks first',
+      actual: paths({
+        ...oneOnOneFormatFixture,
+        segments: oneOnOneFormatFixture.segments.map((segment, index) =>
+          index === 1
+            ? { ...segment, speak: { rights: 'all', lead: null } }
+            : segment,
+        ),
+      }),
+      expected: ['segments.1.speak.lead'],
+    });
+  });
+
   test('refuses a speech shared by several seats', () => {
     assert({
       given: 'a speech with every seat speaking',

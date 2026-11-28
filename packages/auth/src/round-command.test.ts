@@ -55,7 +55,7 @@ test('principal binding refuses seat theft and escaped AgentRun scope', () => {
       actual: bindRoundCommandPrincipal({
         principal,
         authority,
-        command: { type: 'yield', participantId },
+        command: { type: 'yield', participantId, sequence: 0 },
       }).ok,
       expected,
     });
@@ -80,7 +80,7 @@ test('missing eligibility refuses closed without fabricating an actor', () => {
       actual: bindRoundCommandPrincipal({
         principal: agent,
         authority: { ...authority, agentRun },
-        command: { type: 'yield', participantId: 'bot-seat' },
+        command: { type: 'yield', participantId: 'bot-seat', sequence: 0 },
       }),
       expected: { ok: false, refusal: 'not-authorized' },
     });
@@ -141,13 +141,25 @@ test('a human without participant access keeps only the Round withdrawal (ADR 00
     should:
       'refuse every participation command, keep forfeit (leaving the Round), and leave AgentRuns to their own scope',
     actual: [
-      bound(revoked, person, { type: 'yield', participantId: 'human-seat' }),
-      bound(ageless, person, { type: 'yield', participantId: 'human-seat' }),
+      bound(revoked, person, {
+        type: 'yield',
+        participantId: 'human-seat',
+        sequence: 0,
+      }),
+      bound(ageless, person, {
+        type: 'yield',
+        participantId: 'human-seat',
+        sequence: 0,
+      }),
       bound(revoked, person, {
         type: 'forfeit',
         participantId: 'human-seat',
       }),
-      bound(null, agent, { type: 'yield', participantId: 'bot-seat' }),
+      bound(null, agent, {
+        type: 'yield',
+        participantId: 'bot-seat',
+        sequence: 0,
+      }),
     ],
     expected: [false, false, true, true],
   });

@@ -52,7 +52,7 @@ export type StepFacts = {
 const iso = (ms: number): string => new Date(ms).toISOString();
 
 /** The seat an actor holds in this Round, if any. */
-export const seatOf = (
+const seatOf = (
   step: RoundStep,
   actorId: string | null,
 ): RoundParticipantSeat | null =>

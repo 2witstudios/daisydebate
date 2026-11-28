@@ -225,7 +225,7 @@ export type RoundPosition = RoundLifecycle & {
 };
 
 /** Where a speech's points of information stand at one instant (INTX-13..15). */
-export type PointOfInformationPosition = {
+type PointOfInformationPosition = {
   /** When the protected start ends and offers open. */
   readonly offersOpenAt: string;
   /** When the protected end begins: no offer or acceptance after it. */

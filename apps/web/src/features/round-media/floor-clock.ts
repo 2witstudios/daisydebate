@@ -69,7 +69,7 @@ type ClockedRound = {
   readonly segments: readonly NonNullable<FloorClock['lastSegment']>[];
 };
 /** The instant an accepted point gives the speech back, by the frozen rule. */
-export const pointEndsAtOf = (
+const pointEndsAtOf = (
   point: RuntimeCheckpoint['point_of_information'] | undefined,
   maxDurationMs: number | null,
 ): number | null =>

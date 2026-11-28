@@ -146,7 +146,7 @@ export type RoundStartGate = z.infer<typeof startGateSchema>;
  * Effective consumption while it runs is
  * `prep_consumed_ms[side] + running time since started_at`.
  */
-export const roundPrepSchema = z.discriminatedUnion('phase', [
+const roundPrepSchema = z.discriminatedUnion('phase', [
   z.strictObject({ phase: z.literal('idle') }),
   z.strictObject({ phase: z.literal('called'), side: sideKeySchema }),
   z.strictObject({
@@ -156,7 +156,6 @@ export const roundPrepSchema = z.discriminatedUnion('phase', [
   }),
   z.strictObject({ phase: z.literal('lead'), ended_at: z.iso.datetime() }),
 ]);
-export type RoundPrep = z.infer<typeof roundPrepSchema>;
 
 /** One opposing seat standing to offer a point of information. */
 const pointOfInformationOfferSchema = z.strictObject({
@@ -169,7 +168,7 @@ const pointOfInformationOfferSchema = z.strictObject({
  * seats offering, or one accepted offer being given. It lives only inside one
  * open speech; closing the segment returns it to `none`.
  */
-export const pointOfInformationSchema = z.discriminatedUnion('phase', [
+const pointOfInformationSchema = z.discriminatedUnion('phase', [
   z.strictObject({ phase: z.literal('none') }),
   z.strictObject({
     phase: z.literal('offered'),

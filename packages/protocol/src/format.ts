@@ -112,10 +112,6 @@ export const pointsOfInformationTimingSchema = z.strictObject({
   /** An offer nobody takes sits down by itself after this long. */
   offerLapseMs: z.int().positive(),
 });
-export type PointsOfInformationTiming = z.infer<
-  typeof pointsOfInformationTimingSchema
->;
-
 /** The frozen rule: forbidden has one spelling, whatever forbade it. */
 export const pointsOfInformationRuleSchema = z.discriminatedUnion('allowed', [
   z.strictObject({ allowed: z.literal(false) }),

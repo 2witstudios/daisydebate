@@ -106,7 +106,7 @@ const scheduledSeatOf = (
  * The segment prep is for now: the one after the live segment (prep called
  * ahead starts when it ends), or the one the gap leads to (INTX-2).
  */
-export const prepTargetOf = (state: ClockState): number => {
+const prepTargetOf = (state: ClockState): number => {
   const open = openRowOf(state);
   return open === undefined ? closedCount(state) : open.sequence + 1;
 };
