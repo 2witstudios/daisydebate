@@ -1,3 +1,4 @@
+import { pointsOfInformationBounds } from '@daisy/protocol/format-settings';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { freestyleChoice, unequalTemplate } from './assembly.test-support';
 import { createRoomDraft } from './create-room-draft';
@@ -14,7 +15,7 @@ const choice = () => ({
 });
 
 describe('native room draft fields', () => {
-  test('a template that forbids interruptions and yielding, made Custom', () => {
+  test('a template that forbids points of information and yielding, made Custom', () => {
     // Tab's Open conversation forbids both, so its preset holds null for each.
     const template = {
       ...unequalTemplate,
@@ -22,14 +23,14 @@ describe('native room draft fields', () => {
         ...unequalTemplate.definition,
         configurable: {
           ...unequalTemplate.definition.configurable,
-          interaction: { interruptions: null, yield: null },
+          interaction: { pointsOfInformation: null, yield: null },
         },
       },
       preset: {
         ...unequalTemplate.preset,
         config: {
           ...unequalTemplate.preset.config,
-          interruptions: null,
+          pointsOfInformation: null,
           yielding: null,
         },
       },
@@ -41,19 +42,19 @@ describe('native room draft fields', () => {
       resolveRoomConfiguration(read.draft.definition, read.draft.config);
     assert({
       given:
-        'a template whose preset forbids interruptions and yielding, posted as a Custom room',
+        'a template whose preset forbids points of information and yielding, posted as a Custom room',
       should:
         'compile, committing the template’s settings as chosen: the Custom room forbids what the template forbade',
       actual: read.ok && {
         custom: read.draft.custom,
         compiled: compiled && compiled.ok,
-        interruptions: read.draft.config.interruptions,
+        pointsOfInformation: read.draft.config.pointsOfInformation,
         yielding: read.draft.config.yielding,
       },
       expected: {
         custom: true,
         compiled: true,
-        interruptions: null,
+        pointsOfInformation: null,
         yielding: null,
       },
     });
@@ -165,16 +166,105 @@ describe('native room draft fields', () => {
     );
     assert({
       given:
-        'a template that forbids strike and interruptions, customized with a speech and POI',
+        'a template that forbids strike and points of information, customized with a speech and POI',
       should:
         'compile a separate Custom definition supporting the requested rules',
       actual: read.ok && [
         read.draft.custom,
         read.draft.definition.segments.length,
         read.draft.definition.configurable.resolutionDraw !== null,
-        read.draft.config.interruptions?.mode,
+        read.draft.config.pointsOfInformation?.enabled,
       ],
-      expected: [true, 3, true, 'open'],
+      expected: [true, 3, true, true],
+    });
+  });
+  test('the draft refuses an unled cross-examination as the server does (INTX-10)', () => {
+    const source = choice();
+    const withCrossEx = {
+      ...source,
+      definition: {
+        ...source.definition,
+        segments: [
+          ...source.definition.segments,
+          {
+            key: 'CX',
+            label: 'Cross-examination',
+            type: 'cross_ex' as const,
+            speak: { rights: 'all' as const, lead: null },
+            defaultDurationMs: 120_000,
+          },
+        ],
+        configurable: {
+          ...source.definition.configurable,
+          timing: {
+            ...source.definition.configurable.timing,
+            segmentDurationMs: {
+              ...source.definition.configurable.timing.segmentDurationMs,
+              CX: { min: 60_000, max: 180_000 },
+            },
+          },
+        },
+      },
+    };
+    const fields = {
+      ...draftFormValues(createRoomDraft(withCrossEx)),
+      format: 'custom',
+    };
+    const blank = readRoomDraft(
+      { ...fields, 'segment.2.side': '', 'segment.2.slot': '' },
+      [withCrossEx],
+    );
+    const named = readRoomDraft(
+      { ...fields, 'segment.2.side': 'affirmative', 'segment.2.slot': '0' },
+      [withCrossEx],
+    );
+    assert({
+      given:
+        'a stored template whose cross-examination names no asker, drafted with the asker left blank, then with the first affirmative asking',
+      should: 'refuse the blank draft and accept the named one',
+      actual: [blank.ok, named.ok],
+      expected: [false, true],
+    });
+  });
+
+  test('a preset that takes points of information keeps its own timing', () => {
+    const source = choice();
+    const timing = {
+      enabled: true,
+      protectedStartMs: 30_000,
+      protectedEndMs: 30_000,
+      maxDurationMs: 10_000,
+      offerLapseMs: 5_000,
+    } as const;
+    const withPoints = {
+      ...source,
+      definition: {
+        ...source.definition,
+        configurable: {
+          ...source.definition.configurable,
+          interaction: {
+            ...source.definition.configurable.interaction,
+            pointsOfInformation: pointsOfInformationBounds,
+          },
+        },
+      },
+      preset: {
+        ...source.preset,
+        config: { ...source.preset.config, pointsOfInformation: timing },
+      },
+    };
+    const read = readRoomDraft(
+      {
+        ...draftFormValues(createRoomDraft(withPoints)),
+        questionStyle: 'poi',
+      },
+      [withPoints],
+    );
+    assert({
+      given: 'a preset whose points of information use 30 s protected time',
+      should: 'keep that timing rather than the parliamentary defaults',
+      actual: read.ok && read.draft.config.pointsOfInformation,
+      expected: timing,
     });
   });
 });

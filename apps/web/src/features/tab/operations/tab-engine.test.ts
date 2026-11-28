@@ -6,7 +6,7 @@ import { tabEngine } from './tab-engine';
 setupRitewayBun();
 const settings = engineSettings([], [], {
   'room.timing': { preRoundPrepMs: 0, inRoundPrepMsPerSide: 0, countdownMs: 0 },
-  'room.floor': { interruptions: null, yielding: null },
+  'room.floor': { pointsOfInformation: null, yielding: null },
 });
 const input = (format: EngineFormat, count: number): EngineDrawInput => ({
   call: 'windowed',

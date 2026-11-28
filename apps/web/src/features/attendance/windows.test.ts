@@ -39,26 +39,31 @@ const participants = [
     id: 'a0',
     actorId: 'actor-a0',
     seat: { kind: 'side', side: 'affirmative', slot: 0 } as const,
+    kind: 'human' as const,
   },
   {
     id: 'a1',
     actorId: 'actor-a1',
     seat: { kind: 'side', side: 'affirmative', slot: 1 } as const,
+    kind: 'human' as const,
   },
   {
     id: 'n0',
     actorId: 'actor-n0',
     seat: { kind: 'side', side: 'negative', slot: 0 } as const,
+    kind: 'human' as const,
   },
   {
     id: 'n1',
     actorId: 'actor-n1',
     seat: { kind: 'side', side: 'negative', slot: 1 } as const,
+    kind: 'human' as const,
   },
   {
     id: 'judge',
     actorId: 'actor-j',
     seat: { kind: 'judge', slot: 0 } as const,
+    kind: 'human' as const,
   },
 ];
 const actual = {

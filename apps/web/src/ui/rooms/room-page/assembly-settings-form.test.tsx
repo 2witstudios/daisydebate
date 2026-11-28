@@ -90,11 +90,7 @@ test('legal speech keys cannot collide with ancillary native duration fields', (
     pending: false,
   });
   const form = nativeInputFields(rendered.form);
-  for (const [name, value] of Object.entries({
-    interruptionsMode: 'disabled',
-    yield: 'off',
-  }))
-    form.set(name, value);
+  form.set('yield', 'off');
   const result = prepareSettings(view, form);
   form.append('duration.segment.budget', '1:00');
   assert({
@@ -136,8 +132,11 @@ test('settings use the exact persisted sequence and capability-specific controls
         'inRoundPrep',
         'duration.budget',
         'duration.countdown',
-        'interruptionsMode',
-        'duration.minRemaining',
+        'pointsOfInformation',
+        'duration.poi.start',
+        'duration.poi.end',
+        'duration.poi.length',
+        'duration.poi.lapse',
         'yield',
       ].every((name) => field(form, name) !== null),
       view.has('button', 'Save round settings'),
@@ -229,7 +228,6 @@ test('a settings save whose answer was lost is saved again as a new command on t
     const form = nativeInputFields(
       renderFields({ view, commandId, state, pending: false }).form,
     );
-    form.set('interruptionsMode', 'disabled');
     form.set('yield', 'off');
     return form;
   };

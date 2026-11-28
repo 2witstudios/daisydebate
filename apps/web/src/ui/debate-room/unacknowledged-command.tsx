@@ -11,6 +11,9 @@ const fields = new Set([
   'confirmed',
   'ordinal',
   'position',
+  // The segment a floor command names (INTX-7), and the offer an accept takes.
+  'sequence',
+  'offererParticipantId',
   // Form state, not envelope: the retry posts exactly what was sent (ISSUE-838).
   'segment',
 ]);

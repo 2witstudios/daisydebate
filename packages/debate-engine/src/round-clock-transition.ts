@@ -33,7 +33,20 @@ export type ClockChange =
       readonly sequence: number;
       readonly atMs: number;
       readonly returnedMs: number;
-      readonly holder: string | null;
+    }
+  /**
+   * Who speaks in the open segment changed at this instant: a point of
+   * information was accepted or gave the speech back, or a seat left. The
+   * segment and its clock run on.
+   */
+  | {
+      readonly kind: 'speakers';
+      readonly sequence: number;
+      readonly atMs: number;
+      /** The seat giving an accepted point of information, if any. */
+      readonly poiHolder: string | null;
+      /** The seats that have left from this instant, when a leave changed them. */
+      readonly absent?: readonly string[];
     }
   /** What this transition did to a platform incident, for its durable row. */
   | { readonly kind: 'incident'; readonly change: ClockIncidentChange };
@@ -42,7 +55,14 @@ export type ClockTransition = {
   readonly changes: readonly ClockChange[];
 };
 
-/** Shared interval primitives for clock and command execution. Sequence is calculation identity. */
+const iso = (ms: number) => new Date(ms).toISOString();
+
+/**
+ * A segment's close, the one shared primitive for clock and commands; sequence
+ * is calculation identity. Closing ends the speech's point of information, and
+ * starts at this exact instant any prep the next segment's side called while
+ * it ran (INTX-2).
+ */
 export const closeClockSegment = (
   state: ClockState,
   sequence: number,
@@ -56,13 +76,21 @@ export const closeClockSegment = (
       debateInvariantIds.liveOpenSegmentCount,
       'No open segment remains to close',
     );
+  const { prep } = state.checkpoint;
   return {
     state: {
       ...state,
       rows: state.rows.map((row) =>
         row.sequence === sequence ? { ...row, endedAtMs: atMs } : row,
       ),
-      checkpoint: { ...state.checkpoint, floor: null },
+      checkpoint: {
+        ...state.checkpoint,
+        point_of_information: { phase: 'none' },
+        prep:
+          prep.phase === 'called'
+            ? { phase: 'running', side: prep.side, started_at: iso(atMs) }
+            : prep,
+      },
     },
     changes: [{ kind: 'close', sequence, key: row.key, atMs }],
   };

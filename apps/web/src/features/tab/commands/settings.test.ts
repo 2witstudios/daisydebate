@@ -33,7 +33,7 @@ const format: FormatSettingDefaults = {
     countdownMs: 5_000,
   },
   'room.floor': {
-    interruptions: null,
+    pointsOfInformation: null,
     yielding: { allowed: false, returnsTime: false },
   },
 };
@@ -141,8 +141,8 @@ const atEvent = {
   lobbyId: 'cup',
   eventId: 'ld',
 } as const;
-const floor = (interruptions: boolean): SettingValues['room.floor'] => ({
-  interruptions: interruptions ? { mode: 'disabled', minRemainingMs: 0 } : null,
+const floor = (points: boolean): SettingValues['room.floor'] => ({
+  pointsOfInformation: points ? { enabled: false } : null,
   yielding: { allowed: true, returnsTime: false },
 });
 
@@ -292,7 +292,7 @@ describe('decideSetting: set and clear', () => {
     } as const;
     assert({
       given:
-        'interruptions at an event whose format forbids them, the same enforced above it, and the same as a default above it',
+        'points of information at an event whose format forbids them, the same enforced above it, and the same as a default above it',
       should:
         'refuse format-forbids for the first two, and leave the default to the formats that allow it',
       actual: [

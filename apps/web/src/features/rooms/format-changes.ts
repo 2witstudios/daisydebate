@@ -1,6 +1,9 @@
 import type { FormatChange } from '@daisy/protocol/format-standing';
 import type { Side } from '@daisy/protocol/seats';
-import { interruptionLabel, strikeSummary } from '../debate-room/vocabulary';
+import {
+  pointsOfInformationLabel,
+  strikeSummary,
+} from '../debate-room/vocabulary';
 import { sideShortName } from '../debate-room/seat-names';
 import { clockDuration } from './duration-input';
 
@@ -57,8 +60,8 @@ const lines: Lines = {
     `Prep per side ${clockOrOff(c.fromMs)} → ${clockOrOff(c.toMs)}`,
   'pre-round-prep': (c) =>
     `Prep before the round ${clockOrOff(c.fromMs)} → ${clockOrOff(c.toMs)}`,
-  interruptions: (c) =>
-    `Interruptions: ${interruptionLabel[c.from.allowed]} → ${interruptionLabel[c.to.allowed]}`,
+  'points-of-information': (c) =>
+    `Points of information: ${pointsOfInformationLabel(c.from)} → ${pointsOfInformationLabel(c.to)}`,
   yield: (c) => `Ending a speech early: ${onOff(c.from)} → ${onOff(c.to)}`,
   'resolution-draw': (c, sides) =>
     `Resolution strike: ${strikeOrOff(c.from, sides)} → ${strikeOrOff(c.to, sides)}`,

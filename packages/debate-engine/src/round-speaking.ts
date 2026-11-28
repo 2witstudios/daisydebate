@@ -1,4 +1,4 @@
-import { isDebatingSeat, isJudgeSeat, sameSeat } from '@daisy/protocol/seats';
+import { isJudgeSeat, sameSeat } from '@daisy/protocol/seats';
 import { speakingSeatsOf } from '@daisy/protocol/format-seating';
 import {
   type RoundParticipantSeat,
@@ -8,70 +8,58 @@ import {
 import { type RoundRules } from '@daisy/protocol/format';
 import type { ClockChange } from './round-clock-transition';
 
-/** Open questioning grants speaking permission without transferring the scheduled floor. */
-export const hasOpenQuestioning = (rules: RoundRules): boolean =>
-  rules.interaction.interruptions.allowed === 'open';
-
 /**
- * Several seats speak in a segment whose speak rights name several (cross-
- * examination, an open floor) and under open questioning; no one takes the
- * floor.
- */
-const sharesSpeaking = (rules: RoundRules, sequence: number): boolean =>
-  hasOpenQuestioning(rules) ||
-  (rules.segments[sequence] !== undefined &&
-    rules.segments[sequence].speak.rights !== 'one');
-
-/**
- * Who speaks now: under open questioning every debating seat; in a segment
- * several seats speak in, the seats its speak rights grant; otherwise the
- * floor holder, or the segment's one speaker. Never a judge.
+ * Who speaks in a segment now. In a segment several seats speak in (cross-
+ * examination, an open floor), the seats its speak rights grant; in a speech,
+ * its one scheduled seat, joined by the seat giving an accepted point of
+ * information. Never a judge, and never a seat that has left (INTX-12).
  */
 export const speakingParticipants = (
   rules: RoundRules,
   seats: readonly RoundParticipantSeat[],
   sequence: number,
-  holder: string | null,
+  poiHolder: string | null,
+  absent: readonly string[] = [],
 ): readonly string[] => {
   const segment = rules.segments[sequence];
   if (!segment) return [];
+  const present = seats.filter(
+    (p) => !isJudgeSeat(p.seat) && !absent.includes(p.id),
+  );
   const { speak } = segment;
-  if (hasOpenQuestioning(rules) && speak.rights === 'one')
-    return seats.filter((p) => isDebatingSeat(p.seat)).map((p) => p.id);
   if (speak.rights !== 'one') {
     const granted = speakingSeatsOf(rules, speak);
-    return seats
-      .filter(
-        (p) =>
-          !isJudgeSeat(p.seat) &&
-          granted.some((seat) => sameSeat(seat, p.seat)),
-      )
+    return present
+      .filter((p) => granted.some((seat) => sameSeat(seat, p.seat)))
       .map((p) => p.id);
   }
-  if (holder !== null)
-    return seats.some((p) => p.id === holder && !isJudgeSeat(p.seat))
-      ? [holder]
-      : [];
-  return seats.filter((p) => sameSeat(p.seat, speak.seat)).map((p) => p.id);
+  return present
+    .filter(
+      (p) =>
+        sameSeat(p.seat, speak.seat) ||
+        (poiHolder !== null && p.id === poiHolder),
+    )
+    .map((p) => p.id);
 };
 
-/** Materialize the existing engine's accepted clock/floor transitions, never a second timetable. */
+/** Materialize the engine's accepted clock and speaker changes, never a second timetable. */
 export function speakingChangesOf(input: {
   readonly rules: RoundRules;
   readonly participants: readonly RoundParticipantSeat[];
   readonly changes: readonly ClockChange[];
+  /**
+   * The seats that had left when the step began. A leave inside the step
+   * carries its new set on its own speakers change, so a segment the clock
+   * opened before the leave still grants the seat that then left.
+   */
+  readonly absent: readonly string[];
   /** The id of a segment the clock has opened. */
   readonly segmentIdOf: (sequence: number) => string;
-  readonly floorChange: {
-    readonly sequence: number;
-    readonly at: string;
-    readonly holder: string | null;
-  } | null;
 }): NonNullable<RoundProjection['speakingChanges']> {
   const opened = (
     sequence: number,
     atMs: number,
-    holder: string | null,
+    poiHolder: string | null,
   ): RoundSpeakingChange => ({
     kind: 'open',
     segmentId: input.segmentIdOf(sequence),
@@ -80,47 +68,34 @@ export function speakingChangesOf(input: {
       input.rules,
       input.participants,
       sequence,
-      holder,
+      poiHolder,
+      absent,
     ),
   });
-  const result: RoundSpeakingChange[] = input.changes.flatMap(
-    (change): RoundSpeakingChange[] => {
-      switch (change.kind) {
-        case 'open':
-          return [opened(change.row.sequence, change.row.startedAtMs, null)];
-        case 'resume':
-          return [opened(change.sequence, change.atMs, change.holder)];
-        case 'close':
-        case 'stop':
-          return [
-            {
-              kind: 'close',
-              segmentId: input.segmentIdOf(change.sequence),
-              at: new Date(change.atMs).toISOString(),
-            },
-          ];
-        case 'incident':
-          return [];
-      }
-    },
-  );
-  const floor = input.floorChange;
-  if (floor && !sharesSpeaking(input.rules, floor.sequence)) {
-    const segmentId = input.segmentIdOf(floor.sequence);
-    result.push(
-      { kind: 'close', segmentId, at: floor.at },
-      {
-        kind: 'open',
-        segmentId,
-        at: floor.at,
-        participantIds: speakingParticipants(
-          input.rules,
-          input.participants,
-          floor.sequence,
-          floor.holder,
-        ),
-      },
-    );
-  }
-  return result;
+  const closed = (sequence: number, atMs: number): RoundSpeakingChange => ({
+    kind: 'close',
+    segmentId: input.segmentIdOf(sequence),
+    at: new Date(atMs).toISOString(),
+  });
+  let absent = input.absent;
+  return input.changes.flatMap((change): RoundSpeakingChange[] => {
+    if (change.kind === 'speakers' && change.absent !== undefined)
+      absent = change.absent;
+    switch (change.kind) {
+      case 'open':
+        return [opened(change.row.sequence, change.row.startedAtMs, null)];
+      case 'resume':
+        return [opened(change.sequence, change.atMs, null)];
+      case 'speakers':
+        return [
+          closed(change.sequence, change.atMs),
+          opened(change.sequence, change.atMs, change.poiHolder),
+        ];
+      case 'close':
+      case 'stop':
+        return [closed(change.sequence, change.atMs)];
+      case 'incident':
+        return [];
+    }
+  });
 }

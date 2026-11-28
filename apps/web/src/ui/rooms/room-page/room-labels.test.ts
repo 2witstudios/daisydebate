@@ -300,7 +300,7 @@ describe('room lobby labels', () => {
         ['Prep before the round', '5:21'],
         ['Prep time', '14:47 per side'],
         ['Countdown before each speech', '0:00.444'],
-        ['Interruptions', 'Off'],
+        ['Points of information', 'Off'],
         ['Ending a speech early', 'Off'],
       ],
     });
@@ -308,8 +308,8 @@ describe('room lobby labels', () => {
 
   test('enabled interaction settings carry their detail', () => {
     assert({
-      given: 'cross-ex-only interruptions and yielding that returns time',
-      should: 'show the protected end and where unused time goes',
+      given: 'points of information and yielding that returns time',
+      should: 'show the protected time and where unused time goes',
       actual: settingRows({
         ...assemblySnapshot,
         config: {
@@ -317,13 +317,19 @@ describe('room lobby labels', () => {
           preRoundPrep: { enabled: false },
           resolutionDraw: { enabled: false },
           inRoundPrep: { enabled: false },
-          interruptions: { mode: 'enabled', minRemainingMs: 30000 },
+          pointsOfInformation: {
+            enabled: true,
+            protectedStartMs: 60_000,
+            protectedEndMs: 60_000,
+            maxDurationMs: 15_000,
+            offerLapseMs: 10_000,
+          },
           yielding: { allowed: true, returnsTime: true },
         },
       }).slice(3),
       expected: [
-        ['Interruptions', 'During any speech'],
-        ['Protected end of each speech', '0:30'],
+        ['Points of information', 'On · up to 0:15 each'],
+        ['Protected time in each speech', 'First 1:00 and last 1:00'],
         ['Ending a speech early', 'On · time back to prep'],
       ],
     });

@@ -20,7 +20,7 @@ const proofConfig = {
   resolutionDraw: { enabled: false },
   inRoundPrep: { enabled: true, budgetMsPerSide: 120_000 },
   speechTiming: { countdownMs: 10_000, segmentDurationOverrides: {} },
-  interruptions: null,
+  pointsOfInformation: null,
   yielding: null,
 } as const;
 
@@ -50,12 +50,11 @@ const storedRound: RoundHydration = {
   judging: null,
   rules: resolved.rules,
   checkpoint: {
-    version: 1,
+    version: 2,
     prep_consumed_ms: { affirmative: 0, negative: 0 },
-    active_prep: null,
-    floor: null,
+    prep: { phase: 'idle' },
+    point_of_information: { phase: 'none' },
     incident: { phase: 'none' },
-    prep_ended_at: null,
     start_gate: null,
     clock_stops: [],
   },

@@ -111,7 +111,7 @@ test('prep and closed between-segment floor keep cameras without speech rights',
   world.activate({ at: roundAt(0), now: roundAt(0) });
   world.tick(roundAt(10_000));
   world.execute({
-    command: { type: 'yield' },
+    command: { type: 'yield', sequence: 0 },
     actorId: seats[0]!.actorId,
     now: roundAt(20_000),
   });
@@ -128,7 +128,7 @@ test('prep and closed between-segment floor keep cameras without speech rights',
   const prep = runtimeWorld();
   prep.activate({ at: roundAt(0), now: roundAt(0) });
   prep.execute({
-    command: { type: 'start_prep' },
+    command: { type: 'start_prep', sequence: 0 },
     actorId: seats[0]!.actorId,
     now: roundAt(0),
   });
@@ -374,7 +374,7 @@ describe('a Broadcast observer holds cameras', () => {
     const world = runtimeWorld();
     world.activate({ at: roundAt(0), now: roundAt(0) });
     world.execute({
-      command: { type: 'start_prep' },
+      command: { type: 'start_prep', sequence: 0 },
       actorId: seats[0]!.actorId,
       now: roundAt(0),
     });

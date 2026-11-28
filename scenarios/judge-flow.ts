@@ -1,14 +1,18 @@
 import { negativeSide } from '@daisy/protocol/seats';
 import type { DebateScenario, ScenarioAction } from '../scripts/scenario';
 
-/** Advances the clock to `atMs`, then acts as the 1-based seat `actor`. */
+/**
+ * Advances the clock to `atMs`, then acts as the 1-based seat `actor` on the
+ * segment `sequence` names: the live one for a yield, the one prep is for.
+ */
 const at = (
   atMs: number,
-  type: 'yield' | 'interrupt' | 'start_prep' | 'start_speech',
+  type: 'yield' | 'start_prep' | 'start_speech',
   actor: number,
+  sequence: number,
 ): ScenarioAction[] => [
   { type: 'tick', atMs },
-  { type: 'command', command: { type }, actor },
+  { type: 'command', command: { type, sequence }, actor },
 ];
 
 /**
@@ -44,16 +48,21 @@ const scenario: DebateScenario = {
   when: [
     { type: 'start-round' },
     { type: 'tick', atMs: 10_000 }, // AC opens
-    ...at(60_000, 'yield', 1), // AC ends early
+    ...at(60_000, 'yield', 1, 0), // AC ends early
     { type: 'tick', atMs: 70_000 }, // CX1 opens, the negative asking
     {
       type: 'expect-rejection',
-      operation: { type: 'command', command: { type: 'interrupt' }, actor: 1 },
-      invariantId: 'round.interrupt.requires-policy',
+      // Cross-examination is questioning: it takes no points of information.
+      operation: {
+        type: 'command',
+        command: { type: 'offer_poi', sequence: 1 },
+        actor: 1,
+      },
+      invariantId: 'round.poi.requires-rule',
     },
-    ...at(92_000, 'yield', 2), // the questioner ends CX1
-    ...at(95_000, 'start_prep', 2), // the negative preps for NC
-    ...at(125_000, 'start_speech', 2), // NC opens out of prep
+    ...at(92_000, 'yield', 2, 1), // the questioner ends CX1
+    ...at(95_000, 'start_prep', 2, 2), // the negative preps for NC
+    ...at(125_000, 'start_speech', 2, 2), // NC opens out of prep
     {
       type: 'expect-rejection',
       operation: {
@@ -62,15 +71,15 @@ const scenario: DebateScenario = {
       },
       invariantId: 'round.complete.panel-played-round',
     },
-    ...at(185_000, 'yield', 2), // NC ends
+    ...at(185_000, 'yield', 2, 2), // NC ends
     { type: 'tick', atMs: 195_000 }, // CX2 opens
-    ...at(225_000, 'yield', 1),
+    ...at(225_000, 'yield', 1, 3),
     { type: 'tick', atMs: 235_000 }, // 1AR opens
-    ...at(265_000, 'yield', 1),
+    ...at(265_000, 'yield', 1, 4),
     { type: 'tick', atMs: 275_000 }, // NR opens
-    ...at(305_000, 'yield', 2),
+    ...at(305_000, 'yield', 2, 5),
     { type: 'tick', atMs: 315_000 }, // 2AR opens
-    ...at(345_000, 'yield', 1), // the final segment ends
+    ...at(345_000, 'yield', 1, 6), // the final segment ends
     { type: 'ballots', rulings: [{ judge: 3, winner: negativeSide }] },
   ],
   expect: {

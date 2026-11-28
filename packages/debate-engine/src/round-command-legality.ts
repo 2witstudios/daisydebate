@@ -6,20 +6,25 @@ import {
   type SideKey,
 } from '@daisy/protocol/seats';
 import { leadSeatOf } from '@daisy/protocol/format-seating';
-import { segmentDueAtMs } from '@daisy/protocol/segment-end';
 import {
   type RoundCommand,
   type RoundParticipantSeat,
 } from '@daisy/protocol/runtime';
-import { type RoundRules, type SegmentType } from '@daisy/protocol/format';
+import { type RoundRules } from '@daisy/protocol/format';
 import { forfeitsToOpponent } from './round-outcome';
 import { debateInvariantIds } from './invariant-ids';
 import {
   closedCount,
   debateHasEnded,
+  prepExpiredBefore,
   type ClockSegment,
   type ClockState,
 } from './round-clock-state';
+import {
+  isOffering,
+  offerWindowOf,
+  pointsOfInformationIn,
+} from './round-point-of-information';
 
 /** Everything that decides whether one seat's command is legal at one instant. */
 export type RoundCommandFacts = {
@@ -40,11 +45,16 @@ export type RoundCommandRefusal =
     }
   | { readonly kind: 'conflict'; readonly message: string };
 
-/** A command this seat could press now, and whether the engine would accept it. */
+/**
+ * A command this seat could press now, exactly as it would be sent (with the
+ * segment it names), and whether the engine would accept it.
+ */
 export type RoundCommandOption = {
-  readonly type: RoundCommand['type'];
+  readonly command: RoundCommand;
   readonly legal: boolean;
 };
+
+type Refusal = RoundCommandRefusal | null;
 
 const violates = (id: string, message: string): RoundCommandRefusal => ({
   kind: 'invariant',
@@ -78,78 +88,76 @@ const holdsLead = (
   return seat !== null && lead !== null && sameSeat(seat.seat, lead);
 };
 
+/** The side a segment's scheduled seat argues for; null without one. */
+const leadSideOf = (
+  segment: RoundRules['segments'][number] | undefined,
+): SideKey | null => {
+  const lead = segment === undefined ? null : leadSeatOf(segment.speak);
+  return lead === null ? null : sideOfSeat(lead);
+};
+
+/** The participant scheduled to a segment, if any. */
+const scheduledSeatOf = (
+  { rules, participants }: Pick<RoundCommandFacts, 'rules' | 'participants'>,
+  sequence: number,
+): RoundParticipantSeat | null =>
+  participants.find((seat) => holdsLead(seat, rules.segments[sequence])) ??
+  null;
+
 /**
- * Who holds the floor: whoever an accepted interruption gave it to, else the
- * open segment's scheduled seat. Null when nothing is open.
+ * The segment prep is for now: the one after the live segment (prep called
+ * ahead starts when it ends), or the one the gap leads to (INTX-2).
  */
-const floorHolderOf = ({
-  rules,
-  state,
-  participants,
-}: Pick<
-  RoundCommandFacts,
-  'rules' | 'state' | 'participants'
->): RoundParticipantSeat | null => {
+const prepTargetOf = (state: ClockState): number => {
   const open = openRowOf(state);
-  if (open === undefined) return null;
-  const floor = state.checkpoint.floor;
-  if (floor !== null)
-    return (
-      participants.find((seat) => seat.id === floor.holder_participant_id) ??
-      null
-    );
-  const scheduled = rules.segments[open.sequence];
-  return participants.find((seat) => holdsLead(seat, scheduled)) ?? null;
+  return open === undefined ? closedCount(state) : open.sequence + 1;
 };
+
+/** A press names the segment it meant; any other is stale, never applied (INTX-7). */
+const staleRefusal = conflict(
+  'That segment has already changed; the press is stale',
+);
+const stale = (expected: number, named: number): Refusal =>
+  expected === named ? null : staleRefusal;
 
 /**
- * The segment a seat may spend prep before must exist, be that seat's own, sit
- * inside the spendable window and not have passed the budget's expiry segment.
+ * Between segments, a press naming one that has already closed lost a race
+ * to the clock: it is stale, a conflict, not an illegal move (INTX-7).
  */
-const prepWindowRefusal = (
-  { rules, state }: RoundCommandFacts,
-  inRoundPrep: NonNullable<RoundRules['inRoundPrep']>,
-  seat: RoundParticipantSeat,
-): RoundCommandRefusal | null => {
-  const id = debateInvariantIds.prepRequiresSpendableSegment;
-  const sequence = closedCount(state);
-  const upcoming = rules.segments[sequence];
-  if (!upcoming) return violates(id, 'No segment remains to prep for');
-  if (!holdsLead(seat, upcoming))
-    return violates(id, 'Prep runs before the prepping seat’s own segment');
-  const type: SegmentType = upcoming.type;
-  if (!inRoundPrep.spendableBefore.includes(type))
-    return violates(id, `Prep is not spendable before a ${type} segment`);
-  const expiresAt = inRoundPrep.expiresAtSegment;
-  if (
-    expiresAt !== null &&
-    rules.segments.findIndex((segment) => segment.key === expiresAt) <= sequence
-  )
-    return violates(id, `Prep expired at segment ${expiresAt}`);
-  return null;
-};
+const staleInGap = (state: ClockState, named: number): Refusal =>
+  named < closedCount(state) ? staleRefusal : null;
 
-const startPrepRefusal = (facts: RoundCommandFacts) => {
-  const { rules, state, seat } = facts;
-  if (state.lifecycle.status !== 'active')
-    return conflict('Only an active round spends prep');
-  if (openRowOf(state) !== undefined)
-    return conflict('A segment is already live');
-  if (state.checkpoint.active_prep !== null)
-    return conflict('Prep is already running');
-  if (state.checkpoint.prep_ended_at !== null)
-    return conflict('Prep has ended and the speech is about to start');
+/**
+ * Prep may be spent before this segment by this side: the format has prep, the
+ * segment exists and is the side's own, its type is spendable, the budget has
+ * not expired, and some of it is left.
+ */
+const prepSpendableRefusal = (
+  { rules, state }: RoundCommandFacts,
+  side: SideKey,
+  target: number,
+): Refusal => {
   const { inRoundPrep } = rules;
   if (inRoundPrep === null)
     return violates(
       debateInvariantIds.prepRequiresCapability,
       'The resolved rules have no in-round prep',
     );
-  const side = debateSideOf(seat);
-  if (seat === null || side === null)
-    return conflict('Prep belongs to a seated debater');
-  const window = prepWindowRefusal(facts, inRoundPrep, seat);
-  if (window !== null) return window;
+  const id = debateInvariantIds.prepRequiresSpendableSegment;
+  const upcoming = rules.segments[target];
+  if (!upcoming) return violates(id, 'No segment remains to prep for');
+  if (leadSideOf(upcoming) !== side)
+    return violates(id, 'Prep runs before the prepping side’s own segment');
+  if (!inRoundPrep.spendableBefore.includes(upcoming.type))
+    return violates(
+      id,
+      `Prep is not spendable before a ${upcoming.type} segment`,
+    );
+  if (prepExpiredBefore(rules, target))
+    return violates(
+      id,
+      `Prep expired at segment ${inRoundPrep.expiresAtSegment}`,
+    );
   return prepConsumedOf(state.checkpoint, side) >= inRoundPrep.budgetMsPerSide
     ? violates(
         debateInvariantIds.prepRequiresBudget,
@@ -158,55 +166,268 @@ const startPrepRefusal = (facts: RoundCommandFacts) => {
     : null;
 };
 
-const startSpeechRefusal = ({ rules, state, seat }: RoundCommandFacts) => {
-  const active = state.checkpoint.active_prep;
-  if (active === null)
+/**
+ * Either debater of the side that speaks next calls prep, during the previous
+ * segment or in the gap (INTX-2). Only one prep exists at a time.
+ */
+const startPrepRefusal = (
+  facts: RoundCommandFacts,
+  command: Extract<RoundCommand, { type: 'start_prep' }>,
+): Refusal => {
+  const { rules, state, seat } = facts;
+  if (state.lifecycle.status !== 'active')
+    return conflict('Only an active round spends prep');
+  if (rules.inRoundPrep === null)
+    return violates(
+      debateInvariantIds.prepRequiresCapability,
+      'The resolved rules have no in-round prep',
+    );
+  const side = debateSideOf(seat);
+  if (!isDebater(seat) || side === null)
+    return conflict('Prep belongs to a seated debater');
+  const target = prepTargetOf(state);
+  const staleness = stale(target, command.sequence);
+  if (staleness !== null) return staleness;
+  switch (state.checkpoint.prep.phase) {
+    case 'called':
+      return conflict('Prep is already called');
+    case 'running':
+      return conflict('Prep is already running');
+    case 'lead':
+      return conflict('Prep has ended and the speech is about to start');
+    case 'idle':
+      return prepSpendableRefusal(facts, side, target);
+  }
+};
+
+/** A side takes back the prep it called, before the segment it waits on ends. */
+const cancelPrepRefusal = (
+  { state, seat }: RoundCommandFacts,
+  command: Extract<RoundCommand, { type: 'cancel_prep' }>,
+): Refusal => {
+  const { prep } = state.checkpoint;
+  if (prep.phase !== 'called') return conflict('No prep is called');
+  const staleness = stale(prepTargetOf(state), command.sequence);
+  if (staleness !== null) return staleness;
+  return isDebater(seat) && debateSideOf(seat) === prep.side
+    ? null
+    : conflict('Only the side that called prep cancels it');
+};
+
+/** Either debater of the prepping side ends its running prep (INTX-3). */
+const startSpeechRefusal = (
+  { state, seat }: RoundCommandFacts,
+  command: Extract<RoundCommand, { type: 'start_speech' }>,
+): Refusal => {
+  const { prep } = state.checkpoint;
+  // Prep that ran out an instant before the press is a race, not corruption.
+  if (prep.phase === 'lead')
+    return conflict('Prep has already ended and the speech is about to start');
+  if (prep.phase !== 'running')
     return violates(
       debateInvariantIds.startSpeechRequiresPrep,
       'A speech opens out of the prepping side’s prep',
     );
-  const upcoming = rules.segments[closedCount(state)];
-  return debateSideOf(seat) === active.side && holdsLead(seat, upcoming)
+  const staleness = stale(closedCount(state), command.sequence);
+  if (staleness !== null) return staleness;
+  return isDebater(seat) && debateSideOf(seat) === prep.side
     ? null
-    : conflict('Only the prepping seat ends its own prep');
+    : conflict('Only the prepping side ends its own prep');
 };
 
-const yieldRefusal = (facts: RoundCommandFacts) => {
+/**
+ * The scheduled seat ends its own segment early. In cross-examination the
+ * asker always may, whatever the speech-yield setting (ADR 0096, INTX-9), and
+ * a person on the answering side may when a bot asks, since a bot never ends
+ * one itself.
+ */
+const yieldRefusal = (
+  facts: RoundCommandFacts,
+  command: Extract<RoundCommand, { type: 'yield' }>,
+): Refusal => {
+  const { rules, state, seat } = facts;
   const id = debateInvariantIds.yieldRequiresFloor;
-  if (openRowOf(facts.state) === undefined)
-    return violates(id, 'Yielding requires a live segment');
-  const holder = floorHolderOf(facts);
-  if (facts.seat === null || holder === null || facts.seat.id !== holder.id)
-    return violates(id, 'Only the floor holder ends their own control');
-  return facts.rules.interaction.yield?.allowed === true
+  const open = openRowOf(state);
+  if (open === undefined)
+    return (
+      staleInGap(state, command.sequence) ??
+      violates(id, 'Yielding requires a live segment')
+    );
+  const staleness = stale(open.sequence, command.sequence);
+  if (staleness !== null) return staleness;
+  const segment = rules.segments[open.sequence];
+  if (segment?.type === 'cross_ex') {
+    if (holdsLead(seat, segment)) return null;
+    const asker = scheduledSeatOf(facts, open.sequence);
+    const answering =
+      isDebater(seat) &&
+      seat.kind === 'human' &&
+      debateSideOf(seat) !== null &&
+      debateSideOf(seat) !== leadSideOf(segment);
+    return asker?.kind === 'bot' && answering
+      ? null
+      : violates(id, 'Only the asker ends cross-examination early');
+  }
+  if (!holdsLead(seat, segment))
+    return violates(id, 'Only the scheduled seat ends its own segment');
+  return rules.interaction.yield?.allowed === true
     ? null
     : violates(id, 'The resolved rules forbid yielding');
 };
 
-/**
- * The floor moves only under an enabled policy, and only in a segment one
- * seat speaks in. A segment several seats speak in (cross-examination, an
- * open floor) never transfers the floor, so it has nothing to take.
- */
-const interruptRefusal = (facts: RoundCommandFacts) => {
-  const id = debateInvariantIds.interruptRequiresPolicy;
+/** The live speech a point-of-information command names, under its rule. */
+const pointContext = (
+  facts: RoundCommandFacts,
+  sequence: number,
+):
+  | { readonly refusal: RoundCommandRefusal }
+  | {
+      readonly refusal: null;
+      readonly speaker: RoundParticipantSeat | null;
+      readonly opensAtMs: number;
+      readonly closesAtMs: number;
+    } => {
   const open = openRowOf(facts.state);
-  const policy = facts.rules.interaction.interruptions;
-  if (open === undefined || policy.allowed !== 'enabled')
-    return violates(id, 'The resolved rules forbid interruptions here');
-  if (facts.rules.segments[open.sequence]?.speak.rights !== 'one')
-    return violates(
-      id,
-      'Nobody interrupts a segment several seats already speak in',
-    );
-  const remaining = segmentDueAtMs(open) - facts.nowMs;
-  if (remaining < policy.minRemainingMs)
-    return violates(id, 'Too little of the segment remains to interrupt');
-  if (!isDebater(facts.seat))
-    return conflict('Only a seated debater interrupts');
-  return floorHolderOf(facts)?.id === facts.seat.id
-    ? violates(id, 'The floor holder cannot interrupt themselves')
+  const id = debateInvariantIds.pointOfInformationRequiresRule;
+  if (open === undefined)
+    return {
+      refusal:
+        staleInGap(facts.state, sequence) ??
+        violates(id, 'Points of information need a live speech'),
+    };
+  const staleness = stale(open.sequence, sequence);
+  if (staleness !== null) return { refusal: staleness };
+  const rule = pointsOfInformationIn(facts.rules, open.sequence);
+  if (rule === null)
+    return {
+      refusal: violates(id, 'This segment takes no points of information'),
+    };
+  return {
+    refusal: null,
+    speaker: scheduledSeatOf(facts, open.sequence),
+    ...offerWindowOf(open, rule),
+  };
+};
+
+/**
+ * Who may offer to this speech at all, whatever the clock (INTX-13, INTX-17):
+ * a person of another side, to a speaker who is a person and still present.
+ * The refusal and the option list both ask this.
+ */
+const offerEligibilityRefusal = (
+  { state }: RoundCommandFacts,
+  seat: RoundParticipantSeat,
+  speaker: RoundParticipantSeat | null,
+): Refusal => {
+  if (speaker === null || speaker.id === seat.id)
+    return conflict('The speaker does not offer to their own speech');
+  const speakerSide = debateSideOf(speaker);
+  if (speakerSide !== null && debateSideOf(seat) === speakerSide)
+    return conflict('Only the other side offers a point of information');
+  if (seat.kind === 'bot') return conflict('A bot does not offer');
+  if (speaker.kind === 'bot')
+    return conflict('A bot speaker takes no points of information');
+  return isAbsentSeat(state.checkpoint, speaker.id)
+    ? conflict('The speaker has left the Round')
     : null;
+};
+
+/**
+ * A seat of another side stands to offer during the speech's unprotected time
+ * (INTX-13). The speaker's partner never offers; a bot never offers, and no
+ * one offers to a bot speaker (INTX-17).
+ */
+const offerRefusal = (
+  facts: RoundCommandFacts,
+  command: Extract<RoundCommand, { type: 'offer_poi' }>,
+): Refusal => {
+  const context = pointContext(facts, command.sequence);
+  if (context.refusal !== null) return context.refusal;
+  const { seat, nowMs } = facts;
+  if (!isDebater(seat)) return conflict('Only a seated debater offers');
+  const eligibility = offerEligibilityRefusal(facts, seat, context.speaker);
+  if (eligibility !== null) return eligibility;
+  if (nowMs < context.opensAtMs)
+    return conflict('The speech’s protected start is still running');
+  if (nowMs >= context.closesAtMs)
+    return conflict('The speech’s protected end has begun');
+  const point = facts.state.checkpoint.point_of_information;
+  if (point.phase === 'speaking')
+    return conflict('A point of information is being given');
+  return isOffering(point, seat.id)
+    ? conflict('This seat is already offering')
+    : null;
+};
+
+/** A standing offer is its seat's own to withdraw. */
+const withdrawRefusal = (
+  facts: RoundCommandFacts,
+  command: Extract<RoundCommand, { type: 'withdraw_poi' }>,
+): Refusal => {
+  const context = pointContext(facts, command.sequence);
+  if (context.refusal !== null) return context.refusal;
+  const point = facts.state.checkpoint.point_of_information;
+  const seat = facts.seat;
+  return seat !== null && isOffering(point, seat.id)
+    ? null
+    : conflict('This seat has no standing offer');
+};
+
+/** Only the speaker answers offers. */
+const speakerRefusal = (
+  facts: RoundCommandFacts,
+  speaker: RoundParticipantSeat | null,
+): Refusal =>
+  speaker !== null && facts.seat?.id === speaker.id
+    ? null
+    : conflict('Only the speaker answers points of information');
+
+/** The speaker takes one standing offer, before the protected end (INTX-14). */
+const acceptRefusal = (
+  facts: RoundCommandFacts,
+  command: Extract<RoundCommand, { type: 'accept_poi' }>,
+): Refusal => {
+  const context = pointContext(facts, command.sequence);
+  if (context.refusal !== null) return context.refusal;
+  const notSpeaker = speakerRefusal(facts, context.speaker);
+  if (notSpeaker !== null) return notSpeaker;
+  if (facts.nowMs >= context.closesAtMs)
+    return conflict('The speech’s protected end has begun');
+  const point = facts.state.checkpoint.point_of_information;
+  return isOffering(point, command.offererParticipantId)
+    ? null
+    : conflict('That offer is no longer standing');
+};
+
+/** The speaker declines every standing offer at once. */
+const declineRefusal = (
+  facts: RoundCommandFacts,
+  command: Extract<RoundCommand, { type: 'decline_poi' }>,
+): Refusal => {
+  const context = pointContext(facts, command.sequence);
+  if (context.refusal !== null) return context.refusal;
+  const notSpeaker = speakerRefusal(facts, context.speaker);
+  if (notSpeaker !== null) return notSpeaker;
+  return facts.state.checkpoint.point_of_information.phase === 'offered'
+    ? null
+    : conflict('No offer is standing');
+};
+
+/** The holder concludes, or the speaker resumes, before the point's limit (INTX-15). */
+const endPointRefusal = (
+  facts: RoundCommandFacts,
+  command: Extract<RoundCommand, { type: 'end_poi' }>,
+): Refusal => {
+  const context = pointContext(facts, command.sequence);
+  if (context.refusal !== null) return context.refusal;
+  const point = facts.state.checkpoint.point_of_information;
+  if (point.phase !== 'speaking')
+    return conflict('No point of information is being given');
+  const id = facts.seat?.id;
+  return id !== undefined &&
+    (id === point.holder_participant_id || id === context.speaker?.id)
+    ? null
+    : conflict('Only the speaker or the point’s holder ends it');
 };
 
 /**
@@ -248,24 +469,39 @@ const absentRefusal = ({ state, seat }: RoundCommandFacts) =>
     ? conflict('This seat has left the Round')
     : null;
 
-const refusals: Readonly<
-  Record<
-    RoundCommand['type'],
-    (facts: RoundCommandFacts) => RoundCommandRefusal | null
-  >
-> = {
-  start_prep: startPrepRefusal,
-  start_speech: startSpeechRefusal,
-  yield: yieldRefusal,
-  interrupt: interruptRefusal,
-  forfeit: forfeitRefusal,
-  leave: leaveRefusal,
+/** Why this command, as named, is illegal for this seat now. */
+const commandRefusal = (
+  facts: RoundCommandFacts,
+  command: RoundCommand,
+): Refusal => {
+  switch (command.type) {
+    case 'start_prep':
+      return startPrepRefusal(facts, command);
+    case 'cancel_prep':
+      return cancelPrepRefusal(facts, command);
+    case 'start_speech':
+      return startSpeechRefusal(facts, command);
+    case 'yield':
+      return yieldRefusal(facts, command);
+    case 'offer_poi':
+      return offerRefusal(facts, command);
+    case 'withdraw_poi':
+      return withdrawRefusal(facts, command);
+    case 'accept_poi':
+      return acceptRefusal(facts, command);
+    case 'decline_poi':
+      return declineRefusal(facts, command);
+    case 'end_poi':
+      return endPointRefusal(facts, command);
+    case 'forfeit':
+      return forfeitRefusal(facts);
+    case 'leave':
+      return leaveRefusal(facts);
+  }
 };
 
 /** Why the Round takes no command at all now, or null when it takes one. */
-const standingRefusal = (
-  facts: RoundCommandFacts,
-): RoundCommandRefusal | null => {
+const standingRefusal = (facts: RoundCommandFacts): Refusal => {
   const { status } = facts.state.lifecycle;
   if (status === 'completed')
     return violates(
@@ -282,14 +518,16 @@ const standingRefusal = (
 /** Why this seat may not run this command now, or null when it may. */
 export const roundCommandRefusal = (
   facts: RoundCommandFacts,
-  type: RoundCommand['type'],
-): RoundCommandRefusal | null =>
-  standingRefusal(facts) ?? absentRefusal(facts) ?? refusals[type](facts);
+  command: RoundCommand,
+): Refusal =>
+  standingRefusal(facts) ??
+  absentRefusal(facts) ??
+  commandRefusal(facts, command);
 
 /**
- * The commands this seat is offered now. An offered command can be illegal for
- * the moment (an Interrupt inside the protected end); one that is not offered
- * has no meaning for this seat here.
+ * The commands this seat is offered now, each as it would be sent. An offered
+ * command can be illegal for the moment (an offer inside protected time); one
+ * that is not offered has no meaning for this seat here.
  */
 export const roundCommandOptions = (
   facts: RoundCommandFacts,
@@ -302,35 +540,93 @@ export const roundCommandOptions = (
     debateHasEnded(state, rules.segments.length)
   )
     return [];
+  const option = (command: RoundCommand): RoundCommandOption => ({
+    command,
+    legal: roundCommandRefusal(facts, command) === null,
+  });
   // Leaving forfeits a two-sided winner Round; anywhere else it is absence.
-  const leave: readonly RoundCommandOption[] = forfeitsToOpponent(rules)
-    ? [{ type: 'forfeit', legal: true }]
-    : [{ type: 'leave', legal: leaveRefusal(facts) === null }];
-  return [...floorOptions(facts, seat), ...leave];
+  const leave = option(
+    forfeitsToOpponent(rules) ? { type: 'forfeit' } : { type: 'leave' },
+  );
+  return [
+    ...prepOptions(facts, seat).map(option),
+    ...segmentOptions(facts, seat).map(option),
+    leave,
+  ];
 };
 
-/** What a debater may press about the floor now: start, prep, yield or interrupt. */
-const floorOptions = (
+/** What this seat may press about prep now: call, cancel or end it. */
+const prepOptions = (
+  { rules, state }: RoundCommandFacts,
+  seat: RoundParticipantSeat,
+): readonly RoundCommand[] => {
+  const side = debateSideOf(seat);
+  if (rules.inRoundPrep === null || side === null) return [];
+  const { prep } = state.checkpoint;
+  const target = prepTargetOf(state);
+  switch (prep.phase) {
+    case 'running':
+      return prep.side === side
+        ? [{ type: 'start_speech', sequence: closedCount(state) }]
+        : [];
+    case 'called':
+      return prep.side === side
+        ? [{ type: 'cancel_prep', sequence: target }]
+        : [];
+    case 'lead':
+      return [];
+    case 'idle': {
+      // Offered before every segment of the side's the format lets prep
+      // precede; spent or expired, it stays offered and illegal.
+      const upcoming = rules.segments[target];
+      return upcoming !== undefined &&
+        leadSideOf(upcoming) === side &&
+        rules.inRoundPrep.spendableBefore.includes(upcoming.type)
+        ? [{ type: 'start_prep', sequence: target }]
+        : [];
+    }
+  }
+};
+
+/** What this seat may press in the live segment: end it, or its points of information. */
+const segmentOptions = (
   facts: RoundCommandFacts,
   seat: RoundParticipantSeat,
-): readonly RoundCommandOption[] => {
-  const option = (type: RoundCommand['type']): RoundCommandOption => ({
-    type,
-    legal: roundCommandRefusal(facts, type) === null,
-  });
-  const speech = option('start_speech');
-  if (speech.legal) return [speech];
+): readonly RoundCommand[] => {
   const open = openRowOf(facts.state);
-  if (open === undefined) {
-    const prep = option('start_prep');
-    return prep.legal ? [prep] : [];
+  if (open === undefined) return [];
+  const sequence = open.sequence;
+  const segment = facts.rules.segments[sequence];
+  const ends: readonly RoundCommand[] =
+    yieldRefusal(facts, { type: 'yield', sequence }) === null ||
+    holdsLead(seat, segment)
+      ? [{ type: 'yield', sequence }]
+      : [];
+  if (pointsOfInformationIn(facts.rules, sequence) === null) return ends;
+  const point = facts.state.checkpoint.point_of_information;
+  const speaker = scheduledSeatOf(facts, sequence);
+  if (speaker?.id === seat.id) {
+    if (point.phase === 'offered')
+      return [
+        ...ends,
+        ...point.offers.map((offer): RoundCommand => ({
+          type: 'accept_poi',
+          sequence,
+          offererParticipantId: offer.participant_id,
+        })),
+        { type: 'decline_poi', sequence },
+      ];
+    if (point.phase === 'speaking')
+      return [...ends, { type: 'end_poi', sequence }];
+    return ends;
   }
-  const holds = floorHolderOf(facts)?.id === seat.id;
-  const interrupts =
-    facts.rules.interaction.interruptions.allowed === 'enabled' &&
-    facts.rules.segments[open.sequence]?.speak.rights === 'one';
+  if (point.phase === 'speaking' && point.holder_participant_id === seat.id)
+    return [{ type: 'end_poi', sequence }];
+  if (offerEligibilityRefusal(facts, seat, speaker) !== null) return ends;
   return [
-    ...(holds ? [option('yield')] : []),
-    ...(interrupts ? [option('interrupt')] : []),
+    ...ends,
+    isOffering(point, seat.id)
+      ? { type: 'withdraw_poi', sequence }
+      : { type: 'offer_poi', sequence },
   ];
 };

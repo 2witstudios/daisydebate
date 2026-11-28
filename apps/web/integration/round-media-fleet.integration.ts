@@ -251,7 +251,7 @@ test('the tick passes a Round only when its read shows one is due', async () => 
       expected: ['lease', true, null],
     });
     const preparing = '2026-01-01T00:00:00.000Z';
-    await f.sql`update rounds set rules_snapshot=jsonb_set(rules_snapshot, '{inRoundPrep}', '{"budgetMsPerSide": 60000}'::jsonb), runtime_state=jsonb_set(jsonb_set(runtime_state, '{active_prep}', jsonb_build_object('side', 'negative', 'started_at', ${preparing}::text)), '{prep_consumed_ms,negative}', '7000'::jsonb) where id=${f.roundId}`;
+    await f.sql`update rounds set rules_snapshot=jsonb_set(rules_snapshot, '{inRoundPrep}', '{"budgetMsPerSide": 60000}'::jsonb), runtime_state=jsonb_set(jsonb_set(runtime_state, '{prep}', jsonb_build_object('phase', 'running', 'side', 'negative', 'started_at', ${preparing}::text)), '{prep_consumed_ms,negative}', '7000'::jsonb) where id=${f.roundId}`;
     assert({
       given: 'a side in in-round prep with time consumed',
       should: "return its budget and that side's consumed time",

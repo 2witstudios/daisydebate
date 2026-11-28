@@ -17,7 +17,7 @@ const live = { status: 'active', currentStage: 'live' };
 const idle = emptyRuntimeCheckpointFor({ sides: twoSides });
 const prepping = {
   ...idle,
-  active_prep: { side: 'affirmative' as const, started_at: at(10) },
+  prep: { phase: 'running', side: 'affirmative' as const, started_at: at(10) },
 };
 const used = {
   ...idle,
@@ -97,6 +97,62 @@ test('prep and judging are committed by the transition, with the times they ran'
             ['judging', at(800), at(1000)],
           ],
         ],
+      });
+    });
+  } finally {
+    await client.close();
+  }
+});
+
+test('a prep called ahead and run out within one catch-up still records its span (ADR 0936)', async () => {
+  const client = new SQL(databaseUrl, { max: 2 });
+  try {
+    await withFixture(databaseUrl, async (f) => {
+      const roundId = await f.round();
+      const db = drizzle({ client });
+      const called = {
+        ...idle,
+        prep: { phase: 'called', side: 'affirmative' as const },
+      };
+      const spent = {
+        ...idle,
+        prep: { phase: 'lead', ended_at: at(120) },
+        prep_consumed_ms: { affirmative: 20_000, negative: 0 },
+      };
+      // The segment prep waited on closed at 100 s; the next tick, at 200 s,
+      // finds that close and the prep's own end (20 s left) both due.
+      await writePrivateSpans(
+        db as never,
+        roundId,
+        {
+          status: 'active',
+          currentStage: 'live',
+          runtimeState: called,
+        } as never,
+        {
+          round: { ...live, checkpoint: spent },
+          segmentCloses: [{ id: 'segment', endedAt: at(100) }],
+        } as never,
+        at(200),
+      );
+      const rows = (
+        await client`select kind, started_at, ended_at from round_private_spans
+          where round_id=${roundId}`
+      ).map(
+        (row: { kind: string; started_at: Date; ended_at: Date | null }) => [
+          row.kind,
+          new Date(row.started_at).toISOString(),
+          row.ended_at && new Date(row.ended_at).toISOString(),
+        ],
+      );
+      await client`delete from round_private_spans where round_id=${roundId}`;
+      assert({
+        given:
+          'prep called during a segment, the segment closing at 100 s, and 20 s of prep running out before the next tick',
+        should:
+          'open the prep span at the segment close and close it 20 s later',
+        actual: rows,
+        expected: [['prep', at(100), at(120)]],
       });
     });
   } finally {

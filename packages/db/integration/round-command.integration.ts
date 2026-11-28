@@ -50,7 +50,11 @@ test('concurrent identical commands commit once and replay before stale-version 
       version: 1 as const,
       commandId,
       expectedVersion: 1,
-      command: { type: 'yield' as const, participantId: createId() },
+      command: {
+        type: 'yield' as const,
+        participantId: createId(),
+        sequence: 0,
+      },
     };
     let executions = 0;
     const input = {

@@ -31,13 +31,13 @@ import {
   readDrillTarget,
   type DrillMoment,
 } from '../scripts/node-kill-drill/target';
-import { oneOnOneSettings } from '@daisy/db/reference-formats';
 import { actualSpeech } from './support/attendance-browser';
 import { oneOnOneChoice } from './support/human-round-selection';
 import { leadSideOf } from './support/segment-lead';
 import {
   ballotRoundCommand,
   readBallotRound,
+  openSequence,
 } from './support/human-ballot-round';
 import { expect, openPage, test } from './support/fixtures';
 import {
@@ -56,6 +56,13 @@ import {
   watchPeerConnections,
   type SeatProbe,
 } from './support/node-kill-drill-probe';
+import {
+  drillChoiceOf,
+  isClockMoment,
+  reachClockMoment,
+  settledClockFacts,
+} from './support/node-kill-drill-moments';
+import { clockInstantProblems } from '../scripts/node-kill-drill/clock-instants';
 import { createRoomLaunchAccounts } from './support/room-launch-accounts';
 import { closeSettledLaunchContexts } from './support/room-launch-settled';
 import {
@@ -214,11 +221,12 @@ async function endOpenSpeech(members: readonly Member[], roundId: string) {
   );
   if (!speaker || !('id' in speaker)) throw new Error('Speaker seat missing');
   const member = members[side === affirmativeSide ? 0 : 1]!;
-  await ballotRoundCommand(
-    member.context.request,
-    await readBallotRound(member.context.request, roundId),
-    { type: 'yield', participantId: speaker.id },
-  );
+  const current = await readBallotRound(member.context.request, roundId);
+  await ballotRoundCommand(member.context.request, current, {
+    type: 'yield',
+    participantId: speaker.id,
+    sequence: openSequence(current),
+  });
   return true;
 }
 
@@ -370,10 +378,11 @@ async function drillOneKill(
   let node: (typeof target.nodes)[number] | null = null;
   let nodeWatch: ReturnType<typeof watchNodeReturn> | null = null;
   try {
+    const drilled = drillChoiceOf(sample.moment);
     const { round, speaker, listener } = await grantedDebaters(
       accounts.members,
-      oneOnOneChoice,
-      oneOnOneSettings.speechTiming.countdownMs,
+      drilled.choice,
+      drilled.countdownMs,
     );
     draft = { ...draft, roundId: round.id };
     const seats: readonly Seat[] = await Promise.all(
@@ -396,23 +405,39 @@ async function drillOneKill(
         return { name, member, participantId: own.id, page };
       }),
     );
-    const speech = await actualSpeech(
-      speaker.context.request,
-      round.id,
-      60_000,
-    );
-    const before = await Promise.all(
-      seats.map((seat) => untilHealthy(seat, round.id)),
-    );
-    // Capture was running before the kill, or its return would prove nothing.
-    await expect
-      .poll(async () => (await drillEvidence(round.id)).observations.length, {
-        timeout: 60_000,
-        intervals: [2000],
-      })
-      .toBeGreaterThan(0);
-    const into = nowMs() - instantMs(speech.startedAt!);
-    if (into < SPEECH_BEFORE_KILL_MS) await pause(SPEECH_BEFORE_KILL_MS - into);
+    const clockMoment = isClockMoment(sample.moment) ? sample.moment : null;
+    let atMoment: Awaited<ReturnType<typeof reachClockMoment>> | null = null;
+    let before: Awaited<ReturnType<typeof untilHealthy>>[];
+    if (clockMoment === null) {
+      const speech = await actualSpeech(
+        speaker.context.request,
+        round.id,
+        60_000,
+      );
+      before = await Promise.all(
+        seats.map((seat) => untilHealthy(seat, round.id)),
+      );
+      // Capture was running before the kill, or its return would prove nothing.
+      await expect
+        .poll(async () => (await drillEvidence(round.id)).observations.length, {
+          timeout: 60_000,
+          intervals: [2000],
+        })
+        .toBeGreaterThan(0);
+      const into = nowMs() - instantMs(speech.startedAt!);
+      if (into < SPEECH_BEFORE_KILL_MS)
+        await pause(SPEECH_BEFORE_KILL_MS - into);
+    } else {
+      // Prep, cross-examination or a point: the clock owns what happens next (INTX-19).
+      before = await Promise.all(
+        seats.map((seat) => untilHealthy(seat, round.id)),
+      );
+      atMoment = await reachClockMoment(
+        clockMoment,
+        accounts.members,
+        round.id,
+      );
+    }
     const transports: readonly IceTransport[] = before.flat();
     node = nodeCarrying(target.nodes, transports);
     if (!node)
@@ -492,6 +517,20 @@ async function drillOneKill(
       };
     });
 
+    // What the clock owns happened by itself, at its own instant, node or no node.
+    if (clockMoment !== null && atMoment !== null) {
+      const facts = await settledClockFacts(
+        clockMoment,
+        atMoment,
+        accounts.members,
+        round.id,
+        () => drillEvidence(round.id),
+      );
+      draft = {
+        ...draft,
+        clockProblems: [...clockInstantProblems(facts, nowMs())],
+      };
+    }
     // The Round goes on: the rest of this speech is given up, and the format plays out.
     if (sample.moment === 'mid-speech')
       await retrying(120_000, () => endOpenSpeech(accounts.members, round.id));

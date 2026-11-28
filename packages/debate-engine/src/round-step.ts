@@ -18,13 +18,6 @@ export type RoundState = {
   readonly cast: readonly RoundParticipantSeat[];
 };
 
-/** The floor moved inside one segment; a null holder hands it back to the scheduled seat. */
-export type FloorChange = {
-  readonly sequence: number;
-  readonly at: string;
-  readonly holder: string | null;
-};
-
 /**
  * What one event did to a Round, as data: the next state and everything it
  * caused. Ids are not here; the projection mints them.
@@ -35,7 +28,6 @@ export type RoundStep = {
   readonly effects: readonly RoundEffect[];
   /** The actors whose seats left in this step; the Room holds them no longer. */
   readonly releasedMembers: readonly string[];
-  readonly floorChange: FloorChange | null;
   /** The played end a terminal step settled on, when the clock's own close does not say it. */
   readonly finalPlayedEnd: string | null;
 };
@@ -46,7 +38,6 @@ export const stepFrom = (state: RoundState): RoundStep => ({
   changes: [],
   effects: [],
   releasedMembers: [],
-  floorChange: null,
   finalPlayedEnd: null,
 });
 
@@ -84,11 +75,6 @@ export const record = (
 export const release = (step: RoundStep, actorId: string): RoundStep => ({
   ...step,
   releasedMembers: [...step.releasedMembers, actorId],
-});
-
-export const moveFloor = (step: RoundStep, floor: FloorChange): RoundStep => ({
-  ...step,
-  floorChange: floor,
 });
 
 export const settleFinalEnd = (step: RoundStep, at: string): RoundStep => ({

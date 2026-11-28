@@ -4,33 +4,28 @@ import {
   type CatalogFormat,
 } from '@daisy/db/catalog-formats';
 import { resolveRoomConfiguration } from '@daisy/debate-engine';
-import type { FormatSettings } from '@daisy/protocol/format-settings';
+import {
+  parliamentaryPointsOfInformation,
+  type FormatSettings,
+} from '@daisy/protocol/format-settings';
 import type { RoundRules } from '@daisy/protocol/format';
 
-/** One catalog format under one interruption choice its definition permits. */
+/** One catalog format with points of information off, or on at the parliamentary defaults. */
 export type FormatVariant = {
   readonly format: CatalogFormat;
-  /** The interruption mode chosen, or `preset` when the format forbids interruptions. */
+  /** `off`, `poi`, or `preset` when the format takes no points of information. */
   readonly mode: string;
   readonly settings: FormatSettings;
 };
 
-const withMode = (
-  format: CatalogFormat,
-  mode: NonNullable<FormatSettings['interruptions']>['mode'],
-): FormatVariant => ({
+const withPoints = (format: CatalogFormat, on: boolean): FormatVariant => ({
   format,
-  mode,
+  mode: on ? 'poi' : 'off',
   settings: {
     ...format.preset,
-    interruptions: {
-      mode,
-      minRemainingMs:
-        format.preset.interruptions?.minRemainingMs ??
-        format.definition.configurable.interaction.interruptions?.minRemainingMs
-          .min ??
-        0,
-    },
+    pointsOfInformation: on
+      ? parliamentaryPointsOfInformation
+      : { enabled: false },
   },
 });
 
@@ -43,15 +38,13 @@ export const corpusFormats: readonly CatalogFormat[] = catalogFormats.filter(
   ({ id }) => !casualTemplateIds.includes(id),
 );
 
-/** Every corpus format crossed with each interruption mode it permits, in catalog order. */
+/** Every corpus format with points of information off and on where it takes them, in catalog order. */
 export const formatVariants = (): readonly FormatVariant[] =>
-  corpusFormats.flatMap((format) => {
-    const modes =
-      format.definition.configurable.interaction.interruptions?.modes;
-    return modes
-      ? modes.map((mode) => withMode(format, mode))
-      : [{ format, mode: 'preset', settings: format.preset }];
-  });
+  corpusFormats.flatMap((format) =>
+    format.definition.configurable.interaction.pointsOfInformation
+      ? [withPoints(format, false), withPoints(format, true)]
+      : [{ format, mode: 'preset', settings: format.preset }],
+  );
 
 /** The compiled rules for a variant; throws when the compiler refuses it. */
 export const rulesOf = (variant: FormatVariant): RoundRules => {

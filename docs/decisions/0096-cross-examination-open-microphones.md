@@ -3,7 +3,10 @@
 Speak rights and optional segment leads are extended by
 [ADR 0134](0134-formats-beyond-two-sides.md).
 
-Status: accepted (owner, 2026-11-01). Supersedes the `crossExModes[]` capability
+Status: accepted (owner, 2026-11-01). Its interruption policy (`disabled`,
+`enabled`, `open` and the `interrupt` command) is superseded by points of
+information, [ADR 0936](0936-points-of-information-and-one-prep-state.md);
+open microphones in cross-examination stand. Supersedes the `crossExModes[]` capability
 and the "during cross-examination only" interruption state named in
 [ADR 0058](0058-one-round-model.md) and [ADR 0078](0078-standard-formats-league-templates.md).
 

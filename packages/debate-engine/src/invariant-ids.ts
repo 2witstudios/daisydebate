@@ -28,7 +28,7 @@ export const debateInvariantIds = {
   prepRequiresBudget: 'round.prep.requires-budget',
   startSpeechRequiresPrep: 'round.speech.requires-prep',
   yieldRequiresFloor: 'round.yield.requires-floor',
-  interruptRequiresPolicy: 'round.interrupt.requires-policy',
+  pointOfInformationRequiresRule: 'round.poi.requires-rule',
   ratingStateBounded: 'debate.rating.state-bounded',
   ratingVolatilityConverges: 'debate.rating.volatility-converges',
 } as const;

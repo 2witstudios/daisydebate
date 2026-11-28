@@ -17,6 +17,7 @@ import {
   roundViewSchema,
   type RoundView,
 } from '@daisy/protocol/round-view';
+import { type SegmentType } from '@daisy/protocol/format';
 import { winnerOutcome } from '@daisy/protocol/round-outcome';
 import { type RoomView } from '@daisy/protocol/room-contract';
 import { expectRoundResult } from './round-result-proof';
@@ -141,17 +142,24 @@ async function untilSegment(
   }).toPass({ timeout: 30_000 });
 }
 
-/** The floor holder's own End speech control, through its confirmation. */
-async function endSpeech(page: Page) {
-  await page.getByRole('button', { name: 'End speech', exact: true }).click();
+/**
+ * The scheduled seat's own End control, through its confirmation: "End
+ * speech" for a speech, "End cross-examination" for the asker's exchange.
+ */
+async function endSegment(page: Page, type: SegmentType) {
+  const label = type === 'cross_ex' ? 'End cross-examination' : 'End speech';
+  await page.getByRole('button', { name: label, exact: true }).click();
   await page
-    .getByRole('button', { name: 'Confirm end speech', exact: true })
+    .getByRole('button', {
+      name: `Confirm ${label.toLowerCase()}`,
+      exact: true,
+    })
     .click();
 }
 
 /**
  * Every turn through the debaters' own controls: neither debater is offered
- * Interrupt in the first cross-examination, the negative spends prep before
+ * a point of information in the first cross-examination, the negative spends prep before
  * its constructive and refreshes mid-speech, and the affirmative reconnects
  * from a new tab before its first rebuttal. Returns the pages still open.
  */
@@ -176,10 +184,11 @@ export async function playEveryTurn(
         .click();
     }
     await untilSegment(holder, roundId, scheduled.key, false);
+    // Cross-examination takes no points of information (ADR 0936).
     if (scheduled.key === 'CX1') {
       for (const debater of Object.values(players))
         await expect(
-          debater.getByRole('button', { name: 'Interrupt', exact: true }),
+          debater.getByRole('button', { name: 'Offer POI', exact: true }),
         ).toHaveCount(0);
     }
     if (scheduled.key === 'NC') await holder.reload();
@@ -190,7 +199,7 @@ export async function playEveryTurn(
       await holder.close();
       holder = players.affirmative = fresh;
     }
-    await endSpeech(holder);
+    await endSegment(holder, scheduled.type);
     await untilSegment(holder, roundId, scheduled.key, true);
   }
   return players;

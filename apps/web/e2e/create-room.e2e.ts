@@ -75,7 +75,13 @@ test('Custom POI, exact timing and custom resolution persist through the real cr
     expect(view.topic).toBe('Cities should build more homes.');
     expect(view.competitionType).toBe('casual');
     expect(view.format.standing.kind).toBe('custom');
-    expect(view.rules.interaction.interruptions?.allowed).toBe('open');
+    expect(view.rules.interaction.pointsOfInformation).toEqual({
+      allowed: true,
+      protectedStartMs: 60_000,
+      protectedEndMs: 60_000,
+      maxDurationMs: 15_000,
+      offerLapseMs: 10_000,
+    });
     expect(view.rules.segments[0]?.durationMs).toBe(272123);
   } finally {
     await closeRoom(page.request, id);

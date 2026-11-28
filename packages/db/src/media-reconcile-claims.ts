@@ -3,6 +3,7 @@ import { roundSourceVoided } from './round-source-state';
 import { createAppError } from '@daisy/errors';
 import { startGateInstant } from '@daisy/protocol/round-start-policy';
 import {
+  pointEndsAtMs,
   roundStatusSchema,
   runtimeCheckpointSchema,
 } from '@daisy/protocol/round';
@@ -43,6 +44,7 @@ const activeSessionRow = z.object({
   countdown_ms: z.int(),
   segment_total: z.int(),
   prep_budget_ms: z.int().nullable(),
+  poi_max_ms: z.int().nullable(),
   last_sequence: z.int().nullable(),
   last_started_at: z.date().nullable(),
   last_ended_at: z.date().nullable(),
@@ -52,7 +54,7 @@ const activeSessionRow = z.object({
 });
 type ActiveSessionRow = z.output<typeof activeSessionRow>;
 const activeSession = (row: ActiveSessionRow) => {
-  const prep = row.runtime_state.active_prep;
+  const { prep } = row.runtime_state;
   return {
     roundId: row.round_id,
     now: row.now.toISOString(),
@@ -91,14 +93,22 @@ const activeSession = (row: ActiveSessionRow) => {
       countdownMs: row.countdown_ms,
       segmentTotal: row.segment_total,
       prepBudgetMs: row.prep_budget_ms,
-      activePrep: prep
-        ? {
-            startedAt: prep.started_at,
-            consumedMs: row.runtime_state.prep_consumed_ms[prep.side] ?? 0,
-          }
-        : null,
+      activePrep:
+        prep.phase === 'running'
+          ? {
+              startedAt: prep.started_at,
+              consumedMs: row.runtime_state.prep_consumed_ms[prep.side] ?? 0,
+            }
+          : null,
       stops: row.runtime_state.clock_stops,
-      prepEndedAt: row.runtime_state.prep_ended_at,
+      prepEndedAt: prep.phase === 'lead' ? prep.ended_at : null,
+      pointEndsAt:
+        row.poi_max_ms === null
+          ? null
+          : pointEndsAtMs(
+              row.runtime_state.point_of_information,
+              row.poi_max_ms,
+            ),
       startGateAt: row.runtime_state.start_gate
         ? startGateInstant(row.runtime_state.start_gate)
         : null,
@@ -241,6 +251,7 @@ export function createMediaReconcileClaims(deps: {
           (r.rules_snapshot->>'countdownMs')::int as countdown_ms,
           jsonb_array_length(r.rules_snapshot->'segments') as segment_total,
           (r.rules_snapshot#>>'{inRoundPrep,budgetMsPerSide}')::int as prep_budget_ms,
+          (r.rules_snapshot#>>'{interaction,pointsOfInformation,maxDurationMs}')::int as poi_max_ms,
           last.sequence as last_sequence,
           last.started_at as last_started_at,
           last.ended_at as last_ended_at,

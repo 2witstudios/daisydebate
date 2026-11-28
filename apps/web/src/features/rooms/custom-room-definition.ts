@@ -1,6 +1,7 @@
 import { isTwoSided } from '@daisy/protocol/seats';
 import { type FormatDefinition } from '@daisy/protocol/format';
 import { type RoomConfig } from '@daisy/protocol/room';
+import { pointsOfInformationBounds } from '@daisy/protocol/format-settings';
 
 /**
  * Who strikes first in a Custom room: a two-sided format's second side, as in
@@ -27,13 +28,13 @@ const customStrike = (
 /**
  * A Custom room owns its definition; its template contributes values, not
  * restrictions. The one exception is an interaction the room's settings have
- * no choice for (a template that forbade interruptions or yielding, such as
- * Tab's Open conversation): the room forbids it too, so the template's
- * settings commit exactly as chosen.
+ * no choice for (a template that forbade points of information or yielding,
+ * such as Tab's Open conversation): the room forbids it too, so the
+ * template's settings commit exactly as chosen.
  */
 export function customRoomDefinition(
   definition: FormatDefinition,
-  config: Pick<RoomConfig, 'interruptions' | 'yielding'>,
+  config: Pick<RoomConfig, 'pointsOfInformation' | 'yielding'>,
 ): FormatDefinition {
   return {
     ...definition,
@@ -58,13 +59,10 @@ export function customRoomDefinition(
           : null,
       resolutionDraw: customStrike(definition.sides),
       interaction: {
-        interruptions:
-          config.interruptions === null
+        pointsOfInformation:
+          config.pointsOfInformation === null
             ? null
-            : {
-                modes: ['disabled', 'enabled', 'open'],
-                minRemainingMs: { min: 0, max: 300_000 },
-              },
+            : pointsOfInformationBounds,
         yield:
           config.yielding === null
             ? null

@@ -34,7 +34,7 @@ const member = (entry: string) => `${entry.slice(0, 2)}member`.padEnd(24, '0');
 
 const resolvedSettings = engineSettings([], [], {
   'room.timing': { preRoundPrepMs: 0, inRoundPrepMsPerSide: 0, countdownMs: 0 },
-  'room.floor': { interruptions: null, yielding: null },
+  'room.floor': { pointsOfInformation: null, yielding: null },
 });
 
 const noFindings: EngineAssessment = {

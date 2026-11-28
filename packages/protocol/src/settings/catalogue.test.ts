@@ -399,11 +399,11 @@ describe('a value as its schema reads it', () => {
   test('says what a format forbids on the floor without inventing a value', () => {
     assert({
       given:
-        'a floor for a format that forbids interruptions and yielding, and one with a field missing',
+        'a floor for a format that forbids points of information and yielding, and one with a field missing',
       should: 'accept null for what is forbidden and refuse a missing field',
       actual: [
-        parses('room.floor', { interruptions: null, yielding: null }),
-        parses('room.floor', { interruptions: null }),
+        parses('room.floor', { pointsOfInformation: null, yielding: null }),
+        parses('room.floor', { pointsOfInformation: null }),
       ],
       expected: [true, false],
     });

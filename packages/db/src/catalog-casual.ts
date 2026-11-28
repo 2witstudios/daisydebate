@@ -52,7 +52,7 @@ const casualCapabilities = (
   preRoundPrep: null,
   resolutionDraw: null,
   interaction: {
-    interruptions: null,
+    pointsOfInformation: null,
     yield: yieldable
       ? { enabledChoices: [true, false], returnsTimeChoices: [true, false] }
       : null,
@@ -65,7 +65,7 @@ const casualSettings = (yieldable: boolean): FormatSettings => ({
   resolutionDraw: { enabled: false },
   inRoundPrep: { enabled: false },
   speechTiming: { countdownMs: 10_000, segmentDurationOverrides: {} },
-  interruptions: null,
+  pointsOfInformation: null,
   yielding: yieldable ? { allowed: true, returnsTime: true } : null,
 });
 

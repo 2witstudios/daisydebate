@@ -16,7 +16,7 @@ import { seatName, sideName } from '../debate-room/seat-names';
 import { sideToneOf, type SideTone } from '../debate-room/speeches';
 import { judgingClockOf } from './judging-window';
 import {
-  floorSeatOf,
+  debaterLabel,
   judgeKindOf,
   sameTeam,
   seatsOf,
@@ -96,7 +96,7 @@ function stageOf(view: RoundView, position: RoundPosition): ObservedStage {
   if (position.stage === 'awaiting_ballot') return 'judging';
   if (position.openSegment)
     return position.openSegment.type === 'speech' ? 'speech' : 'cross-ex';
-  if (position.prep) return 'prep';
+  if (position.prep?.phase === 'running') return 'prep';
   if (position.countdownRemainingMs !== null) return 'countdown';
   return view.status === 'opening' ? 'starting' : 'between';
 }
@@ -118,15 +118,18 @@ function clockOf(
   if (position.stage === 'awaiting_ballot')
     return judgingClockOf(view.waitingOn, nowMs);
   const open = position.openSegment;
+  const holder = position.pointOfInformation?.holder ?? null;
   if (open)
     return {
       label:
         open.type === 'cross_ex'
           ? `Cross-examination · ${leadName(view, open.lead)} asks`
-          : `${open.key} · ${open.label}`,
+          : holder
+            ? `${open.key} · Point of information from ${debaterLabel(view, holder.participantId, 'the other side')}`
+            : `${open.key} · ${open.label}`,
       remainingMs: open.remainingMs,
     };
-  if (position.prep)
+  if (position.prep?.phase === 'running')
     return {
       label: `${sideName(view.rules.sides, position.prep.side)} prep`,
       remainingMs: position.prep.remainingMs,
@@ -144,10 +147,14 @@ function activityOf(
   const open = position?.openSegment;
   if (open && open.type !== 'speech')
     return sameTeam(open.lead, seat) ? 'asking' : 'answering';
-  if (open)
-    return sameTeam(floorSeatOf(view, open), seat) ? 'speaking' : 'listening';
+  if (open) return sameTeam(open.lead, seat) ? 'speaking' : 'listening';
   const side = sideOfSeat(seat);
-  if (side !== null && position?.prep?.side === side) return 'preparing';
+  if (
+    side !== null &&
+    position?.prep?.phase === 'running' &&
+    position.prep.side === side
+  )
+    return 'preparing';
   return view.opening?.step.step === 'prep' ? 'preparing' : 'waiting';
 }
 

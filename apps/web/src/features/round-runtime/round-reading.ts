@@ -12,12 +12,13 @@ import {
   type RoundView,
 } from '@daisy/protocol/round-view';
 import { isRoundRunning } from '@daisy/protocol/round';
-import type { RoundPosition } from '@daisy/debate-engine/position';
+import type { RoundPosition } from '@daisy/protocol/runtime';
+import { instantMs } from '@daisy/clock';
 
 /**
  * The one reading of a Round's people and floor (ISSUE-672) that the
  * debater room and the spectator view share, so a rule change, such as who
- * holds the floor after an accepted interruption, reaches everyone who
+ * holds a point of information, reaches everyone who
  * watches it the same way.
  */
 
@@ -29,6 +30,39 @@ export type Seat = RoundSeat;
 export const isSeat = (p: Participant): p is Seat =>
   isNamedSeat(p) && isDebatingSeat(p.seat);
 
+/**
+ * Where the open speech's offer window stands at `nowMs` (INTX-13): still in
+ * its protected start, open, or past its protected end. The notice and the
+ * Offer control read this one answer.
+ */
+export const offerWindowAt = (
+  point: NonNullable<RoundPosition['pointOfInformation']>,
+  nowMs: number,
+): {
+  readonly window: 'protected-start' | 'open' | 'protected-end';
+  readonly opensInMs: number;
+} => {
+  const opensInMs = Math.max(0, instantMs(point.offersOpenAt) - nowMs);
+  return {
+    opensInMs,
+    window:
+      opensInMs > 0
+        ? 'protected-start'
+        : nowMs >= instantMs(point.offersCloseAt)
+          ? 'protected-end'
+          : 'open',
+  };
+};
+
+/** A debater's label by seat id, or the words the sentence uses when there is none. */
+export const debaterLabel = (
+  view: Pick<RoundView, 'participants'>,
+  participantId: string,
+  fallback: string,
+): string =>
+  view.participants.filter(isSeat).find((p) => p.id === participantId)?.label ??
+  fallback;
+
 /** Every competitor seat, in the format's display order. */
 export const seatsOf = (view: Pick<RoundView, 'participants' | 'rules'>) =>
   view.participants
@@ -38,20 +72,6 @@ export const seatsOf = (view: Pick<RoundView, 'participants' | 'rules'>) =>
 /** A Round that has not ended: opening, or running. */
 export const isLiveRound = (view: Pick<RoundView, 'status'>): boolean =>
   isRoundRunning(view.status);
-
-/**
- * Who holds the floor: an accepted interruption's seat, else the seat the
- * segment is scheduled to; null for an open floor nobody leads.
- */
-export const floorSeatOf = (
-  view: Pick<RoundView, 'participants'>,
-  open: Pick<
-    NonNullable<RoundPosition['openSegment']>,
-    'lead' | 'floorParticipantId'
-  >,
-): SeatRef | null =>
-  view.participants.filter(isSeat).find((p) => p.id === open.floorParticipantId)
-    ?.seat ?? open.lead;
 
 /**
  * Whether two competitor seats stand together: the same side, or, unsided,

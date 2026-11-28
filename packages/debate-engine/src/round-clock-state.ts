@@ -17,6 +17,7 @@ import { type HydratedSegment } from '@daisy/protocol/runtime';
 import { type RoundOutcome } from '@daisy/protocol/round-outcome';
 import { type RoundRules, type SegmentType } from '@daisy/protocol/format';
 import { debateInvariantIds } from './invariant-ids';
+import { pointsOfInformationIn } from './round-point-of-information';
 
 /** Where a Round is in its life; each status holds only the instants it has. */
 export type Lifecycle =
@@ -183,30 +184,12 @@ const assertSegmentRules = (row: ClockSegment, rules: RoundRules): void => {
     );
 };
 
-/**
- * The stored checkpoint, parsed. The contract keeps the prep lead apart from
- * prep; a checkpoint holding both is the same corruption it always was here,
- * under the same registered invariant, not a bare parse error.
- */
+/** The stored checkpoint, parsed against the contract. */
 const heldCheckpoint = (
   stored: unknown,
   rules: RoundRules,
-): RuntimeCheckpoint => {
-  const parsed = runtimeCheckpointSchema.safeParse(
-    stored ?? emptyRuntimeCheckpointFor(rules),
-  );
-  if (parsed.success) return parsed.data;
-  if (
-    parsed.error.issues.some(
-      (issue) => issue.code === 'custom' && issue.path[0] === 'prep_ended_at',
-    )
-  )
-    throw createInvariantError(
-      debateInvariantIds.liveOpenSegmentCount,
-      'The lead after prep is neither prep nor a live segment',
-    );
-  throw parsed.error;
-};
+): RuntimeCheckpoint =>
+  runtimeCheckpointSchema.parse(stored ?? emptyRuntimeCheckpointFor(rules));
 
 export const normalizeRoundClock = (input: {
   readonly round: RoundLifecycleColumns;
@@ -248,22 +231,30 @@ export const normalizeRoundClock = (input: {
       );
   });
   const checkpoint = heldCheckpoint(input.checkpoint, input.rules);
-  if (
-    checkpoint.active_prep !== null &&
-    rows.some((row) => row.endedAtMs === null)
-  )
+  const open = rows.find((row) => row.endedAtMs === null);
+  const { prep, point_of_information: point } = checkpoint;
+  if ((prep.phase === 'running' || prep.phase === 'lead') && open)
     throw createInvariantError(
       debateInvariantIds.liveOpenSegmentCount,
-      'Prep cannot coexist with a live segment',
+      'Prep and its lead run only between segments',
     );
-  // `heldCheckpoint` has already kept the lead apart from prep itself.
   if (
-    checkpoint.prep_ended_at !== null &&
-    rows.some((row) => row.endedAtMs === null)
+    prep.phase === 'called' &&
+    (open === undefined ||
+      input.rules.segments[open.sequence + 1] === undefined)
   )
     throw createInvariantError(
       debateInvariantIds.liveOpenSegmentCount,
-      'The lead after prep is not a live segment',
+      'Called prep waits on a live segment with one after it',
+    );
+  if (
+    point.phase !== 'none' &&
+    (open === undefined ||
+      pointsOfInformationIn(input.rules, open.sequence) === null)
+  )
+    throw createInvariantError(
+      debateInvariantIds.liveOpenSegmentCount,
+      'A point of information lives only inside a speech that takes them',
     );
   if (
     checkpoint.incident.phase !== 'none' &&
@@ -275,4 +266,21 @@ export const normalizeRoundClock = (input: {
       'A paused Round names a resume point exactly when a segment is open',
     );
   return { lifecycle, rows, checkpoint };
+};
+
+/**
+ * Whether in-round prep has expired by the segment it would be spent before:
+ * its rules name a segment at or before `target` (INTX-6). Legality refuses
+ * such prep, and the position shows it ended, by this one rule.
+ */
+export const prepExpiredBefore = (
+  rules: Pick<RoundRules, 'inRoundPrep' | 'segments'>,
+  target: number,
+): boolean => {
+  const expiresAt = rules.inRoundPrep?.expiresAtSegment ?? null;
+  if (expiresAt === null) return false;
+  const index = rules.segments.findIndex(
+    (segment) => segment.key === expiresAt,
+  );
+  return index >= 0 && index <= target;
 };

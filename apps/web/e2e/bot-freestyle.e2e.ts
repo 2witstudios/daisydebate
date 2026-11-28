@@ -211,6 +211,7 @@ test('a full Freestyle bot Round speaks every bot turn on the configured model',
         await ballotRoundCommand(request, view, {
           type: 'yield',
           participantId: human.id,
+          sequence: open.sequence,
         }).catch(() => undefined);
       await pause(1000);
     }

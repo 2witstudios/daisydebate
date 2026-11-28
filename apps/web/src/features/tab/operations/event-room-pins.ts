@@ -142,7 +142,7 @@ export const eventRoomPins = (
       ...loaded.configuration.preset.config.speechTiming,
       countdownMs: timing.countdownMs,
     },
-    interruptions: floor.interruptions,
+    pointsOfInformation: floor.pointsOfInformation,
     yielding: floor.yielding,
     resolutionDraw: resolution.draw,
   });

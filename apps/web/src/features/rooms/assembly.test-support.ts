@@ -89,9 +89,11 @@ export const unequalTemplate = {
         expiresAtSegment: null,
       },
       interaction: {
-        interruptions: {
-          modes: ['disabled'],
-          minRemainingMs: { min: 0, max: 10000 },
+        pointsOfInformation: {
+          protectedStartMs: { min: 0, max: 120_000 },
+          protectedEndMs: { min: 0, max: 120_000 },
+          maxDurationMs: { min: 5_000, max: 30_000 },
+          offerLapseMs: { min: 5_000, max: 30_000 },
         },
         yield: { enabledChoices: [false], returnsTimeChoices: [true] },
       },
@@ -108,7 +110,7 @@ export const unequalTemplate = {
         countdownMs: 444,
         segmentDurationOverrides: { N3: 98765 },
       },
-      interruptions: { mode: 'disabled', minRemainingMs: 1234 },
+      pointsOfInformation: { enabled: false },
       yielding: { allowed: false, returnsTime: true },
     },
   },

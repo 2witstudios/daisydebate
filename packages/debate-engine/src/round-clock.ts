@@ -12,6 +12,7 @@ import {
 } from './round-clock-transition';
 import { debateInvariantIds } from './invariant-ids';
 import { segmentStartsAt } from './round-start-gate';
+import { duePointOfInformationChange } from './round-point-of-information';
 import {
   closedCount,
   type ClockState,
@@ -55,31 +56,30 @@ const gapOpening = (
   rules: RoundRules,
   nowMs: number,
 ): ClockTransition | null => {
-  const active = state.checkpoint.active_prep;
+  const { prep } = state.checkpoint;
   const budget = rules.inRoundPrep?.budgetMsPerSide ?? 0;
   const stops = clockStopsOf(state.checkpoint);
   const due =
-    active === null
-      ? segmentStartsAt(state, rules.countdownMs, nowMs)
-      : dueAfterStops(
-          instantMs(active.started_at),
-          Math.max(0, budget - prepConsumedOf(state.checkpoint, active.side)),
+    prep.phase === 'running'
+      ? dueAfterStops(
+          instantMs(prep.started_at),
+          Math.max(0, budget - prepConsumedOf(state.checkpoint, prep.side)),
           stops,
           nowMs,
-        );
+        )
+      : segmentStartsAt(state, rules.countdownMs, nowMs);
   if (nowMs < due) return null;
   // Prep ran out: it ends here, and the clock starts one microphone lead later.
-  if (active !== null)
+  if (prep.phase === 'running')
     return {
       state: {
         ...state,
         checkpoint: {
           ...state.checkpoint,
-          active_prep: null,
-          prep_ended_at: new Date(due).toISOString(),
+          prep: { phase: 'lead', ended_at: new Date(due).toISOString() },
           prep_consumed_ms: {
             ...state.checkpoint.prep_consumed_ms,
-            [active.side]: budget,
+            [prep.side]: budget,
           },
         },
       },
@@ -92,7 +92,7 @@ const gapOpening = (
       checkpoint: {
         ...state.checkpoint,
         start_gate: null,
-        prep_ended_at: null,
+        prep: { phase: 'idle' },
       },
     },
     rules,
@@ -119,9 +119,12 @@ export const advanceRoundClock = (
     const open = state.rows.find((row) => row.endedAtMs === null);
     let transition: ClockTransition;
     if (open) {
+      // A point of information due inside the speech moves first, at its own instant.
+      const point = duePointOfInformationChange(state, rules, open, nowMs);
       const due = segmentDueAtMs(open);
-      if (nowMs < due) break;
-      transition = closeClockSegment(state, open.sequence, due);
+      if (point !== null) transition = point;
+      else if (nowMs < due) break;
+      else transition = closeClockSegment(state, open.sequence, due);
     } else {
       if (closedCount(state) >= rules.segments.length) break;
       const opening = gapOpening(state, rules, nowMs);

@@ -30,6 +30,7 @@ const idle = (over: Partial<RecoverySession> = {}): RecoverySession => ({
     countdownMs: 1_000,
     segmentTotal: 4,
     prepBudgetMs: null,
+    pointEndsAt: null,
     activePrep: null,
     stops: [],
     prepEndedAt: null,

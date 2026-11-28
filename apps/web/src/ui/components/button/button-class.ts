@@ -83,6 +83,11 @@ const looks = {
     look: `${action} border-border-strong bg-transparent text-ink hover:border-ink-muted hover:text-ink`,
     sizes: actionSizes,
   },
+  /** A point of information's move: offering one, or taking it (INTX-18). */
+  point: {
+    look: `${action} border-transparent bg-butter text-forest hover:bg-yolk`,
+    sizes: actionSizes,
+  },
   ghost: {
     look: `${action} border-transparent bg-transparent text-ink-muted hover:text-ink`,
     sizes: { ...actionSizes, regular: 'px-3 py-2 text-base' },
@@ -279,6 +284,7 @@ export type ButtonActionVariant = Extract<
   ButtonVariant,
   | 'primary'
   | 'secondary'
+  | 'point'
   | 'ghost'
   | 'on-media'
   | 'danger'

@@ -1,9 +1,10 @@
 import { formatStanding } from '@daisy/debate-engine';
 import {
-  formatDefinitionSchema,
+  authoredFormatDefinitionSchema,
   type FormatDefinition,
 } from '@daisy/protocol/format';
 import { roomConfigSchema, type RoomConfig } from '@daisy/protocol/room';
+import { parliamentaryPointsOfInformation } from '@daisy/protocol/format-settings';
 import { twoSideKeys } from '@daisy/protocol/seats';
 import { type RoomCatalogChoice } from '@daisy/protocol/room-contract';
 import {
@@ -44,8 +45,9 @@ export function draftFormValues(
       config.inRoundPrep.enabled ? config.inRoundPrep.budgetMsPerSide : 0,
     ),
     'duration.countdown': clockDuration(config.speechTiming.countdownMs),
-    questionStyle:
-      config.interruptions?.mode === 'open' ? 'poi' : 'cross-examination',
+    questionStyle: config.pointsOfInformation?.enabled
+      ? 'poi'
+      : 'cross-examination',
     yielding: config.yielding?.allowed ? 'on' : 'off',
     returnsTime: config.yielding?.returnsTime ? 'on' : 'off',
     ...seatFieldValues(definition),
@@ -173,7 +175,7 @@ export function readRoomDraft(
       },
     ]),
   );
-  const parsedDefinition = formatDefinitionSchema.safeParse({
+  const parsedDefinition = authoredFormatDefinitionSchema.safeParse({
     ...source.definition,
     configurable: {
       ...source.definition.configurable,
@@ -224,9 +226,14 @@ export function readRoomDraft(
       segmentDurationOverrides: overrides,
     },
     resolutionDraw: method === 'strike' && strike ? strike : { enabled: false },
-    interruptions: poi
-      ? { mode: 'open', minRemainingMs: 0 }
-      : source.preset.config.interruptions,
+    // A preset that takes points keeps its own timing; otherwise the parliamentary one.
+    pointsOfInformation: poi
+      ? source.preset.config.pointsOfInformation?.enabled
+        ? source.preset.config.pointsOfInformation
+        : parliamentaryPointsOfInformation
+      : source.preset.config.pointsOfInformation === null
+        ? null
+        : { enabled: false },
     yielding:
       source.preset.config.yielding === null &&
       decoded.yielding !== 'on' &&

@@ -31,16 +31,17 @@ describe('identifier shape', () => {
     ] as const;
     for (const [given, identifier] of rejections)
       assert({
-        given: `a checkpoint floor holder that is ${given}`,
+        given: `a point of information's holder that is ${given}`,
         should: 'reject it at the trust boundary',
         actual: parseOutcome(runtimeCheckpointSchema, {
           ...emptyRuntimeCheckpointFor(oneOnOneFormatFixture),
-          floor: {
+          point_of_information: {
+            phase: 'speaking',
             holder_participant_id: identifier,
-            granted_at: '2026-01-01T00:00:00.000Z',
+            accepted_at: '2026-01-01T00:00:00.000Z',
           },
         }),
-        expected: { issues: ['floor.holder_participant_id'] },
+        expected: { issues: ['point_of_information.holder_participant_id'] },
       });
   });
 });
@@ -206,13 +207,14 @@ describe('format definition', () => {
         preRoundPrep: null,
         resolutionDraw: null,
         interaction: {
-          interruptions: null,
+          pointsOfInformation: null,
           yield: null,
         },
       },
     };
     assert({
-      given: 'a definition that forbids prep and interruption outright',
+      given:
+        'a definition that forbids prep and points of information outright',
       should: 'accept it: null is forbidden, not disabled',
       actual: parseOutcome(formatDefinitionSchema, spartan),
       expected: { data: spartan },

@@ -1,6 +1,7 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { everySeatOf, speakingSeatsOf } from './format-seating';
 import {
+  authoredFormatDefinitionSchema,
   formatDefinitionSchema,
   roundRulesSchema,
   type FormatDefinition,
@@ -13,10 +14,12 @@ import {
 
 setupRitewayBun();
 
-const paths = (definition: unknown) =>
-  formatDefinitionSchema
+const paths = (definition: unknown, schema = formatDefinitionSchema) =>
+  schema
     .safeParse(definition)
     .error?.issues.map((issue) => issue.path.join('.')) ?? [];
+const authoredPaths = (definition: unknown) =>
+  paths(definition, authoredFormatDefinitionSchema);
 
 const timed = (segments: FormatDefinition['segments']) =>
   Object.fromEntries(
@@ -188,6 +191,65 @@ describe('format definition v2 seating', () => {
         ),
       }),
       expected: ['segments.0.speak.seat', 'segments.1.speak.lead'],
+    });
+  });
+
+  test('refuses a cross-examination that names no asking seat (INTX-10)', () => {
+    assert({
+      given: 'cross-examination open to every debater with no lead',
+      should: 'refuse its lead, so no one is the asker and no bot asks first',
+      actual: authoredPaths({
+        ...oneOnOneFormatFixture,
+        segments: oneOnOneFormatFixture.segments.map((segment, index) =>
+          index === 1
+            ? { ...segment, speak: { rights: 'all', lead: null } }
+            : segment,
+        ),
+      }),
+      expected: ['segments.1.speak.lead'],
+    });
+  });
+
+  test('a stored cross-examination with no asker still parses', () => {
+    assert({
+      given:
+        'the same unled cross-examination read back from storage rather than authored',
+      should:
+        'parse, so formats and Rounds saved before the asker rule stay readable',
+      actual: paths({
+        ...oneOnOneFormatFixture,
+        segments: oneOnOneFormatFixture.segments.map((segment, index) =>
+          index === 1
+            ? { ...segment, speak: { rights: 'all', lead: null } }
+            : segment,
+        ),
+      }),
+      expected: [],
+    });
+  });
+
+  test('refuses a cross-examination asked by an unsided speaker (INTX-10)', () => {
+    assert({
+      given:
+        'the unsided format with its open floor made a cross-examination led by its first speaker',
+      should:
+        'refuse its lead: cross-examination is asked and answered across sides',
+      actual: authoredPaths({
+        ...unsidedDefinition,
+        segments: unsidedDefinition.segments.map((segment) =>
+          segment.key === 'OPEN'
+            ? {
+                ...segment,
+                type: 'cross_ex' as const,
+                speak: {
+                  rights: 'all' as const,
+                  lead: { kind: 'speaker' as const, slot: 0 },
+                },
+              }
+            : segment,
+        ),
+      }),
+      expected: ['segments.3.speak.lead'],
     });
   });
 

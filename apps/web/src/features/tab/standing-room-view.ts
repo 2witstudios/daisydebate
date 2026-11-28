@@ -68,9 +68,9 @@ export function standingRoomView(
         label: 'Floor',
         value: [
           value.yielding?.allowed ? 'Yielding allowed' : 'No yielding',
-          value.interruptions
-            ? `Interruptions ${value.interruptions.mode}`
-            : 'No interruptions',
+          value.pointsOfInformation?.enabled
+            ? 'Points of information'
+            : 'No points of information',
         ].join(' · '),
       }),
     );

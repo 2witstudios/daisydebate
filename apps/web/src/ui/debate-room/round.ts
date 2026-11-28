@@ -47,6 +47,8 @@ type SidePrep = {
   readonly label: string;
   readonly tone: SideTone;
   readonly remainingMs: number;
+  /** The budget died at its expiry segment: what is left can never be spent (INTX-6). */
+  readonly ended: boolean;
 };
 
 /** One line in an agent conversation; `edit` proposes a document change. */
@@ -93,7 +95,36 @@ export type RoundSnapshot = {
   } | null;
   /** Each side's prep left, in declared order; null when the round has no in-round prep. */
   readonly prep: readonly SidePrep[] | null;
+  /** This exact seat's microphone is granted now (INTX-12). */
   readonly micLive: boolean;
+  /** The open speech's points of information as this seat sees them; null when it takes none. */
+  readonly point: {
+    /** The speaker answers offers; the holder gives the point; an offerer stands. */
+    readonly role: 'speaker' | 'holder' | 'offering' | 'audience';
+    readonly window: 'protected-start' | 'open' | 'protected-end';
+    /** Until offers open; zero once they have. */
+    readonly opensInMs: number;
+    readonly offers: readonly {
+      readonly participantId: string;
+      readonly name: string;
+      readonly lapsesInMs: number;
+    }[];
+    /** Until this seat's own standing offer sits down; null when it has none. */
+    readonly ownOfferLapsesInMs: number | null;
+    readonly holder: {
+      readonly participantId: string;
+      readonly name: string;
+      readonly remainingMs: number;
+    } | null;
+  } | null;
+  /** Prep a side called while this segment runs; it starts when the segment ends. */
+  readonly prepCalled: {
+    readonly side: string;
+    readonly own: boolean;
+    /** The speech the prep is for, and the segment it waits on, by name in a sentence. */
+    readonly before: string;
+    readonly after: string;
+  } | null;
   readonly channels: readonly Channel[];
   readonly messages: readonly ChatMessage[];
   readonly agents: readonly Agent[];

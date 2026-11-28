@@ -54,11 +54,13 @@ export const unboundedFormatDefinitions: ReadonlyArray<
 > = [
   ['more than 64 segments', formatWithSegments(65)],
   [
-    'duplicate interruption modes',
+    'points-of-information bounds whose minimum exceeds their maximum',
     withInteraction({
-      interruptions: {
-        modes: ['enabled', 'enabled'],
-        minRemainingMs: { min: 0, max: 0 },
+      pointsOfInformation: {
+        protectedStartMs: { min: 60_000, max: 0 },
+        protectedEndMs: { min: 0, max: 60_000 },
+        maxDurationMs: { min: 5_000, max: 30_000 },
+        offerLapseMs: { min: 5_000, max: 30_000 },
       },
     }),
   ],

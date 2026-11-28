@@ -8,17 +8,17 @@ const speech = (seat: SeatRef) => ({ rights: 'one' as const, seat });
 /** Cross-examination: every debater speaks, `asker` leads. */
 const crossEx = (asker: SeatRef) => ({ rights: 'all' as const, lead: asker });
 
-/** Format settings with no prep, timing overrides, interruptions or yielding. */
+/** Format settings with no prep, timing overrides, points of information or yielding. */
 export const plainFormatSettings: FormatSettings = {
   preRoundPrep: { enabled: false },
   resolutionDraw: { enabled: false },
   inRoundPrep: { enabled: false },
   speechTiming: { countdownMs: 0, segmentDurationOverrides: {} },
-  interruptions: null,
+  pointsOfInformation: null,
   yielding: null,
 };
 
-/** A room config with no prep, timing overrides, interruptions or yielding. */
+/** A room config with no prep, timing overrides, points of information or yielding. */
 export const plainRoomConfig: RoomConfig = { ...plainFormatSettings };
 
 /**
@@ -33,7 +33,7 @@ export const oneOnOneSettingsFixture: FormatSettings = {
     countdownMs: 10_000,
     segmentDurationOverrides: {},
   },
-  interruptions: { mode: 'disabled', minRemainingMs: 30_000 },
+  pointsOfInformation: { enabled: false },
   yielding: { allowed: true, returnsTime: true },
 };
 
@@ -120,9 +120,11 @@ export const oneOnOneFormatFixture: FormatDefinition = {
     preRoundPrep: { durationMs: { min: 0, max: 1_200_000 } },
     resolutionDraw: null,
     interaction: {
-      interruptions: {
-        modes: ['disabled', 'enabled'],
-        minRemainingMs: { min: 0, max: 300_000 },
+      pointsOfInformation: {
+        protectedStartMs: { min: 0, max: 120_000 },
+        protectedEndMs: { min: 0, max: 120_000 },
+        maxDurationMs: { min: 5_000, max: 30_000 },
+        offerLapseMs: { min: 5_000, max: 30_000 },
       },
       yield: {
         enabledChoices: [true, false],
@@ -288,7 +290,10 @@ export const fixtureRules = (definition: FormatDefinition) => ({
   })),
   inRoundPrep: null,
   countdownMs: 0,
-  interaction: { yield: null, interruptions: { allowed: 'disabled' as const } },
+  interaction: {
+    yield: null,
+    pointsOfInformation: { allowed: false as const },
+  },
 });
 
 /** Draw bounds a draw-capable format fixture declares (FMT-7). */

@@ -1,7 +1,10 @@
 import { z } from 'zod';
 import { seatRefSchema, sideKeySchema, sideSchema } from './seats';
 import { MAX_FORMAT_SEATS, sideKeysOf } from './format-seating';
-import { validateSeating } from './format-seating-refusals';
+import {
+  crossExaminationAskerRefusals,
+  validateSeating,
+} from './format-seating-refusals';
 import {
   drawSources,
   MAX_DRAW_SIZE,
@@ -96,25 +99,30 @@ export type FormatOutcome = z.infer<typeof formatOutcomeSchema>;
 const formatSidesSchema = z.array(sideSchema).max(4);
 
 /**
- * What another debater may do during a speech (ADR 0096). Cross-examination
- * never has interruptions: both sides speak for all of it.
+ * Points of information (INTX-16): during a speech one seat speaks, a seat of
+ * another side may stand and offer, and the speaker accepts one or declines.
+ * The first and last stretch of a speech are protected; an offer lapses; an
+ * accepted point lasts at most its length, while the speech clock runs on.
+ * Cross-examination never takes them: every debater already speaks.
  */
-const interruptionModes = ['disabled', 'enabled', 'open'] as const;
-export const interruptionModeSchema = z.enum(interruptionModes);
-
-/**
- * The frozen interruption policy. Forbidden has one spelling, whether the
- * format forbids interruptions or the settings declined them, and only an
- * enabled policy has a protected end.
- */
-export const interruptionRuleSchema = z.discriminatedUnion('allowed', [
-  z.strictObject({ allowed: z.literal('disabled') }),
-  z.strictObject({ allowed: z.literal('open') }),
-  z.strictObject({
-    allowed: z.literal('enabled'),
-    minRemainingMs: z.int().min(0),
-  }),
+export const pointsOfInformationTimingSchema = z.strictObject({
+  /** No offer before this much of the speech has run. */
+  protectedStartMs: z.int().min(0),
+  /** No offer, nor acceptance, once this little of the speech is left. */
+  protectedEndMs: z.int().min(0),
+  /** An accepted point gives the floor back by itself after this long. */
+  maxDurationMs: z.int().positive(),
+  /** An offer nobody takes sits down by itself after this long. */
+  offerLapseMs: z.int().positive(),
+});
+/** The frozen rule: forbidden has one spelling, whatever forbade it. */
+export const pointsOfInformationRuleSchema = z.discriminatedUnion('allowed', [
+  z.strictObject({ allowed: z.literal(false) }),
+  pointsOfInformationTimingSchema.extend({ allowed: z.literal(true) }),
 ]);
+export type PointsOfInformationRule = z.infer<
+  typeof pointsOfInformationRuleSchema
+>;
 
 /** An inclusive millisecond range a room's chosen value must land inside. */
 const boundSchema = z
@@ -183,10 +191,13 @@ const formatDefinitionShape = z.strictObject({
       })
       .nullable(),
     interaction: z.strictObject({
-      interruptions: z
+      /** POI bounds a room may choose within; null = the format takes none. */
+      pointsOfInformation: z
         .strictObject({
-          modes: optionSet(interruptionModeSchema, interruptionModes.length),
-          minRemainingMs: boundSchema,
+          protectedStartMs: boundSchema,
+          protectedEndMs: boundSchema,
+          maxDurationMs: boundSchema,
+          offerLapseMs: boundSchema,
         })
         .nullable(),
       yield: z
@@ -326,6 +337,15 @@ export const formatDefinitionSchema = formatDefinitionShape.superRefine(
       });
   },
 );
+
+/**
+ * A definition as a host authors it now: every stored rule, and a named,
+ * sided asker for each cross-examination (INTX-10). Stored definitions parse
+ * with `formatDefinitionSchema`, so a format saved before this rule stays
+ * readable.
+ */
+export const authoredFormatDefinitionSchema =
+  formatDefinitionSchema.superRefine(crossExaminationAskerRefusals);
 export type FormatDefinition = z.infer<typeof formatDefinitionSchema>;
 
 /** One resolved segment: the definition's identity, the room's duration. */
@@ -361,8 +381,8 @@ export const roundRulesSchema = z
       yield: z
         .strictObject({ allowed: z.boolean(), returnsTime: z.boolean() })
         .nullable(),
-      /** Another participant takes the floor during active control. */
-      interruptions: interruptionRuleSchema,
+      /** An opposing seat's point of information during a speech. */
+      pointsOfInformation: pointsOfInformationRuleSchema,
     }),
   })
   .superRefine((rules, ctx) => {

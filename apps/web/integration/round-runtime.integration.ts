@@ -8,6 +8,7 @@ import {
   withRoomRuntime,
 } from './round-runtime.test-support';
 import { botAdmissionForTests } from './bot-admission.test-support';
+import { pointsOfInformationSelection } from './foundation-selection.test-support';
 setupRitewayBun();
 requireTestServices(process.env);
 
@@ -60,7 +61,7 @@ test('shared human commands run the engine with atomic refusals and recover lost
           ...envelope,
           commandId: createId(),
           expectedVersion: 1,
-          command: { type: 'yield', participantId: seat.id },
+          command: { type: 'yield', participantId: seat.id, sequence: 0 },
         }),
       code: 'CONFLICT',
     });
@@ -175,3 +176,119 @@ for (const revoke of ['lease', 'run'] as const)
       });
     }, botAdmissionForTests);
   });
+
+test('two seats pressing on one point at once: one commits, the other is refused, and the clock alone returns the floor (INTX-14)', async () => {
+  await withRoomRuntime(async (f) => {
+    const room = await f.assemble({ selection: pointsOfInformationSelection });
+    const { roundId, operations, principal } = await launchRuntimeRound(
+      f,
+      room,
+    );
+    // The constructive opened 20 s ago, past its 10 s protected start.
+    await f.sql`update rounds set started_at=clock_timestamp()-interval '20 seconds' where id=${roundId}`;
+    await operations.tick(roundId);
+    const live = (await f.store.getRound(roundId))!;
+    const open = live.segments.find((s) => s.endedAt === null)!;
+    const speaker = live.participants.find(
+      (p) => p.actorId === f.host.actorId,
+    )!;
+    const offerer = live.participants.find(
+      (p) => p.actorId === f.guest.actorId,
+    )!;
+    const guest = { kind: 'human' as const, actorId: f.guest.actorId };
+    const press = (
+      who: typeof principal,
+      expectedVersion: number,
+      command: Parameters<typeof operations.command>[2]['command'],
+    ) =>
+      operations.command(who, roundId, {
+        version: 1,
+        commandId: createId(),
+        expectedVersion,
+        command,
+      });
+    const offered = await press(guest, live.version, {
+      type: 'offer_poi',
+      participantId: offerer.id,
+      sequence: open.sequence,
+    });
+    const results = await Promise.allSettled([
+      press(principal, offered.resultingVersion, {
+        type: 'accept_poi',
+        participantId: speaker.id,
+        sequence: open.sequence,
+        offererParticipantId: offerer.id,
+      }),
+      press(guest, offered.resultingVersion, {
+        type: 'withdraw_poi',
+        participantId: offerer.id,
+        sequence: open.sequence,
+      }),
+    ]);
+    const after = (await f.store.getRound(roundId))!;
+    const point = after.checkpoint.point_of_information;
+    assert({
+      given: 'the speaker accepting and the offerer withdrawing at one version',
+      should:
+        'commit exactly one, refuse the other as a conflict, and leave the point as the winner made it',
+      actual: {
+        statuses: results.map((r) => r.status).sort(),
+        refusal:
+          results.find((r) => r.status === 'rejected')?.reason?.code ?? null,
+        version: after.version,
+        consistent:
+          results[0].status === 'fulfilled'
+            ? point.phase === 'speaking' &&
+              point.holder_participant_id === offerer.id
+            : point.phase === 'none',
+      },
+      expected: {
+        statuses: ['fulfilled', 'rejected'],
+        refusal: 'CONFLICT',
+        version: offered.resultingVersion + 1,
+        consistent: true,
+      },
+    });
+    // Whichever won, the point is over within its 5 s, with no command.
+    if (point.phase === 'none') {
+      const again = await press(guest, after.version, {
+        type: 'offer_poi',
+        participantId: offerer.id,
+        sequence: open.sequence,
+      });
+      await press(principal, again.resultingVersion, {
+        type: 'accept_poi',
+        participantId: speaker.id,
+        sequence: open.sequence,
+        offererParticipantId: offerer.id,
+      });
+    }
+    const speaking = (await f.store.getRound(roundId))!.checkpoint
+      .point_of_information;
+    if (speaking.phase !== 'speaking') throw new Error('No point accepted');
+    await Bun.sleep(5_500);
+    await operations.tick(roundId);
+    const returned = (await f.store.getRound(roundId))!;
+    assert({
+      given: 'a point accepted, then its 5 s run out and the Round ticked',
+      should: 'return the floor to the speaker with the speech still running',
+      actual: {
+        point: returned.checkpoint.point_of_information,
+        open: returned.segments.find((s) => s.endedAt === null)?.id,
+      },
+      expected: { point: { phase: 'none' }, open: open.id },
+    });
+    await assertRejects({
+      given: 'the holder’s End arriving after the clock returned the point',
+      should:
+        'refuse it as a conflict the round moved past, not an illegal move',
+      actual: () =>
+        press(guest, returned.version, {
+          type: 'end_poi',
+          participantId: offerer.id,
+          sequence: open.sequence,
+        }),
+      code: 'CONFLICT',
+    });
+  });
+});

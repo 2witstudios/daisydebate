@@ -5,7 +5,10 @@ import {
   twoSides,
 } from '@daisy/protocol/seats';
 import { type FormatDefinition } from '@daisy/protocol/format';
-import { type FormatSettings } from '@daisy/protocol/format-settings';
+import {
+  pointsOfInformationBounds,
+  type FormatSettings,
+} from '@daisy/protocol/format-settings';
 
 /**
  * The reference formats, as TypeScript, for tooling that runs without a
@@ -119,10 +122,7 @@ const oneOnOneRevision1: FormatDefinition = {
     preRoundPrep: { durationMs: { min: 0, max: 1_200_000 } },
     resolutionDraw: null,
     interaction: {
-      interruptions: {
-        modes: ['disabled', 'enabled'],
-        minRemainingMs: { min: 0, max: 300_000 },
-      },
+      pointsOfInformation: pointsOfInformationBounds,
       yield: {
         enabledChoices: [true, false],
         returnsTimeChoices: [true, false],
@@ -176,7 +176,7 @@ export const foundationDefinition: FormatDefinition = {
     preRoundPrep: null,
     resolutionDraw: null,
     interaction: {
-      interruptions: null,
+      pointsOfInformation: null,
       yield: null,
     },
   },
@@ -188,7 +188,7 @@ export const foundationSettings: FormatSettings = {
   resolutionDraw: { enabled: false },
   inRoundPrep: { enabled: true, budgetMsPerSide: 120_000 },
   speechTiming: { countdownMs: 10_000, segmentDurationOverrides: {} },
-  interruptions: null,
+  pointsOfInformation: null,
   yielding: null,
 };
 
@@ -225,7 +225,7 @@ export const oneOnOneSettings: FormatSettings = {
     countdownMs: 10_000,
     segmentDurationOverrides: {},
   },
-  interruptions: { mode: 'disabled', minRemainingMs: 30_000 },
+  pointsOfInformation: { enabled: false },
   yielding: { allowed: true, returnsTime: true },
 };
 
@@ -235,7 +235,7 @@ export const oneOnOneRankedSettings: FormatSettings = {
   resolutionDraw: { enabled: false },
   inRoundPrep: { enabled: true, budgetMsPerSide: 240_000 },
   speechTiming: { countdownMs: 10_000, segmentDurationOverrides: {} },
-  interruptions: { mode: 'disabled', minRemainingMs: 30_000 },
+  pointsOfInformation: { enabled: false },
   yielding: { allowed: true, returnsTime: true },
 };
 

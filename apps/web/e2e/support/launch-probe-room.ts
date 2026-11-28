@@ -152,6 +152,7 @@ async function endProbeSpeeches(
     round = await command(members[sequence]!, round, {
       type: 'yield',
       participantId: speaker.id,
+      sequence: segment.sequence,
     });
   }
   return read();

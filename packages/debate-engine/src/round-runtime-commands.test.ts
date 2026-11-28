@@ -25,7 +25,7 @@ describe('round runtime lifecycle', () => {
         should: 'refuse with the speech-requires-prep invariant',
         actual: () =>
           world.execute({
-            command: { type: 'start_speech' },
+            command: { type: 'start_speech', sequence: 0 },
             actorId: person,
             now: at(1_000),
           }),
@@ -40,7 +40,7 @@ describe('round runtime lifecycle', () => {
       });
     });
 
-    test('lets only the floor holder yield, and returns unused time when the rules say so', async () => {
+    test('lets only the scheduled speaker yield, and returns unused time when the rules say so', async () => {
       const world = runtime();
       world.activate({ at: at(0), now: at(0) });
       world.tick(at(10_000));
@@ -50,7 +50,7 @@ describe('round runtime lifecycle', () => {
         should: 'refuse with the yield-floor invariant',
         actual: () =>
           world.execute({
-            command: { type: 'yield' },
+            command: { type: 'yield', sequence: 0 },
             actorId: opponent,
             now: at(20_000),
           }),
@@ -64,12 +64,12 @@ describe('round runtime lifecycle', () => {
         expected: before,
       });
       const yielded = world.execute({
-        command: { type: 'yield' },
+        command: { type: 'yield', sequence: 0 },
         actorId: person,
         now: at(60_000),
       });
       assert({
-        given: 'the holder yielding 250 seconds early',
+        given: 'the speaker yielding 250 seconds early',
         should: 'close at the yield instant and credit the unused time back',
         actual: {
           close: yielded.segmentCloses[0],
@@ -81,90 +81,6 @@ describe('round runtime lifecycle', () => {
           budget: 0,
           next: 'CX1',
         },
-      });
-    });
-
-    test('interrupts move the floor during a speech under the resolved policy', () => {
-      const world = runtime({
-        rules: {
-          ...rules,
-          interaction: {
-            ...rules.interaction,
-            interruptions: { allowed: 'enabled', minRemainingMs: 30_000 },
-          },
-        },
-      });
-      world.activate({ at: at(0), now: at(0) });
-      world.tick(at(20_000)); // AC live, affirmative speaking
-      const interrupted = world.execute({
-        command: { type: 'interrupt' },
-        actorId: opponent,
-        now: at(20_000),
-      });
-      assert({
-        given: "the negative interrupting the affirmative's speech",
-        should: 'record the floor with its grant instant',
-        actual: interrupted.round?.checkpoint.floor,
-        expected: {
-          holder_participant_id: 'q5x2v8t0r4p6n2b8c1z7k3m9',
-          granted_at: at(20_000),
-        },
-      });
-      const returned = world.execute({
-        command: { type: 'yield' },
-        actorId: opponent,
-        now: at(30_000),
-      });
-      assert({
-        given: 'the interrupter yielding the floor they took (DEC-203)',
-        should:
-          "hand the floor back to the speaker and keep the speaker's segment and clock running",
-        actual: {
-          closes: returned.segmentCloses,
-          floor: returned.round?.checkpoint.floor,
-          speaking: returned.speakingChanges?.at(-1),
-          live: world.position(at(30_000)).openSegment?.key,
-        },
-        expected: {
-          closes: [],
-          floor: null,
-          speaking: {
-            kind: 'open',
-            segmentId: 'segment-1',
-            at: at(30_000),
-            participantIds: ['m3w8k1z5c9b2n7p4r6t0v2x4'],
-          },
-          live: 'AC',
-        },
-      });
-      const yielded = world.execute({
-        command: { type: 'yield' },
-        actorId: person,
-        now: at(40_000),
-      });
-      assert({
-        given: 'the scheduled speaker yielding',
-        should: 'end the speech early',
-        actual: yielded.segmentCloses[0]?.id,
-        expected: 'segment-1',
-      });
-    });
-
-    test('refuses interruptions the policy forbids', async () => {
-      const world = runtime();
-      world.activate({ at: at(0), now: at(0) });
-      world.tick(at(10_000));
-      await assertRejects({
-        given: 'an interrupt during a speech with interruptions off',
-        should: 'refuse with the interrupt-policy invariant',
-        actual: () =>
-          world.execute({
-            command: { type: 'interrupt' },
-            actorId: opponent,
-            now: at(20_000),
-          }),
-        code: 'INVARIANT',
-        invariantId: 'round.interrupt.requires-policy',
       });
     });
 
@@ -196,12 +112,11 @@ describe('round runtime lifecycle', () => {
           completedAt: at(totalMs),
           outcome: winnerOutcome('affirmative'),
           checkpoint: {
-            version: 1,
+            version: 2,
             prep_consumed_ms: { affirmative: 0, negative: 0 },
-            active_prep: null,
-            floor: null,
+            prep: { phase: 'idle' },
+            point_of_information: { phase: 'none' },
             incident: { phase: 'none' },
-            prep_ended_at: null,
             start_gate: null,
             clock_stops: [],
           },
@@ -212,7 +127,7 @@ describe('round runtime lifecycle', () => {
         should: 'refuse with the terminal invariant',
         actual: () =>
           world.execute({
-            command: { type: 'yield' },
+            command: { type: 'yield', sequence: 6 },
             actorId: person,
             now: at(totalMs + 1),
           }),
@@ -247,12 +162,11 @@ describe('round runtime lifecycle', () => {
             completedAt: at(20_000),
             outcome: winnerOutcome('negative'),
             checkpoint: {
-              version: 1,
+              version: 2,
               prep_consumed_ms: { affirmative: 0, negative: 0 },
-              active_prep: null,
-              floor: null,
+              prep: { phase: 'idle' },
+              point_of_information: { phase: 'none' },
               incident: { phase: 'none' },
-              prep_ended_at: null,
               start_gate: null,
               clock_stops: [],
             },

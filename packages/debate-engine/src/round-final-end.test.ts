@@ -42,12 +42,12 @@ test('accepted early final yield anchors actual end independently of the origina
   const early = total - 1000;
   world.tick(at(early));
   const ended = world.execute({
-    command: { type: 'yield' },
+    command: { type: 'yield', sequence: 6 },
     actorId: person,
     now: at(early),
   });
   assert({
-    given: 'the final floor holder yields before the segment duration ends',
+    given: 'the final speaker yields before the segment duration ends',
     should: 'anchor the early close without completing the Round',
     actual: {
       final: ended.finalSegmentEndedAt,

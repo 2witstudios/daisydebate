@@ -97,5 +97,7 @@ export const speakFromFields = (
     return source.speak;
   if (fields.type === 'speech')
     return lead === null ? null : { rights: 'one', seat: lead };
+  // A cross-examination names who asks (INTX-10); an open floor may not.
+  if (fields.type === 'cross_ex' && lead === null) return null;
   return { rights: 'all', lead };
 };

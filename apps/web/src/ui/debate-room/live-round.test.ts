@@ -214,28 +214,6 @@ describe('liveRoundOf during the round', () => {
       actual: notes(seated(crossEx), crossEx).slice(0, 2),
       expected: [true, true],
     });
-    const open = seated(speech);
-    assert({
-      given: 'the gap before a speech under open questioning',
-      should: 'tell both sides, because everyone may speak',
-      actual: notes(
-        {
-          ...open,
-          rules: {
-            ...open.rules,
-            interaction: {
-              ...open.rules.interaction,
-              interruptions: {
-                ...open.rules.interaction.interruptions,
-                allowed: 'open',
-              } as never,
-            },
-          },
-        },
-        speech,
-      ).slice(0, 2),
-      expected: [true, true],
-    });
   });
 
   test('a seat in its own prep is told its microphone opens when prep ends', () => {
@@ -249,7 +227,11 @@ describe('liveRoundOf during the round', () => {
       ...ran(closed, true),
       checkpoint: {
         ...emptyRuntimeCheckpointFor({ sides: twoSides }),
-        active_prep: { side: 'affirmative', started_at: at(startOf(closed)) },
+        prep: {
+          phase: 'running',
+          side: 'affirmative',
+          started_at: at(startOf(closed)),
+        },
       },
     };
     const clock = liveRoundOf(
@@ -262,6 +244,30 @@ describe('liveRoundOf during the round', () => {
       should: 'say the microphone goes live when prep ends',
       actual: [clock?.label, clock?.note],
       expected: ['Your prep', 'Your microphone goes live when this prep ends.'],
+    });
+  });
+
+  test('a seat that left never reads its microphone as live (INTX-12)', () => {
+    const now = origin + startOf(1) + 10_000;
+    const crossEx = ran(2);
+    const leftBy = (participantId: string) => ({
+      ...crossEx,
+      checkpoint: {
+        ...crossEx.checkpoint!,
+        absent_participant_ids: [participantId],
+      },
+    });
+    assert({
+      given:
+        'cross-examination, with every debater present, then with the negative gone, then with the affirmative gone',
+      should:
+        'grant the affirmative its microphone while it is present, whoever else left, and never once it left',
+      actual: [
+        liveRoundOf(crossEx, aff.actorId, now)?.micLive,
+        liveRoundOf(leftBy(neg.id), aff.actorId, now)?.micLive,
+        liveRoundOf(leftBy(aff.id), aff.actorId, now)?.micLive === true,
+      ],
+      expected: [true, true, false],
     });
   });
 
@@ -349,7 +355,11 @@ describe('liveRoundOf during the round', () => {
       ...ran(4, true),
       checkpoint: {
         ...emptyRuntimeCheckpointFor({ sides: twoSides }),
-        active_prep: { side: 'affirmative', started_at: at(startOf(4)) },
+        prep: {
+          phase: 'running',
+          side: 'affirmative',
+          started_at: at(startOf(4)),
+        },
       },
     };
     const mine = liveRoundOf(prepping, aff.actorId, now);

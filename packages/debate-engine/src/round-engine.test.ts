@@ -91,7 +91,7 @@ describe('stepRound', () => {
         refusal: refusalOf(() =>
           stepRound(active, rules, {
             kind: 'command',
-            command: { type: 'start_speech' },
+            command: { type: 'start_speech', sequence: 0 },
             actorId: oneOnOneActors.affirmative,
             atMs: at + 1,
           }),

@@ -60,7 +60,7 @@ export const launchCustomSelection = {
       resolutionDraw: null,
       inRoundPrep: null,
       interaction: {
-        interruptions: null,
+        pointsOfInformation: null,
         yield: null,
       },
     },

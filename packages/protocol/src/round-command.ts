@@ -4,16 +4,43 @@ import { idSchema } from './primitives';
 import type { RoundView } from './round-view';
 import type { BetaAccessState } from './beta-access';
 
-const seated = (
+const seated = (type: 'forfeit' | 'leave') =>
+  z.strictObject({ type: z.literal(type), participantId: idSchema });
+/**
+ * A floor command names the segment it means (INTX-7): prep and its speech
+ * name the segment prepped for, the rest the speech or cross-examination they
+ * act in. A press that reaches the Round after that segment changed is
+ * refused as stale, never applied to the next one.
+ */
+const onSegment = (
   type:
-    'start_prep' | 'start_speech' | 'yield' | 'interrupt' | 'forfeit' | 'leave',
-) => z.strictObject({ type: z.literal(type), participantId: idSchema });
+    | 'start_prep'
+    | 'cancel_prep'
+    | 'start_speech'
+    | 'yield'
+    | 'offer_poi'
+    | 'withdraw_poi'
+    | 'decline_poi'
+    | 'end_poi',
+) =>
+  z.strictObject({
+    type: z.literal(type),
+    participantId: idSchema,
+    sequence: z.int().min(0),
+  });
 /** A strike names the turn it means to take, so a stale form conflicts. */
 const strikeResolution = z.strictObject({
   type: z.literal('strike_resolution'),
   participantId: idSchema,
   ordinal: z.int().min(0),
   position: z.int().min(0),
+});
+/** Accepting names the one offer taken, so a withdrawn or lapsed one conflicts. */
+const acceptPointOfInformation = z.strictObject({
+  type: z.literal('accept_poi'),
+  participantId: idSchema,
+  sequence: z.int().min(0),
+  offererParticipantId: idSchema,
 });
 /** Completion belongs to the ballot transaction, never a caller-supplied outcome. */
 export const roundCommandEnvelopeSchema = z.strictObject({
@@ -22,10 +49,15 @@ export const roundCommandEnvelopeSchema = z.strictObject({
   expectedVersion: z.int().positive(),
   command: z.discriminatedUnion('type', [
     strikeResolution,
-    seated('start_prep'),
-    seated('start_speech'),
-    seated('yield'),
-    seated('interrupt'),
+    onSegment('start_prep'),
+    onSegment('cancel_prep'),
+    onSegment('start_speech'),
+    onSegment('yield'),
+    onSegment('offer_poi'),
+    onSegment('withdraw_poi'),
+    acceptPointOfInformation,
+    onSegment('decline_poi'),
+    onSegment('end_poi'),
     seated('forfeit'),
     seated('leave'),
   ]),
@@ -85,7 +117,6 @@ export type RoundCommandAuthority = {
     readonly restricted: boolean;
   } | null;
   readonly participants: readonly (RoundParticipantSeat & {
-    readonly kind: 'human' | 'bot';
     readonly eligible: boolean;
   })[];
   readonly agentRun: {

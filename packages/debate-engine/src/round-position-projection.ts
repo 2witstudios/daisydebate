@@ -3,6 +3,7 @@ import { countdownDue } from './round-start-gate';
 import {
   clockStopsOf,
   isRoundRunning,
+  pointEndsAtMs,
   prepConsumedOf,
 } from '@daisy/protocol/round';
 import { leadSeatOf, sideKeysOf } from '@daisy/protocol/format-seating';
@@ -15,7 +16,13 @@ import type { RoundRules } from '@daisy/protocol/format';
 import type { RoundStage, RuntimeCheckpoint } from '@daisy/protocol/round';
 import { advanceRoundClock } from './round-clock';
 import {
+  offerLapsesAtMs,
+  offerWindowOf,
+  pointsOfInformationIn,
+} from './round-point-of-information';
+import {
   debateHasEnded,
+  prepExpiredBefore,
   type ClockState,
   type ClockSegment as StoreRow,
   type Lifecycle,
@@ -66,7 +73,7 @@ export const stageOf = (
   if (on.lifecycle.status !== 'active') return null;
   if (on.rows.find((row) => row.endedAtMs === null) !== undefined)
     return 'live';
-  if (on.checkpoint.active_prep !== null) return 'prep';
+  if (on.checkpoint.prep.phase === 'running') return 'prep';
   return debateHasEnded(on, segmentCount) ? 'awaiting_ballot' : 'countdown';
 };
 
@@ -79,7 +86,6 @@ const openSegmentOf = (
   open: StoreRow | undefined,
   rules: RoundRules,
   now: number,
-  floorParticipantId: string | null,
   incident: RuntimeCheckpoint['incident'],
 ): RoundPosition['openSegment'] => {
   if (open === undefined) return null;
@@ -107,7 +113,6 @@ const openSegmentOf = (
     startedAt: iso(open.startedAtMs),
     endsAt: iso(endsAtMs),
     remainingMs,
-    floorParticipantId,
   };
 };
 
@@ -157,27 +162,48 @@ const countdownOf = (
   return Math.max(0, countdownDue(state, countdownMs, now) - now);
 };
 
+/** Running time a running prep has used so far; never negative, whatever the clocks say. */
+const prepRunningMs = (checkpoint: RuntimeCheckpoint, now: number): number =>
+  checkpoint.prep.phase === 'running'
+    ? Math.max(
+        0,
+        runningMs(
+          instantMs(checkpoint.prep.started_at),
+          now,
+          clockStopsOf(checkpoint),
+        ),
+      )
+    : 0;
+
 /**
- * The running prep period and what is left of its budget. Elapsed time counts
- * against the budget while the period is live, which is why the checkpoint
- * stores an anchor rather than only a total (ADR 0058, BB).
+ * Prep called for the next segment, or running with what is left of its
+ * budget. Elapsed time counts against the budget while it runs, which is why
+ * the checkpoint stores an anchor rather than only a total (ADR 0058, BB).
  */
 const prepOf = (
-  active: RuntimeCheckpoint['active_prep'],
   checkpoint: RuntimeCheckpoint,
   budgetMsPerSide: number,
   now: number,
 ): RoundPosition['prep'] => {
-  if (active === null) return null;
-  return {
-    side: active.side,
-    remainingMs: Math.max(
-      0,
-      budgetMsPerSide -
-        prepConsumedOf(checkpoint, active.side) -
-        runningMs(instantMs(active.started_at), now, clockStopsOf(checkpoint)),
-    ),
-  };
+  const { prep } = checkpoint;
+  switch (prep.phase) {
+    case 'called':
+      return { phase: 'called', side: prep.side };
+    case 'running':
+      return {
+        phase: 'running',
+        side: prep.side,
+        remainingMs: Math.max(
+          0,
+          budgetMsPerSide -
+            prepConsumedOf(checkpoint, prep.side) -
+            prepRunningMs(checkpoint, now),
+        ),
+      };
+    case 'idle':
+    case 'lead':
+      return null;
+  }
 };
 
 /** Remaining budget per side; null when the format has no in-round prep. */
@@ -188,25 +214,54 @@ const prepBudgetOf = (
 ): RoundPosition['prepBudgetRemainingMs'] => {
   const { inRoundPrep } = rules;
   if (inRoundPrep === null) return null;
+  const { prep } = checkpoint;
   const left = (side: SideKey) =>
     Math.max(
       0,
       inRoundPrep.budgetMsPerSide -
         prepConsumedOf(checkpoint, side) -
-        (checkpoint.active_prep?.side === side
-          ? Math.max(
-              0,
-              runningMs(
-                instantMs(checkpoint.active_prep.started_at),
-                now,
-                clockStopsOf(checkpoint),
-              ),
-            )
+        (prep.phase === 'running' && prep.side === side
+          ? prepRunningMs(checkpoint, now)
           : 0),
     );
   return Object.fromEntries(
     sideKeysOf(rules).map((side) => [side, left(side)]),
   );
+};
+
+/** Whether the budget died at its expiry segment: no prep is spendable again. */
+/** The open speech's points of information, if it takes them. */
+const pointOfInformationOf = (
+  open: StoreRow | undefined,
+  rules: RoundRules,
+  checkpoint: RuntimeCheckpoint,
+  now: number,
+): RoundPosition['pointOfInformation'] => {
+  if (open === undefined) return null;
+  const rule = pointsOfInformationIn(rules, open.sequence);
+  if (rule === null) return null;
+  const { opensAtMs, closesAtMs } = offerWindowOf(open, rule);
+  const point = checkpoint.point_of_information;
+  const endsAtMs = pointEndsAtMs(point, rule.maxDurationMs);
+  return {
+    offersOpenAt: iso(opensAtMs),
+    offersCloseAt: iso(closesAtMs),
+    offers:
+      point.phase === 'offered'
+        ? point.offers.map((offer) => ({
+            participantId: offer.participant_id,
+            lapsesAt: iso(offerLapsesAtMs(offer.offered_at, rule, closesAtMs)),
+          }))
+        : [],
+    holder:
+      point.phase === 'speaking' && endsAtMs !== null
+        ? {
+            participantId: point.holder_participant_id,
+            endsAt: iso(endsAtMs),
+            remainingMs: Math.max(0, endsAtMs - now),
+          }
+        : null,
+  };
 };
 
 export const roundPositionOf = (
@@ -219,31 +274,29 @@ export const roundPositionOf = (
   const rows = on.rows;
   const open = rows.find((row) => row.endedAtMs === null);
   const spoken = rows.filter((row) => row.endedAtMs !== null).length;
-  const active = checkpoint.active_prep;
   const startable = isRoundRunning(lifecycle.status);
   const inRoundPrep = rules.inRoundPrep;
   const upcoming = nextSegmentOf(open, startable, spoken, rules);
   return {
     ...lifecycleColumnsOf(lifecycle),
     stage: stageOf(on, rules.segments.length),
-    openSegment: openSegmentOf(
-      open,
-      rules,
-      now,
-      checkpoint.floor?.holder_participant_id ?? null,
-      checkpoint.incident,
-    ),
+    openSegment: openSegmentOf(open, rules, now, checkpoint.incident),
     nextSegment: upcoming,
     countdownRemainingMs: countdownOf(
       on,
       open,
-      active !== null,
+      checkpoint.prep.phase === 'running',
       upcoming,
       now,
       rules.countdownMs,
     ),
-    prep: prepOf(active, checkpoint, inRoundPrep?.budgetMsPerSide ?? 0, now),
+    prep: prepOf(checkpoint, inRoundPrep?.budgetMsPerSide ?? 0, now),
     prepBudgetRemainingMs: prepBudgetOf(rules, checkpoint, now),
+    prepExpired: prepExpiredBefore(
+      rules,
+      open === undefined ? spoken : spoken + 1,
+    ),
+    pointOfInformation: pointOfInformationOf(open, rules, checkpoint, now),
     incident: checkpoint.incident,
   };
 };

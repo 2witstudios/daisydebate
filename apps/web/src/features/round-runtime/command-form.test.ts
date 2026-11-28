@@ -12,6 +12,7 @@ const formOf = (type = 'yield') => {
     expectedVersion: String(view.version),
     type,
     participantId: aff.id,
+    sequence: '1',
   }))
     form.set(key, value);
   return form;
@@ -54,7 +55,7 @@ test('Round command form confirms yield and preserves its principal-free envelop
         version: 1,
         commandId,
         expectedVersion: view.version,
-        command: { type: 'yield', participantId: aff.id },
+        command: { type: 'yield', participantId: aff.id, sequence: 1 },
       },
       lost: 'unacknowledged',
       values: commandId,
@@ -62,7 +63,7 @@ test('Round command form confirms yield and preserves its principal-free envelop
   });
 });
 test('Round form accepts only its own receipt and current canonical view', async () => {
-  const form = formOf('interrupt');
+  const form = formOf('offer_poi');
   const response = (changes: Record<string, unknown> = {}) =>
     Response.json({
       receipt: {
@@ -116,7 +117,7 @@ test('Round form accepts only its own receipt and current canonical view', async
   });
 });
 test('flat command fields reject duplicates, claimed actors and fractional versions', () => {
-  const entries = [...formOf('interrupt')];
+  const entries = [...formOf('offer_poi')];
   const bad = [
     [...entries, ['actorId', aff.actorId]],
     [...entries, ['type', 'yield']],
@@ -132,7 +133,7 @@ test('flat command fields reject duplicates, claimed actors and fractional versi
   });
 });
 test('the segment a control acts on is form state, never part of the command (ISSUE-838)', () => {
-  const entries = [...formOf('interrupt')];
+  const entries = [...formOf('offer_poi')];
   assert({
     given: 'a command form carrying the open segment it was rendered for',
     should: 'parse the same envelope as without it',

@@ -18,6 +18,8 @@ export function roundCommandFields(
       'participantId',
       'ordinal',
       'position',
+      'sequence',
+      'offererParticipantId',
     ],
     true,
     ['confirmed', 'segment'],
@@ -37,6 +39,13 @@ export function roundCommandFields(
             ordinal: formIndex(fields.ordinal),
             position: formIndex(fields.position),
           }
+        : {}),
+      // The segment a floor command names (INTX-7), and the offer an accept takes.
+      ...(fields.sequence !== undefined
+        ? { sequence: formIndex(fields.sequence) }
+        : {}),
+      ...(fields.offererParticipantId !== undefined
+        ? { offererParticipantId: fields.offererParticipantId }
         : {}),
     },
   });

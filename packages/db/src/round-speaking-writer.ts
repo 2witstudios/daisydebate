@@ -1,5 +1,5 @@
 import { createId } from '@paralleldrive/cuid2';
-import { and, eq, isNull } from 'drizzle-orm';
+import { and, eq, isNull, sql } from 'drizzle-orm';
 import type { RoundProjection } from '@daisy/protocol/runtime';
 import { roundSpeakingIntervals } from './schema/round-speaking-intervals';
 import type { Tx } from './tx';
@@ -16,10 +16,15 @@ export async function writeSpeakingProjection(
 ) {
   for (const change of input.projection.speakingChanges ?? []) {
     if (change.kind === 'close') {
+      // A close never ends an interval before it began. A platform pause
+      // rewinds the speech to its last confirmed audio, which can fall before a
+      // later speakers change (an accepted point, its end, a leave): what was
+      // granted after that instant was never confirmed, so it closes with no
+      // length rather than an inverted span (round_speaking_intervals_time_check).
       await tx
         .update(roundSpeakingIntervals)
         .set({
-          endedAt: new Date(change.at),
+          endedAt: sql`greatest(${change.at}::timestamptz, ${roundSpeakingIntervals.startedAt})`,
           endedVersion: input.resultingVersion,
           endedCommandId: input.commandId,
         })

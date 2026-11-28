@@ -17,6 +17,7 @@ import {
   createHumanBallotRound,
   readBallotRound,
   ballotRoundCommand,
+  openSequence,
 } from './support/human-ballot-round';
 import {
   MEDIA_POLL,
@@ -359,6 +360,7 @@ test('a media read held across a real Round transition is superseded without tou
     const yielded = await ballotRoundCommand(speaker!.context.request, view, {
       type: 'yield',
       participantId: seat.id,
+      sequence: openSequence(view),
     });
     expect(yielded.version).toBeGreaterThan(view.version);
     // The age bound keeps this below the held request's 10 s deadline, so only
@@ -540,6 +542,7 @@ for (const [name, tickOnly] of [
       const yielded = await ballotRoundCommand(speaker!.context.request, view, {
         type: 'yield',
         participantId: seat.id,
+        sequence: openSequence(view),
       });
       const endedAt = yielded.segments
         .filter((segment) => segment.endedAt !== null)

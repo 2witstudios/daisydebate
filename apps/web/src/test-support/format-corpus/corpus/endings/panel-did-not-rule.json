@@ -12,19 +12,22 @@
   "steps": [
     {
       "checkpoint": {
-        "active_prep": null,
         "clock_stops": [],
-        "floor": null,
         "incident": {
           "phase": "none"
+        },
+        "point_of_information": {
+          "phase": "none"
+        },
+        "prep": {
+          "phase": "idle"
         },
         "prep_consumed_ms": {
           "affirmative": 0,
           "negative": 0
         },
-        "prep_ended_at": null,
         "start_gate": null,
-        "version": 1
+        "version": 2
       },
       "debateOver": false,
       "label": "activate",
@@ -56,11 +59,13 @@
         },
         "openSegment": null,
         "outcome": null,
+        "pointOfInformation": null,
         "prep": null,
         "prepBudgetRemainingMs": {
           "affirmative": 240000,
           "negative": 240000
         },
+        "prepExpired": false,
         "stage": "countdown",
         "startedAt": "2026-10-06T09:00:00.000Z",
         "status": "active"
@@ -77,19 +82,22 @@
           ],
           "round": {
             "checkpoint": {
-              "active_prep": null,
               "clock_stops": [],
-              "floor": null,
               "incident": {
                 "phase": "none"
+              },
+              "point_of_information": {
+                "phase": "none"
+              },
+              "prep": {
+                "phase": "idle"
               },
               "prep_consumed_ms": {
                 "affirmative": 0,
                 "negative": 0
               },
-              "prep_ended_at": null,
               "start_gate": null,
-              "version": 1
+              "version": 2
             },
             "completedAt": null,
             "currentStage": "countdown",
@@ -105,19 +113,22 @@
     },
     {
       "checkpoint": {
-        "active_prep": null,
         "clock_stops": [],
-        "floor": null,
         "incident": {
           "phase": "none"
+        },
+        "point_of_information": {
+          "phase": "none"
+        },
+        "prep": {
+          "phase": "idle"
         },
         "prep_consumed_ms": {
           "affirmative": 0,
           "negative": 0
         },
-        "prep_ended_at": null,
         "start_gate": null,
-        "version": 1
+        "version": 2
       },
       "debateOver": true,
       "label": "schedule ends",
@@ -131,11 +142,13 @@
         "nextSegment": null,
         "openSegment": null,
         "outcome": null,
+        "pointOfInformation": null,
         "prep": null,
         "prepBudgetRemainingMs": {
           "affirmative": 240000,
           "negative": 240000
         },
+        "prepExpired": false,
         "stage": "awaiting_ballot",
         "startedAt": "2026-10-06T09:00:00.000Z",
         "status": "active"
@@ -262,19 +275,22 @@
           "releasesRoomMembers": true,
           "round": {
             "checkpoint": {
-              "active_prep": null,
               "clock_stops": [],
-              "floor": null,
               "incident": {
                 "phase": "none"
+              },
+              "point_of_information": {
+                "phase": "none"
+              },
+              "prep": {
+                "phase": "idle"
               },
               "prep_consumed_ms": {
                 "affirmative": 0,
                 "negative": 0
               },
-              "prep_ended_at": null,
               "start_gate": null,
-              "version": 1
+              "version": 2
             },
             "completedAt": null,
             "currentStage": "awaiting_ballot",
@@ -470,19 +486,22 @@
     },
     {
       "checkpoint": {
-        "active_prep": null,
         "clock_stops": [],
-        "floor": null,
         "incident": {
           "phase": "none"
+        },
+        "point_of_information": {
+          "phase": "none"
+        },
+        "prep": {
+          "phase": "idle"
         },
         "prep_consumed_ms": {
           "affirmative": 0,
           "negative": 0
         },
-        "prep_ended_at": null,
         "start_gate": null,
-        "version": 1
+        "version": 2
       },
       "debateOver": true,
       "label": "inside the window",
@@ -496,11 +515,13 @@
         "nextSegment": null,
         "openSegment": null,
         "outcome": null,
+        "pointOfInformation": null,
         "prep": null,
         "prepBudgetRemainingMs": {
           "affirmative": 240000,
           "negative": 240000
         },
+        "prepExpired": false,
         "stage": "awaiting_ballot",
         "startedAt": "2026-10-06T09:00:00.000Z",
         "status": "active"
@@ -516,19 +537,22 @@
     },
     {
       "checkpoint": {
-        "active_prep": null,
         "clock_stops": [],
-        "floor": null,
         "incident": {
           "phase": "none"
+        },
+        "point_of_information": {
+          "phase": "none"
+        },
+        "prep": {
+          "phase": "idle"
         },
         "prep_consumed_ms": {
           "affirmative": 0,
           "negative": 0
         },
-        "prep_ended_at": null,
         "start_gate": null,
-        "version": 1
+        "version": 2
       },
       "debateOver": true,
       "label": "after the window",
@@ -542,11 +566,13 @@
         "nextSegment": null,
         "openSegment": null,
         "outcome": null,
+        "pointOfInformation": null,
         "prep": null,
         "prepBudgetRemainingMs": {
           "affirmative": 240000,
           "negative": 240000
         },
+        "prepExpired": false,
         "stage": null,
         "startedAt": "2026-10-06T09:00:00.000Z",
         "status": "completed"
@@ -565,19 +591,22 @@
           "releasesRoomMembers": true,
           "round": {
             "checkpoint": {
-              "active_prep": null,
               "clock_stops": [],
-              "floor": null,
               "incident": {
                 "phase": "none"
+              },
+              "point_of_information": {
+                "phase": "none"
+              },
+              "prep": {
+                "phase": "idle"
               },
               "prep_consumed_ms": {
                 "affirmative": 0,
                 "negative": 0
               },
-              "prep_ended_at": null,
               "start_gate": null,
-              "version": 1
+              "version": 2
             },
             "completedAt": "2026-10-06T09:28:10.000Z",
             "currentStage": null,

@@ -17,11 +17,13 @@ const others = [
     id: 'q4n6p8r2t4v6x8z1k3b5c7d9',
     actorId: 'b4n6p8r2t4v6x8z1k3b5c7d9',
     seat: { kind: 'side', side: 'negative', slot: 0 } as const,
+    kind: 'human' as const,
   },
   {
     id: judgeSeatId,
     actorId: 'g4n6p8r2t4v6x8z1k3b5c7d9',
     seat: { kind: 'judge', slot: 0 } as const,
+    kind: 'human' as const,
   },
 ];
 export const judgeActorId = others[1]!.actorId;
@@ -42,7 +44,12 @@ export const lockedRound: LockedRoundCommandContext = {
     launchedAt: '2026-10-10T12:00:00.000Z',
     checkpoint: emptyRuntimeCheckpointFor({ sides: twoSides }),
     participants: [
-      { id: seat.id, actorId: seat.actorId, seat: seat.seat },
+      {
+        id: seat.id,
+        actorId: seat.actorId,
+        seat: seat.seat,
+        kind: 'human' as const,
+      },
       ...others,
     ],
   },

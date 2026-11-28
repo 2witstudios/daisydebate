@@ -225,6 +225,13 @@ test('drillKillPlan', () => {
     expected: ['mid-speech', 'floor-change'],
   });
   assert({
+    given:
+      'a plan naming prep, cross-examination and point-of-information kills',
+    should: 'plan those after the spike’s, in order (INTX-19)',
+    actual: drillKillPlan('1,0,1,2,1'),
+    expected: ['mid-speech', 'mid-prep', 'mid-cx', 'mid-cx', 'mid-poi'],
+  });
+  assert({
     given: 'an unreadable plan',
     should: 'fall to a refusal',
     actual: (() => {

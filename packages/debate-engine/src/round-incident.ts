@@ -72,13 +72,22 @@ const pause = (
     return stay(state);
   const pointMs = resumePointOf(state, event);
   const open = openRow(state);
+  // The hold ends any offer or point of information: the speech resumes as
+  // its speaker's alone, and nobody's wait spans the stop.
+  const held = withIncident(state, {
+    phase: 'paused',
+    since: iso(event.atMs),
+    cause: event.cause,
+    resume_point: pointMs === null ? null : iso(pointMs),
+  });
   return {
-    state: withIncident(state, {
-      phase: 'paused',
-      since: iso(event.atMs),
-      cause: event.cause,
-      resume_point: pointMs === null ? null : iso(pointMs),
-    }),
+    state: {
+      ...held,
+      checkpoint: {
+        ...held.checkpoint,
+        point_of_information: { phase: 'none' },
+      },
+    },
     changes: [
       ...(open !== undefined && pointMs !== null
         ? [{ kind: 'stop' as const, sequence: open.sequence, atMs: pointMs }]
@@ -146,8 +155,8 @@ const end = (
       rows: closed.state.rows,
       checkpoint: {
         ...closed.state.checkpoint,
-        active_prep: null,
-        prep_ended_at: null,
+        prep: { phase: 'idle' },
+        point_of_information: { phase: 'none' },
         incident: { phase: 'none' },
         clock_stops: [
           ...state.checkpoint.clock_stops,
@@ -257,7 +266,6 @@ export const resumeIfDue = (
               sequence: open.sequence,
               atMs: untilMs,
               returnedMs: returned,
-              holder: state.checkpoint.floor?.holder_participant_id ?? null,
             },
           ]
         : []),

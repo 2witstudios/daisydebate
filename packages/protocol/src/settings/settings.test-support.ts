@@ -11,7 +11,7 @@ export const formatDefaults: FormatSettingDefaults = {
     countdownMs: 5_000,
   },
   'room.floor': {
-    interruptions: { mode: 'disabled', minRemainingMs: 0 },
+    pointsOfInformation: { enabled: false },
     yielding: { allowed: false, returnsTime: false },
   },
 };
@@ -146,7 +146,13 @@ export const otherValues: SettingValues = {
     countdownMs: 0,
   },
   'room.floor': {
-    interruptions: { mode: 'open', minRemainingMs: 15_000 },
+    pointsOfInformation: {
+      enabled: true,
+      protectedStartMs: 60_000,
+      protectedEndMs: 60_000,
+      maxDurationMs: 15_000,
+      offerLapseMs: 10_000,
+    },
     yielding: { allowed: true, returnsTime: true },
   },
   'staff.minimum_band': { value: '16-17' },

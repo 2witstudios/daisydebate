@@ -75,11 +75,11 @@ const speakingNow = (input: MediaGrantInput) => {
       input.rules,
       input.participants,
       open.sequence,
-      open.floorParticipantId,
+      input.position.pointOfInformation?.holder?.participantId ?? null,
     ).includes(input.participantId)
   );
 };
-/** Who holds the floor of the open speech, whatever the clock says. */
+/** Who speaks in the open segment, with any point of information's holder, whatever the clock says. */
 const holdsTheFloor = (input: MediaGrantInput) => {
   const open = input.position.openSegment;
   return (
@@ -89,7 +89,7 @@ const holdsTheFloor = (input: MediaGrantInput) => {
       input.rules,
       input.participants,
       open.sequence,
-      open.floorParticipantId,
+      input.position.pointOfInformation?.holder?.participantId ?? null,
     ).includes(input.participantId)
   );
 };

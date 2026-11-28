@@ -112,7 +112,11 @@ describe('observedRoundOf', () => {
       ...ran(4, true),
       checkpoint: {
         ...emptyRuntimeCheckpointFor({ sides: twoSides }),
-        active_prep: { side: 'affirmative', started_at: at(startOf(4)) },
+        prep: {
+          phase: 'running',
+          side: 'affirmative',
+          started_at: at(startOf(4)),
+        },
       },
     };
     const watched = observedRoundOf(prepping, origin + startOf(4) + 20_000);

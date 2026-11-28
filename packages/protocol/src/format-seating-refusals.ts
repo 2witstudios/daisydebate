@@ -161,6 +161,37 @@ function opportunityRefusals(format: Seated, issue: Issue) {
     );
 }
 
+/**
+ * A newly authored cross-examination names its asker, a seat of a side
+ * (INTX-10): the asker may always end it, and a bot answers across sides.
+ * Only authoring applies this; a format stored before the rule keeps parsing,
+ * and its unled cross-examination runs as the open exchange it always was.
+ */
+export function crossExaminationAskerRefusals(
+  format: Pick<Seated, 'segments'>,
+  ctx: z.RefinementCtx,
+) {
+  format.segments.forEach((segment, index) => {
+    if (segment.type !== 'cross_ex') return;
+    const { speak } = segment;
+    const asker = speak.rights === 'one' ? speak.seat : speak.lead;
+    const path = ['segments', index, 'speak', 'lead'];
+    if (asker === null)
+      ctx.addIssue({
+        code: 'custom',
+        message: 'Cross-examination names the seat that asks',
+        path,
+      });
+    else if (!isJudgeSeat(asker) && sideOfSeat(asker) === null)
+      ctx.addIssue({
+        code: 'custom',
+        message:
+          'Cross-examination is asked by a side, never an unsided speaker',
+        path,
+      });
+  });
+}
+
 /** Seats declared in all; past the budget the seats schema refuses already. */
 const declaredSeats = ({ seats }: Seated) =>
   Object.values(seats.sides).reduce((sum, n) => sum + n, 0) +

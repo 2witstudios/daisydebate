@@ -39,14 +39,15 @@ const mutations: readonly Mutation[] = [
   {
     name: 'an ending leaves prep running',
     file: 'packages/debate-engine/src/round-commands.ts',
-    find: '  closed = withCheckpoint(closed, { active_prep: null, prep_ended_at: null });',
-    replace: '  closed = withCheckpoint(closed, { prep_ended_at: null });',
+    find: "  closed = withCheckpoint(closed, {\n    prep: { phase: 'idle' },\n    point_of_information: { phase: 'none' },\n  });",
+    replace:
+      "  closed = withCheckpoint(closed, {\n    point_of_information: { phase: 'none' },\n  });",
   },
   {
     name: 'a format with no yield policy takes a yield',
     file: 'packages/debate-engine/src/round-command-legality.ts',
-    find: '  return facts.rules.interaction.yield?.allowed === true',
-    replace: '  return facts.rules.interaction.yield?.allowed !== false',
+    find: '  return rules.interaction.yield?.allowed === true',
+    replace: '  return rules.interaction.yield?.allowed !== false',
   },
 ];
 

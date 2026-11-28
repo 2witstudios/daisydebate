@@ -15,6 +15,7 @@ import type { RoundParticipantSeat } from '@daisy/protocol/runtime';
 import type { RoundRules, SegmentType } from '@daisy/protocol/format';
 import { and, eq } from 'drizzle-orm';
 import { seatOfColumns, seatRowOrder } from './seat-columns';
+import { actors } from './schema/actors';
 import { roundParticipants } from './schema/round-participants';
 import { roundSegments } from './schema/round-segments';
 import { rounds } from './schema/rounds';
@@ -159,8 +160,10 @@ async function readRoundRows(
       seatKind: roundParticipants.seatKind,
       side: roundParticipants.side,
       slot: roundParticipants.slot,
+      actorKind: actors.kind,
     })
     .from(roundParticipants)
+    .innerJoin(actors, eq(actors.id, roundParticipants.actorId))
     .where(
       and(
         eq(roundParticipants.roundId, id),
@@ -168,10 +171,11 @@ async function readRoundRows(
       ),
     )
     .orderBy(...seatRowOrder(roundParticipants));
-  const participants = seats.map(({ id, actorId, ...seat }) => ({
+  const participants = seats.map(({ id, actorId, actorKind, ...seat }) => ({
     id,
     actorId,
     seat: seatOfColumns(seat),
+    kind: actorKind,
   }));
   const segments = await segmentRows(tx, id);
   return {

@@ -6,7 +6,7 @@ import {
   phraseAt,
 } from './speech-state';
 setupRitewayBun();
-const rules = { crossEx: false, asks: false, maxAttempts: 3 };
+const rules = { crossEx: false, asks: true, maxAttempts: 3 };
 describe('bot speech state', () => {
   test('received work survives a deferral but stale completions cannot revive a replaced turn', () => {
     let state = initialSpeechState(rules);

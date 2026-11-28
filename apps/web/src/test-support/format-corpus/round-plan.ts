@@ -19,19 +19,20 @@ export type ScriptAction =
   | { readonly kind: 'tick' }
   | {
       readonly kind: 'command';
-      readonly type: RoundCommand['type'];
+      /** The command exactly as pressed, with the segment it names. */
+      readonly command: RoundCommand;
       readonly seatId: string;
     }
   | { readonly kind: 'complete_panel'; readonly winner: SideKey };
 
 /** The paths a script exercises, each once, where the rules allow them. */
 type Exercised =
-  'refusal' | 'prep' | 'yield' | 'interrupt' | 'floor_return' | 'panel';
+  'refusal' | 'prep' | 'yield' | 'poi_offer' | 'poi_accept' | 'panel';
 
 export type ScriptState = {
   readonly rules: RoundRules;
   readonly seats: readonly CorpusSeat[];
-  readonly interrupting: boolean;
+  readonly offering: boolean;
   readonly nowMs: number;
   readonly done: ReadonlySet<Exercised>;
   readonly durable: Durable;
@@ -44,7 +45,11 @@ export type Planned = {
 };
 
 type OpenSegment = NonNullable<RoundPosition['openSegment']>;
-type Move = (state: ScriptState, open: OpenSegment) => Planned | null;
+type Move = (
+  state: ScriptState,
+  open: OpenSegment,
+  position: RoundPosition,
+) => Planned | null;
 
 /** The seat a segment is scheduled to: the speaker, or the asker. */
 const leadOf = (state: ScriptState, sequence: number): SeatRef => {
@@ -54,7 +59,7 @@ const leadOf = (state: ScriptState, sequence: number): SeatRef => {
 };
 const speakerOf = (state: ScriptState, sequence: number) =>
   seatAt(state.seats, leadOf(state, sequence));
-/** The lead's opponent: a script only interrupts or refuses a side's segment. */
+/** The lead's opponent: a script only offers to or refuses a side's segment. */
 const opponentOf = (state: ScriptState, sequence: number) => {
   const lead = leadOf(state, sequence);
   const side = sideOfSeat(lead);
@@ -70,10 +75,11 @@ const prepLeftOf = (
   const side = sideOfSeat(lead);
   return side === null ? 0 : (budget?.[side] ?? 0);
 };
-const command = (
-  type: RoundCommand['type'],
-  seat: CorpusSeat,
-): ScriptAction => ({ kind: 'command', type, seatId: seat.id });
+const command = (command: RoundCommand, seat: CorpusSeat): ScriptAction => ({
+  kind: 'command',
+  command,
+  seatId: seat.id,
+});
 const tickAt = (atMs: number): Planned => ({ atMs, action: { kind: 'tick' } });
 const isSpeech = (state: ScriptState, open: OpenSegment) =>
   state.rules.segments[open.sequence]!.type === 'speech';
@@ -99,36 +105,49 @@ const refusedYield: Move = (state, open) =>
     ? null
     : {
         atMs: state.nowMs + 1_000,
-        action: command('yield', opponentOf(state, open.sequence)),
+        action: command(
+          { type: 'yield', sequence: open.sequence },
+          opponentOf(state, open.sequence),
+        ),
         exercises: 'refusal',
       };
 
-/** An interrupter handing the floor back to the speaker. */
-const floorReturn: Move = (state, open) => {
-  const holder = state.seats.find((s) => s.id === open.floorParticipantId);
-  return !holder || state.done.has('floor_return')
-    ? null
-    : {
-        atMs: state.nowMs + 5_000,
-        action: command('yield', holder),
-        exercises: 'floor_return',
-      };
-};
-
-/** The opponent interrupting the first speech the enabled policy allows. */
-const interruption: Move = (state, open) => {
-  const policy = state.rules.interaction.interruptions;
-  return state.interrupting &&
-    !state.done.has('interrupt') &&
-    isSpeech(state, open) &&
-    policy.allowed === 'enabled' &&
-    open.remainingMs > policy.minRemainingMs + 20_000
+/** The opponent offering a point of information in the first speech that takes one. */
+const offer: Move = (state, open, position) => {
+  const window = position.pointOfInformation;
+  const atMs = window ? instantMs(window.offersOpenAt) + 5_000 : 0;
+  return state.offering &&
+    !state.done.has('poi_offer') &&
+    window !== null &&
+    atMs + 20_000 < instantMs(window.offersCloseAt)
     ? {
-        atMs: state.nowMs + 10_000,
-        action: command('interrupt', opponentOf(state, open.sequence)),
-        exercises: 'interrupt',
+        atMs: Math.max(state.nowMs, atMs),
+        action: command(
+          { type: 'offer_poi', sequence: open.sequence },
+          opponentOf(state, open.sequence),
+        ),
+        exercises: 'poi_offer',
       }
     : null;
+};
+
+/** The speaker taking the standing offer; its point gives the speech back by itself. */
+const accept: Move = (state, open, position) => {
+  const standing = position.pointOfInformation?.offers[0];
+  return standing === undefined || state.done.has('poi_accept')
+    ? null
+    : {
+        atMs: state.nowMs + 2_000,
+        action: command(
+          {
+            type: 'accept_poi',
+            sequence: open.sequence,
+            offererParticipantId: standing.participantId,
+          },
+          speakerOf(state, open.sequence),
+        ),
+        exercises: 'poi_accept',
+      };
 };
 
 /** The speaker yielding the second speech halfway through. */
@@ -139,25 +158,28 @@ const earlyYield: Move = (state, open) =>
   speechOrdinal(state.rules, open.sequence) === 1
     ? {
         atMs: state.nowMs + Math.floor(open.remainingMs / 2),
-        action: command('yield', speakerOf(state, open.sequence)),
+        action: command(
+          { type: 'yield', sequence: open.sequence },
+          speakerOf(state, open.sequence),
+        ),
         exercises: 'yield',
       }
     : null;
 
-const moves: readonly Move[] = [
-  refusedYield,
-  floorReturn,
-  interruption,
-  earlyYield,
-];
+const moves: readonly Move[] = [refusedYield, accept, offer, earlyYield];
 
-/** During an open segment: the first move that applies, else run to its end. */
-const duringSegment = (state: ScriptState, open: OpenSegment): Planned => {
+/** During an open segment: the first move that applies, else run to its end or a point's. */
+const duringSegment = (
+  state: ScriptState,
+  open: OpenSegment,
+  position: RoundPosition,
+): Planned => {
   for (const move of moves) {
-    const planned = move(state, open);
+    const planned = move(state, open, position);
     if (planned) return planned;
   }
-  return tickAt(instantMs(open.endsAt));
+  const holder = position.pointOfInformation?.holder;
+  return tickAt(holder ? instantMs(holder.endsAt) : instantMs(open.endsAt));
 };
 
 /** Before a segment: start prep where the rules allow, else reach the microphone lead, then the clock. */
@@ -176,7 +198,10 @@ const beforeSegment = (
   )
     return {
       atMs: state.nowMs + 2_000,
-      action: command('start_prep', speakerOf(state, next.sequence)),
+      action: command(
+        { type: 'start_prep', sequence: next.sequence },
+        speakerOf(state, next.sequence),
+      ),
       exercises: 'prep',
     };
   return tickAt(state.nowMs + (leftMs > lead ? leftMs - lead : leftMs));
@@ -199,18 +224,22 @@ const afterDebate = (state: ScriptState): Planned | null =>
 /** During prep: the next speaker ends it after thirty seconds, or half what is left. */
 const duringPrep = (
   state: ScriptState,
-  prep: NonNullable<RoundPosition['prep']>,
+  prep: Extract<NonNullable<RoundPosition['prep']>, { phase: 'running' }>,
   nextSequence: number,
 ): Planned => ({
   atMs: state.nowMs + Math.min(30_000, Math.floor(prep.remainingMs / 2)),
-  action: command('start_speech', speakerOf(state, nextSequence)),
+  action: command(
+    { type: 'start_speech', sequence: nextSequence },
+    speakerOf(state, nextSequence),
+  ),
 });
 
 /** While the Round runs: the step its stage calls for. */
 const whileActive = (state: ScriptState, position: RoundPosition): Planned => {
   const { prep, openSegment, nextSegment, countdownRemainingMs } = position;
-  if (prep && nextSegment) return duringPrep(state, prep, nextSegment.sequence);
-  if (openSegment) return duringSegment(state, openSegment);
+  if (prep?.phase === 'running' && nextSegment)
+    return duringPrep(state, prep, nextSegment.sequence);
+  if (openSegment) return duringSegment(state, openSegment, position);
   if (nextSegment && countdownRemainingMs !== null)
     return beforeSegment(
       state,

@@ -98,7 +98,7 @@ describe('typed debate scenarios', () => {
           type: 'expect-rejection',
           operation: {
             type: 'command',
-            command: { type: 'start_speech' },
+            command: { type: 'start_speech', sequence: 0 },
             actor: 1,
           },
           invariantId: 'round.speech.requires-prep',

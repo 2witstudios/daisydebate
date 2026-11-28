@@ -40,7 +40,14 @@ export const observerAccess = (capture: {
 type StagePosition = {
   readonly status: RoundStatus;
   readonly stage: string | null;
-  readonly prep: { readonly side: string; readonly remainingMs: number } | null;
+  readonly prep:
+    | { readonly phase: 'called'; readonly side: string }
+    | {
+        readonly phase: 'running';
+        readonly side: string;
+        readonly remainingMs: number;
+      }
+    | null;
   readonly nextSegment: {
     readonly type: string;
     readonly label: string;
@@ -54,7 +61,10 @@ type StagePosition = {
     readonly endsAt: string;
     /** The seat the segment is scheduled to; null for an open floor. */
     readonly lead: SeatRef | null;
-    readonly floorParticipantId: string | null;
+  } | null;
+  /** An accepted point of information's holder shares the floor while it lasts. */
+  readonly pointOfInformation: {
+    readonly holder: { readonly participantId: string } | null;
   } | null;
 };
 
@@ -93,16 +103,16 @@ const columnOf = (seating: StageSeating, seat: SeatRef) => {
 };
 
 /**
- * Whether a seat holds the floor: the participant who took it, or else the
- * segment's lead seat, every seat of its side for a sided lead.
+ * Whether a seat holds the floor: the segment's lead seat, every seat of its
+ * side for a sided lead, and the seat giving an accepted point of information.
  */
 const onFloor = (
   open: StagePosition['openSegment'],
+  point: StagePosition['pointOfInformation'],
   seat: StageSeat,
 ): boolean => {
   if (open === null) return false;
-  if (open.floorParticipantId)
-    return open.floorParticipantId === seat.participantId;
+  if (point?.holder?.participantId === seat.participantId) return true;
   if (open.lead === null) return false;
   const side = sideOfSeat(open.lead);
   return side === null
@@ -148,7 +158,7 @@ const waitLeft = (position: StagePosition, remainingMs: number | null) =>
 const phaseViewOf = (position: StagePosition): StagePhaseView => {
   // Asked first, so a Round that is over reads as ended whatever else its position holds.
   if (isRoundOver(position.status)) return { phase: 'ended' };
-  if (position.prep)
+  if (position.prep?.phase === 'running')
     return {
       phase: 'prep',
       remainingMs: waitLeft(position, position.prep.remainingMs),
@@ -191,7 +201,11 @@ export const stageSnapshot = (input: {
       label: seat.label,
       kind: seat.kind,
       identity: seat.identity,
-      floor: onFloor(input.position.openSegment, seat),
+      floor: onFloor(
+        input.position.openSegment,
+        input.position.pointOfInformation,
+        seat,
+      ),
     })),
     debaterIdentities: debaters.flatMap((seat) =>
       seat.identity === null ? [] : [seat.identity],

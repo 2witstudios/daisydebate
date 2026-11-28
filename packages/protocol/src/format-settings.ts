@@ -1,5 +1,9 @@
 import { z } from 'zod';
-import { interruptionModeSchema, MAX_PRE_ROUND_PREP_MS } from './format';
+import {
+  MAX_PRE_ROUND_PREP_MS,
+  pointsOfInformationTimingSchema,
+  type PointsOfInformationRule,
+} from './format';
 import { formatResolutionDrawSchema } from './resolution-draw';
 
 /**
@@ -28,9 +32,57 @@ const inRoundPrepSchema = z.discriminatedUnion('enabled', [
   }),
 ]);
 
+/** Points of information: declined, or taken with these timings. */
+const pointsOfInformationSettingSchema = z.discriminatedUnion('enabled', [
+  declinedSchema,
+  pointsOfInformationTimingSchema.extend({ enabled: z.literal(true) }),
+]);
+export type PointsOfInformationSetting = z.infer<
+  typeof pointsOfInformationSettingSchema
+>;
+
+/**
+ * Parliamentary practice (INTX-16): a protected first and last minute, points
+ * of up to 15 seconds, and an offer that sits down after 10. A Room that
+ * takes points of information starts from these.
+ */
+export const parliamentaryPointsOfInformation = {
+  enabled: true,
+  protectedStartMs: 60_000,
+  protectedEndMs: 60_000,
+  maxDurationMs: 15_000,
+  offerLapseMs: 10_000,
+} as const satisfies PointsOfInformationSetting;
+
+/**
+ * Where a format lets a Room set its points of information (INTX-16): up to
+ * two minutes protected at either end, a point of 5 to 30 seconds, and an
+ * offer that sits down after 5 to 30 seconds.
+ */
+export const pointsOfInformationBounds = {
+  protectedStartMs: { min: 0, max: 120_000 },
+  protectedEndMs: { min: 0, max: 120_000 },
+  maxDurationMs: { min: 5_000, max: 30_000 },
+  offerLapseMs: { min: 5_000, max: 30_000 },
+} as const;
+
+/** The rule a setting freezes into: forbidden and declined are both `allowed: false`. */
+export const pointsOfInformationRuleOf = (
+  setting: PointsOfInformationSetting | null,
+): PointsOfInformationRule => {
+  if (setting === null || !setting.enabled) return { allowed: false };
+  return {
+    allowed: true,
+    protectedStartMs: setting.protectedStartMs,
+    protectedEndMs: setting.protectedEndMs,
+    maxDurationMs: setting.maxDurationMs,
+    offerLapseMs: setting.offerLapseMs,
+  };
+};
+
 /**
  * The values a format sanctions within its definition: timing,
- * interruptions, yielding and prep. A Room embeds them
+ * points of information, yielding and prep. A Room embeds them
  * and adds its own inputs (`roomConfigSchema`).
  */
 export const formatSettingsFields = {
@@ -41,13 +93,8 @@ export const formatSettingsFields = {
     /** Partial: unspecified segments take the format's defaultDurationMs. */
     segmentDurationOverrides: z.record(z.string(), z.int().positive()),
   }),
-  /** Null only when the format forbids interruptions; otherwise an explicit legal choice. */
-  interruptions: z
-    .strictObject({
-      mode: interruptionModeSchema,
-      minRemainingMs: z.int().min(0),
-    })
-    .nullable(),
+  /** Null only when the format takes no points of information; otherwise an explicit legal choice. */
+  pointsOfInformation: pointsOfInformationSettingSchema.nullable(),
   /** Null only when the format forbids yielding; otherwise an explicit legal choice. */
   yielding: z
     .strictObject({ allowed: z.boolean(), returnsTime: z.boolean() })

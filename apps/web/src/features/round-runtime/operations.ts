@@ -9,6 +9,7 @@ import {
 import { roundTickProjection } from '../round-finalization/operations';
 import type { LockedRoundCommandContext } from '@daisy/db/rounds';
 import { createAppError, isAppError, createRefusal } from '@daisy/errors';
+import type { RoundCommand } from '@daisy/protocol/runtime';
 import {
   roundCommandEnvelopeSchema,
   type RoundCommandEnvelope,
@@ -95,7 +96,7 @@ export function createRoundRuntimeOperations(input: {
                 actorId: bound.actorId,
               });
             return createRoundRuntime(hydrated).execute({
-              command: { type: command.type },
+              command: engineCommandOf(command),
               actorId: bound.actorId,
               now: context.now,
             });
@@ -116,4 +117,37 @@ export function createRoundRuntimeOperations(input: {
       });
     },
   };
+}
+
+/**
+ * The engine's command from a seated envelope's: the seat is the principal's,
+ * already bound, and everything else the press named travels unchanged, so a
+ * stale segment is the engine's to refuse (INTX-7).
+ */
+function engineCommandOf(
+  command: Exclude<
+    RoundCommandEnvelope['command'],
+    { readonly type: 'strike_resolution' }
+  >,
+): RoundCommand {
+  switch (command.type) {
+    case 'forfeit':
+    case 'leave':
+      return { type: command.type };
+    case 'accept_poi':
+      return {
+        type: command.type,
+        sequence: command.sequence,
+        offererParticipantId: command.offererParticipantId,
+      };
+    case 'start_prep':
+    case 'cancel_prep':
+    case 'start_speech':
+    case 'yield':
+    case 'offer_poi':
+    case 'withdraw_poi':
+    case 'decline_poi':
+    case 'end_poi':
+      return { type: command.type, sequence: command.sequence };
+  }
 }

@@ -88,8 +88,8 @@ describe('stageSnapshot', () => {
       label: 'Constructive',
       endsAt: '2026-11-02T00:01:00.000Z',
       lead: { kind: 'side', side: 'affirmative', slot: 0 } as const,
-      floorParticipantId: null,
     },
+    pointOfInformation: null,
   };
   test('a speech shows clock, phase, names and floor, and never a judge', () => {
     const snapshot = stageSnapshot({ position, seating, seats });
@@ -147,7 +147,11 @@ describe('stageSnapshot', () => {
         next: 'next' in snapshot ? snapshot.next : undefined,
       };
     };
-    const prep = { side: 'negative', remainingMs: 90_000 };
+    const prep = {
+      phase: 'running' as const,
+      side: 'negative',
+      remainingMs: 90_000,
+    };
     const none = { remainingMs: undefined, next: undefined };
     const next = { label: 'Rebuttal' };
     assert({
@@ -213,8 +217,8 @@ describe('stageSnapshot for an unsided format (TAB-6.17)', () => {
           label: 'Opening',
           endsAt: '2026-11-02T00:01:00.000Z',
           lead: { kind: 'speaker', slot: 1 },
-          floorParticipantId: null,
         },
+        pointOfInformation: null,
       },
       seating: unsided,
       seats: [1, 0].map((slot) => ({

@@ -3,6 +3,7 @@ import type { DecisionReleasePolicy } from '@daisy/protocol/round-decision-relea
 import { instantMs } from '@daisy/clock';
 import { freezeRoundFinalization } from './round-finalization-writer';
 import {
+  clockStopsOf,
   isRoundOver,
   isRoundCompleted,
   roundBegan,
@@ -286,13 +287,13 @@ const lifecycleInstant = (
   now: string,
 ) => (projected !== null ? sql`coalesce(${column}, ${new Date(now)})` : column);
 
-const prepFacts = (
+/** When the running prep started; null when no prep runs. */
+const prepStartedAtMs = (
   checkpoint: z.infer<typeof runtimeCheckpointSchema>,
-): { startedAtMs: number; consumedMs: number } | null =>
-  checkpoint.active_prep && {
-    startedAtMs: instantMs(checkpoint.active_prep.started_at),
-    consumedMs: prepConsumedOf(checkpoint, checkpoint.active_prep.side),
-  };
+): number | null =>
+  checkpoint.prep.phase === 'running'
+    ? instantMs(checkpoint.prep.started_at)
+    : null;
 
 /** The Round's private spans, committed with the transition that opened or closed them. */
 export async function writePrivateSpans(
@@ -307,20 +308,46 @@ export async function writePrivateSpans(
   const before = runtimeCheckpointSchema.parse(current.runtimeState);
   const after = runtimeCheckpointSchema.parse(lifecycle.checkpoint);
   const ended = isRoundOver(lifecycle.status);
-  const changes = privateSpanChanges(
-    { stage: current.currentStage, activePrep: prepFacts(before) },
-    {
-      stage: ended ? null : lifecycle.currentStage,
-      activePrep: ended ? null : prepFacts(after),
-      consumedNowMs: before.active_prep
-        ? prepConsumedOf(after, before.active_prep.side)
-        : 0,
-    },
-    instantMs(now),
-    projection.finalSegmentEndedAt
-      ? instantMs(projection.finalSegmentEndedAt)
-      : null,
-  );
+  // A prep called ahead starts at the close of the segment it waited on; one
+  // catch-up can close that segment and run the prep out too, so the span
+  // opens and closes in the same step (ADR 0936).
+  const calledStart =
+    before.prep.phase === 'called' &&
+    after.prep.phase !== 'called' &&
+    after.prep.phase !== 'running' &&
+    projection.segmentCloses[0] !== undefined
+      ? instantMs(projection.segmentCloses[0].endedAt)
+      : null;
+  const ran =
+    before.prep.phase === 'running' || before.prep.phase === 'called'
+      ? before.prep.side
+      : null;
+  const prepUsedMs =
+    ran === null ? 0 : prepConsumedOf(after, ran) - prepConsumedOf(before, ran);
+  const opened =
+    calledStart !== null && prepUsedMs > 0
+      ? [{ type: 'open' as const, kind: 'prep' as const, atMs: calledStart }]
+      : [];
+  const changes = [
+    ...opened,
+    ...privateSpanChanges(
+      {
+        stage: current.currentStage,
+        prepStartedAtMs:
+          opened.length > 0 ? calledStart : prepStartedAtMs(before),
+      },
+      {
+        stage: ended ? null : lifecycle.currentStage,
+        prepStartedAtMs: ended ? null : prepStartedAtMs(after),
+        prepUsedMs,
+        clockStops: clockStopsOf(after),
+      },
+      instantMs(now),
+      projection.finalSegmentEndedAt
+        ? instantMs(projection.finalSegmentEndedAt)
+        : null,
+    ),
+  ];
   for (const change of changes)
     if (change.type === 'open')
       await tx

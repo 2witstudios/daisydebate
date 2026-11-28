@@ -49,7 +49,7 @@ test('refused commands discard boundary advancement before allocating IDs', asyn
     should: 'refuse the now-live segment',
     actual: () =>
       runtime.execute({
-        command: { type: 'start_prep' },
+        command: { type: 'start_prep', sequence: 0 },
         actorId: oneOnOneSeats[0].actorId,
         now: roundAt(10_000),
       }),
@@ -78,65 +78,25 @@ test('start-speech refuses exactly at prep expiry without consuming IDs or prep'
   const { assertRejects } = await import('@daisy/errors/testing');
   const { runtime, calls } = clockWorld({
     ...emptyCheckpoint,
-    active_prep: { side: 'affirmative', started_at: roundAt(1_000) },
+    prep: { phase: 'running', side: 'affirmative', started_at: roundAt(1_000) },
   });
   const before = runtime.checkpoint();
   await assertRejects({
     given: 'start-speech at the exact prep budget deadline',
-    should: 'refuse after scratch expiry already opened the speech',
+    should: 'refuse as a race once scratch expiry has ended prep (INTX-3)',
     actual: () =>
       runtime.execute({
-        command: { type: 'start_speech' },
+        command: { type: 'start_speech', sequence: 0 },
         actorId: oneOnOneSeats[0].actorId,
         now: roundAt(241_000),
       }),
-    code: 'INVARIANT',
-    invariantId: 'round.speech.requires-prep',
+    code: 'CONFLICT',
   });
   assert({
     given: 'the refused start-speech',
     should: 'leave checkpoint unchanged without ID allocations',
     actual: [runtime.checkpoint(), calls()],
     expected: [before, 0],
-  });
-});
-
-test('an interrupter yield returns the floor without closing the segment or crediting prep (DEC-203)', () => {
-  const rules = oneOnOneRules();
-  const { runtime } = clockWorld(
-    {
-      ...emptyCheckpoint,
-      prep_consumed_ms: { affirmative: 100_000, negative: 150_000 },
-    },
-    {
-      ...rules,
-      interaction: {
-        ...rules.interaction,
-        interruptions: { allowed: 'enabled', minRemainingMs: 0 },
-      },
-    },
-  );
-  runtime.tick(roundAt(20_000));
-  runtime.execute({
-    command: { type: 'interrupt' },
-    actorId: oneOnOneSeats[1].actorId,
-    now: roundAt(20_000),
-  });
-  const yielded = runtime.execute({
-    command: { type: 'yield' },
-    actorId: oneOnOneSeats[1].actorId,
-    now: roundAt(30_000),
-  });
-  assert({
-    given: 'negative yields the floor it took in affirmative CX',
-    should:
-      'clear the floor, leave both prep budgets untouched and close nothing',
-    actual: [
-      yielded.round?.checkpoint.prep_consumed_ms,
-      yielded.round?.checkpoint.floor,
-      yielded.segmentCloses,
-    ],
-    expected: [{ affirmative: 100_000, negative: 150_000 }, null, []],
   });
 });
 
@@ -153,7 +113,7 @@ test('configured prep expiry refuses the first reached speech atomically and per
     should: 'refuse the configured expiry with the spendable-segment invariant',
     actual: () =>
       runtime.execute({
-        command: { type: 'start_prep' },
+        command: { type: 'start_prep', sequence: 0 },
         actorId: oneOnOneSeats[0].actorId,
         now: roundAt(1_000),
       }),
@@ -171,7 +131,7 @@ test('configured prep expiry refuses the first reached speech atomically and per
     inRoundPrep: { ...rules.inRoundPrep!, expiresAtSegment: 'NC' },
   });
   earlier.runtime.execute({
-    command: { type: 'start_prep' },
+    command: { type: 'start_prep', sequence: 0 },
     actorId: oneOnOneSeats[0].actorId,
     now: roundAt(1_000),
   });

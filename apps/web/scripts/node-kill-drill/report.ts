@@ -1,7 +1,7 @@
 import { CAPTURE_COVERAGE_TOLERANCE } from '@daisy/protocol/capture-timing';
 import { z } from 'zod';
 import { incidentRate, percentile } from './measure';
-import type { DrillMoment } from './target';
+import { clockMoments, drillMoments, type DrillMoment } from './target';
 
 const seatSchema = z.strictObject({
   seat: z.enum(['first-speaker', 'second-speaker']),
@@ -35,7 +35,7 @@ const coverageSchema = z.strictObject({
 /** One kill and what it did; a sample whose kill never fired says why. */
 export const drillSampleSchema = z.strictObject({
   index: z.number(),
-  moment: z.enum(['mid-speech', 'floor-change']),
+  moment: z.enum(drillMoments),
   killed: z.boolean(),
   node: z.string().nullable(),
   roundId: z.string().nullable(),
@@ -58,6 +58,11 @@ export const drillSampleSchema = z.strictObject({
   unsafeAfter60s: z.boolean().nullable(),
   nodeBackMs: z.number().nullable(),
   nodeStartedBy: z.enum(['platform', 'drill']).nullable(),
+  /**
+   * For a kill during prep, cross-examination or a point of information, what
+   * it moved that the clock owns (`clockInstantProblems`); absent otherwise.
+   */
+  clockProblems: z.array(z.string()).optional(),
   errors: z.array(z.string()),
 });
 const killedAirtime = (report: {
@@ -146,6 +151,7 @@ export function buildDrillReport(input: {
   const streams = killed.flatMap((sample) => sample.streams);
   const ran = killed.length > 0;
   const seatP95 = percentile(seatBack, 95);
+  const clocked = killed.filter((sample) => clockMoments.has(sample.moment));
   return {
     label: input.label,
     commit: input.commit,
@@ -228,6 +234,19 @@ export function buildDrillReport(input: {
         killed.every((sample) => sample.unsafeAfter60s === false) &&
           seatBack.every((back) => back !== null && back <= UNRECOVERED_BAR_MS),
       ),
+      // Only a plan with prep, cross-examination or POI kills is held to it (INTX-19).
+      ...(input.plan.some((moment) => clockMoments.has(moment))
+        ? {
+            clockKeepsItsInstants: verdict(
+              clocked.length > 0,
+              clocked.every(
+                (sample) =>
+                  sample.clockProblems !== undefined &&
+                  sample.clockProblems.length === 0,
+              ),
+            ),
+          }
+        : {}),
     },
     notRun,
     samples: input.samples,

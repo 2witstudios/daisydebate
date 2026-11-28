@@ -78,7 +78,7 @@ export async function lockRoundBallotScreening(tx: Tx, roundId: string) {
         countdownMs: config.speechTiming.countdownMs,
       },
       'room.floor': {
-        interruptions: config.interruptions,
+        pointsOfInformation: config.pointsOfInformation,
         yielding: config.yielding,
       },
     },

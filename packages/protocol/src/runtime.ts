@@ -42,13 +42,34 @@ export type RoundParticipantSeat = {
   readonly id: string;
   readonly actorId: string;
   readonly seat: SeatRef;
+  /** Whether a person or a bot holds the seat; some rules differ (INTX-17). */
+  readonly kind: 'human' | 'bot';
+};
+
+/** A floor command and the segment it means (INTX-7). */
+type FloorCommand<Type extends string> = {
+  readonly type: Type;
+  readonly sequence: number;
 };
 
 export type RoundCommand =
-  | { readonly type: 'start_prep' }
-  | { readonly type: 'start_speech' }
-  | { readonly type: 'yield' }
-  | { readonly type: 'interrupt' }
+  /** Call prep for the segment named, now or when the one before it ends. */
+  | FloorCommand<'start_prep'>
+  /** Take back a prep called during the previous segment. */
+  | FloorCommand<'cancel_prep'>
+  /** End running prep: the named segment opens one microphone lead later. */
+  | FloorCommand<'start_speech'>
+  /** The scheduled seat ends its own speech or cross-examination early. */
+  | FloorCommand<'yield'>
+  /** Stand to offer a point of information in the named speech. */
+  | FloorCommand<'offer_poi'>
+  | FloorCommand<'withdraw_poi'>
+  /** The speaker takes this seat's standing offer. */
+  | (FloorCommand<'accept_poi'> & { readonly offererParticipantId: string })
+  /** The speaker declines every standing offer. */
+  | FloorCommand<'decline_poi'>
+  /** The holder or the speaker gives the speech back before the point's limit. */
+  | FloorCommand<'end_poi'>
   | { readonly type: 'forfeit' }
   /** A competitor leaves a Round no forfeit ends: absent, and the Round goes on (TAB-6.8). */
   | { readonly type: 'leave' };
@@ -174,8 +195,6 @@ export type RoundPosition = RoundLifecycle & {
     readonly startedAt: string;
     readonly endsAt: string;
     readonly remainingMs: number;
-    /** The participant holding the floor; null when the scheduled seat does. */
-    readonly floorParticipantId: string | null;
   } | null;
   readonly nextSegment: {
     readonly key: string;
@@ -186,14 +205,42 @@ export type RoundPosition = RoundLifecycle & {
     readonly sequence: number;
   } | null;
   readonly countdownRemainingMs: number | null;
-  readonly prep: {
-    readonly side: SideKey;
-    readonly remainingMs: number;
-  } | null;
+  /** Prep called for the next segment, or running now; null when neither. */
+  readonly prep:
+    | { readonly phase: 'called'; readonly side: SideKey }
+    | {
+        readonly phase: 'running';
+        readonly side: SideKey;
+        readonly remainingMs: number;
+      }
+    | null;
+  /** The open speech's points of information; null when it takes none. */
+  readonly pointOfInformation: PointOfInformationPosition | null;
   /** Remaining budget per side key; null when the format has no in-round prep. */
   readonly prepBudgetRemainingMs: Readonly<Record<SideKey, number>> | null;
+  /** The budget died at its expiry segment: no prep is spendable from the coming segment on. */
+  readonly prepExpired: boolean;
   /** A platform incident's hold on the clock, for every viewer alike. */
   readonly incident: RoundIncident;
+};
+
+/** Where a speech's points of information stand at one instant (INTX-13..15). */
+type PointOfInformationPosition = {
+  /** When the protected start ends and offers open. */
+  readonly offersOpenAt: string;
+  /** When the protected end begins: no offer or acceptance after it. */
+  readonly offersCloseAt: string;
+  /** Standing offers, oldest first. */
+  readonly offers: readonly {
+    readonly participantId: string;
+    readonly lapsesAt: string;
+  }[];
+  /** The accepted point being given, if any. */
+  readonly holder: {
+    readonly participantId: string;
+    readonly endsAt: string;
+    readonly remainingMs: number;
+  } | null;
 };
 
 /** Conversation microphones may open: before the first segment or awaiting a ballot. */

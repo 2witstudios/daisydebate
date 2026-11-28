@@ -1,5 +1,8 @@
 import type { FormatDefinition } from '@daisy/protocol/format';
-import type { FormatSettings } from '@daisy/protocol/format-settings';
+import {
+  pointsOfInformationBounds,
+  type FormatSettings,
+} from '@daisy/protocol/format-settings';
 import { oneOnOneDefinition, oneOnOneSettings } from './reference-formats';
 import { casualTemplates } from './catalog-casual';
 import { affirmativeSide, negativeSide, twoSides } from '@daisy/protocol/seats';
@@ -70,10 +73,7 @@ function templateDefinition({
       preRoundPrep: { durationMs: { min: 0, max: 60 * minute } },
       resolutionDraw: null,
       interaction: {
-        interruptions: {
-          modes: ['disabled', 'enabled'],
-          minRemainingMs: { min: 0, max: 5 * minute },
-        },
+        pointsOfInformation: pointsOfInformationBounds,
         yield: {
           enabledChoices: [true, false],
           returnsTimeChoices: [true, false],

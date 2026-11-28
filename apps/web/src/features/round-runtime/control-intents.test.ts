@@ -28,7 +28,11 @@ test('Round controls follow existing runtime position and preserve floor command
     ...ran(0),
     checkpoint: {
       ...ran(0).checkpoint!,
-      active_prep: { side: 'affirmative' as const, started_at: at(1000) },
+      prep: {
+        phase: 'running' as const,
+        side: 'affirmative' as const,
+        started_at: at(1000),
+      },
     },
   };
   assert({
@@ -57,12 +61,13 @@ test('Round controls follow existing runtime position and preserve floor command
     instantMs(at(startOf(1) + 1000)),
   );
   assert({
-    given: 'the respondent during cross-examination',
-    should: 'offer neither interruption nor floor-holder yield',
+    given: 'the person answering a bot’s cross-examination',
+    should:
+      'offer only a confirmed end to it, since a bot asker cannot end it (INTX-9), and no point of information',
     actual: controls
       .filter((c) => c.enabled && c.type !== 'forfeit')
-      .map((c) => c.type),
-    expected: [],
+      .map((c) => [c.type, c.label, c.confirm]),
+    expected: [['yield', 'End cross-examination', true]],
   });
   assert({
     given: 'a bot actor represented in the viewer projection',
@@ -87,11 +92,12 @@ test('between segments, prep is offered only before an own speech while prep is 
       { ...between, rules: { ...between.rules, inRoundPrep } },
       aff.actorId,
       now,
-    ).map((c) => c.type);
+    ).map((c) => (c.type === 'start_prep' ? c.label : c.type));
   assert({
     given:
       'the gap before the affirmative 1AR with prep, prep expiring at 1AR, prep expiring at 2AR, and no in-round prep',
-    should: 'offer prep only while it can still be spent before 1AR',
+    should:
+      'offer prep while it can still be spent before 1AR, and say so once it has ended',
     actual: [
       intents(prep),
       intents({ ...prep, expiresAtSegment: '1AR' }),
@@ -99,9 +105,9 @@ test('between segments, prep is offered only before an own speech while prep is 
       intents(null),
     ],
     expected: [
-      ['start_prep', 'forfeit'],
-      ['forfeit'],
-      ['start_prep', 'forfeit'],
+      ['Take prep time', 'forfeit'],
+      ['Prep has ended', 'forfeit'],
+      ['Take prep time', 'forfeit'],
       ['forfeit'],
     ],
   });
@@ -112,18 +118,26 @@ test('control labels name speeches and prep in words, never by code', () => {
     ...ran(0),
     checkpoint: {
       ...ran(0).checkpoint!,
-      active_prep: { side: 'affirmative' as const, started_at: at(1000) },
+      prep: {
+        phase: 'running' as const,
+        side: 'affirmative' as const,
+        started_at: at(1000),
+      },
     },
   };
   const between = ran(4);
   const label = (
     intents: ReturnType<typeof roundControlIntents>,
     type: string,
-  ) => intents.find((c) => c.type === type)?.label;
+  ) => {
+    const found = intents.find((c) => c.type === type);
+    return [found?.label, found?.hint];
+  };
   assert({
     given:
       'prep before the next own speech, then the gap where prep can be taken',
-    should: 'start the speech by its lowercased full name and offer prep time',
+    should:
+      'start the speech by its lowercased full name and offer prep time before the next speech by name',
     actual: [
       label(
         roundControlIntents(prepping, aff.actorId, instantMs(at(2000))),
@@ -138,7 +152,13 @@ test('control labels name speeches and prep in words, never by code', () => {
         'start_prep',
       ),
     ],
-    expected: ['Start affirmative constructive', 'Take prep time'],
+    expected: [
+      [
+        'Start affirmative constructive',
+        'Ends prep; unused prep stays your side’s',
+      ],
+      ['Take prep time', 'Before the first affirmative rebuttal'],
+    ],
   });
 });
 

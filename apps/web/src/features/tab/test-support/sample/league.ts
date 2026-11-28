@@ -13,7 +13,7 @@ export const sampleFormatDefaults: FormatSettingDefaults = {
     countdownMs: 5_000,
   },
   'room.floor': {
-    interruptions: { mode: 'disabled', minRemainingMs: 0 },
+    pointsOfInformation: { enabled: false },
     yielding: { allowed: false, returnsTime: false },
   },
 };

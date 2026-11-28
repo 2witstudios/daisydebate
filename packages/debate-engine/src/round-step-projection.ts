@@ -27,24 +27,31 @@ const iso = (ms: number) => new Date(ms).toISOString();
 export const storedCheckpointOf = (
   checkpoint: RuntimeCheckpoint,
 ): RuntimeCheckpoint => {
-  const { active_prep: prep, floor } = checkpoint;
+  const { prep, point_of_information: point } = checkpoint;
   const absent = checkpoint.absent_participant_ids ?? [];
+  const canonical = (at: string) => iso(instantMs(at));
   return {
-    version: 1,
+    version: 2,
     prep_consumed_ms: { ...checkpoint.prep_consumed_ms },
-    active_prep:
-      prep === null
-        ? null
-        : { side: prep.side, started_at: iso(instantMs(prep.started_at)) },
-    floor:
-      floor === null
-        ? null
-        : {
-            holder_participant_id: floor.holder_participant_id,
-            granted_at: iso(instantMs(floor.granted_at)),
-          },
+    prep:
+      prep.phase === 'running'
+        ? { ...prep, started_at: canonical(prep.started_at) }
+        : prep.phase === 'lead'
+          ? { phase: 'lead', ended_at: canonical(prep.ended_at) }
+          : prep,
+    point_of_information:
+      point.phase === 'speaking'
+        ? { ...point, accepted_at: canonical(point.accepted_at) }
+        : point.phase === 'offered'
+          ? {
+              phase: 'offered',
+              offers: point.offers.map((offer) => ({
+                participant_id: offer.participant_id,
+                offered_at: canonical(offer.offered_at),
+              })),
+            }
+          : point,
     incident: checkpoint.incident,
-    prep_ended_at: checkpoint.prep_ended_at,
     start_gate: checkpoint.start_gate,
     clock_stops: checkpoint.clock_stops,
     ...(absent.length > 0 ? { absent_participant_ids: [...absent] } : {}),
@@ -65,6 +72,18 @@ export const validClockOf = (clock: ClockState): ClockState => ({
  * takes the next id from `mint`, in that order, and the returned map knows
  * every segment's id for the next step.
  */
+/** The seats that had left before this step: a leave in it records its own. */
+const absentBefore = (step: RoundStep): readonly string[] => {
+  const leftNow = new Set(
+    step.state.cast
+      .filter((seat) => step.releasedMembers.includes(seat.actorId))
+      .map((seat) => seat.id),
+  );
+  return (step.state.clock.checkpoint.absent_participant_ids ?? []).filter(
+    (id) => !leftNow.has(id),
+  );
+};
+
 export const projectRoundStep = (input: {
   readonly step: RoundStep;
   readonly rules: RoundRules;
@@ -145,8 +164,8 @@ export const projectRoundStep = (input: {
         rules,
         participants: step.state.cast,
         changes,
+        absent: absentBefore(step),
         segmentIdOf,
-        floorChange: step.floorChange,
       }),
       round: {
         ...lifecycleColumnsOf(clock.lifecycle),

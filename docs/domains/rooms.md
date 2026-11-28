@@ -196,10 +196,11 @@ command or the strike that finished it, never at the processing time. Pre-round
 prep always runs its full length, with every mic and camera closed and the
 countdown following at once. From then on, the runtime moves through the rules'
 segments and in-round prep under the database clock.
-Only the floor holder may yield. An interrupter's yield returns the floor to
-the scheduled speaker, whose segment continues (DEC-203). Cross-examination
-keeps every seated debater's microphone open for the whole segment and has no
-interruptions (ADR 0096); its questioner may still end it early. Humans, bots and
+Only the scheduled speaker ends a speech early. Cross-examination keeps every
+seated debater's microphone open for the whole segment (ADR 0096); its asker may
+end it early, and so may a person answering a bot asker, and no time returns to
+prep. Either partner on a side may call prep during the segment before their
+speech; it starts the moment that segment ends (ADR 0936). Humans, bots and
 services all act through the one shared command operation; people reach it
 through the Round command route.
 
@@ -216,9 +217,12 @@ and from Watch's "Your students, live". The spectator view is the seed of
 spectating: `SpectatorKind` names why a viewer watches (`host`,
 `linked-adult`), and later kinds join that union without a second view. Everyone else gets the Round's public page.
 
-Unranked Custom rules can use points of information (POI): both sides have
-permission to speak and begin with their local microphones muted, with a
-simple mute/unmute control. Raised-hand requests and acceptance are roadmap work (ISSUE-871).
+Unranked Custom rules can take points of information (POI, ADR 0936). During
+a one-speaker speech, outside its protected start and end, a debater of another
+side offers; the speaker accepts one offer or declines. While a point is given
+both the speaker's and the holder's microphones are live, and the floor returns
+when either ends it or its limit runs out. Offers lapse unanswered. Bots never
+offer, and no one offers to a bot speaker. Ranked presets take none.
 
 Media is a scoped LiveKit session. The capture worker turns each person's
 published audio into the transcript. A bot's transcript is authored from its

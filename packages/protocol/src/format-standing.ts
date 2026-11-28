@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import type { FormatDefinition } from './format';
 import type { FormatSettings } from './format-settings';
-import { interruptionRuleSchema } from './format';
+import { pointsOfInformationRuleSchema } from './format';
 import { sideKeySchema } from './seats';
 import { frozenResolutionDrawSchema } from './resolution-draw';
 
@@ -56,9 +56,9 @@ const formatChangeSchema = z.discriminatedUnion('kind', [
     toMs: msSchema.nullable(),
   }),
   z.strictObject({
-    kind: z.literal('interruptions'),
-    from: interruptionRuleSchema,
-    to: interruptionRuleSchema,
+    kind: z.literal('points-of-information'),
+    from: pointsOfInformationRuleSchema,
+    to: pointsOfInformationRuleSchema,
   }),
   z.strictObject({
     kind: z.literal('yield'),

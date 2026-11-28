@@ -148,7 +148,11 @@ test('a catch-up tick during a pause moves nothing', () => {
       () => {
         const runtime = runtimeOf([], {
           ...emptyCheckpoint,
-          active_prep: { side: 'affirmative', started_at: roundAt(500) },
+          prep: {
+            phase: 'running',
+            side: 'affirmative',
+            started_at: roundAt(500),
+          },
         });
         runtime.applyIncident(pause(1_000, null));
         return runtime;
@@ -391,7 +395,6 @@ test('commands are refused while held', () => {
   const held: RuntimeCheckpoint = {
     ...emptyCheckpoint,
     prep_consumed_ms: { affirmative: 0, negative: 0 },
-    prep_ended_at: null,
     start_gate: null,
     clock_stops: [],
     incident: {
@@ -412,15 +415,15 @@ test('commands are refused while held', () => {
     checkpoint: held,
     rules,
   });
-  for (const type of [
-    'start_prep',
-    'start_speech',
-    'yield',
-    'interrupt',
-    'forfeit',
+  for (const command of [
+    { type: 'start_prep', sequence: 1 },
+    { type: 'start_speech', sequence: 1 },
+    { type: 'yield', sequence: 0 },
+    { type: 'offer_poi', sequence: 0 },
+    { type: 'forfeit' },
   ] as const)
     assert({
-      given: `${type} from a seated debater during an incident`,
+      given: `${command.type} from a seated debater during an incident`,
       should: 'be refused, so no player can act on or end the hold',
       actual: roundCommandRefusal(
         {
@@ -430,7 +433,7 @@ test('commands are refused while held', () => {
           seat: oneOnOneSeats[0]!,
           nowMs: instantMs(roundAt(41_000)),
         },
-        type,
+        command,
       ),
       expected: {
         kind: 'conflict',
@@ -723,7 +726,7 @@ test('prep taken inside the lead leaves the next start to gate afresh', () => {
     boundMs: 1_500,
   });
   run.execute({
-    command: { type: 'start_prep' },
+    command: { type: 'start_prep', sequence: 0 },
     actorId: seat.actorId,
     now: roundAt(due - 1_000),
   });

@@ -29,7 +29,7 @@ const draw = {
 /** A config the fixture accepts apart from the draw. */
 const base = {
   ...plainRoomConfig,
-  interruptions: { mode: 'disabled' as const, minRemainingMs: 0 },
+  pointsOfInformation: { enabled: false as const },
   yielding: { allowed: false, returnsTime: false },
 };
 const resolve = (choice: Partial<typeof draw> | { kind: 'host' }) =>

@@ -1,3 +1,4 @@
+import type { PointsOfInformationRule } from '@daisy/protocol/format';
 import type { RoomView } from '@daisy/protocol/room-contract';
 import type { Side, SideKey } from '@daisy/protocol/seats';
 import { clockDuration } from '../rooms/duration-input';
@@ -8,8 +9,6 @@ import { sideName } from './seat-names';
  * full names first, codes second, never a raw enum or format id.
  */
 
-type Interaction = RoomView['config'];
-
 /** "Negative constructive (NC)". */
 export function speechName(segment: {
   readonly key: string;
@@ -18,23 +17,30 @@ export function speechName(segment: {
   return `${segment.label} (${segment.key})`;
 }
 
-/** "Start negative constructive": the speech's name as written, first letter lowered. */
-export function startSpeechLabel(name: string): string {
-  return `Start ${name.charAt(0).toLocaleLowerCase()}${name.slice(1)}`;
+/** "negative constructive": a speech's name inside a sentence, first letter lowered. */
+export function speechInSentence(name: string): string {
+  return `${name.charAt(0).toLocaleLowerCase()}${name.slice(1)}`;
 }
 
-export const interruptionLabel: Readonly<
-  Record<NonNullable<Interaction['interruptions']>['mode'], string>
-> = {
-  disabled: 'Off',
-  enabled: 'During any speech',
-  open: 'Open microphones (POI)',
-};
+/** "Start negative constructive": the speech's name as written, first letter lowered. */
+export function startSpeechLabel(name: string): string {
+  return `Start ${speechInSentence(name)}`;
+}
+
+/** Points of information, as a rule row's value: Off, or what each point may take. */
+export function pointsOfInformationLabel(
+  rule: PointsOfInformationRule,
+): string {
+  return rule.allowed
+    ? `On · up to ${clockDuration(rule.maxDurationMs)} each`
+    : 'Off';
+}
 
 /**
  * Ending a speech early. A returned yield credits the unused speech time
  * back to the speaker's side's in-round prep, never past its budget, and
- * only when the round has prep time (round-floor.ts).
+ * only when the round has prep time; cross-examination time never returns
+ * (round-yield.ts).
  */
 export function yieldLabel(
   yielding: {
@@ -124,25 +130,18 @@ export function roundLength({
   return `about ${rounded / 60000} min`;
 }
 
-type Mode = NonNullable<Interaction['interruptions']>['mode'];
-
-/** Only an enabled policy has a protected end to show. */
-export type RuleRowInterruptions =
-  | { readonly mode: 'enabled'; readonly minRemainingMs: number }
-  | { readonly mode: Exclude<Mode, 'enabled'> };
-
 /** A round's rules as label/value rows: m:ss, Off, never a raw value. */
 export function ruleRows(rules: {
   readonly preRoundPrepMs: number | null;
   readonly prepPerSideMs: number | null;
   readonly countdownMs: number;
-  readonly interruptions: RuleRowInterruptions;
+  readonly pointsOfInformation: PointsOfInformationRule;
   readonly yielding: {
     readonly allowed: boolean;
     readonly returnsTime: boolean;
   } | null;
 }): readonly (readonly [string, string])[] {
-  const { interruptions } = rules;
+  const poi = rules.pointsOfInformation;
   return [
     [
       'Prep before the round',
@@ -157,12 +156,12 @@ export function ruleRows(rules: {
         : `${clockDuration(rules.prepPerSideMs)} per side`,
     ],
     ['Countdown before each speech', clockDuration(rules.countdownMs)],
-    ['Interruptions', interruptionLabel[interruptions.mode]],
-    ...(interruptions.mode === 'enabled'
+    ['Points of information', pointsOfInformationLabel(poi)],
+    ...(poi.allowed
       ? [
           [
-            'Protected end of each speech',
-            clockDuration(interruptions.minRemainingMs),
+            'Protected time in each speech',
+            `First ${clockDuration(poi.protectedStartMs)} and last ${clockDuration(poi.protectedEndMs)}`,
           ] as const,
         ]
       : []),

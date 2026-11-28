@@ -10,7 +10,8 @@ import {
 
 setupRitewayBun();
 
-const speech: DutyRules = { crossEx: false, asks: false, maxAttempts: 2 };
+/** The speech's own speaker (INTX-17). */
+const speech: DutyRules = { crossEx: false, asks: true, maxAttempts: 2 };
 const asker: DutyRules = { crossEx: true, asks: true, maxAttempts: 2 };
 const respondent: DutyRules = { crossEx: true, asks: false, maxAttempts: 2 };
 /** Applies events in order and returns the last state with every effect raised. */
@@ -39,6 +40,17 @@ const spoke = (audible: boolean, bought = true): DutyEvent => ({
 });
 const failed: DutyEvent = { type: 'failed', unusable: false };
 const resumed: DutyEvent = { type: 'pause-ended' };
+
+test('a bot never opens a speech it does not hold (INTX-17)', () => {
+  const partner: DutyRules = { crossEx: false, asks: false, maxAttempts: 2 };
+  assert({
+    given:
+      'a bot seat in a speech another seat is scheduled to, woken and hearing a turn end',
+    should: 'wait and owe nothing, so it never speaks over the speaker',
+    actual: after(partner, woke, turnEnded(5_000), woke).duty.status,
+    expected: 'waiting',
+  });
+});
 
 describe('a speech', () => {
   test('is owed once and over when delivered', () => {

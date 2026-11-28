@@ -64,48 +64,6 @@ for (const offset of [-1, 0, 1])
     });
   });
 
-test('interrupted CX closes and clears floor before the next speech', () => {
-  const segments = firstTwoSegments(320_000);
-  const checkpoint = {
-    ...emptyCheckpoint,
-    floor: {
-      holder_participant_id: oneOnOneSeats[0].id,
-      granted_at: roundAt(330_000),
-    },
-  };
-  const input = { round, segments, rules, checkpoint, nowMs: origin + 450_000 };
-  const runtime = createRoundRuntime({
-    ...input,
-    round: { ...round, id: 'round', currentStage: 'live' },
-    participants: oneOnOneSeats,
-    nextSegmentId: () => {
-      throw new Error('read allocated an ID');
-    },
-  });
-  const position = roundPositionAt(input);
-  assert({
-    given: 'an affirmative interruption in CX1 then NC at 450000ms',
-    should: 'drop the previous floor',
-    actual: [
-      position.openSegment?.key,
-      position.openSegment?.floorParticipantId,
-    ],
-    expected: ['NC', null],
-  });
-  assert({
-    given: 'the identical durable server and browser snapshot',
-    should: 'produce equal positions',
-    actual: runtime.position(roundAt(450_000)),
-    expected: position,
-  });
-  assert({
-    given: 'pure prediction',
-    should: 'preserve the persisted interruption',
-    actual: checkpoint.floor.holder_participant_id,
-    expected: oneOnOneSeats[0].id,
-  });
-});
-
 test('frozen input, multi-segment catchup, staged composition and repeated time', () => {
   const initial = state();
   Object.freeze(initial.lifecycle);
@@ -145,7 +103,11 @@ test('prep expiry ends prep, opens one lead later, and final segment closes awai
     ...prior,
     checkpoint: {
       ...prior.checkpoint,
-      active_prep: { side: 'affirmative', started_at: roundAt(945_000) },
+      prep: {
+        phase: 'running',
+        side: 'affirmative',
+        started_at: roundAt(945_000),
+      },
       prep_consumed_ms: { affirmative: 60_000, negative: 0 },
     },
   };
@@ -165,7 +127,7 @@ test('prep expiry ends prep, opens one lead later, and final segment closes awai
       given: `prep expiry ${offset}ms`,
       should: 'consume budget at expiry and open one lead after it',
       actual: [
-        advanced.state.checkpoint.active_prep === null,
+        advanced.state.checkpoint.prep.phase !== 'running',
         advanced.state.rows.at(-1)?.key,
         advanced.state.checkpoint.prep_consumed_ms.affirmative,
       ],
@@ -240,7 +202,7 @@ test('one call derives position and options from one advanced state', () => {
     should: 'read the position the clock advances to, and offer from it',
     actual: [
       controls(10_000).position,
-      controls(10_000).options.map((option) => option.type),
+      controls(10_000).options.map((option) => option.command.type),
     ],
     expected: [read(10_000), ['yield', 'forfeit']],
   });

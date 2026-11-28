@@ -32,7 +32,11 @@ test('prep refresh overrides the ordinary gap and judging uses actual final clos
       ...gap,
       checkpoint: {
         ...gap.checkpoint!,
-        active_prep: { side: 'negative' as const, started_at: at(20000) },
+        prep: {
+          phase: 'running' as const,
+          side: 'negative' as const,
+          started_at: at(20000),
+        },
       },
     };
   assert({

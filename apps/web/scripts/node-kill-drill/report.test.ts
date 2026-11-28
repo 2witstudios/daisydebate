@@ -101,6 +101,33 @@ test('a clean drill passes every bar', () => {
   });
 });
 
+test('kills during prep, cross-examination and a point hold the clock’s instants (INTX-19)', () => {
+  const clocked = [
+    sample({ index: 0, moment: 'mid-prep', clockProblems: [] }),
+    sample({ index: 1, moment: 'mid-cx', clockProblems: [] }),
+    sample({ index: 2, moment: 'mid-poi', clockProblems: [] }),
+  ];
+  const moved = sample({
+    index: 2,
+    moment: 'mid-poi',
+    clockProblems: ['point of information: returned late'],
+  });
+  const unchecked = sample({ index: 2, moment: 'mid-poi' });
+  assert({
+    given:
+      'the spike’s plan; kills that kept every instant; one that moved a point’s return; and one whose instants were never checked',
+    should:
+      'hold only a plan with such kills to the bar, and pass it only when every one was checked and kept its instants',
+    actual: [
+      'clockKeepsItsInstants' in barsOf([sample()]),
+      barsOf(clocked).clockKeepsItsInstants,
+      barsOf([...clocked.slice(0, 2), moved]).clockKeepsItsInstants,
+      barsOf([...clocked.slice(0, 2), unchecked]).clockKeepsItsInstants,
+    ],
+    expected: [false, 'pass', 'fail', 'fail'],
+  });
+});
+
 test('summaries state their sample sizes', () => {
   const result = report([
     sample({ incidents: null }),

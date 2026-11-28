@@ -76,7 +76,7 @@ export function standingRoomConfig(
       ? { enabled: true, budgetMsPerSide: timing.inRoundPrepMsPerSide }
       : { enabled: false },
     speechTiming: { ...config.speechTiming, countdownMs: timing.countdownMs },
-    interruptions: floor.interruptions,
+    pointsOfInformation: floor.pointsOfInformation,
     yielding: floor.yielding,
     resolutionDraw:
       rule.method === 'strike' && unique.length >= rule.drawSize

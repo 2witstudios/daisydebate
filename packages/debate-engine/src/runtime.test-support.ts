@@ -64,27 +64,29 @@ export const oneOnOneSeats = [
     id: 'm3w8k1z5c9b2n7p4r6t0v2x4',
     actorId: affirmativeActor,
     seat: { kind: 'side', side: 'affirmative', slot: 0 },
+    kind: 'human',
   },
   {
     id: 'q5x2v8t0r4p6n2b8c1z7k3m9',
     actorId: negativeActor,
     seat: { kind: 'side', side: 'negative', slot: 0 },
+    kind: 'human',
   },
   {
     id: 'd6y3h9j1f5a7s3g8l2q6e4u0i',
     actorId: judgeActor,
     seat: { kind: 'judge', slot: 0 },
+    kind: 'human',
   },
 ] as const;
 
 /** The empty checkpoint a fresh round hydrates from. */
 export const emptyCheckpoint = {
-  version: 1,
+  version: 2,
   prep_consumed_ms: { affirmative: 0, negative: 0 },
-  active_prep: null,
-  floor: null,
+  prep: { phase: 'idle' },
+  point_of_information: { phase: 'none' },
   incident: { phase: 'none' },
-  prep_ended_at: null,
   start_gate: null,
   clock_stops: [],
 } as const;

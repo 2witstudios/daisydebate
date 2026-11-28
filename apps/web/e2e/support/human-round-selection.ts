@@ -1,3 +1,4 @@
+import { pointsOfInformationBounds } from '@daisy/protocol/format-settings';
 import {
   foundationDefinition,
   oneOnOneDefinition,
@@ -57,6 +58,38 @@ export const floorReturnsChoice: ProofChoice = {
       },
     },
   },
+};
+
+/**
+ * The proof format taking points of information at their shortest legal
+ * timing, so a journey sees a whole point in seconds: offers open 10 s into
+ * the two-minute constructive and close 30 s before its end; a point runs 5 s
+ * and an unanswered offer lapses after 5 s (INTX-14).
+ */
+export const pointsOfInformationChoice: ProofChoice = {
+  definition: {
+    ...foundationDefinition,
+    configurable: {
+      ...foundationDefinition.configurable,
+      interaction: {
+        ...foundationDefinition.configurable.interaction,
+        pointsOfInformation: pointsOfInformationBounds,
+      },
+    },
+  },
+  preset: {
+    config: {
+      ...foundationChoice.preset.config,
+      pointsOfInformation: {
+        enabled: true,
+        protectedStartMs: 10_000,
+        protectedEndMs: 30_000,
+        maxDurationMs: 5_000,
+        offerLapseMs: 5_000,
+      },
+    },
+  },
+  segmentDurationOverrides: { AC: 120_000 },
 };
 
 /**

@@ -63,6 +63,7 @@ export const authoredRoundCommand = (
   command: RoundCommandEnvelope['command'] = {
     type: 'yield',
     participantId: createId(),
+    sequence: 0,
   },
   commandId = createId(),
 ) => ({

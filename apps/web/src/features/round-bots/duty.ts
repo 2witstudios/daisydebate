@@ -78,7 +78,7 @@ export type SpeakerState = {
 
 export type DutyRules = {
   readonly crossEx: boolean;
-  /** This seat's side asks in the cross-examination. */
+  /** This seat is the segment's scheduled one: a speech's speaker, or cross-examination's asker. */
   readonly asks: boolean;
   readonly maxAttempts: number;
 };
@@ -136,8 +136,13 @@ type Step = {
   readonly effects: readonly DutyEffect[];
 };
 
+/**
+ * Only the seat a segment is scheduled to opens it (INTX-17): a speech's own
+ * speaker, or cross-examination's asker. Every other bot waits, so it never
+ * speaks over a speech it does not hold.
+ */
 export const initialSpeakerState = (rules: DutyRules): SpeakerState => ({
-  duty: !rules.crossEx || rules.asks ? owe({ kind: 'opening' }) : WAITING,
+  duty: rules.asks ? owe({ kind: 'opening' }) : WAITING,
   midTurn: [],
   answeredThroughMs: null,
 });

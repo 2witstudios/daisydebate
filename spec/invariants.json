@@ -74,11 +74,11 @@
       }
     },
     {
-      "id": "round.interrupt.requires-policy",
-      "check": "interrupt-requires-policy",
+      "id": "round.poi.requires-rule",
+      "check": "poi-requires-rule",
       "testReference": {
-        "path": "packages/debate-engine/src/round-runtime-commands.test.ts",
-        "name": "refuse with the interrupt-policy invariant"
+        "path": "packages/debate-engine/src/round-speaking.test.ts",
+        "name": "refuse with the POI-rule invariant"
       }
     },
     {

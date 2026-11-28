@@ -125,15 +125,41 @@ export const fillCommand = (
       .replaceAll('{machine}', node.machine),
   );
 
-export type DrillMoment = 'mid-speech' | 'floor-change';
+/**
+ * Where in the Round a kill lands: mid-speech and at a floor change (the
+ * spike), and during prep, cross-examination and a point of information,
+ * whose instants the clock owns and a kill must never move (INTX-19).
+ */
+export const drillMoments = [
+  'mid-speech',
+  'floor-change',
+  'mid-prep',
+  'mid-cx',
+  'mid-poi',
+] as const;
+export type DrillMoment = (typeof drillMoments)[number];
 
-/** Spike step 3 by default; "<mid-speech>,<floor-change>" for a smaller proof. */
+/** The kills whose Round must keep the clock's own instants (INTX-19). */
+export const clockMoments: ReadonlySet<DrillMoment> = new Set([
+  'mid-prep',
+  'mid-cx',
+  'mid-poi',
+]);
+
+/**
+ * Spike step 3 by default; "<mid-speech>,<floor-change>" for a smaller proof,
+ * and "<mid-speech>,<floor-change>,<mid-prep>,<mid-cx>,<mid-poi>" to kill
+ * during prep, cross-examination and a point of information too.
+ */
 export function drillKillPlan(raw: string | undefined): readonly DrillMoment[] {
-  const match = /^(\d{1,2}),(\d{1,2})$/.exec(raw ?? '5,1');
+  const match = /^(\d{1,2}),(\d{1,2})(?:,(\d{1,2}),(\d{1,2}),(\d{1,2}))?$/.exec(
+    raw ?? '5,1',
+  );
   if (!match)
-    return refuse('DRILL_KILLS must read "<mid-speech>,<floor-change>"');
-  return [
-    ...Array<DrillMoment>(Number(match[1])).fill('mid-speech'),
-    ...Array<DrillMoment>(Number(match[2])).fill('floor-change'),
-  ];
+    return refuse(
+      'DRILL_KILLS must read "<mid-speech>,<floor-change>" or "<mid-speech>,<floor-change>,<mid-prep>,<mid-cx>,<mid-poi>"',
+    );
+  return drillMoments.flatMap((moment, index) =>
+    Array<DrillMoment>(Number(match[index + 1] ?? 0)).fill(moment),
+  );
 }
