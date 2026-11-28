@@ -67,7 +67,7 @@ test('accepted Round projections append one phase signal with the stored version
   });
 });
 
-test('floor and live-to-live catchup signal revisions, no-op and rollback do not', async () => {
+test('a point of information and live-to-live catchup signal revisions, no-op and rollback do not', async () => {
   await withFixture(url, async (fixture) => {
     const authoring = await roundAuthoring(fixture, url);
     const { database, roundId, rules } = authoring;
@@ -118,7 +118,11 @@ test('floor and live-to-live catchup signal revisions, no-op and rollback do not
         ...base,
         checkpoint: {
           ...base.checkpoint,
-          floor: { holder_participant_id: participant.id, granted_at: instant },
+          point_of_information: {
+            phase: 'speaking' as const,
+            holder_participant_id: participant.id,
+            accepted_at: instant,
+          },
         },
       };
       await database.executeRoundTick({
@@ -192,7 +196,7 @@ test('floor and live-to-live catchup signal revisions, no-op and rollback do not
       );
       assert({
         given:
-          'phase, interruption and live-to-live transitions followed by no-op and failed insert',
+          'phase, point-of-information and live-to-live transitions followed by no-op and failed insert',
         should:
           'commit exactly one event per observable revision, with atomic rollback',
         actual: {

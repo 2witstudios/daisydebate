@@ -75,7 +75,7 @@ test('Round creation pins stored rules, and hydration uses a real read-only repe
         expected: [
           [{ isolation: 'repeatable read', read_only: 'on', version: 1 }],
           validRules,
-          1,
+          2,
           [],
           [],
           input.resolution,
