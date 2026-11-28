@@ -55,14 +55,21 @@ const seats: readonly RoundParticipantSeat[] = [
   {
     id: 'm3w8k1z5c9b2n7p4r6t0v2x4',
     actorId: person,
+    kind: 'human',
     seat: sideSeat(affirmativeSide),
   },
   {
     id: 'q5x2v8t0r4p6n2b8c1z7k3m9w',
     actorId: opponent,
+    kind: 'human',
     seat: sideSeat(negativeSide),
   },
-  { id: 'd6y3h9j1f5a7s3g8l2q6e4u0i', actorId: judge, seat: judgeSeat() },
+  {
+    id: 'd6y3h9j1f5a7s3g8l2q6e4u0i',
+    actorId: judge,
+    kind: 'human',
+    seat: judgeSeat(),
+  },
 ];
 
 const freshCheckpoint = emptyRuntimeCheckpointFor({ sides: twoSides });
@@ -187,7 +194,7 @@ const fixtures: Readonly<Record<string, Fixture>> = {
     }),
   'completed-is-terminal': () =>
     round({ status: 'completed' }).execute({
-      command: { type: 'yield' },
+      command: { type: 'yield', sequence: 0 },
       actorId: null,
       now: t0,
     }),
@@ -222,13 +229,14 @@ const fixtures: Readonly<Record<string, Fixture>> = {
       status: 'active',
       rules: rules({ ...oneOnOneSettings, inRoundPrep: { enabled: false } }),
     }).execute({
-      command: { type: 'start_prep' },
+      command: { type: 'start_prep', sequence: 0 },
       actorId: person,
       now: t0,
     }),
   'prep-requires-spendable-segment': () =>
+    // After the AC, prep would be for CX1: not a segment prep is spent before.
     round({ status: 'active', segments: closedAc }).execute({
-      command: { type: 'start_prep' },
+      command: { type: 'start_prep', sequence: 1 },
       actorId: opponent,
       now: t0,
     }),
@@ -236,37 +244,47 @@ const fixtures: Readonly<Record<string, Fixture>> = {
     round({
       status: 'active',
       checkpoint: {
-        version: 1,
+        ...freshCheckpoint,
         prep_consumed_ms: { [affirmativeSide]: 240_000, [negativeSide]: 0 },
-        active_prep: null,
-        floor: null,
-        incident: { phase: 'none' },
-        prep_ended_at: null,
-        start_gate: null,
-        clock_stops: [],
       },
     }).execute({
-      command: { type: 'start_prep' },
+      command: { type: 'start_prep', sequence: 0 },
       actorId: person,
       now: t0,
     }),
   'speech-requires-prep': () =>
     round({ status: 'active' }).execute({
-      command: { type: 'start_speech' },
+      command: { type: 'start_speech', sequence: 0 },
       actorId: person,
       now: t0,
     }),
   'yield-requires-floor': () =>
     round({ status: 'active' }).execute({
-      command: { type: 'yield' },
+      command: { type: 'yield', sequence: 0 },
       actorId: person,
       now: t0,
     }),
-  'interrupt-requires-policy': () =>
-    round({ status: 'active' }).execute({
-      command: { type: 'interrupt' },
-      actorId: opponent,
-      now: t0,
+  // Cross-examination is questioning, not a speech: it takes no points of information.
+  'poi-requires-rule': () =>
+    round({
+      status: 'active',
+      segments: [
+        closedAc[0]!,
+        {
+          id: 'segment-2',
+          sequence: 1,
+          type: 'cross_ex',
+          rulesSegmentKey: 'CX1',
+          startedAt: '2026-01-01T00:05:00.000Z',
+          endedAt: null,
+          durationMs: 120_000,
+          returnedMs: 0,
+        },
+      ],
+    }).execute({
+      command: { type: 'offer_poi', sequence: 1 },
+      actorId: person,
+      now: '2026-01-01T00:05:10.000Z',
     }),
   'rating-state-bounded': () =>
     rateDebate({

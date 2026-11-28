@@ -12,7 +12,9 @@ type Notice = {
 };
 
 /** What a point of information means to this seat now, in the room's words (INTX-18). */
-const pointNotice = (point: NonNullable<RoundSnapshot['point']>): Notice | null => {
+const pointNotice = (
+  point: NonNullable<RoundSnapshot['point']>,
+): Notice | null => {
   const { holder, offers, role, window } = point;
   if (holder)
     return {
@@ -67,7 +69,9 @@ const prepNotice = (
   called: NonNullable<RoundSnapshot['prepCalled']>,
 ): Notice => ({
   tone: 'info',
-  title: called.own ? 'Your side’s prep is called' : `${called.side} called prep`,
+  title: called.own
+    ? 'Your side’s prep is called'
+    : `${called.side} called prep`,
   body: `Prep before the ${called.before} starts the moment the ${called.after} ends.`,
 });
 
@@ -99,7 +103,7 @@ export function RoundFloorNotice({
             tones[notice.tone],
           )}
         >
-          <p className="flex min-w-0 flex-1 flex-col gap-0.5">
+          <p className="gap-0.5 flex min-w-0 flex-1 flex-col">
             <Announcement as="span" kind="progress" className="font-strong">
               {notice.title}
             </Announcement>

@@ -148,7 +148,11 @@ test('a catch-up tick during a pause moves nothing', () => {
       () => {
         const runtime = runtimeOf([], {
           ...emptyCheckpoint,
-          prep: { phase: 'running', side: 'affirmative', started_at: roundAt(500) },
+          prep: {
+            phase: 'running',
+            side: 'affirmative',
+            started_at: roundAt(500),
+          },
         });
         runtime.applyIncident(pause(1_000, null));
         return runtime;

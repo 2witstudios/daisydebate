@@ -103,7 +103,11 @@ test('prep expiry ends prep, opens one lead later, and final segment closes awai
     ...prior,
     checkpoint: {
       ...prior.checkpoint,
-      prep: { phase: 'running', side: 'affirmative', started_at: roundAt(945_000) },
+      prep: {
+        phase: 'running',
+        side: 'affirmative',
+        started_at: roundAt(945_000),
+      },
       prep_consumed_ms: { affirmative: 60_000, negative: 0 },
     },
   };

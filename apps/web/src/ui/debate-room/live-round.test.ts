@@ -227,7 +227,11 @@ describe('liveRoundOf during the round', () => {
       ...ran(closed, true),
       checkpoint: {
         ...emptyRuntimeCheckpointFor({ sides: twoSides }),
-        prep: { phase: 'running', side: 'affirmative', started_at: at(startOf(closed)) },
+        prep: {
+          phase: 'running',
+          side: 'affirmative',
+          started_at: at(startOf(closed)),
+        },
       },
     };
     const clock = liveRoundOf(
@@ -327,7 +331,11 @@ describe('liveRoundOf during the round', () => {
       ...ran(4, true),
       checkpoint: {
         ...emptyRuntimeCheckpointFor({ sides: twoSides }),
-        prep: { phase: 'running', side: 'affirmative', started_at: at(startOf(4)) },
+        prep: {
+          phase: 'running',
+          side: 'affirmative',
+          started_at: at(startOf(4)),
+        },
       },
     };
     const mine = liveRoundOf(prepping, aff.actorId, now);

@@ -2,7 +2,11 @@ import { roundRulesSchema, type RoundRules } from '@daisy/protocol/format';
 import type { RoundParticipantSeat } from '@daisy/protocol/runtime';
 import { twoSides } from '@daisy/protocol/seats';
 import { createRoundRuntime } from './round-runtime';
-import { emptyCheckpoint, hydratedRound, lifecycleIn } from './runtime.test-support';
+import {
+  emptyCheckpoint,
+  hydratedRound,
+  lifecycleIn,
+} from './runtime.test-support';
 
 /**
  * A two-on-two Round with prep and points of information, for the rules a

@@ -1,11 +1,6 @@
 import { instantMs } from '@daisy/clock';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import {
-  isLiveRound,
-  isSeat,
-  judgeKindOf,
-  sameTeam,
-} from './round-reading';
+import { isLiveRound, isSeat, judgeKindOf, sameTeam } from './round-reading';
 import { observedRoundOf } from './observed-round';
 import { liveRoundOf } from '../../ui/debate-room/live-round';
 import {

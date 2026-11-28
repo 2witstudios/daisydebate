@@ -184,9 +184,10 @@ function startRun(scenario: DebateScenario): Run {
   const ids: IdGenerator = fixedIds(scenario.given.ids);
   const id = ids.next();
   const actorIds = seats.map(() => ids.next());
-  const participants = seats.map((seat, index) => ({
+  const participants = seats.map((seat, index): RoundParticipantSeat => ({
     id: ids.next(),
     actorId: actorIds[index]!,
+    kind: 'human',
     seat,
   }));
   const runtime = createRoundRuntime({

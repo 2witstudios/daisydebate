@@ -273,8 +273,10 @@ export async function driveRound(input: {
             commandId: newCommandId(),
             expectedVersion: (await readView(speaker.session, roundId)).view
               .version,
+            // The speech this yield ends: a late press never ends the next one.
             command: {
               type: 'yield',
+              sequence: speech.sequence,
               participantId: seatIdOf(view, speaker.side),
             },
           },

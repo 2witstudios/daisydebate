@@ -22,11 +22,13 @@ import {
 import { everySeatOf, leadSeatOf } from '@daisy/protocol/format-seating';
 import { isJudgeSeat, sameSeat } from '@daisy/protocol/seats';
 import { type FormatDefinition, type RoundRules } from '@daisy/protocol/format';
-import { type FormatSettings } from '@daisy/protocol/format-settings';
+import {
+  parliamentaryPointsOfInformation,
+  type FormatSettings,
+} from '@daisy/protocol/format-settings';
 import {
   type HydratedSegment,
   type RoundParticipantSeat,
-  type RoundPosition,
   type RoundProjection,
 } from '@daisy/protocol/runtime';
 import { type RoundLifecycle } from '@daisy/protocol/round-lifecycle';
@@ -54,10 +56,10 @@ const withSettings = (
   ['preset', base],
   ['no in-round prep', { ...base, inRoundPrep: { enabled: false } }],
   [
-    'interruptions',
+    'points of information',
     {
       ...base,
-      interruptions: { mode: 'enabled', minRemainingMs: 30_000 },
+      pointsOfInformation: parliamentaryPointsOfInformation,
       yielding: { allowed: true, returnsTime: true },
     },
   ],
@@ -101,6 +103,7 @@ export const castOf = (rules: RoundRules): readonly RoundParticipantSeat[] =>
   everySeatOf(rules).map((seat, index) => ({
     id: `seat${String(index).padStart(20, '0')}`,
     actorId: `actor${String(index).padStart(19, '0')}`,
+    kind: 'human',
     seat,
   }));
 
@@ -202,22 +205,30 @@ export const viewAt = (runtime: Runtime, nowMs: number) => ({
 
 export const iso = (ms: number) => new Date(ms).toISOString();
 
-/** The participant who holds the floor of the open segment, read from the position. */
-export const floorHolderOf = (
+/** The participant a segment is scheduled to (its speaker, or its asker), read from the rules. */
+export const scheduledSeatOf = (
   rules: RoundRules,
   participants: readonly RoundParticipantSeat[],
-  position: RoundPosition,
+  sequence: number,
 ): RoundParticipantSeat | null => {
-  const open = position.openSegment;
-  if (open === null) return null;
-  if (open.floorParticipantId !== null)
-    return (
-      participants.find((seat) => seat.id === open.floorParticipantId) ?? null
-    );
-  const lead = leadSeatOf(rules.segments[open.sequence]!.speak);
+  const segment = rules.segments[sequence];
+  const lead = segment === undefined ? null : leadSeatOf(segment.speak);
   return lead === null
     ? null
     : (participants.find((seat) => sameSeat(seat.seat, lead)) ?? null);
+};
+
+/** Whether a segment takes points of information: a one-speaker speech under a rule that allows them. */
+export const takesPointsOfInformation = (
+  rules: RoundRules,
+  sequence: number,
+): boolean => {
+  const segment = rules.segments[sequence];
+  return (
+    rules.interaction.pointsOfInformation.allowed &&
+    segment?.type === 'speech' &&
+    segment.speak.rights === 'one'
+  );
 };
 
 /** Completion facts with no ballots and a ballot deadline long past. */

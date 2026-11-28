@@ -106,7 +106,9 @@ export function CommandForm({
         id={`${control}-${intent.key}`}
         type="submit"
         disabled={pending || !intent.enabled}
-        aria-describedby={intent.hint ? `${control}-${intent.key}-hint` : undefined}
+        aria-describedby={
+          intent.hint ? `${control}-${intent.key}-hint` : undefined
+        }
       >
         {confirmation ? `Confirm ${intent.label.toLowerCase()}` : intent.label}
       </Button>

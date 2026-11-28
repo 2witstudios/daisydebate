@@ -261,13 +261,7 @@ function liveParts(
   nowMs: number,
 ): Pick<
   RoundSnapshot,
-  | 'phase'
-  | 'liveIndex'
-  | 'clock'
-  | 'prep'
-  | 'micLive'
-  | 'point'
-  | 'prepCalled'
+  'phase' | 'liveIndex' | 'clock' | 'prep' | 'micLive' | 'point' | 'prepCalled'
 > {
   const quiet = { micLive: false, point: null, prepCalled: null } as const;
   if (view.status === 'active' && view.checkpoint === null)
@@ -307,8 +301,8 @@ function liveParts(
 }
 
 const labelOf = (view: RoundView, participantId: string) =>
-  view.participants.filter(isSeat).find((p) => p.id === participantId)
-    ?.label ?? 'A debater';
+  view.participants.filter(isSeat).find((p) => p.id === participantId)?.label ??
+  'A debater';
 
 /** The open speech's points of information as this seat sees them (INTX-18). */
 function pointOf(
@@ -333,7 +327,8 @@ function pointOf(
           : 'audience';
   return {
     role,
-    window: opensInMs > 0 ? 'protected-start' : closed ? 'protected-end' : 'open',
+    window:
+      opensInMs > 0 ? 'protected-start' : closed ? 'protected-end' : 'open',
     opensInMs,
     offers: point.offers.map((offer) => ({
       participantId: offer.participantId,

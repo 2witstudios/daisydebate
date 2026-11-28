@@ -43,11 +43,11 @@ async function playedBotRound(
             interaction: {
               ...oneOnOneDefinition.configurable.interaction,
               pointsOfInformation: {
-          protectedStartMs: { min: 0, max: 120_000 },
-          protectedEndMs: { min: 0, max: 120_000 },
-          maxDurationMs: { min: 5_000, max: 30_000 },
-          offerLapseMs: { min: 5_000, max: 30_000 },
-        },
+                protectedStartMs: { min: 0, max: 120_000 },
+                protectedEndMs: { min: 0, max: 120_000 },
+                maxDurationMs: { min: 5_000, max: 30_000 },
+                offerLapseMs: { min: 5_000, max: 30_000 },
+              },
             },
           },
         },
@@ -244,7 +244,7 @@ test('a turn the rules cannot name stays owed (ISSUE-965)', async () => {
   }, botControlOptions);
 });
 
-test("a bot in a speech it does not hold owes nothing under points of information (ISSUE-965, INTX-17)", async () => {
+test('a bot in a speech it does not hold owes nothing under points of information (ISSUE-965, INTX-17)', async () => {
   await withRoomRuntime(async (f) => {
     const played = await playedBotRound(f, parliamentaryPointsOfInformation);
     const round = (await f.store.getRound(played.roundId))!;

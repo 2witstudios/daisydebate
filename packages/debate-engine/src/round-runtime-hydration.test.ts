@@ -17,7 +17,11 @@ describe('round runtime hydration', () => {
       checkpoint: {
         version: 2,
         prep_consumed_ms: { affirmative: 30_000, negative: 0 },
-        prep: { phase: 'running', side: 'affirmative', started_at: at(945_000) },
+        prep: {
+          phase: 'running',
+          side: 'affirmative',
+          started_at: at(945_000),
+        },
         point_of_information: { phase: 'none' },
         incident: { phase: 'none' },
         start_gate: null,

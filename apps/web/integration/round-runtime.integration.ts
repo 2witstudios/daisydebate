@@ -271,8 +271,7 @@ test('two seats pressing on one point at once: one commits, the other is refused
     const returned = (await f.store.getRound(roundId))!;
     assert({
       given: 'a point accepted, then its 5 s run out and the Round ticked',
-      should:
-        'return the floor to the speaker with the speech still running',
+      should: 'return the floor to the speaker with the speech still running',
       actual: {
         point: returned.checkpoint.point_of_information,
         open: returned.segments.find((s) => s.endedAt === null)?.id,

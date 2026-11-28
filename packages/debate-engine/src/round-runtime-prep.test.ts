@@ -65,7 +65,11 @@ describe('round runtime prep', () => {
       expected: {
         checkpoint: {
           ...emptyCheckpoint,
-          prep: { phase: 'running', side: 'affirmative', started_at: at(945_000) },
+          prep: {
+            phase: 'running',
+            side: 'affirmative',
+            started_at: at(945_000),
+          },
         },
         position: {
           ...world.position(at(955_000)),
@@ -146,10 +150,18 @@ describe('round runtime prep', () => {
         position: world.position(at(1_000_000)).prep,
       },
       expected: {
-        prep: { phase: 'running', side: 'affirmative', started_at: at(940_000) },
+        prep: {
+          phase: 'running',
+          side: 'affirmative',
+          started_at: at(940_000),
+        },
         closedAt: at(940_000),
         inserts: 0,
-        position: { phase: 'running', side: 'affirmative', remainingMs: 180_000 },
+        position: {
+          phase: 'running',
+          side: 'affirmative',
+          remainingMs: 180_000,
+        },
       },
     });
   });
@@ -177,7 +189,11 @@ describe('round runtime prep', () => {
         inserts: ended.segmentInserts.length,
       },
       expected: {
-        prep: { phase: 'running', side: 'affirmative', started_at: at(900_000) },
+        prep: {
+          phase: 'running',
+          side: 'affirmative',
+          started_at: at(900_000),
+        },
         inserts: 0,
       },
     });
@@ -353,7 +369,8 @@ describe('round runtime prep', () => {
       now: at(1_002_000),
     });
     assert({
-      given: 'one affirmative leaving, then the other, while their prep is called',
+      given:
+        'one affirmative leaving, then the other, while their prep is called',
       should: 'keep the call while a partner remains, then drop it',
       actual: [partnerStays, gone.round?.checkpoint.prep],
       expected: [{ phase: 'called', side: 'affirmative' }, { phase: 'idle' }],

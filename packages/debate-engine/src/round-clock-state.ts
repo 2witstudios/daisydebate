@@ -240,7 +240,8 @@ export const normalizeRoundClock = (input: {
     );
   if (
     prep.phase === 'called' &&
-    (open === undefined || input.rules.segments[open.sequence + 1] === undefined)
+    (open === undefined ||
+      input.rules.segments[open.sequence + 1] === undefined)
   )
     throw createInvariantError(
       debateInvariantIds.liveOpenSegmentCount,

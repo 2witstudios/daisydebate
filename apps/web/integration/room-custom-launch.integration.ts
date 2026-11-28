@@ -231,11 +231,11 @@ test('null interaction refusals preserve durable create and edit state', async (
         ...choice.definition.configurable,
         interaction: {
           pointsOfInformation: {
-          protectedStartMs: { min: 0, max: 120_000 },
-          protectedEndMs: { min: 0, max: 120_000 },
-          maxDurationMs: { min: 5_000, max: 30_000 },
-          offerLapseMs: { min: 5_000, max: 30_000 },
-        },
+            protectedStartMs: { min: 0, max: 120_000 },
+            protectedEndMs: { min: 0, max: 120_000 },
+            maxDurationMs: { min: 5_000, max: 30_000 },
+            offerLapseMs: { min: 5_000, max: 30_000 },
+          },
           yield: { enabledChoices: [true], returnsTimeChoices: [true] },
         },
       },
@@ -243,12 +243,12 @@ test('null interaction refusals preserve durable create and edit state', async (
     const config = {
       ...choice.preset.config,
       pointsOfInformation: {
-      enabled: true,
-      protectedStartMs: 60_000,
-      protectedEndMs: 60_000,
-      maxDurationMs: 15_000,
-      offerLapseMs: 10_000,
-    },
+        enabled: true,
+        protectedStartMs: 60_000,
+        protectedEndMs: 60_000,
+        maxDurationMs: 15_000,
+        offerLapseMs: 10_000,
+      },
       yielding: { allowed: true, returnsTime: true },
     };
     const selection = {
@@ -262,7 +262,7 @@ test('null interaction refusals preserve durable create and edit state', async (
     const inventory = () =>
       f.sql`select (select count(*) from rooms) rooms, (select count(*) from formats) formats, (select count(*) from format_revisions) revisions, (select count(*) from room_commands) commands, (select count(*) from outbox) events`;
     const before = await inventory();
-    for (const field of ['interruptions', 'yielding'] as const) {
+    for (const field of ['pointsOfInformation', 'yielding'] as const) {
       const invalid = { ...config, [field]: null };
       await assertRejects({
         given: `custom creation omits required ${field}`,

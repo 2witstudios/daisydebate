@@ -232,7 +232,9 @@ const prepBudgetOf = (
 const prepExpiredOf = (rules: RoundRules, spoken: number): boolean => {
   const expiresAt = rules.inRoundPrep?.expiresAtSegment ?? null;
   if (expiresAt === null) return false;
-  const index = rules.segments.findIndex((segment) => segment.key === expiresAt);
+  const index = rules.segments.findIndex(
+    (segment) => segment.key === expiresAt,
+  );
   return index >= 0 && index <= spoken;
 };
 

@@ -28,7 +28,11 @@ test('Round controls follow existing runtime position and preserve floor command
     ...ran(0),
     checkpoint: {
       ...ran(0).checkpoint!,
-      prep: { phase: 'running' as const, side: 'affirmative' as const, started_at: at(1000) },
+      prep: {
+        phase: 'running' as const,
+        side: 'affirmative' as const,
+        started_at: at(1000),
+      },
     },
   };
   assert({
@@ -114,7 +118,11 @@ test('control labels name speeches and prep in words, never by code', () => {
     ...ran(0),
     checkpoint: {
       ...ran(0).checkpoint!,
-      prep: { phase: 'running' as const, side: 'affirmative' as const, started_at: at(1000) },
+      prep: {
+        phase: 'running' as const,
+        side: 'affirmative' as const,
+        started_at: at(1000),
+      },
     },
   };
   const between = ran(4);
@@ -145,7 +153,10 @@ test('control labels name speeches and prep in words, never by code', () => {
       ),
     ],
     expected: [
-      ['Start affirmative constructive', 'Ends prep; unused prep stays your side’s'],
+      [
+        'Start affirmative constructive',
+        'Ends prep; unused prep stays your side’s',
+      ],
       ['Take prep time', 'Before the first affirmative rebuttal'],
     ],
   });

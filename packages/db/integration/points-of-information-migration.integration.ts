@@ -68,7 +68,10 @@ const oldCheckpoint = (prep: {
   version: 1,
   prep_consumed_ms: { affirmative: 12_000, negative: 0 },
   ...prep,
-  floor: { holder_participant_id: createId(), started_at: '2026-11-27T10:00:00.000Z' },
+  floor: {
+    holder_participant_id: createId(),
+    started_at: '2026-11-27T10:00:00.000Z',
+  },
   incident: { phase: 'none' },
   start_gate: null,
   clock_stops: [],
@@ -83,7 +86,10 @@ test(
     const fixture = new Fixture(sql);
     try {
       const offering = await fixture.format(
-        oldDefinition({ modes: ['disabled', 'enabled'], minRemainingMs: { min: 0, max: 60_000 } }) as never,
+        oldDefinition({
+          modes: ['disabled', 'enabled'],
+          minRemainingMs: { min: 0, max: 60_000 },
+        }) as never,
       );
       const forbidding = await fixture.format(oldDefinition(null) as never);
       const presets = { enabled: offering, disabled: forbidding } as const;
@@ -103,13 +109,19 @@ test(
         room_config_snapshot: oldConfig(null),
         rules_snapshot: oldRules('disabled'),
         runtime_state: oldCheckpoint({
-          active_prep: { side: 'affirmative', started_at: '2026-11-27T10:00:00.000Z' },
+          active_prep: {
+            side: 'affirmative',
+            started_at: '2026-11-27T10:00:00.000Z',
+          },
           prep_ended_at: null,
         }),
       });
       const leading = await fixture.round({
         format_id: offering,
-        room_config_snapshot: oldConfig({ mode: 'enabled', minRemainingMs: 30_000 }),
+        room_config_snapshot: oldConfig({
+          mode: 'enabled',
+          minRemainingMs: 30_000,
+        }),
         rules_snapshot: oldRules('enabled'),
         runtime_state: oldCheckpoint({
           active_prep: null,
@@ -118,7 +130,10 @@ test(
       });
       const idle = await fixture.round({
         format_id: offering,
-        runtime_state: oldCheckpoint({ active_prep: null, prep_ended_at: null }),
+        runtime_state: oldCheckpoint({
+          active_prep: null,
+          prep_ended_at: null,
+        }),
       });
       const setting = createId();
       await fixture.insert('settings', {
@@ -135,11 +150,16 @@ test(
 
       await scratch.migrate(() => true);
 
-      const definitions = await sql`select format_id, definition #> '{configurable,interaction}' as interaction from format_revisions where format_id in ${sql([offering, forbidding])}`;
-      const presetRows = await sql`select format_id, config -> 'pointsOfInformation' as poi, config ? 'interruptions' as stale from format_presets where format_id in ${sql([offering, forbidding])}`;
-      const [roomRow] = await sql`select config -> 'pointsOfInformation' as config, rules_snapshot #> '{interaction,pointsOfInformation}' as rules from rooms where id = ${room}`;
-      const rounds = await sql`select id, room_config_snapshot -> 'pointsOfInformation' as config, rules_snapshot #> '{interaction,pointsOfInformation}' as rules, runtime_state from rounds where id in ${sql([prepping, leading, idle])}`;
-      const [settingRow] = await sql`select value from settings where id = ${setting}`;
+      const definitions =
+        await sql`select format_id, definition #> '{configurable,interaction}' as interaction from format_revisions where format_id in ${sql([offering, forbidding])}`;
+      const presetRows =
+        await sql`select format_id, config -> 'pointsOfInformation' as poi, config ? 'interruptions' as stale from format_presets where format_id in ${sql([offering, forbidding])}`;
+      const [roomRow] =
+        await sql`select config -> 'pointsOfInformation' as config, rules_snapshot #> '{interaction,pointsOfInformation}' as rules from rooms where id = ${room}`;
+      const rounds =
+        await sql`select id, room_config_snapshot -> 'pointsOfInformation' as config, rules_snapshot #> '{interaction,pointsOfInformation}' as rules, runtime_state from rounds where id in ${sql([prepping, leading, idle])}`;
+      const [settingRow] =
+        await sql`select value from settings where id = ${setting}`;
       const byFormat = (rows: readonly Record<string, unknown>[], id: string) =>
         rows.find((row) => row.format_id === id);
       const byRound = (id: string) =>
@@ -189,7 +209,10 @@ test(
             rules: { allowed: true, ...defaults },
           },
           prepping: [null, { allowed: false }],
-          leading: [{ enabled: true, ...defaults }, { allowed: true, ...defaults }],
+          leading: [
+            { enabled: true, ...defaults },
+            { allowed: true, ...defaults },
+          ],
           setting: {
             pointsOfInformation: { enabled: true, ...defaults },
             yielding: { allowed: true, returnsTime: true },

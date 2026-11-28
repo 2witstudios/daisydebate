@@ -204,7 +204,8 @@ describe('points of information', () => {
     const lapsed = speaking();
     offer(lapsed, teamActors.neg1, 100_000);
     await assertRejects({
-      given: 'acceptance arriving after the offer’s lapse, with no tick between',
+      given:
+        'acceptance arriving after the offer’s lapse, with no tick between',
       should: 'refuse: the clock sits the offer down first',
       actual: accept(lapsed, 110_000),
       code: 'CONFLICT',

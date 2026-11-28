@@ -83,7 +83,10 @@ const pause = (
   return {
     state: {
       ...held,
-      checkpoint: { ...held.checkpoint, point_of_information: { phase: 'none' } },
+      checkpoint: {
+        ...held.checkpoint,
+        point_of_information: { phase: 'none' },
+      },
     },
     changes: [
       ...(open !== undefined && pointMs !== null

@@ -173,8 +173,7 @@ const speakersChanged = (
   sequence: number,
   atMs: number,
   poiHolder: string | null,
-): RoundStep =>
-  record(step, { kind: 'speakers', sequence, atMs, poiHolder });
+): RoundStep => record(step, { kind: 'speakers', sequence, atMs, poiHolder });
 
 const offerPointOfInformation = (step: RoundStep, f: StepFacts) => {
   const seat = seatOf(step, f.actorId)!;

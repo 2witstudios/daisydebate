@@ -9,10 +9,7 @@ import { isRoundRunning } from '@daisy/protocol/round';
 import { type RoundCommand, type RoundPosition } from '@daisy/protocol/runtime';
 import { type RoundCommandEnvelope } from '@daisy/protocol/round-command';
 import { formatCountdown } from '../../lib/clock-display';
-import {
-  speechInSentence,
-  startSpeechLabel,
-} from '../debate-room/vocabulary';
+import { speechInSentence, startSpeechLabel } from '../debate-room/vocabulary';
 
 export type RoundControlIntent = {
   /** Unique among one seat's controls: the type, and the offer an accept takes. */

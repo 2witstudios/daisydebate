@@ -254,11 +254,15 @@ test('either partner of the side that speaks next takes its prep (INTX-2, amends
       },
     );
   assert({
-    given: 'the scheduled speaker, their teammate and the opponent before the speech',
+    given:
+      'the scheduled speaker, their teammate and the opponent before the speech',
     should: 'allow prep for either affirmative and refuse the negative',
     actual: [
       roundCommandRefusal(facts(speaker), { type: 'start_prep', sequence: 0 }),
-      roundCommandRefusal(facts(seats[1]!), { type: 'start_prep', sequence: 0 }),
+      roundCommandRefusal(facts(seats[1]!), {
+        type: 'start_prep',
+        sequence: 0,
+      }),
       roundCommandRefusal(facts(respondent), {
         type: 'start_prep',
         sequence: 0,
@@ -277,7 +281,8 @@ test('either partner of the side that speaks next takes its prep (INTX-2, amends
     },
   });
   assert({
-    given: 'the affirmative prepping, read by both affirmatives and the negative',
+    given:
+      'the affirmative prepping, read by both affirmatives and the negative',
     should: 'let either affirmative open the speech',
     actual: [
       roundCommandOptions(prepping(speaker)).map((o) => o.command.type),

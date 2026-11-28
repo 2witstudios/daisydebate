@@ -239,7 +239,8 @@ const yieldRefusal = (
   const { rules, state, seat } = facts;
   const id = debateInvariantIds.yieldRequiresFloor;
   const open = openRowOf(state);
-  if (open === undefined) return violates(id, 'Yielding requires a live segment');
+  if (open === undefined)
+    return violates(id, 'Yielding requires a live segment');
   const staleness = stale(open.sequence, command.sequence);
   if (staleness !== null) return staleness;
   const segment = rules.segments[open.sequence];
@@ -277,7 +278,9 @@ const pointContext = (
   const open = openRowOf(facts.state);
   const id = debateInvariantIds.pointOfInformationRequiresRule;
   if (open === undefined)
-    return { refusal: violates(id, 'Points of information need a live speech') };
+    return {
+      refusal: violates(id, 'Points of information need a live speech'),
+    };
   const staleness = stale(open.sequence, sequence);
   if (staleness !== null) return { refusal: staleness };
   const rule = pointsOfInformationIn(facts.rules, open.sequence);
@@ -493,7 +496,9 @@ export const roundCommandRefusal = (
   facts: RoundCommandFacts,
   command: RoundCommand,
 ): Refusal =>
-  standingRefusal(facts) ?? absentRefusal(facts) ?? commandRefusal(facts, command);
+  standingRefusal(facts) ??
+  absentRefusal(facts) ??
+  commandRefusal(facts, command);
 
 /**
  * The commands this seat is offered now, each as it would be sent. An offered
@@ -580,16 +585,15 @@ const segmentOptions = (
     if (point.phase === 'offered')
       return [
         ...ends,
-        ...point.offers.map(
-          (offer): RoundCommand => ({
-            type: 'accept_poi',
-            sequence,
-            offererParticipantId: offer.participant_id,
-          }),
-        ),
+        ...point.offers.map((offer): RoundCommand => ({
+          type: 'accept_poi',
+          sequence,
+          offererParticipantId: offer.participant_id,
+        })),
         { type: 'decline_poi', sequence },
       ];
-    if (point.phase === 'speaking') return [...ends, { type: 'end_poi', sequence }];
+    if (point.phase === 'speaking')
+      return [...ends, { type: 'end_poi', sequence }];
     return ends;
   }
   if (point.phase === 'speaking' && point.holder_participant_id === seat.id)

@@ -15,12 +15,7 @@ import { type SegmentType } from '@daisy/protocol/format';
 import { seatName, sideName } from '../debate-room/seat-names';
 import { sideToneOf, type SideTone } from '../debate-room/speeches';
 import { judgingClockOf } from './judging-window';
-import {
-  judgeKindOf,
-  sameTeam,
-  seatsOf,
-  type Seat,
-} from './round-reading';
+import { judgeKindOf, sameTeam, seatsOf, type Seat } from './round-reading';
 
 /** What one side is doing at one instant, as anyone watching can see it. */
 export type ObservedActivity =
@@ -154,8 +149,7 @@ function activityOf(
   const open = position?.openSegment;
   if (open && open.type !== 'speech')
     return sameTeam(open.lead, seat) ? 'asking' : 'answering';
-  if (open)
-    return sameTeam(open.lead, seat) ? 'speaking' : 'listening';
+  if (open) return sameTeam(open.lead, seat) ? 'speaking' : 'listening';
   const side = sideOfSeat(seat);
   if (
     side !== null &&

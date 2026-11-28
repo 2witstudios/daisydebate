@@ -259,7 +259,9 @@ export function settingRows(
         ? config.inRoundPrep.budgetMsPerSide
         : null,
       countdownMs: config.speechTiming.countdownMs,
-      pointsOfInformation: pointsOfInformationRuleOf(config.pointsOfInformation),
+      pointsOfInformation: pointsOfInformationRuleOf(
+        config.pointsOfInformation,
+      ),
       yielding: config.yielding,
     }),
   ];

@@ -44,7 +44,8 @@ const resumed: DutyEvent = { type: 'pause-ended' };
 test('a bot never opens a speech it does not hold (INTX-17)', () => {
   const partner: DutyRules = { crossEx: false, asks: false, maxAttempts: 2 };
   assert({
-    given: 'a bot seat in a speech another seat is scheduled to, woken and hearing a turn end',
+    given:
+      'a bot seat in a speech another seat is scheduled to, woken and hearing a turn end',
     should: 'wait and owe nothing, so it never speaks over the speaker',
     actual: after(partner, woke, turnEnded(5_000), woke).duty.status,
     expected: 'waiting',

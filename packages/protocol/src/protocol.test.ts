@@ -213,7 +213,8 @@ describe('format definition', () => {
       },
     };
     assert({
-      given: 'a definition that forbids prep and points of information outright',
+      given:
+        'a definition that forbids prep and points of information outright',
       should: 'accept it: null is forbidden, not disabled',
       actual: parseOutcome(formatDefinitionSchema, spartan),
       expected: { data: spartan },

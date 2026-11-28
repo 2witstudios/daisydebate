@@ -37,8 +37,7 @@ const rulesCases = () =>
 const roundCases = () =>
   corpusFormats.flatMap((format) => {
     const enabled = formatVariants().find(
-      (variant) =>
-        variant.format.id === format.id && variant.mode === 'poi',
+      (variant) => variant.format.id === format.id && variant.mode === 'poi',
     );
     const scripts = [
       { name: 'canonical', settings: format.preset, offering: false },

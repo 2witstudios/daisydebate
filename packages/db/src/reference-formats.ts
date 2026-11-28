@@ -140,7 +140,6 @@ const oneOnOneRevision1: FormatDefinition = {
   },
 };
 
-
 /**
  * The current one-on-one format, revision 2: the schedule, defaults and
  * capabilities. It follows the standard one-on-one schedule, so the 1AR
@@ -314,4 +313,3 @@ export const referenceAiJudge = {
   actorId: 'a1i2j3u4d5g6e7a8i9j0u1d2',
   name: 'The Panel',
 };
-

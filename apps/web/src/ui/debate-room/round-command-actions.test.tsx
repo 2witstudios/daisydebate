@@ -82,7 +82,9 @@ test('a refused strike says so only while the strike is open; a lost answer alwa
   const refusedBy = async (posted: FormData, status = 409) =>
     submitRoundForm(async () => new Response('{}', { status }), id, posted);
   const refused = await refusedBy(strike);
-  const yielded = await refusedBy(form('yield', { confirmed: 'true', sequence: '1' }));
+  const yielded = await refusedBy(
+    form('yield', { confirmed: 'true', sequence: '1' }),
+  );
   const forbidden = await refusedBy(strike, 403);
   const lost = roundCommandUnavailable(strike);
   const opening = (step: 'strike' | 'prep') =>

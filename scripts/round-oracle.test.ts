@@ -8,7 +8,12 @@ import {
   type Draw,
 } from '@daisy/seeded-random/testing';
 import { attendanceTimingPolicy } from '@daisy/protocol/attendance';
-import { isJudgeSeat, sameSeat, sideOfSeat } from '@daisy/protocol/seats';
+import {
+  isJudgeSeat,
+  sameSeat,
+  sideOfSeat,
+  type SideKey,
+} from '@daisy/protocol/seats';
 import { isRoundOver } from '@daisy/protocol/round';
 import { leadSeatOf } from '@daisy/protocol/format-seating';
 import {
@@ -20,7 +25,6 @@ import {
 import { type RoundRules } from '@daisy/protocol/format';
 import {
   castOf,
-  floorHolderOf,
   hydrate,
   iso,
   openingRound,
@@ -28,6 +32,8 @@ import {
   panelCompletion,
   persist,
   refusalOf,
+  scheduledSeatOf,
+  takesPointsOfInformation,
   viewAt,
   type Persisted,
   type Refusal,
@@ -52,7 +58,7 @@ const ids = {
   prepBudget: 'round.prep.requires-budget',
   speechPrep: 'round.speech.requires-prep',
   yieldFloor: 'round.yield.requires-floor',
-  interruptPolicy: 'round.interrupt.requires-policy',
+  poiRule: 'round.poi.requires-rule',
   lifecycle: 'round.lifecycle.matches-status',
   stage: 'round.stage.matches-clock',
   terminal: 'round.status.completed.terminal',
@@ -60,9 +66,14 @@ const ids = {
 
 const commands: readonly RoundCommand['type'][] = [
   'start_prep',
+  'cancel_prep',
   'start_speech',
   'yield',
-  'interrupt',
+  'offer_poi',
+  'withdraw_poi',
+  'accept_poi',
+  'decline_poi',
+  'end_poi',
   'forfeit',
   'leave',
 ];
@@ -113,6 +124,12 @@ const isTerminal = (rows: Persisted) => isRoundOver(statusOf(rows));
 
 /** How far time moves before a move: scaled to the Round's own clock. */
 const delayOf = (world: World, draw: Draw): number => {
+  // An offer lapses in seconds and a point lasts seconds: answer one in time, often.
+  if (
+    world.rows.checkpoint.point_of_information.phase !== 'none' &&
+    draw(2) === 0
+  )
+    return [0, 1, 250, 5_000][draw(4)]!;
   const next = world.rules.segments[world.rows.segments.length];
   const segment = next?.durationMs ?? 60_000;
   const choices = [
@@ -196,12 +213,35 @@ const rowProblems = (rules: RoundRules, rows: Persisted): string[] => {
   return problems;
 };
 
+/** Whether `side` may spend prep before segment `target`, by the rules alone. */
+const spendableBefore = (
+  rules: RoundRules,
+  side: SideKey | null,
+  target: number,
+): boolean => {
+  const prep = rules.inRoundPrep;
+  const upcoming = rules.segments[target];
+  if (prep === null || side === null || upcoming === undefined) return false;
+  const lead = leadSeatOf(upcoming.speak);
+  const expires = prep.expiresAtSegment;
+  return (
+    lead !== null &&
+    sideOfSeat(lead) === side &&
+    prep.spendableBefore.includes(upcoming.type) &&
+    (expires === null ||
+      rules.segments.findIndex((segment) => segment.key === expires) > target)
+  );
+};
+
 const positionProblems = (
   rules: RoundRules,
+  cast: readonly RoundParticipantSeat[],
   position: RoundPosition,
 ): string[] => {
   const problems: string[] = [];
   const prep = rules.inRoundPrep;
+  const open = position.openSegment;
+  problems.push(...pointProblems(rules, cast, position));
   if (prep === null) {
     if (position.prep !== null || position.prepBudgetRemainingMs !== null)
       problems.push(`${ids.prepCapability}: prep in a format without it`);
@@ -214,20 +254,90 @@ const positionProblems = (
       problems.push(
         `${ids.prepBudget}: ${side} has ${remaining} ms of prep left`,
       );
-  if (position.prep !== null) {
-    if (position.openSegment !== null)
+  if (position.prep?.phase === 'running') {
+    if (open !== null)
       problems.push(`${ids.prepSpendable}: prep runs while a segment is live`);
     const upcoming = position.nextSegment;
-    const lead = upcoming === null ? null : leadSeatOf(upcoming.speak);
     if (
       upcoming === null ||
-      lead === null ||
-      sideOfSeat(lead) !== position.prep.side ||
-      !prep.spendableBefore.includes(upcoming.type)
+      !spendableBefore(rules, position.prep.side, upcoming.sequence)
     )
       problems.push(
         `${ids.prepSpendable}: prep runs before a segment it may not`,
       );
+  }
+  // Prep called ahead waits on the live segment and is for the one after it (INTX-2).
+  if (position.prep?.phase === 'called') {
+    if (open === null)
+      problems.push(
+        `${ids.prepSpendable}: prep is called with no segment live`,
+      );
+    else if (!spendableBefore(rules, position.prep.side, open.sequence + 1))
+      problems.push(
+        `${ids.prepSpendable}: prep is called before a segment it may not`,
+      );
+  }
+  return problems;
+};
+
+/**
+ * Points of information live only in a speech that takes them: offers stand
+ * inside its window and never from the speaker's side; an accepted point is
+ * another side's and lasts no longer than the rule allows (INTX-13..15).
+ */
+const pointProblems = (
+  rules: RoundRules,
+  cast: readonly RoundParticipantSeat[],
+  position: RoundPosition,
+): string[] => {
+  const point = position.pointOfInformation;
+  const open = position.openSegment;
+  if (point === null) return [];
+  if (open === null || !takesPointsOfInformation(rules, open.sequence))
+    return [
+      `${ids.poiRule}: points of information outside a speech that takes them`,
+    ];
+  const rule = rules.interaction.pointsOfInformation;
+  const speaker = scheduledSeatOf(rules, cast, open.sequence);
+  const speakerSide = speaker === null ? null : sideOfSeat(speaker.seat);
+  const problems: string[] = [];
+  const otherSide = (participantId: string) => {
+    const seat = cast.find(({ id }) => id === participantId);
+    return (
+      seat !== undefined &&
+      seat.id !== speaker?.id &&
+      !isJudgeSeat(seat.seat) &&
+      (speakerSide === null || sideOfSeat(seat.seat) !== speakerSide)
+    );
+  };
+  const closes = instantMs(point.offersCloseAt);
+  if (instantMs(point.offersOpenAt) > closes)
+    problems.push(`${ids.poiRule}: the offer window opens after it closes`);
+  for (const offer of point.offers) {
+    if (!otherSide(offer.participantId))
+      problems.push(`${ids.poiRule}: an offer from the speaker’s own side`);
+    if (instantMs(offer.lapsesAt) > closes)
+      problems.push(`${ids.poiRule}: an offer stands past the protected end`);
+  }
+  if (
+    new Set(point.offers.map(({ participantId }) => participantId)).size !==
+    point.offers.length
+  )
+    problems.push(`${ids.poiRule}: one seat offers twice`);
+  const { holder } = point;
+  if (holder !== null) {
+    if (!otherSide(holder.participantId))
+      problems.push(`${ids.poiRule}: a point held by the speaker’s own side`);
+    if (
+      !rule.allowed ||
+      holder.remainingMs <= 0 ||
+      holder.remainingMs > rule.maxDurationMs
+    )
+      problems.push(
+        `${ids.poiRule}: a point with ${holder.remainingMs} ms left`,
+      );
+    if (point.offers.length > 0)
+      problems.push(`${ids.poiRule}: offers stand while a point is given`);
   }
   return problems;
 };
@@ -239,32 +349,59 @@ const seatOf = (world: World, actor: string | null) =>
     ? null
     : (world.cast.find((seat) => seat.actorId === actor) ?? null);
 
-/** Whether the seat may spend prep now, by the rules alone. */
-const prepWindowOpen = (
+/** The segment a press of `type` means now, read from the position alone. */
+const meantSequenceOf = (
   world: World,
   position: RoundPosition,
-  seat: RoundParticipantSeat | null,
-): boolean => {
-  const prep = world.rules.inRoundPrep;
-  const upcoming = position.nextSegment;
-  if (
-    prep === null ||
-    seat === null ||
-    upcoming === null ||
-    position.openSegment !== null
-  )
-    return false;
-  const lead = leadSeatOf(upcoming.speak);
-  const expires = prep.expiresAtSegment;
-  return (
-    lead !== null &&
-    sideOfSeat(lead) !== null &&
-    sameSeat(lead, seat.seat) &&
-    prep.spendableBefore.includes(upcoming.type) &&
-    (expires === null ||
-      world.rules.segments.findIndex((segment) => segment.key === expires) >
-        upcoming.sequence)
-  );
+  type: RoundCommand['type'],
+): number => {
+  const open = position.openSegment;
+  const next = position.nextSegment?.sequence ?? world.rules.segments.length;
+  switch (type) {
+    // Prep is for the segment after the live one, or the one the gap leads to.
+    case 'start_prep':
+    case 'cancel_prep':
+      return open === null ? next : open.sequence + 1;
+    case 'start_speech':
+      return next;
+    default:
+      return open?.sequence ?? next;
+  }
+};
+
+/**
+ * The command a move posts: the segment it means, or (when `stale`) one it
+ * does not, and for an accept one of the standing offers or any seat.
+ */
+const commandOf = (
+  world: World,
+  position: RoundPosition,
+  type: RoundCommand['type'],
+  stale: boolean,
+  draw: Draw,
+): RoundCommand => {
+  const sequence = meantSequenceOf(world, position, type) + (stale ? 1 : 0);
+  switch (type) {
+    case 'forfeit':
+    case 'leave':
+      return { type };
+    case 'accept_poi': {
+      const offers = (position.pointOfInformation?.offers ?? []).map(
+        ({ participantId }) => participantId,
+      );
+      const pool =
+        offers.length > 0 && draw(4) !== 0
+          ? offers
+          : world.cast.map(({ id }) => id);
+      return {
+        type,
+        sequence,
+        offererParticipantId: pool[draw(pool.length)] ?? 'nobody',
+      };
+    }
+    default:
+      return { type, sequence };
+  }
 };
 
 /**
@@ -275,50 +412,157 @@ const prepWindowOpen = (
 const commandGuards = (
   world: World,
   position: RoundPosition,
-  command: RoundCommand['type'],
+  command: RoundCommand,
   actor: string | null,
 ): Readonly<Record<string, boolean>> => {
   const seat = seatOf(world, actor);
   const side = seat === null ? null : sideOfSeat(seat.seat);
-  const holder = floorHolderOf(world.rules, world.cast, position);
   const open = position.openSegment;
   const terminal = { [ids.terminal]: position.status !== 'completed' };
-  switch (command) {
+  const pointRule = {
+    ...terminal,
+    [ids.poiRule]:
+      open !== null && takesPointsOfInformation(world.rules, open.sequence),
+  };
+  switch (command.type) {
     case 'start_prep':
       return {
         ...terminal,
         [ids.prepCapability]: world.rules.inRoundPrep !== null,
-        [ids.prepSpendable]: prepWindowOpen(world, position, seat),
+        [ids.prepSpendable]: spendableBefore(
+          world.rules,
+          side,
+          meantSequenceOf(world, position, 'start_prep'),
+        ),
         [ids.prepBudget]:
           side !== null && (position.prepBudgetRemainingMs?.[side] ?? 0) > 0,
       };
+    case 'cancel_prep':
+      return terminal;
     case 'start_speech':
-      return { ...terminal, [ids.speechPrep]: position.prep !== null };
+      return {
+        ...terminal,
+        [ids.speechPrep]: position.prep?.phase === 'running',
+      };
     case 'yield':
-      return {
-        ...terminal,
-        [ids.yieldFloor]:
-          open !== null &&
-          seat !== null &&
-          holder?.id === seat.id &&
-          world.rules.interaction.yield?.allowed === true,
-      };
-    case 'interrupt': {
-      const policy = world.rules.interaction.interruptions;
-      return {
-        ...terminal,
-        [ids.interruptPolicy]:
-          open !== null &&
-          policy.allowed === 'enabled' &&
-          open.speak.rights === 'one' &&
-          open.remainingMs >= policy.minRemainingMs &&
-          holder?.id !== seat?.id,
-      };
-    }
+      return { ...terminal, [ids.yieldFloor]: mayYield(world, open, seat) };
+    case 'offer_poi':
+    case 'withdraw_poi':
+    case 'accept_poi':
+    case 'decline_poi':
+    case 'end_poi':
+      return pointRule;
     case 'forfeit':
     case 'leave':
       return terminal;
   }
+};
+
+/**
+ * Whether the seat may end the live segment early: its scheduled seat may end
+ * a speech when the rules permit yielding; the asker always ends
+ * cross-examination, and a person answering a bot asker may (INTX-9).
+ */
+const mayYield = (
+  world: World,
+  open: RoundPosition['openSegment'],
+  seat: RoundParticipantSeat | null,
+): boolean => {
+  if (open === null || seat === null) return false;
+  const scheduled = scheduledSeatOf(world.rules, world.cast, open.sequence);
+  const holds = scheduled !== null && scheduled.id === seat.id;
+  if (world.rules.segments[open.sequence]?.type !== 'cross_ex')
+    return holds && world.rules.interaction.yield?.allowed === true;
+  const side = sideOfSeat(seat.seat);
+  return (
+    holds ||
+    (scheduled?.kind === 'bot' &&
+      seat.kind === 'human' &&
+      !isJudgeSeat(seat.seat) &&
+      side !== null &&
+      side !== sideOfSeat(scheduled.seat))
+  );
+};
+
+/**
+ * What an accepted command must also have honoured, beyond the ids it may
+ * name: a stale press never applies (INTX-7), offers and accepts stand inside
+ * the speech's window, and ending cross-examination returns no prep (INTX-8).
+ */
+const acceptedProblems = (
+  world: World,
+  before: RoundPosition,
+  command: RoundCommand,
+  actor: string | null,
+  stale: boolean,
+  at: number,
+  rows: Persisted,
+): string[] => {
+  const problems: string[] = [];
+  const label = `${command.type}(${actor ?? 'nobody'})`;
+  if (stale) problems.push(`${label}: a press naming another segment applied`);
+  const seat = seatOf(world, actor);
+  const point = before.pointOfInformation;
+  const open = before.openSegment;
+  const speaker =
+    open === null
+      ? null
+      : scheduledSeatOf(world.rules, world.cast, open.sequence);
+  switch (command.type) {
+    case 'offer_poi':
+      if (
+        point === null ||
+        at < instantMs(point.offersOpenAt) ||
+        at >= instantMs(point.offersCloseAt)
+      )
+        problems.push(`${label}: an offer outside the speech’s window`);
+      if (seat === null || seat.id === speaker?.id)
+        problems.push(`${label}: the speaker offered to their own speech`);
+      break;
+    case 'accept_poi':
+      if (seat === null || seat.id !== speaker?.id)
+        problems.push(`${label}: someone other than the speaker accepted`);
+      if (point === null || at >= instantMs(point.offersCloseAt))
+        problems.push(`${label}: an accept inside the protected end`);
+      if (
+        !(point?.offers ?? []).some(
+          ({ participantId }) => participantId === command.offererParticipantId,
+        )
+      )
+        problems.push(`${label}: accepted an offer that was not standing`);
+      break;
+    case 'yield': {
+      if (
+        open === null ||
+        world.rules.segments[open.sequence]?.type !== 'cross_ex'
+      )
+        break;
+      // The same instant without the press: what the clock alone would have stored.
+      const clockOnly = persist(
+        world.rows,
+        hydrate(world.rules, world.cast, world.rows, world.minted).tick(
+          iso(at),
+        ),
+      );
+      if (
+        !Bun.deepEquals(
+          rows.checkpoint.prep_consumed_ms,
+          clockOnly.checkpoint.prep_consumed_ms,
+        )
+      )
+        problems.push(`${label}: ending cross-examination refunded prep`);
+      if ((rows.segments[open.sequence]?.returnedMs ?? 0) !== 0)
+        problems.push(`${label}: ending cross-examination returned time`);
+      break;
+    }
+    case 'start_prep': {
+      const phase = rows.checkpoint.prep.phase;
+      if (phase !== (open === null ? 'running' : 'called'))
+        problems.push(`${label}: prep stood ${phase} after the press`);
+      break;
+    }
+  }
+  return problems;
 };
 
 /** Whether every declared segment has closed, the last at or before `nowMs`. */
@@ -360,6 +604,16 @@ const step = (
   const at = world.nowMs + delayOf(world, draw);
   const runtime = hydrate(world.rules, world.cast, world.rows, world.minted);
   const before = viewAt(runtime, at);
+  // One press in eight names a segment it does not mean (INTX-7).
+  const stale =
+    move.kind === 'command' &&
+    move.command !== 'forfeit' &&
+    move.command !== 'leave' &&
+    draw(8) === 0;
+  const command =
+    move.kind === 'command'
+      ? commandOf(world, before.position, move.command, stale, draw)
+      : null;
   const sides = world.rules.sides.map((side) => side.key);
   const problems: string[] = [];
   let later = at;
@@ -367,7 +621,7 @@ const step = (
     switch (move.kind) {
       case 'command':
         return runtime.execute({
-          command: { type: move.command },
+          command: command!,
           actorId: move.actor,
           now: iso(at),
         });
@@ -478,7 +732,7 @@ const step = (
       const guards = commandGuards(
         world,
         before.position,
-        move.command,
+        command!,
         move.actor,
       );
       if (refusal.kind === 'invariant' && guards[refusal.id] === true)
@@ -512,17 +766,23 @@ const step = (
       `${ids.terminal}: ${labelOf(move)} moved a ${statusOf(world.rows)} Round`,
     );
   if (move.kind === 'command') {
-    const guards = commandGuards(
-      world,
-      before.position,
-      move.command,
-      move.actor,
-    );
+    const guards = commandGuards(world, before.position, command!, move.actor);
     for (const [id, held] of Object.entries(guards))
       if (!held)
         problems.push(
           `${id}: ${labelOf(move)} accepted though its condition failed`,
         );
+    problems.push(
+      ...acceptedProblems(
+        world,
+        before.position,
+        command!,
+        move.actor,
+        stale,
+        at,
+        rows,
+      ),
+    );
   }
   if (
     move.kind === 'panel' &&
@@ -539,7 +799,9 @@ const step = (
       problems.push(
         `${labelOf(move)}: its persisted rows hydrate to another state`,
       );
-    problems.push(...positionProblems(world.rules, fresh.position(iso(now))));
+    problems.push(
+      ...positionProblems(world.rules, world.cast, fresh.position(iso(now))),
+    );
   } catch (error) {
     const refusal = refusalOf(error);
     problems.push(
@@ -547,6 +809,38 @@ const step = (
     );
   }
   return { state: { ...world, rows, nowMs: now, minted }, problems };
+};
+
+/** The speaker's answers to standing offers, and the holder's and speaker's end of a point. */
+const pointAnswersOf = (world: World): readonly Move[] => {
+  const point = world.rows.checkpoint.point_of_information;
+  const open = world.rows.segments.find((row) => row.endedAt === null);
+  if (point.phase === 'none' || open === undefined) return [];
+  const speaker = scheduledSeatOf(world.rules, world.cast, open.sequence);
+  const press = (
+    command: RoundCommand['type'],
+    actor: string | undefined,
+    times: number,
+  ): Move[] =>
+    actor === undefined
+      ? []
+      : Array.from({ length: times }, () => ({
+          kind: 'command',
+          command,
+          actor,
+        }));
+  if (point.phase === 'offered')
+    return [
+      ...press('accept_poi', speaker?.actorId, 30),
+      ...press('decline_poi', speaker?.actorId, 10),
+    ];
+  const holder = world.cast.find(
+    ({ id }) => id === point.holder_participant_id,
+  );
+  return [
+    ...press('end_poi', holder?.actorId, 10),
+    ...press('end_poi', speaker?.actorId, 10),
+  ];
 };
 
 const movesOf = (world: World): readonly Move[] => [
@@ -557,6 +851,26 @@ const movesOf = (world: World): readonly Move[] => [
       'outsider00000000000000',
     ].map((actor): Move => ({ kind: 'command', command, actor })),
   ),
+  // A live speech under a points-of-information rule draws its POI moves more
+  // often, so walks reach offer, accept, decline and return (INTX-13..15).
+  ...(world.rules.interaction.pointsOfInformation.allowed &&
+  world.rows.segments.some(
+    (row) => row.endedAt === null && row.type === 'speech',
+  )
+    ? (['offer_poi', 'accept_poi', 'decline_poi', 'end_poi'] as const).flatMap(
+        (command) =>
+          world.cast.flatMap((seat) =>
+            Array.from({ length: 3 }, (): Move => ({
+              kind: 'command',
+              command,
+              actor: seat.actorId,
+            })),
+          ),
+      )
+    : []),
+  // A standing offer or a point being given draws its answers, from the
+  // speaker and the holder, more often still.
+  ...pointAnswersOf(world),
   // Time and the Round's own decisions come up as often as all commands.
   ...Array.from({ length: 8 }, (): Move => ({ kind: 'tick' })),
   ...Array.from({ length: 3 }, (): Move => ({ kind: 'activate' })),
@@ -661,9 +975,13 @@ describe('round engine oracle (ADR 0164)', () => {
       'activate',
       'tick',
       'start_prep',
+      'cancel_prep',
       'start_speech',
       'yield',
-      'interrupt',
+      'offer_poi',
+      'accept_poi',
+      'decline_poi',
+      'end_poi',
       'forfeit',
       'leave',
       'stop',
@@ -728,7 +1046,11 @@ describe('round engine oracle at rare clock boundaries', () => {
     });
     const before = viewAt(runtime, T0 + 1);
     const outcome = attempt(() =>
-      runtime.execute({ command: { type: 'start_prep' }, actorId, now: at }),
+      runtime.execute({
+        command: { type: 'start_prep', sequence: 0 },
+        actorId,
+        now: at,
+      }),
     );
     assert({
       given: 'a speaker at a spendable segment whose side has spent all prep',
@@ -824,9 +1146,31 @@ describe('hydration rejects inconsistent Round rows', () => {
             ids.openCount,
             {
               ...live,
-              checkpoint: { ...live.checkpoint, prep_ended_at: iso(now) },
+              checkpoint: {
+                ...live.checkpoint,
+                prep: { phase: 'lead', ended_at: iso(now) },
+              },
             },
           ],
+          // A point of information in a segment that takes none.
+          ...(takesPointsOfInformation(rules, open.sequence)
+            ? []
+            : [
+                [
+                  ids.openCount,
+                  {
+                    ...live,
+                    checkpoint: {
+                      ...live.checkpoint,
+                      point_of_information: {
+                        phase: 'speaking',
+                        holder_participant_id: cast.at(-1)!.id,
+                        accepted_at: iso(now),
+                      },
+                    },
+                  },
+                ] as const,
+              ]),
           [
             ids.lifecycle,
             {

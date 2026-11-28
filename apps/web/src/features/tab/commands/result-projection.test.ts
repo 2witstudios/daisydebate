@@ -304,7 +304,10 @@ const rankedRecord = (
         })),
         inRoundPrep: null,
         countdownMs: 0,
-        interaction: { yield: null, pointsOfInformation: { allowed: false as const } },
+        interaction: {
+          yield: null,
+          pointsOfInformation: { allowed: false as const },
+        },
       },
     },
     cast: [

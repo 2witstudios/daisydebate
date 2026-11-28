@@ -19,7 +19,9 @@ import {
  *                      JSON argument lists run with no shell, with {app} and
  *                      {machine} filled in: fly or docker only
  * DRILL_LIVEKIT_API_KEY, DRILL_LIVEKIT_API_SECRET   the scratch nodes' keys
- * DRILL_KILLS          "<mid-speech>,<floor-change>"; default "5,1"
+ * DRILL_KILLS          "<mid-speech>,<floor-change>" or
+ *                      "<mid-speech>,<floor-change>,<mid-prep>,<mid-cx>,<mid-poi>";
+ *                      default "5,1"
  * ROOM_LAUNCH_MEDIA_EDGES   local proof only: JSON list of { port, upstreamPort }
  */
 const target = readDrillTarget(process.env);
