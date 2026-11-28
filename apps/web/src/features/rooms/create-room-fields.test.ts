@@ -178,6 +178,55 @@ describe('native room draft fields', () => {
       expected: [true, 3, true, true],
     });
   });
+  test('the draft refuses an unled cross-examination as the server does (INTX-10)', () => {
+    const source = choice();
+    const withCrossEx = {
+      ...source,
+      definition: {
+        ...source.definition,
+        segments: [
+          ...source.definition.segments,
+          {
+            key: 'CX',
+            label: 'Cross-examination',
+            type: 'cross_ex' as const,
+            speak: { rights: 'all' as const, lead: null },
+            defaultDurationMs: 120_000,
+          },
+        ],
+        configurable: {
+          ...source.definition.configurable,
+          timing: {
+            ...source.definition.configurable.timing,
+            segmentDurationMs: {
+              ...source.definition.configurable.timing.segmentDurationMs,
+              CX: { min: 60_000, max: 180_000 },
+            },
+          },
+        },
+      },
+    };
+    const fields = {
+      ...draftFormValues(createRoomDraft(withCrossEx)),
+      format: 'custom',
+    };
+    const blank = readRoomDraft(
+      { ...fields, 'segment.2.side': '', 'segment.2.slot': '' },
+      [withCrossEx],
+    );
+    const named = readRoomDraft(
+      { ...fields, 'segment.2.side': 'affirmative', 'segment.2.slot': '0' },
+      [withCrossEx],
+    );
+    assert({
+      given:
+        'a stored template whose cross-examination names no asker, drafted with the asker left blank, then with the first affirmative asking',
+      should: 'refuse the blank draft and accept the named one',
+      actual: [blank.ok, named.ok],
+      expected: [false, true],
+    });
+  });
+
   test('a preset that takes points of information keeps its own timing', () => {
     const source = choice();
     const timing = {
