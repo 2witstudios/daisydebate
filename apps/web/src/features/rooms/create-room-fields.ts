@@ -1,6 +1,6 @@
 import { formatStanding } from '@daisy/debate-engine';
 import {
-  formatDefinitionSchema,
+  authoredFormatDefinitionSchema,
   type FormatDefinition,
 } from '@daisy/protocol/format';
 import { roomConfigSchema, type RoomConfig } from '@daisy/protocol/room';
@@ -175,7 +175,7 @@ export function readRoomDraft(
       },
     ]),
   );
-  const parsedDefinition = formatDefinitionSchema.safeParse({
+  const parsedDefinition = authoredFormatDefinitionSchema.safeParse({
     ...source.definition,
     configurable: {
       ...source.definition.configurable,
