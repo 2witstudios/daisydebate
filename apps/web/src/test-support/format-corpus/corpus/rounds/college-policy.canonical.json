@@ -61,9 +61,8 @@
       "budgetMsPerSide": 600000,
       "enabled": true
     },
-    "interruptions": {
-      "minRemainingMs": 30000,
-      "mode": "disabled"
+    "pointsOfInformation": {
+      "enabled": false
     },
     "preRoundPrep": {
       "enabled": false
@@ -86,19 +85,22 @@
         "kind": "activate"
       },
       "checkpoint": {
-        "active_prep": null,
         "clock_stops": [],
-        "floor": null,
         "incident": {
           "phase": "none"
+        },
+        "point_of_information": {
+          "phase": "none"
+        },
+        "prep": {
+          "phase": "idle"
         },
         "prep_consumed_ms": {
           "affirmative": 0,
           "negative": 0
         },
-        "prep_ended_at": null,
         "start_gate": null,
-        "version": 1
+        "version": 2
       },
       "debateOver": false,
       "grants": {
@@ -149,30 +151,48 @@
       "options": {
         "seataffirmative000000000": [
           {
-            "legal": true,
-            "type": "start_prep"
+            "command": {
+              "sequence": 0,
+              "type": "start_prep"
+            },
+            "legal": true
           },
           {
-            "legal": true,
-            "type": "forfeit"
+            "command": {
+              "type": "forfeit"
+            },
+            "legal": true
           }
         ],
         "seataffirmative100000000": [
           {
-            "legal": true,
-            "type": "forfeit"
+            "command": {
+              "sequence": 0,
+              "type": "start_prep"
+            },
+            "legal": true
+          },
+          {
+            "command": {
+              "type": "forfeit"
+            },
+            "legal": true
           }
         ],
         "seatnegative000000000000": [
           {
-            "legal": true,
-            "type": "forfeit"
+            "command": {
+              "type": "forfeit"
+            },
+            "legal": true
           }
         ],
         "seatnegative100000000000": [
           {
-            "legal": true,
-            "type": "forfeit"
+            "command": {
+              "type": "forfeit"
+            },
+            "legal": true
           }
         ]
       },
@@ -203,11 +223,13 @@
         },
         "openSegment": null,
         "outcome": null,
+        "pointOfInformation": null,
         "prep": null,
         "prepBudgetRemainingMs": {
           "affirmative": 600000,
           "negative": 600000
         },
+        "prepExpired": false,
         "stage": "countdown",
         "startedAt": "2026-10-06T09:00:00.000Z",
         "status": "active"
@@ -223,19 +245,22 @@
           ],
           "round": {
             "checkpoint": {
-              "active_prep": null,
               "clock_stops": [],
-              "floor": null,
               "incident": {
                 "phase": "none"
+              },
+              "point_of_information": {
+                "phase": "none"
+              },
+              "prep": {
+                "phase": "idle"
               },
               "prep_consumed_ms": {
                 "affirmative": 0,
                 "negative": 0
               },
-              "prep_ended_at": null,
               "start_gate": null,
-              "version": 1
+              "version": 2
             },
             "completedAt": null,
             "currentStage": "countdown",
@@ -283,11 +308,13 @@
         },
         "openSegment": null,
         "outcome": null,
+        "pointOfInformation": null,
         "prep": null,
         "prepBudgetRemainingMs": {
           "affirmative": 600000,
           "negative": 600000
         },
+        "prepExpired": false,
         "stage": "countdown",
         "startedAt": "2026-10-06T09:00:00.000Z",
         "status": "active"
@@ -298,19 +325,22 @@
           "effects": [],
           "round": {
             "checkpoint": {
-              "active_prep": null,
               "clock_stops": [],
-              "floor": null,
               "incident": {
                 "phase": "none"
+              },
+              "point_of_information": {
+                "phase": "none"
+              },
+              "prep": {
+                "phase": "idle"
               },
               "prep_consumed_ms": {
                 "affirmative": 0,
                 "negative": 0
               },
-              "prep_ended_at": null,
               "start_gate": null,
-              "version": 1
+              "version": 2
             },
             "completedAt": null,
             "currentStage": "countdown",
@@ -375,30 +405,55 @@
       "options": {
         "seataffirmative000000000": [
           {
-            "legal": true,
-            "type": "yield"
+            "command": {
+              "sequence": 0,
+              "type": "yield"
+            },
+            "legal": true
           },
           {
-            "legal": true,
-            "type": "forfeit"
+            "command": {
+              "type": "forfeit"
+            },
+            "legal": true
           }
         ],
         "seataffirmative100000000": [
           {
-            "legal": true,
-            "type": "forfeit"
+            "command": {
+              "type": "forfeit"
+            },
+            "legal": true
           }
         ],
         "seatnegative000000000000": [
           {
-            "legal": true,
-            "type": "forfeit"
+            "command": {
+              "sequence": 1,
+              "type": "start_prep"
+            },
+            "legal": true
+          },
+          {
+            "command": {
+              "type": "forfeit"
+            },
+            "legal": true
           }
         ],
         "seatnegative100000000000": [
           {
-            "legal": true,
-            "type": "forfeit"
+            "command": {
+              "sequence": 1,
+              "type": "start_prep"
+            },
+            "legal": true
+          },
+          {
+            "command": {
+              "type": "forfeit"
+            },
+            "legal": true
           }
         ]
       },
@@ -411,7 +466,6 @@
         "nextSegment": null,
         "openSegment": {
           "endsAt": "2026-10-06T09:09:10.000Z",
-          "floorParticipantId": null,
           "key": "1AC",
           "label": "First affirmative constructive",
           "lead": {
@@ -433,11 +487,13 @@
           "type": "speech"
         },
         "outcome": null,
+        "pointOfInformation": null,
         "prep": null,
         "prepBudgetRemainingMs": {
           "affirmative": 600000,
           "negative": 600000
         },
+        "prepExpired": false,
         "stage": "live",
         "startedAt": "2026-10-06T09:00:00.000Z",
         "status": "active"
@@ -460,19 +516,22 @@
           ],
           "round": {
             "checkpoint": {
-              "active_prep": null,
               "clock_stops": [],
-              "floor": null,
               "incident": {
                 "phase": "none"
+              },
+              "point_of_information": {
+                "phase": "none"
+              },
+              "prep": {
+                "phase": "idle"
               },
               "prep_consumed_ms": {
                 "affirmative": 0,
                 "negative": 0
               },
-              "prep_ended_at": null,
               "start_gate": null,
-              "version": 1
+              "version": 2
             },
             "completedAt": null,
             "currentStage": "live",
@@ -507,9 +566,12 @@
     },
     {
       "action": {
+        "command": {
+          "sequence": 0,
+          "type": "yield"
+        },
         "kind": "command",
-        "seatId": "seatnegative000000000000",
-        "type": "yield"
+        "seatId": "seatnegative000000000000"
       },
       "debateOver": false,
       "now": "2026-10-06T09:00:11.000Z",
@@ -522,7 +584,6 @@
         "nextSegment": null,
         "openSegment": {
           "endsAt": "2026-10-06T09:09:10.000Z",
-          "floorParticipantId": null,
           "key": "1AC",
           "label": "First affirmative constructive",
           "lead": {
@@ -544,11 +605,13 @@
           "type": "speech"
         },
         "outcome": null,
+        "pointOfInformation": null,
         "prep": null,
         "prepBudgetRemainingMs": {
           "affirmative": 600000,
           "negative": 600000
         },
+        "prepExpired": false,
         "stage": "live",
         "startedAt": "2026-10-06T09:00:00.000Z",
         "status": "active"
@@ -611,30 +674,48 @@
       "options": {
         "seataffirmative000000000": [
           {
-            "legal": true,
-            "type": "forfeit"
+            "command": {
+              "type": "forfeit"
+            },
+            "legal": true
           }
         ],
         "seataffirmative100000000": [
           {
-            "legal": true,
-            "type": "forfeit"
+            "command": {
+              "type": "forfeit"
+            },
+            "legal": true
           }
         ],
         "seatnegative000000000000": [
           {
-            "legal": true,
-            "type": "forfeit"
+            "command": {
+              "sequence": 1,
+              "type": "start_prep"
+            },
+            "legal": true
+          },
+          {
+            "command": {
+              "type": "forfeit"
+            },
+            "legal": true
           }
         ],
         "seatnegative100000000000": [
           {
-            "legal": true,
-            "type": "start_prep"
+            "command": {
+              "sequence": 1,
+              "type": "start_prep"
+            },
+            "legal": true
           },
           {
-            "legal": true,
-            "type": "forfeit"
+            "command": {
+              "type": "forfeit"
+            },
+            "legal": true
           }
         ]
       },
@@ -665,11 +746,13 @@
         },
         "openSegment": null,
         "outcome": null,
+        "pointOfInformation": null,
         "prep": null,
         "prepBudgetRemainingMs": {
           "affirmative": 600000,
           "negative": 600000
         },
+        "prepExpired": false,
         "stage": "countdown",
         "startedAt": "2026-10-06T09:00:00.000Z",
         "status": "active"
@@ -686,19 +769,22 @@
           ],
           "round": {
             "checkpoint": {
-              "active_prep": null,
               "clock_stops": [],
-              "floor": null,
               "incident": {
                 "phase": "none"
+              },
+              "point_of_information": {
+                "phase": "none"
+              },
+              "prep": {
+                "phase": "idle"
               },
               "prep_consumed_ms": {
                 "affirmative": 0,
                 "negative": 0
               },
-              "prep_ended_at": null,
               "start_gate": null,
-              "version": 1
+              "version": 2
             },
             "completedAt": null,
             "currentStage": "countdown",
@@ -801,11 +887,13 @@
         },
         "openSegment": null,
         "outcome": null,
+        "pointOfInformation": null,
         "prep": null,
         "prepBudgetRemainingMs": {
           "affirmative": 600000,
           "negative": 600000
         },
+        "prepExpired": false,
         "stage": "countdown",
         "startedAt": "2026-10-06T09:00:00.000Z",
         "status": "active"
@@ -816,19 +904,22 @@
           "effects": [],
           "round": {
             "checkpoint": {
-              "active_prep": null,
               "clock_stops": [],
-              "floor": null,
               "incident": {
                 "phase": "none"
+              },
+              "point_of_information": {
+                "phase": "none"
+              },
+              "prep": {
+                "phase": "idle"
               },
               "prep_consumed_ms": {
                 "affirmative": 0,
                 "negative": 0
               },
-              "prep_ended_at": null,
               "start_gate": null,
-              "version": 1
+              "version": 2
             },
             "completedAt": null,
             "currentStage": "countdown",
@@ -852,30 +943,55 @@
       "options": {
         "seataffirmative000000000": [
           {
-            "legal": true,
-            "type": "forfeit"
+            "command": {
+              "type": "forfeit"
+            },
+            "legal": true
           }
         ],
         "seataffirmative100000000": [
           {
-            "legal": true,
-            "type": "forfeit"
+            "command": {
+              "type": "forfeit"
+            },
+            "legal": true
           }
         ],
         "seatnegative000000000000": [
           {
-            "legal": true,
-            "type": "forfeit"
+            "command": {
+              "sequence": 2,
+              "type": "start_prep"
+            },
+            "legal": true
+          },
+          {
+            "command": {
+              "type": "forfeit"
+            },
+            "legal": true
           }
         ],
         "seatnegative100000000000": [
           {
-            "legal": true,
-            "type": "yield"
+            "command": {
+              "sequence": 2,
+              "type": "start_prep"
+            },
+            "legal": true
           },
           {
-            "legal": true,
-            "type": "forfeit"
+            "command": {
+              "sequence": 1,
+              "type": "yield"
+            },
+            "legal": true
+          },
+          {
+            "command": {
+              "type": "forfeit"
+            },
+            "legal": true
           }
         ]
       },
@@ -888,7 +1004,6 @@
         "nextSegment": null,
         "openSegment": {
           "endsAt": "2026-10-06T09:12:20.000Z",
-          "floorParticipantId": null,
           "key": "CX1",
           "label": "Cross-examination of the first affirmative",
           "lead": {
@@ -910,11 +1025,13 @@
           "type": "cross_ex"
         },
         "outcome": null,
+        "pointOfInformation": null,
         "prep": null,
         "prepBudgetRemainingMs": {
           "affirmative": 600000,
           "negative": 600000
         },
+        "prepExpired": false,
         "stage": "live",
         "startedAt": "2026-10-06T09:00:00.000Z",
         "status": "active"
@@ -937,19 +1054,22 @@
           ],
           "round": {
             "checkpoint": {
-              "active_prep": null,
               "clock_stops": [],
-              "floor": null,
               "incident": {
                 "phase": "none"
+              },
+              "point_of_information": {
+                "phase": "none"
+              },
+              "prep": {
+                "phase": "idle"
               },
               "prep_consumed_ms": {
                 "affirmative": 0,
                 "negative": 0
               },
-              "prep_ended_at": null,
               "start_gate": null,
-              "version": 1
+              "version": 2
             },
             "completedAt": null,
             "currentStage": "live",
@@ -1034,30 +1154,48 @@
       "options": {
         "seataffirmative000000000": [
           {
-            "legal": true,
-            "type": "forfeit"
+            "command": {
+              "type": "forfeit"
+            },
+            "legal": true
           }
         ],
         "seataffirmative100000000": [
           {
-            "legal": true,
-            "type": "forfeit"
+            "command": {
+              "type": "forfeit"
+            },
+            "legal": true
           }
         ],
         "seatnegative000000000000": [
           {
-            "legal": true,
-            "type": "start_prep"
+            "command": {
+              "sequence": 2,
+              "type": "start_prep"
+            },
+            "legal": true
           },
           {
-            "legal": true,
-            "type": "forfeit"
+            "command": {
+              "type": "forfeit"
+            },
+            "legal": true
           }
         ],
         "seatnegative100000000000": [
           {
-            "legal": true,
-            "type": "forfeit"
+            "command": {
+              "sequence": 2,
+              "type": "start_prep"
+            },
+            "legal": true
+          },
+          {
+            "command": {
+              "type": "forfeit"
+            },
+            "legal": true
           }
         ]
       },
@@ -1088,11 +1226,13 @@
         },
         "openSegment": null,
         "outcome": null,
+        "pointOfInformation": null,
         "prep": null,
         "prepBudgetRemainingMs": {
           "affirmative": 600000,
           "negative": 600000
         },
+        "prepExpired": false,
         "stage": "countdown",
         "startedAt": "2026-10-06T09:00:00.000Z",
         "status": "active"
@@ -1109,19 +1249,22 @@
           ],
           "round": {
             "checkpoint": {
-              "active_prep": null,
               "clock_stops": [],
-              "floor": null,
               "incident": {
                 "phase": "none"
+              },
+              "point_of_information": {
+                "phase": "none"
+              },
+              "prep": {
+                "phase": "idle"
               },
               "prep_consumed_ms": {
                 "affirmative": 0,
                 "negative": 0
               },
-              "prep_ended_at": null,
               "start_gate": null,
-              "version": 1
+              "version": 2
             },
             "completedAt": null,
             "currentStage": "countdown",
@@ -1149,57 +1292,80 @@
     },
     {
       "action": {
+        "command": {
+          "sequence": 2,
+          "type": "start_prep"
+        },
         "kind": "command",
-        "seatId": "seatnegative000000000000",
-        "type": "start_prep"
+        "seatId": "seatnegative000000000000"
       },
       "checkpoint": {
-        "active_prep": {
-          "side": "negative",
-          "started_at": "2026-10-06T09:12:22.000Z"
-        },
         "clock_stops": [],
-        "floor": null,
         "incident": {
           "phase": "none"
+        },
+        "point_of_information": {
+          "phase": "none"
+        },
+        "prep": {
+          "phase": "running",
+          "side": "negative",
+          "started_at": "2026-10-06T09:12:22.000Z"
         },
         "prep_consumed_ms": {
           "affirmative": 0,
           "negative": 0
         },
-        "prep_ended_at": null,
         "start_gate": null,
-        "version": 1
+        "version": 2
       },
       "debateOver": false,
       "now": "2026-10-06T09:12:22.000Z",
       "options": {
         "seataffirmative000000000": [
           {
-            "legal": true,
-            "type": "forfeit"
+            "command": {
+              "type": "forfeit"
+            },
+            "legal": true
           }
         ],
         "seataffirmative100000000": [
           {
-            "legal": true,
-            "type": "forfeit"
+            "command": {
+              "type": "forfeit"
+            },
+            "legal": true
           }
         ],
         "seatnegative000000000000": [
           {
-            "legal": true,
-            "type": "start_speech"
+            "command": {
+              "sequence": 2,
+              "type": "start_speech"
+            },
+            "legal": true
           },
           {
-            "legal": true,
-            "type": "forfeit"
+            "command": {
+              "type": "forfeit"
+            },
+            "legal": true
           }
         ],
         "seatnegative100000000000": [
           {
-            "legal": true,
-            "type": "forfeit"
+            "command": {
+              "sequence": 2,
+              "type": "start_speech"
+            },
+            "legal": true
+          },
+          {
+            "command": {
+              "type": "forfeit"
+            },
+            "legal": true
           }
         ]
       },
@@ -1230,7 +1396,9 @@
         },
         "openSegment": null,
         "outcome": null,
+        "pointOfInformation": null,
         "prep": {
+          "phase": "running",
           "remainingMs": 600000,
           "side": "negative"
         },
@@ -1238,6 +1406,7 @@
           "affirmative": 600000,
           "negative": 600000
         },
+        "prepExpired": false,
         "stage": "prep",
         "startedAt": "2026-10-06T09:00:00.000Z",
         "status": "active"
@@ -1254,22 +1423,24 @@
           ],
           "round": {
             "checkpoint": {
-              "active_prep": {
-                "side": "negative",
-                "started_at": "2026-10-06T09:12:22.000Z"
-              },
               "clock_stops": [],
-              "floor": null,
               "incident": {
                 "phase": "none"
+              },
+              "point_of_information": {
+                "phase": "none"
+              },
+              "prep": {
+                "phase": "running",
+                "side": "negative",
+                "started_at": "2026-10-06T09:12:22.000Z"
               },
               "prep_consumed_ms": {
                 "affirmative": 0,
                 "negative": 0
               },
-              "prep_ended_at": null,
               "start_gate": null,
-              "version": 1
+              "version": 2
             },
             "completedAt": null,
             "currentStage": "prep",
@@ -1286,24 +1457,31 @@
     },
     {
       "action": {
+        "command": {
+          "sequence": 2,
+          "type": "start_speech"
+        },
         "kind": "command",
-        "seatId": "seatnegative000000000000",
-        "type": "start_speech"
+        "seatId": "seatnegative000000000000"
       },
       "checkpoint": {
-        "active_prep": null,
         "clock_stops": [],
-        "floor": null,
         "incident": {
           "phase": "none"
+        },
+        "point_of_information": {
+          "phase": "none"
+        },
+        "prep": {
+          "ended_at": "2026-10-06T09:12:52.000Z",
+          "phase": "lead"
         },
         "prep_consumed_ms": {
           "affirmative": 0,
           "negative": 30000
         },
-        "prep_ended_at": "2026-10-06T09:12:52.000Z",
         "start_gate": null,
-        "version": 1
+        "version": 2
       },
       "debateOver": false,
       "grants": {
@@ -1351,26 +1529,34 @@
       "options": {
         "seataffirmative000000000": [
           {
-            "legal": true,
-            "type": "forfeit"
+            "command": {
+              "type": "forfeit"
+            },
+            "legal": true
           }
         ],
         "seataffirmative100000000": [
           {
-            "legal": true,
-            "type": "forfeit"
+            "command": {
+              "type": "forfeit"
+            },
+            "legal": true
           }
         ],
         "seatnegative000000000000": [
           {
-            "legal": true,
-            "type": "forfeit"
+            "command": {
+              "type": "forfeit"
+            },
+            "legal": true
           }
         ],
         "seatnegative100000000000": [
           {
-            "legal": true,
-            "type": "forfeit"
+            "command": {
+              "type": "forfeit"
+            },
+            "legal": true
           }
         ]
       },
@@ -1401,11 +1587,13 @@
         },
         "openSegment": null,
         "outcome": null,
+        "pointOfInformation": null,
         "prep": null,
         "prepBudgetRemainingMs": {
           "affirmative": 600000,
           "negative": 570000
         },
+        "prepExpired": false,
         "stage": "countdown",
         "startedAt": "2026-10-06T09:00:00.000Z",
         "status": "active"
@@ -1416,19 +1604,23 @@
           "effects": [],
           "round": {
             "checkpoint": {
-              "active_prep": null,
               "clock_stops": [],
-              "floor": null,
               "incident": {
                 "phase": "none"
+              },
+              "point_of_information": {
+                "phase": "none"
+              },
+              "prep": {
+                "ended_at": "2026-10-06T09:12:52.000Z",
+                "phase": "lead"
               },
               "prep_consumed_ms": {
                 "affirmative": 0,
                 "negative": 30000
               },
-              "prep_ended_at": "2026-10-06T09:12:52.000Z",
               "start_gate": null,
-              "version": 1
+              "version": 2
             },
             "completedAt": null,
             "currentStage": "countdown",
@@ -1448,49 +1640,77 @@
         "kind": "tick"
       },
       "checkpoint": {
-        "active_prep": null,
         "clock_stops": [],
-        "floor": null,
         "incident": {
           "phase": "none"
+        },
+        "point_of_information": {
+          "phase": "none"
+        },
+        "prep": {
+          "phase": "idle"
         },
         "prep_consumed_ms": {
           "affirmative": 0,
           "negative": 30000
         },
-        "prep_ended_at": null,
         "start_gate": null,
-        "version": 1
+        "version": 2
       },
       "debateOver": false,
       "now": "2026-10-06T09:12:53.200Z",
       "options": {
         "seataffirmative000000000": [
           {
-            "legal": true,
-            "type": "forfeit"
+            "command": {
+              "sequence": 3,
+              "type": "start_prep"
+            },
+            "legal": true
+          },
+          {
+            "command": {
+              "type": "forfeit"
+            },
+            "legal": true
           }
         ],
         "seataffirmative100000000": [
           {
-            "legal": true,
-            "type": "forfeit"
+            "command": {
+              "sequence": 3,
+              "type": "start_prep"
+            },
+            "legal": true
+          },
+          {
+            "command": {
+              "type": "forfeit"
+            },
+            "legal": true
           }
         ],
         "seatnegative000000000000": [
           {
-            "legal": true,
-            "type": "yield"
+            "command": {
+              "sequence": 2,
+              "type": "yield"
+            },
+            "legal": true
           },
           {
-            "legal": true,
-            "type": "forfeit"
+            "command": {
+              "type": "forfeit"
+            },
+            "legal": true
           }
         ],
         "seatnegative100000000000": [
           {
-            "legal": true,
-            "type": "forfeit"
+            "command": {
+              "type": "forfeit"
+            },
+            "legal": true
           }
         ]
       },
@@ -1503,7 +1723,6 @@
         "nextSegment": null,
         "openSegment": {
           "endsAt": "2026-10-06T09:21:53.200Z",
-          "floorParticipantId": null,
           "key": "1NC",
           "label": "First negative constructive",
           "lead": {
@@ -1525,11 +1744,13 @@
           "type": "speech"
         },
         "outcome": null,
+        "pointOfInformation": null,
         "prep": null,
         "prepBudgetRemainingMs": {
           "affirmative": 600000,
           "negative": 570000
         },
+        "prepExpired": false,
         "stage": "live",
         "startedAt": "2026-10-06T09:00:00.000Z",
         "status": "active"
@@ -1552,19 +1773,22 @@
           ],
           "round": {
             "checkpoint": {
-              "active_prep": null,
               "clock_stops": [],
-              "floor": null,
               "incident": {
                 "phase": "none"
+              },
+              "point_of_information": {
+                "phase": "none"
+              },
+              "prep": {
+                "phase": "idle"
               },
               "prep_consumed_ms": {
                 "affirmative": 0,
                 "negative": 30000
               },
-              "prep_ended_at": null,
               "start_gate": null,
-              "version": 1
+              "version": 2
             },
             "completedAt": null,
             "currentStage": "live",
@@ -1599,24 +1823,30 @@
     },
     {
       "action": {
+        "command": {
+          "sequence": 2,
+          "type": "yield"
+        },
         "kind": "command",
-        "seatId": "seatnegative000000000000",
-        "type": "yield"
+        "seatId": "seatnegative000000000000"
       },
       "checkpoint": {
-        "active_prep": null,
         "clock_stops": [],
-        "floor": null,
         "incident": {
           "phase": "none"
+        },
+        "point_of_information": {
+          "phase": "none"
+        },
+        "prep": {
+          "phase": "idle"
         },
         "prep_consumed_ms": {
           "affirmative": 0,
           "negative": 0
         },
-        "prep_ended_at": null,
         "start_gate": null,
-        "version": 1
+        "version": 2
       },
       "debateOver": false,
       "grants": {
@@ -1663,30 +1893,48 @@
       "options": {
         "seataffirmative000000000": [
           {
-            "legal": true,
-            "type": "start_prep"
+            "command": {
+              "sequence": 3,
+              "type": "start_prep"
+            },
+            "legal": true
           },
           {
-            "legal": true,
-            "type": "forfeit"
+            "command": {
+              "type": "forfeit"
+            },
+            "legal": true
           }
         ],
         "seataffirmative100000000": [
           {
-            "legal": true,
-            "type": "forfeit"
+            "command": {
+              "sequence": 3,
+              "type": "start_prep"
+            },
+            "legal": true
+          },
+          {
+            "command": {
+              "type": "forfeit"
+            },
+            "legal": true
           }
         ],
         "seatnegative000000000000": [
           {
-            "legal": true,
-            "type": "forfeit"
+            "command": {
+              "type": "forfeit"
+            },
+            "legal": true
           }
         ],
         "seatnegative100000000000": [
           {
-            "legal": true,
-            "type": "forfeit"
+            "command": {
+              "type": "forfeit"
+            },
+            "legal": true
           }
         ]
       },
@@ -1717,11 +1965,13 @@
         },
         "openSegment": null,
         "outcome": null,
+        "pointOfInformation": null,
         "prep": null,
         "prepBudgetRemainingMs": {
           "affirmative": 600000,
           "negative": 600000
         },
+        "prepExpired": false,
         "stage": "countdown",
         "startedAt": "2026-10-06T09:00:00.000Z",
         "status": "active"
@@ -1738,19 +1988,22 @@
           ],
           "round": {
             "checkpoint": {
-              "active_prep": null,
               "clock_stops": [],
-              "floor": null,
               "incident": {
                 "phase": "none"
+              },
+              "point_of_information": {
+                "phase": "none"
+              },
+              "prep": {
+                "phase": "idle"
               },
               "prep_consumed_ms": {
                 "affirmative": 0,
                 "negative": 0
               },
-              "prep_ended_at": null,
               "start_gate": null,
-              "version": 1
+              "version": 2
             },
             "completedAt": null,
             "currentStage": "countdown",
@@ -1853,11 +2106,13 @@
         },
         "openSegment": null,
         "outcome": null,
+        "pointOfInformation": null,
         "prep": null,
         "prepBudgetRemainingMs": {
           "affirmative": 600000,
           "negative": 600000
         },
+        "prepExpired": false,
         "stage": "countdown",
         "startedAt": "2026-10-06T09:00:00.000Z",
         "status": "active"
@@ -1868,19 +2123,22 @@
           "effects": [],
           "round": {
             "checkpoint": {
-              "active_prep": null,
               "clock_stops": [],
-              "floor": null,
               "incident": {
                 "phase": "none"
+              },
+              "point_of_information": {
+                "phase": "none"
+              },
+              "prep": {
+                "phase": "idle"
               },
               "prep_consumed_ms": {
                 "affirmative": 0,
                 "negative": 0
               },
-              "prep_ended_at": null,
               "start_gate": null,
-              "version": 1
+              "version": 2
             },
             "completedAt": null,
             "currentStage": "countdown",
@@ -1904,30 +2162,55 @@
       "options": {
         "seataffirmative000000000": [
           {
-            "legal": true,
-            "type": "yield"
+            "command": {
+              "sequence": 4,
+              "type": "start_prep"
+            },
+            "legal": true
           },
           {
-            "legal": true,
-            "type": "forfeit"
+            "command": {
+              "sequence": 3,
+              "type": "yield"
+            },
+            "legal": true
+          },
+          {
+            "command": {
+              "type": "forfeit"
+            },
+            "legal": true
           }
         ],
         "seataffirmative100000000": [
           {
-            "legal": true,
-            "type": "forfeit"
+            "command": {
+              "sequence": 4,
+              "type": "start_prep"
+            },
+            "legal": true
+          },
+          {
+            "command": {
+              "type": "forfeit"
+            },
+            "legal": true
           }
         ],
         "seatnegative000000000000": [
           {
-            "legal": true,
-            "type": "forfeit"
+            "command": {
+              "type": "forfeit"
+            },
+            "legal": true
           }
         ],
         "seatnegative100000000000": [
           {
-            "legal": true,
-            "type": "forfeit"
+            "command": {
+              "type": "forfeit"
+            },
+            "legal": true
           }
         ]
       },
@@ -1940,7 +2223,6 @@
         "nextSegment": null,
         "openSegment": {
           "endsAt": "2026-10-06T09:20:33.200Z",
-          "floorParticipantId": null,
           "key": "CX2",
           "label": "Cross-examination of the first negative",
           "lead": {
@@ -1962,11 +2244,13 @@
           "type": "cross_ex"
         },
         "outcome": null,
+        "pointOfInformation": null,
         "prep": null,
         "prepBudgetRemainingMs": {
           "affirmative": 600000,
           "negative": 600000
         },
+        "prepExpired": false,
         "stage": "live",
         "startedAt": "2026-10-06T09:00:00.000Z",
         "status": "active"
@@ -1989,19 +2273,22 @@
           ],
           "round": {
             "checkpoint": {
-              "active_prep": null,
               "clock_stops": [],
-              "floor": null,
               "incident": {
                 "phase": "none"
+              },
+              "point_of_information": {
+                "phase": "none"
+              },
+              "prep": {
+                "phase": "idle"
               },
               "prep_consumed_ms": {
                 "affirmative": 0,
                 "negative": 0
               },
-              "prep_ended_at": null,
               "start_gate": null,
-              "version": 1
+              "version": 2
             },
             "completedAt": null,
             "currentStage": "live",
@@ -2086,30 +2373,48 @@
       "options": {
         "seataffirmative000000000": [
           {
-            "legal": true,
-            "type": "forfeit"
+            "command": {
+              "sequence": 4,
+              "type": "start_prep"
+            },
+            "legal": true
+          },
+          {
+            "command": {
+              "type": "forfeit"
+            },
+            "legal": true
           }
         ],
         "seataffirmative100000000": [
           {
-            "legal": true,
-            "type": "start_prep"
+            "command": {
+              "sequence": 4,
+              "type": "start_prep"
+            },
+            "legal": true
           },
           {
-            "legal": true,
-            "type": "forfeit"
+            "command": {
+              "type": "forfeit"
+            },
+            "legal": true
           }
         ],
         "seatnegative000000000000": [
           {
-            "legal": true,
-            "type": "forfeit"
+            "command": {
+              "type": "forfeit"
+            },
+            "legal": true
           }
         ],
         "seatnegative100000000000": [
           {
-            "legal": true,
-            "type": "forfeit"
+            "command": {
+              "type": "forfeit"
+            },
+            "legal": true
           }
         ]
       },
@@ -2140,11 +2445,13 @@
         },
         "openSegment": null,
         "outcome": null,
+        "pointOfInformation": null,
         "prep": null,
         "prepBudgetRemainingMs": {
           "affirmative": 600000,
           "negative": 600000
         },
+        "prepExpired": false,
         "stage": "countdown",
         "startedAt": "2026-10-06T09:00:00.000Z",
         "status": "active"
@@ -2161,19 +2468,22 @@
           ],
           "round": {
             "checkpoint": {
-              "active_prep": null,
               "clock_stops": [],
-              "floor": null,
               "incident": {
                 "phase": "none"
+              },
+              "point_of_information": {
+                "phase": "none"
+              },
+              "prep": {
+                "phase": "idle"
               },
               "prep_consumed_ms": {
                 "affirmative": 0,
                 "negative": 0
               },
-              "prep_ended_at": null,
               "start_gate": null,
-              "version": 1
+              "version": 2
             },
             "completedAt": null,
             "currentStage": "countdown",
@@ -2273,11 +2583,13 @@
         },
         "openSegment": null,
         "outcome": null,
+        "pointOfInformation": null,
         "prep": null,
         "prepBudgetRemainingMs": {
           "affirmative": 600000,
           "negative": 600000
         },
+        "prepExpired": false,
         "stage": "countdown",
         "startedAt": "2026-10-06T09:00:00.000Z",
         "status": "active"
@@ -2288,19 +2600,22 @@
           "effects": [],
           "round": {
             "checkpoint": {
-              "active_prep": null,
               "clock_stops": [],
-              "floor": null,
               "incident": {
                 "phase": "none"
+              },
+              "point_of_information": {
+                "phase": "none"
+              },
+              "prep": {
+                "phase": "idle"
               },
               "prep_consumed_ms": {
                 "affirmative": 0,
                 "negative": 0
               },
-              "prep_ended_at": null,
               "start_gate": null,
-              "version": 1
+              "version": 2
             },
             "completedAt": null,
             "currentStage": "countdown",
@@ -2324,30 +2639,55 @@
       "options": {
         "seataffirmative000000000": [
           {
-            "legal": true,
-            "type": "forfeit"
+            "command": {
+              "type": "forfeit"
+            },
+            "legal": true
           }
         ],
         "seataffirmative100000000": [
           {
-            "legal": true,
-            "type": "yield"
+            "command": {
+              "sequence": 4,
+              "type": "yield"
+            },
+            "legal": true
           },
           {
-            "legal": true,
-            "type": "forfeit"
+            "command": {
+              "type": "forfeit"
+            },
+            "legal": true
           }
         ],
         "seatnegative000000000000": [
           {
-            "legal": true,
-            "type": "forfeit"
+            "command": {
+              "sequence": 5,
+              "type": "start_prep"
+            },
+            "legal": true
+          },
+          {
+            "command": {
+              "type": "forfeit"
+            },
+            "legal": true
           }
         ],
         "seatnegative100000000000": [
           {
-            "legal": true,
-            "type": "forfeit"
+            "command": {
+              "sequence": 5,
+              "type": "start_prep"
+            },
+            "legal": true
+          },
+          {
+            "command": {
+              "type": "forfeit"
+            },
+            "legal": true
           }
         ]
       },
@@ -2360,7 +2700,6 @@
         "nextSegment": null,
         "openSegment": {
           "endsAt": "2026-10-06T09:29:43.200Z",
-          "floorParticipantId": null,
           "key": "2AC",
           "label": "Second affirmative constructive",
           "lead": {
@@ -2382,11 +2721,13 @@
           "type": "speech"
         },
         "outcome": null,
+        "pointOfInformation": null,
         "prep": null,
         "prepBudgetRemainingMs": {
           "affirmative": 600000,
           "negative": 600000
         },
+        "prepExpired": false,
         "stage": "live",
         "startedAt": "2026-10-06T09:00:00.000Z",
         "status": "active"
@@ -2409,19 +2750,22 @@
           ],
           "round": {
             "checkpoint": {
-              "active_prep": null,
               "clock_stops": [],
-              "floor": null,
               "incident": {
                 "phase": "none"
+              },
+              "point_of_information": {
+                "phase": "none"
+              },
+              "prep": {
+                "phase": "idle"
               },
               "prep_consumed_ms": {
                 "affirmative": 0,
                 "negative": 0
               },
-              "prep_ended_at": null,
               "start_gate": null,
-              "version": 1
+              "version": 2
             },
             "completedAt": null,
             "currentStage": "live",
@@ -2503,30 +2847,48 @@
       "options": {
         "seataffirmative000000000": [
           {
-            "legal": true,
-            "type": "forfeit"
+            "command": {
+              "type": "forfeit"
+            },
+            "legal": true
           }
         ],
         "seataffirmative100000000": [
           {
-            "legal": true,
-            "type": "forfeit"
+            "command": {
+              "type": "forfeit"
+            },
+            "legal": true
           }
         ],
         "seatnegative000000000000": [
           {
-            "legal": true,
-            "type": "start_prep"
+            "command": {
+              "sequence": 5,
+              "type": "start_prep"
+            },
+            "legal": true
           },
           {
-            "legal": true,
-            "type": "forfeit"
+            "command": {
+              "type": "forfeit"
+            },
+            "legal": true
           }
         ],
         "seatnegative100000000000": [
           {
-            "legal": true,
-            "type": "forfeit"
+            "command": {
+              "sequence": 5,
+              "type": "start_prep"
+            },
+            "legal": true
+          },
+          {
+            "command": {
+              "type": "forfeit"
+            },
+            "legal": true
           }
         ]
       },
@@ -2557,11 +2919,13 @@
         },
         "openSegment": null,
         "outcome": null,
+        "pointOfInformation": null,
         "prep": null,
         "prepBudgetRemainingMs": {
           "affirmative": 600000,
           "negative": 600000
         },
+        "prepExpired": false,
         "stage": "countdown",
         "startedAt": "2026-10-06T09:00:00.000Z",
         "status": "active"
@@ -2578,19 +2942,22 @@
           ],
           "round": {
             "checkpoint": {
-              "active_prep": null,
               "clock_stops": [],
-              "floor": null,
               "incident": {
                 "phase": "none"
+              },
+              "point_of_information": {
+                "phase": "none"
+              },
+              "prep": {
+                "phase": "idle"
               },
               "prep_consumed_ms": {
                 "affirmative": 0,
                 "negative": 0
               },
-              "prep_ended_at": null,
               "start_gate": null,
-              "version": 1
+              "version": 2
             },
             "completedAt": null,
             "currentStage": "countdown",
@@ -2693,11 +3060,13 @@
         },
         "openSegment": null,
         "outcome": null,
+        "pointOfInformation": null,
         "prep": null,
         "prepBudgetRemainingMs": {
           "affirmative": 600000,
           "negative": 600000
         },
+        "prepExpired": false,
         "stage": "countdown",
         "startedAt": "2026-10-06T09:00:00.000Z",
         "status": "active"
@@ -2708,19 +3077,22 @@
           "effects": [],
           "round": {
             "checkpoint": {
-              "active_prep": null,
               "clock_stops": [],
-              "floor": null,
               "incident": {
                 "phase": "none"
+              },
+              "point_of_information": {
+                "phase": "none"
+              },
+              "prep": {
+                "phase": "idle"
               },
               "prep_consumed_ms": {
                 "affirmative": 0,
                 "negative": 0
               },
-              "prep_ended_at": null,
               "start_gate": null,
-              "version": 1
+              "version": 2
             },
             "completedAt": null,
             "currentStage": "countdown",
@@ -2744,30 +3116,55 @@
       "options": {
         "seataffirmative000000000": [
           {
-            "legal": true,
-            "type": "forfeit"
+            "command": {
+              "type": "forfeit"
+            },
+            "legal": true
           }
         ],
         "seataffirmative100000000": [
           {
-            "legal": true,
-            "type": "forfeit"
+            "command": {
+              "type": "forfeit"
+            },
+            "legal": true
           }
         ],
         "seatnegative000000000000": [
           {
-            "legal": true,
-            "type": "yield"
+            "command": {
+              "sequence": 6,
+              "type": "start_prep"
+            },
+            "legal": true
           },
           {
-            "legal": true,
-            "type": "forfeit"
+            "command": {
+              "sequence": 5,
+              "type": "yield"
+            },
+            "legal": true
+          },
+          {
+            "command": {
+              "type": "forfeit"
+            },
+            "legal": true
           }
         ],
         "seatnegative100000000000": [
           {
-            "legal": true,
-            "type": "forfeit"
+            "command": {
+              "sequence": 6,
+              "type": "start_prep"
+            },
+            "legal": true
+          },
+          {
+            "command": {
+              "type": "forfeit"
+            },
+            "legal": true
           }
         ]
       },
@@ -2780,7 +3177,6 @@
         "nextSegment": null,
         "openSegment": {
           "endsAt": "2026-10-06T09:32:53.200Z",
-          "floorParticipantId": null,
           "key": "CX3",
           "label": "Cross-examination of the second affirmative",
           "lead": {
@@ -2802,11 +3198,13 @@
           "type": "cross_ex"
         },
         "outcome": null,
+        "pointOfInformation": null,
         "prep": null,
         "prepBudgetRemainingMs": {
           "affirmative": 600000,
           "negative": 600000
         },
+        "prepExpired": false,
         "stage": "live",
         "startedAt": "2026-10-06T09:00:00.000Z",
         "status": "active"
@@ -2829,19 +3227,22 @@
           ],
           "round": {
             "checkpoint": {
-              "active_prep": null,
               "clock_stops": [],
-              "floor": null,
               "incident": {
                 "phase": "none"
+              },
+              "point_of_information": {
+                "phase": "none"
+              },
+              "prep": {
+                "phase": "idle"
               },
               "prep_consumed_ms": {
                 "affirmative": 0,
                 "negative": 0
               },
-              "prep_ended_at": null,
               "start_gate": null,
-              "version": 1
+              "version": 2
             },
             "completedAt": null,
             "currentStage": "live",
@@ -2926,30 +3327,48 @@
       "options": {
         "seataffirmative000000000": [
           {
-            "legal": true,
-            "type": "forfeit"
+            "command": {
+              "type": "forfeit"
+            },
+            "legal": true
           }
         ],
         "seataffirmative100000000": [
           {
-            "legal": true,
-            "type": "forfeit"
+            "command": {
+              "type": "forfeit"
+            },
+            "legal": true
           }
         ],
         "seatnegative000000000000": [
           {
-            "legal": true,
-            "type": "forfeit"
+            "command": {
+              "sequence": 6,
+              "type": "start_prep"
+            },
+            "legal": true
+          },
+          {
+            "command": {
+              "type": "forfeit"
+            },
+            "legal": true
           }
         ],
         "seatnegative100000000000": [
           {
-            "legal": true,
-            "type": "start_prep"
+            "command": {
+              "sequence": 6,
+              "type": "start_prep"
+            },
+            "legal": true
           },
           {
-            "legal": true,
-            "type": "forfeit"
+            "command": {
+              "type": "forfeit"
+            },
+            "legal": true
           }
         ]
       },
@@ -2980,11 +3399,13 @@
         },
         "openSegment": null,
         "outcome": null,
+        "pointOfInformation": null,
         "prep": null,
         "prepBudgetRemainingMs": {
           "affirmative": 600000,
           "negative": 600000
         },
+        "prepExpired": false,
         "stage": "countdown",
         "startedAt": "2026-10-06T09:00:00.000Z",
         "status": "active"
@@ -3001,19 +3422,22 @@
           ],
           "round": {
             "checkpoint": {
-              "active_prep": null,
               "clock_stops": [],
-              "floor": null,
               "incident": {
                 "phase": "none"
+              },
+              "point_of_information": {
+                "phase": "none"
+              },
+              "prep": {
+                "phase": "idle"
               },
               "prep_consumed_ms": {
                 "affirmative": 0,
                 "negative": 0
               },
-              "prep_ended_at": null,
               "start_gate": null,
-              "version": 1
+              "version": 2
             },
             "completedAt": null,
             "currentStage": "countdown",
@@ -3113,11 +3537,13 @@
         },
         "openSegment": null,
         "outcome": null,
+        "pointOfInformation": null,
         "prep": null,
         "prepBudgetRemainingMs": {
           "affirmative": 600000,
           "negative": 600000
         },
+        "prepExpired": false,
         "stage": "countdown",
         "startedAt": "2026-10-06T09:00:00.000Z",
         "status": "active"
@@ -3128,19 +3554,22 @@
           "effects": [],
           "round": {
             "checkpoint": {
-              "active_prep": null,
               "clock_stops": [],
-              "floor": null,
               "incident": {
                 "phase": "none"
+              },
+              "point_of_information": {
+                "phase": "none"
+              },
+              "prep": {
+                "phase": "idle"
               },
               "prep_consumed_ms": {
                 "affirmative": 0,
                 "negative": 0
               },
-              "prep_ended_at": null,
               "start_gate": null,
-              "version": 1
+              "version": 2
             },
             "completedAt": null,
             "currentStage": "countdown",
@@ -3164,30 +3593,55 @@
       "options": {
         "seataffirmative000000000": [
           {
-            "legal": true,
-            "type": "forfeit"
+            "command": {
+              "sequence": 7,
+              "type": "start_prep"
+            },
+            "legal": true
+          },
+          {
+            "command": {
+              "type": "forfeit"
+            },
+            "legal": true
           }
         ],
         "seataffirmative100000000": [
           {
-            "legal": true,
-            "type": "forfeit"
+            "command": {
+              "sequence": 7,
+              "type": "start_prep"
+            },
+            "legal": true
+          },
+          {
+            "command": {
+              "type": "forfeit"
+            },
+            "legal": true
           }
         ],
         "seatnegative000000000000": [
           {
-            "legal": true,
-            "type": "forfeit"
+            "command": {
+              "type": "forfeit"
+            },
+            "legal": true
           }
         ],
         "seatnegative100000000000": [
           {
-            "legal": true,
-            "type": "yield"
+            "command": {
+              "sequence": 6,
+              "type": "yield"
+            },
+            "legal": true
           },
           {
-            "legal": true,
-            "type": "forfeit"
+            "command": {
+              "type": "forfeit"
+            },
+            "legal": true
           }
         ]
       },
@@ -3200,7 +3654,6 @@
         "nextSegment": null,
         "openSegment": {
           "endsAt": "2026-10-06T09:42:03.200Z",
-          "floorParticipantId": null,
           "key": "2NC",
           "label": "Second negative constructive",
           "lead": {
@@ -3222,11 +3675,13 @@
           "type": "speech"
         },
         "outcome": null,
+        "pointOfInformation": null,
         "prep": null,
         "prepBudgetRemainingMs": {
           "affirmative": 600000,
           "negative": 600000
         },
+        "prepExpired": false,
         "stage": "live",
         "startedAt": "2026-10-06T09:00:00.000Z",
         "status": "active"
@@ -3249,19 +3704,22 @@
           ],
           "round": {
             "checkpoint": {
-              "active_prep": null,
               "clock_stops": [],
-              "floor": null,
               "incident": {
                 "phase": "none"
+              },
+              "point_of_information": {
+                "phase": "none"
+              },
+              "prep": {
+                "phase": "idle"
               },
               "prep_consumed_ms": {
                 "affirmative": 0,
                 "negative": 0
               },
-              "prep_ended_at": null,
               "start_gate": null,
-              "version": 1
+              "version": 2
             },
             "completedAt": null,
             "currentStage": "live",
@@ -3343,30 +3801,48 @@
       "options": {
         "seataffirmative000000000": [
           {
-            "legal": true,
-            "type": "forfeit"
+            "command": {
+              "sequence": 7,
+              "type": "start_prep"
+            },
+            "legal": true
+          },
+          {
+            "command": {
+              "type": "forfeit"
+            },
+            "legal": true
           }
         ],
         "seataffirmative100000000": [
           {
-            "legal": true,
-            "type": "start_prep"
+            "command": {
+              "sequence": 7,
+              "type": "start_prep"
+            },
+            "legal": true
           },
           {
-            "legal": true,
-            "type": "forfeit"
+            "command": {
+              "type": "forfeit"
+            },
+            "legal": true
           }
         ],
         "seatnegative000000000000": [
           {
-            "legal": true,
-            "type": "forfeit"
+            "command": {
+              "type": "forfeit"
+            },
+            "legal": true
           }
         ],
         "seatnegative100000000000": [
           {
-            "legal": true,
-            "type": "forfeit"
+            "command": {
+              "type": "forfeit"
+            },
+            "legal": true
           }
         ]
       },
@@ -3397,11 +3873,13 @@
         },
         "openSegment": null,
         "outcome": null,
+        "pointOfInformation": null,
         "prep": null,
         "prepBudgetRemainingMs": {
           "affirmative": 600000,
           "negative": 600000
         },
+        "prepExpired": false,
         "stage": "countdown",
         "startedAt": "2026-10-06T09:00:00.000Z",
         "status": "active"
@@ -3418,19 +3896,22 @@
           ],
           "round": {
             "checkpoint": {
-              "active_prep": null,
               "clock_stops": [],
-              "floor": null,
               "incident": {
                 "phase": "none"
+              },
+              "point_of_information": {
+                "phase": "none"
+              },
+              "prep": {
+                "phase": "idle"
               },
               "prep_consumed_ms": {
                 "affirmative": 0,
                 "negative": 0
               },
-              "prep_ended_at": null,
               "start_gate": null,
-              "version": 1
+              "version": 2
             },
             "completedAt": null,
             "currentStage": "countdown",
@@ -3533,11 +4014,13 @@
         },
         "openSegment": null,
         "outcome": null,
+        "pointOfInformation": null,
         "prep": null,
         "prepBudgetRemainingMs": {
           "affirmative": 600000,
           "negative": 600000
         },
+        "prepExpired": false,
         "stage": "countdown",
         "startedAt": "2026-10-06T09:00:00.000Z",
         "status": "active"
@@ -3548,19 +4031,22 @@
           "effects": [],
           "round": {
             "checkpoint": {
-              "active_prep": null,
               "clock_stops": [],
-              "floor": null,
               "incident": {
                 "phase": "none"
+              },
+              "point_of_information": {
+                "phase": "none"
+              },
+              "prep": {
+                "phase": "idle"
               },
               "prep_consumed_ms": {
                 "affirmative": 0,
                 "negative": 0
               },
-              "prep_ended_at": null,
               "start_gate": null,
-              "version": 1
+              "version": 2
             },
             "completedAt": null,
             "currentStage": "countdown",
@@ -3584,30 +4070,55 @@
       "options": {
         "seataffirmative000000000": [
           {
-            "legal": true,
-            "type": "forfeit"
+            "command": {
+              "type": "forfeit"
+            },
+            "legal": true
           }
         ],
         "seataffirmative100000000": [
           {
-            "legal": true,
-            "type": "yield"
+            "command": {
+              "sequence": 7,
+              "type": "yield"
+            },
+            "legal": true
           },
           {
-            "legal": true,
-            "type": "forfeit"
+            "command": {
+              "type": "forfeit"
+            },
+            "legal": true
           }
         ],
         "seatnegative000000000000": [
           {
-            "legal": true,
-            "type": "forfeit"
+            "command": {
+              "sequence": 8,
+              "type": "start_prep"
+            },
+            "legal": true
+          },
+          {
+            "command": {
+              "type": "forfeit"
+            },
+            "legal": true
           }
         ],
         "seatnegative100000000000": [
           {
-            "legal": true,
-            "type": "forfeit"
+            "command": {
+              "sequence": 8,
+              "type": "start_prep"
+            },
+            "legal": true
+          },
+          {
+            "command": {
+              "type": "forfeit"
+            },
+            "legal": true
           }
         ]
       },
@@ -3620,7 +4131,6 @@
         "nextSegment": null,
         "openSegment": {
           "endsAt": "2026-10-06T09:45:13.200Z",
-          "floorParticipantId": null,
           "key": "CX4",
           "label": "Cross-examination of the second negative",
           "lead": {
@@ -3642,11 +4152,13 @@
           "type": "cross_ex"
         },
         "outcome": null,
+        "pointOfInformation": null,
         "prep": null,
         "prepBudgetRemainingMs": {
           "affirmative": 600000,
           "negative": 600000
         },
+        "prepExpired": false,
         "stage": "live",
         "startedAt": "2026-10-06T09:00:00.000Z",
         "status": "active"
@@ -3669,19 +4181,22 @@
           ],
           "round": {
             "checkpoint": {
-              "active_prep": null,
               "clock_stops": [],
-              "floor": null,
               "incident": {
                 "phase": "none"
+              },
+              "point_of_information": {
+                "phase": "none"
+              },
+              "prep": {
+                "phase": "idle"
               },
               "prep_consumed_ms": {
                 "affirmative": 0,
                 "negative": 0
               },
-              "prep_ended_at": null,
               "start_gate": null,
-              "version": 1
+              "version": 2
             },
             "completedAt": null,
             "currentStage": "live",
@@ -3766,30 +4281,48 @@
       "options": {
         "seataffirmative000000000": [
           {
-            "legal": true,
-            "type": "forfeit"
+            "command": {
+              "type": "forfeit"
+            },
+            "legal": true
           }
         ],
         "seataffirmative100000000": [
           {
-            "legal": true,
-            "type": "forfeit"
+            "command": {
+              "type": "forfeit"
+            },
+            "legal": true
           }
         ],
         "seatnegative000000000000": [
           {
-            "legal": true,
-            "type": "start_prep"
+            "command": {
+              "sequence": 8,
+              "type": "start_prep"
+            },
+            "legal": true
           },
           {
-            "legal": true,
-            "type": "forfeit"
+            "command": {
+              "type": "forfeit"
+            },
+            "legal": true
           }
         ],
         "seatnegative100000000000": [
           {
-            "legal": true,
-            "type": "forfeit"
+            "command": {
+              "sequence": 8,
+              "type": "start_prep"
+            },
+            "legal": true
+          },
+          {
+            "command": {
+              "type": "forfeit"
+            },
+            "legal": true
           }
         ]
       },
@@ -3820,11 +4353,13 @@
         },
         "openSegment": null,
         "outcome": null,
+        "pointOfInformation": null,
         "prep": null,
         "prepBudgetRemainingMs": {
           "affirmative": 600000,
           "negative": 600000
         },
+        "prepExpired": false,
         "stage": "countdown",
         "startedAt": "2026-10-06T09:00:00.000Z",
         "status": "active"
@@ -3841,19 +4376,22 @@
           ],
           "round": {
             "checkpoint": {
-              "active_prep": null,
               "clock_stops": [],
-              "floor": null,
               "incident": {
                 "phase": "none"
+              },
+              "point_of_information": {
+                "phase": "none"
+              },
+              "prep": {
+                "phase": "idle"
               },
               "prep_consumed_ms": {
                 "affirmative": 0,
                 "negative": 0
               },
-              "prep_ended_at": null,
               "start_gate": null,
-              "version": 1
+              "version": 2
             },
             "completedAt": null,
             "currentStage": "countdown",
@@ -3953,11 +4491,13 @@
         },
         "openSegment": null,
         "outcome": null,
+        "pointOfInformation": null,
         "prep": null,
         "prepBudgetRemainingMs": {
           "affirmative": 600000,
           "negative": 600000
         },
+        "prepExpired": false,
         "stage": "countdown",
         "startedAt": "2026-10-06T09:00:00.000Z",
         "status": "active"
@@ -3968,19 +4508,22 @@
           "effects": [],
           "round": {
             "checkpoint": {
-              "active_prep": null,
               "clock_stops": [],
-              "floor": null,
               "incident": {
                 "phase": "none"
+              },
+              "point_of_information": {
+                "phase": "none"
+              },
+              "prep": {
+                "phase": "idle"
               },
               "prep_consumed_ms": {
                 "affirmative": 0,
                 "negative": 0
               },
-              "prep_ended_at": null,
               "start_gate": null,
-              "version": 1
+              "version": 2
             },
             "completedAt": null,
             "currentStage": "countdown",
@@ -4004,30 +4547,55 @@
       "options": {
         "seataffirmative000000000": [
           {
-            "legal": true,
-            "type": "forfeit"
+            "command": {
+              "sequence": 9,
+              "type": "start_prep"
+            },
+            "legal": true
+          },
+          {
+            "command": {
+              "type": "forfeit"
+            },
+            "legal": true
           }
         ],
         "seataffirmative100000000": [
           {
-            "legal": true,
-            "type": "forfeit"
+            "command": {
+              "sequence": 9,
+              "type": "start_prep"
+            },
+            "legal": true
+          },
+          {
+            "command": {
+              "type": "forfeit"
+            },
+            "legal": true
           }
         ],
         "seatnegative000000000000": [
           {
-            "legal": true,
-            "type": "yield"
+            "command": {
+              "sequence": 8,
+              "type": "yield"
+            },
+            "legal": true
           },
           {
-            "legal": true,
-            "type": "forfeit"
+            "command": {
+              "type": "forfeit"
+            },
+            "legal": true
           }
         ],
         "seatnegative100000000000": [
           {
-            "legal": true,
-            "type": "forfeit"
+            "command": {
+              "type": "forfeit"
+            },
+            "legal": true
           }
         ]
       },
@@ -4040,7 +4608,6 @@
         "nextSegment": null,
         "openSegment": {
           "endsAt": "2026-10-06T09:51:23.200Z",
-          "floorParticipantId": null,
           "key": "1NR",
           "label": "First negative rebuttal",
           "lead": {
@@ -4062,11 +4629,13 @@
           "type": "speech"
         },
         "outcome": null,
+        "pointOfInformation": null,
         "prep": null,
         "prepBudgetRemainingMs": {
           "affirmative": 600000,
           "negative": 600000
         },
+        "prepExpired": false,
         "stage": "live",
         "startedAt": "2026-10-06T09:00:00.000Z",
         "status": "active"
@@ -4089,19 +4658,22 @@
           ],
           "round": {
             "checkpoint": {
-              "active_prep": null,
               "clock_stops": [],
-              "floor": null,
               "incident": {
                 "phase": "none"
+              },
+              "point_of_information": {
+                "phase": "none"
+              },
+              "prep": {
+                "phase": "idle"
               },
               "prep_consumed_ms": {
                 "affirmative": 0,
                 "negative": 0
               },
-              "prep_ended_at": null,
               "start_gate": null,
-              "version": 1
+              "version": 2
             },
             "completedAt": null,
             "currentStage": "live",
@@ -4183,30 +4755,48 @@
       "options": {
         "seataffirmative000000000": [
           {
-            "legal": true,
-            "type": "start_prep"
+            "command": {
+              "sequence": 9,
+              "type": "start_prep"
+            },
+            "legal": true
           },
           {
-            "legal": true,
-            "type": "forfeit"
+            "command": {
+              "type": "forfeit"
+            },
+            "legal": true
           }
         ],
         "seataffirmative100000000": [
           {
-            "legal": true,
-            "type": "forfeit"
+            "command": {
+              "sequence": 9,
+              "type": "start_prep"
+            },
+            "legal": true
+          },
+          {
+            "command": {
+              "type": "forfeit"
+            },
+            "legal": true
           }
         ],
         "seatnegative000000000000": [
           {
-            "legal": true,
-            "type": "forfeit"
+            "command": {
+              "type": "forfeit"
+            },
+            "legal": true
           }
         ],
         "seatnegative100000000000": [
           {
-            "legal": true,
-            "type": "forfeit"
+            "command": {
+              "type": "forfeit"
+            },
+            "legal": true
           }
         ]
       },
@@ -4237,11 +4827,13 @@
         },
         "openSegment": null,
         "outcome": null,
+        "pointOfInformation": null,
         "prep": null,
         "prepBudgetRemainingMs": {
           "affirmative": 600000,
           "negative": 600000
         },
+        "prepExpired": false,
         "stage": "countdown",
         "startedAt": "2026-10-06T09:00:00.000Z",
         "status": "active"
@@ -4258,19 +4850,22 @@
           ],
           "round": {
             "checkpoint": {
-              "active_prep": null,
               "clock_stops": [],
-              "floor": null,
               "incident": {
                 "phase": "none"
+              },
+              "point_of_information": {
+                "phase": "none"
+              },
+              "prep": {
+                "phase": "idle"
               },
               "prep_consumed_ms": {
                 "affirmative": 0,
                 "negative": 0
               },
-              "prep_ended_at": null,
               "start_gate": null,
-              "version": 1
+              "version": 2
             },
             "completedAt": null,
             "currentStage": "countdown",
@@ -4370,11 +4965,13 @@
         },
         "openSegment": null,
         "outcome": null,
+        "pointOfInformation": null,
         "prep": null,
         "prepBudgetRemainingMs": {
           "affirmative": 600000,
           "negative": 600000
         },
+        "prepExpired": false,
         "stage": "countdown",
         "startedAt": "2026-10-06T09:00:00.000Z",
         "status": "active"
@@ -4385,19 +4982,22 @@
           "effects": [],
           "round": {
             "checkpoint": {
-              "active_prep": null,
               "clock_stops": [],
-              "floor": null,
               "incident": {
                 "phase": "none"
+              },
+              "point_of_information": {
+                "phase": "none"
+              },
+              "prep": {
+                "phase": "idle"
               },
               "prep_consumed_ms": {
                 "affirmative": 0,
                 "negative": 0
               },
-              "prep_ended_at": null,
               "start_gate": null,
-              "version": 1
+              "version": 2
             },
             "completedAt": null,
             "currentStage": "countdown",
@@ -4421,30 +5021,55 @@
       "options": {
         "seataffirmative000000000": [
           {
-            "legal": true,
-            "type": "yield"
+            "command": {
+              "sequence": 9,
+              "type": "yield"
+            },
+            "legal": true
           },
           {
-            "legal": true,
-            "type": "forfeit"
+            "command": {
+              "type": "forfeit"
+            },
+            "legal": true
           }
         ],
         "seataffirmative100000000": [
           {
-            "legal": true,
-            "type": "forfeit"
+            "command": {
+              "type": "forfeit"
+            },
+            "legal": true
           }
         ],
         "seatnegative000000000000": [
           {
-            "legal": true,
-            "type": "forfeit"
+            "command": {
+              "sequence": 10,
+              "type": "start_prep"
+            },
+            "legal": true
+          },
+          {
+            "command": {
+              "type": "forfeit"
+            },
+            "legal": true
           }
         ],
         "seatnegative100000000000": [
           {
-            "legal": true,
-            "type": "forfeit"
+            "command": {
+              "sequence": 10,
+              "type": "start_prep"
+            },
+            "legal": true
+          },
+          {
+            "command": {
+              "type": "forfeit"
+            },
+            "legal": true
           }
         ]
       },
@@ -4457,7 +5082,6 @@
         "nextSegment": null,
         "openSegment": {
           "endsAt": "2026-10-06T09:57:33.200Z",
-          "floorParticipantId": null,
           "key": "1AR",
           "label": "First affirmative rebuttal",
           "lead": {
@@ -4479,11 +5103,13 @@
           "type": "speech"
         },
         "outcome": null,
+        "pointOfInformation": null,
         "prep": null,
         "prepBudgetRemainingMs": {
           "affirmative": 600000,
           "negative": 600000
         },
+        "prepExpired": false,
         "stage": "live",
         "startedAt": "2026-10-06T09:00:00.000Z",
         "status": "active"
@@ -4506,19 +5132,22 @@
           ],
           "round": {
             "checkpoint": {
-              "active_prep": null,
               "clock_stops": [],
-              "floor": null,
               "incident": {
                 "phase": "none"
+              },
+              "point_of_information": {
+                "phase": "none"
+              },
+              "prep": {
+                "phase": "idle"
               },
               "prep_consumed_ms": {
                 "affirmative": 0,
                 "negative": 0
               },
-              "prep_ended_at": null,
               "start_gate": null,
-              "version": 1
+              "version": 2
             },
             "completedAt": null,
             "currentStage": "live",
@@ -4600,30 +5229,48 @@
       "options": {
         "seataffirmative000000000": [
           {
-            "legal": true,
-            "type": "forfeit"
+            "command": {
+              "type": "forfeit"
+            },
+            "legal": true
           }
         ],
         "seataffirmative100000000": [
           {
-            "legal": true,
-            "type": "forfeit"
+            "command": {
+              "type": "forfeit"
+            },
+            "legal": true
           }
         ],
         "seatnegative000000000000": [
           {
-            "legal": true,
-            "type": "forfeit"
+            "command": {
+              "sequence": 10,
+              "type": "start_prep"
+            },
+            "legal": true
+          },
+          {
+            "command": {
+              "type": "forfeit"
+            },
+            "legal": true
           }
         ],
         "seatnegative100000000000": [
           {
-            "legal": true,
-            "type": "start_prep"
+            "command": {
+              "sequence": 10,
+              "type": "start_prep"
+            },
+            "legal": true
           },
           {
-            "legal": true,
-            "type": "forfeit"
+            "command": {
+              "type": "forfeit"
+            },
+            "legal": true
           }
         ]
       },
@@ -4654,11 +5301,13 @@
         },
         "openSegment": null,
         "outcome": null,
+        "pointOfInformation": null,
         "prep": null,
         "prepBudgetRemainingMs": {
           "affirmative": 600000,
           "negative": 600000
         },
+        "prepExpired": false,
         "stage": "countdown",
         "startedAt": "2026-10-06T09:00:00.000Z",
         "status": "active"
@@ -4675,19 +5324,22 @@
           ],
           "round": {
             "checkpoint": {
-              "active_prep": null,
               "clock_stops": [],
-              "floor": null,
               "incident": {
                 "phase": "none"
+              },
+              "point_of_information": {
+                "phase": "none"
+              },
+              "prep": {
+                "phase": "idle"
               },
               "prep_consumed_ms": {
                 "affirmative": 0,
                 "negative": 0
               },
-              "prep_ended_at": null,
               "start_gate": null,
-              "version": 1
+              "version": 2
             },
             "completedAt": null,
             "currentStage": "countdown",
@@ -4787,11 +5439,13 @@
         },
         "openSegment": null,
         "outcome": null,
+        "pointOfInformation": null,
         "prep": null,
         "prepBudgetRemainingMs": {
           "affirmative": 600000,
           "negative": 600000
         },
+        "prepExpired": false,
         "stage": "countdown",
         "startedAt": "2026-10-06T09:00:00.000Z",
         "status": "active"
@@ -4802,19 +5456,22 @@
           "effects": [],
           "round": {
             "checkpoint": {
-              "active_prep": null,
               "clock_stops": [],
-              "floor": null,
               "incident": {
                 "phase": "none"
+              },
+              "point_of_information": {
+                "phase": "none"
+              },
+              "prep": {
+                "phase": "idle"
               },
               "prep_consumed_ms": {
                 "affirmative": 0,
                 "negative": 0
               },
-              "prep_ended_at": null,
               "start_gate": null,
-              "version": 1
+              "version": 2
             },
             "completedAt": null,
             "currentStage": "countdown",
@@ -4838,30 +5495,55 @@
       "options": {
         "seataffirmative000000000": [
           {
-            "legal": true,
-            "type": "forfeit"
+            "command": {
+              "sequence": 11,
+              "type": "start_prep"
+            },
+            "legal": true
+          },
+          {
+            "command": {
+              "type": "forfeit"
+            },
+            "legal": true
           }
         ],
         "seataffirmative100000000": [
           {
-            "legal": true,
-            "type": "forfeit"
+            "command": {
+              "sequence": 11,
+              "type": "start_prep"
+            },
+            "legal": true
+          },
+          {
+            "command": {
+              "type": "forfeit"
+            },
+            "legal": true
           }
         ],
         "seatnegative000000000000": [
           {
-            "legal": true,
-            "type": "forfeit"
+            "command": {
+              "type": "forfeit"
+            },
+            "legal": true
           }
         ],
         "seatnegative100000000000": [
           {
-            "legal": true,
-            "type": "yield"
+            "command": {
+              "sequence": 10,
+              "type": "yield"
+            },
+            "legal": true
           },
           {
-            "legal": true,
-            "type": "forfeit"
+            "command": {
+              "type": "forfeit"
+            },
+            "legal": true
           }
         ]
       },
@@ -4874,7 +5556,6 @@
         "nextSegment": null,
         "openSegment": {
           "endsAt": "2026-10-06T10:03:43.200Z",
-          "floorParticipantId": null,
           "key": "2NR",
           "label": "Second negative rebuttal",
           "lead": {
@@ -4896,11 +5577,13 @@
           "type": "speech"
         },
         "outcome": null,
+        "pointOfInformation": null,
         "prep": null,
         "prepBudgetRemainingMs": {
           "affirmative": 600000,
           "negative": 600000
         },
+        "prepExpired": false,
         "stage": "live",
         "startedAt": "2026-10-06T09:00:00.000Z",
         "status": "active"
@@ -4923,19 +5606,22 @@
           ],
           "round": {
             "checkpoint": {
-              "active_prep": null,
               "clock_stops": [],
-              "floor": null,
               "incident": {
                 "phase": "none"
+              },
+              "point_of_information": {
+                "phase": "none"
+              },
+              "prep": {
+                "phase": "idle"
               },
               "prep_consumed_ms": {
                 "affirmative": 0,
                 "negative": 0
               },
-              "prep_ended_at": null,
               "start_gate": null,
-              "version": 1
+              "version": 2
             },
             "completedAt": null,
             "currentStage": "live",
@@ -5017,30 +5703,48 @@
       "options": {
         "seataffirmative000000000": [
           {
-            "legal": true,
-            "type": "forfeit"
+            "command": {
+              "sequence": 11,
+              "type": "start_prep"
+            },
+            "legal": true
+          },
+          {
+            "command": {
+              "type": "forfeit"
+            },
+            "legal": true
           }
         ],
         "seataffirmative100000000": [
           {
-            "legal": true,
-            "type": "start_prep"
+            "command": {
+              "sequence": 11,
+              "type": "start_prep"
+            },
+            "legal": true
           },
           {
-            "legal": true,
-            "type": "forfeit"
+            "command": {
+              "type": "forfeit"
+            },
+            "legal": true
           }
         ],
         "seatnegative000000000000": [
           {
-            "legal": true,
-            "type": "forfeit"
+            "command": {
+              "type": "forfeit"
+            },
+            "legal": true
           }
         ],
         "seatnegative100000000000": [
           {
-            "legal": true,
-            "type": "forfeit"
+            "command": {
+              "type": "forfeit"
+            },
+            "legal": true
           }
         ]
       },
@@ -5071,11 +5775,13 @@
         },
         "openSegment": null,
         "outcome": null,
+        "pointOfInformation": null,
         "prep": null,
         "prepBudgetRemainingMs": {
           "affirmative": 600000,
           "negative": 600000
         },
+        "prepExpired": false,
         "stage": "countdown",
         "startedAt": "2026-10-06T09:00:00.000Z",
         "status": "active"
@@ -5092,19 +5798,22 @@
           ],
           "round": {
             "checkpoint": {
-              "active_prep": null,
               "clock_stops": [],
-              "floor": null,
               "incident": {
                 "phase": "none"
+              },
+              "point_of_information": {
+                "phase": "none"
+              },
+              "prep": {
+                "phase": "idle"
               },
               "prep_consumed_ms": {
                 "affirmative": 0,
                 "negative": 0
               },
-              "prep_ended_at": null,
               "start_gate": null,
-              "version": 1
+              "version": 2
             },
             "completedAt": null,
             "currentStage": "countdown",
@@ -5204,11 +5913,13 @@
         },
         "openSegment": null,
         "outcome": null,
+        "pointOfInformation": null,
         "prep": null,
         "prepBudgetRemainingMs": {
           "affirmative": 600000,
           "negative": 600000
         },
+        "prepExpired": false,
         "stage": "countdown",
         "startedAt": "2026-10-06T09:00:00.000Z",
         "status": "active"
@@ -5219,19 +5930,22 @@
           "effects": [],
           "round": {
             "checkpoint": {
-              "active_prep": null,
               "clock_stops": [],
-              "floor": null,
               "incident": {
                 "phase": "none"
+              },
+              "point_of_information": {
+                "phase": "none"
+              },
+              "prep": {
+                "phase": "idle"
               },
               "prep_consumed_ms": {
                 "affirmative": 0,
                 "negative": 0
               },
-              "prep_ended_at": null,
               "start_gate": null,
-              "version": 1
+              "version": 2
             },
             "completedAt": null,
             "currentStage": "countdown",
@@ -5255,30 +5969,41 @@
       "options": {
         "seataffirmative000000000": [
           {
-            "legal": true,
-            "type": "forfeit"
+            "command": {
+              "type": "forfeit"
+            },
+            "legal": true
           }
         ],
         "seataffirmative100000000": [
           {
-            "legal": true,
-            "type": "yield"
+            "command": {
+              "sequence": 11,
+              "type": "yield"
+            },
+            "legal": true
           },
           {
-            "legal": true,
-            "type": "forfeit"
+            "command": {
+              "type": "forfeit"
+            },
+            "legal": true
           }
         ],
         "seatnegative000000000000": [
           {
-            "legal": true,
-            "type": "forfeit"
+            "command": {
+              "type": "forfeit"
+            },
+            "legal": true
           }
         ],
         "seatnegative100000000000": [
           {
-            "legal": true,
-            "type": "forfeit"
+            "command": {
+              "type": "forfeit"
+            },
+            "legal": true
           }
         ]
       },
@@ -5291,7 +6016,6 @@
         "nextSegment": null,
         "openSegment": {
           "endsAt": "2026-10-06T10:09:53.200Z",
-          "floorParticipantId": null,
           "key": "2AR",
           "label": "Second affirmative rebuttal",
           "lead": {
@@ -5313,11 +6037,13 @@
           "type": "speech"
         },
         "outcome": null,
+        "pointOfInformation": null,
         "prep": null,
         "prepBudgetRemainingMs": {
           "affirmative": 600000,
           "negative": 600000
         },
+        "prepExpired": false,
         "stage": "live",
         "startedAt": "2026-10-06T09:00:00.000Z",
         "status": "active"
@@ -5340,19 +6066,22 @@
           ],
           "round": {
             "checkpoint": {
-              "active_prep": null,
               "clock_stops": [],
-              "floor": null,
               "incident": {
                 "phase": "none"
+              },
+              "point_of_information": {
+                "phase": "none"
+              },
+              "prep": {
+                "phase": "idle"
               },
               "prep_consumed_ms": {
                 "affirmative": 0,
                 "negative": 0
               },
-              "prep_ended_at": null,
               "start_gate": null,
-              "version": 1
+              "version": 2
             },
             "completedAt": null,
             "currentStage": "live",
@@ -5450,11 +6179,13 @@
         "nextSegment": null,
         "openSegment": null,
         "outcome": null,
+        "pointOfInformation": null,
         "prep": null,
         "prepBudgetRemainingMs": {
           "affirmative": 600000,
           "negative": 600000
         },
+        "prepExpired": false,
         "stage": "awaiting_ballot",
         "startedAt": "2026-10-06T09:00:00.000Z",
         "status": "active"
@@ -5473,19 +6204,22 @@
           "releasesRoomMembers": true,
           "round": {
             "checkpoint": {
-              "active_prep": null,
               "clock_stops": [],
-              "floor": null,
               "incident": {
                 "phase": "none"
+              },
+              "point_of_information": {
+                "phase": "none"
+              },
+              "prep": {
+                "phase": "idle"
               },
               "prep_consumed_ms": {
                 "affirmative": 0,
                 "negative": 0
               },
-              "prep_ended_at": null,
               "start_gate": null,
-              "version": 1
+              "version": 2
             },
             "completedAt": null,
             "currentStage": "awaiting_ballot",
@@ -5562,11 +6296,13 @@
           "kind": "winner",
           "side": "affirmative"
         },
+        "pointOfInformation": null,
         "prep": null,
         "prepBudgetRemainingMs": {
           "affirmative": 600000,
           "negative": 600000
         },
+        "prepExpired": false,
         "stage": null,
         "startedAt": "2026-10-06T09:00:00.000Z",
         "status": "completed"
@@ -5587,19 +6323,22 @@
           "releasesRoomMembers": true,
           "round": {
             "checkpoint": {
-              "active_prep": null,
               "clock_stops": [],
-              "floor": null,
               "incident": {
                 "phase": "none"
+              },
+              "point_of_information": {
+                "phase": "none"
+              },
+              "prep": {
+                "phase": "idle"
               },
               "prep_consumed_ms": {
                 "affirmative": 0,
                 "negative": 0
               },
-              "prep_ended_at": null,
               "start_gate": null,
-              "version": 1
+              "version": 2
             },
             "completedAt": "2026-10-06T10:10:53.200Z",
             "currentStage": null,

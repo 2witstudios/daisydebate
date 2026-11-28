@@ -1,6 +1,6 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import {
-  interruptionLabel,
+  pointsOfInformationLabel,
   roundLength,
   speechName,
   strikeLabel,
@@ -48,11 +48,17 @@ test('a speech reads by its full name with its code second', () => {
 
 test('rules read in plain words, never as raw values', () => {
   assert({
-    given: 'every interruption and yield setting',
+    given: 'points of information off and on, and every yield setting',
     should: 'name each one for a newcomer',
     actual: [
-      interruptionLabel.disabled,
-      interruptionLabel.enabled,
+      pointsOfInformationLabel({ allowed: false }),
+      pointsOfInformationLabel({
+        allowed: true,
+        protectedStartMs: 60_000,
+        protectedEndMs: 60_000,
+        maxDurationMs: 15_000,
+        offerLapseMs: 10_000,
+      }),
       yieldLabel(null),
       yieldLabel({ allowed: false, returnsTime: true }),
       yieldLabel({ allowed: true, returnsTime: false }),
@@ -60,7 +66,7 @@ test('rules read in plain words, never as raw values', () => {
     ],
     expected: [
       'Off',
-      'During any speech',
+      'On · up to 0:15 each',
       'Off',
       'Off',
       'On',

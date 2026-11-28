@@ -9,6 +9,10 @@ import { isRoundRunning } from '@daisy/protocol/round';
 import { type RoundCommand, type RoundPosition } from '@daisy/protocol/runtime';
 import { type RoundCommandEnvelope } from '@daisy/protocol/round-command';
 import { formatCountdown } from '../../lib/clock-display';
+import {
+  speechInSentence,
+  startSpeechLabel,
+} from '../debate-room/vocabulary';
 
 export type RoundControlIntent = {
   /** Unique among one seat's controls: the type, and the offer an accept takes. */
@@ -26,9 +30,20 @@ export type RoundControlIntent = {
   readonly emphasis?: 'primary' | 'point';
 };
 
-/** A segment by its code, the room's word for it. */
-const codeOf = (view: RoundView, sequence: number) =>
-  view.rules.segments[sequence]?.key ?? 'the next segment';
+/** A control's key: its type, and the offer an accept takes (one button each). */
+export const controlKeyOf = (
+  type: string | undefined,
+  offererParticipantId: string | undefined,
+) =>
+  type === 'accept_poi' && offererParticipantId !== undefined
+    ? `accept_poi-${offererParticipantId}`
+    : (type ?? '');
+
+/** A segment by name inside a sentence ("the affirmative rebuttal"), never its code. */
+const speechOf = (view: RoundView, sequence: number) => {
+  const segment = view.rules.segments[sequence];
+  return segment ? `the ${speechInSentence(segment.label)}` : 'the next speech';
+};
 
 const nameOf = (view: RoundView, participantId: string) =>
   view.participants.filter(isNamedSeat).find((p) => p.id === participantId)
@@ -59,30 +74,32 @@ const wording = (
   const { command, legal } = option;
   switch (command.type) {
     case 'start_prep': {
-      const code = codeOf(view, command.sequence);
+      const before = speechOf(view, command.sequence);
       if (!legal)
         return {
           label: position.prepExpired ? 'Prep has ended' : 'Prep spent',
-          hint: `No prep before ${code}`,
+          hint: `No prep before ${before}`,
         };
       return position.openSegment
         ? {
-            label: `Call prep before ${code}`,
-            hint: `Starts the moment the ${position.openSegment.key} ends`,
+            label: 'Call prep',
+            hint: `Starts the moment ${speechOf(view, position.openSegment.sequence)} ends`,
           }
-        : { label: `Take prep before ${code}` };
+        : { label: 'Take prep time', hint: `Before ${before}` };
     }
     case 'cancel_prep':
       return {
         label: 'Cancel prep',
-        hint: `Prep is called before ${codeOf(view, command.sequence)}`,
+        hint: `Prep is called before ${speechOf(view, command.sequence)}`,
       };
-    case 'start_speech':
+    case 'start_speech': {
+      const segment = view.rules.segments[command.sequence];
       return {
-        label: `End prep · start ${codeOf(view, command.sequence)}`,
-        hint: 'Unused prep stays your side’s',
+        label: segment ? startSpeechLabel(segment.label) : 'Start speech',
+        hint: 'Ends prep; unused prep stays your side’s',
         emphasis: 'primary',
       };
+    }
     case 'yield':
       return position.openSegment?.type === 'cross_ex'
         ? {
@@ -182,10 +199,12 @@ export function roundControlIntents(
   const { self, position, options } = controls;
   const current = persistedPhase(view, position);
   return options.map((option) => ({
-    key:
+    key: controlKeyOf(
+      option.command.type,
       option.command.type === 'accept_poi'
-        ? `accept_poi-${option.command.offererParticipantId}`
-        : option.command.type,
+        ? option.command.offererParticipantId
+        : undefined,
+    ),
     type: option.command.type,
     command: option.command,
     participantId: self.id,

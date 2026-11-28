@@ -23,7 +23,7 @@ test('unsafe custom create and update preserve Room, definitions, receipts and o
       resolutionDraw: { enabled: false as const },
       inRoundPrep: { enabled: false as const },
       speechTiming: { countdownMs: 0, segmentDurationOverrides: {} },
-      interruptions: { mode: 'disabled' as const, minRemainingMs: 0 },
+      pointsOfInformation: { enabled: false as const },
       yielding: { allowed: false, returnsTime: false },
     };
     // Another host: the first Room holds this one (ADR 0070).

@@ -65,7 +65,7 @@ test('an engine refusal of a seated command surfaces as an illegal command', asy
     .command(
       host,
       launched.id,
-      envelope({ type: 'yield', participantId: seat.id }),
+      envelope({ type: 'yield', participantId: seat.id, sequence: 0 }),
     )
     .then(
       () => null,

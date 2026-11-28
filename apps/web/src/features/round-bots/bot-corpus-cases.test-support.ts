@@ -816,8 +816,10 @@ export function generatedSpeaker(
     if ('peer' in move && draw(3) > 0) steps.push(wake);
   }
   steps.push(advance(5000), wake, advance(5000));
+  // A speech's claim is its speaker's; only cross-examination draws who asks.
+  const asks = draw(2) === 0;
   return speaker(name, segment, steps, {
-    opensExchange: draw(2) === 0,
+    opensExchange: segment === 'speech' || asks,
     answers,
     voices: Object.fromEntries(texts.map((text) => [text, repliesOf(draw, 2)])),
     voiceSettles: Object.fromEntries(

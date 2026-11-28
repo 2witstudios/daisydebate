@@ -7,6 +7,7 @@ import { isLiveDebater } from './live-round';
 import { UnacknowledgedCommand } from './unacknowledged-command';
 import type { RoundView } from '@daisy/protocol/round-view';
 import {
+  controlKeyOf,
   roundControlIntents,
   type RoundControlIntent,
 } from '../../features/round-runtime/control-intents';
@@ -51,7 +52,8 @@ export function CommandForm({
   const { values } = roundFormFields(answer);
   const confirming = answer.kind === 'confirming';
   const asked =
-    values.type === intent.type && (!confirming || values.segment === segment);
+    controlKeyOf(values.type, values.offererParticipantId) === intent.key &&
+    (!confirming || values.segment === segment);
   const { command } = intent;
   const preserved = asked ? values : {};
   const confirmation = confirming && asked;
@@ -145,9 +147,10 @@ export const answerFocusTarget = (
   onCall = false,
 ) => {
   if (shownError(answer, view)) return feedback;
+  const { values } = roundFormFields(answer);
   return onCall
     ? CALL_RESULT_LINK_ID
-    : `${control}-${roundFormFields(answer).values.type}`;
+    : `${control}-${controlKeyOf(values.type, values.offererParticipantId)}`;
 };
 
 /** Feedback survives a canonical revision that removes the submitted action. */

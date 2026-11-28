@@ -99,15 +99,15 @@ test('the native Custom editor persists exact settings, POI and its template bas
     assert({
       given: 'native edited timing, POI and a checked Ranked field',
       should:
-        'persist the exact timing and open speaking policy as unranked Custom based on NSDA Lincoln-Douglas',
+        'persist the exact timing and points of information as unranked Custom based on NSDA Lincoln-Douglas',
       actual: [
         view.competitionType,
         view.format.standing.kind,
         view.format.basis?.formatId,
         view.rules.segments[0]?.durationMs,
-        view.rules.interaction.interruptions?.allowed,
+        view.rules.interaction.pointsOfInformation.allowed,
       ],
-      expected: ['casual', 'custom', 'nsda-ld', 272_123, 'open'],
+      expected: ['casual', 'custom', 'nsda-ld', 272_123, true],
     });
   });
 });

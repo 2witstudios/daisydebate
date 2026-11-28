@@ -304,7 +304,7 @@ const rankedRecord = (
         })),
         inRoundPrep: null,
         countdownMs: 0,
-        interaction: { yield: null, interruptions: { allowed: 'disabled' } },
+        interaction: { yield: null, pointsOfInformation: { allowed: false as const } },
       },
     },
     cast: [
@@ -404,7 +404,7 @@ test('actual standings fold keeps different rank-drop values for equal result ag
       inRoundPrepMsPerSide: 0,
       countdownMs: 0,
     },
-    'room.floor': { interruptions: null, yielding: null },
+    'room.floor': { pointsOfInformation: null, yielding: null },
   });
   const values = records.map((record) => {
     const answer = projectResultCompetition(

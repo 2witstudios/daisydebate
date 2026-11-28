@@ -60,7 +60,7 @@ test('shared human commands run the engine with atomic refusals and recover lost
           ...envelope,
           commandId: createId(),
           expectedVersion: 1,
-          command: { type: 'yield', participantId: seat.id },
+          command: { type: 'yield', participantId: seat.id, sequence: 0 },
         }),
       code: 'CONFLICT',
     });

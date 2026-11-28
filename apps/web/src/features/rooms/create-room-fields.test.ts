@@ -14,7 +14,7 @@ const choice = () => ({
 });
 
 describe('native room draft fields', () => {
-  test('a template that forbids interruptions and yielding, made Custom', () => {
+  test('a template that forbids points of information and yielding, made Custom', () => {
     // Tab's Open conversation forbids both, so its preset holds null for each.
     const template = {
       ...unequalTemplate,
@@ -22,14 +22,14 @@ describe('native room draft fields', () => {
         ...unequalTemplate.definition,
         configurable: {
           ...unequalTemplate.definition.configurable,
-          interaction: { interruptions: null, yield: null },
+          interaction: { pointsOfInformation: null, yield: null },
         },
       },
       preset: {
         ...unequalTemplate.preset,
         config: {
           ...unequalTemplate.preset.config,
-          interruptions: null,
+          pointsOfInformation: null,
           yielding: null,
         },
       },
@@ -41,19 +41,19 @@ describe('native room draft fields', () => {
       resolveRoomConfiguration(read.draft.definition, read.draft.config);
     assert({
       given:
-        'a template whose preset forbids interruptions and yielding, posted as a Custom room',
+        'a template whose preset forbids points of information and yielding, posted as a Custom room',
       should:
         'compile, committing the template’s settings as chosen: the Custom room forbids what the template forbade',
       actual: read.ok && {
         custom: read.draft.custom,
         compiled: compiled && compiled.ok,
-        interruptions: read.draft.config.interruptions,
+        pointsOfInformation: read.draft.config.pointsOfInformation,
         yielding: read.draft.config.yielding,
       },
       expected: {
         custom: true,
         compiled: true,
-        interruptions: null,
+        pointsOfInformation: null,
         yielding: null,
       },
     });
@@ -165,16 +165,16 @@ describe('native room draft fields', () => {
     );
     assert({
       given:
-        'a template that forbids strike and interruptions, customized with a speech and POI',
+        'a template that forbids strike and points of information, customized with a speech and POI',
       should:
         'compile a separate Custom definition supporting the requested rules',
       actual: read.ok && [
         read.draft.custom,
         read.draft.definition.segments.length,
         read.draft.definition.configurable.resolutionDraw !== null,
-        read.draft.config.interruptions?.mode,
+        read.draft.config.pointsOfInformation?.enabled,
       ],
-      expected: [true, 3, true, 'open'],
+      expected: [true, 3, true, true],
     });
   });
 });

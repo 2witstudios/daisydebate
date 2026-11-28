@@ -55,7 +55,7 @@ const run = (
       const seat = state.seats.find((s) => s.id === action.seatId);
       if (!seat) throw new Error(`No seat ${action.seatId} in the script`);
       return runtime.execute({
-        command: { type: action.type },
+        command: action.command,
         actorId: seat.actorId,
         now,
       });
@@ -129,11 +129,12 @@ const ifChanged = <T>(value: T, last: { json: string }): T | undefined => {
  * Drives a fresh Round over `rules` from activation to a completed panel,
  * through every segment boundary (each countdown's microphone lead, each
  * opening and close) and, where the rules allow, a refused yield, prep, a
- * yield, and an interruption with its floor returned.
+ * yield, and a point of information offered, accepted and given back.
  */
 export function scriptRound(input: {
   readonly rules: RoundRules;
-  readonly interrupting: boolean;
+  /** Whether the script offers and takes a point of information where the rules allow. */
+  readonly offering: boolean;
 }): readonly ScriptStep[] {
   const seats = seatsOf(input.rules);
   const runtime = hydrate(input.rules, seats, opening);

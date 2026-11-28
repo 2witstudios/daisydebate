@@ -214,28 +214,6 @@ describe('liveRoundOf during the round', () => {
       actual: notes(seated(crossEx), crossEx).slice(0, 2),
       expected: [true, true],
     });
-    const open = seated(speech);
-    assert({
-      given: 'the gap before a speech under open questioning',
-      should: 'tell both sides, because everyone may speak',
-      actual: notes(
-        {
-          ...open,
-          rules: {
-            ...open.rules,
-            interaction: {
-              ...open.rules.interaction,
-              interruptions: {
-                ...open.rules.interaction.interruptions,
-                allowed: 'open',
-              } as never,
-            },
-          },
-        },
-        speech,
-      ).slice(0, 2),
-      expected: [true, true],
-    });
   });
 
   test('a seat in its own prep is told its microphone opens when prep ends', () => {
@@ -249,7 +227,7 @@ describe('liveRoundOf during the round', () => {
       ...ran(closed, true),
       checkpoint: {
         ...emptyRuntimeCheckpointFor({ sides: twoSides }),
-        active_prep: { side: 'affirmative', started_at: at(startOf(closed)) },
+        prep: { phase: 'running', side: 'affirmative', started_at: at(startOf(closed)) },
       },
     };
     const clock = liveRoundOf(
@@ -349,7 +327,7 @@ describe('liveRoundOf during the round', () => {
       ...ran(4, true),
       checkpoint: {
         ...emptyRuntimeCheckpointFor({ sides: twoSides }),
-        active_prep: { side: 'affirmative', started_at: at(startOf(4)) },
+        prep: { phase: 'running', side: 'affirmative', started_at: at(startOf(4)) },
       },
     };
     const mine = liveRoundOf(prepping, aff.actorId, now);

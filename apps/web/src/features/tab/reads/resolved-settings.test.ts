@@ -32,7 +32,7 @@ const names: Record<string, string> = {
 const format: ResolvedSettingsFacts['format'] = {
   'room.timing': { preRoundPrepMs: 0, inRoundPrepMsPerSide: 0, countdownMs: 0 },
   'room.floor': {
-    interruptions: { mode: 'disabled', minRemainingMs: 0 },
+    pointsOfInformation: { enabled: false },
     yielding: { allowed: false, returnsTime: false },
   },
 };

@@ -121,7 +121,7 @@ export type RoundSnapshot = {
   readonly prepCalled: {
     readonly side: string;
     readonly own: boolean;
-    /** The segment the prep is for, and the one it waits on, by code. */
+    /** The speech the prep is for, and the segment it waits on, by name in a sentence. */
     readonly before: string;
     readonly after: string;
   } | null;

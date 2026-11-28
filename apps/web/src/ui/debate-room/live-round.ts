@@ -1,5 +1,8 @@
 import { instantMs } from '@daisy/clock';
-import { drawnTopicLabel } from '../../features/debate-room/vocabulary';
+import {
+  drawnTopicLabel,
+  speechInSentence,
+} from '../../features/debate-room/vocabulary';
 import {
   roundPositionAt,
   type RoundPosition,
@@ -363,8 +366,10 @@ function prepCalledOf(
   return {
     side: sideName(view.rules.sides, prep.side),
     own: prep.side === sideOfSeat(seat.seat),
-    before: view.rules.segments[open.sequence + 1]?.key ?? '',
-    after: open.key,
+    before: speechInSentence(
+      view.rules.segments[open.sequence + 1]?.label ?? 'next speech',
+    ),
+    after: speechInSentence(open.label),
   };
 }
 

@@ -53,7 +53,11 @@ test('accepted engine commands persist speaking grants and historical closure wi
       version: 1 as const,
       commandId: createId(),
       expectedVersion: 1,
-      command: { type: 'yield' as const, participantId: hostSeat.id },
+      command: {
+        type: 'yield' as const,
+        participantId: hostSeat.id,
+        sequence: 0,
+      },
     };
     await operations.command(principal, roundId, envelope);
     await operations.command(principal, roundId, envelope);

@@ -230,17 +230,25 @@ test('null interaction refusals preserve durable create and edit state', async (
       configurable: {
         ...choice.definition.configurable,
         interaction: {
-          interruptions: {
-            modes: ['enabled' as const],
-            minRemainingMs: { min: 0, max: 1000 },
-          },
+          pointsOfInformation: {
+          protectedStartMs: { min: 0, max: 120_000 },
+          protectedEndMs: { min: 0, max: 120_000 },
+          maxDurationMs: { min: 5_000, max: 30_000 },
+          offerLapseMs: { min: 5_000, max: 30_000 },
+        },
           yield: { enabledChoices: [true], returnsTimeChoices: [true] },
         },
       },
     };
     const config = {
       ...choice.preset.config,
-      interruptions: { mode: 'enabled' as const, minRemainingMs: 0 },
+      pointsOfInformation: {
+      enabled: true,
+      protectedStartMs: 60_000,
+      protectedEndMs: 60_000,
+      maxDurationMs: 15_000,
+      offerLapseMs: 10_000,
+    },
       yielding: { allowed: true, returnsTime: true },
     };
     const selection = {

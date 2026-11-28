@@ -235,16 +235,24 @@ test('a mute choice survives this tab’s reload and never reaches a fresh tab',
             ...selection.definition.configurable,
             interaction: {
               ...selection.definition.configurable.interaction,
-              interruptions: {
-                modes: ['disabled', 'open'],
-                minRemainingMs: { min: 0, max: 300_000 },
-              },
+              pointsOfInformation: {
+          protectedStartMs: { min: 0, max: 120_000 },
+          protectedEndMs: { min: 0, max: 120_000 },
+          maxDurationMs: { min: 5_000, max: 30_000 },
+          offerLapseMs: { min: 5_000, max: 30_000 },
+        },
             },
           },
         },
         config: {
           ...selection.config,
-          interruptions: { mode: 'open', minRemainingMs: 0 },
+          pointsOfInformation: {
+      enabled: true,
+      protectedStartMs: 60_000,
+      protectedEndMs: 60_000,
+      maxDurationMs: 15_000,
+      offerLapseMs: 10_000,
+    },
         },
       } as typeof selection;
     });

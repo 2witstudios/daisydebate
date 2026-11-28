@@ -6,13 +6,13 @@ import { UnacknowledgedCommand } from './unacknowledged-command';
 setupRitewayBun();
 
 const id = 'a'.repeat(24);
-const original = {
+const envelope = {
   version: '1',
   commandId: id,
   expectedVersion: '3',
-  type: 'yield',
   participantId: id,
 };
+const original = { ...envelope, type: 'yield', sequence: '0' };
 const render = (
   answer: Parameters<typeof UnacknowledgedCommand>[0]['answer'],
   pending = false,
@@ -69,7 +69,7 @@ test('a retried strike carries the turn and position the debater struck', () => 
     render({
       kind: 'unacknowledged',
       values: {
-        ...original,
+        ...envelope,
         type: 'strike_resolution',
         ordinal: '1',
         position: '2',
@@ -96,7 +96,7 @@ test('the retry posts exactly the fields the debater sent, its segment included 
   assert({
     given: 'an unacknowledged confirmed yield sent from segment 0',
     should: 'offer a retry carrying the same segment and confirmation',
-    actual: [posted.segment, posted.confirmed],
-    expected: ['0', 'true'],
+    actual: [posted.sequence, posted.segment, posted.confirmed],
+    expected: ['0', '0', 'true'],
   });
 });

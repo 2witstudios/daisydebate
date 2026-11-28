@@ -31,7 +31,10 @@ test('a revoked participant never blocks the opponent finishing the Round (ADR 0
         version: 1,
         commandId: createId(),
         expectedVersion,
-        command: { type, participantId: seatOf(actorId).id },
+        command:
+          type === 'yield'
+            ? { type, participantId: seatOf(actorId).id, sequence: 0 }
+            : { type, participantId: seatOf(actorId).id },
       });
     await assertRejects({
       given:

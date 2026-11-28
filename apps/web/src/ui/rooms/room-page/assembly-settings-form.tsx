@@ -51,7 +51,7 @@ export function AssemblySettingsFields({
         <summary className="flex min-h-room-target cursor-pointer flex-col justify-center">
           <span className="font-strong">Customize speeches and rules</span>
           <span className="text-xs text-ink-muted">
-            Speech times, countdown, interruptions and ending early. The
+            Speech times, countdown, points of information and ending early. The
             format’s defaults suit most rounds.
           </span>
         </summary>

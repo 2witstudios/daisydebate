@@ -80,7 +80,7 @@ test('Round receipt accepts only the requested persisted identity and legal froz
       resolutionDraw: { enabled: false },
       inRoundPrep: { enabled: false },
       speechTiming: { countdownMs: 731, segmentDurationOverrides: {} },
-      interruptions: null,
+      pointsOfInformation: null,
       yielding: null,
     },
     rules: {
@@ -119,7 +119,7 @@ test('Round receipt accepts only the requested persisted identity and legal froz
       countdownMs: 731,
       interaction: {
         yield: null,
-        interruptions: { allowed: 'disabled' as const },
+        pointsOfInformation: { allowed: false as const },
       },
     },
     viewerIsHost: false,

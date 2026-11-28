@@ -86,7 +86,11 @@ export async function playTournamentRound(
           version: 1,
           commandId: createId(),
           expectedVersion: round.version,
-          command: { type: 'yield', participantId: speaker.id },
+          command: {
+            type: 'yield',
+            participantId: speaker.id,
+            sequence: open.sequence,
+          },
         },
       );
     }

@@ -1,4 +1,10 @@
-import { isSpeakingSeat, isJudgeSeat, sameSeat, type SeatRef } from './seats';
+import {
+  isSpeakingSeat,
+  isJudgeSeat,
+  sameSeat,
+  sideOfSeat,
+  type SeatRef,
+} from './seats';
 import { leadSeatOf } from './format-seating';
 import type { RoundRules } from './format';
 import { roundStatus } from './round';
@@ -33,23 +39,59 @@ export function decideBotClaimActivity(
   | { readonly kind: 'missing' | 'open' } {
   if (!segment) return { kind: 'missing' };
   if (segment.type === 'open') return { kind: 'open' };
+  const rule = round.rules.segments.find(
+    (candidate) => candidate.key === segment.rulesSegmentKey,
+  );
+  const lead = rule === undefined ? null : leadSeatOf(rule.speak);
+  const opensExchange = lead !== null && sameSeat(lead, seat.seat);
   return {
     kind: 'ready',
     activity: {
       segmentType: segment.type,
-      opensExchange: round.rules.segments.some((rule) => {
-        const lead = leadSeatOf(rule.speak);
-        return (
-          rule.key === segment.rulesSegmentKey &&
-          lead !== null &&
-          sameSeat(lead, seat.seat)
-        );
-      }),
-      peerParticipantIds: round.participants
-        .filter((row) => !isJudgeSeat(row.seat) && row.id !== seat.id)
-        .map((row) => row.id),
+      opensExchange,
+      peerParticipantIds:
+        segment.type === 'cross_ex'
+          ? crossExaminationPeers(round, seat, lead, opensExchange)
+          : [],
     },
   };
+}
+
+/**
+ * Whom a bot answers in cross-examination (INTX-11): only the other side, and
+ * only once per side. The asker answers the answering side; on the answering
+ * side the first seat answers the asker's side; any other seat of either side
+ * stays quiet, so partners never double a question or an answer. Unsided, it
+ * answers everyone else.
+ */
+function crossExaminationPeers(
+  round: {
+    readonly participants: readonly {
+      readonly id: string;
+      readonly seat: SeatRef;
+    }[];
+  },
+  seat: { readonly id: string; readonly seat: SeatRef },
+  lead: SeatRef | null,
+  asks: boolean,
+): readonly string[] {
+  const others = round.participants.filter(
+    (row) => !isJudgeSeat(row.seat) && row.id !== seat.id,
+  );
+  const side = sideOfSeat(seat.seat);
+  const askingSide = lead === null ? null : sideOfSeat(lead);
+  if (side === null || askingSide === null) return others.map((row) => row.id);
+  const opposing = others.filter((row) => sideOfSeat(row.seat) !== side);
+  if (asks) return opposing.map((row) => row.id);
+  if (side === askingSide) return [];
+  const answerer = round.participants
+    .filter((row) => sideOfSeat(row.seat) === side)
+    .sort((a, b) => a.seat.slot - b.seat.slot)[0];
+  return answerer?.id === seat.id
+    ? opposing
+        .filter((row) => sideOfSeat(row.seat) === askingSide)
+        .map((row) => row.id)
+    : [];
 }
 export type BotGenerationAdmission =
   | {

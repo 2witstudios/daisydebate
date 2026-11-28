@@ -68,7 +68,7 @@ const prepNotice = (
 ): Notice => ({
   tone: 'info',
   title: called.own ? 'Your side’s prep is called' : `${called.side} called prep`,
-  body: `Prep before ${called.before} starts the moment the ${called.after} ends.`,
+  body: `Prep before the ${called.before} starts the moment the ${called.after} ends.`,
 });
 
 const tones: Readonly<Record<Notice['tone'], string>> = {

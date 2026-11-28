@@ -26,33 +26,33 @@ const under = (
 ): readonly CorpusCase[] =>
   cases.map(([name, value]) => ({ path: `${folder}/${name}.json`, value }));
 
-/** Compiled rules for every catalog format and each interruption mode it permits. */
+/** Compiled rules for every catalog format, with points of information off and on where it takes them. */
 const rulesCases = () =>
   formatVariants().map((variant) => ({
     path: `rules/${variant.format.id}.${variant.mode}.json`,
     value: resolvedVariant(variant),
   }));
 
-/** A scripted Round per format on its canonical preset, plus one with interruptions where permitted. */
+/** A scripted Round per format on its canonical preset, plus one with points of information where it takes them. */
 const roundCases = () =>
   corpusFormats.flatMap((format) => {
     const enabled = formatVariants().find(
       (variant) =>
-        variant.format.id === format.id && variant.mode === 'enabled',
+        variant.format.id === format.id && variant.mode === 'poi',
     );
     const scripts = [
-      { name: 'canonical', settings: format.preset, interrupting: false },
+      { name: 'canonical', settings: format.preset, offering: false },
       ...(enabled
         ? [
             {
-              name: 'interruptions',
+              name: 'points-of-information',
               settings: enabled.settings,
-              interrupting: true,
+              offering: true,
             },
           ]
         : []),
     ];
-    return scripts.map(({ name, settings, interrupting }) => {
+    return scripts.map(({ name, settings, offering }) => {
       const rules = rulesOf({ format, mode: name, settings });
       return {
         path: `rounds/${format.id}.${name}.json`,
@@ -60,7 +60,7 @@ const roundCases = () =>
           formatId: format.id,
           settings,
           seats: seatsOf(rules),
-          steps: scriptRound({ rules, interrupting }),
+          steps: scriptRound({ rules, offering }),
         },
       };
     });

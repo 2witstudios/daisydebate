@@ -64,9 +64,15 @@ describe('formatChangeLine', () => {
           changed: ['NC'],
         }),
         formatChangeLine({
-          kind: 'interruptions',
-          from: { allowed: 'enabled', minRemainingMs: 30_000 },
-          to: { allowed: 'disabled' },
+          kind: 'points-of-information',
+          from: {
+            allowed: true,
+            protectedStartMs: 60_000,
+            protectedEndMs: 60_000,
+            maxDurationMs: 15_000,
+            offerLapseMs: 10_000,
+          },
+          to: { allowed: false },
         }),
         formatChangeLine({
           kind: 'yield',
@@ -100,7 +106,7 @@ describe('formatChangeLine', () => {
         'Judges 1 → 3',
         'Aff debaters 1 → 2',
         'Speeches added 3AR · removed 2AR · changed NC',
-        'Interruptions: During any speech → Off',
+        'Points of information: On · up to 0:15 each → Off',
         'Ending a speech early: on → off',
         'Resolution strike: 5 from Daisy’s Policy, Value and Fact resolutions · Negative strikes first · 1:00 per strike → off',
         'Resolution strike: off → 3 from the host’s list · Affirmative strikes first · 1:30 per strike',

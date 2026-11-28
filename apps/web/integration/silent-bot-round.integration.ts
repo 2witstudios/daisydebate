@@ -4,7 +4,10 @@ import {
   oneOnOneSettings,
 } from '@daisy/db/reference-formats';
 import { sideOfSeat } from '@daisy/protocol/seats';
-import { type FormatSettings } from '@daisy/protocol/format-settings';
+import {
+  parliamentaryPointsOfInformation,
+  type FormatSettings,
+} from '@daisy/protocol/format-settings';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { roundTickProjection } from '../src/features/round-finalization/operations';
@@ -25,7 +28,7 @@ type Fixture = Parameters<Parameters<typeof withRoomRuntime>[0]>[0];
 /** Human against a bot with an AI judge, every segment played, inside the admission cutoff. */
 async function playedBotRound(
   f: Fixture,
-  interruptions: FormatSettings['interruptions'] = oneOnOneSettings.interruptions,
+  pointsOfInformation: FormatSettings['pointsOfInformation'] = oneOnOneSettings.pointsOfInformation,
 ) {
   const bot = await f.bot();
   let room = (
@@ -39,14 +42,16 @@ async function playedBotRound(
             ...oneOnOneDefinition.configurable,
             interaction: {
               ...oneOnOneDefinition.configurable.interaction,
-              interruptions: {
-                modes: ['disabled', 'enabled', 'open'],
-                minRemainingMs: { min: 0, max: 300_000 },
-              },
+              pointsOfInformation: {
+          protectedStartMs: { min: 0, max: 120_000 },
+          protectedEndMs: { min: 0, max: 120_000 },
+          maxDurationMs: { min: 5_000, max: 30_000 },
+          offerLapseMs: { min: 5_000, max: 30_000 },
+        },
             },
           },
         },
-        config: { ...oneOnOneSettings, interruptions },
+        config: { ...oneOnOneSettings, pointsOfInformation },
         competitionType: 'casual',
       },
     })
@@ -239,12 +244,9 @@ test('a turn the rules cannot name stays owed (ISSUE-965)', async () => {
   }, botControlOptions);
 });
 
-test("a bot silent during open questioning in another seat's speech owes nothing (ISSUE-965)", async () => {
+test("a bot in a speech it does not hold owes nothing under points of information (ISSUE-965, INTX-17)", async () => {
   await withRoomRuntime(async (f) => {
-    const played = await playedBotRound(f, {
-      mode: 'open',
-      minRemainingMs: 0,
-    });
+    const played = await playedBotRound(f, parliamentaryPointsOfInformation);
     const round = (await f.store.getRound(played.roundId))!;
     const humanSpeech = played.segments.find((segment) => {
       const rule = round.rules.segments[segment.sequence]!;
@@ -256,7 +258,7 @@ test("a bot silent during open questioning in another seat's speech owes nothing
     await speakAllExcept(f, played, humanSpeech);
     assert({
       given:
-        'a bot granted the floor by open questioning that never spoke, every other stream complete',
+        'a bot seat beside a human speech under points of information that never spoke, every other stream complete',
       should: 'freeze complete, as nothing was owed',
       actual: (await freezeOf(f, played.roundId)).freeze,
       expected: 'complete',

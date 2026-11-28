@@ -1,7 +1,6 @@
 import { instantMs } from '@daisy/clock';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import {
-  floorSeatOf,
   isLiveRound,
   isSeat,
   judgeKindOf,
@@ -40,46 +39,6 @@ test('one reading of sides, seats, liveness and judge (ISSUE-672)', () => {
       [true, true, false, false],
       'human',
       null,
-    ],
-  });
-});
-
-test('an accepted interruption gives the floor to the interrupter for spectators and debaters alike (ISSUE-672, ISSUE-673)', () => {
-  const speaking = ran(1);
-  const nowMs = instantMs(at(startOf(0) + 1000));
-  // The negative's interruption, accepted half a second into the speech.
-  const open = {
-    ...speaking,
-    checkpoint: {
-      ...speaking.checkpoint!,
-      floor: {
-        holder_participant_id: neg.id,
-        granted_at: at(startOf(0) + 500),
-      },
-    },
-  };
-  const segment = {
-    lead: { kind: 'side', side: 'affirmative', slot: 0 } as const,
-    floorParticipantId: neg.id,
-  };
-  const spectator = observedRoundOf(open, nowMs);
-  const debater = liveRoundOf(open, neg.actorId, nowMs);
-  assert({
-    given: "the affirmative's speech with the negative's interruption accepted",
-    should:
-      'hand the floor to the negative in the shared reading, show the negative speaking to a spectator and to the negative debater',
-    actual: [
-      floorSeatOf(open, segment),
-      spectator.seats.map(({ side, activity }) => [side, activity]),
-      debater?.phase,
-    ],
-    expected: [
-      { kind: 'side', side: 'negative', slot: 0 },
-      [
-        ['affirmative', 'listening'],
-        ['negative', 'speaking'],
-      ],
-      'own-speech',
     ],
   });
 });

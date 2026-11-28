@@ -17,9 +17,14 @@ export function speechName(segment: {
   return `${segment.label} (${segment.key})`;
 }
 
+/** "negative constructive": a speech's name inside a sentence, first letter lowered. */
+export function speechInSentence(name: string): string {
+  return `${name.charAt(0).toLocaleLowerCase()}${name.slice(1)}`;
+}
+
 /** "Start negative constructive": the speech's name as written, first letter lowered. */
 export function startSpeechLabel(name: string): string {
-  return `Start ${name.charAt(0).toLocaleLowerCase()}${name.slice(1)}`;
+  return `Start ${speechInSentence(name)}`;
 }
 
 /** Points of information, as a rule row's value: Off, or what each point may take. */

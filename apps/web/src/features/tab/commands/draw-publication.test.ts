@@ -12,7 +12,7 @@ const a = id('entrya'),
   fixtureId = id('fixture');
 const settings = engineSettings([], [], {
   'room.timing': { preRoundPrepMs: 0, inRoundPrepMsPerSide: 0, countdownMs: 0 },
-  'room.floor': { interruptions: null, yielding: null },
+  'room.floor': { pointsOfInformation: null, yielding: null },
 });
 const fixture: DrawFixtureFacts = {
   id: fixtureId,

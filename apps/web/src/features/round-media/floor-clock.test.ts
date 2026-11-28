@@ -10,6 +10,7 @@ const clock = (lastSegment: FloorClock['lastSegment']): FloorClock => ({
   countdownMs: 1_000,
   segmentTotal: 3,
   prepBudgetMs: null,
+  pointEndsAt: null,
   activePrep: null,
   stops: [],
   prepEndedAt: null,

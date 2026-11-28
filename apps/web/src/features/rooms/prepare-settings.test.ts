@@ -11,8 +11,6 @@ const settingsForm = () => {
     'duration.countdown': '0:01',
     'duration.segment.N3': '1:30',
     'duration.segment.A1': '1:00',
-    interruptionsMode: 'disabled',
-    'duration.minRemaining': '0:02',
     yield: 'off',
   }))
     form.set(name, value);
@@ -40,7 +38,7 @@ test('settings preserve the complete legal config and independent segment timing
             countdownMs: 1000,
             segmentDurationOverrides: { N3: 90000, A1: 60000 },
           },
-          interruptions: { mode: 'disabled', minRemainingMs: 2000 },
+          pointsOfInformation: { enabled: false },
           yielding: { allowed: false, returnsTime: true },
         },
       },

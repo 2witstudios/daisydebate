@@ -10,7 +10,9 @@ const { roundCommandUnavailable, submitRoundForm } =
   await import('../../features/round-runtime/command-form');
 
 const intent = {
+  key: 'yield',
   type: 'yield' as const,
+  command: { type: 'yield' as const, sequence: 1 },
   label: 'End speech',
   participantId: 'p'.repeat(24),
   enabled: true,
@@ -80,7 +82,7 @@ test('a refused strike says so only while the strike is open; a lost answer alwa
   const refusedBy = async (posted: FormData, status = 409) =>
     submitRoundForm(async () => new Response('{}', { status }), id, posted);
   const refused = await refusedBy(strike);
-  const yielded = await refusedBy(form('yield', { confirmed: 'true' }));
+  const yielded = await refusedBy(form('yield', { confirmed: 'true', sequence: '1' }));
   const forbidden = await refusedBy(strike, 403);
   const lost = roundCommandUnavailable(strike);
   const opening = (step: 'strike' | 'prep') =>
