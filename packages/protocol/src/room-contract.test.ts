@@ -3,6 +3,7 @@ import {
   oneOnOneFormatFixture,
   plainRoomConfig,
 } from './format-fixtures.test-support';
+import { formatDefinitionSchema } from './format';
 import { roomCommandSchema, roomCreateSchema } from './room-contract';
 import { roomCastChoiceSchema } from './room-read';
 
@@ -20,6 +21,46 @@ const parsesCreate = (selection: Record<string, unknown>) =>
   }).success;
 
 describe('Room command boundary', () => {
+  test('a host authors a cross-examination with its asker, while a stored one without parses (INTX-10)', () => {
+    const unled = {
+      ...oneOnOneFormatFixture,
+      segments: oneOnOneFormatFixture.segments.map((segment) =>
+        segment.type === 'cross_ex'
+          ? { ...segment, speak: { rights: 'all' as const, lead: null } }
+          : segment,
+      ),
+    };
+    const custom = (definition: unknown) =>
+      parsesCreate({
+        kind: 'custom',
+        definition,
+        config: plainRoomConfig,
+        competitionType: 'casual',
+      });
+    const updated = (definition: unknown) =>
+      roomCommandSchema.safeParse({
+        commandId,
+        expectedVersion: 3,
+        type: 'update-format',
+        definition,
+        config: plainRoomConfig,
+      }).success;
+    assert({
+      given:
+        'a format whose cross-examination names no asker, authored by custom creation and by update-format, and read back from storage',
+      should:
+        'refuse both authoring commands, accept the same commands with the asker named, and parse the stored definition',
+      actual: [
+        custom(unled),
+        updated(unled),
+        custom(oneOnOneFormatFixture),
+        updated(oneOnOneFormatFixture),
+        formatDefinitionSchema.safeParse(unled).success,
+      ],
+      expected: [false, false, true, true, true],
+    });
+  });
+
   test('refuses private visibility from every request (DEC-206)', () => {
     const details = (visibility: string) => ({
       commandId,
