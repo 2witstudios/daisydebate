@@ -32,10 +32,10 @@ retain a validated catalog basis, never derive ranked eligibility from it.
 Strike is one option with product-owned rules. It exposes no draw-size,
 source, first-striker or timer customization in the create-room form.
 
-POI is an unranked Custom questioning style with simple unmuting. No
-raised-hand request/accept workflow is required; that is ISSUE-871.
-The implementation must grant actual speaking/media permission, not
-merely rename the existing free cross-examination setting.
+POI is an unranked Custom questioning style. Superseded by
+[ADR 0936](0936-points-of-information-and-one-prep-state.md): a point is
+offered and accepted or declined, with protected time and a limit (ISSUE-871
+closed).
 
 Creation uses the existing authenticated command, atomic writer, active-room
 invariant and shared Round lifecycle. The form works without JavaScript;

@@ -171,8 +171,8 @@ resource is ever persisted: `@adobe/data` is pre-1.0 and warns that minor versio
 break APIs, so its representation is never coupled to durable data.
 
 `runtimeCheckpointSchema` holds only what has no row — three fields: side-keyed prep
-consumption, the active prep clock anchor, and the interaction floor after an accepted
-interruption. Everything else reconstructs, because a `round_segments` row _is_ the live
+consumption, the one prep state, and the one point-of-information state (ADR 0936
+replaced the active prep anchor and the interruption floor). Everything else reconstructs, because a `round_segments` row _is_ the live
 interval (`UNIQUE (round_id) WHERE ended_at IS NULL`).
 
 ECS receives only `RoundRules` — never a format definition, a Room config or a default —
@@ -327,8 +327,9 @@ separate explicit server configuration.
 Media publication uses the shared LiveKit session and current runtime authority;
 browser playback/heard-report endpoints are removed at cutover. A hydration tick may waive a browser's stale
 version only when its reread observes exactly its own next version; intervening
-commands retain optimistic-concurrency authority. Automatic prep requests use
-the runtime's remaining side-specific budget and stop when it is exhausted.
+commands retain optimistic-concurrency authority. Bots take no prep (amended by
+[ADR 0936](0936-points-of-information-and-one-prep-state.md)); a human partner
+may call prep for a bot's speech, within the side's remaining budget.
 Hydration returns durable segments in ascending `sequence` order, so runtime
 clock anchors and transcript schedule positions agree.
 

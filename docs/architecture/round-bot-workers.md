@@ -288,7 +288,12 @@ an owed turn, a turn being spoken, or over. Pure transitions move it and
 name the effects the speaker runs. In cross-examination:
 
 - The scheduled seat opens the exchange once. Every other seat waits until a
-  peer's turn ends, and then each ended peer turn is owed one answer. A newer
+  peer's turn ends, and then each ended peer turn is owed one answer. A peer
+  is only a seat of the other side: the asker answers the answering side, and
+  on the answering side only its lowest seat's bot answers, so partners never
+  answer each other or double up (`crossExaminationPeers`, ADR 0936). In a
+  speech only the scheduled seat owes an opening; a bot never speaks over
+  another seat's speech. A newer
   peer turn replaces one still being prepared. Attempts are counted per owed
   turn, so errors in one turn never mute a later one.
 - An answer to a peer turn is generated only once that peer's line covering
