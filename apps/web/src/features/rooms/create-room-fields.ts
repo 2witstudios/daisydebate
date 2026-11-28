@@ -226,8 +226,11 @@ export function readRoomDraft(
       segmentDurationOverrides: overrides,
     },
     resolutionDraw: method === 'strike' && strike ? strike : { enabled: false },
+    // A preset that takes points keeps its own timing; otherwise the parliamentary one.
     pointsOfInformation: poi
-      ? parliamentaryPointsOfInformation
+      ? source.preset.config.pointsOfInformation?.enabled
+        ? source.preset.config.pointsOfInformation
+        : parliamentaryPointsOfInformation
       : source.preset.config.pointsOfInformation === null
         ? null
         : { enabled: false },

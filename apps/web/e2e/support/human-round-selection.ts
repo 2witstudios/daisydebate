@@ -1,8 +1,8 @@
+import { pointsOfInformationBounds } from '@daisy/protocol/format-settings';
 import {
   foundationDefinition,
   oneOnOneDefinition,
   oneOnOneSettings,
-  pointsOfInformationBounds,
 } from '@daisy/db/reference-formats';
 import { foundationProofConfig } from '../../integration/foundation-selection.test-support';
 import { affirmativeSide, sideSeat } from '@daisy/protocol/seats';

@@ -122,7 +122,7 @@ export const advanceRoundClock = (
       // A point of information due inside the speech moves first, at its own instant.
       const point = duePointOfInformationChange(state, rules, open, nowMs);
       const due = segmentDueAtMs(open);
-      if (point !== null) transition = point.transition;
+      if (point !== null) transition = point;
       else if (nowMs < due) break;
       else transition = closeClockSegment(state, open.sequence, due);
     } else {

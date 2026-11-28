@@ -24,9 +24,11 @@ import {
 import { isNamedSeat, type RoundView } from '@daisy/protocol/round-view';
 import { type SegmentType } from '@daisy/protocol/format';
 import {
+  debaterLabel,
   isLiveRound,
   isSeat,
   judgeKindOf,
+  offerWindowAt,
   sameTeam,
   seatsOf,
   type Seat,
@@ -301,10 +303,6 @@ function liveParts(
   };
 }
 
-const labelOf = (view: RoundView, participantId: string) =>
-  view.participants.filter(isSeat).find((p) => p.id === participantId)?.label ??
-  'A debater';
-
 /** The open speech's points of information as this seat sees them (INTX-18). */
 function pointOf(
   view: RoundView,
@@ -315,35 +313,33 @@ function pointOf(
   const point = position.pointOfInformation;
   const open = position.openSegment;
   if (point === null || open === null) return null;
-  const opensInMs = Math.max(0, instantMs(point.offersOpenAt) - nowMs);
-  const closed = nowMs >= instantMs(point.offersCloseAt);
+  const { window, opensInMs } = offerWindowAt(point, nowMs);
   const holder = point.holder;
+  const own = point.offers.find((offer) => offer.participantId === seat.id);
+  const lapsesInMs = (lapsesAt: string) =>
+    Math.max(0, instantMs(lapsesAt) - nowMs);
   const role: NonNullable<RoundSnapshot['point']>['role'] =
     open.lead !== null && sameSeat(open.lead, seat.seat)
       ? 'speaker'
       : holder?.participantId === seat.id
         ? 'holder'
-        : point.offers.some((offer) => offer.participantId === seat.id)
+        : own
           ? 'offering'
           : 'audience';
   return {
     role,
-    window:
-      opensInMs > 0 ? 'protected-start' : closed ? 'protected-end' : 'open',
+    window,
     opensInMs,
     offers: point.offers.map((offer) => ({
       participantId: offer.participantId,
-      name: labelOf(view, offer.participantId),
-      lapsesInMs: Math.max(0, instantMs(offer.lapsesAt) - nowMs),
+      name: debaterLabel(view, offer.participantId, 'A debater'),
+      lapsesInMs: lapsesInMs(offer.lapsesAt),
     })),
-    ownOfferLapsesInMs: (() => {
-      const own = point.offers.find((offer) => offer.participantId === seat.id);
-      return own ? Math.max(0, instantMs(own.lapsesAt) - nowMs) : null;
-    })(),
+    ownOfferLapsesInMs: own ? lapsesInMs(own.lapsesAt) : null,
     holder: holder
       ? {
           participantId: holder.participantId,
-          name: labelOf(view, holder.participantId),
+          name: debaterLabel(view, holder.participantId, 'A debater'),
           remainingMs: holder.remainingMs,
         }
       : null,

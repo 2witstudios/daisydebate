@@ -1,7 +1,5 @@
-import {
-  foundationDefinition,
-  pointsOfInformationBounds,
-} from '@daisy/db/reference-formats';
+import { pointsOfInformationBounds } from '@daisy/protocol/format-settings';
+import { foundationDefinition } from '@daisy/db/reference-formats';
 import { plainRoomConfig } from '@daisy/protocol/testing';
 
 /**

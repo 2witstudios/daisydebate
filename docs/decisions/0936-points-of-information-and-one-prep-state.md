@@ -94,6 +94,12 @@ prep: { phase: 'idle' }
 - **Who ends it.** The asker may always end it, whatever the yielding rule.
   When the asker is a bot, which never ends one, a person on the answering
   side may.
+- **A named, sided asker.** A newly authored format names each
+  cross-examination's asker, a seat of a side. Only authoring checks this
+  (`authoredFormatDefinitionSchema`, used by custom creation and
+  `update-format`). A format, Room or Round stored before the rule still
+  parses, and its unled cross-examination runs as the open exchange it always
+  was.
 - **Bots in a team.** Only the asking side is owed an answer, and on the
   answering side only its lowest seat's bot answers.
 
@@ -151,3 +157,14 @@ block a deploy. A Round live across the release keeps its prep, and at worst
 loses an interruption that was in progress. Its history stays in
 `round_speaking_intervals` and the command log, which the migration leaves
 alone.
+
+That is an accepted loss with a known shape. If a Round holds an interruption
+floor, or runs a speech under `open` questioning, when the migration commits,
+the engine and media grants return to the scheduled speaker at once. The open
+`round_speaking_intervals` row, however, still names the interrupter, or
+every debater, until that one segment closes, so for its remaining seconds
+the speaking record disagrees with who has the microphone. Both modes were
+unranked custom choices, the window is at most one segment, and the next
+speakers change or segment close writes the true record. Rewriting intervals
+from SQL, which cannot run the engine's speaking rule, would risk a worse
+record than the one it replaced.

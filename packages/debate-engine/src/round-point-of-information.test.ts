@@ -382,6 +382,41 @@ describe('points of information', () => {
     });
   });
 
+  test('a speaker who leaves takes the offers down, and a listener who leaves splits no interval', async () => {
+    const rules = teamRules({ outcome: { kind: 'ranking', of: 'sides' } });
+    const world = teamWorld({ rules });
+    world.activate({ at: at(0), now: at(0) });
+    world.tick(at(100_000));
+    offer(world, teamActors.neg1, 100_000);
+    const listenerLeft = world.execute({
+      command: { type: 'leave' },
+      actorId: teamActors.aff2,
+      now: at(100_500),
+    });
+    const speakerLeft = world.execute({
+      command: { type: 'leave' },
+      actorId: teamActors.aff1,
+      now: at(101_000),
+    });
+    assert({
+      given:
+        'the speaker’s partner leaving, then the speaker, while the first negative offers',
+      should:
+        'record no speakers change for the partner, who was not speaking, and take the offer down with the speaker',
+      actual: {
+        listener: listenerLeft.speakingChanges ?? [],
+        point: speakerLeft.round?.checkpoint.point_of_information,
+      },
+      expected: { listener: [], point: { phase: 'none' } },
+    });
+    await assertRejects({
+      given: 'the second negative offering to the speaker who has left',
+      should: 'refuse it: nobody can accept',
+      actual: () => offer(world, teamActors.neg2, 102_000),
+      code: 'CONFLICT',
+    });
+  });
+
   test('during a point both the speaker and the holder are granted a microphone', () => {
     const world = speaking();
     offer(world, teamActors.neg1, 100_000);

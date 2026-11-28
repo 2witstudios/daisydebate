@@ -1,7 +1,10 @@
 import { z } from 'zod';
 import { seatRefSchema, sideKeySchema, sideSchema } from './seats';
 import { MAX_FORMAT_SEATS, sideKeysOf } from './format-seating';
-import { validateSeating } from './format-seating-refusals';
+import {
+  crossExaminationAskerRefusals,
+  validateSeating,
+} from './format-seating-refusals';
 import {
   drawSources,
   MAX_DRAW_SIZE,
@@ -334,6 +337,15 @@ export const formatDefinitionSchema = formatDefinitionShape.superRefine(
       });
   },
 );
+
+/**
+ * A definition as a host authors it now: every stored rule, and a named,
+ * sided asker for each cross-examination (INTX-10). Stored definitions parse
+ * with `formatDefinitionSchema`, so a format saved before this rule stays
+ * readable.
+ */
+export const authoredFormatDefinitionSchema =
+  formatDefinitionSchema.superRefine(crossExaminationAskerRefusals);
 export type FormatDefinition = z.infer<typeof formatDefinitionSchema>;
 
 /** One resolved segment: the definition's identity, the room's duration. */

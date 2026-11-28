@@ -54,6 +54,18 @@ export const parliamentaryPointsOfInformation = {
   offerLapseMs: 10_000,
 } as const satisfies PointsOfInformationSetting;
 
+/**
+ * Where a format lets a Room set its points of information (INTX-16): up to
+ * two minutes protected at either end, a point of 5 to 30 seconds, and an
+ * offer that sits down after 5 to 30 seconds.
+ */
+export const pointsOfInformationBounds = {
+  protectedStartMs: { min: 0, max: 120_000 },
+  protectedEndMs: { min: 0, max: 120_000 },
+  maxDurationMs: { min: 5_000, max: 30_000 },
+  offerLapseMs: { min: 5_000, max: 30_000 },
+} as const;
+
 /** The rule a setting freezes into: forbidden and declined are both `allowed: false`. */
 export const pointsOfInformationRuleOf = (
   setting: PointsOfInformationSetting | null,

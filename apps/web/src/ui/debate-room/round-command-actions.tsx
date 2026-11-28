@@ -52,7 +52,7 @@ export function CommandForm({
   const { values } = roundFormFields(answer);
   const confirming = answer.kind === 'confirming';
   const asked =
-    controlKeyOf(values.type, values.offererParticipantId) === intent.key &&
+    controlKeyOf(values) === intent.key &&
     (!confirming || values.segment === segment);
   const { command } = intent;
   const preserved = asked ? values : {};
@@ -150,9 +150,7 @@ export const answerFocusTarget = (
 ) => {
   if (shownError(answer, view)) return feedback;
   const { values } = roundFormFields(answer);
-  return onCall
-    ? CALL_RESULT_LINK_ID
-    : `${control}-${controlKeyOf(values.type, values.offererParticipantId)}`;
+  return onCall ? CALL_RESULT_LINK_ID : `${control}-${controlKeyOf(values)}`;
 };
 
 /** Feedback survives a canonical revision that removes the submitted action. */

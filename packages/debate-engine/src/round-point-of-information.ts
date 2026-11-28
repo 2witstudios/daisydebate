@@ -3,7 +3,7 @@ import type {
   PointsOfInformationRule,
   RoundRules,
 } from '@daisy/protocol/format';
-import type { PointOfInformation } from '@daisy/protocol/round';
+import { pointEndsAtMs, type PointOfInformation } from '@daisy/protocol/round';
 import { segmentDueAtMs } from '@daisy/protocol/segment-end';
 import type { ClockSegment, ClockState } from './round-clock-state';
 import type { ClockTransition } from './round-clock-transition';
@@ -55,10 +55,6 @@ export const offerLapsesAtMs = (
   closesAtMs: number,
 ): number => Math.min(instantMs(offeredAt) + rule.offerLapseMs, closesAtMs);
 
-/** When an accepted point gives the speech back by itself. */
-export const pointEndsAtMs = (acceptedAt: string, rule: TakingRule): number =>
-  instantMs(acceptedAt) + rule.maxDurationMs;
-
 const withPoint = (
   state: ClockState,
   point: PointOfInformation,
@@ -78,28 +74,25 @@ export const duePointOfInformationChange = (
   rules: RoundRules,
   open: ClockSegment,
   nowMs: number,
-): { readonly atMs: number; readonly transition: ClockTransition } | null => {
+): ClockTransition | null => {
   const point = state.checkpoint.point_of_information;
   const rule = pointsOfInformationIn(rules, open.sequence);
   if (point.phase === 'none' || rule === null) return null;
   const speechDue = segmentDueAtMs(open);
   const due = (atMs: number) => atMs <= nowMs && atMs < speechDue;
   if (point.phase === 'speaking') {
-    const atMs = pointEndsAtMs(point.accepted_at, rule);
-    return due(atMs)
+    const atMs = pointEndsAtMs(point, rule.maxDurationMs);
+    return atMs !== null && due(atMs)
       ? {
-          atMs,
-          transition: {
-            state: withPoint(state, { phase: 'none' }),
-            changes: [
-              {
-                kind: 'speakers',
-                sequence: open.sequence,
-                atMs,
-                poiHolder: null,
-              },
-            ],
-          },
+          state: withPoint(state, { phase: 'none' }),
+          changes: [
+            {
+              kind: 'speakers',
+              sequence: open.sequence,
+              atMs,
+              poiHolder: null,
+            },
+          ],
         }
       : null;
   }
@@ -111,18 +104,23 @@ export const duePointOfInformationChange = (
   if (!due(atMs)) return null;
   const standing = point.offers.filter((_, index) => lapses[index]! > atMs);
   return {
-    atMs,
-    transition: {
-      state: withPoint(
-        state,
-        standing.length > 0
-          ? { phase: 'offered', offers: standing }
-          : { phase: 'none' },
-      ),
-      changes: [],
-    },
+    state: withPoint(
+      state,
+      standing.length > 0
+        ? { phase: 'offered', offers: standing }
+        : { phase: 'none' },
+    ),
+    changes: [],
   };
 };
+
+/** Whether this seat has an offer standing. */
+export const isOffering = (
+  point: PointOfInformation,
+  participantId: string,
+): boolean =>
+  point.phase === 'offered' &&
+  point.offers.some((offer) => offer.participant_id === participantId);
 
 /** A seat stands to offer; legality has already admitted it. */
 export const offerPoint = (

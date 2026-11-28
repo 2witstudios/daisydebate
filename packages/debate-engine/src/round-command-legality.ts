@@ -16,10 +16,12 @@ import { debateInvariantIds } from './invariant-ids';
 import {
   closedCount,
   debateHasEnded,
+  prepExpiredBefore,
   type ClockSegment,
   type ClockState,
 } from './round-clock-state';
 import {
+  isOffering,
   offerWindowOf,
   pointsOfInformationIn,
 } from './round-point-of-information';
@@ -151,12 +153,11 @@ const prepSpendableRefusal = (
       id,
       `Prep is not spendable before a ${upcoming.type} segment`,
     );
-  const expiresAt = inRoundPrep.expiresAtSegment;
-  if (
-    expiresAt !== null &&
-    rules.segments.findIndex((segment) => segment.key === expiresAt) <= target
-  )
-    return violates(id, `Prep expired at segment ${expiresAt}`);
+  if (prepExpiredBefore(rules, target))
+    return violates(
+      id,
+      `Prep expired at segment ${inRoundPrep.expiresAtSegment}`,
+    );
   return prepConsumedOf(state.checkpoint, side) >= inRoundPrep.budgetMsPerSide
     ? violates(
         debateInvariantIds.prepRequiresBudget,
@@ -309,6 +310,29 @@ const pointContext = (
 };
 
 /**
+ * Who may offer to this speech at all, whatever the clock (INTX-13, INTX-17):
+ * a person of another side, to a speaker who is a person and still present.
+ * The refusal and the option list both ask this.
+ */
+const offerEligibilityRefusal = (
+  { state }: RoundCommandFacts,
+  seat: RoundParticipantSeat,
+  speaker: RoundParticipantSeat | null,
+): Refusal => {
+  if (speaker === null || speaker.id === seat.id)
+    return conflict('The speaker does not offer to their own speech');
+  const speakerSide = debateSideOf(speaker);
+  if (speakerSide !== null && debateSideOf(seat) === speakerSide)
+    return conflict('Only the other side offers a point of information');
+  if (seat.kind === 'bot') return conflict('A bot does not offer');
+  if (speaker.kind === 'bot')
+    return conflict('A bot speaker takes no points of information');
+  return isAbsentSeat(state.checkpoint, speaker.id)
+    ? conflict('The speaker has left the Round')
+    : null;
+};
+
+/**
  * A seat of another side stands to offer during the speech's unprotected time
  * (INTX-13). The speaker's partner never offers; a bot never offers, and no
  * one offers to a bot speaker (INTX-17).
@@ -320,16 +344,9 @@ const offerRefusal = (
   const context = pointContext(facts, command.sequence);
   if (context.refusal !== null) return context.refusal;
   const { seat, nowMs } = facts;
-  const { speaker } = context;
   if (!isDebater(seat)) return conflict('Only a seated debater offers');
-  if (speaker === null || speaker.id === seat.id)
-    return conflict('The speaker does not offer to their own speech');
-  const speakerSide = debateSideOf(speaker);
-  if (speakerSide !== null && debateSideOf(seat) === speakerSide)
-    return conflict('Only the other side offers a point of information');
-  if (seat.kind === 'bot') return conflict('A bot does not offer');
-  if (speaker.kind === 'bot')
-    return conflict('A bot speaker takes no points of information');
+  const eligibility = offerEligibilityRefusal(facts, seat, context.speaker);
+  if (eligibility !== null) return eligibility;
   if (nowMs < context.opensAtMs)
     return conflict('The speech’s protected start is still running');
   if (nowMs >= context.closesAtMs)
@@ -337,8 +354,7 @@ const offerRefusal = (
   const point = facts.state.checkpoint.point_of_information;
   if (point.phase === 'speaking')
     return conflict('A point of information is being given');
-  return point.phase === 'offered' &&
-    point.offers.some((offer) => offer.participant_id === seat.id)
+  return isOffering(point, seat.id)
     ? conflict('This seat is already offering')
     : null;
 };
@@ -352,9 +368,7 @@ const withdrawRefusal = (
   if (context.refusal !== null) return context.refusal;
   const point = facts.state.checkpoint.point_of_information;
   const seat = facts.seat;
-  return seat !== null &&
-    point.phase === 'offered' &&
-    point.offers.some((offer) => offer.participant_id === seat.id)
+  return seat !== null && isOffering(point, seat.id)
     ? null
     : conflict('This seat has no standing offer');
 };
@@ -380,10 +394,7 @@ const acceptRefusal = (
   if (facts.nowMs >= context.closesAtMs)
     return conflict('The speech’s protected end has begun');
   const point = facts.state.checkpoint.point_of_information;
-  return point.phase === 'offered' &&
-    point.offers.some(
-      (offer) => offer.participant_id === command.offererParticipantId,
-    )
+  return isOffering(point, command.offererParticipantId)
     ? null
     : conflict('That offer is no longer standing');
 };
@@ -611,19 +622,10 @@ const segmentOptions = (
   }
   if (point.phase === 'speaking' && point.holder_participant_id === seat.id)
     return [{ type: 'end_poi', sequence }];
-  const opposes =
-    speaker !== null &&
-    speaker.kind === 'human' &&
-    seat.kind === 'human' &&
-    (debateSideOf(speaker) === null ||
-      debateSideOf(seat) !== debateSideOf(speaker));
-  if (!opposes) return ends;
-  const offering =
-    point.phase === 'offered' &&
-    point.offers.some((offer) => offer.participant_id === seat.id);
+  if (offerEligibilityRefusal(facts, seat, speaker) !== null) return ends;
   return [
     ...ends,
-    offering
+    isOffering(point, seat.id)
       ? { type: 'withdraw_poi', sequence }
       : { type: 'offer_poi', sequence },
   ];

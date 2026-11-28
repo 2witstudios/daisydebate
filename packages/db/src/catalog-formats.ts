@@ -1,10 +1,9 @@
 import type { FormatDefinition } from '@daisy/protocol/format';
-import type { FormatSettings } from '@daisy/protocol/format-settings';
 import {
-  oneOnOneDefinition,
-  oneOnOneSettings,
   pointsOfInformationBounds,
-} from './reference-formats';
+  type FormatSettings,
+} from '@daisy/protocol/format-settings';
+import { oneOnOneDefinition, oneOnOneSettings } from './reference-formats';
 import { casualTemplates } from './catalog-casual';
 import { affirmativeSide, negativeSide, twoSides } from '@daisy/protocol/seats';
 import { type SegmentType } from '@daisy/protocol/format';

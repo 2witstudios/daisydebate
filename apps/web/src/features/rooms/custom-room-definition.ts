@@ -1,6 +1,7 @@
 import { isTwoSided } from '@daisy/protocol/seats';
 import { type FormatDefinition } from '@daisy/protocol/format';
 import { type RoomConfig } from '@daisy/protocol/room';
+import { pointsOfInformationBounds } from '@daisy/protocol/format-settings';
 
 /**
  * Who strikes first in a Custom room: a two-sided format's second side, as in
@@ -61,12 +62,7 @@ export function customRoomDefinition(
         pointsOfInformation:
           config.pointsOfInformation === null
             ? null
-            : {
-                protectedStartMs: { min: 0, max: 120_000 },
-                protectedEndMs: { min: 0, max: 120_000 },
-                maxDurationMs: { min: 5_000, max: 30_000 },
-                offerLapseMs: { min: 5_000, max: 30_000 },
-              },
+            : pointsOfInformationBounds,
         yield:
           config.yielding === null
             ? null

@@ -45,6 +45,8 @@ export type ClockChange =
       readonly atMs: number;
       /** The seat giving an accepted point of information, if any. */
       readonly poiHolder: string | null;
+      /** The seats that have left from this instant, when a leave changed them. */
+      readonly absent?: readonly string[];
     }
   /** What this transition did to a platform incident, for its durable row. */
   | { readonly kind: 'incident'; readonly change: ClockIncidentChange };

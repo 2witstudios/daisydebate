@@ -10,12 +10,18 @@ import {
   type SeatRef,
   type SideKey,
 } from '@daisy/protocol/seats';
-import { isNamedSeat, type RoundView } from '@daisy/protocol/round-view';
+import { type RoundView } from '@daisy/protocol/round-view';
 import { type SegmentType } from '@daisy/protocol/format';
 import { seatName, sideName } from '../debate-room/seat-names';
 import { sideToneOf, type SideTone } from '../debate-room/speeches';
 import { judgingClockOf } from './judging-window';
-import { judgeKindOf, sameTeam, seatsOf, type Seat } from './round-reading';
+import {
+  debaterLabel,
+  judgeKindOf,
+  sameTeam,
+  seatsOf,
+  type Seat,
+} from './round-reading';
 
 /** What one side is doing at one instant, as anyone watching can see it. */
 export type ObservedActivity =
@@ -104,14 +110,6 @@ const leadName = (view: RoundView, lead: SeatRef | null): string => {
     : sideName(view.rules.sides, side);
 };
 
-/** Who is giving a point of information, by the name the view shows them. */
-const holderName = (view: RoundView, participantId: string): string => {
-  const seat = view.participants
-    .filter(isNamedSeat)
-    .find((p) => p.id === participantId);
-  return seat?.label ?? 'the other side';
-};
-
 function clockOf(
   view: RoundView,
   position: RoundPosition,
@@ -127,7 +125,7 @@ function clockOf(
         open.type === 'cross_ex'
           ? `Cross-examination · ${leadName(view, open.lead)} asks`
           : holder
-            ? `${open.key} · Point of information from ${holderName(view, holder.participantId)}`
+            ? `${open.key} · Point of information from ${debaterLabel(view, holder.participantId, 'the other side')}`
             : `${open.key} · ${open.label}`,
       remainingMs: open.remainingMs,
     };

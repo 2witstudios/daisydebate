@@ -6,7 +6,7 @@ import {
   isAbsentSeat,
   prepConsumedOf,
 } from '@daisy/protocol/round';
-import { otherSide } from '@daisy/protocol/seats';
+import { otherSide, sameSeat } from '@daisy/protocol/seats';
 import { runningMs } from '@daisy/protocol/clock-stops';
 import { winnerOutcome } from '@daisy/protocol/round-outcome';
 import type {
@@ -23,6 +23,7 @@ import {
   type RoundCommandRefusal,
 } from './round-command-legality';
 import { yieldSegment } from './round-yield';
+import { speakingParticipants } from './round-speaking';
 import {
   acceptOffer,
   offerPoint,
@@ -173,7 +174,15 @@ const speakersChanged = (
   sequence: number,
   atMs: number,
   poiHolder: string | null,
-): RoundStep => record(step, { kind: 'speakers', sequence, atMs, poiHolder });
+  absent?: readonly string[],
+): RoundStep =>
+  record(step, {
+    kind: 'speakers',
+    sequence,
+    atMs,
+    poiHolder,
+    ...(absent === undefined ? {} : { absent }),
+  });
 
 const offerPointOfInformation = (step: RoundStep, f: StepFacts) => {
   const seat = seatOf(step, f.actorId);
@@ -302,18 +311,33 @@ const leave = (step: RoundStep, f: StepFacts): RoundStep => {
   const open = rows.find((row) => row.endedAtMs === null);
   const point = checkpoint.point_of_information;
   if (open !== undefined) {
+    const speak = f.rules.segments[open.sequence]?.speak;
+    const speakerLeft =
+      speak?.rights === 'one' && sameSeat(speak.seat, seat.seat);
     const holding =
       point.phase === 'speaking' && point.holder_participant_id === seat.id;
-    next = withCheckpoint(next, {
-      point_of_information: holding
-        ? { phase: 'none' }
-        : withdrawOffer(point, seat.id),
-    });
-    const holder =
-      !holding && point.phase === 'speaking'
-        ? point.holder_participant_id
-        : null;
-    next = speakersChanged(next, open.sequence, f.now, holder);
+    // A point ends with its holder or its speaker; an offer sits down with its offerer.
+    const after =
+      holding || speakerLeft
+        ? ({ phase: 'none' } as const)
+        : withdrawOffer(point, seat.id);
+    next = withCheckpoint(next, { point_of_information: after });
+    // Who speaks changes only if the seat leaving was speaking.
+    const wasSpeaking = speakingParticipants(
+      f.rules,
+      step.state.cast,
+      open.sequence,
+      point.phase === 'speaking' ? point.holder_participant_id : null,
+      checkpoint.absent_participant_ids ?? [],
+    ).includes(seat.id);
+    if (wasSpeaking)
+      next = speakersChanged(
+        next,
+        open.sequence,
+        f.now,
+        after.phase === 'speaking' ? after.holder_participant_id : null,
+        absent,
+      );
   }
   const { prep } = checkpoint;
   const side = debateSideOf(seat);
@@ -325,15 +349,10 @@ const leave = (step: RoundStep, f: StepFacts): RoundStep => {
       debateSideOf(other) === side &&
       !isAbsentSeat({ absent_participant_ids: absent }, other.id),
   );
-  if (
-    side !== null &&
-    !sideRemains &&
-    (prep.phase === 'called' || prep.phase === 'running') &&
-    prep.side === side
-  )
+  if (!sideRemains && 'side' in prep && prep.side === side)
     next =
       prep.phase === 'called'
-        ? withCheckpoint(next, { prep: { phase: 'idle' } })
+        ? cancelPrep(next)
         : endPrepAt(next, f.rules, f.now);
   return release(next, seat.actorId);
 };

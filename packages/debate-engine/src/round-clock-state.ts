@@ -267,3 +267,20 @@ export const normalizeRoundClock = (input: {
     );
   return { lifecycle, rows, checkpoint };
 };
+
+/**
+ * Whether in-round prep has expired by the segment it would be spent before:
+ * its rules name a segment at or before `target` (INTX-6). Legality refuses
+ * such prep, and the position shows it ended, by this one rule.
+ */
+export const prepExpiredBefore = (
+  rules: Pick<RoundRules, 'inRoundPrep' | 'segments'>,
+  target: number,
+): boolean => {
+  const expiresAt = rules.inRoundPrep?.expiresAtSegment ?? null;
+  if (expiresAt === null) return false;
+  const index = rules.segments.findIndex(
+    (segment) => segment.key === expiresAt,
+  );
+  return index >= 0 && index <= target;
+};

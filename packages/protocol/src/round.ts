@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { instantMs } from '@daisy/clock/instant';
 import type { ClockStop } from './clock-stops';
 import { idSchema } from './primitives';
 import { sideKeySchema, type SideKey } from './seats';
@@ -190,6 +191,19 @@ const pointOfInformationSchema = z.discriminatedUnion('phase', [
   }),
 ]);
 export type PointOfInformation = z.infer<typeof pointOfInformationSchema>;
+
+/**
+ * When an accepted point gives the speech back by itself: its acceptance plus
+ * the rule's longest point. Null when no point is being given. The engine's
+ * clock, the media reconcile and the browser all read this one instant.
+ */
+export const pointEndsAtMs = (
+  point: PointOfInformation,
+  maxDurationMs: number,
+): number | null =>
+  point.phase === 'speaking'
+    ? instantMs(point.accepted_at) + maxDurationMs
+    : null;
 
 /**
  * The runtime checkpoint (ADR 0058 §4), version 2 — only what has no

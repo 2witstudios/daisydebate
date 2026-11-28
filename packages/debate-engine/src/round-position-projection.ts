@@ -3,6 +3,7 @@ import { countdownDue } from './round-start-gate';
 import {
   clockStopsOf,
   isRoundRunning,
+  pointEndsAtMs,
   prepConsumedOf,
 } from '@daisy/protocol/round';
 import { leadSeatOf, sideKeysOf } from '@daisy/protocol/format-seating';
@@ -17,11 +18,11 @@ import { advanceRoundClock } from './round-clock';
 import {
   offerLapsesAtMs,
   offerWindowOf,
-  pointEndsAtMs,
   pointsOfInformationIn,
 } from './round-point-of-information';
 import {
   debateHasEnded,
+  prepExpiredBefore,
   type ClockState,
   type ClockSegment as StoreRow,
   type Lifecycle,
@@ -229,15 +230,6 @@ const prepBudgetOf = (
 };
 
 /** Whether the budget died at its expiry segment: no prep is spendable again. */
-const prepExpiredOf = (rules: RoundRules, spoken: number): boolean => {
-  const expiresAt = rules.inRoundPrep?.expiresAtSegment ?? null;
-  if (expiresAt === null) return false;
-  const index = rules.segments.findIndex(
-    (segment) => segment.key === expiresAt,
-  );
-  return index >= 0 && index <= spoken;
-};
-
 /** The open speech's points of information, if it takes them. */
 const pointOfInformationOf = (
   open: StoreRow | undefined,
@@ -250,8 +242,7 @@ const pointOfInformationOf = (
   if (rule === null) return null;
   const { opensAtMs, closesAtMs } = offerWindowOf(open, rule);
   const point = checkpoint.point_of_information;
-  const endsAtMs =
-    point.phase === 'speaking' ? pointEndsAtMs(point.accepted_at, rule) : null;
+  const endsAtMs = pointEndsAtMs(point, rule.maxDurationMs);
   return {
     offersOpenAt: iso(opensAtMs),
     offersCloseAt: iso(closesAtMs),
@@ -301,7 +292,10 @@ export const roundPositionOf = (
     ),
     prep: prepOf(checkpoint, inRoundPrep?.budgetMsPerSide ?? 0, now),
     prepBudgetRemainingMs: prepBudgetOf(rules, checkpoint, now),
-    prepExpired: prepExpiredOf(rules, open === undefined ? spoken : spoken + 1),
+    prepExpired: prepExpiredBefore(
+      rules,
+      open === undefined ? spoken : spoken + 1,
+    ),
     pointOfInformation: pointOfInformationOf(open, rules, checkpoint, now),
     incident: checkpoint.incident,
   };

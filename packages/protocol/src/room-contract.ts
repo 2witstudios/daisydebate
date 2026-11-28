@@ -13,7 +13,7 @@ import {
 import { seatsOfKind, type FormatSeating } from './format-seating';
 import { roomTeamSchema, teamSideSchema, type SeatDraw } from './seat-draw';
 import {
-  formatDefinitionSchema,
+  authoredFormatDefinitionSchema,
   type FormatDefinition,
   type RoundRules,
 } from './format';
@@ -86,7 +86,7 @@ const roomSelectionSchema = z.discriminatedUnion('kind', [
   }),
   z.strictObject({
     kind: z.literal('custom'),
-    definition: formatDefinitionSchema,
+    definition: authoredFormatDefinitionSchema,
     competitionType: z.literal('casual'),
     config: roomConfigSchema,
     basis: z
@@ -209,7 +209,7 @@ export const roomCommandSchema = z.discriminatedUnion('type', [
   z.strictObject({
     ...envelope,
     type: z.literal('update-format'),
-    definition: formatDefinitionSchema,
+    definition: authoredFormatDefinitionSchema,
     config: roomConfigSchema,
     topic: textSchema.nullable().optional(),
   }),

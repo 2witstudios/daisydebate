@@ -1,3 +1,4 @@
+import { pointsOfInformationBounds } from '@daisy/protocol/format-settings';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { freestyleChoice, unequalTemplate } from './assembly.test-support';
 import { createRoomDraft } from './create-room-draft';
@@ -175,6 +176,46 @@ describe('native room draft fields', () => {
         read.draft.config.pointsOfInformation?.enabled,
       ],
       expected: [true, 3, true, true],
+    });
+  });
+  test('a preset that takes points of information keeps its own timing', () => {
+    const source = choice();
+    const timing = {
+      enabled: true,
+      protectedStartMs: 30_000,
+      protectedEndMs: 30_000,
+      maxDurationMs: 10_000,
+      offerLapseMs: 5_000,
+    } as const;
+    const withPoints = {
+      ...source,
+      definition: {
+        ...source.definition,
+        configurable: {
+          ...source.definition.configurable,
+          interaction: {
+            ...source.definition.configurable.interaction,
+            pointsOfInformation: pointsOfInformationBounds,
+          },
+        },
+      },
+      preset: {
+        ...source.preset,
+        config: { ...source.preset.config, pointsOfInformation: timing },
+      },
+    };
+    const read = readRoomDraft(
+      {
+        ...draftFormValues(createRoomDraft(withPoints)),
+        questionStyle: 'poi',
+      },
+      [withPoints],
+    );
+    assert({
+      given: 'a preset whose points of information use 30 s protected time',
+      should: 'keep that timing rather than the parliamentary defaults',
+      actual: read.ok && read.draft.config.pointsOfInformation,
+      expected: timing,
     });
   });
 });

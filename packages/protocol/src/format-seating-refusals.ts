@@ -132,17 +132,6 @@ function segmentRefusals(
     !speak.seats.some((seat) => sameSeat(seat, lead))
   )
     issue("A segment's lead is one of its speakers", [...at, 'lead']);
-  // Cross-examination is asked by a named seat of one side of another (INTX-10).
-  if (segment.type === 'cross_ex') {
-    const asker = speak.rights === 'one' ? speak.seat : speak.lead;
-    if (asker === null)
-      issue('Cross-examination names the seat that asks', [...at, 'lead']);
-    else if (!isJudgeSeat(asker) && sideOfSeat(asker) === null)
-      issue('Cross-examination is asked by a side, never an unsided speaker', [
-        ...at,
-        'lead',
-      ]);
-  }
 }
 
 /** Every side, or every unsided speaker, may hold the floor somewhere. */
@@ -170,6 +159,37 @@ function opportunityRefusals(format: Seated, issue: Issue) {
         : 'Every speaker requires a legal speaking opportunity',
       ['segments'],
     );
+}
+
+/**
+ * A newly authored cross-examination names its asker, a seat of a side
+ * (INTX-10): the asker may always end it, and a bot answers across sides.
+ * Only authoring applies this; a format stored before the rule keeps parsing,
+ * and its unled cross-examination runs as the open exchange it always was.
+ */
+export function crossExaminationAskerRefusals(
+  format: Pick<Seated, 'segments'>,
+  ctx: z.RefinementCtx,
+) {
+  format.segments.forEach((segment, index) => {
+    if (segment.type !== 'cross_ex') return;
+    const { speak } = segment;
+    const asker = speak.rights === 'one' ? speak.seat : speak.lead;
+    const path = ['segments', index, 'speak', 'lead'];
+    if (asker === null)
+      ctx.addIssue({
+        code: 'custom',
+        message: 'Cross-examination names the seat that asks',
+        path,
+      });
+    else if (!isJudgeSeat(asker) && sideOfSeat(asker) === null)
+      ctx.addIssue({
+        code: 'custom',
+        message:
+          'Cross-examination is asked by a side, never an unsided speaker',
+        path,
+      });
+  });
 }
 
 /** Seats declared in all; past the budget the seats schema refuses already. */

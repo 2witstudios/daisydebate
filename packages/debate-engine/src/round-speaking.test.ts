@@ -7,7 +7,13 @@ import {
   runtimeWorld,
 } from './runtime.test-support';
 import { speakingParticipants } from './round-speaking';
-import { teamRules, teamSeatIds, teamSeats } from './team-round.test-support';
+import {
+  teamActors,
+  teamRules,
+  teamSeatIds,
+  teamSeats,
+  teamWorld,
+} from './team-round.test-support';
 setupRitewayBun();
 const { at, person, rules } = oneOnOneCast();
 
@@ -89,5 +95,43 @@ test('cross-examination keeps both microphones open and takes no points of infor
     should: 'be the one-on-one rules',
     actual: rules.segments[1]?.type,
     expected: 'cross_ex',
+  });
+});
+
+test('a leave in the step that opened a segment still records the leaver’s grant up to the leave (INTX-12)', () => {
+  const world = teamWorld({
+    rules: teamRules({ outcome: { kind: 'ranking', of: 'sides' } }),
+  });
+  world.activate({ at: at(0), now: at(0) });
+  world.tick(at(860_000));
+  // CX opens at 870 s; the second negative's leave at 900 s is the first word since.
+  const left = world.execute({
+    command: { type: 'leave' },
+    actorId: teamActors.neg2,
+    now: at(900_000),
+  });
+  const opens = (left.speakingChanges ?? []).filter(
+    (change) => change.kind === 'open',
+  );
+  assert({
+    given:
+      'cross-examination opened by the catch-up of a step whose command is a leave',
+    should:
+      'open cross-examination with every debater, the leaver included, and reopen it without the leaver at the leave',
+    actual: opens.map((change) =>
+      change.kind === 'open' ? [change.at, change.participantIds] : [],
+    ),
+    expected: [
+      [
+        at(870_000),
+        [
+          teamSeatIds.aff1,
+          teamSeatIds.aff2,
+          teamSeatIds.neg1,
+          teamSeatIds.neg2,
+        ],
+      ],
+      [at(900_000), [teamSeatIds.aff1, teamSeatIds.aff2, teamSeatIds.neg1]],
+    ],
   });
 });

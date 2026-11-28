@@ -2,7 +2,6 @@ import {
   roundControlsAt,
   type RoundCommandOption,
 } from '@daisy/debate-engine/position';
-import { instantMs } from '@daisy/clock';
 import { isDebatingSeat } from '@daisy/protocol/seats';
 import { isNamedSeat, type RoundView } from '@daisy/protocol/round-view';
 import { isRoundRunning } from '@daisy/protocol/round';
@@ -10,6 +9,7 @@ import { type RoundCommand, type RoundPosition } from '@daisy/protocol/runtime';
 import { type RoundCommandEnvelope } from '@daisy/protocol/round-command';
 import { formatCountdown } from '../../lib/clock-display';
 import { speechInSentence, startSpeechLabel } from '../debate-room/vocabulary';
+import { debaterLabel, offerWindowAt } from './round-reading';
 
 export type RoundControlIntent = {
   /** Unique among one seat's controls: the type, and the offer an accept takes. */
@@ -28,13 +28,13 @@ export type RoundControlIntent = {
 };
 
 /** A control's key: its type, and the offer an accept takes (one button each). */
-export const controlKeyOf = (
-  type: string | undefined,
-  offererParticipantId: string | undefined,
-) =>
-  type === 'accept_poi' && offererParticipantId !== undefined
-    ? `accept_poi-${offererParticipantId}`
-    : (type ?? '');
+export const controlKeyOf = (command: {
+  readonly type?: string | undefined;
+  readonly offererParticipantId?: string | undefined;
+}): string =>
+  [command.type ?? '', command.offererParticipantId]
+    .filter((part) => part !== undefined)
+    .join('-');
 
 /** A segment by name inside a sentence ("the affirmative rebuttal"), never its code. */
 const speechOf = (view: RoundView, sequence: number) => {
@@ -42,22 +42,21 @@ const speechOf = (view: RoundView, sequence: number) => {
   return segment ? `the ${speechInSentence(segment.label)}` : 'the next speech';
 };
 
-const nameOf = (view: RoundView, participantId: string) =>
-  view.participants.filter(isNamedSeat).find((p) => p.id === participantId)
-    ?.label ?? 'their offer';
-
 /** Why an offer cannot be made now, from the speech's own window. */
 const offerHint = (
   position: RoundPosition,
   legal: boolean,
   nowMs: number,
 ): string | undefined => {
-  const window = position.pointOfInformation;
-  if (legal || window === null) return undefined;
-  if (window.holder !== null) return 'A point is being given';
-  const opensInMs = instantMs(window.offersOpenAt) - nowMs;
-  if (opensInMs > 0) return `Opens in ${formatCountdown(opensInMs)}`;
-  return 'Closed for the rest of this speech';
+  const point = position.pointOfInformation;
+  if (legal || point === null) return undefined;
+  if (point.holder !== null) return 'A point is being given';
+  const { window, opensInMs } = offerWindowAt(point, nowMs);
+  if (window === 'protected-start')
+    return `Opens in ${formatCountdown(opensInMs)}`;
+  return window === 'protected-end'
+    ? 'Closed for the rest of this speech'
+    : undefined;
 };
 
 /** The words on each command; what is offered and legal is the engine's. */
@@ -117,7 +116,7 @@ const wording = (
       return { label: 'Withdraw POI' };
     case 'accept_poi':
       return {
-        label: `Accept ${nameOf(view, command.offererParticipantId)}`,
+        label: `Accept ${debaterLabel(view, command.offererParticipantId, 'their offer')}`,
         emphasis: 'point',
       };
     case 'decline_poi':
@@ -196,12 +195,7 @@ export function roundControlIntents(
   const { self, position, options } = controls;
   const current = persistedPhase(view, position);
   return options.map((option) => ({
-    key: controlKeyOf(
-      option.command.type,
-      option.command.type === 'accept_poi'
-        ? option.command.offererParticipantId
-        : undefined,
-    ),
+    key: controlKeyOf(option.command),
     type: option.command.type,
     command: option.command,
     participantId: self.id,

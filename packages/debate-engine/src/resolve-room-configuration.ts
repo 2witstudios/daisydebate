@@ -1,3 +1,4 @@
+import { pointsOfInformationRuleOf } from '@daisy/protocol/format-settings';
 import { formatDefinitionSchema } from '@daisy/protocol/format';
 import { attendancePolicy } from './attendance';
 import {
@@ -160,16 +161,7 @@ function resolvePointsOfInformation(
         'out-of-range',
         `Points of information ${name} ${chosen[key]}ms is outside ${capability[key].min}-${capability[key].max}ms`,
       );
-  return {
-    ok: true,
-    value: {
-      allowed: true,
-      protectedStartMs: chosen.protectedStartMs,
-      protectedEndMs: chosen.protectedEndMs,
-      maxDurationMs: chosen.maxDurationMs,
-      offerLapseMs: chosen.offerLapseMs,
-    },
-  };
+  return { ok: true, value: pointsOfInformationRuleOf(chosen) };
 }
 
 /** Resolves the yield policy, or refuses when the choice is not permitted. */

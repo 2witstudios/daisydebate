@@ -6,7 +6,7 @@ import {
   startGateInstant,
 } from '@daisy/protocol/round-start-policy';
 import { segmentDueAtMs } from '@daisy/protocol/segment-end';
-import { type RuntimeCheckpoint } from '@daisy/protocol/round';
+import { pointEndsAtMs, type RuntimeCheckpoint } from '@daisy/protocol/round';
 
 /** What a Round's clock boundaries are read from, in the browser's view or a server row. */
 export type FloorClock = {
@@ -68,14 +68,6 @@ type ClockedRound = {
   > | null;
   readonly segments: readonly NonNullable<FloorClock['lastSegment']>[];
 };
-/** The instant an accepted point gives the speech back, by the frozen rule. */
-const pointEndsAtOf = (
-  point: RuntimeCheckpoint['point_of_information'] | undefined,
-  maxDurationMs: number | null,
-): number | null =>
-  point?.phase === 'speaking' && maxDurationMs !== null
-    ? instantMs(point.accepted_at) + maxDurationMs
-    : null;
 export const floorClockOf = (round: ClockedRound): FloorClock => {
   const prep = round.checkpoint?.prep;
   const incident = round.checkpoint?.incident ?? { phase: 'none' as const };
@@ -94,10 +86,13 @@ export const floorClockOf = (round: ClockedRound): FloorClock => {
         : null,
     stops: round.checkpoint?.clock_stops ?? [],
     prepEndedAt: prep?.phase === 'lead' ? prep.ended_at : null,
-    pointEndsAt: pointEndsAtOf(
-      round.checkpoint?.point_of_information,
-      poi?.allowed ? poi.maxDurationMs : null,
-    ),
+    pointEndsAt:
+      round.checkpoint && poi?.allowed
+        ? pointEndsAtMs(
+            round.checkpoint.point_of_information,
+            poi.maxDurationMs,
+          )
+        : null,
     startGateAt: round.checkpoint?.start_gate
       ? startGateInstant(round.checkpoint.start_gate)
       : null,

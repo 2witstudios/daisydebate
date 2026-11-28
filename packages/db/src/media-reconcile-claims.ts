@@ -1,9 +1,9 @@
 import { z } from 'zod';
-import { instantMs } from '@daisy/clock/instant';
 import { roundSourceVoided } from './round-source-state';
 import { createAppError } from '@daisy/errors';
 import { startGateInstant } from '@daisy/protocol/round-start-policy';
 import {
+  pointEndsAtMs,
   roundStatusSchema,
   runtimeCheckpointSchema,
 } from '@daisy/protocol/round';
@@ -103,11 +103,12 @@ const activeSession = (row: ActiveSessionRow) => {
       stops: row.runtime_state.clock_stops,
       prepEndedAt: prep.phase === 'lead' ? prep.ended_at : null,
       pointEndsAt:
-        row.runtime_state.point_of_information.phase === 'speaking' &&
-        row.poi_max_ms !== null
-          ? instantMs(row.runtime_state.point_of_information.accepted_at) +
-            row.poi_max_ms
-          : null,
+        row.poi_max_ms === null
+          ? null
+          : pointEndsAtMs(
+              row.runtime_state.point_of_information,
+              row.poi_max_ms,
+            ),
       startGateAt: row.runtime_state.start_gate
         ? startGateInstant(row.runtime_state.start_gate)
         : null,

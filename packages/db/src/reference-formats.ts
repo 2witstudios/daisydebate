@@ -5,7 +5,10 @@ import {
   twoSides,
 } from '@daisy/protocol/seats';
 import { type FormatDefinition } from '@daisy/protocol/format';
-import { type FormatSettings } from '@daisy/protocol/format-settings';
+import {
+  pointsOfInformationBounds,
+  type FormatSettings,
+} from '@daisy/protocol/format-settings';
 
 /**
  * The reference formats, as TypeScript, for tooling that runs without a
@@ -24,18 +27,6 @@ const referenceInRoundPrepCapability: FormatDefinition['configurable']['inRoundP
     spendableBefore: ['speech'],
     expiresAtSegment: null,
   };
-
-/**
- * Where a format lets a Room set its points of information (INTX-16): up to
- * two minutes protected at either end, a point of 5 to 30 seconds, and an
- * offer that sits down after 5 to 30 seconds.
- */
-export const pointsOfInformationBounds = {
-  protectedStartMs: { min: 0, max: 120_000 },
-  protectedEndMs: { min: 0, max: 120_000 },
-  maxDurationMs: { min: 5_000, max: 30_000 },
-  offerLapseMs: { min: 5_000, max: 30_000 },
-} as const;
 
 /** Each side's one seat speaks a speech; in cross-ex every debater speaks and the asker leads. */
 const speech = (side: string) => ({

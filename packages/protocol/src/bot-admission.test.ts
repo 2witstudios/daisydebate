@@ -92,4 +92,23 @@ test('team cross-examination bots answer only across sides, once per side (INTX-
       [false, []],
     ],
   });
+  const afterLeave = {
+    ...round,
+    checkpoint: { absent_participant_ids: ['neg1'] },
+  };
+  const peersAfter = (id: string) => {
+    const decided = decideBotClaimActivity(
+      afterLeave,
+      participants.find((row) => row.id === id)!,
+      { type: 'cross_ex', rulesSegmentKey: 'CX' },
+    );
+    return decided.kind === 'ready' ? decided.activity.peerParticipantIds : [];
+  };
+  assert({
+    given: 'the answering side’s first seat gone from the Round',
+    should:
+      'let its partner answer the asking side, and the asker answer only the seat still there',
+    actual: [peersAfter('neg2'), peersAfter('aff2')],
+    expected: [['aff1', 'aff2'], ['neg2']],
+  });
 });

@@ -47,7 +47,11 @@ export function speakingChangesOf(input: {
   readonly rules: RoundRules;
   readonly participants: readonly RoundParticipantSeat[];
   readonly changes: readonly ClockChange[];
-  /** The seats that have left by the end of the step. */
+  /**
+   * The seats that had left when the step began. A leave inside the step
+   * carries its new set on its own speakers change, so a segment the clock
+   * opened before the leave still grants the seat that then left.
+   */
   readonly absent: readonly string[];
   /** The id of a segment the clock has opened. */
   readonly segmentIdOf: (sequence: number) => string;
@@ -65,7 +69,7 @@ export function speakingChangesOf(input: {
       input.participants,
       sequence,
       poiHolder,
-      input.absent,
+      absent,
     ),
   });
   const closed = (sequence: number, atMs: number): RoundSpeakingChange => ({
@@ -73,7 +77,10 @@ export function speakingChangesOf(input: {
     segmentId: input.segmentIdOf(sequence),
     at: new Date(atMs).toISOString(),
   });
+  let absent = input.absent;
   return input.changes.flatMap((change): RoundSpeakingChange[] => {
+    if (change.kind === 'speakers' && change.absent !== undefined)
+      absent = change.absent;
     switch (change.kind) {
       case 'open':
         return [opened(change.row.sequence, change.row.startedAtMs, null)];

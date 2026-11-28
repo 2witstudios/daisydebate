@@ -72,6 +72,18 @@ export const validClockOf = (clock: ClockState): ClockState => ({
  * takes the next id from `mint`, in that order, and the returned map knows
  * every segment's id for the next step.
  */
+/** The seats that had left before this step: a leave in it records its own. */
+const absentBefore = (step: RoundStep): readonly string[] => {
+  const leftNow = new Set(
+    step.state.cast
+      .filter((seat) => step.releasedMembers.includes(seat.actorId))
+      .map((seat) => seat.id),
+  );
+  return (step.state.clock.checkpoint.absent_participant_ids ?? []).filter(
+    (id) => !leftNow.has(id),
+  );
+};
+
 export const projectRoundStep = (input: {
   readonly step: RoundStep;
   readonly rules: RoundRules;
@@ -152,7 +164,7 @@ export const projectRoundStep = (input: {
         rules,
         participants: step.state.cast,
         changes,
-        absent: step.state.clock.checkpoint.absent_participant_ids ?? [],
+        absent: absentBefore(step),
         segmentIdOf,
       }),
       round: {

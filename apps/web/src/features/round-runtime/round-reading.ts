@@ -12,6 +12,8 @@ import {
   type RoundView,
 } from '@daisy/protocol/round-view';
 import { isRoundRunning } from '@daisy/protocol/round';
+import type { RoundPosition } from '@daisy/protocol/runtime';
+import { instantMs } from '@daisy/clock';
 
 /**
  * The one reading of a Round's people and floor (ISSUE-672) that the
@@ -27,6 +29,39 @@ export type Seat = RoundSeat;
 
 export const isSeat = (p: Participant): p is Seat =>
   isNamedSeat(p) && isDebatingSeat(p.seat);
+
+/**
+ * Where the open speech's offer window stands at `nowMs` (INTX-13): still in
+ * its protected start, open, or past its protected end. The notice and the
+ * Offer control read this one answer.
+ */
+export const offerWindowAt = (
+  point: NonNullable<RoundPosition['pointOfInformation']>,
+  nowMs: number,
+): {
+  readonly window: 'protected-start' | 'open' | 'protected-end';
+  readonly opensInMs: number;
+} => {
+  const opensInMs = Math.max(0, instantMs(point.offersOpenAt) - nowMs);
+  return {
+    opensInMs,
+    window:
+      opensInMs > 0
+        ? 'protected-start'
+        : nowMs >= instantMs(point.offersCloseAt)
+          ? 'protected-end'
+          : 'open',
+  };
+};
+
+/** A debater's label by seat id, or the words the sentence uses when there is none. */
+export const debaterLabel = (
+  view: Pick<RoundView, 'participants'>,
+  participantId: string,
+  fallback: string,
+): string =>
+  view.participants.filter(isSeat).find((p) => p.id === participantId)?.label ??
+  fallback;
 
 /** Every competitor seat, in the format's display order. */
 export const seatsOf = (view: Pick<RoundView, 'participants' | 'rules'>) =>
